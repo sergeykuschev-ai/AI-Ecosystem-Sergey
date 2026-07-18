@@ -1,0 +1,17 @@
+node_modules/
+npm-debug.log*
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.xlsx
+*.xls
+*.csv
+*.pdf
+logs/
+tmp/
+temp/
+*.log
+.DS_Store
+.vscode/
