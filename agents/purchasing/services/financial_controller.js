@@ -41,6 +41,11 @@ function assertNonNegativeFinite(field, value) {
 }
 
 function normalizeFixedExpenses(fixedExpenses) {
+  if (typeof fixedExpenses === 'number') {
+    assertNonNegativeFinite('fixed_expenses', fixedExpenses);
+    return [{ name: 'total', amount: fixedExpenses }];
+  }
+
   if (Array.isArray(fixedExpenses)) {
     return fixedExpenses.map((expense, index) => {
       if (!expense || typeof expense !== 'object' || Array.isArray(expense)) {
@@ -69,7 +74,7 @@ function normalizeFixedExpenses(fixedExpenses) {
   }
 
   throw new TypeError(
-    'fixed_expenses must be an object or an array of { name, amount }.'
+    'fixed_expenses must be a non-negative number, an object, or an array of { name, amount }.'
   );
 }
 
@@ -361,6 +366,111 @@ function buildFinancialPurchaseReport(result) {
   ].join('\n');
 }
 
+function financialRecommendation(result) {
+  if (result.status === 'PRELIMINARY') {
+    return 'Товарный расчёт выполнен, но финансовое решение не подтверждено.';
+  }
+  if (result.status === 'APPROVED') {
+    return 'Заказ укладывается в безопасный бюджет и сохраняет установленный резерв.';
+  }
+  if (result.status === 'APPROVED_WITH_WARNING') {
+    return 'Заказ разрешён, но запас сверх минимального резерва меньше 30 000 RUB.';
+  }
+
+  const budgetExcess = roundMoney(Math.max(
+    0,
+    result.inputs.proposed_order_amount - result.maximum_safe_order_amount
+  ));
+  const ownerAction = `Для соблюдения установленного резерва заказ необходимо сократить минимум на ${formatMoneyRu(
+    budgetExcess
+  )} либо согласовать вручную`;
+  return result.status === 'REJECTED'
+    ? `После оплаты заказа ликвидность становится отрицательной. ${ownerAction}.`
+    : `Минимальный резерв нарушается. ${ownerAction}.`;
+}
+
+function buildAgentFinancialSection(assessment) {
+  const missingFields = assessment.missing_fields.length > 0
+    ? assessment.missing_fields.join(', ')
+    : 'нет';
+
+  return [
+    '## ФИНАНСОВАЯ ПРОВЕРКА ЗАКАЗА',
+    '',
+    `- Сумма заказа: ${formatMoneyRu(assessment.proposed_order_amount)}`,
+    `- Статус проверки: **${assessment.status}**`,
+    `- Доступная ликвидность: ${formatMoneyRu(assessment.total_available_cash)}`,
+    `- Обязательные расходы: ${formatMoneyRu(assessment.total_mandatory_expenses)}`,
+    `- Остаток после расходов: ${formatMoneyRu(assessment.available_after_expenses)}`,
+    `- Остаток после заказа: ${formatMoneyRu(assessment.available_after_order)}`,
+    `- Минимальный резерв: ${formatMoneyRu(assessment.minimum_reserve)}`,
+    `- Запас сверх резерва: ${formatMoneyRu(assessment.reserve_surplus)}`,
+    `- Максимальный безопасный заказ: ${formatMoneyRu(
+      assessment.maximum_safe_order_amount
+    )}`,
+    `- Недостающие финансовые данные: ${missingFields}`,
+    '- Агрессивный режим: отключён',
+    '',
+    `Решение для владельца: ${assessment.recommendation}`,
+    '',
+    'Финансовая проверка носит рекомендательный характер и не меняет состав или количество товаров в заказе.',
+  ].join('\n');
+}
+
+function buildPurchasingFinancialAssessment(proposedOrderAmount, financialData = null) {
+  if (financialData !== null &&
+      (typeof financialData !== 'object' || Array.isArray(financialData))) {
+    throw new TypeError('financialData must be an object or null.');
+  }
+
+  const financialInput = Object.fromEntries(
+    CRITICAL_INPUT_FIELDS.map(field => [field, null])
+  );
+  if (financialData) Object.assign(financialInput, financialData);
+
+  // The order total is authoritative and cannot be overridden by financial input.
+  financialInput.proposed_order_amount = proposedOrderAmount;
+
+  const result = evaluateFinancialPurchase(financialInput, {
+    currency: MISKA_FINANCIAL_CONTROLLER_CONFIG.currency,
+    warning_reserve_surplus:
+      MISKA_FINANCIAL_CONTROLLER_CONFIG.warning_reserve_surplus,
+  });
+  const budgetExcess = result.maximum_safe_order_amount === null
+    ? null
+    : roundMoney(Math.max(
+      0,
+      result.inputs.proposed_order_amount - result.maximum_safe_order_amount
+    ));
+  const assessment = {
+    schema_version: 'purchasing-financial-assessment-v1',
+    controller_version: result.controller_version,
+    store_profile: MISKA_FINANCIAL_CONTROLLER_CONFIG.store_profile,
+    currency: result.currency,
+    advisory_only: true,
+    status: result.status,
+    proposed_order_amount: result.inputs.proposed_order_amount,
+    total_available_cash: result.total_available_cash,
+    total_mandatory_expenses: result.total_mandatory_expenses,
+    available_after_expenses: result.available_after_expenses,
+    available_after_order: result.available_after_order,
+    minimum_reserve: result.inputs.minimum_reserve,
+    reserve_surplus: result.reserve_surplus,
+    maximum_safe_order_amount: result.maximum_safe_order_amount,
+    safe_budget_excess: budgetExcess,
+    missing_fields: result.missing_critical_fields,
+    aggressive_mode: false,
+    financially_permitted: result.financially_permitted,
+    order_composition_changed: false,
+    recommendation: financialRecommendation(result),
+  };
+
+  return {
+    ...assessment,
+    report_text: buildAgentFinancialSection(assessment),
+  };
+}
+
 module.exports = {
   FINANCIAL_DECISION_STATUSES,
   CRITICAL_INPUT_FIELDS,
@@ -369,4 +479,6 @@ module.exports = {
   buildMiskaFinancialInput,
   evaluateMiskaPurchase,
   buildFinancialPurchaseReport,
+  buildPurchasingFinancialAssessment,
+  buildAgentFinancialSection,
 };

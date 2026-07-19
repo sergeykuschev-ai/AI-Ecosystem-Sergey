@@ -10,6 +10,9 @@ const {
 const { buildDemandPlan } = require('./services/demand_engine');
 const { buildWorkingOrder } = require('./services/working_order');
 const { buildMinmaxText } = require('./services/prompt_builder');
+const {
+  buildPurchasingFinancialAssessment,
+} = require('./services/financial_controller');
 const { validateInput, validateResult } = require('./services/validator');
 const {
   assertUsableAdapterResult,
@@ -18,8 +21,13 @@ const {
 
 function buildResult(rows, analysis, options = {}) {
   const sourceRowsCount = options.sourceRowsCount ?? rows.length;
+  const financialAssessment = buildPurchasingFinancialAssessment(
+    analysis.totalOrderSum,
+    options.financialData ?? null
+  );
+  const purchasingReport = buildMinmaxText(rows, analysis, { sourceRowsCount });
   const resultJson = {
-    minmax_text: buildMinmaxText(rows, analysis, { sourceRowsCount }),
+    minmax_text: `${purchasingReport}\n\n${financialAssessment.report_text}`,
     source_rows_count: sourceRowsCount,
     product_rows_count: analysis.productRows.length,
     order_rows_count: analysis.orderRows.length,
@@ -30,6 +38,7 @@ function buildResult(rows, analysis, options = {}) {
     preliminary_order_sum: Math.round(analysis.totalOrderSum),
     detected_columns: options.detectedColumns,
     ...options.additionalResultFields,
+    financial_assessment: financialAssessment,
   };
   const result = [{ json: resultJson }];
 
@@ -37,17 +46,20 @@ function buildResult(rows, analysis, options = {}) {
   return result;
 }
 
-function runOrderAgent(items) {
+function runOrderAgent(items, options = {}) {
   validateInput(items);
 
   const rows = parseInputRows(items);
   const detectedColumns = detectColumns(rows);
   const analysis = analyzeRows(rows);
 
-  return buildResult(rows, analysis, { detectedColumns });
+  return buildResult(rows, analysis, {
+    detectedColumns,
+    financialData: options.financialData,
+  });
 }
 
-function runOrderAgentFromAdapterResult(adapterResult) {
+function runOrderAgentFromAdapterResult(adapterResult, options = {}) {
   assertUsableAdapterResult(adapterResult);
 
   const rows = adapterResult.rows;
@@ -60,6 +72,7 @@ function runOrderAgentFromAdapterResult(adapterResult) {
   return buildResult(rows, analysis, {
     sourceRowsCount: adapterResult.source.sourceRowsCount,
     detectedColumns: adapterResult.headerPaths,
+    financialData: options.financialData,
     additionalResultFields: {
       normalized_product_rows_count: rows.length,
       column_mapping: adapterResult.columnMap,
@@ -71,7 +84,11 @@ function runOrderAgentFromAdapterResult(adapterResult) {
   });
 }
 
-function runOrderAgentFromAdapterResultWithDemand(adapterResult, phase2Inputs = {}) {
+function runOrderAgentFromAdapterResultWithDemand(
+  adapterResult,
+  phase2Inputs = {},
+  options = {}
+) {
   assertUsableAdapterResult(adapterResult);
 
   const rows = adapterResult.rows;
@@ -93,6 +110,7 @@ function runOrderAgentFromAdapterResultWithDemand(adapterResult, phase2Inputs = 
   return buildResult(rows, analysis, {
     sourceRowsCount: adapterResult.source.sourceRowsCount,
     detectedColumns: adapterResult.headerPaths,
+    financialData: options.financialData,
     additionalResultFields: {
       normalized_product_rows_count: rows.length,
       column_mapping: adapterResult.columnMap,
@@ -119,14 +137,22 @@ function runOrderAgentFromAdapterResultWithDemand(adapterResult, phase2Inputs = 
   });
 }
 
-async function runOrderAgentFromSmartZapasXlsx(filePath) {
+async function runOrderAgentFromSmartZapasXlsx(filePath, options = {}) {
   const adapterResult = await readSmartZapasExport(filePath);
-  return runOrderAgentFromAdapterResult(adapterResult);
+  return runOrderAgentFromAdapterResult(adapterResult, options);
 }
 
-async function runOrderAgentFromSmartZapasXlsxWithDemand(filePath, phase2Inputs = {}) {
+async function runOrderAgentFromSmartZapasXlsxWithDemand(
+  filePath,
+  phase2Inputs = {},
+  options = {}
+) {
   const adapterResult = await readSmartZapasExport(filePath);
-  return runOrderAgentFromAdapterResultWithDemand(adapterResult, phase2Inputs);
+  return runOrderAgentFromAdapterResultWithDemand(
+    adapterResult,
+    phase2Inputs,
+    options
+  );
 }
 
 const runSmartZapasOrderAgent = runOrderAgentFromSmartZapasXlsx;

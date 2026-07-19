@@ -23,10 +23,10 @@ purchase order.
 ### Implemented v1 boundary
 
 The independent runtime module is
-`agents/purchasing/services/financial_controller.js`. It is deliberately not
-imported by `order_agent.js`, so existing Purchasing Agent entry points,
-product calculations, workflow statuses, and order quantities remain
-unchanged.
+`agents/purchasing/services/financial_controller.js`. `order_agent.js` invokes
+it only after the product analysis is complete and exposes the result as an
+advisory `financial_assessment`. Product calculations, workflow statuses, and
+order quantities remain unchanged regardless of the financial status.
 
 The v1 public input uses the approved flat local contract:
 
@@ -48,10 +48,10 @@ The v1 public input uses the approved flat local contract:
 }
 ```
 
-`fixed_expenses` may also be an array of `{ "name", "amount" }` objects. Every
-present amount must be finite and non-negative. Missing critical fields remain
-`null` in dependent results and produce `PRELIMINARY`; invalid present values
-fail validation.
+`fixed_expenses` may be a non-negative total, a named object, or an array of
+`{ "name", "amount" }` objects. Every present amount must be finite and
+non-negative. Missing critical fields remain `null` in dependent results and
+produce `PRELIMINARY`; invalid present values fail validation.
 
 The module exports:
 
@@ -75,6 +75,77 @@ const report = buildFinancialPurchaseReport(result);
 
 This call has no external side effects. It does not read 1C, a bank, an API, or
 n8n and does not submit payment or supplier-order data.
+
+### Purchasing Agent advisory mode
+
+Every Purchasing Agent result now includes `financial_assessment`. Financial
+data is optional and is passed separately from product rows:
+
+```js
+const { runOrderAgent } = require('./agents/purchasing/order_agent');
+
+const result = runOrderAgent(items, {
+  financialData: {
+    cash_balance: 118000,
+    bank_balance: 300000,
+    expected_revenue: 685899.16,
+    fixed_expenses: 174750,
+    acquiring_rate: 0.025,
+    supplier_debt: 0,
+    committed_supplier_payments: 0,
+    minimum_reserve: 100000,
+  },
+});
+```
+
+The controller always receives the exact `analysis.totalOrderSum` calculated
+by the Purchasing Agent. A `proposed_order_amount` inside `financialData` is
+ignored so financial input cannot replace the actual order amount. For an
+order total of `103389.40`, the example above produces:
+
+```json
+{
+  "financial_assessment": {
+    "status": "APPROVED_WITH_WARNING",
+    "proposed_order_amount": 103389.40,
+    "total_available_cash": 418000.00,
+    "total_mandatory_expenses": 191897.48,
+    "available_after_expenses": 226102.52,
+    "available_after_order": 122713.12,
+    "minimum_reserve": 100000.00,
+    "reserve_surplus": 22713.12,
+    "maximum_safe_order_amount": 126102.52,
+    "missing_fields": [],
+    "aggressive_mode": false,
+    "recommendation": "Заказ разрешён, но запас сверх минимального резерва меньше 30 000 RUB.",
+    "report_text": "## ФИНАНСОВАЯ ПРОВЕРКА ЗАКАЗА ..."
+  }
+}
+```
+
+Calling any existing entry point without its new optional options argument is
+backward compatible:
+
+```js
+const result = runOrderAgent(items);
+```
+
+The complete product order is still calculated. Its assessment is
+`PRELIMINARY`, all unavailable financial amounts remain `null`, and
+`missing_fields` names the required inputs. This mode never copies Miska's
+configured monetary defaults into a run where the caller supplied no financial
+data. The Miska profile contributes only the RUB currency and the approved
+30,000 RUB warning threshold.
+
+For SmartZapas callers the options object is the second argument to
+`runOrderAgentFromAdapterResult` and `runOrderAgentFromSmartZapasXlsx`. For the
+Phase 2 variants it is the third argument, after `phase2Inputs`.
+
+`financial_assessment.status` is advisory only. `MANUAL_APPROVAL_REQUIRED` and
+`REJECTED` add the safe-budget excess and owner guidance, but never remove a
+line, reduce a quantity, replace a Phase 1/2 status, submit an order, or trigger
+an external integration. The same Russian financial section is appended to
+`minmax_text` for operator review.
 
 ### Proposed architecture
 
