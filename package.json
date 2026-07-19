@@ -10,7 +10,8 @@
     "test": "node --test agents/purchasing/tests/*.test.js",
     "finance:update:miska": "node scripts/update-miska-financial-data.js",
     "finance:check:miska": "node scripts/update-miska-financial-data.js --check",
-    "purchasing:run": "node scripts/run-purchasing-agent.js"
+    "purchasing:run": "node scripts/run-purchasing-agent.js",
+    "purchasing:matrix:build": "node scripts/build-purchasing-matrix.js"
   },
   "repository": {
     "type": "git",

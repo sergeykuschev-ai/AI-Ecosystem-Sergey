@@ -1,0 +1,135 @@
+{
+  "version": "miska-matrix-builder-v1",
+  "status": "draft_policy_requires_owner_confirmation",
+  "store": "Миска",
+  "stock_policy": {
+    "history_window_completed_weeks": 4,
+    "minimum_completed_weeks": 2,
+    "minimum_cover_weeks": 0.5,
+    "target_cover_weeks": 2,
+    "maximum_cover_weeks": 4,
+    "safety_stock_factor": 0.5,
+    "large_policy_review_threshold_units": 50
+  },
+  "classification": {
+    "core_abc_classes": ["A", "B"],
+    "core_xyz_classes": ["X", "Y"],
+    "core_minimum_weeks_with_sales": 3,
+    "exit_abc_classes": ["C", "D"],
+    "exit_xyz_classes": ["Z", "ZZ"],
+    "strategic_core_priority": "important"
+  },
+  "explicit_role_rules": [],
+  "strategic_groups": [
+    {
+      "id": "award_urinary",
+      "brand": "AWARD",
+      "required_tokens": ["award", "urinary"]
+    },
+    {
+      "id": "award_sterilized",
+      "brand": "AWARD",
+      "required_tokens": ["award", "sterilized"]
+    },
+    {
+      "id": "award_hairball_indoor",
+      "brand": "AWARD",
+      "required_tokens": ["award", "hairball", "indoor"]
+    },
+    {
+      "id": "award_indoor_big_cats",
+      "brand": "AWARD",
+      "required_tokens": ["award", "indoor", "big", "cats"]
+    },
+    {
+      "id": "award_main_dog_food",
+      "brand": "AWARD",
+      "required_tokens": ["award", "сухой", "корм", "собак"]
+    },
+    {
+      "id": "craftia_harmona",
+      "brand": "CRAFTIA HARMONA",
+      "required_tokens": ["craftia", "harmona"]
+    },
+    {
+      "id": "craftia_natura",
+      "brand": "CRAFTIA NATURA",
+      "required_tokens": ["craftia", "natura"]
+    },
+    {
+      "id": "craftia_galena",
+      "brand": "CRAFTIA GALENA",
+      "required_tokens": ["craftia", "galena"]
+    },
+    {
+      "id": "mnyams_wet_food",
+      "brand": "Мнямс",
+      "required_tokens": ["мнямс", "влажный", "корм"]
+    },
+    {
+      "id": "mnyams_cream_treats",
+      "brand": "Мнямс",
+      "required_tokens": ["мнямс", "крем", "лакомство"]
+    },
+    {
+      "id": "mnyams_popular_treats",
+      "brand": "Мнямс",
+      "required_tokens": ["мнямс", "лакомство"]
+    },
+    {
+      "id": "cats_choice_tofu_plain",
+      "brand": "Cat's Choice",
+      "required_tokens": ["cat", "s", "choice", "тофу", "без", "аромата"]
+    },
+    {
+      "id": "cats_choice_tofu_green_tea",
+      "brand": "Cat's Choice",
+      "required_tokens": ["cat", "s", "choice", "тофу", "зеленый", "чай"]
+    },
+    {
+      "id": "cats_choice_paper",
+      "brand": "Cat's Choice",
+      "required_tokens": ["cat", "s", "choice", "бумажный"]
+    },
+    {
+      "id": "cats_choice_wood",
+      "brand": "Cat's Choice",
+      "required_tokens": ["cat", "s", "choice", "древесный"]
+    },
+    {
+      "id": "bambini_budgerigars",
+      "brand": "Bambini Pets",
+      "required_tokens": ["bambini", "волнистых", "попугаев"]
+    },
+    {
+      "id": "bambini_rats_mice",
+      "brand": "Bambini Pets",
+      "required_tokens": ["bambini", "крыс", "мышей"]
+    },
+    {
+      "id": "bambini_hamsters",
+      "brand": "Bambini Pets",
+      "required_tokens": ["bambini", "хомяков"]
+    },
+    {
+      "id": "bambini_bird_rodent_food",
+      "brand": "Bambini Pets",
+      "required_tokens": ["bambini", "корм"]
+    },
+    {
+      "id": "ferma_fedora_cream_treats",
+      "brand": "Ферма кота Федора",
+      "required_tokens": ["ферма", "кота", "федора", "крем", "лакомство"]
+    },
+    {
+      "id": "ferma_fedora_sticks",
+      "brand": "Ферма кота Федора",
+      "required_tokens": ["ферма", "кота", "федора", "палочки"]
+    },
+    {
+      "id": "ferma_fedora_crispy_pillows",
+      "brand": "Ферма кота Федора",
+      "required_tokens": ["ферма", "кота", "федора", "хрустящие", "подушечки"]
+    }
+  ]
+}

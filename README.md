@@ -21,3 +21,16 @@ the financial controller remains advisory and does not reduce the order.
 See [the assortment matrix guide](docs/purchasing-assortment-matrix.md) and
 [the full-run CLI guide](docs/purchasing-run-cli.md) for the contracts and
 operating procedure.
+
+Build a separate, non-authoritative draft assortment matrix for review:
+
+```bash
+npm run purchasing:matrix:build -- \
+  --input "data/incoming/miska-minmax-current.xlsx" \
+  --existing-matrix "data/purchasing/miska-assortment-matrix.json" \
+  --dry-run
+```
+
+The Matrix Builder never overwrites the working matrix or changes order
+quantities. See [the Matrix Builder guide](docs/purchasing-matrix-builder.md)
+for classification limits, policy provenance, and the manual-review workflow.
