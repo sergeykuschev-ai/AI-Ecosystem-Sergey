@@ -261,6 +261,15 @@ test('reads the committed synthetic XLSX through the non-breaking entry point', 
   assert.equal(xlsxResult.serviceRows.length, 2);
   assert.equal(agentResult[0].json.product_rows_count, 6);
   assert.equal(agentResult[0].json.preliminary_order_sum, 91);
+  assert.equal(agentResult[0].json.decisions.length, 6);
+  assert.equal(
+    agentResult[0].json.mustBuyCount +
+      agentResult[0].json.recommendedCount +
+      agentResult[0].json.manualReviewCount +
+      agentResult[0].json.postponeCount +
+      agentResult[0].json.doNotBuyCount,
+    6
+  );
 });
 
 test(
@@ -277,6 +286,27 @@ test(
     assert.equal(new Set(realAdapterResult.rows.map(row => row.rowIdentity)).size, 403);
     assert.equal(realAgentResult.product_rows_count, 403);
     assert.equal(realAgentResult.normalized_product_rows_count, 403);
+    assert.equal(realAgentResult.source_rows_count, 475);
+    assert.equal(realAgentResult.order_rows_count, 127);
+    assert.equal(realAgentResult.preliminary_order_sum, 89160);
+    assert.equal(realAgentResult.decisions.length, 403);
+    assert.equal(
+      realAgentResult.mustBuyCount +
+        realAgentResult.recommendedCount +
+        realAgentResult.manualReviewCount +
+        realAgentResult.postponeCount +
+        realAgentResult.doNotBuyCount,
+      403
+    );
+    assert.equal(
+      realAgentResult.approvedOrderLines + realAgentResult.pendingReviewLines,
+      127
+    );
+    assert.equal(
+      realAgentResult.approvedOrderSum +
+        realAgentResult.pendingReviewCalculatedSum,
+      89159.68
+    );
     assert.equal(realAgentResult.unknownStockCount, 112);
     assert.equal(realAgentResult.zeroStockDaysWithBlankStockCount, 104);
 
