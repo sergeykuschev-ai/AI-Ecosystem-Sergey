@@ -1,0 +1,32 @@
+{
+  "version": "synthetic-sales-v1",
+  "products": [
+    {
+      "matchType": "barcode",
+      "matchKey": "SYNTH-BC-001",
+      "sales7": 14,
+      "sales14": 14,
+      "sales30": 30
+    },
+    {
+      "matchType": "supplier_article",
+      "matchKey": {
+        "supplier": "Synthetic Supplier",
+        "article": "SYNTH-A-002"
+      },
+      "sales7": 7,
+      "sales14": 21,
+      "sales30": 30
+    },
+    {
+      "matchType": "normalized_name",
+      "matchKey": {
+        "supplier": "Synthetic Supplier",
+        "name": "Synthetic product three 100 g"
+      },
+      "sales7": 0,
+      "sales14": 0,
+      "sales30": 0
+    }
+  ]
+}

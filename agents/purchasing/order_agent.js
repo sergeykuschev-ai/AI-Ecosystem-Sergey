@@ -3,7 +3,11 @@ const {
   detectColumns,
 } = require('./parsers/minmax_parser');
 const { analyzeRows } = require('./services/analyzer');
-const { buildPurchasingDecisions } = require('./services/decision_engine');
+const {
+  buildPurchasingDecisions,
+  buildPhase2PurchasingDecisions,
+} = require('./services/decision_engine');
+const { buildDemandPlan } = require('./services/demand_engine');
 const { buildMinmaxText } = require('./services/prompt_builder');
 const { validateInput, validateResult } = require('./services/validator');
 const {
@@ -66,9 +70,53 @@ function runOrderAgentFromAdapterResult(adapterResult) {
   });
 }
 
+function runOrderAgentFromAdapterResultWithDemand(adapterResult, phase2Inputs = {}) {
+  assertUsableAdapterResult(adapterResult);
+
+  const rows = adapterResult.rows;
+  const analysis = analyzeRows(rows);
+  const phase1DecisionResult = buildPurchasingDecisions(
+    analysis,
+    adapterResult.diagnostics
+  );
+  const demandResult = buildDemandPlan(analysis, phase2Inputs);
+  const phase2DecisionResult = buildPhase2PurchasingDecisions(
+    demandResult,
+    adapterResult.diagnostics
+  );
+
+  return buildResult(rows, analysis, {
+    sourceRowsCount: adapterResult.source.sourceRowsCount,
+    detectedColumns: adapterResult.headerPaths,
+    additionalResultFields: {
+      normalized_product_rows_count: rows.length,
+      column_mapping: adapterResult.columnMap,
+      adapter_diagnostics: adapterResult.diagnostics,
+      phase1DecisionVersion: phase1DecisionResult.decisionVersion,
+      phase1Decisions: phase1DecisionResult.decisions,
+      phase1DecisionSummary: phase1DecisionResult.summary,
+      demandVersion: demandResult.demandVersion,
+      demandProducts: demandResult.products,
+      demandInputStatus: demandResult.inputStatus,
+      ...demandResult.inputStatus,
+      missingInputDatasets: demandResult.missingInputDatasets,
+      demandDiagnostics: demandResult.diagnostics,
+      ...demandResult.summary,
+      decisionVersion: phase2DecisionResult.decisionVersion,
+      decisions: phase2DecisionResult.decisions,
+      ...phase2DecisionResult.summary,
+    },
+  });
+}
+
 async function runOrderAgentFromSmartZapasXlsx(filePath) {
   const adapterResult = await readSmartZapasExport(filePath);
   return runOrderAgentFromAdapterResult(adapterResult);
+}
+
+async function runOrderAgentFromSmartZapasXlsxWithDemand(filePath, phase2Inputs = {}) {
+  const adapterResult = await readSmartZapasExport(filePath);
+  return runOrderAgentFromAdapterResultWithDemand(adapterResult, phase2Inputs);
 }
 
 const runSmartZapasOrderAgent = runOrderAgentFromSmartZapasXlsx;
@@ -76,7 +124,9 @@ const runSmartZapasOrderAgent = runOrderAgentFromSmartZapasXlsx;
 module.exports = {
   runOrderAgent,
   runOrderAgentFromAdapterResult,
+  runOrderAgentFromAdapterResultWithDemand,
   runOrderAgentFromSmartZapasXlsx,
+  runOrderAgentFromSmartZapasXlsxWithDemand,
   runSmartZapasOrderAgent,
 };
 

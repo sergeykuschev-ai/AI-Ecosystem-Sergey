@@ -1,0 +1,51 @@
+{
+  "version": "synthetic-assortment-v1",
+  "products": [
+    {
+      "matchType": "barcode",
+      "matchKey": "SYNTH-BC-001",
+      "mandatory": true,
+      "minDisplayStock": 5,
+      "assortmentPriority": "critical",
+      "strategicSku": true,
+      "strategicBrand": false,
+      "notes": "Synthetic critical SKU"
+    },
+    {
+      "matchType": "supplier_article",
+      "matchKey": {
+        "supplier": "Synthetic Supplier",
+        "article": "SYNTH-A-002"
+      },
+      "mandatory": false,
+      "minDisplayStock": 0,
+      "assortmentPriority": "normal",
+      "strategicSku": false,
+      "strategicBrand": false,
+      "notes": "Synthetic non-mandatory SKU"
+    },
+    {
+      "matchType": "normalized_name",
+      "matchKey": {
+        "supplier": "Synthetic Supplier",
+        "name": "Synthetic product three 100 g"
+      },
+      "mandatory": true,
+      "minDisplayStock": 3,
+      "assortmentPriority": "high",
+      "strategicSku": false,
+      "strategicBrand": true,
+      "notes": "Synthetic exact-name fallback"
+    },
+    {
+      "matchType": "barcode",
+      "matchKey": "SYNTH-NOT-IN-REPORT",
+      "mandatory": true,
+      "minDisplayStock": 2,
+      "assortmentPriority": "normal",
+      "strategicSku": false,
+      "strategicBrand": false,
+      "notes": "Synthetic unmatched matrix entry"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "version": "synthetic-in-transit-v1",
+  "products": [
+    {
+      "matchType": "barcode",
+      "matchKey": "SYNTH-BC-001",
+      "inTransitQuantity": 3
+    },
+    {
+      "matchType": "supplier_article",
+      "matchKey": {
+        "supplier": "Synthetic Supplier",
+        "article": "SYNTH-A-002"
+      },
+      "inTransitQuantity": 2
+    },
+    {
+      "matchType": "normalized_name",
+      "matchKey": {
+        "supplier": "Synthetic Supplier",
+        "name": "Synthetic product three 100 g"
+      },
+      "inTransitQuantity": 0
+    }
+  ]
+}

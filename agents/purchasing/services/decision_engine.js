@@ -1,4 +1,4 @@
-const { DECISION_ENGINE_CONFIG } = require('../config');
+const { DECISION_ENGINE_CONFIG, DEMAND_ENGINE_CONFIG } = require('../config');
 const { normalizeClass } = require('../rules/abc_xyz_rules');
 
 const DECISIONS = Object.freeze({
@@ -271,6 +271,259 @@ function buildPurchasingDecisions(analysis, diagnostics = {}, config = DECISION_
   };
 }
 
+function calculatePhase2DecisionScore(product, config = DEMAND_ENGINE_CONFIG) {
+  const weights = config.decisionScore;
+  const combination = `${product.abc}/${product.xyz}`;
+  const missingSalesPeriods = product.requiredData.filter(field =>
+    ['sales7', 'sales14', 'sales30'].includes(field)
+  ).length;
+  const missingCriticalFields = product.finalRecommendedQuantity === null
+    ? product.requiredData.filter(field =>
+      !['sales7', 'sales14', 'sales30'].includes(field)
+    ).length
+    : 0;
+  let score = weights.base;
+
+  if (product.finalRecommendedQuantity !== null) score += weights.knownFinalQuantity;
+  if (product.freeStock !== null) score += weights.knownStock;
+  if (product.salesDailyRate !== null) score += weights.validSales;
+  if (product.salesStatus === 'complete' || product.salesStatus === 'confirmed_zero') {
+    score += weights.completeSales;
+  }
+  if (
+    product.mandatoryAssortment &&
+    product.assortmentPriority === 'critical'
+  ) {
+    score += weights.mandatoryCritical;
+  }
+  if (combination === 'A/X') score += weights.priorityAX;
+  if (combination === 'A/Y') score += weights.priorityAY;
+  if (combination === 'B/X') score += weights.priorityBX;
+  score += missingCriticalFields * weights.missingCriticalField;
+  score += missingSalesPeriods * weights.missingSalesPeriod;
+  if (product.warnings.includes('short_term_sales_spike')) {
+    score += weights.shortTermSalesSpike;
+  }
+  if (product.warnings.includes('declining_sales')) score += weights.decliningSales;
+
+  return Math.max(
+    config.scoreBounds.minimum,
+    Math.min(config.scoreBounds.maximum, Math.round(score))
+  );
+}
+
+function decidePhase2Product(product, context, config = DEMAND_ENGINE_CONFIG) {
+  if (!product || typeof product !== 'object' || !product.rowIdentity) {
+    throw new TypeError('Phase 2 decision engine requires demand products.');
+  }
+
+  const warnings = [...product.warnings];
+  const requiredData = [...product.requiredData];
+  const reasons = [];
+  const finalQuantity = product.finalRecommendedQuantity;
+  const combination = `${product.abc}/${product.xyz}`;
+  let decision;
+  let approvedOrderQuantity;
+  let decisionBasis;
+
+  if (!product.article) warnings.push('missing_article');
+  if (context.duplicateArticleRowIdentities.has(product.rowIdentity)) {
+    warnings.push('duplicate_article');
+  }
+  if (context.ambiguousRowNumbers.has(product.rowNumber)) {
+    warnings.push('ambiguous_row_classification');
+  }
+
+  const spikeNeedsReview =
+    warnings.includes('short_term_sales_spike') &&
+    finalQuantity !== null &&
+    (
+      finalQuantity >= config.trendThresholds.spikeReviewQuantity ||
+      (product.priceNum > 0 &&
+        finalQuantity * product.priceNum >=
+          config.trendThresholds.spikeReviewOrderValue)
+    );
+  const mandatoryGapRequired =
+    product.mandatoryAssortment === true && product.mandatoryMinimumGap > 0;
+  const provisionalNoAction =
+    product.analyzerCalculatedQuantity === 0 &&
+    product.salesStatus === 'missing' &&
+    product.mandatoryAssortment !== true &&
+    !(product.demandCalculatedQuantity > 0);
+
+  if (provisionalNoAction) {
+    decision = DECISIONS.DO_NOT_BUY;
+    approvedOrderQuantity = 0;
+    decisionBasis = 'provisional_phase1_no_order';
+    reasons.push('phase1_no_order');
+    warnings.push('phase2_data_unavailable');
+  } else if (finalQuantity === null) {
+    decision = DECISIONS.MANUAL_REVIEW;
+    approvedOrderQuantity = null;
+    decisionBasis = 'phase2_data_incomplete';
+    reasons.push('final_quantity_unavailable');
+  } else if (finalQuantity <= 0) {
+    decision = DECISIONS.DO_NOT_BUY;
+    approvedOrderQuantity = 0;
+    decisionBasis = 'phase2_calculated';
+    reasons.push('final_recommended_quantity_not_positive');
+  } else if (product.salesStatus === 'confirmed_zero' && !mandatoryGapRequired) {
+    decision = DECISIONS.DO_NOT_BUY;
+    approvedOrderQuantity = 0;
+    decisionBasis = 'phase2_calculated';
+    reasons.push('confirmed_zero_sales_without_mandatory_gap');
+  } else if (spikeNeedsReview) {
+    decision = DECISIONS.MANUAL_REVIEW;
+    approvedOrderQuantity = null;
+    decisionBasis = 'phase2_risk_review';
+    reasons.push('sales_spike_quantity_requires_review');
+  } else if (
+    product.mandatoryAssortment === true &&
+    product.assortmentPriority === 'critical'
+  ) {
+    decision = DECISIONS.MUST_BUY;
+    approvedOrderQuantity = finalQuantity;
+    decisionBasis = 'phase2_calculated';
+    reasons.push('mandatory_critical_assortment_gap');
+  } else if (combination === 'A/Z' || combination === 'B/Z' || combination === 'C/Z') {
+    decision = DECISIONS.MANUAL_REVIEW;
+    approvedOrderQuantity = null;
+    decisionBasis = 'phase2_risk_review';
+    reasons.push(`abc_xyz_risk:${combination}`);
+  } else if (combination === 'C/Y') {
+    decision = DECISIONS.POSTPONE;
+    approvedOrderQuantity = null;
+    decisionBasis = 'phase2_risk_review';
+    reasons.push('abc_xyz_risk:C/Y');
+  } else if (combination === 'A/X') {
+    decision = DECISIONS.MUST_BUY;
+    approvedOrderQuantity = finalQuantity;
+    decisionBasis = 'phase2_calculated';
+    reasons.push('valid_demand_with_abc_xyz_priority:A/X');
+  } else if (combination === 'A/Y') {
+    decision = DECISIONS.RECOMMENDED;
+    approvedOrderQuantity = finalQuantity;
+    decisionBasis = 'phase2_calculated';
+    reasons.push('valid_demand_with_abc_xyz_priority:A/Y');
+  } else if (combination === 'B/X' && product.salesTrend === 'consistent') {
+    decision = DECISIONS.RECOMMENDED;
+    approvedOrderQuantity = finalQuantity;
+    decisionBasis = 'phase2_calculated';
+    reasons.push('consistent_sales_with_abc_xyz:B/X');
+  } else {
+    decision = DECISIONS.RECOMMENDED;
+    approvedOrderQuantity = finalQuantity;
+    decisionBasis = 'phase2_calculated';
+    reasons.push('deterministic_phase2_quantity_available');
+  }
+
+  if (!provisionalNoAction && product.quantityReason) {
+    reasons.push(`quantity_reason:${product.quantityReason}`);
+  }
+  const decisionScore = calculatePhase2DecisionScore(product, config);
+  let confidence = confidenceFromScore(decisionScore, config);
+
+  if (provisionalNoAction) confidence = 'low';
+  if (decision === DECISIONS.MANUAL_REVIEW || decision === DECISIONS.POSTPONE) {
+    confidence = capConfidence(confidence, 'medium');
+  }
+  if (
+    decision === DECISIONS.MUST_BUY &&
+    product.mandatoryAssortment === true &&
+    warnings.length > 0
+  ) {
+    confidence = capConfidence(confidence, 'medium');
+  }
+  if (warnings.includes('declining_sales')) confidence = downgradeConfidence(confidence);
+  if (warnings.includes('missing_article')) confidence = downgradeConfidence(confidence);
+
+  return {
+    rowIdentity: product.rowIdentity,
+    decision,
+    decisionBasis,
+    confidence,
+    calculatedOrderQuantity: finalQuantity,
+    approvedOrderQuantity,
+    reasons: Array.from(new Set(reasons)),
+    warnings: Array.from(new Set(warnings)),
+    requiredData: Array.from(new Set(requiredData)),
+    decisionScore,
+    decisionVersion: config.version,
+  };
+}
+
+function summarizePhase2Decisions(decisions, products) {
+  const productsByIdentity = new Map(
+    products.map(product => [product.rowIdentity, product])
+  );
+  const count = decision => decisions.filter(item => item.decision === decision).length;
+  const confidenceCount = confidence =>
+    decisions.filter(item => item.confidence === confidence).length;
+  const approved = decisions.filter(item => item.approvedOrderQuantity > 0);
+  const hasCalculatedFinalQuantity = products.some(
+    product => product.finalRecommendedQuantity !== null
+  );
+  const finalApprovedSum = !hasCalculatedFinalQuantity
+    ? null
+    : approved.some(item => {
+      const product = productsByIdentity.get(item.rowIdentity);
+      return !(product && product.priceNum > 0);
+    })
+      ? null
+      : roundCurrency(approved.reduce((sum, item) => {
+        const product = productsByIdentity.get(item.rowIdentity);
+        return sum + item.approvedOrderQuantity * product.priceNum;
+      }, 0));
+
+  return {
+    mustBuyCount: count(DECISIONS.MUST_BUY),
+    recommendedCount: count(DECISIONS.RECOMMENDED),
+    manualReviewCount: count(DECISIONS.MANUAL_REVIEW),
+    postponeCount: count(DECISIONS.POSTPONE),
+    doNotBuyCount: count(DECISIONS.DO_NOT_BUY),
+    highConfidenceCount: confidenceCount('high'),
+    mediumConfidenceCount: confidenceCount('medium'),
+    lowConfidenceCount: confidenceCount('low'),
+    provisionalNoActionCount: decisions.filter(
+      item => item.decisionBasis === 'provisional_phase1_no_order'
+    ).length,
+    positiveAnalyzerLinesAwaitingData: decisions.filter(item => {
+      const product = productsByIdentity.get(item.rowIdentity);
+      return (
+        product &&
+        product.analyzerCalculatedQuantity > 0 &&
+        product.finalRecommendedQuantity === null &&
+        item.decision === DECISIONS.MANUAL_REVIEW
+      );
+    }).length,
+    finalApprovedLines: hasCalculatedFinalQuantity ? approved.length : null,
+    finalApprovedSum,
+  };
+}
+
+function buildPhase2PurchasingDecisions(
+  demandResult,
+  diagnostics = {},
+  config = DEMAND_ENGINE_CONFIG
+) {
+  if (!demandResult || !Array.isArray(demandResult.products)) {
+    throw new TypeError('Phase 2 decision engine requires demand products.');
+  }
+  const context = {
+    duplicateArticleRowIdentities: getDuplicateArticleRowIdentities(diagnostics),
+    ambiguousRowNumbers: getAmbiguousRowNumbers(diagnostics),
+  };
+  const decisions = demandResult.products.map(product =>
+    decidePhase2Product(product, context, config)
+  );
+
+  return {
+    decisionVersion: config.version,
+    decisions,
+    summary: summarizePhase2Decisions(decisions, demandResult.products),
+  };
+}
+
 module.exports = {
   DECISIONS,
   CONFIDENCE_LEVELS,
@@ -282,4 +535,8 @@ module.exports = {
   decideProduct,
   summarizeDecisions,
   buildPurchasingDecisions,
+  calculatePhase2DecisionScore,
+  decidePhase2Product,
+  summarizePhase2Decisions,
+  buildPhase2PurchasingDecisions,
 };

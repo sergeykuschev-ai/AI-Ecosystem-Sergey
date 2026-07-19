@@ -13,6 +13,7 @@ const {
 const {
   runOrderAgent,
   runOrderAgentFromAdapterResult,
+  runOrderAgentFromAdapterResultWithDemand,
   runOrderAgentFromSmartZapasXlsx,
 } = require('../order_agent');
 const { analyzeRows } = require('../services/analyzer');
@@ -262,6 +263,7 @@ test('reads the committed synthetic XLSX through the non-breaking entry point', 
   assert.equal(agentResult[0].json.product_rows_count, 6);
   assert.equal(agentResult[0].json.preliminary_order_sum, 91);
   assert.equal(agentResult[0].json.decisions.length, 6);
+  assert.equal(agentResult[0].json.demandProducts, undefined);
   assert.equal(
     agentResult[0].json.mustBuyCount +
       agentResult[0].json.recommendedCount +
@@ -279,6 +281,10 @@ test(
     assert.ok(fs.existsSync(REAL_FIXTURE_PATH), 'SMARTZAPAS_REAL_FIXTURE does not exist.');
     const realAdapterResult = await readSmartZapasExport(REAL_FIXTURE_PATH);
     const realAgentResult = runOrderAgentFromAdapterResult(realAdapterResult)[0].json;
+    const realPhase2Result = runOrderAgentFromAdapterResultWithDemand(
+      realAdapterResult,
+      {}
+    )[0].json;
     const realRowNumbers = new Set(realAdapterResult.rows.map(row => row.rowNumber));
 
     assert.equal(realAdapterResult.rows.length, 403);
@@ -309,6 +315,42 @@ test(
     );
     assert.equal(realAgentResult.unknownStockCount, 112);
     assert.equal(realAgentResult.zeroStockDaysWithBlankStockCount, 104);
+    assert.equal(realPhase2Result.source_rows_count, 475);
+    assert.equal(realPhase2Result.product_rows_count, 403);
+    assert.equal(realPhase2Result.order_rows_count, 127);
+    assert.equal(realPhase2Result.preliminary_order_sum, 89160);
+    assert.equal(realPhase2Result.demandProducts.length, 403);
+    assert.equal(realPhase2Result.decisions.length, 403);
+    assert.equal(realPhase2Result.productsWithSalesData, 0);
+    assert.equal(realPhase2Result.productsMissingAllSales, 403);
+    assert.equal(realPhase2Result.assortmentMatrixStatus, 'not_provided');
+    assert.equal(realPhase2Result.inTransitSourceStatus, 'not_provided');
+    assert.equal(realPhase2Result.demandOrderLines, null);
+    assert.equal(realPhase2Result.finalApprovedLines, null);
+    assert.equal(realPhase2Result.finalApprovedSum, null);
+    assert.equal(realPhase2Result.manualReviewCount, 127);
+    assert.equal(realPhase2Result.doNotBuyCount, 276);
+    assert.equal(realPhase2Result.provisionalNoActionCount, 276);
+    assert.equal(realPhase2Result.positiveAnalyzerLinesAwaitingData, 127);
+    assert.ok(
+      realPhase2Result.demandProducts.every(
+        product => product.finalRecommendedQuantity === null
+      )
+    );
+    const phase2ProductsByIdentity = new Map(
+      realPhase2Result.demandProducts.map(product => [product.rowIdentity, product])
+    );
+    for (const decision of realPhase2Result.decisions) {
+      const product = phase2ProductsByIdentity.get(decision.rowIdentity);
+      if (product.analyzerCalculatedQuantity > 0) {
+        assert.equal(decision.decision, 'manual_review');
+        assert.equal(decision.decisionBasis, 'phase2_data_incomplete');
+      } else {
+        assert.equal(product.analyzerCalculatedQuantity, 0);
+        assert.equal(decision.decision, 'do_not_buy');
+        assert.equal(decision.decisionBasis, 'provisional_phase1_no_order');
+      }
+    }
 
     for (const rowNumber of [118, 121, 358, 361, 363, 366]) {
       assert.ok(realRowNumbers.has(rowNumber), `Expected retained source row ${rowNumber}.`);
