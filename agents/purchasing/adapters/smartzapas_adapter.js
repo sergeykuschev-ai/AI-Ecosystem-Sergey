@@ -1,5 +1,6 @@
 const crypto = require('node:crypto');
 const fs = require('node:fs/promises');
+const { unzipSync } = require('fflate');
 const readExcelFile = require('read-excel-file/node').default;
 const { clean, normalize, toNumber } = require('../parsers/minmax_parser');
 
@@ -170,6 +171,76 @@ function parseReportTimestampFromFilePath(filePath) {
   const timestamp = `${date}T${hour}:${minute}:${second}`;
   const parsed = new Date(`${timestamp}Z`);
   return Number.isNaN(parsed.getTime()) ? null : timestamp;
+}
+
+function normalizeReportTimestamp(value) {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  const trimmed = value.trim();
+  const timezoneFreeMatch = trimmed.match(
+    /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})(?:\.\d+)?$/
+  );
+  if (timezoneFreeMatch) {
+    const timestamp = `${timezoneFreeMatch[1]}T${timezoneFreeMatch[2]}`;
+    const parsedAsUtc = new Date(`${timestamp}Z`);
+    return Number.isFinite(parsedAsUtc.getTime()) &&
+      parsedAsUtc.toISOString().slice(0, 19) === timestamp
+      ? timestamp
+      : null;
+  }
+  const parsed = new Date(trimmed);
+  if (!Number.isFinite(parsed.getTime())) return null;
+  return parsed.toISOString().slice(0, 19);
+}
+
+function parseWorkbookReportTimestamp(fileContents) {
+  try {
+    const archive = unzipSync(new Uint8Array(fileContents));
+    const coreProperties = archive['docProps/core.xml'];
+    if (!coreProperties) return null;
+    const xml = new TextDecoder('utf-8').decode(coreProperties);
+    const propertyNames = ['created', 'lastPrinted', 'modified'];
+
+    for (const propertyName of propertyNames) {
+      const match = xml.match(
+        new RegExp(`<[^>]*:?${propertyName}[^>]*>([^<]+)<\\/[^>]+>`, 'i')
+      );
+      const timestamp = match ? normalizeReportTimestamp(match[1]) : null;
+      if (timestamp) return timestamp;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function inferInventorySemantics(columnMap) {
+  const freeStockColumn = columnMap.freeStock || null;
+  const reserveColumn = columnMap.reserve || null;
+  const availableFreeStock =
+    freeStockColumn?.header === 'текущие остатки > свободный остаток';
+
+  return {
+    stockBasis: availableFreeStock ? 'available_free_stock' : 'unknown',
+    freeStockSemantics: availableFreeStock
+      ? 'available_after_reservations'
+      : 'unknown',
+    reserveTreatment: availableFreeStock
+      ? 'already_excluded_from_free_stock'
+      : 'unknown',
+    projectionFormula: availableFreeStock
+      ? 'free_stock + in_transit + recommended_order_qty'
+      : null,
+    confidence: availableFreeStock && reserveColumn ? 'high' : 'low',
+    evidence: {
+      freeStockColumn: freeStockColumn
+        ? { column: freeStockColumn.column, header: freeStockColumn.header }
+        : null,
+      reserveColumn: reserveColumn
+        ? { column: reserveColumn.column, header: reserveColumn.header }
+        : null,
+      separateReserveColumn: Boolean(reserveColumn),
+    },
+  };
 }
 
 function resolveWeeklySalesColumns(
@@ -709,6 +780,33 @@ function normalizeProductRow(
     weeklySalesOptions
   );
   const rollingWeeklySales = deriveRollingWeeklySales(weeklySales.history);
+  const inventorySourceFields = [
+    'stockDays',
+    'freeStock',
+    'excessStock',
+    'inTransit',
+    'reserve',
+    'needQty',
+    'supplierOrderQty',
+    'supplierOrderSum',
+  ];
+  const inventorySourceTokens = Object.fromEntries(
+    inventorySourceFields.map(field => [
+      field,
+      columnMap[field] ? row[columnMap[field].index] ?? null : null,
+    ])
+  );
+  const inventoryFieldProvenance = Object.fromEntries(
+    inventorySourceFields.map(field => [
+      field,
+      columnMap[field]
+        ? {
+          column: columnMap[field].column,
+          header: columnMap[field].header,
+        }
+        : null,
+    ])
+  );
 
   return {
     ...normalized,
@@ -728,7 +826,7 @@ function normalizeProductRow(
       packageAttributes: extractPackageAttributes(normalized.name),
     },
     sourceTokens: {
-      freeStock: freeStockSourceToken,
+      ...inventorySourceTokens,
       reportedSalesQuantity: reportedSalesQuantitySourceToken,
       reportedSalesVelocity: reportedSalesVelocitySourceToken,
     },
@@ -737,12 +835,7 @@ function normalizeProductRow(
       worksheet: source.sheetName,
       sourceRowNumber: rowNumber,
       fields: {
-        freeStock: freeStockColumn
-          ? {
-            column: freeStockColumn.column,
-            header: freeStockColumn.header,
-          }
-          : null,
+        ...inventoryFieldProvenance,
         reportedSalesQuantity: salesColumn
           ? {
             column: salesColumn.column,
@@ -855,9 +948,61 @@ function adaptSmartZapasMatrix(matrix, metadata = {}) {
   const reportedSalesPeriod = columnMap.sales
     ? parseReportedSalesPeriod(columnMap.sales.header)
     : null;
-  source.reportDate = metadata.reportDate ||
-    (reportedSalesPeriod ? reportedSalesPeriod.endDate : null);
-  source.reportTimestamp = metadata.reportTimestamp || null;
+  const workbookPeriodDate = reportedSalesPeriod
+    ? reportedSalesPeriod.endDate
+    : null;
+  const providedTimestamp = normalizeReportTimestamp(metadata.reportTimestamp);
+  const providedTimestampDate = providedTimestamp
+    ? providedTimestamp.slice(0, 10)
+    : null;
+  const sourceTimestampHasPriority = [
+    'filename_timestamp',
+    'workbook_core_properties',
+  ].includes(metadata.reportTimestampSource);
+  const reportDateWarnings = [];
+
+  if (sourceTimestampHasPriority && providedTimestamp) {
+    source.reportTimestamp = providedTimestamp;
+    source.reportTimestampSource = metadata.reportTimestampSource;
+    source.reportDate = providedTimestampDate;
+    source.reportDateSource = metadata.reportTimestampSource;
+  } else if (workbookPeriodDate) {
+    source.reportDate = workbookPeriodDate;
+    source.reportDateSource = 'workbook_period_header';
+    if (providedTimestamp && providedTimestampDate === workbookPeriodDate) {
+      source.reportTimestamp = providedTimestamp;
+      source.reportTimestampSource = metadata.reportTimestampSource ||
+        'explicit_report_timestamp';
+    } else {
+      source.reportTimestamp = null;
+      source.reportTimestampSource = null;
+      if (providedTimestamp && providedTimestampDate !== workbookPeriodDate) {
+        reportDateWarnings.push({
+          warning: 'explicit_report_timestamp_conflicts_with_workbook_period',
+          workbookReportDate: workbookPeriodDate,
+          explicitReportTimestamp: providedTimestamp,
+          action: 'workbook_period_used',
+        });
+      }
+    }
+  } else if (providedTimestamp) {
+    source.reportTimestamp = providedTimestamp;
+    source.reportTimestampSource = metadata.reportTimestampSource ||
+      'explicit_report_timestamp';
+    source.reportDate = providedTimestampDate;
+    source.reportDateSource = source.reportTimestampSource;
+  } else if (metadata.reportDate) {
+    source.reportTimestamp = null;
+    source.reportTimestampSource = null;
+    source.reportDate = metadata.reportDate;
+    source.reportDateSource = 'explicit_report_date';
+  } else {
+    source.reportTimestamp = null;
+    source.reportTimestampSource = null;
+    source.reportDate = null;
+    source.reportDateSource = 'unavailable';
+  }
+  source.inventorySemantics = inferInventorySemantics(columnMap);
   const weeklySalesColumns = resolveWeeklySalesColumns(
     headerPaths,
     source.reportDate,
@@ -970,6 +1115,12 @@ function adaptSmartZapasMatrix(matrix, metadata = {}) {
       action: 'weekly_periods_preserved_but_not_used_for_rolling_sales',
     });
   }
+  if (weeklySalesColumns.length > 0 && !source.reportDate) {
+    reportDateWarnings.push({
+      warning: 'weekly_history_report_date_unavailable',
+      action: 'weekly_periods_preserved_but_completion_not_assumed',
+    });
+  }
 
   return {
     schemaVersion: ADAPTER_SCHEMA,
@@ -986,12 +1137,13 @@ function adaptSmartZapasMatrix(matrix, metadata = {}) {
       ambiguousColumns,
       missingRequiredColumns,
       salesSemanticsWarnings,
+      reportDateWarnings,
       weeklySalesReconciliation: weeklySalesReconciliation.diagnostic,
     },
   };
 }
 
-async function readSmartZapasExport(filePath) {
+async function readSmartZapasExport(filePath, metadata = {}) {
   if (typeof filePath !== 'string' || !filePath.trim()) {
     throw new TypeError('SmartZapas export path must be a non-empty string.');
   }
@@ -1008,11 +1160,25 @@ async function readSmartZapasExport(filePath) {
     throw new TypeError('SmartZapas export does not contain a worksheet.');
   }
 
+  const filenameTimestamp = parseReportTimestampFromFilePath(filePath);
+  const workbookTimestamp = parseWorkbookReportTimestamp(fileContents);
+  const reportTimestamp = filenameTimestamp || workbookTimestamp ||
+    normalizeReportTimestamp(metadata.reportTimestamp);
+  const reportTimestampSource = filenameTimestamp
+    ? 'filename_timestamp'
+    : workbookTimestamp
+      ? 'workbook_core_properties'
+      : reportTimestamp
+        ? 'explicit_report_timestamp'
+        : null;
+
   return adaptSmartZapasMatrix(worksheet.data, {
+    ...metadata,
     filePath,
     sheetName: worksheet.sheet,
     reportFingerprint,
-    reportTimestamp: parseReportTimestampFromFilePath(filePath),
+    reportTimestamp,
+    reportTimestampSource,
   });
 }
 
@@ -1165,6 +1331,7 @@ function assertUsableAdapterResult(result) {
     'ambiguousColumns',
     'missingRequiredColumns',
     'salesSemanticsWarnings',
+    'reportDateWarnings',
   ];
   for (const field of diagnosticFields) {
     if (!Array.isArray(result.diagnostics[field])) {
@@ -1213,6 +1380,9 @@ module.exports = {
   parseReportedSalesPeriod,
   parseSmartZapasShortDate,
   parseReportTimestampFromFilePath,
+  normalizeReportTimestamp,
+  parseWorkbookReportTimestamp,
+  inferInventorySemantics,
   resolveWeeklySalesColumns,
   normalizeWeeklySalesHistory,
   reconcileWeeklySalesToCumulative,

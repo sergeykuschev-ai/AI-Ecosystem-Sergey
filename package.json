@@ -25,6 +25,7 @@
   },
   "homepage": "https://github.com/sergeykuschev-ai/AI-Ecosystem-Sergey#readme",
   "dependencies": {
+    "fflate": "^0.8.3",
     "read-excel-file": "^9.3.2"
   }
 }

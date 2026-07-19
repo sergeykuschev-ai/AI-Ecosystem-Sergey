@@ -158,6 +158,8 @@ function buildWorkflowProduct(product, decision) {
     targetStock: product.targetStock,
     expectedCoverageAfterOrder: product.expectedCoverageAfterOrder,
     quantityReason: product.quantityReason,
+    assortment_matrix: product.assortment_matrix || { matched: false },
+    inventory_projection: product.inventory_projection || null,
   };
 }
 

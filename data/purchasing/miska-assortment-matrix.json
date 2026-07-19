@@ -1,0 +1,260 @@
+{
+  "version": 1,
+  "updated_at": "2026-07-19",
+  "store": "Миска",
+  "items": [
+    {
+      "article": "7173648",
+      "name": "Сухой корм AWARD Urinary для взрослых кошек для проф мкб с кур с доб клюкв цикор рыб жир 1,5",
+      "brand": "AWARD",
+      "category": "Сухой корм для кошек",
+      "priority": "critical",
+      "minimum_shelf_stock": 2,
+      "target_stock": 4,
+      "allow_zero_stock": false,
+      "notes": "Обязательная стратегическая позиция"
+    },
+    {
+      "article": "7173600",
+      "name": "Сухой корм AWARD Sterilized для взр стерил кошек с белой рыбой с доб семян льн клюк цикор 400",
+      "brand": "AWARD",
+      "category": "Сухой корм для кошек",
+      "priority": "standard",
+      "minimum_shelf_stock": 0,
+      "target_stock": 0,
+      "allow_zero_stock": true,
+      "notes": "priority_and_stock_policy_require_confirmation"
+    },
+    {
+      "article": "7173679",
+      "name": "Сухой корм AWARD Hairball & Indoor для взр кошек для вывед шерсти с уткой и инд с доб чичев и ю 1,5",
+      "brand": "AWARD",
+      "category": "Сухой корм для кошек",
+      "priority": "standard",
+      "minimum_shelf_stock": 0,
+      "target_stock": 0,
+      "allow_zero_stock": true,
+      "notes": "priority_and_stock_policy_require_confirmation"
+    },
+    {
+      "article": "7173709",
+      "name": "Сухой корм AWARD Indoor Big cats для взр дом кошек крупных пород с гов и кур с доб брок и юкк 1,5",
+      "brand": "AWARD",
+      "category": "Сухой корм для кошек",
+      "priority": "standard",
+      "minimum_shelf_stock": 0,
+      "target_stock": 0,
+      "allow_zero_stock": true,
+      "notes": "priority_and_stock_policy_require_confirmation"
+    },
+    {
+      "article": "7173525",
+      "name": "Сухой корм AWARD для взр собак всех пород с говяд и кур с доб брок и черн 2 кг",
+      "brand": "AWARD",
+      "category": "Сухой корм для собак",
+      "priority": "standard",
+      "minimum_shelf_stock": 0,
+      "target_stock": 0,
+      "allow_zero_stock": true,
+      "notes": "priority_and_stock_policy_require_confirmation"
+    },
+    {
+      "article": "7173501",
+      "name": "Сухой корм AWARD для взр собак всех пород с ягнен и инд с доб яблок и черн 2 кг",
+      "brand": "AWARD",
+      "category": "Сухой корм для собак",
+      "priority": "standard",
+      "minimum_shelf_stock": 0,
+      "target_stock": 0,
+      "allow_zero_stock": true,
+      "notes": "priority_and_stock_policy_require_confirmation"
+    },
+    {
+      "article": "CRF5421670",
+      "name": "Сухой корм CRAFTIA HARMONA для взрослых кошек из утки и индейки 1,4 кг",
+      "brand": "CRAFTIA HARMONA",
+      "category": "Сухой корм для кошек",
+      "priority": "standard",
+      "minimum_shelf_stock": 0,
+      "target_stock": 0,
+      "allow_zero_stock": true,
+      "notes": "priority_and_stock_policy_require_confirmation"
+    },
+    {
+      "article": "CRF5425111",
+      "name": "CRAFTIA NATURA для взр собак миниат и мел пород из ягн с переп 2 кг",
+      "brand": "CRAFTIA NATURA",
+      "category": "Сухой корм для собак",
+      "priority": "standard",
+      "minimum_shelf_stock": 0,
+      "target_stock": 0,
+      "allow_zero_stock": true,
+      "notes": "priority_and_stock_policy_require_confirmation"
+    },
+    {
+      "article": "GAL5427689",
+      "name": "Вет диета CRAFTIA GALENA CAT GASTROINTESTINAL CARE Гастроинтестинал для кошек 1,4 кг",
+      "brand": "CRAFTIA GALENA",
+      "category": "Ветеринарная диета для кошек",
+      "priority": "standard",
+      "minimum_shelf_stock": 0,
+      "target_stock": 0,
+      "allow_zero_stock": true,
+      "notes": "priority_and_stock_policy_require_confirmation"
+    },
+    {
+      "article": "34075",
+      "name": "Влажный корм Мнямс Кусочки в соусе с индейкой для выведения шерсти у кошек 85г (34075)",
+      "brand": "Мнямс",
+      "category": "Влажный корм для кошек",
+      "priority": "standard",
+      "minimum_shelf_stock": 0,
+      "target_stock": 0,
+      "allow_zero_stock": true,
+      "notes": "priority_and_stock_policy_require_confirmation"
+    },
+    {
+      "article": "703836",
+      "name": "Крем-лакомство Мнямс для кошек с курицей 15 г х 4 шт.",
+      "brand": "Мнямс",
+      "category": "Крем-лакомства для кошек",
+      "priority": "standard",
+      "minimum_shelf_stock": 0,
+      "target_stock": 0,
+      "allow_zero_stock": true,
+      "notes": "priority_and_stock_policy_require_confirmation"
+    },
+    {
+      "article": "707957",
+      "name": "Лакомство Мнямс \"Здоровые зубы\" хрустящие подушечки для кошек с цыпленком 60 г (33013)",
+      "brand": "Мнямс",
+      "category": "Лакомства для кошек",
+      "priority": "standard",
+      "minimum_shelf_stock": 0,
+      "target_stock": 0,
+      "allow_zero_stock": true,
+      "notes": "priority_and_stock_policy_require_confirmation"
+    },
+    {
+      "article": "CCH179404",
+      "name": "Растительный комкующийся наполнитель тофу Cat's choice без аромата 6л/2,5 кг",
+      "brand": "Cat's Choice",
+      "category": "Наполнители",
+      "priority": "standard",
+      "minimum_shelf_stock": 0,
+      "target_stock": 0,
+      "allow_zero_stock": true,
+      "notes": "priority_and_stock_policy_require_confirmation"
+    },
+    {
+      "article": "CCH544636",
+      "name": "Растительный комкующийся наполнитель тофу Cat's choice с ароматом \"Зеленый чай\" 6 л/2,5 кг",
+      "brand": "Cat's Choice",
+      "category": "Наполнители",
+      "priority": "standard",
+      "minimum_shelf_stock": 0,
+      "target_stock": 0,
+      "allow_zero_stock": true,
+      "notes": "priority_and_stock_policy_require_confirmation"
+    },
+    {
+      "article": "CCH544650",
+      "name": "Бумажный комкующийся наполнитель Cat's choice с цветовым индикатором комка 6 л/1,5 кг",
+      "brand": "Cat's Choice",
+      "category": "Наполнители",
+      "priority": "standard",
+      "minimum_shelf_stock": 0,
+      "target_stock": 0,
+      "allow_zero_stock": true,
+      "notes": "priority_and_stock_policy_require_confirmation"
+    },
+    {
+      "article": "CCH179336",
+      "name": "Древесный впитывающий наполнитель Cat's choice 16 л/4 кг",
+      "brand": "Cat's Choice",
+      "category": "Наполнители",
+      "priority": "standard",
+      "minimum_shelf_stock": 0,
+      "target_stock": 0,
+      "allow_zero_stock": true,
+      "notes": "priority_and_stock_policy_require_confirmation"
+    },
+    {
+      "article": null,
+      "name": "Корм Bambini Pets для волнистых попугайчиков, 400 г (34005)",
+      "brand": "Bambini Pets",
+      "category": "Корм для птиц",
+      "priority": "standard",
+      "minimum_shelf_stock": 0,
+      "target_stock": 0,
+      "allow_zero_stock": true,
+      "notes": "article_requires_confirmation; priority_and_stock_policy_require_confirmation"
+    },
+    {
+      "article": null,
+      "name": "Корм Bambini Pets для крыс и мышей, 800 г (34006)",
+      "brand": "Bambini Pets",
+      "category": "Корм для грызунов",
+      "priority": "standard",
+      "minimum_shelf_stock": 0,
+      "target_stock": 0,
+      "allow_zero_stock": true,
+      "notes": "article_requires_confirmation; priority_and_stock_policy_require_confirmation"
+    },
+    {
+      "article": "BMPH400",
+      "name": "Корм Bambini Pets для хомяков, 400 г (34008)",
+      "brand": "Bambini Pets",
+      "category": "Корм для грызунов",
+      "priority": "standard",
+      "minimum_shelf_stock": 0,
+      "target_stock": 0,
+      "allow_zero_stock": true,
+      "notes": "priority_and_stock_policy_require_confirmation"
+    },
+    {
+      "article": "BMPL800",
+      "name": "Корм Bambini Pets для крупных попугаев, 800 г (35006)",
+      "brand": "Bambini Pets",
+      "category": "Корм для птиц",
+      "priority": "standard",
+      "minimum_shelf_stock": 0,
+      "target_stock": 0,
+      "allow_zero_stock": true,
+      "notes": "priority_and_stock_policy_require_confirmation"
+    },
+    {
+      "article": "543400",
+      "name": "Крем-лакомство Ферма кота Федора для кошек и котят из курицы 4 шт х 15 г",
+      "brand": "Ферма кота Федора",
+      "category": "Крем-лакомства для кошек",
+      "priority": "standard",
+      "minimum_shelf_stock": 0,
+      "target_stock": 0,
+      "allow_zero_stock": true,
+      "notes": "priority_and_stock_policy_require_confirmation"
+    },
+    {
+      "article": "543325",
+      "name": "Лакомство Ферма кота Федора лакомые палочки для кошек и котят из кролика 3 х 5 г",
+      "brand": "Ферма кота Федора",
+      "category": "Лакомства для кошек",
+      "priority": "standard",
+      "minimum_shelf_stock": 0,
+      "target_stock": 0,
+      "allow_zero_stock": true,
+      "notes": "priority_and_stock_policy_require_confirmation"
+    },
+    {
+      "article": "543387",
+      "name": "Лакомство Ферма кота Федора хрустящие подушечки для кошек и котят с паштетом из говядины 40 г",
+      "brand": "Ферма кота Федора",
+      "category": "Лакомства для кошек",
+      "priority": "standard",
+      "minimum_shelf_stock": 0,
+      "target_stock": 0,
+      "allow_zero_stock": true,
+      "notes": "priority_and_stock_policy_require_confirmation"
+    }
+  ]
+}

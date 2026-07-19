@@ -6,6 +6,7 @@ const { after, test } = require('node:test');
 
 const {
   PurchasingRunError,
+  parseArguments,
   runPurchasingCli,
   sha256File,
 } = require('../../../scripts/run-purchasing-agent');
@@ -73,6 +74,16 @@ test('successfully runs the agent with a valid XLSX', async () => {
   assert.equal(result.agentResult[0].json.decisions.length, 6);
   assert.equal(sha256File(XLSX_FIXTURE_PATH), inputHashBefore);
   assert.equal(sha256File(FINANCIAL_DATA_PATH), financeHashBefore);
+});
+
+test('accepts an explicit report date without changing the run date', () => {
+  const parsed = parseArguments([
+    '--input', XLSX_FIXTURE_PATH,
+    '--report-date', '2026-07-19',
+  ]);
+
+  assert.equal(parsed.reportDate, '2026-07-19');
+  assert.equal(parsed.runDate, null);
 });
 
 test('creates a separate timestamp folder for each distinct run time', async () => {

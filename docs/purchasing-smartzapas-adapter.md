@@ -64,6 +64,33 @@ A blank `freeStock` cell remains `null`. Its original source token and column
 provenance are retained in `sourceTokens.freeStock` and
 `provenance.fields.freeStock`.
 
+The 2026-07-19 Valta workbook exposes these exact inventory fields:
+
+| Column | Canonical header | Normalized field | Real product rows with values |
+| --- | --- | --- | ---: |
+| AQ | `текущие остатки > дней запаса` | `stockDays` | 314 |
+| AR | `текущие остатки > свободный остаток` | `freeStock` | 291 |
+| AS | `текущие остатки > кол-во излишков` | `excessStock` | 89 |
+| AT | `текущие остатки > в пути` | `inTransit` | 0 |
+| AU | `текущие остатки > резерв` | `reserve` | 10 |
+| AX | `потреб-ность 26.07.2026 - 09.08.2026` | `needQty` | 127 |
+| AY | `заказать у поставщика > кол-во` | `supplierOrderQty` / `orderQty` | 403 |
+
+No physical total-stock column is present. AR is explicitly the free,
+available balance and AU is a separate reserved balance. In particular, rows
+247 and 257 have a positive reserve while AR is blank. The adapter therefore
+records `available_free_stock` semantics and the assortment projection uses:
+
+```text
+free_stock + in_transit + recommended_order_qty
+```
+
+It does not subtract AU a second time. The raw AT field is blank for all 403
+products. Miska's existing `included_in_source_stock` profile separately and
+explicitly supplies `inTransitQuantity: 0`; the adapter itself preserves raw
+AT blanks as `null`. Raw inventory tokens and their exact columns are retained
+under `sourceTokens` and `provenance.fields`.
+
 Agent results distinguish:
 
 - `confirmedZeroStockCount`;
@@ -159,8 +186,12 @@ known, the adapter retains the date-only fallback in which a period ending on
 that date is complete. If neither can be established, weekly values are
 preserved but not used for rolling demand.
 
-For the characterized workbook, the filename timestamp is
-`2026-07-19T06:00:53`. Of 27 detected periods, 26 are complete. The period
+For the characterized workbook, both the original filename and XLSX core
+properties contain `2026-07-19T06:00:53`. A renamed current workbook can
+therefore preserve timestamp-aware completion through its content metadata.
+The resolution order is filename timestamp, workbook content, explicit run
+metadata, and finally an unavailable-date warning; the current system date is
+never substituted silently. Of 27 detected periods, 26 are complete. The period
 starting 2026-07-13 and ending 2026-07-19 is excluded as partial. Rolling dates
 are therefore:
 
@@ -183,6 +214,7 @@ Every adapter result contains these arrays:
 - `ambiguousColumns`;
 - `missingRequiredColumns`.
 - `salesSemanticsWarnings`.
+- `reportDateWarnings`.
 
 Duplicate barcode, internal ID, or article values retain every source row and
 produce `duplicateIdentifiers` with affected row identities and source row

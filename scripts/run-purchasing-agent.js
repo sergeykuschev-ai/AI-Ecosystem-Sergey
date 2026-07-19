@@ -14,6 +14,10 @@ const DEFAULT_FINANCIAL_DATA_PATH = path.join(
   REPOSITORY_ROOT,
   'data/purchasing/miska-financial-current.json'
 );
+const DEFAULT_ASSORTMENT_MATRIX_PATH = path.join(
+  REPOSITORY_ROOT,
+  'data/purchasing/miska-assortment-matrix.json'
+);
 const DEFAULT_OUTPUT_DIRECTORY = path.join(
   REPOSITORY_ROOT,
   'output/purchasing'
@@ -62,9 +66,11 @@ function parseArguments(argv) {
   const parsed = {
     inputPath: null,
     financialDataPath: DEFAULT_FINANCIAL_DATA_PATH,
+    assortmentMatrixPath: DEFAULT_ASSORTMENT_MATRIX_PATH,
     outputDirectory: DEFAULT_OUTPUT_DIRECTORY,
     store: 'Миска',
     runDate: null,
+    reportDate: null,
     format: 'all',
     force: false,
     dryRun: false,
@@ -79,9 +85,11 @@ function parseArguments(argv) {
     else if ([
       '--input',
       '--financial-data',
+      '--assortment-matrix',
       '--output-dir',
       '--store',
       '--run-date',
+      '--report-date',
       '--format',
     ].includes(argument)) {
       const value = requiredArgumentValue(argv, index, argument);
@@ -89,6 +97,8 @@ function parseArguments(argv) {
       if (argument === '--input') parsed.inputPath = path.resolve(value);
       else if (argument === '--financial-data') {
         parsed.financialDataPath = path.resolve(value);
+      } else if (argument === '--assortment-matrix') {
+        parsed.assortmentMatrixPath = path.resolve(value);
       } else if (argument === '--output-dir') {
         parsed.outputDirectory = path.resolve(value);
       } else if (argument === '--store') {
@@ -101,6 +111,8 @@ function parseArguments(argv) {
         parsed.store = value.trim();
       } else if (argument === '--run-date') {
         parsed.runDate = parseCalendarDate(value);
+      } else if (argument === '--report-date') {
+        parsed.reportDate = parseCalendarDate(value);
       } else {
         const format = value.toLowerCase();
         if (!ALLOWED_FORMATS.includes(format)) {
@@ -274,6 +286,15 @@ function collectRunWarnings(agentJson) {
       `Диагностики повторяющихся идентификаторов: ${diagnostics.duplicateIdentifiers.length}`
     );
   }
+  warnings.push(...(diagnostics.reportDateWarnings || []).map(item => {
+    if (item.warning === 'weekly_history_report_date_unavailable') {
+      return 'Не удалось определить дату отчёта для проверки завершённости недель.';
+    }
+    if (item.warning === 'explicit_report_timestamp_conflicts_with_workbook_period') {
+      return 'Переданная дата отчёта не совпадает с периодом внутри SmartZapas; использована дата из workbook.';
+    }
+    return `Дата отчёта SmartZapas: ${item.warning}`;
+  }));
   return Array.from(new Set(warnings.filter(Boolean)));
 }
 
@@ -500,9 +521,11 @@ function helpText() {
     'Параметры:',
     '  --input <путь>            Входной .xlsx или .xls (обязательно)',
     '  --financial-data <путь>   Финансовый JSON магазина',
+    '  --assortment-matrix <путь> JSON обязательной ассортиментной матрицы',
     '  --output-dir <путь>       Корневая папка результатов',
     '  --store <название>        Название магазина (по умолчанию Миска)',
     '  --run-date <YYYY-MM-DD>   Дата запуска для папки и run_id',
+    '  --report-date <YYYY-MM-DD> Дата самого отчёта, если её нет в имени и workbook',
     '  --format <all|json|text>  Формат результатов (по умолчанию all)',
     '  --force                   Перезаписать файлы только текущей папки запуска',
     '  --dry-run                 Выполнить расчёт без создания файлов и папок',
@@ -532,11 +555,20 @@ function terminalSummary({
   );
 }
 
-async function defaultAgentRunner(inputPath, financialDataPath) {
+async function defaultAgentRunner(
+  inputPath,
+  financialDataPath,
+  assortmentMatrixPath,
+  reportMetadata = {}
+) {
   return runOrderAgentFromSmartZapasXlsxWithDemand(
     inputPath,
     { purchasingProfile: 'miska' },
-    { financialDataPath }
+    {
+      financialDataPath,
+      assortmentMatrixPath,
+      reportDate: reportMetadata.reportDate,
+    }
   );
 }
 
@@ -561,11 +593,17 @@ async function runPurchasingCli(argv, dependencies = {}) {
   const inputStat = validateInputFile(args.inputPath);
   const inputHash = sha256File(args.inputPath);
   const financialHash = optionalSha256File(args.financialDataPath);
+  const assortmentMatrixHash = optionalSha256File(args.assortmentMatrixPath);
   const agentRunner = dependencies.agentRunner || defaultAgentRunner;
 
   let agentResult;
   try {
-    agentResult = await agentRunner(args.inputPath, args.financialDataPath);
+    agentResult = await agentRunner(
+      args.inputPath,
+      args.financialDataPath,
+      args.assortmentMatrixPath,
+      { reportDate: args.reportDate }
+    );
   } catch (error) {
     throw new PurchasingRunError(
       `Не удалось обработать входной Excel: ${error.message}`,
@@ -601,8 +639,16 @@ async function runPurchasingCli(argv, dependencies = {}) {
     input_file: path.normalize(args.inputPath),
     input_file_size: inputStat.size,
     input_file_sha256: inputHash,
+    report_date_override: args.reportDate,
+    resolved_report_date: agentJson.adapter_source?.reportDate || null,
+    resolved_report_date_source: agentJson.adapter_source?.reportDateSource || null,
+    resolved_report_timestamp: agentJson.adapter_source?.reportTimestamp || null,
+    resolved_report_timestamp_source:
+      agentJson.adapter_source?.reportTimestampSource || null,
     financial_data_file: path.normalize(args.financialDataPath),
     financial_data_sha256: financialHash,
+    assortment_matrix_file: path.normalize(args.assortmentMatrixPath),
+    assortment_matrix_sha256: assortmentMatrixHash,
     output_directory: path.normalize(runDirectory),
     agent_version: packageJson.version,
     node_version: process.version,
@@ -660,6 +706,7 @@ async function main() {
 
 module.exports = {
   DEFAULT_FINANCIAL_DATA_PATH,
+  DEFAULT_ASSORTMENT_MATRIX_PATH,
   DEFAULT_OUTPUT_DIRECTORY,
   ALLOWED_FORMATS,
   ALLOWED_EXCEL_EXTENSIONS,

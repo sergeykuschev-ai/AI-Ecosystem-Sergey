@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { before, test } = require('node:test');
+const { strToU8, zipSync } = require('fflate');
 
 const {
   NORMALIZED_ROW_SCHEMA,
@@ -10,6 +11,7 @@ const {
   deriveRollingWeeklySales,
   normalizeWeeklySalesHistory,
   parseReportTimestampFromFilePath,
+  parseWorkbookReportTimestamp,
   parseReportedSalesPeriod,
   reconcileWeeklySalesToCumulative,
   readSmartZapasExport,
@@ -48,6 +50,18 @@ test('merges the three-row header and resolves canonical columns exactly', () =>
   assert.equal(adapterResult.source.sheetName, 'SmartZapas Synthetic');
   assert.equal(adapterResult.source.headerRowCount, 3);
   assert.equal(adapterResult.source.sourceRowsCount, 8);
+  assert.equal(
+    adapterResult.source.inventorySemantics.stockBasis,
+    'available_free_stock'
+  );
+  assert.equal(
+    adapterResult.source.inventorySemantics.projectionFormula,
+    'free_stock + in_transit + recommended_order_qty'
+  );
+  assert.equal(
+    adapterResult.source.inventorySemantics.reserveTreatment,
+    'already_excluded_from_free_stock'
+  );
   assert.equal(adapterResult.headerPaths.length, 16);
 
   const expectedColumns = {
@@ -285,6 +299,70 @@ test('uses report timestamp to exclude an unfinished final calendar day', () => 
       '/reports/SmartZapas_2026-07-19 06-00-53.xlsx'
     ),
     '2026-07-19T06:00:53'
+  );
+});
+
+test('reads the report timestamp from XLSX workbook core properties', () => {
+  const workbookBytes = zipSync({
+    'docProps/core.xml': strToU8(
+      '<?xml version="1.0" encoding="UTF-8"?>' +
+      '<cp:coreProperties xmlns:cp="core" xmlns:dcterms="terms">' +
+      '<dcterms:created>2026-07-19T06:00:53Z</dcterms:created>' +
+      '</cp:coreProperties>'
+    ),
+  });
+
+  assert.equal(
+    parseWorkbookReportTimestamp(workbookBytes),
+    '2026-07-19T06:00:53'
+  );
+});
+
+test('uses workbook timestamp metadata before an explicit report date', () => {
+  const result = adaptSmartZapasMatrix(sanitizedFixture.matrix, {
+    sheetName: sanitizedFixture.sheetName,
+    reportTimestamp: '2026-07-19T06:00:53',
+    reportTimestampSource: 'workbook_core_properties',
+    reportDate: '2026-07-20',
+  });
+
+  assert.equal(result.source.reportDate, '2026-07-19');
+  assert.equal(result.source.reportDateSource, 'workbook_core_properties');
+  assert.equal(result.source.reportTimestamp, '2026-07-19T06:00:53');
+});
+
+test('uses an explicit report date only when filename and workbook date are unavailable', () => {
+  const result = adaptSmartZapasMatrix(sanitizedFixture.matrix, {
+    sheetName: sanitizedFixture.sheetName,
+    reportDate: '2026-07-19',
+  });
+
+  assert.equal(result.source.reportDate, '2026-07-19');
+  assert.equal(result.source.reportDateSource, 'explicit_report_date');
+  assert.equal(result.source.reportTimestamp, null);
+});
+
+test('warns instead of guessing when weekly completion date is unavailable', () => {
+  const matrixWithWeeklyHistory = sanitizedFixture.matrix.map((row, index) => [
+    ...row,
+    index === 0
+      ? 'История по периодам'
+      : index === 1
+        ? 'Неделя\nс\n06.07.26'
+        : null,
+  ]);
+  const result = adaptSmartZapasMatrix(matrixWithWeeklyHistory, {
+    sheetName: sanitizedFixture.sheetName,
+  });
+
+  assert.equal(result.source.reportDate, null);
+  assert.equal(result.source.reportDateSource, 'unavailable');
+  assert.ok(result.diagnostics.reportDateWarnings.some(
+    warning => warning.warning === 'weekly_history_report_date_unavailable'
+  ));
+  assert.equal(
+    result.source.weeklySalesMetadata.excludedPeriods[0].completionStatus,
+    'unknown'
   );
 });
 

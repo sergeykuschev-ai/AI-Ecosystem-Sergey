@@ -6,7 +6,8 @@ and Phase 2 services, Miska demand profile, financial file input, and agent
 text report. It does not duplicate purchasing formulas or connect to 1C, a
 bank, an API, or n8n.
 
-The command never writes to the input Excel or financial JSON.
+The command never writes to the input Excel, financial JSON, or assortment
+matrix JSON.
 
 ## Prepare the input
 
@@ -24,6 +25,17 @@ The default financial source is:
 data/purchasing/miska-financial-current.json
 ```
 
+The required Miska assortment source is:
+
+```text
+data/purchasing/miska-assortment-matrix.json
+```
+
+An invalid or missing assortment matrix is fatal for the full Miska run. No
+result files are created. See
+[`purchasing-assortment-matrix.md`](purchasing-assortment-matrix.md) for its
+validation, matching, and control rules.
+
 Missing or invalid financial JSON does not stop product analysis. The run
 succeeds with warnings, the financial assessment becomes `PRELIMINARY`, and
 the report records the loader error.
@@ -40,6 +52,7 @@ npm run purchasing:run -- \
 Defaults:
 
 - financial data: `data/purchasing/miska-financial-current.json`;
+- assortment matrix: `data/purchasing/miska-assortment-matrix.json`;
 - output root: `output/purchasing`;
 - store: `Миска`;
 - run date: current local date;
@@ -75,6 +88,35 @@ npm run purchasing:run -- \
 
 `--store` changes report and metadata labeling only. It does not change
 product rules or financial formulas.
+
+The adapter determines the SmartZapas report date in this order: an exact
+timestamp in the filename, XLSX workbook core properties or an explicit
+period inside the workbook, and finally `--report-date`. It never substitutes
+the current system date as the report date. When none of these sources is
+available, weekly periods remain unclassified and the result contains a clear
+warning.
+
+For a workbook without usable date metadata, provide the report date:
+
+```bash
+npm run purchasing:run -- \
+  --input "data/incoming/miska-minmax-current.xlsx" \
+  --report-date 2026-07-19
+```
+
+`--report-date` is distinct from `--run-date`: the former describes the input
+report, while the latter controls the output folder and run identifier. A
+date-only report value uses calendar-day completion semantics. An exact
+workbook or filename timestamp can additionally exclude a week whose final
+day had not fully elapsed.
+
+Select an explicit assortment matrix file with:
+
+```bash
+npm run purchasing:run -- \
+  --input "data/incoming/valta-order.xlsx" \
+  --assortment-matrix "data/purchasing/miska-assortment-matrix.json"
+```
 
 ## Output location and structure
 
@@ -129,8 +171,8 @@ Create only `report.txt`:
 ## Dry-run
 
 Dry-run validates and hashes the input, runs the complete agent, loads the
-financial source, and prints the terminal summary without creating an output
-folder:
+financial source and assortment matrix, and prints the terminal summary
+without creating an output folder:
 
 ```bash
 npm run purchasing:run -- \
@@ -164,8 +206,15 @@ Example terminal summary:
   "input_file": "/absolute/path/to/valta-order.xlsx",
   "input_file_size": 5268,
   "input_file_sha256": "...",
+  "report_date_override": null,
+  "resolved_report_date": "2026-07-19",
+  "resolved_report_date_source": "workbook_core_properties",
+  "resolved_report_timestamp": "2026-07-19T06:00:53",
+  "resolved_report_timestamp_source": "workbook_core_properties",
   "financial_data_file": "/absolute/path/to/miska-financial-current.json",
   "financial_data_sha256": "...",
+  "assortment_matrix_file": "/absolute/path/to/miska-assortment-matrix.json",
+  "assortment_matrix_sha256": "...",
   "output_directory": "/absolute/path/to/output/purchasing/2026-07-19_14-35-12",
   "agent_version": "1.0.0",
   "node_version": "v24.0.0",
@@ -182,9 +231,10 @@ Example terminal summary:
 }
 ```
 
-`input_file_sha256` and `financial_data_sha256` identify the exact local source
+The input, financial, and assortment hashes identify the exact local source
 bytes. A missing financial file has a `null` financial hash and a warning. A
-missing or unreadable input workbook is fatal and produces no partial result.
+missing or unreadable input workbook or required assortment matrix is fatal
+and produces no partial result.
 
 ## Existing folders and `--force`
 
@@ -216,6 +266,8 @@ code. It never modifies the Excel workbook or financial JSON.
   `result.json` is created.
 - Missing or invalid financial JSON: product analysis completes; financial
   status is `PRELIMINARY`; overall status is `success_with_warnings`.
+- Missing or invalid assortment matrix JSON: fatal; no result files are
+  created.
 - Existing timestamp folder without `--force`: fatal; existing files remain
   unchanged.
 - Output write failure: fatal; partial final files are rolled back.
