@@ -6,6 +6,7 @@ npm-debug.log*
 *.key
 *.pem
 *.xlsx
+!tests/fixtures/SmartZapas_synthetic.xlsx
 *.xls
 *.csv
 *.pdf

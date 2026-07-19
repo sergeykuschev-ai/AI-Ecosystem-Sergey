@@ -57,7 +57,44 @@ function detectColumns(rows) {
   return Array.from(new Set(rows.flatMap(row => Object.keys(row))));
 }
 
+function applyOrderSumFallback(row) {
+  const parsed = { ...row };
+
+  if (
+    (parsed.sumNum === null || parsed.sumNum === 0) &&
+    parsed.priceNum !== null &&
+    parsed.orderQty !== null &&
+    parsed.orderQty > 0
+  ) {
+    parsed.sumNum = Math.round(parsed.priceNum * parsed.orderQty * 100) / 100;
+  }
+
+  return parsed;
+}
+
+function parseNormalizedRow(row) {
+  if (typeof row.rowIdentity !== 'string' || !row.rowIdentity) {
+    throw new TypeError('Normalized SmartZapas row requires rowIdentity.');
+  }
+  if (!Number.isInteger(row.rowNumber) || typeof row.name !== 'string' || !row.name) {
+    throw new TypeError('Normalized SmartZapas row has invalid source metadata.');
+  }
+
+  const numericFields = ['freeStock', 'stockDays', 'orderQty', 'priceNum', 'sumNum'];
+  for (const field of numericFields) {
+    if (row[field] !== null && row[field] !== undefined && typeof row[field] !== 'number') {
+      throw new TypeError(`Normalized SmartZapas row has invalid numeric field ${field}.`);
+    }
+  }
+
+  return applyOrderSumFallback({ ...row });
+}
+
 function parseRow(row) {
+  if (row && row.schemaVersion === 'smartzapas-row-v1') {
+    return parseNormalizedRow(row);
+  }
+
   const name = get(row, ['наименование', 'номенклатура', 'товар']);
   const article = get(row, ['артикул', 'код товара', 'код номенклатуры']);
   const supplier = get(row, ['основной поставщик', 'поставщик']);
@@ -72,16 +109,7 @@ function parseRow(row) {
   const priceNum = getNum(row, ['цена', 'закупочная цена', 'цена поставщика']);
   let sumNum = getNum(row, ['сумма', 'сумма заказа']);
 
-  if (
-    (sumNum === null || sumNum === 0) &&
-    priceNum !== null &&
-    orderQty !== null &&
-    orderQty > 0
-  ) {
-    sumNum = Math.round(priceNum * orderQty * 100) / 100;
-  }
-
-  return {
+  return applyOrderSumFallback({
     rowNumber: row.rowNumber,
     name,
     article,
@@ -99,7 +127,7 @@ function parseRow(row) {
     reserve: getNum(row, ['резерв']),
     inTransit: getNum(row, ['в пути']),
     multiplicity: getNum(row, ['кратность', 'упаковка', 'квант']),
-  };
+  });
 }
 
 module.exports = {
@@ -111,5 +139,7 @@ module.exports = {
   getNum,
   parseInputRows,
   detectColumns,
+  applyOrderSumFallback,
+  parseNormalizedRow,
   parseRow,
 };

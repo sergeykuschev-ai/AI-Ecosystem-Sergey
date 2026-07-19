@@ -31,9 +31,15 @@ function formatProduct(row) {
   addField(parts, 'ABC', row.abc);
   addField(parts, 'XYZ', row.xyz);
   addField(parts, 'Свободный остаток', row.freeStock, formatNumber);
+  addField(parts, 'Дней запаса', row.stockDays, formatNumber);
   addField(parts, 'Остаток', row.stock, formatNumber);
   addField(parts, 'Продажи', row.sales, formatNumber);
-  addField(parts, 'MIN', row.min, formatNumber);
+  if (row.schemaVersion === 'smartzapas-row-v1') {
+    addField(parts, 'MIN авто', row.autoMin, formatNumber);
+    addField(parts, 'MIN ручной', row.manualMin, formatNumber);
+  } else {
+    addField(parts, 'MIN', row.min, formatNumber);
+  }
   addField(parts, 'MAX', row.max, formatNumber);
   addField(parts, 'Резерв', row.reserve, formatNumber);
   addField(parts, 'В пути', row.inTransit, formatNumber);
@@ -72,7 +78,7 @@ function addSection(lines, title, data, limit = null) {
   }
 }
 
-function buildMinmaxText(rows, analysis) {
+function buildMinmaxText(rows, analysis, options = {}) {
   const {
     productRows,
     orderRows,
@@ -82,11 +88,12 @@ function buildMinmaxText(rows, analysis) {
     totalOrderSum,
     missingToFreeDelivery,
   } = analysis;
+  const sourceRowsCount = options.sourceRowsCount ?? rows.length;
   const lines = [];
 
   lines.push('# ДАННЫЕ ИЗ ОТЧЁТА MIN-MAX ВАЛТЫ');
   lines.push('');
-  lines.push(`Всего строк в исходном отчёте: ${rows.length}`);
+  lines.push(`Всего строк в исходном отчёте: ${sourceRowsCount}`);
   lines.push(`Реальных товарных SKU после очистки: ${productRows.length}`);
   lines.push(`Позиций с количеством Min-Max к заказу: ${orderRows.length}`);
   lines.push(
