@@ -13,6 +13,9 @@ const { buildMinmaxText } = require('./services/prompt_builder');
 const {
   buildPurchasingFinancialAssessment,
 } = require('./services/financial_controller');
+const {
+  resolveFinancialDataSource,
+} = require('./services/financial_data_loader');
 const { validateInput, validateResult } = require('./services/validator');
 const {
   assertUsableAdapterResult,
@@ -21,10 +24,38 @@ const {
 
 function buildResult(rows, analysis, options = {}) {
   const sourceRowsCount = options.sourceRowsCount ?? rows.length;
-  const financialAssessment = buildPurchasingFinancialAssessment(
+  const financialDataResult = resolveFinancialDataSource(options);
+  const baseFinancialAssessment = buildPurchasingFinancialAssessment(
     analysis.totalOrderSum,
-    options.financialData ?? null
+    financialDataResult.financialData
   );
+  const financialContextLines = [
+    '### Источник финансовых данных',
+    '',
+    `- Источник: ${financialDataResult.source}`,
+    `- Магазин: ${financialDataResult.metadata.store || 'не указан'}`,
+    `- Дата обновления: ${financialDataResult.metadata.updated_at || 'не указана'}`,
+  ];
+  if (financialDataResult.warnings.length > 0) {
+    financialContextLines.push(
+      `- Предупреждения: ${financialDataResult.warnings.join('; ')}`
+    );
+  }
+  if (financialDataResult.errors.length > 0) {
+    financialContextLines.push('- Финансовая конфигурация не загружена.');
+    financialContextLines.push(
+      `- Ошибки: ${financialDataResult.errors.join('; ')}`
+    );
+  }
+  const financialAssessment = {
+    ...baseFinancialAssessment,
+    financial_data_source: financialDataResult.source,
+    financial_data_updated_at: financialDataResult.metadata.updated_at,
+    financial_data_store: financialDataResult.metadata.store,
+    financial_data_warnings: financialDataResult.warnings,
+    financial_data_errors: financialDataResult.errors,
+    report_text: `${baseFinancialAssessment.report_text}\n\n${financialContextLines.join('\n')}`,
+  };
   const purchasingReport = buildMinmaxText(rows, analysis, { sourceRowsCount });
   const resultJson = {
     minmax_text: `${purchasingReport}\n\n${financialAssessment.report_text}`,
@@ -56,6 +87,7 @@ function runOrderAgent(items, options = {}) {
   return buildResult(rows, analysis, {
     detectedColumns,
     financialData: options.financialData,
+    financialDataPath: options.financialDataPath,
   });
 }
 
@@ -73,6 +105,7 @@ function runOrderAgentFromAdapterResult(adapterResult, options = {}) {
     sourceRowsCount: adapterResult.source.sourceRowsCount,
     detectedColumns: adapterResult.headerPaths,
     financialData: options.financialData,
+    financialDataPath: options.financialDataPath,
     additionalResultFields: {
       normalized_product_rows_count: rows.length,
       column_mapping: adapterResult.columnMap,
@@ -111,6 +144,7 @@ function runOrderAgentFromAdapterResultWithDemand(
     sourceRowsCount: adapterResult.source.sourceRowsCount,
     detectedColumns: adapterResult.headerPaths,
     financialData: options.financialData,
+    financialDataPath: options.financialDataPath,
     additionalResultFields: {
       normalized_product_rows_count: rows.length,
       column_mapping: adapterResult.columnMap,

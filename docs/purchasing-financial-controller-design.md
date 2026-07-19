@@ -141,6 +141,11 @@ For SmartZapas callers the options object is the second argument to
 `runOrderAgentFromAdapterResult` and `runOrderAgentFromSmartZapasXlsx`. For the
 Phase 2 variants it is the third argument, after `phase2Inputs`.
 
+Current financial values may also be supplied through `financialDataPath`.
+The file schema, update procedure, source priority, error behavior, and CLI
+example are documented in
+[`purchasing-financial-data-file.md`](purchasing-financial-data-file.md).
+
 `financial_assessment.status` is advisory only. `MANUAL_APPROVAL_REQUIRED` and
 `REJECTED` add the safe-budget excess and owner guidance, but never remove a
 line, reduce a quantity, replace a Phase 1/2 status, submit an order, or trigger

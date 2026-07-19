@@ -1,0 +1,14 @@
+{
+  "store": "Миска",
+  "updated_at": "2026-07-19",
+  "currency": "RUB",
+  "cash_balance": 118000,
+  "bank_balance": 300000,
+  "expected_revenue": 685899.16,
+  "fixed_expenses": 174750,
+  "acquiring_rate": 0.025,
+  "supplier_debt": 0,
+  "committed_supplier_payments": 0,
+  "minimum_reserve": 100000,
+  "comment": "Платежи поставщикам производятся месяц в месяц, долгов нет."
+}
