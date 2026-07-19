@@ -60,6 +60,10 @@ Before a purchasing run, replace only values that have been verified and set
 `updated_at` to the verification date. Keep monetary units in RUB and the
 acquiring rate as a fraction: `0.025` means 2.5%.
 
+The recommended update path is the interactive CLI documented in
+[`purchasing-financial-cli.md`](purchasing-financial-cli.md). It validates
+localized numeric input and performs an atomic safe save.
+
 Validate the file through the loader before using it:
 
 ```bash

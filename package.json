@@ -7,7 +7,9 @@
     "doc": "docs"
   },
   "scripts": {
-    "test": "node --test agents/purchasing/tests/*.test.js"
+    "test": "node --test agents/purchasing/tests/*.test.js",
+    "finance:update:miska": "node scripts/update-miska-financial-data.js",
+    "finance:check:miska": "node scripts/update-miska-financial-data.js --check"
   },
   "repository": {
     "type": "git",
