@@ -13,6 +13,7 @@ npm-debug.log*
 logs/
 tmp/
 temp/
+output/
 *.log
 .DS_Store
 .vscode/
