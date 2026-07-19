@@ -6,6 +6,7 @@ const salesFixture = require('../../../tests/fixtures/purchasing_sales_sanitized
 const assortmentFixture = require('../../../tests/fixtures/purchasing_assortment_sanitized.json');
 const inTransitFixture = require('../../../tests/fixtures/purchasing_in_transit_sanitized.json');
 const {
+  calculateSmartZapasWeeklySalesRate,
   calculateWeightedSalesRate,
   buildDemandPlan,
 } = require('../services/demand_engine');
@@ -20,6 +21,7 @@ const {
   readSmartZapasExport,
 } = require('../adapters/smartzapas_adapter');
 const {
+  runOrderAgentFromAdapterResult,
   runOrderAgentFromAdapterResultWithDemand,
 } = require('../order_agent');
 
@@ -45,6 +47,28 @@ function product(overrides = {}) {
     inTransit: value('inTransit', null),
     orderQty: value('orderQty', 2),
     priceNum: value('priceNum', 10),
+    reportedSalesQuantity: value('reportedSalesQuantity', null),
+    reportedSalesPeriodDays: value('reportedSalesPeriodDays', null),
+    reportedDailySalesRate: value('reportedDailySalesRate', null),
+    reportedSalesRateSource: value('reportedSalesRateSource', null),
+    reportedSalesRateConfidence: value('reportedSalesRateConfidence', null),
+    reportedSalesWarnings: value('reportedSalesWarnings', []),
+    sales7: value('weeklySales7', null),
+    sales14: value('weeklySales14', null),
+    sales28: value('weeklySales28', null),
+    weeklySalesHistory: value('weeklySalesHistory', []),
+    weeklyPeriodsUsed: value('weeklyPeriodsUsed', {
+      sales7: [],
+      sales14: [],
+      sales28: [],
+    }),
+    excludedPartialWeek: value('excludedPartialWeek', null),
+    salesPeriodSource: value('salesPeriodSource', null),
+    salesPeriodConfidence: value('salesPeriodConfidence', null),
+    sourceTokens: {
+      reportedSalesQuantity: value('originalSmartZapasSalesValue', null),
+      reportedSalesVelocity: value('originalSmartZapasVelocityValue', null),
+    },
     matchingHints: {
       barcode,
       internalProductId,
@@ -136,6 +160,149 @@ test('distinguishes all missing sales from confirmed zero sales', () => {
   assert.equal(missing.allMissing, true);
   assert.equal(zero.salesDailyRate, 0);
   assert.equal(zero.allConfirmedZero, true);
+});
+
+test('calculates weighted SmartZapas 7/14/28 daily sales rate', () => {
+  const metrics = calculateSmartZapasWeeklySalesRate({
+    sales7: 14,
+    sales14: 14,
+    sales28: 28,
+  });
+
+  assert.equal(metrics.dailyRates.sales7, 2);
+  assert.equal(metrics.dailyRates.sales14, 1);
+  assert.equal(metrics.dailyRates.sales28, 1);
+  assert.equal(metrics.salesDailyRate, 1.5);
+});
+
+test('renormalizes SmartZapas weekly weights when one rolling period is missing', () => {
+  const metrics = calculateSmartZapasWeeklySalesRate({
+    sales7: 14,
+    sales14: null,
+    sales28: 28,
+  });
+
+  assert.equal(metrics.salesDailyRate, 1.714286);
+  assert.deepEqual(metrics.missingFields, ['sales14']);
+});
+
+test('auto prefers SmartZapas weekly history over external and cumulative sales', () => {
+  const row = product({
+    weeklySales7: 7,
+    weeklySales14: 14,
+    weeklySales28: 28,
+    weeklySalesHistory: [{ periodStart: '2026-07-13', quantity: 7 }],
+    weeklyPeriodsUsed: {
+      sales7: ['2026-07-13'],
+      sales14: ['2026-07-06', '2026-07-13'],
+      sales28: ['2026-06-22', '2026-06-29', '2026-07-06', '2026-07-13'],
+    },
+    salesPeriodSource: 'smartzapas_weekly_history',
+    salesPeriodConfidence: 'high',
+    reportedDailySalesRate: 0.5,
+    reportedSalesRateSource: 'smartzapas_period_sales_explicit_days',
+    reportedSalesRateConfidence: 'high',
+  });
+  const demand = demandFor(row, {
+    sales: { sales7: 70, sales14: 140, sales30: 300 },
+  }).products[0];
+
+  assert.equal(demand.salesDailyRate, 1);
+  assert.equal(demand.salesRateSource, 'smartzapas_weekly_weighted');
+  assert.equal(demand.sales28, 28);
+  assert.deepEqual(demand.weeklyPeriodsUsed.sales7, ['2026-07-13']);
+});
+
+test('auto sales input prefers weighted period sales over reported rate', () => {
+  const row = product({
+    reportedDailySalesRate: 9,
+    reportedSalesRateConfidence: 'high',
+  });
+  const demand = demandFor(row).products[0];
+
+  assert.equal(demand.salesDailyRate, 1);
+  assert.equal(demand.salesRateSource, 'external_period_sales_weighted');
+});
+
+test('auto sales input falls back to SmartZapas cumulative period rate', () => {
+  const row = product({
+    reportedDailySalesRate: 0.5,
+    reportedSalesRateSource: 'smartzapas_period_sales_explicit_days',
+    reportedSalesRateConfidence: 'high',
+    originalSmartZapasSalesValue: 94.5,
+    originalSmartZapasVelocityValue: 15.2,
+  });
+  const inputs = exactInputs(row);
+  delete inputs.salesData;
+  const demand = buildDemandPlan({ productRows: [row] }, inputs).products[0];
+
+  assert.equal(demand.salesDailyRate, 0.5);
+  assert.equal(demand.salesRateSource, 'smartzapas_cumulative_period');
+  assert.equal(demand.salesRateConfidence, 'high');
+  assert.equal(demand.originalSmartZapasSalesValue, 94.5);
+  assert.equal(demand.originalSmartZapasVelocityValue, 15.2);
+});
+
+test('period_sales mode ignores reported SmartZapas rate', () => {
+  const row = product({
+    reportedDailySalesRate: 0.5,
+    reportedSalesRateConfidence: 'high',
+  });
+  const inputs = exactInputs(row);
+  delete inputs.salesData;
+  inputs.salesInputMode = 'period_sales';
+  const demand = buildDemandPlan({ productRows: [row] }, inputs).products[0];
+
+  assert.equal(demand.salesDailyRate, null);
+  assert.equal(demand.salesRateSource, null);
+});
+
+test('reported_daily_rate mode ignores weighted period sales', () => {
+  const row = product({
+    reportedDailySalesRate: 0.5,
+    reportedSalesRateSource: 'smartzapas_confirmed_daily_rate',
+    reportedSalesRateConfidence: 'high',
+  });
+  const inputs = exactInputs(row);
+  inputs.salesInputMode = 'reported_daily_rate';
+  const demand = buildDemandPlan({ productRows: [row] }, inputs).products[0];
+
+  assert.equal(demand.salesDailyRate, 0.5);
+  assert.equal(demand.salesRateSource, 'smartzapas_reported_daily_rate');
+});
+
+test('ambiguous reported rate unit blocks automatic approval', () => {
+  const row = product({
+    abc: 'A',
+    xyz: 'X',
+    reportedDailySalesRate: 0.5,
+    reportedSalesRateConfidence: 'low',
+  });
+  const inputs = exactInputs(row);
+  delete inputs.salesData;
+  const result = buildDemandPlan({ productRows: [row] }, inputs);
+  const decision = buildPhase2PurchasingDecisions(result).decisions[0];
+
+  assert.equal(result.products[0].finalRecommendedQuantity, 18);
+  assert.ok(result.products[0].warnings.includes('ambiguous_reported_sales_rate_unit'));
+  assert.equal(decision.decision, 'manual_review');
+  assert.equal(decision.confidence, 'low');
+  assert.equal(decision.decisionBasis, 'phase2_data_quality_review');
+});
+
+test('invalid reported daily rates are rejected', () => {
+  const row = product({
+    reportedDailySalesRate: -0.5,
+    reportedSalesRateConfidence: 'high',
+  });
+  const inputs = exactInputs(row);
+  inputs.salesInputMode = 'reported_daily_rate';
+  const demand = buildDemandPlan({ productRows: [row] }, inputs).products[0];
+
+  assert.equal(demand.salesDailyRate, null);
+  assert.equal(demand.salesRateSource, null);
+  assert.ok(demand.warnings.includes('invalid_reported_daily_sales_rate'));
+  assert.ok(demand.requiredData.includes('reported_daily_sales_rate'));
 });
 
 test('rejects negative sales as invalid source data', () => {
@@ -278,6 +445,150 @@ test('distinguishes missing in-transit source from confirmed zero and unknown qu
   assert.equal(confirmedZero.inTransitQuantity, 0);
   assert.equal(unknown.inTransitStatus, 'quantity_unknown');
   assert.equal(unknown.inTransitQuantity, null);
+});
+
+test('Miska included-in-source-stock mode calculates without an external transit source', () => {
+  const row = product({ freeStock: 2, orderQty: 1 });
+  const inputs = exactInputs(row);
+  delete inputs.inTransitData;
+  delete inputs.assortmentMatrix;
+  inputs.purchasingProfile = 'miska';
+  const result = buildDemandPlan({ productRows: [row] }, inputs);
+  const demand = result.products[0];
+  const decision = buildPhase2PurchasingDecisions(result).decisions[0];
+
+  assert.equal(result.inputStatus.purchasingProfile, 'miska');
+  assert.equal(result.inputStatus.inTransitMode, 'included_in_source_stock');
+  assert.equal(result.inputStatus.inTransitSourceStatus, 'included_in_source_stock');
+  assert.equal(
+    result.inputStatus.inTransitDecisionBasis,
+    'previous_order_registered_as_expected_receipt'
+  );
+  assert.equal(result.inputStatus.sourceStockIncludesExpectedReceipts, 'assumed');
+  assert.equal(result.inputStatus.phase2ResultStatus, 'preliminary');
+  assert.equal(demand.inTransitQuantity, 0);
+  assert.equal(demand.inTransitStatus, 'included_in_source_stock');
+  assert.equal(demand.availableStock, 2);
+  assert.equal(demand.demandCalculatedQuantity, 26);
+  assert.equal(demand.finalRecommendedQuantity, 26);
+  assert.ok(!demand.requiredData.includes('in_transit_quantity'));
+  assert.equal(decision.decision, 'recommended');
+  assert.deepEqual(result.reportWarnings, [
+    'Verify that SmartZapas free stock or analyzer recommendation reflects expected receipts',
+  ]);
+  assert.ok(!result.missingInputDatasets.some(dataset =>
+    dataset.dataset === 'in_transit_data'
+  ));
+});
+
+test('Miska included-in-source-stock mode ignores supplied invoice data', () => {
+  const row = product({ freeStock: 2, orderQty: 1 });
+  const inputs = exactInputs(row, {
+    inTransit: { inTransitQuantity: 100 },
+  });
+  inputs.purchasingProfile = 'miska';
+  const result = buildDemandPlan({ productRows: [row] }, inputs);
+  const demand = result.products[0];
+
+  assert.equal(demand.inTransitQuantity, 0);
+  assert.equal(demand.availableStock, 2);
+  assert.equal(demand.demandCalculatedQuantity, 26);
+  assert.equal(result.diagnostics.inTransitMatches.length, 0);
+  assert.equal(result.diagnostics.suppliedInTransitDataIgnored, true);
+});
+
+test('required in-transit mode still blocks without transit data', () => {
+  const row = product({ freeStock: 2, orderQty: 1 });
+  const inputs = exactInputs(row);
+  delete inputs.inTransitData;
+  inputs.purchasingProfile = 'miska';
+  inputs.inTransitMode = 'required';
+  const result = buildDemandPlan({ productRows: [row] }, inputs);
+  const decision = buildPhase2PurchasingDecisions(result).decisions[0];
+
+  assert.equal(result.inputStatus.purchasingProfile, 'miska');
+  assert.equal(result.inputStatus.inTransitMode, 'required');
+  assert.equal(result.products[0].inTransitQuantity, null);
+  assert.equal(result.products[0].finalRecommendedQuantity, null);
+  assert.equal(decision.decision, 'manual_review');
+  assert.ok(result.missingInputDatasets.some(dataset =>
+    dataset.dataset === 'in_transit_data' && dataset.blocking === true
+  ));
+});
+
+test('unknown purchasing profiles use the safe generic required transit mode', () => {
+  const row = product({ freeStock: 2, orderQty: 1 });
+  const inputs = exactInputs(row);
+  delete inputs.inTransitData;
+  inputs.purchasingProfile = 'unknown-profile';
+  const result = buildDemandPlan({ productRows: [row] }, inputs);
+
+  assert.equal(result.inputStatus.purchasingProfile, 'generic');
+  assert.equal(result.inputStatus.inTransitMode, 'required');
+  assert.equal(result.products[0].finalRecommendedQuantity, null);
+});
+
+test('optional in-transit mode calculates with one report-level warning', () => {
+  const row = product({ freeStock: 2, orderQty: 1 });
+  const inputs = exactInputs(row);
+  delete inputs.inTransitData;
+  inputs.inTransitMode = 'optional';
+  const result = buildDemandPlan({ productRows: [row] }, inputs);
+  const demand = result.products[0];
+
+  assert.equal(result.inputStatus.inTransitSourceStatus, 'not_provided_optional');
+  assert.equal(demand.inTransitQuantity, 0);
+  assert.equal(demand.inTransitStatus, 'source_not_provided');
+  assert.equal(demand.availableStock, 2);
+  assert.equal(demand.finalRecommendedQuantity, 26);
+  assert.deepEqual(result.reportWarnings, [
+    'Optional in-transit source was not provided; separate in-transit quantity is assumed zero',
+  ]);
+  assert.ok(result.missingInputDatasets.some(dataset =>
+    dataset.dataset === 'in_transit_data' && dataset.blocking === false
+  ));
+});
+
+test('disabled in-transit mode ignores supplied quantities', () => {
+  const row = product({ freeStock: 2, orderQty: 1 });
+  const inputs = exactInputs(row, {
+    inTransit: { inTransitQuantity: 100 },
+  });
+  inputs.inTransitMode = 'disabled';
+  const result = buildDemandPlan({ productRows: [row] }, inputs);
+  const demand = result.products[0];
+
+  assert.equal(result.inputStatus.inTransitSourceStatus, 'disabled');
+  assert.equal(demand.inTransitQuantity, 0);
+  assert.equal(demand.availableStock, 2);
+  assert.equal(demand.finalRecommendedQuantity, 26);
+  assert.equal(result.diagnostics.inTransitMatches.length, 0);
+  assert.equal(result.diagnostics.suppliedInTransitDataIgnored, true);
+});
+
+test('transit mode does not change SmartZapas weekly sales calculations', () => {
+  const row = product({
+    freeStock: 2,
+    weeklySales7: 7,
+    weeklySales14: 14,
+    weeklySales28: 28,
+    weeklySalesHistory: [{ periodStart: '2026-07-06', quantity: 7 }],
+    salesPeriodSource: 'smartzapas_weekly_history',
+    salesPeriodConfidence: 'high',
+  });
+  const requiredInputs = exactInputs(row);
+  const miskaInputs = exactInputs(row);
+  miskaInputs.purchasingProfile = 'miska';
+  const required = buildDemandPlan({ productRows: [row] }, requiredInputs).products[0];
+  const miska = buildDemandPlan({ productRows: [row] }, miskaInputs).products[0];
+
+  assert.equal(required.salesDailyRate, 1);
+  assert.equal(miska.salesDailyRate, required.salesDailyRate);
+  assert.equal(miska.salesRateSource, required.salesRateSource);
+  assert.deepEqual(
+    [miska.sales7, miska.sales14, miska.sales28],
+    [required.sales7, required.sales14, required.sales28]
+  );
 });
 
 test('analyzer zero with missing Phase 2 datasets is provisional no-action', () => {
@@ -520,12 +831,19 @@ test('validated sanitized fixtures exercise exact matching and totals', () => {
 test('Phase 2 entry point preserves analyzer fields and report contract', async () => {
   const fixturePath = path.resolve('tests/fixtures/SmartZapas_synthetic.xlsx');
   const adapterResult = await readSmartZapasExport(fixturePath);
+  const phase1Json = runOrderAgentFromAdapterResult(adapterResult)[0].json;
   const result = runOrderAgentFromAdapterResultWithDemand(adapterResult, {});
   const json = result[0].json;
   const report = buildDemandReport({ agentJson: json, sourceName: 'synthetic.xlsx' });
 
   assert.equal(json.product_rows_count, 6);
   assert.equal(json.preliminary_order_sum, 91);
+  assert.equal(json.order_rows_count, phase1Json.order_rows_count);
+  assert.equal(json.preliminary_order_sum, phase1Json.preliminary_order_sum);
+  assert.deepEqual(
+    json.demandProducts.map(product => product.analyzerCalculatedQuantity),
+    adapterResult.rows.map(row => row.orderQty)
+  );
   assert.equal(json.phase1Decisions.length, 6);
   assert.equal(json.demandProducts.length, 6);
   assert.equal(json.decisions.length, 6);
@@ -543,10 +861,11 @@ test('Phase 2 entry point preserves analyzer fields and report contract', async 
   assert.equal(json.finalApprovedSum, null);
   for (const heading of [
     '## Executive summary',
+    '## Report-level warnings',
     '## Missing input datasets',
     '## Automatically approved order',
     '## Mandatory assortment gaps',
-    '## Manual review queue',
+    '## Requires manual review',
     '## Postponed products',
     '## Provisional no-action products',
     '## Quantity comparison',
@@ -554,4 +873,57 @@ test('Phase 2 entry point preserves analyzer fields and report contract', async 
   ]) {
     assert.ok(report.includes(heading));
   }
+  for (const label of [
+    'Sales rate source',
+    'Sales rate confidence',
+    'Original SmartZapas sales',
+    'Original SmartZapas velocity',
+    'Products using SmartZapas rate',
+    'Products missing usable sales input',
+    'Sales 28 days',
+    'Weekly periods used',
+    'Products with weekly history',
+    'Products using weekly weighted rate',
+    'Products using cumulative fallback',
+    'Products with partial latest week excluded',
+    'Products with sales7',
+    'Products with sales14',
+    'Products with sales28',
+    'Blank weekly cells interpreted as zero',
+    'Weekly-to-cumulative exact matches',
+    'Weekly-to-cumulative mismatches',
+    'Excluded partial week',
+    'Purchasing profile',
+    'In-transit mode',
+    'In-transit decision basis',
+    'Source stock includes expected receipts',
+    'Demand quantities calculated',
+    'Final quantities calculated',
+    'Automatically approved portion lines',
+    'Pending manual-review lines',
+    'Pending-review provisional sum',
+    'Working maximum lines',
+    'Working maximum sum',
+  ]) {
+    assert.ok(report.includes(label));
+  }
+});
+
+test('Miska report labels the result preliminary and emits the verification warning once', async () => {
+  const fixturePath = path.resolve('tests/fixtures/SmartZapas_synthetic.xlsx');
+  const adapterResult = await readSmartZapasExport(fixturePath);
+  const json = runOrderAgentFromAdapterResultWithDemand(
+    adapterResult,
+    { purchasingProfile: 'miska' }
+  )[0].json;
+  const report = buildDemandReport({ agentJson: json, sourceName: 'synthetic.xlsx' });
+  const warning =
+    'Verify that SmartZapas free stock or analyzer recommendation reflects expected receipts';
+
+  assert.equal(json.phase2ResultStatus, 'preliminary');
+  assert.ok(report.includes('# Purchasing Agent v2 — Phase 2 Demand Report (PRELIMINARY)'));
+  assert.ok(report.includes(
+    'This Phase 2 result is preliminary until SmartZapas expected-receipt semantics are confirmed.'
+  ));
+  assert.equal(report.split(warning).length - 1, 1);
 });

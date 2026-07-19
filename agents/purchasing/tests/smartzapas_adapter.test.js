@@ -7,8 +7,14 @@ const {
   NORMALIZED_ROW_SCHEMA,
   adaptSmartZapasMatrix,
   assertUsableAdapterResult,
+  deriveRollingWeeklySales,
+  normalizeWeeklySalesHistory,
+  parseReportTimestampFromFilePath,
+  parseReportedSalesPeriod,
+  reconcileWeeklySalesToCumulative,
   readSmartZapasExport,
   resolveColumns,
+  resolveWeeklySalesColumns,
 } = require('../adapters/smartzapas_adapter');
 const {
   runOrderAgent,
@@ -175,6 +181,169 @@ test('preserves blank free stock as unknown with source provenance', () => {
   assert.equal(result.zero_stock_rows_count, result.confirmedZeroStockCount);
 });
 
+test('normalizes SmartZapas reported sales only when the period is explicit', () => {
+  assert.deepEqual(
+    parseReportedSalesPeriod(
+      'история за период 12.01.2026 - 19.07.2026 > продано > кол-во'
+    ),
+    {
+      startDate: '2026-01-12',
+      endDate: '2026-07-19',
+      inclusiveDays: 189,
+    }
+  );
+  assert.equal(parseReportedSalesPeriod('скорость > авто'), null);
+  assert.equal(
+    parseReportedSalesPeriod(
+      'история за период 31.02.2026 - 19.07.2026 > продано > кол-во'
+    ),
+    null
+  );
+
+  assert.ok(adapterResult.rows.every(row => row.reportedSalesQuantity === null));
+  assert.ok(adapterResult.rows.every(row => row.reportedSalesPeriodDays === null));
+  assert.ok(adapterResult.rows.every(row => row.reportedDailySalesRate === null));
+  assert.ok(adapterResult.rows.every(row =>
+    Object.hasOwn(row.sourceTokens, 'reportedSalesQuantity') &&
+    Object.hasOwn(row.sourceTokens, 'reportedSalesVelocity')
+  ));
+});
+
+test('parses weekly columns chronologically from header dates and derives 7/14/28 sales', () => {
+  const headers = [
+    'история по периодам > неделя&#10;с&#10;13.07.26',
+    'история по периодам > неделя&#10;с&#10;22.06.26',
+    'история по периодам > неделя&#10;с&#10;06.07.26',
+    'история по периодам > неделя&#10;с&#10;29.06.26',
+  ];
+  const columns = resolveWeeklySalesColumns(headers, '2026-07-19');
+  const normalized = normalizeWeeklySalesHistory([4, 1, 3, 2], columns);
+  const rolling = deriveRollingWeeklySales(normalized.history);
+
+  assert.deepEqual(
+    columns.map(column => column.periodStart),
+    ['2026-06-22', '2026-06-29', '2026-07-06', '2026-07-13']
+  );
+  assert.deepEqual(normalized.history.map(period => period.quantity), [1, 2, 3, 4]);
+  assert.deepEqual(
+    normalized.history.map(period => period.sourceColumn),
+    ['B', 'D', 'C', 'A']
+  );
+  assert.equal(rolling.sales7, 4);
+  assert.equal(rolling.sales14, 7);
+  assert.equal(rolling.sales28, 10);
+  assert.deepEqual(rolling.weeklyPeriodsUsed.sales28, [
+    '2026-06-22',
+    '2026-06-29',
+    '2026-07-06',
+    '2026-07-13',
+  ]);
+});
+
+test('excludes a partial latest week and rejects invalid weekly quantities', () => {
+  const headers = [
+    'история по периодам > неделя&#10;с&#10;15.06.26',
+    'история по периодам > неделя&#10;с&#10;22.06.26',
+    'история по периодам > неделя&#10;с&#10;29.06.26',
+    'история по периодам > неделя&#10;с&#10;06.07.26',
+    'история по периодам > неделя&#10;с&#10;13.07.26',
+  ];
+  const columns = resolveWeeklySalesColumns(headers, '2026-07-18');
+  const normalized = normalizeWeeklySalesHistory([1, 2, -3, 4, 99], columns);
+  const rolling = deriveRollingWeeklySales(normalized.history);
+
+  assert.equal(columns.at(-1).completionStatus, 'partial');
+  assert.equal(rolling.excludedPartialWeek.periodStart, '2026-07-13');
+  assert.equal(rolling.excludedPartialWeek.sourceColumn, 'E');
+  assert.equal(rolling.sales7, 4);
+  assert.equal(rolling.sales14, null);
+  assert.equal(rolling.sales28, null);
+  assert.equal(normalized.history[2].quantity, null);
+  assert.equal(
+    normalized.warnings[0].warning,
+    'invalid_negative_or_non_finite_weekly_sales_quantity'
+  );
+});
+
+test('uses report timestamp to exclude an unfinished final calendar day', () => {
+  const headers = [
+    'история по периодам > неделя&#10;с&#10;06.07.26',
+    'история по периодам > неделя&#10;с&#10;13.07.26',
+  ];
+  const dateOnlyColumns = resolveWeeklySalesColumns(headers, '2026-07-19');
+  const timestampColumns = resolveWeeklySalesColumns(
+    headers,
+    '2026-07-19',
+    '2026-07-19T06:00:53'
+  );
+
+  assert.equal(dateOnlyColumns.at(-1).completionStatus, 'completed');
+  assert.equal(timestampColumns.at(-1).completionStatus, 'partial');
+  assert.equal(timestampColumns[0].completionStatus, 'completed');
+  assert.equal(
+    parseReportTimestampFromFilePath(
+      '/reports/SmartZapas_2026-07-19 06-00-53.xlsx'
+    ),
+    '2026-07-19T06:00:53'
+  );
+});
+
+test('confirmed weekly blanks become zero while invalid values remain unavailable', () => {
+  const headers = [
+    'история по периодам > неделя&#10;с&#10;15.06.26',
+    'история по периодам > неделя&#10;с&#10;22.06.26',
+    'история по периодам > неделя&#10;с&#10;29.06.26',
+    'история по периодам > неделя&#10;с&#10;06.07.26',
+  ];
+  const columns = resolveWeeklySalesColumns(headers, '2026-07-12');
+  const zeroHistory = normalizeWeeklySalesHistory(
+    [null, '', null, null],
+    columns,
+    { blankCompletedAsZero: true }
+  );
+  const invalidHistory = normalizeWeeklySalesHistory(
+    [null, 'invalid', null, null],
+    columns,
+    { blankCompletedAsZero: true }
+  );
+  const zeroRolling = deriveRollingWeeklySales(zeroHistory.history);
+  const invalidRolling = deriveRollingWeeklySales(invalidHistory.history);
+
+  assert.ok(zeroHistory.history.every(period =>
+    period.quantity === 0 && period.valueState === 'blank_as_confirmed_zero'
+  ));
+  assert.equal(zeroRolling.sales7, 0);
+  assert.equal(zeroRolling.sales14, 0);
+  assert.equal(zeroRolling.sales28, 0);
+  assert.equal(invalidHistory.history[1].quantity, null);
+  assert.equal(invalidHistory.history[1].valueState, 'invalid_value');
+  assert.equal(invalidRolling.sales28, null);
+});
+
+test('weekly totals reconcile to cumulative sales before blank-as-zero is enabled', () => {
+  const headers = [
+    'история по периодам > неделя&#10;с&#10;06.07.26',
+    'история по периодам > неделя&#10;с&#10;13.07.26',
+    'история за период 06.07.2026 - 19.07.2026 > продано > кол-во',
+  ];
+  const columns = resolveWeeklySalesColumns(headers, '2026-07-19');
+  const reconciliation = reconcileWeeklySalesToCumulative(
+    [
+      { rowNumber: 4, name: 'One', row: [null, 2, 2] },
+      { rowNumber: 5, name: 'Two', row: [3, null, 3] },
+      { rowNumber: 6, name: 'Zero', row: [null, null, null] },
+    ],
+    columns,
+    { index: 2 }
+  );
+
+  assert.equal(reconciliation.diagnostic.exactMatches, 3);
+  assert.equal(reconciliation.diagnostic.toleranceMatches, 0);
+  assert.equal(reconciliation.diagnostic.mismatches, 0);
+  assert.equal(reconciliation.diagnostic.blankCellSemanticsConfirmed, true);
+  assert.equal(reconciliation.diagnostic.blankWeeklyCellCount, 4);
+});
+
 test('validates normalized rows and preserves missing order-sum fallback', () => {
   assert.doesNotThrow(() => assertUsableAdapterResult(adapterResult));
 
@@ -190,6 +359,13 @@ test('validates normalized rows and preserves missing order-sum fallback', () =>
   assert.throws(
     () => assertUsableAdapterResult(forgedIdentityResult),
     /invalid deterministic rowIdentity/
+  );
+
+  const invalidWeeklyResult = structuredClone(adapterResult);
+  invalidWeeklyResult.rows[0].sales7 = -1;
+  assert.throws(
+    () => assertUsableAdapterResult(invalidWeeklyResult),
+    /invalid sales7/
   );
 
   const analysis = analyzeRows(adapterResult.rows);
@@ -283,7 +459,7 @@ test(
     const realAgentResult = runOrderAgentFromAdapterResult(realAdapterResult)[0].json;
     const realPhase2Result = runOrderAgentFromAdapterResultWithDemand(
       realAdapterResult,
-      {}
+      { purchasingProfile: 'miska' }
     )[0].json;
     const realRowNumbers = new Set(realAdapterResult.rows.map(row => row.rowNumber));
 
@@ -315,42 +491,235 @@ test(
     );
     assert.equal(realAgentResult.unknownStockCount, 112);
     assert.equal(realAgentResult.zeroStockDaysWithBlankStockCount, 104);
+    assert.equal(realAdapterResult.columnMap.sales.column, 'AJ');
+    assert.equal(
+      realAdapterResult.columnMap.sales.header,
+      'история за период 12.01.2026 - 19.07.2026 > продано > кол-во'
+    );
+    assert.equal(realAdapterResult.columnMap.daysAvailable.column, 'AO');
+    assert.equal(realAdapterResult.columnMap.speed.column, 'AP');
+    assert.equal(realAdapterResult.columnMap.speed.header, 'скорость > авто');
+    assert.equal(realAdapterResult.columnMap.stockDays.column, 'AQ');
+    assert.equal(realAdapterResult.columnMap.stockDays.header, 'текущие остатки > дней запаса');
+    assert.equal(
+      realAdapterResult.rows.filter(row => row.reportedSalesQuantity !== null).length,
+      352
+    );
+    assert.equal(
+      realAdapterResult.rows.filter(row => row.reportedDailySalesRate !== null).length,
+      352
+    );
+    assert.ok(realAdapterResult.rows
+      .filter(row => row.reportedDailySalesRate !== null)
+      .every(row =>
+        row.reportedSalesPeriodDays === 189 &&
+        row.reportedSalesRateSource === 'smartzapas_period_sales_explicit_days' &&
+        row.reportedSalesRateConfidence === 'high'
+      ));
+    assert.equal(
+      realAdapterResult.rows.filter(row => row.sourceTokens.reportedSalesVelocity !== null).length,
+      253
+    );
+    assert.equal(realAdapterResult.source.reportDate, '2026-07-19');
+    assert.equal(realAdapterResult.source.weeklySalesMetadata.dateSemantics, 'period_start');
+    assert.equal(realAdapterResult.source.weeklySalesMetadata.detectedPeriodCount, 27);
+    assert.equal(
+      realAdapterResult.source.reportTimestamp,
+      '2026-07-19T06:00:53'
+    );
+    assert.equal(realAdapterResult.source.weeklySalesMetadata.completedPeriodCount, 26);
+    assert.equal(
+      realAdapterResult.source.weeklySalesMetadata.completedPeriodStarts.at(-1),
+      '2026-07-06'
+    );
+    assert.deepEqual(realAdapterResult.source.weeklySalesMetadata.excludedPeriods, [
+      {
+        periodStart: '2026-07-13',
+        periodEnd: '2026-07-19',
+        sourceColumn: 'AI',
+        completionStatus: 'partial',
+      },
+    ]);
+    assert.equal(
+      realAdapterResult.diagnostics.weeklySalesReconciliation.exactMatches,
+      403
+    );
+    assert.equal(
+      realAdapterResult.diagnostics.weeklySalesReconciliation.toleranceMatches,
+      0
+    );
+    assert.equal(
+      realAdapterResult.diagnostics.weeklySalesReconciliation.mismatches,
+      0
+    );
+    assert.equal(
+      realAdapterResult.diagnostics.weeklySalesReconciliation.blankCellSemantics,
+      'confirmed_zero'
+    );
+    assert.equal(
+      realAdapterResult.rows.filter(row =>
+        row.weeklySalesHistory.some(period => period.quantity !== null)
+      ).length,
+      403
+    );
+    assert.ok(realAdapterResult.diagnostics.salesSemanticsWarnings.some(
+      diagnostic =>
+        diagnostic.field === 'speed' &&
+        diagnostic.warning === 'reported_sales_velocity_unit_not_declared' &&
+        diagnostic.action === 'preserved_raw_not_converted_to_daily_rate'
+    ));
     assert.equal(realPhase2Result.source_rows_count, 475);
     assert.equal(realPhase2Result.product_rows_count, 403);
     assert.equal(realPhase2Result.order_rows_count, 127);
     assert.equal(realPhase2Result.preliminary_order_sum, 89160);
     assert.equal(realPhase2Result.demandProducts.length, 403);
     assert.equal(realPhase2Result.decisions.length, 403);
-    assert.equal(realPhase2Result.productsWithSalesData, 0);
-    assert.equal(realPhase2Result.productsMissingAllSales, 403);
+    assert.equal(realPhase2Result.productsWithSalesData, 403);
+    assert.equal(realPhase2Result.productsMissingAllSales, 0);
+    assert.equal(realPhase2Result.productsWithPeriodSales, 403);
+    assert.equal(realPhase2Result.productsWithReportedDailyRate, 352);
+    assert.equal(realPhase2Result.productsUsingWeightedSales, 403);
+    assert.equal(realPhase2Result.productsUsingSmartZapasRate, 403);
+    assert.equal(realPhase2Result.productsMissingUsableSalesInput, 0);
+    assert.equal(realPhase2Result.productsWithWeeklyHistory, 403);
+    assert.equal(realPhase2Result.productsWithSales7, 403);
+    assert.equal(realPhase2Result.productsWithSales14, 403);
+    assert.equal(realPhase2Result.productsWithSales28, 403);
+    assert.equal(realPhase2Result.productsUsingWeeklyWeightedRate, 403);
+    assert.equal(realPhase2Result.productsUsingCumulativeFallback, 0);
+    assert.equal(realPhase2Result.productsWithPartialLatestWeekExcluded, 403);
+    assert.equal(realPhase2Result.productsMissingUsableSales, 0);
+    assert.equal(realPhase2Result.blankWeeklyCellsInterpretedAsZero, 7665);
+    assert.equal(realPhase2Result.weeklyToCumulativeExactMatches, 403);
+    assert.equal(realPhase2Result.weeklyToCumulativeToleranceMatches, 0);
+    assert.equal(realPhase2Result.weeklyToCumulativeMismatches, 0);
+    assert.deepEqual(realPhase2Result.excludedPartialWeek, {
+      periodStart: '2026-07-13',
+      periodEnd: '2026-07-19',
+      sourceColumn: 'AI',
+      sourceHeader: 'история по периодам > неделя&#10;с&#10;13.07.26',
+      reason: 'report_date_before_expected_seven_day_window_end',
+    });
     assert.equal(realPhase2Result.assortmentMatrixStatus, 'not_provided');
-    assert.equal(realPhase2Result.inTransitSourceStatus, 'not_provided');
-    assert.equal(realPhase2Result.demandOrderLines, null);
-    assert.equal(realPhase2Result.finalApprovedLines, null);
-    assert.equal(realPhase2Result.finalApprovedSum, null);
-    assert.equal(realPhase2Result.manualReviewCount, 127);
-    assert.equal(realPhase2Result.doNotBuyCount, 276);
-    assert.equal(realPhase2Result.provisionalNoActionCount, 276);
-    assert.equal(realPhase2Result.positiveAnalyzerLinesAwaitingData, 127);
-    assert.ok(
-      realPhase2Result.demandProducts.every(
-        product => product.finalRecommendedQuantity === null
-      )
+    assert.equal(realPhase2Result.purchasingProfile, 'miska');
+    assert.equal(realPhase2Result.inTransitMode, 'included_in_source_stock');
+    assert.equal(realPhase2Result.inTransitSourceStatus, 'included_in_source_stock');
+    assert.equal(
+      realPhase2Result.inTransitDecisionBasis,
+      'previous_order_registered_as_expected_receipt'
     );
-    const phase2ProductsByIdentity = new Map(
-      realPhase2Result.demandProducts.map(product => [product.rowIdentity, product])
+    assert.equal(realPhase2Result.sourceStockIncludesExpectedReceipts, 'assumed');
+    assert.equal(realPhase2Result.phase2ResultStatus, 'preliminary');
+    assert.deepEqual(realPhase2Result.reportWarnings, [
+      'Verify that SmartZapas free stock or analyzer recommendation reflects expected receipts',
+    ]);
+    assert.equal(realPhase2Result.demandQuantitiesCalculated, 291);
+    assert.equal(realPhase2Result.finalQuantitiesCalculated, 291);
+    assert.equal(realPhase2Result.demandOrderLines, 55);
+    assert.equal(realPhase2Result.demandOrderSum, 77695.94);
+    assert.equal(realPhase2Result.finalApprovedLines, 82);
+    assert.equal(realPhase2Result.finalApprovedSum, 89742.05);
+    assert.equal(realPhase2Result.autoApprovedLines, 82);
+    assert.equal(realPhase2Result.autoApprovedSum, 89742.05);
+    assert.equal(realPhase2Result.pendingReviewLines, 39);
+    assert.equal(realPhase2Result.pendingReviewProvisionalSum, 32507.57);
+    assert.equal(realPhase2Result.postponedLines, 4);
+    assert.equal(realPhase2Result.postponedProvisionalSum, 458.42);
+    assert.equal(realPhase2Result.confidentlyExcludedLines, 7);
+    assert.equal(realPhase2Result.confidentlyExcludedPhase1Value, 1225.7);
+    assert.equal(realPhase2Result.workingMaximumLines, 121);
+    assert.equal(realPhase2Result.workingMaximumSum, 122249.62);
+    assert.equal(
+      realPhase2Result.workingMaximumStatus,
+      'not_approved_not_ready_for_automatic_submission'
     );
-    for (const decision of realPhase2Result.decisions) {
-      const product = phase2ProductsByIdentity.get(decision.rowIdentity);
-      if (product.analyzerCalculatedQuantity > 0) {
-        assert.equal(decision.decision, 'manual_review');
-        assert.equal(decision.decisionBasis, 'phase2_data_incomplete');
-      } else {
-        assert.equal(product.analyzerCalculatedQuantity, 0);
-        assert.equal(decision.decision, 'do_not_buy');
-        assert.equal(decision.decisionBasis, 'provisional_phase1_no_order');
-      }
-    }
+    assert.equal(realPhase2Result.phase2AdditionLines, 5);
+    assert.equal(realPhase2Result.phase2AdditionApprovedLines, 3);
+    assert.equal(realPhase2Result.phase2AdditionPendingReviewLines, 2);
+    assert.equal(realPhase2Result.mustBuyCount, 37);
+    assert.equal(realPhase2Result.recommendedCount, 45);
+    assert.equal(realPhase2Result.manualReviewCount, 122);
+    assert.equal(realPhase2Result.postponeCount, 4);
+    assert.equal(realPhase2Result.doNotBuyCount, 195);
+    assert.equal(realPhase2Result.provisionalNoActionCount, 0);
+    assert.equal(realPhase2Result.positiveAnalyzerLinesAwaitingData, 29);
+    assert.deepEqual(
+      realPhase2Result.demandProducts.map(product =>
+        product.analyzerCalculatedQuantity
+      ),
+      realAdapterResult.rows.map(row => row.orderQty)
+    );
+    assert.equal(realPhase2Result.phase1Reconciliation.auto_approved.lines, 79);
+    assert.equal(
+      realPhase2Result.phase1Reconciliation.auto_approved.phase1Value,
+      69206.58
+    );
+    assert.equal(
+      realPhase2Result.phase1Reconciliation.pending_manual_review.lines,
+      37
+    );
+    assert.equal(
+      realPhase2Result.phase1Reconciliation.pending_manual_review.phase1Value,
+      18268.98
+    );
+    assert.equal(realPhase2Result.phase1Reconciliation.postponed.lines, 4);
+    assert.equal(
+      realPhase2Result.phase1Reconciliation.postponed.phase1Value,
+      458.42
+    );
+    assert.equal(
+      realPhase2Result.phase1Reconciliation.confidently_excluded.lines,
+      7
+    );
+    assert.equal(
+      realPhase2Result.phase1Reconciliation.confidently_excluded.phase1Value,
+      1225.7
+    );
+    assert.equal(realPhase2Result.phase1Reconciliation.totalLines, 127);
+    assert.equal(realPhase2Result.phase1Reconciliation.precisePhase1Value, 89159.68);
+    assert.equal(realPhase2Result.phase1Reconciliation.reconciledLines, 127);
+    assert.equal(realPhase2Result.phase1Reconciliation.reconciledValue, 89159.68);
+    assert.equal(realPhase2Result.phase1Reconciliation.reconciledExactly, true);
+    const reconciledIdentities = [
+      ...realPhase2Result.phase1Reconciliation.auto_approved.rowIdentities,
+      ...realPhase2Result.phase1Reconciliation.pending_manual_review.rowIdentities,
+      ...realPhase2Result.phase1Reconciliation.postponed.rowIdentities,
+      ...realPhase2Result.phase1Reconciliation.confidently_excluded.rowIdentities,
+    ];
+    assert.equal(reconciledIdentities.length, 127);
+    assert.equal(new Set(reconciledIdentities).size, 127);
+    const pendingWorkflowLines = realPhase2Result.workingOrderProducts.filter(
+      product => product.workflowStatus === 'pending_manual_review'
+    );
+    assert.equal(pendingWorkflowLines.length, 39);
+    assert.ok(pendingWorkflowLines.every(product =>
+      product.provisionalOrderQuantity > 0 &&
+      product.provisionalLineSum > 0 &&
+      product.approvalRequired === true &&
+      product.approvedOrderQuantity === null
+    ));
+    assert.equal(pendingWorkflowLines.filter(product =>
+      product.provisionalQuantitySource === 'phase1_analyzer_fallback'
+    ).length, 29);
+    assert.equal(pendingWorkflowLines.filter(product =>
+      product.provisionalQuantitySource === 'phase2_final_recommendation'
+    ).length, 10);
+    assert.equal(
+      realPhase2Result.demandProducts.filter(
+        product => product.finalRecommendedQuantity !== null
+      ).length,
+      291
+    );
+    assert.ok(realPhase2Result.demandProducts.every(product =>
+      product.inTransitQuantity === 0 &&
+      product.inTransitStatus === 'included_in_source_stock' &&
+      product.inTransitDecisionBasis ===
+        'previous_order_registered_as_expected_receipt' &&
+      !product.requiredData.includes('in_transit_quantity')
+    ));
+    assert.ok(!realPhase2Result.missingInputDatasets.some(
+      dataset => dataset.dataset === 'in_transit_data'
+    ));
 
     for (const rowNumber of [118, 121, 358, 361, 363, 366]) {
       assert.ok(realRowNumbers.has(rowNumber), `Expected retained source row ${rowNumber}.`);

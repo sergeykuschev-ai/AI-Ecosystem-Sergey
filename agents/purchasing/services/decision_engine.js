@@ -345,6 +345,9 @@ function decidePhase2Product(product, context, config = DEMAND_ENGINE_CONFIG) {
     );
   const mandatoryGapRequired =
     product.mandatoryAssortment === true && product.mandatoryMinimumGap > 0;
+  const ambiguousReportedRate =
+    product.salesRateSource === 'smartzapas_reported_daily_rate' &&
+    product.salesRateConfidence === 'low';
   const provisionalNoAction =
     product.analyzerCalculatedQuantity === 0 &&
     product.salesStatus === 'missing' &&
@@ -367,6 +370,11 @@ function decidePhase2Product(product, context, config = DEMAND_ENGINE_CONFIG) {
     approvedOrderQuantity = 0;
     decisionBasis = 'phase2_calculated';
     reasons.push('final_recommended_quantity_not_positive');
+  } else if (ambiguousReportedRate && product.analyzerCalculatedQuantity > 0) {
+    decision = DECISIONS.MANUAL_REVIEW;
+    approvedOrderQuantity = null;
+    decisionBasis = 'phase2_data_quality_review';
+    reasons.push('reported_sales_rate_unit_requires_confirmation');
   } else if (product.salesStatus === 'confirmed_zero' && !mandatoryGapRequired) {
     decision = DECISIONS.DO_NOT_BUY;
     approvedOrderQuantity = 0;
@@ -424,6 +432,7 @@ function decidePhase2Product(product, context, config = DEMAND_ENGINE_CONFIG) {
   let confidence = confidenceFromScore(decisionScore, config);
 
   if (provisionalNoAction) confidence = 'low';
+  if (ambiguousReportedRate) confidence = 'low';
   if (decision === DECISIONS.MANUAL_REVIEW || decision === DECISIONS.POSTPONE) {
     confidence = capConfidence(confidence, 'medium');
   }

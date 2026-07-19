@@ -36,10 +36,22 @@ const DECISION_ENGINE_CONFIG = Object.freeze({
 const DEMAND_ENGINE_CONFIG = Object.freeze({
   version: 'v2-phase-2',
   assortmentMatrixMode: 'optional',
+  salesInputMode: 'auto',
+  defaultPurchasingProfile: 'generic',
+  inTransitMode: 'required',
+  purchasingProfiles: Object.freeze({
+    generic: Object.freeze({ inTransitMode: 'required' }),
+    miska: Object.freeze({ inTransitMode: 'included_in_source_stock' }),
+  }),
   salesWeights: Object.freeze({
     sales7: Object.freeze({ days: 7, weight: 0.5 }),
     sales14: Object.freeze({ days: 14, weight: 0.3 }),
     sales30: Object.freeze({ days: 30, weight: 0.2 }),
+  }),
+  smartZapasWeeklySalesWeights: Object.freeze({
+    sales7: Object.freeze({ days: 7, weight: 0.5 }),
+    sales14: Object.freeze({ days: 14, weight: 0.3 }),
+    sales28: Object.freeze({ days: 28, weight: 0.2 }),
   }),
   supplierDeliveryCycleDays: Object.freeze({
     default: null,

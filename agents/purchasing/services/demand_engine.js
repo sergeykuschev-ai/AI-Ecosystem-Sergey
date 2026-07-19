@@ -4,7 +4,19 @@ const { normalizeClass } = require('../rules/abc_xyz_rules');
 const { matchProductInputs } = require('./product_input_matcher');
 
 const SALES_FIELDS = Object.freeze(['sales7', 'sales14', 'sales30']);
+const SMARTZAPAS_WEEKLY_SALES_FIELDS = Object.freeze(['sales7', 'sales14', 'sales28']);
 const ASSORTMENT_MATRIX_MODES = Object.freeze(['required', 'optional', 'disabled']);
+const SALES_INPUT_MODES = Object.freeze(['auto', 'period_sales', 'reported_daily_rate']);
+const IN_TRANSIT_MODES = Object.freeze([
+  'required',
+  'optional',
+  'included_in_source_stock',
+  'disabled',
+]);
+const INCLUDED_IN_SOURCE_STOCK_BASIS =
+  'previous_order_registered_as_expected_receipt';
+const INCLUDED_IN_SOURCE_STOCK_WARNING =
+  'Verify that SmartZapas free stock or analyzer recommendation reflects expected receipts';
 
 function round(value, precision = 6) {
   const factor = 10 ** precision;
@@ -36,15 +48,55 @@ function resolveAssortmentMatrixMode(inputs, config = DEMAND_ENGINE_CONFIG) {
   return mode;
 }
 
+function resolveSalesInputMode(inputs, config = DEMAND_ENGINE_CONFIG) {
+  const mode = inputs.salesInputMode ?? config.salesInputMode;
+  if (!SALES_INPUT_MODES.includes(mode)) {
+    throw new TypeError(`salesInputMode must be one of: ${SALES_INPUT_MODES.join(', ')}.`);
+  }
+  return mode;
+}
+
+function resolvePurchasingProfile(inputs, config = DEMAND_ENGINE_CONFIG) {
+  const requestedProfile = normalize(
+    inputs.purchasingProfile || config.defaultPurchasingProfile || 'generic'
+  );
+  return Object.hasOwn(config.purchasingProfiles, requestedProfile)
+    ? requestedProfile
+    : 'generic';
+}
+
+function resolveInTransitMode(inputs, purchasingProfile, config = DEMAND_ENGINE_CONFIG) {
+  const profileMode = config.purchasingProfiles[purchasingProfile]?.inTransitMode;
+  const mode = inputs.inTransitMode ?? profileMode ?? config.inTransitMode;
+  if (!IN_TRANSIT_MODES.includes(mode)) {
+    throw new TypeError(`inTransitMode must be one of: ${IN_TRANSIT_MODES.join(', ')}.`);
+  }
+  return mode;
+}
+
 function getAssortmentMatrixStatus(mode, source) {
   if (mode === 'disabled') return 'disabled';
   if (source) return 'provided';
   return mode === 'required' ? 'required_not_provided' : 'not_provided';
 }
 
-function getInTransitState(source, record) {
+function getInTransitState(mode, source, record) {
+  if (mode === 'included_in_source_stock') {
+    return {
+      inTransitQuantity: 0,
+      inTransitStatus: 'included_in_source_stock',
+    };
+  }
+  if (mode === 'disabled') {
+    return { inTransitQuantity: 0, inTransitStatus: 'disabled' };
+  }
   if (!source) {
-    return { inTransitQuantity: null, inTransitStatus: 'source_not_provided' };
+    return mode === 'optional'
+      ? {
+        inTransitQuantity: 0,
+        inTransitStatus: 'source_not_provided',
+      }
+      : { inTransitQuantity: null, inTransitStatus: 'source_not_provided' };
   }
   const quantity = valueFromRecord(record, 'inTransitQuantity');
   if (
@@ -63,20 +115,32 @@ function getInTransitState(source, record) {
 
 function getMissingInputDatasets(sources, inputStatus) {
   const missing = [];
-  if (!sources.sales) {
+  if (!sources.sales && inputStatus.salesInputMode !== 'reported_daily_rate') {
     missing.push({
-      dataset: 'sales_data',
-      status: 'not_provided',
-      blocking: true,
-      impact: 'demand_quantity_unavailable',
+      dataset: 'period_sales_data',
+      status: inputStatus.salesInputMode === 'auto'
+        ? 'not_provided_fallback_allowed'
+        : 'not_provided',
+      blocking: inputStatus.salesInputMode === 'period_sales',
+      impact: inputStatus.salesInputMode === 'auto'
+        ? 'smartzapas_sales_fallback_used_when_available'
+        : 'demand_quantity_unavailable',
     });
   }
-  if (!sources.inTransit) {
+  if (!sources.inTransit && inputStatus.inTransitMode === 'required') {
     missing.push({
       dataset: 'in_transit_data',
       status: 'not_provided',
       blocking: true,
       impact: 'available_stock_unavailable',
+    });
+  }
+  if (!sources.inTransit && inputStatus.inTransitMode === 'optional') {
+    missing.push({
+      dataset: 'in_transit_data',
+      status: 'not_provided_optional',
+      blocking: false,
+      impact: 'separate_in_transit_assumed_zero',
     });
   }
   if (inputStatus.assortmentMatrixStatus === 'not_provided') {
@@ -98,16 +162,16 @@ function getMissingInputDatasets(sources, inputStatus) {
   return missing;
 }
 
-function calculateWeightedSalesRate(sales, config = DEMAND_ENGINE_CONFIG) {
+function calculateWeightedPeriodRate(sales, periodDefinitions, fields) {
   const missingFields = [];
   const invalidFields = [];
   const dailyRates = {};
   let weightedRate = 0;
   let availableWeight = 0;
 
-  for (const field of SALES_FIELDS) {
+  for (const field of fields) {
     const value = sales[field];
-    const definition = config.salesWeights[field];
+    const definition = periodDefinitions[field];
 
     if (value === null || value === undefined || value === '') {
       missingFields.push(field);
@@ -124,8 +188,8 @@ function calculateWeightedSalesRate(sales, config = DEMAND_ENGINE_CONFIG) {
     availableWeight += definition.weight;
   }
 
-  const allMissing = missingFields.length === SALES_FIELDS.length;
-  const allConfirmedZero = SALES_FIELDS.every(field => sales[field] === 0);
+  const allMissing = missingFields.length === fields.length;
+  const allConfirmedZero = fields.every(field => sales[field] === 0);
   const salesDailyRate = invalidFields.length > 0 || availableWeight === 0
     ? null
     : round(weightedRate / availableWeight);
@@ -141,9 +205,86 @@ function calculateWeightedSalesRate(sales, config = DEMAND_ENGINE_CONFIG) {
   };
 }
 
-function detectSalesTrend(metrics, config = DEMAND_ENGINE_CONFIG) {
-  const rate7 = metrics.dailyRates.sales7;
-  const rate30 = metrics.dailyRates.sales30;
+function calculateWeightedSalesRate(sales, config = DEMAND_ENGINE_CONFIG) {
+  return calculateWeightedPeriodRate(sales, config.salesWeights, SALES_FIELDS);
+}
+
+function calculateSmartZapasWeeklySalesRate(sales, config = DEMAND_ENGINE_CONFIG) {
+  return calculateWeightedPeriodRate(
+    sales,
+    config.smartZapasWeeklySalesWeights,
+    SMARTZAPAS_WEEKLY_SALES_FIELDS
+  );
+}
+
+function selectSalesRate(row, externalSalesMetrics, weeklySalesMetrics, mode) {
+  const reportedRate = row.reportedDailySalesRate;
+  const reportedRateValid =
+    typeof reportedRate === 'number' &&
+    Number.isFinite(reportedRate) &&
+    reportedRate >= 0;
+  const cumulativeRate =
+    row.reportedSalesRateSource === 'smartzapas_period_sales_explicit_days';
+  const weeklyRateValid = weeklySalesMetrics.salesDailyRate !== null;
+  const externalRateValid = externalSalesMetrics.salesDailyRate !== null;
+
+  if (mode === 'auto' && weeklyRateValid) {
+    return {
+      salesDailyRate: weeklySalesMetrics.salesDailyRate,
+      salesRateSource: 'smartzapas_weekly_weighted',
+      salesRateConfidence: row.salesPeriodConfidence || 'high',
+      selectedMetrics: weeklySalesMetrics,
+      selectedPeriodType: 'smartzapas_weekly',
+      usedReportedRate: false,
+    };
+  }
+  if (mode !== 'reported_daily_rate' && externalRateValid) {
+    return {
+      salesDailyRate: externalSalesMetrics.salesDailyRate,
+      salesRateSource: 'external_period_sales_weighted',
+      salesRateConfidence: externalSalesMetrics.complete ? 'high' : 'medium',
+      selectedMetrics: externalSalesMetrics,
+      selectedPeriodType: 'external',
+      usedReportedRate: false,
+    };
+  }
+  if (mode !== 'period_sales' && reportedRateValid && cumulativeRate) {
+    return {
+      salesDailyRate: reportedRate,
+      salesRateSource: 'smartzapas_cumulative_period',
+      salesRateConfidence: row.reportedSalesRateConfidence || 'high',
+      selectedMetrics: null,
+      selectedPeriodType: 'cumulative',
+      usedReportedRate: true,
+    };
+  }
+  if (mode !== 'period_sales' && reportedRateValid) {
+    return {
+      salesDailyRate: reportedRate,
+      salesRateSource: 'smartzapas_reported_daily_rate',
+      salesRateConfidence: row.reportedSalesRateConfidence || 'low',
+      selectedMetrics: null,
+      selectedPeriodType: 'reported_rate',
+      usedReportedRate: true,
+    };
+  }
+  return {
+    salesDailyRate: null,
+    salesRateSource: null,
+    salesRateConfidence: null,
+    selectedMetrics: null,
+    selectedPeriodType: null,
+    usedReportedRate: false,
+  };
+}
+
+function detectSalesTrend(
+  metrics,
+  config = DEMAND_ENGINE_CONFIG,
+  fields = { short: 'sales7', long: 'sales30' }
+) {
+  const rate7 = metrics.dailyRates[fields.short];
+  const rate30 = metrics.dailyRates[fields.long];
   const hasComparableRates =
     rate7 !== null && rate7 !== undefined &&
     rate30 !== null && rate30 !== undefined;
@@ -232,20 +373,91 @@ function calculateDemandProduct(row, sources, matches, context, config) {
   const sales = Object.fromEntries(
     SALES_FIELDS.map(field => [field, valueFromRecord(salesRecord, field)])
   );
-  const salesMetrics = calculateWeightedSalesRate(sales, config);
-  const trend = detectSalesTrend(salesMetrics, config);
+  const weeklySales = Object.fromEntries(
+    SMARTZAPAS_WEEKLY_SALES_FIELDS.map(field => [field, row[field] ?? null])
+  );
+  const externalSalesMetrics = calculateWeightedSalesRate(sales, config);
+  const weeklySalesMetrics = calculateSmartZapasWeeklySalesRate(weeklySales, config);
+  const salesSelection = selectSalesRate(
+    row,
+    externalSalesMetrics,
+    weeklySalesMetrics,
+    context.salesInputMode
+  );
+  const trend = salesSelection.salesRateSource === 'external_period_sales_weighted'
+    ? detectSalesTrend(externalSalesMetrics, config)
+    : salesSelection.salesRateSource === 'smartzapas_weekly_weighted'
+      ? detectSalesTrend(
+        weeklySalesMetrics,
+        config,
+        { short: 'sales7', long: 'sales28' }
+      )
+    : { salesTrend: 'unknown', shortTermSalesSpike: false, decliningSales: false };
+  const usesPeriodSales = context.salesInputMode !== 'reported_daily_rate';
+  const allowsReportedRate = context.salesInputMode !== 'period_sales';
 
-  if (sources.sales) {
-    for (const field of salesMetrics.missingFields) requiredData.push(field);
+  if (Array.isArray(row.weeklySalesWarnings) && row.weeklySalesWarnings.length > 0) {
+    warnings.push('invalid_weekly_sales_history');
   }
-  for (const field of salesMetrics.invalidFields) {
-    requiredData.push(field);
-    warnings.push(`invalid_negative_or_non_numeric_${field}`);
+
+  if (
+    salesSelection.salesRateSource === 'external_period_sales_weighted' &&
+    sources.sales &&
+    usesPeriodSales
+  ) {
+    for (const field of externalSalesMetrics.missingFields) requiredData.push(field);
   }
-  if (salesMetrics.missingFields.length > 0 && !salesMetrics.allMissing) {
+  if (usesPeriodSales && sources.sales) {
+    for (const field of externalSalesMetrics.invalidFields) {
+      requiredData.push(field);
+      warnings.push(`invalid_negative_or_non_numeric_${field}`);
+    }
+  }
+  if (
+    salesSelection.selectedPeriodType === 'external' &&
+    externalSalesMetrics.missingFields.length > 0 &&
+    !externalSalesMetrics.allMissing
+  ) {
     warnings.push('partial_sales_history');
   }
-  if (salesMetrics.allConfirmedZero) warnings.push('zero_sales_30d');
+  if (
+    salesSelection.selectedPeriodType === 'smartzapas_weekly' &&
+    weeklySalesMetrics.missingFields.length > 0
+  ) {
+    warnings.push('partial_weekly_sales_history');
+  }
+  if (
+    salesSelection.selectedMetrics &&
+    salesSelection.selectedMetrics.allConfirmedZero
+  ) {
+    warnings.push('zero_sales_weighted_periods');
+  }
+  if (
+    salesSelection.usedReportedRate &&
+    salesSelection.salesDailyRate === 0
+  ) {
+    warnings.push('zero_sales_reported_period');
+  }
+  if (
+    salesSelection.usedReportedRate &&
+    salesSelection.salesRateConfidence === 'low'
+  ) {
+    warnings.push('ambiguous_reported_sales_rate_unit');
+    requiredData.push('reported_sales_rate_confirmation');
+  }
+  if (
+    allowsReportedRate &&
+    row.reportedDailySalesRate !== null &&
+    row.reportedDailySalesRate !== undefined &&
+    (
+      typeof row.reportedDailySalesRate !== 'number' ||
+      !Number.isFinite(row.reportedDailySalesRate) ||
+      row.reportedDailySalesRate < 0
+    )
+  ) {
+    warnings.push('invalid_reported_daily_sales_rate');
+    requiredData.push('reported_daily_sales_rate');
+  }
   if (trend.shortTermSalesSpike) warnings.push('short_term_sales_spike');
   if (trend.decliningSales) warnings.push('declining_sales');
   if (context.ambiguousSalesRows.has(row.rowIdentity)) warnings.push('ambiguous_sales_match');
@@ -265,6 +477,7 @@ function calculateDemandProduct(row, sources, matches, context, config) {
   }
 
   const { inTransitQuantity, inTransitStatus } = getInTransitState(
+    context.inTransitMode,
     sources.inTransit,
     transitRecord
   );
@@ -357,8 +570,8 @@ function calculateDemandProduct(row, sources, matches, context, config) {
     ? freeStock + inTransitQuantity
     : null;
   const targetStock =
-    salesMetrics.salesDailyRate !== null && targetCoverageDays !== null
-      ? Math.ceil(salesMetrics.salesDailyRate * targetCoverageDays)
+    salesSelection.salesDailyRate !== null && targetCoverageDays !== null
+      ? Math.ceil(salesSelection.salesDailyRate * targetCoverageDays)
       : null;
   const demandCalculatedQuantity = targetStock !== null && availableStock !== null
     ? Math.max(0, targetStock - availableStock)
@@ -401,8 +614,8 @@ function calculateDemandProduct(row, sources, matches, context, config) {
     ? availableStock + finalRecommendedQuantity
     : null;
   const expectedCoverageAfterOrder =
-    stockAfterOrder !== null && salesMetrics.salesDailyRate > 0
-      ? round(stockAfterOrder / salesMetrics.salesDailyRate, 2)
+    stockAfterOrder !== null && salesSelection.salesDailyRate > 0
+      ? round(stockAfterOrder / salesSelection.salesDailyRate, 2)
       : null;
 
   return {
@@ -415,24 +628,76 @@ function calculateDemandProduct(row, sources, matches, context, config) {
     xyz,
     priceNum: row.priceNum ?? null,
     matchingHints: row.matchingHints,
-    sales7: sales.sales7,
-    sales14: sales.sales14,
-    sales30: sales.sales30,
-    salesDailyRate: salesMetrics.salesDailyRate,
-    salesStatus: salesMetrics.invalidFields.length > 0
-      ? 'invalid'
-      : salesMetrics.allMissing
-        ? 'missing'
-        : salesMetrics.allConfirmedZero
-          ? 'confirmed_zero'
-          : salesMetrics.complete
+    salesDailyRate: salesSelection.salesDailyRate,
+    salesRateSource: salesSelection.salesRateSource,
+    salesRateConfidence: salesSelection.salesRateConfidence,
+    salesStatus: salesSelection.salesDailyRate === null
+      ? (
+        (
+          salesSelection.selectedPeriodType === 'external' &&
+          externalSalesMetrics.invalidFields.length > 0
+        ) ||
+        warnings.includes('invalid_reported_daily_sales_rate')
+          ? 'invalid'
+          : 'missing'
+      )
+      : salesSelection.salesDailyRate === 0
+        ? 'confirmed_zero'
+        : ['smartzapas_cumulative_period', 'smartzapas_reported_daily_rate'].includes(
+          salesSelection.salesRateSource
+        )
+          ? 'reported_rate'
+          : salesSelection.selectedMetrics && salesSelection.selectedMetrics.complete
             ? 'complete'
             : 'partial',
     salesTrend: trend.salesTrend,
+    sales7: salesSelection.selectedPeriodType === 'smartzapas_weekly'
+      ? weeklySales.sales7
+      : sales.sales7,
+    sales14: salesSelection.selectedPeriodType === 'smartzapas_weekly'
+      ? weeklySales.sales14
+      : sales.sales14,
+    sales28: salesSelection.selectedPeriodType === 'smartzapas_weekly'
+      ? weeklySales.sales28
+      : null,
+    sales30: salesSelection.selectedPeriodType === 'external' ? sales.sales30 : null,
+    externalSales7: sales.sales7,
+    externalSales14: sales.sales14,
+    externalSales30: sales.sales30,
+    weeklySalesHistory: Array.isArray(row.weeklySalesHistory)
+      ? row.weeklySalesHistory.map(period => ({ ...period }))
+      : [],
+    weeklyPeriodsUsed: row.weeklyPeriodsUsed || {
+      sales7: [],
+      sales14: [],
+      sales28: [],
+    },
+    excludedPartialWeek: row.excludedPartialWeek || null,
+    salesPeriodSource: row.salesPeriodSource || null,
+    salesPeriodConfidence: row.salesPeriodConfidence || null,
+    weeklyToCumulativeReconciliation:
+      row.weeklyToCumulativeReconciliation || null,
+    reportedSalesQuantity: row.reportedSalesQuantity ?? null,
+    reportedSalesPeriodDays: row.reportedSalesPeriodDays ?? null,
+    reportedDailySalesRate: row.reportedDailySalesRate ?? null,
+    reportedSalesRateSource: row.reportedSalesRateSource || null,
+    reportedSalesRateConfidence: row.reportedSalesRateConfidence || null,
+    originalSmartZapasSalesValue:
+      row.sourceTokens && Object.hasOwn(row.sourceTokens, 'reportedSalesQuantity')
+        ? row.sourceTokens.reportedSalesQuantity
+        : null,
+    originalSmartZapasVelocityValue:
+      row.sourceTokens && Object.hasOwn(row.sourceTokens, 'reportedSalesVelocity')
+        ? row.sourceTokens.reportedSalesVelocity
+        : null,
+    reportedSalesWarnings: Array.isArray(row.reportedSalesWarnings)
+      ? [...row.reportedSalesWarnings]
+      : [],
     freeStock,
     stockStatus: resolvedStockStatus,
     inTransitQuantity,
     inTransitStatus,
+    inTransitDecisionBasis: context.inTransitDecisionBasis,
     mandatoryAssortment,
     minDisplayStock,
     assortmentPriority,
@@ -484,6 +749,79 @@ function summarizeDemandPlan(products, sources, matches) {
   return {
     productsWithSalesData: products.filter(product => product.salesDailyRate !== null).length,
     productsMissingAllSales: products.filter(product => product.salesStatus === 'missing').length,
+    productsWithPeriodSales: products.filter(product =>
+      ['sales7', 'sales14', 'sales28', 'sales30'].some(field =>
+        typeof product[field] === 'number' && Number.isFinite(product[field])
+      ) || (
+        typeof product.reportedSalesQuantity === 'number' &&
+        Number.isFinite(product.reportedSalesQuantity) &&
+        typeof product.reportedSalesPeriodDays === 'number' &&
+        Number.isFinite(product.reportedSalesPeriodDays) &&
+        product.reportedSalesPeriodDays > 0
+      )
+    ).length,
+    productsWithReportedDailyRate: products.filter(product =>
+      typeof product.reportedDailySalesRate === 'number' &&
+      Number.isFinite(product.reportedDailySalesRate) &&
+      product.reportedDailySalesRate >= 0
+    ).length,
+    productsUsingWeightedSales: products.filter(
+      product => [
+        'smartzapas_weekly_weighted',
+        'external_period_sales_weighted',
+      ].includes(product.salesRateSource)
+    ).length,
+    productsUsingSmartZapasRate: products.filter(
+      product => String(product.salesRateSource || '').startsWith('smartzapas_')
+    ).length,
+    productsMissingUsableSalesInput: products.filter(
+      product => product.salesDailyRate === null
+    ).length,
+    productsWithWeeklyHistory: products.filter(product =>
+      product.weeklySalesHistory.some(period =>
+        typeof period.quantity === 'number' && Number.isFinite(period.quantity)
+      )
+    ).length,
+    productsWithSales7: products.filter(product =>
+      typeof product.sales7 === 'number' && Number.isFinite(product.sales7)
+    ).length,
+    productsWithSales14: products.filter(product =>
+      typeof product.sales14 === 'number' && Number.isFinite(product.sales14)
+    ).length,
+    productsWithSales28: products.filter(product =>
+      typeof product.sales28 === 'number' && Number.isFinite(product.sales28)
+    ).length,
+    productsUsingWeeklyWeightedRate: products.filter(
+      product => product.salesRateSource === 'smartzapas_weekly_weighted'
+    ).length,
+    productsUsingCumulativeFallback: products.filter(
+      product => product.salesRateSource === 'smartzapas_cumulative_period'
+    ).length,
+    productsWithPartialLatestWeekExcluded: products.filter(
+      product => product.excludedPartialWeek !== null
+    ).length,
+    productsMissingUsableSales: products.filter(
+      product => product.salesDailyRate === null
+    ).length,
+    blankWeeklyCellsInterpretedAsZero: products.reduce(
+      (count, product) => count + product.weeklySalesHistory.filter(
+        period => period.valueState === 'blank_as_confirmed_zero'
+      ).length,
+      0
+    ),
+    weeklyToCumulativeExactMatches: products.filter(
+      product => product.weeklyToCumulativeReconciliation?.status === 'exact_match'
+    ).length,
+    weeklyToCumulativeToleranceMatches: products.filter(
+      product => product.weeklyToCumulativeReconciliation?.status === 'tolerance_match'
+    ).length,
+    weeklyToCumulativeMismatches: products.filter(
+      product => product.weeklyToCumulativeReconciliation?.status === 'mismatch'
+    ).length,
+    excludedPartialWeek:
+      products.find(product => product.excludedPartialWeek)?.excludedPartialWeek || null,
+    demandQuantitiesCalculated: demandCalculated.length,
+    finalQuantitiesCalculated: finalCalculated.length,
     mandatoryProductsMatched: sources.assortment
       ? products.filter(product => product.mandatoryAssortment === true).length
       : null,
@@ -533,6 +871,14 @@ function buildDemandPlan(analysis, phase2Inputs = {}, config = DEMAND_ENGINE_CON
   }
 
   const assortmentMatrixMode = resolveAssortmentMatrixMode(phase2Inputs, config);
+  const salesInputMode = resolveSalesInputMode(phase2Inputs, config);
+  const purchasingProfile = resolvePurchasingProfile(phase2Inputs, config);
+  const inTransitMode = resolveInTransitMode(
+    phase2Inputs,
+    purchasingProfile,
+    config
+  );
+  const acceptsExternalInTransit = ['required', 'optional'].includes(inTransitMode);
   const sources = {
     sales: validateInputSource(phase2Inputs.salesData, 'Sales data'),
     assortment: assortmentMatrixMode === 'disabled'
@@ -541,15 +887,46 @@ function buildDemandPlan(analysis, phase2Inputs = {}, config = DEMAND_ENGINE_CON
         phase2Inputs.assortmentMatrix,
         'Assortment matrix'
       ),
-    inTransit: validateInputSource(phase2Inputs.inTransitData, 'In-transit data'),
+    inTransit: acceptsExternalInTransit
+      ? validateInputSource(phase2Inputs.inTransitData, 'In-transit data')
+      : null,
   };
+  const inTransitSourceStatus = inTransitMode === 'included_in_source_stock'
+    ? 'included_in_source_stock'
+    : inTransitMode === 'disabled'
+      ? 'disabled'
+      : sources.inTransit
+        ? 'provided'
+        : inTransitMode === 'optional'
+          ? 'not_provided_optional'
+          : 'not_provided';
+  const inTransitDecisionBasis = inTransitMode === 'included_in_source_stock'
+    ? INCLUDED_IN_SOURCE_STOCK_BASIS
+    : null;
+  const reportWarnings = [];
+  if (inTransitMode === 'included_in_source_stock') {
+    reportWarnings.push(INCLUDED_IN_SOURCE_STOCK_WARNING);
+  }
+  if (inTransitMode === 'optional' && !sources.inTransit) {
+    reportWarnings.push(
+      'Optional in-transit source was not provided; separate in-transit quantity is assumed zero'
+    );
+  }
   const inputStatus = {
+    purchasingProfile,
+    salesInputMode,
+    inTransitMode,
+    inTransitDecisionBasis,
     salesDataStatus: sources.sales ? 'provided' : 'not_provided',
     assortmentMatrixStatus: getAssortmentMatrixStatus(
       assortmentMatrixMode,
       sources.assortment
     ),
-    inTransitSourceStatus: sources.inTransit ? 'provided' : 'not_provided',
+    inTransitSourceStatus,
+    sourceStockIncludesExpectedReceipts:
+      inTransitMode === 'included_in_source_stock' ? 'assumed' : 'not_assumed',
+    phase2ResultStatus:
+      inTransitMode === 'included_in_source_stock' ? 'preliminary' : 'calculated',
   };
   const rows = analysis.productRows;
   const matches = {
@@ -566,6 +943,9 @@ function buildDemandPlan(analysis, phase2Inputs = {}, config = DEMAND_ENGINE_CON
   const context = {
     inputs: phase2Inputs,
     assortmentMatrixMode,
+    salesInputMode,
+    inTransitMode,
+    inTransitDecisionBasis,
     ambiguousSalesRows: ambiguousRows(matches.sales),
     ambiguousAssortmentRows: ambiguousRows(matches.assortment),
     ambiguousTransitRows: ambiguousRows(matches.inTransit),
@@ -578,6 +958,7 @@ function buildDemandPlan(analysis, phase2Inputs = {}, config = DEMAND_ENGINE_CON
     demandVersion: config.version,
     products,
     inputStatus,
+    reportWarnings,
     missingInputDatasets: getMissingInputDatasets(sources, inputStatus),
     diagnostics: {
       salesMatches: matches.sales.recordResults,
@@ -586,6 +967,8 @@ function buildDemandPlan(analysis, phase2Inputs = {}, config = DEMAND_ENGINE_CON
       salesRowDiagnostics: matches.sales.rowDiagnostics,
       assortmentRowDiagnostics: matches.assortment.rowDiagnostics,
       inTransitRowDiagnostics: matches.inTransit.rowDiagnostics,
+      suppliedInTransitDataIgnored:
+        !acceptsExternalInTransit && Boolean(phase2Inputs.inTransitData),
     },
     summary: summarizeDemandPlan(products, sources, matches),
   };
@@ -593,13 +976,24 @@ function buildDemandPlan(analysis, phase2Inputs = {}, config = DEMAND_ENGINE_CON
 
 module.exports = {
   SALES_FIELDS,
+  SMARTZAPAS_WEEKLY_SALES_FIELDS,
   ASSORTMENT_MATRIX_MODES,
+  SALES_INPUT_MODES,
+  IN_TRANSIT_MODES,
+  INCLUDED_IN_SOURCE_STOCK_BASIS,
+  INCLUDED_IN_SOURCE_STOCK_WARNING,
   round,
   resolveAssortmentMatrixMode,
+  resolveSalesInputMode,
+  resolvePurchasingProfile,
+  resolveInTransitMode,
   getAssortmentMatrixStatus,
   getInTransitState,
   getMissingInputDatasets,
   calculateWeightedSalesRate,
+  calculateWeightedPeriodRate,
+  calculateSmartZapasWeeklySalesRate,
+  selectSalesRate,
   detectSalesTrend,
   stockStatus,
   demandQuantityReason,

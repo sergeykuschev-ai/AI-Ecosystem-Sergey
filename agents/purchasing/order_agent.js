@@ -8,6 +8,7 @@ const {
   buildPhase2PurchasingDecisions,
 } = require('./services/decision_engine');
 const { buildDemandPlan } = require('./services/demand_engine');
+const { buildWorkingOrder } = require('./services/working_order');
 const { buildMinmaxText } = require('./services/prompt_builder');
 const { validateInput, validateResult } = require('./services/validator');
 const {
@@ -84,6 +85,10 @@ function runOrderAgentFromAdapterResultWithDemand(adapterResult, phase2Inputs = 
     demandResult,
     adapterResult.diagnostics
   );
+  const workingOrderResult = buildWorkingOrder(
+    demandResult.products,
+    phase2DecisionResult.decisions
+  );
 
   return buildResult(rows, analysis, {
     sourceRowsCount: adapterResult.source.sourceRowsCount,
@@ -100,11 +105,16 @@ function runOrderAgentFromAdapterResultWithDemand(adapterResult, phase2Inputs = 
       demandInputStatus: demandResult.inputStatus,
       ...demandResult.inputStatus,
       missingInputDatasets: demandResult.missingInputDatasets,
+      reportWarnings: demandResult.reportWarnings,
       demandDiagnostics: demandResult.diagnostics,
       ...demandResult.summary,
       decisionVersion: phase2DecisionResult.decisionVersion,
       decisions: phase2DecisionResult.decisions,
       ...phase2DecisionResult.summary,
+      workingOrderVersion: workingOrderResult.workflowVersion,
+      workingOrderProducts: workingOrderResult.products,
+      phase1Reconciliation: workingOrderResult.phase1Reconciliation,
+      ...workingOrderResult.summary,
     },
   });
 }

@@ -118,6 +118,321 @@ function normalizeHeaderPart(value) {
     .replace(/\s+/g, ' ');
 }
 
+function parseSmartZapasDate(value) {
+  const match = String(value).match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  if (!match) return null;
+  const [, day, month, year] = match;
+  const date = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+  if (
+    Number.isNaN(date.getTime()) ||
+    date.getUTCFullYear() !== Number(year) ||
+    date.getUTCMonth() !== Number(month) - 1 ||
+    date.getUTCDate() !== Number(day)
+  ) {
+    return null;
+  }
+  return date;
+}
+
+function parseReportedSalesPeriod(header) {
+  const match = String(header || '').match(
+    /^история за период (\d{2}\.\d{2}\.\d{4}) - (\d{2}\.\d{2}\.\d{4}) > продано > кол-во$/
+  );
+  if (!match) return null;
+  const start = parseSmartZapasDate(match[1]);
+  const end = parseSmartZapasDate(match[2]);
+  if (!start || !end || end < start) return null;
+
+  return {
+    startDate: start.toISOString().slice(0, 10),
+    endDate: end.toISOString().slice(0, 10),
+    inclusiveDays: Math.round((end - start) / 86400000) + 1,
+  };
+}
+
+function parseSmartZapasShortDate(value) {
+  const match = String(value).match(/^(\d{2})\.(\d{2})\.(\d{2})$/);
+  if (!match) return null;
+  const [, day, month, shortYear] = match;
+  return parseSmartZapasDate(`${day}.${month}.20${shortYear}`);
+}
+
+function addUtcDays(date, days) {
+  return new Date(date.getTime() + days * 86400000);
+}
+
+function parseReportTimestampFromFilePath(filePath) {
+  const match = String(filePath || '').match(
+    /_(\d{4}-\d{2}-\d{2})[ T](\d{2})-(\d{2})-(\d{2})\.xlsx$/i
+  );
+  if (!match) return null;
+  const [, date, hour, minute, second] = match;
+  const timestamp = `${date}T${hour}:${minute}:${second}`;
+  const parsed = new Date(`${timestamp}Z`);
+  return Number.isNaN(parsed.getTime()) ? null : timestamp;
+}
+
+function resolveWeeklySalesColumns(
+  headerPaths,
+  reportDate = null,
+  reportTimestamp = null
+) {
+  const parsedReportDate = reportDate
+    ? parseSmartZapasDate(reportDate.split('-').reverse().join('.'))
+    : null;
+  const columns = [];
+
+  headerPaths.forEach((header, index) => {
+    const match = String(header || '').match(
+      /^история по периодам > неделя(?:&#10;|\s)*с(?:&#10;|\s)*(\d{2}\.\d{2}\.\d{2})$/
+    );
+    if (!match) return;
+    const periodStartDate = parseSmartZapasShortDate(match[1]);
+    if (!periodStartDate) return;
+    const periodEndDate = addUtcDays(periodStartDate, 6);
+    let completionStatus = 'unknown';
+
+    if (reportTimestamp) {
+      const timestampDate = reportTimestamp.slice(0, 10);
+      const periodStart = periodStartDate.toISOString().slice(0, 10);
+      const periodEnd = periodEndDate.toISOString().slice(0, 10);
+      if (timestampDate < periodStart) completionStatus = 'future';
+      else if (timestampDate <= periodEnd) completionStatus = 'partial';
+      else completionStatus = 'completed';
+    } else if (parsedReportDate) {
+      if (parsedReportDate < periodStartDate) completionStatus = 'future';
+      else if (parsedReportDate < periodEndDate) completionStatus = 'partial';
+      else completionStatus = 'completed';
+    }
+
+    columns.push({
+      index,
+      column: toColumnName(index),
+      header,
+      periodStart: periodStartDate.toISOString().slice(0, 10),
+      periodEnd: periodEndDate.toISOString().slice(0, 10),
+      completionStatus,
+    });
+  });
+
+  return columns.sort((left, right) =>
+    left.periodStart.localeCompare(right.periodStart) || left.column.localeCompare(right.column)
+  );
+}
+
+function normalizeWeeklySalesHistory(
+  row,
+  weeklySalesColumns,
+  { blankCompletedAsZero = false } = {}
+) {
+  const warnings = [];
+  const history = weeklySalesColumns.map(column => {
+    const rawValue = row[column.index] ?? null;
+    const isBlank = rawValue === null || rawValue === undefined || rawValue === '';
+    const parsedQuantity = isBlank ? null : toNumber(rawValue);
+    const validQuantity =
+      parsedQuantity !== null && Number.isFinite(parsedQuantity) && parsedQuantity >= 0;
+    const blankAsConfirmedZero =
+      isBlank &&
+      blankCompletedAsZero &&
+      column.completionStatus === 'completed';
+
+    if (!isBlank && !validQuantity) {
+      warnings.push({
+        periodStart: column.periodStart,
+        sourceColumn: column.column,
+        warning: 'invalid_negative_or_non_finite_weekly_sales_quantity',
+        rawValue,
+      });
+    }
+
+    return {
+      periodStart: column.periodStart,
+      periodEnd: column.periodEnd,
+      quantity: blankAsConfirmedZero ? 0 : validQuantity ? parsedQuantity : null,
+      valueState: blankAsConfirmedZero
+        ? 'blank_as_confirmed_zero'
+        : isBlank
+          ? 'blank_unavailable_incomplete_period'
+          : validQuantity && parsedQuantity === 0
+            ? 'explicit_zero'
+            : validQuantity
+              ? 'positive_quantity'
+              : 'invalid_value',
+      sourceColumn: column.column,
+      sourceHeader: column.header,
+      rawValue,
+      completionStatus: column.completionStatus,
+    };
+  });
+
+  return { history, warnings };
+}
+
+function reconcileWeeklySalesToCumulative(
+  productSourceRows,
+  weeklySalesColumns,
+  salesColumn,
+  tolerance = 1e-6
+) {
+  const rowResults = new Map();
+  const mismatchExamples = [];
+  let exactMatches = 0;
+  let toleranceMatches = 0;
+  let mismatches = 0;
+  let blankWeeklyCellCount = 0;
+  let explicitZeroWeeklyCellCount = 0;
+  let positiveWeeklyCellCount = 0;
+  let invalidWeeklyCellCount = 0;
+  let invalidCumulativeValueCount = 0;
+
+  for (const productSourceRow of productSourceRows) {
+    let weeklyTotal = 0;
+    let rowHasInvalidWeeklyValue = false;
+
+    for (const column of weeklySalesColumns) {
+      const rawValue = productSourceRow.row[column.index] ?? null;
+      const isBlank = rawValue === null || rawValue === undefined || rawValue === '';
+      if (isBlank) {
+        blankWeeklyCellCount += 1;
+        continue;
+      }
+      const quantity = toNumber(rawValue);
+      if (quantity === null || !Number.isFinite(quantity) || quantity < 0) {
+        invalidWeeklyCellCount += 1;
+        rowHasInvalidWeeklyValue = true;
+        continue;
+      }
+      if (quantity === 0) explicitZeroWeeklyCellCount += 1;
+      else positiveWeeklyCellCount += 1;
+      weeklyTotal += quantity;
+    }
+
+    const cumulativeRawValue = salesColumn
+      ? productSourceRow.row[salesColumn.index] ?? null
+      : null;
+    const cumulativeIsBlank =
+      cumulativeRawValue === null ||
+      cumulativeRawValue === undefined ||
+      cumulativeRawValue === '';
+    const cumulativeQuantity = cumulativeIsBlank ? 0 : toNumber(cumulativeRawValue);
+    const cumulativeInvalid =
+      cumulativeQuantity === null ||
+      !Number.isFinite(cumulativeQuantity) ||
+      cumulativeQuantity < 0;
+    if (cumulativeInvalid) invalidCumulativeValueCount += 1;
+
+    const delta = cumulativeInvalid || rowHasInvalidWeeklyValue
+      ? null
+      : weeklyTotal - cumulativeQuantity;
+    const status = delta === 0
+      ? 'exact_match'
+      : delta !== null && Math.abs(delta) <= tolerance
+        ? 'tolerance_match'
+        : 'mismatch';
+    if (status === 'exact_match') exactMatches += 1;
+    else if (status === 'tolerance_match') toleranceMatches += 1;
+    else {
+      mismatches += 1;
+      if (mismatchExamples.length < 10) {
+        mismatchExamples.push({
+          rowNumber: productSourceRow.rowNumber,
+          name: productSourceRow.name,
+          weeklyTotal,
+          cumulativeQuantity: cumulativeInvalid ? null : cumulativeQuantity,
+          delta,
+          rowHasInvalidWeeklyValue,
+          cumulativeRawValue,
+        });
+      }
+    }
+
+    rowResults.set(productSourceRow.rowNumber, {
+      weeklyTotal,
+      cumulativeQuantity: cumulativeInvalid ? null : cumulativeQuantity,
+      cumulativeRawValue,
+      delta,
+      status,
+    });
+  }
+
+  const blankCellSemanticsConfirmed =
+    productSourceRows.length > 0 &&
+    weeklySalesColumns.length > 0 &&
+    Boolean(salesColumn) &&
+    invalidWeeklyCellCount === 0 &&
+    invalidCumulativeValueCount === 0 &&
+    mismatches === 0 &&
+    exactMatches + toleranceMatches === productSourceRows.length;
+
+  return {
+    rowResults,
+    diagnostic: {
+      tolerance,
+      comparedProductRows: productSourceRows.length,
+      exactMatches,
+      toleranceMatches,
+      mismatches,
+      mismatchExamples,
+      blankWeeklyCellCount,
+      explicitZeroWeeklyCellCount,
+      positiveWeeklyCellCount,
+      invalidWeeklyCellCount,
+      invalidCumulativeValueCount,
+      blankCellSemantics: blankCellSemanticsConfirmed
+        ? 'confirmed_zero'
+        : 'unconfirmed',
+      blankCellSemanticsConfirmed,
+    },
+  };
+}
+
+function deriveRollingWeeklySales(history) {
+  const completedHistory = history.filter(period => period.completionStatus === 'completed');
+  const latestPartialPeriod = [...history]
+    .reverse()
+    .find(period => period.completionStatus === 'partial');
+  const definitions = [
+    { field: 'sales7', weeks: 1 },
+    { field: 'sales14', weeks: 2 },
+    { field: 'sales28', weeks: 4 },
+  ];
+  const values = {};
+  const weeklyPeriodsUsed = {};
+
+  for (const definition of definitions) {
+    const periods = completedHistory.slice(-definition.weeks);
+    const usable =
+      periods.length === definition.weeks &&
+      periods.every(period =>
+        typeof period.quantity === 'number' &&
+        Number.isFinite(period.quantity) &&
+        period.quantity >= 0
+      );
+    values[definition.field] = usable
+      ? periods.reduce((sum, period) => sum + period.quantity, 0)
+      : null;
+    weeklyPeriodsUsed[definition.field] = usable
+      ? periods.map(period => period.periodStart)
+      : [];
+  }
+
+  return {
+    ...values,
+    weeklyPeriodsUsed,
+    excludedPartialWeek:
+      latestPartialPeriod
+        ? {
+          periodStart: latestPartialPeriod.periodStart,
+          periodEnd: latestPartialPeriod.periodEnd,
+          sourceColumn: latestPartialPeriod.sourceColumn,
+          sourceHeader: latestPartialPeriod.sourceHeader,
+          reason: 'report_date_before_expected_seven_day_window_end',
+        }
+        : null,
+  };
+}
+
 function mergeHeaderLevels(headerRows) {
   const columnCount = Math.max(0, ...headerRows.map(row => row.length));
   const expandedRows = headerRows.map(row =>
@@ -312,7 +627,14 @@ function classifyRow(row, rowNumber, columnMap) {
   };
 }
 
-function normalizeProductRow(row, rowNumber, columnMap, source) {
+function normalizeProductRow(
+  row,
+  rowNumber,
+  columnMap,
+  source,
+  weeklySalesColumns,
+  weeklySalesOptions = {}
+) {
   const normalized = {
     sourceSystem: 'smartzapas',
     schemaVersion: NORMALIZED_ROW_SCHEMA,
@@ -336,6 +658,57 @@ function normalizeProductRow(row, rowNumber, columnMap, source) {
   const freeStockSourceToken = freeStockColumn
     ? row[freeStockColumn.index] ?? null
     : null;
+  const salesColumn = columnMap.sales;
+  const speedColumn = columnMap.speed;
+  const reportedSalesQuantitySourceToken = salesColumn
+    ? row[salesColumn.index] ?? null
+    : null;
+  const reportedSalesVelocitySourceToken = speedColumn
+    ? row[speedColumn.index] ?? null
+    : null;
+  const reportedSalesPeriod = salesColumn
+    ? parseReportedSalesPeriod(salesColumn.header)
+    : null;
+  const reportedSalesQuantity = normalized.sales ?? null;
+  const reportedSalesWarnings = [];
+  let reportedDailySalesRate = null;
+  let reportedSalesRateSource = null;
+  let reportedSalesRateConfidence = null;
+
+  if (reportedSalesQuantity !== null && reportedSalesQuantity < 0) {
+    reportedSalesWarnings.push('invalid_negative_reported_sales_quantity');
+  } else if (
+    reportedSalesQuantity !== null &&
+    reportedSalesPeriod &&
+    reportedSalesPeriod.inclusiveDays > 0
+  ) {
+    reportedDailySalesRate = Math.round(
+      (reportedSalesQuantity / reportedSalesPeriod.inclusiveDays) * 1000000
+    ) / 1000000;
+    reportedSalesRateSource = 'smartzapas_period_sales_explicit_days';
+    reportedSalesRateConfidence = 'high';
+  } else if (reportedSalesQuantity !== null) {
+    reportedSalesWarnings.push('reported_sales_period_unknown');
+  }
+
+  if (normalized.speed !== null && normalized.speed !== undefined) {
+    if (!Number.isFinite(normalized.speed) || normalized.speed < 0) {
+      reportedSalesWarnings.push('invalid_reported_sales_velocity');
+    } else {
+      reportedSalesWarnings.push('reported_sales_velocity_unit_ambiguous');
+      if (reportedDailySalesRate === null) {
+        reportedSalesRateSource = 'smartzapas_speed_auto_ambiguous_unit';
+        reportedSalesRateConfidence = 'low';
+      }
+    }
+  }
+
+  const weeklySales = normalizeWeeklySalesHistory(
+    row,
+    weeklySalesColumns,
+    weeklySalesOptions
+  );
+  const rollingWeeklySales = deriveRollingWeeklySales(weeklySales.history);
 
   return {
     ...normalized,
@@ -356,6 +729,8 @@ function normalizeProductRow(row, rowNumber, columnMap, source) {
     },
     sourceTokens: {
       freeStock: freeStockSourceToken,
+      reportedSalesQuantity: reportedSalesQuantitySourceToken,
+      reportedSalesVelocity: reportedSalesVelocitySourceToken,
     },
     provenance: {
       reportFingerprint: source.reportFingerprint,
@@ -368,8 +743,48 @@ function normalizeProductRow(row, rowNumber, columnMap, source) {
             header: freeStockColumn.header,
           }
           : null,
+        reportedSalesQuantity: salesColumn
+          ? {
+            column: salesColumn.column,
+            header: salesColumn.header,
+          }
+          : null,
+        reportedSalesVelocity: speedColumn
+          ? {
+            column: speedColumn.column,
+            header: speedColumn.header,
+          }
+          : null,
       },
     },
+    reportedSalesQuantity,
+    reportedSalesPeriodDays: reportedSalesPeriod
+      ? reportedSalesPeriod.inclusiveDays
+      : null,
+    reportedDailySalesRate,
+    reportedSalesRateSource,
+    reportedSalesRateConfidence,
+    reportedSalesWarnings,
+    reportedSalesMetadata: {
+      periodStartDate: reportedSalesPeriod ? reportedSalesPeriod.startDate : null,
+      periodEndDate: reportedSalesPeriod ? reportedSalesPeriod.endDate : null,
+      periodDayConvention: reportedSalesPeriod ? 'inclusive_calendar_days' : null,
+      rawSalesQuantity: reportedSalesQuantitySourceToken,
+      rawSalesVelocity: reportedSalesVelocitySourceToken,
+    },
+    weeklySalesHistory: weeklySales.history,
+    weeklySalesWarnings: weeklySales.warnings,
+    sales7: rollingWeeklySales.sales7,
+    sales14: rollingWeeklySales.sales14,
+    sales28: rollingWeeklySales.sales28,
+    weeklyPeriodsUsed: rollingWeeklySales.weeklyPeriodsUsed,
+    excludedPartialWeek: rollingWeeklySales.excludedPartialWeek,
+    salesPeriodSource: weeklySalesColumns.length > 0
+      ? 'smartzapas_weekly_history'
+      : null,
+    salesPeriodConfidence: weeklySalesColumns.length > 0 ? 'high' : null,
+    weeklyToCumulativeReconciliation:
+      weeklySalesOptions.reconciliation || null,
     stock: null,
     min: null,
     max: null,
@@ -426,6 +841,7 @@ function adaptSmartZapasMatrix(matrix, metadata = {}) {
     missingRequiredColumns,
   } = resolveColumns(headerPaths);
   const rows = [];
+  const productSourceRows = [];
   const serviceRows = [];
   const ambiguousRowClassifications = [];
   const dataRows = matrix.slice(HEADER_ROW_COUNT);
@@ -435,6 +851,40 @@ function adaptSmartZapasMatrix(matrix, metadata = {}) {
     reportFingerprint: metadata.reportFingerprint || fingerprintMatrix(matrix),
     headerRowCount: HEADER_ROW_COUNT,
     sourceRowsCount: dataRows.length,
+  };
+  const reportedSalesPeriod = columnMap.sales
+    ? parseReportedSalesPeriod(columnMap.sales.header)
+    : null;
+  source.reportDate = metadata.reportDate ||
+    (reportedSalesPeriod ? reportedSalesPeriod.endDate : null);
+  source.reportTimestamp = metadata.reportTimestamp || null;
+  const weeklySalesColumns = resolveWeeklySalesColumns(
+    headerPaths,
+    source.reportDate,
+    source.reportTimestamp
+  );
+  source.weeklySalesMetadata = {
+    dateSemantics: 'period_start',
+    dateSemanticsReason: 'header_uses_week_from_date',
+    confidence: 'high',
+    periodLengthDays: 7,
+    reportDate: source.reportDate,
+    reportTimestamp: source.reportTimestamp,
+    detectedPeriodCount: weeklySalesColumns.length,
+    completedPeriodCount: weeklySalesColumns.filter(
+      column => column.completionStatus === 'completed'
+    ).length,
+    completedPeriodStarts: weeklySalesColumns
+      .filter(column => column.completionStatus === 'completed')
+      .map(column => column.periodStart),
+    excludedPeriods: weeklySalesColumns
+      .filter(column => column.completionStatus !== 'completed')
+      .map(column => ({
+        periodStart: column.periodStart,
+        periodEnd: column.periodEnd,
+        sourceColumn: column.column,
+        completionStatus: column.completionStatus,
+      })),
   };
 
   dataRows.forEach((row, index) => {
@@ -456,8 +906,30 @@ function adaptSmartZapasMatrix(matrix, metadata = {}) {
       return;
     }
 
-    rows.push(normalizeProductRow(row, rowNumber, columnMap, source));
+    productSourceRows.push({ row, rowNumber, name });
   });
+
+  const weeklySalesReconciliation = reconcileWeeklySalesToCumulative(
+    productSourceRows,
+    weeklySalesColumns,
+    columnMap.sales
+  );
+  for (const productSourceRow of productSourceRows) {
+    rows.push(normalizeProductRow(
+      productSourceRow.row,
+      productSourceRow.rowNumber,
+      columnMap,
+      source,
+      weeklySalesColumns,
+      {
+        blankCompletedAsZero:
+          weeklySalesReconciliation.diagnostic.blankCellSemanticsConfirmed,
+        reconciliation: weeklySalesReconciliation.rowResults.get(
+          productSourceRow.rowNumber
+        ),
+      }
+    ));
+  }
 
   const duplicateIdentifiers = collectDuplicateIdentifiers(rows);
   const identityFallbacks = rows
@@ -467,6 +939,37 @@ function adaptSmartZapasMatrix(matrix, metadata = {}) {
       rowNumber: row.rowNumber,
       reason: 'missing_barcode_and_internal_product_id',
     }));
+  const salesSemanticsWarnings = [];
+  if (columnMap.speed) {
+    salesSemanticsWarnings.push({
+      field: 'speed',
+      column: columnMap.speed.column,
+      header: columnMap.speed.header,
+      warning: 'reported_sales_velocity_unit_not_declared',
+      inferredUnit: 'approximately_units_per_month',
+      confidence: 'low',
+      action: 'preserved_raw_not_converted_to_daily_rate',
+    });
+  }
+  if (columnMap.daysAvailable) {
+    salesSemanticsWarnings.push({
+      field: 'daysAvailable',
+      column: columnMap.daysAvailable.column,
+      header: columnMap.daysAvailable.header,
+      warning: 'availability_unit_inconsistent_with_observed_range',
+      inferredUnit: null,
+      confidence: 'low',
+      action: 'not_used_as_sales_rate_denominator',
+    });
+  }
+  if (weeklySalesColumns.length > 0 && !source.reportDate) {
+    salesSemanticsWarnings.push({
+      field: 'weeklySalesHistory',
+      warning: 'weekly_history_report_date_unavailable',
+      confidence: 'low',
+      action: 'weekly_periods_preserved_but_not_used_for_rolling_sales',
+    });
+  }
 
   return {
     schemaVersion: ADAPTER_SCHEMA,
@@ -482,6 +985,8 @@ function adaptSmartZapasMatrix(matrix, metadata = {}) {
       skippedServiceRows: serviceRows,
       ambiguousColumns,
       missingRequiredColumns,
+      salesSemanticsWarnings,
+      weeklySalesReconciliation: weeklySalesReconciliation.diagnostic,
     },
   };
 }
@@ -507,6 +1012,7 @@ async function readSmartZapasExport(filePath) {
     filePath,
     sheetName: worksheet.sheet,
     reportFingerprint,
+    reportTimestamp: parseReportTimestampFromFilePath(filePath),
   });
 }
 
@@ -564,11 +1070,70 @@ function validateNormalizedRow(row, index, source = null) {
     'orderQty',
     'priceNum',
     'sumNum',
+    'reportedSalesQuantity',
+    'reportedSalesPeriodDays',
+    'reportedDailySalesRate',
+    'sales7',
+    'sales14',
+    'sales28',
   ];
   for (const field of numericFields) {
     if (row[field] !== null && row[field] !== undefined && typeof row[field] !== 'number') {
       throw new TypeError(
         `Normalized SmartZapas row ${index + 1} has invalid numeric field ${field}.`
+      );
+    }
+  }
+  if (
+    row.reportedDailySalesRate !== null &&
+    row.reportedDailySalesRate !== undefined &&
+    (!Number.isFinite(row.reportedDailySalesRate) || row.reportedDailySalesRate < 0)
+  ) {
+    throw new TypeError(
+      `Normalized SmartZapas row ${index + 1} has invalid reportedDailySalesRate.`
+    );
+  }
+  for (const field of ['sales7', 'sales14', 'sales28']) {
+    if (
+      row[field] !== null &&
+      row[field] !== undefined &&
+      (!Number.isFinite(row[field]) || row[field] < 0)
+    ) {
+      throw new TypeError(
+        `Normalized SmartZapas row ${index + 1} has invalid ${field}.`
+      );
+    }
+  }
+  if (!Array.isArray(row.weeklySalesHistory)) {
+    throw new TypeError(
+      `Normalized SmartZapas row ${index + 1} requires weeklySalesHistory.`
+    );
+  }
+  for (const period of row.weeklySalesHistory) {
+    if (
+      !period ||
+      typeof period.periodStart !== 'string' ||
+      typeof period.sourceColumn !== 'string' ||
+      typeof period.sourceHeader !== 'string' ||
+      !['completed', 'partial', 'future', 'unknown'].includes(period.completionStatus) ||
+      ![
+        'explicit_zero',
+        'blank_as_confirmed_zero',
+        'positive_quantity',
+        'invalid_value',
+        'blank_unavailable_incomplete_period',
+      ].includes(period.valueState) ||
+      (
+        period.quantity !== null &&
+        (
+          typeof period.quantity !== 'number' ||
+          !Number.isFinite(period.quantity) ||
+          period.quantity < 0
+        )
+      )
+    ) {
+      throw new TypeError(
+        `Normalized SmartZapas row ${index + 1} has invalid weeklySalesHistory.`
       );
     }
   }
@@ -599,11 +1164,20 @@ function assertUsableAdapterResult(result) {
     'skippedServiceRows',
     'ambiguousColumns',
     'missingRequiredColumns',
+    'salesSemanticsWarnings',
   ];
   for (const field of diagnosticFields) {
     if (!Array.isArray(result.diagnostics[field])) {
       throw new TypeError(`SmartZapas Adapter v1 diagnostics require ${field}.`);
     }
+  }
+  if (
+    !result.diagnostics.weeklySalesReconciliation ||
+    typeof result.diagnostics.weeklySalesReconciliation !== 'object'
+  ) {
+    throw new TypeError(
+      'SmartZapas Adapter v1 diagnostics require weeklySalesReconciliation.'
+    );
   }
 
   const blockingDiagnostics = [
@@ -635,6 +1209,14 @@ module.exports = {
   NORMALIZED_ROW_SCHEMA,
   COLUMN_DEFINITIONS,
   normalizeHeaderPart,
+  parseSmartZapasDate,
+  parseReportedSalesPeriod,
+  parseSmartZapasShortDate,
+  parseReportTimestampFromFilePath,
+  resolveWeeklySalesColumns,
+  normalizeWeeklySalesHistory,
+  reconcileWeeklySalesToCumulative,
+  deriveRollingWeeklySales,
   mergeHeaderLevels,
   resolveColumns,
   fingerprintMatrix,

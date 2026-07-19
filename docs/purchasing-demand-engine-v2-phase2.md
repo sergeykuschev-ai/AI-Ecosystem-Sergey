@@ -4,8 +4,8 @@
 
 Phase 2 adds deterministic demand, assortment, and supply-cycle calculations
 after the existing SmartZapas analyzer. It preserves the analyzer quantity as a
-comparison signal and does not modify the SmartZapas adapter, report-local
-`rowIdentity`, `matchingHints`, or Phase 1 entry-point behavior.
+comparison signal and does not modify report-local `rowIdentity`,
+`matchingHints`, or Phase 1 entry-point behavior.
 
 Use `runOrderAgentFromSmartZapasXlsxWithDemand(filePath, phase2Inputs)` for a
 Phase 2 run. `runOrderAgentFromSmartZapasXlsx(filePath)` remains the Phase 1
@@ -13,11 +13,12 @@ entry point.
 
 ## Required inputs
 
-Phase 2 accepts three versioned external sources:
+Phase 2 can accept three versioned external sources:
 
 - sales history containing `sales7`, `sales14`, and `sales30`;
 - mandatory assortment matrix;
-- confirmed in-transit quantities.
+- in-transit quantities, when the selected purchasing profile requires or
+  permits a separate source.
 
 The assortment matrix uses this shape:
 
@@ -53,8 +54,51 @@ and `matchKey` envelope. They add sales-period fields or
 `inTransitQuantity`, respectively. Blank values are unknown; numeric zero is a
 confirmed value. Negative sales and negative in-transit values are invalid.
 Per-product in-transit status is one of `source_not_provided`,
-`quantity_unknown`, `confirmed_zero`, or `known_positive`. A missing dataset is
-never converted to zero and is reported once at report level.
+`quantity_unknown`, `confirmed_zero`, `known_positive`,
+`included_in_source_stock`, or `disabled`, depending on the configured mode.
+
+`inTransitMode` controls how separate expected receipts are handled:
+
+- `required` is the safe generic default. An absent in-transit source blocks
+  final approval.
+- `optional` uses supplied quantities when present. If the source is absent,
+  the separate quantity is treated as zero for calculation and a single
+  report-level warning records the assumption.
+- `included_in_source_stock` is the Miska profile default. It assumes the
+  previous order was registered in 1C as an expected receipt and is already
+  reflected by SmartZapas. Separate in-transit quantity is therefore zero;
+  supplied invoice data is ignored unless the caller explicitly selects
+  `required` or `optional`, preventing double counting.
+- `disabled` ignores separate in-transit logic and supplied quantities.
+
+Unknown purchasing profiles resolve to the generic profile and its `required`
+mode. A caller may explicitly override `inTransitMode`. The Miska assumption is
+exposed as
+`inTransitDecisionBasis: previous_order_registered_as_expected_receipt`,
+`sourceStockIncludesExpectedReceipts: assumed`, and a preliminary result
+status. The verification warning appears once at report level:
+`Verify that SmartZapas free stock or analyzer recommendation reflects expected
+receipts`.
+
+`salesInputMode` selects the usable sales-rate source:
+
+- `auto` is the default. It uses the source priority documented below.
+- `period_sales` uses only matched 7/14/30-day sales values.
+- `reported_daily_rate` uses only the normalized SmartZapas rate.
+
+In `auto` mode the exact priority is:
+
+1. SmartZapas completed weekly history using 7/14/28-day aggregates;
+2. matched external 7/14/30-day inputs;
+3. SmartZapas cumulative AJ quantity divided by its explicit period;
+4. another confirmed SmartZapas reported daily rate;
+5. unavailable.
+
+The selected source is exposed as `smartzapas_weekly_weighted`,
+`external_period_sales_weighted`, `smartzapas_cumulative_period`, or
+`smartzapas_reported_daily_rate`. Negative, non-finite, or unit-ambiguous rates
+are not automatically approved. Low-confidence rate semantics force manual
+review for a positive analyzer or demand quantity.
 
 ## Exact matching rules
 
@@ -98,8 +142,32 @@ periods are missing or any supplied value is invalid, the demand rate and final
 quantity are `null` and the decision requires review.
 
 Three numeric zero periods produce a confirmed zero rate and
-`zero_sales_30d`. They do not produce an automatic order unless a confirmed
+`zero_sales_weighted_periods`. They do not produce an automatic order unless a confirmed
 mandatory assortment gap exists.
+
+SmartZapas weekly history uses a separate period configuration and never
+substitutes `sales28` into the external `sales30` field:
+
+```text
+salesDailyRate =
+  sales7  / 7  × 0.50 +
+  sales14 / 14 × 0.30 +
+  sales28 / 28 × 0.20
+```
+
+Missing 7/14/28 aggregates remove their weights and renormalize the remaining
+weights. Confirmed blank weekly cells contribute zero; malformed tokens remain
+missing. The exact source weeks are retained in `weeklyPeriodsUsed`. A partial
+latest seven-day window is excluded before aggregation and exposed as
+`excludedPartialWeek`. Timestamp-aware completion requires the period-end day
+to have fully elapsed; date-only reports retain the inclusive date fallback.
+
+In `auto` mode, a missing weighted rate may fall back to the adapter's
+high-confidence daily average derived from SmartZapas's explicit cumulative
+sales period. The target-stock and demand formulas below are unchanged. The
+raw SmartZapas cumulative sales and automatic-velocity tokens remain available
+in every demand row and report. SmartZapas's unitless `скорость > авто` value
+is not converted to daily units.
 
 ## Supply cycle and safety stock
 
@@ -134,7 +202,7 @@ targetCoverageDays = supplierDeliveryCycleDays + safetyStockDays
 
 targetStock = ceil(salesDailyRate × targetCoverageDays)
 
-availableStock = freeStock + inTransitQuantity
+availableStock = freeStock + separateInTransitQuantity
 
 demandCalculatedQuantity = max(0, targetStock - availableStock)
 
@@ -150,10 +218,12 @@ finalRecommendedQuantity = max(
 ```
 
 The final quantity is calculated only when its critical inputs are known.
-Unknown free stock, all sales missing, unknown in-transit stock, a required but
-missing assortment source, invalid safety stock, or missing analyzer quantity
-leaves it `null`. An optional missing assortment matrix does not block the
-calculation. A confirmed in-transit quantity is always included in available
+Unknown free stock, all sales missing, unknown required in-transit stock, a
+required but missing assortment source, invalid safety stock, or missing
+analyzer quantity leaves it `null`. An optional missing assortment matrix does
+not block the calculation. In `included_in_source_stock` mode, separate
+in-transit quantity is zero because expected receipts are assumed to be already
+represented by the source; adding an invoice quantity again would double-count
 stock.
 
 ## Phase 2 decisions
@@ -186,12 +256,70 @@ stock (+15), valid sales (+15), complete sales (+10), critical mandatory status
 each; missing sales periods deduct 5 each; spike and decline warnings deduct 15
 and 10. Confidence thresholds remain high at 85 and medium at 50.
 
+## Purchasing workflow projection
+
+The working-order projection is applied after the unchanged Phase 2 decision
+engine. It does not recalculate quantities or alter decisions. It maps products
+relevant to the purchasing workflow into:
+
+- `auto_approved`: existing `must_buy` or `recommended` decisions with a
+  positive approved quantity;
+- `pending_manual_review`: a positive Phase 1 analyzer quantity or positive
+  Phase 2 final recommendation exists, but automatic approval is blocked;
+- `postponed`: the existing `postpone` decision;
+- `confidently_excluded`: a positive Phase 1 quantity has a deterministic,
+  complete-data `do_not_buy` result;
+- `no_order_action`: no positive Phase 1 or Phase 2 quantity exists and no
+  order review is required.
+
+Manual-review products with neither a positive Phase 1 quantity nor a positive
+Phase 2 recommendation remain visible as data-review diagnostics, but they are
+not working-order lines. They are not silently classified as an order or a
+confident exclusion.
+
+Positive pending-review and postponed lines preserve a provisional quantity:
+
+1. positive `finalRecommendedQuantity` with source
+   `phase2_final_recommendation`;
+2. otherwise positive `analyzerCalculatedQuantity` with source
+   `phase1_analyzer_fallback`;
+3. otherwise `null` with source `unavailable`.
+
+`provisionalOrderQuantity` and `provisionalLineSum` are never approved
+quantities. `approvalRequired` is true for pending manual review. The working
+maximum combines only automatically approved quantities and provisional
+pending-review quantities. It excludes postponed quantities and is labelled
+`not_approved_not_ready_for_automatic_submission`.
+
+Every positive Phase 1 analyzer line is reconciled exactly once into
+`auto_approved`, `pending_manual_review`, `postponed`, or
+`confidently_excluded`. Phase 2 additions are reported separately and do not
+change the Phase 1 reconciliation.
+
 ## Summary fields
 
 Phase 2 adds:
 
 - `productsWithSalesData`
 - `productsMissingAllSales`
+- `productsWithPeriodSales`
+- `productsWithReportedDailyRate`
+- `productsUsingWeightedSales`
+- `productsUsingSmartZapasRate`
+- `productsMissingUsableSalesInput`
+- `productsWithWeeklyHistory`
+- `productsWithSales7`
+- `productsWithSales14`
+- `productsWithSales28`
+- `productsUsingWeeklyWeightedRate`
+- `productsUsingCumulativeFallback`
+- `productsWithPartialLatestWeekExcluded`
+- `productsMissingUsableSales`
+- `blankWeeklyCellsInterpretedAsZero`
+- `weeklyToCumulativeExactMatches`
+- `weeklyToCumulativeToleranceMatches`
+- `weeklyToCumulativeMismatches`
+- `excludedPartialWeek`
 - `mandatoryProductsMatched`
 - `mandatoryProductsMissing`
 - `mandatoryZeroStockCount`
@@ -199,15 +327,42 @@ Phase 2 adds:
 - `demandOrderSum`
 - `finalApprovedLines`
 - `finalApprovedSum`
+- `autoApprovedLines`
+- `autoApprovedSum`
+- `pendingReviewLines`
+- `pendingReviewProvisionalSum`
+- `postponedLines`
+- `postponedProvisionalSum`
+- `confidentlyExcludedLines`
+- `confidentlyExcludedPhase1Value`
+- `workingMaximumLines`
+- `workingMaximumSum`
+- `workingMaximumStatus`
+- `phase2AdditionLines`
+- `workingOrderProducts`
+- `phase1Reconciliation`
 - `analyzerVsFinalQuantityDelta`
 - `analyzerVsFinalSumDelta`
 - `provisionalNoActionCount`
 - `positiveAnalyzerLinesAwaitingData`
 - `assortmentMatrixStatus`
+- `purchasingProfile`
+- `inTransitMode`
 - `inTransitSourceStatus`
+- `inTransitDecisionBasis`
+- `sourceStockIncludesExpectedReceipts`
+- `phase2ResultStatus`
+- `reportWarnings`
+- `demandQuantitiesCalculated`
+- `finalQuantitiesCalculated`
 
 Unavailable business totals are `null`, not zero. Analyzer fields and Phase 1
 decisions remain present for comparison in Phase 2 results.
+
+`finalApprovedLines` and `finalApprovedSum` remain compatibility fields from the
+decision summary. User-facing reports call the same quantities the
+automatically approved portion. They are not described as a complete or final
+order while positive pending-review lines remain unresolved.
 
 The Phase 2 report contains a single `Missing input datasets` section. Dataset-
 level absence is not repeated in every product's `requiredData`; row-specific
@@ -215,16 +370,21 @@ missing or invalid values remain attached to their affected rows.
 
 ## Limitations and required real inputs
 
-- SmartZapas history is not treated as 7/14/30 sales because the export does
-  not establish those three approved periods.
+- SmartZapas cumulative history is not re-labeled as 7/14/30 sales. The dated
+  cumulative quantity may provide a separate average daily rate because its
+  exact period is explicit.
+- SmartZapas `скорость > авто` has no declared unit and remains raw provenance;
+  its approximately monthly interpretation is not used automatically.
 - Mandatory status and strategic SKU/brand status come only from a supplied
   matrix; they are never inferred from names.
 - Supplier availability, order multiplicity, profitability, turnover,
   promotions, and seasonality are not Phase 2 inputs.
 - Exact normalized-name matching is a low-confidence fallback, not fuzzy
   matching.
-- Real order totals cannot be validated until approved Valta sales, assortment,
-  and in-transit inputs are supplied and matched.
+- A Miska run using `included_in_source_stock` is preliminary until the
+  SmartZapas expected-receipt semantics are confirmed operationally. Its
+  separate in-transit quantity must not be interpreted as a confirmed physical
+  zero.
 
 The committed JSON fixtures under `tests/fixtures/` are synthetic and contain
 no commercial product data.
