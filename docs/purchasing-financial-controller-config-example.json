@@ -1,0 +1,407 @@
+{
+  "schemaVersion": "purchasing-financial-profile-v1",
+  "storeProfile": {
+    "storeId": "miska",
+    "storeName": "Miska",
+    "purchasingProfile": "miska",
+    "currency": "RUB",
+    "timezone": "Asia/Vladivostok"
+  },
+  "currentMonth": {
+    "startDate": "2026-07-01",
+    "endDate": "2026-07-31"
+  },
+  "revenue": {
+    "minimumMonthlyPlan": {
+      "value": 750000,
+      "source": "owner_provided_profile_parameter",
+      "sourceType": "manual",
+      "asOf": "2026-07-19",
+      "confidence": "medium",
+      "manuallyEntered": true,
+      "verified": false,
+      "assumed": false
+    },
+    "targetMonthlyPlan": {
+      "value": 800000,
+      "source": "owner_provided_profile_parameter",
+      "sourceType": "manual",
+      "asOf": "2026-07-19",
+      "confidence": "medium",
+      "manuallyEntered": true,
+      "verified": false,
+      "assumed": false
+    },
+    "forecastRevenue": {
+      "value": null,
+      "source": null,
+      "sourceType": null,
+      "asOf": null,
+      "confidence": "unknown",
+      "manuallyEntered": false,
+      "verified": false,
+      "assumed": false
+    },
+    "actualRevenueToDate": {
+      "value": null,
+      "source": null,
+      "sourceType": null,
+      "asOf": null,
+      "confidence": "unknown",
+      "manuallyEntered": false,
+      "verified": false,
+      "assumed": false
+    }
+  },
+  "cash": {
+    "currentCashBalance": {
+      "value": null,
+      "source": null,
+      "sourceType": null,
+      "asOf": null,
+      "confidence": "unknown",
+      "manuallyEntered": false,
+      "verified": false,
+      "assumed": false
+    },
+    "expectedCashInflows": {
+      "value": null,
+      "items": null,
+      "source": null,
+      "sourceType": null,
+      "asOf": null,
+      "confidence": "unknown",
+      "manuallyEntered": false,
+      "verified": false,
+      "assumed": false
+    }
+  },
+  "mandatoryExpenses": {
+    "declaredComplete": {
+      "value": null,
+      "source": null,
+      "sourceType": null,
+      "asOf": null,
+      "confidence": "unknown",
+      "manuallyEntered": false,
+      "verified": false,
+      "assumed": false
+    },
+    "knownPlanningBaseline": {
+      "value": 190000,
+      "calculation": "rent 70000 + payroll default 85000 + taxes 35000",
+      "status": "provisional_pending_sergey_completeness_verification",
+      "source": "owner_provided_profile_parameters",
+      "sourceType": "derived",
+      "asOf": "2026-07-19",
+      "confidence": "medium",
+      "manuallyEntered": false,
+      "verified": false,
+      "assumed": false
+    },
+    "items": [
+      {
+        "code": "rent",
+        "name": "Rent",
+        "category": "rent",
+        "mandatoryThisMonth": true,
+        "plannedAmount": 70000,
+        "configuredRange": null,
+        "paidAmount": null,
+        "unpaidAmount": null,
+        "dueDate": null,
+        "paymentStatus": "unknown",
+        "source": "owner_provided_profile_parameter",
+        "sourceType": "manual",
+        "asOf": "2026-07-19",
+        "confidence": "medium",
+        "manuallyEntered": true,
+        "verified": false,
+        "assumed": false
+      },
+      {
+        "code": "payroll",
+        "name": "Payroll",
+        "category": "payroll",
+        "mandatoryThisMonth": true,
+        "plannedAmount": 85000,
+        "configuredRange": {
+          "minimum": null,
+          "default": 85000,
+          "maximum": null
+        },
+        "paidAmount": null,
+        "unpaidAmount": null,
+        "dueDate": null,
+        "paymentStatus": "unknown",
+        "source": "owner_provided_profile_parameter",
+        "sourceType": "manual",
+        "asOf": "2026-07-19",
+        "confidence": "medium",
+        "manuallyEntered": true,
+        "verified": false,
+        "assumed": false
+      },
+      {
+        "code": "taxes",
+        "name": "Taxes",
+        "category": "taxes",
+        "mandatoryThisMonth": true,
+        "plannedAmount": 35000,
+        "configuredRange": null,
+        "paidAmount": null,
+        "unpaidAmount": null,
+        "dueDate": null,
+        "paymentStatus": "unknown",
+        "source": "owner_provided_profile_parameter",
+        "sourceType": "manual",
+        "asOf": "2026-07-19",
+        "confidence": "medium",
+        "manuallyEntered": true,
+        "verified": false,
+        "assumed": false
+      },
+      {
+        "code": "utilities",
+        "name": "Utilities",
+        "category": "utilities",
+        "mandatoryThisMonth": null,
+        "plannedAmount": null,
+        "configuredRange": null,
+        "paidAmount": null,
+        "unpaidAmount": null,
+        "dueDate": null,
+        "paymentStatus": "unknown",
+        "source": null,
+        "sourceType": null,
+        "asOf": null,
+        "confidence": "unknown",
+        "manuallyEntered": false,
+        "verified": false,
+        "assumed": false
+      },
+      {
+        "code": "acquiring_fees",
+        "name": "Acquiring fees",
+        "category": "acquiring_fees",
+        "mandatoryThisMonth": null,
+        "plannedAmount": null,
+        "configuredRange": null,
+        "paidAmount": null,
+        "unpaidAmount": null,
+        "dueDate": null,
+        "paymentStatus": "unknown",
+        "source": null,
+        "sourceType": null,
+        "asOf": null,
+        "confidence": "unknown",
+        "manuallyEntered": false,
+        "verified": false,
+        "assumed": false
+      },
+      {
+        "code": "loan_payments",
+        "name": "Loan payments",
+        "category": "loan_payments",
+        "mandatoryThisMonth": null,
+        "plannedAmount": null,
+        "configuredRange": null,
+        "paidAmount": null,
+        "unpaidAmount": null,
+        "dueDate": null,
+        "paymentStatus": "unknown",
+        "source": null,
+        "sourceType": null,
+        "asOf": null,
+        "confidence": "unknown",
+        "manuallyEntered": false,
+        "verified": false,
+        "assumed": false
+      },
+      {
+        "code": "other_fixed_costs",
+        "name": "Other fixed costs",
+        "category": "other_fixed_costs",
+        "mandatoryThisMonth": null,
+        "plannedAmount": null,
+        "configuredRange": null,
+        "paidAmount": null,
+        "unpaidAmount": null,
+        "dueDate": null,
+        "paymentStatus": "unknown",
+        "source": null,
+        "sourceType": null,
+        "asOf": null,
+        "confidence": "unknown",
+        "manuallyEntered": false,
+        "verified": false,
+        "assumed": false
+      }
+    ],
+    "alreadyPaidExpenses": {
+      "value": null,
+      "source": null,
+      "sourceType": null,
+      "asOf": null,
+      "confidence": "unknown",
+      "manuallyEntered": false,
+      "verified": false,
+      "assumed": false
+    },
+    "unpaidMandatoryExpenses": {
+      "value": null,
+      "source": null,
+      "sourceType": null,
+      "asOf": null,
+      "confidence": "unknown",
+      "manuallyEntered": false,
+      "verified": false,
+      "assumed": false
+    }
+  },
+  "supplierCommitments": {
+    "existingApprovedSupplierPayments": {
+      "value": null,
+      "items": null,
+      "source": null,
+      "sourceType": null,
+      "asOf": null,
+      "confidence": "unknown",
+      "manuallyEntered": false,
+      "verified": false,
+      "assumed": false
+    },
+    "currentMonthPurchasesAlreadyCommitted": {
+      "value": null,
+      "source": null,
+      "sourceType": null,
+      "asOf": null,
+      "confidence": "unknown",
+      "manuallyEntered": false,
+      "verified": false,
+      "assumed": false
+    }
+  },
+  "purchasingHistory": {
+    "monthlyValues": null,
+    "averageMonthlyPurchasingSpend": {
+      "value": null,
+      "source": null,
+      "sourceType": null,
+      "asOf": null,
+      "confidence": "unknown",
+      "manuallyEntered": false,
+      "verified": false,
+      "assumed": false
+    },
+    "averagePurchasingSpendWindowMonths": 6,
+    "planningBaselineMethod": "median_latest_six_completed_months",
+    "trimmedMean": {
+      "enabled": true,
+      "tailFraction": 0.1,
+      "minimumMonths": 6
+    },
+    "weightedRecentAverage": {
+      "enabledForDiagnostics": true,
+      "weightsNewestToOldest": [0.3, 0.25, 0.18, 0.12, 0.09, 0.06]
+    }
+  },
+  "liquidity": {
+    "minimumLiquidityReserve": {
+      "value": null,
+      "source": null,
+      "sourceType": null,
+      "asOf": null,
+      "confidence": "unknown",
+      "manuallyEntered": false,
+      "verified": false,
+      "assumed": false
+    },
+    "desiredLiquidityReserve": {
+      "value": null,
+      "source": null,
+      "sourceType": null,
+      "asOf": null,
+      "confidence": "unknown",
+      "manuallyEntered": false,
+      "verified": false,
+      "assumed": false
+    },
+    "orderConsumesMostCashThreshold": null
+  },
+  "purchasingPolicy": {
+    "maximumPurchasingShareOfForecastRevenue": {
+      "value": null,
+      "source": null,
+      "sourceType": null,
+      "asOf": null,
+      "confidence": "unknown",
+      "manuallyEntered": false,
+      "verified": false,
+      "assumed": false
+    },
+    "defaultFinancialMode": "working",
+    "allowedModes": ["minimum", "working", "aggressive"],
+    "purchaseFrequency": {
+      "cadence": null,
+      "expectedNextSupplierOrderDate": null,
+      "source": null,
+      "sourceType": null,
+      "asOf": null,
+      "confidence": "unknown",
+      "manuallyEntered": false,
+      "verified": false,
+      "assumed": false
+    },
+    "paymentTerms": {
+      "value": null,
+      "bySupplier": null,
+      "source": null,
+      "sourceType": null,
+      "asOf": null,
+      "confidence": "unknown",
+      "manuallyEntered": false,
+      "verified": false,
+      "assumed": false
+    }
+  },
+  "monthlyPurchasingPlan": {
+    "openingPurchasingBudget": null,
+    "purchasesAlreadyCommitted": null,
+    "currentProposedOrder": null,
+    "remainingBudget": null,
+    "plannedReserveForNextOrder": null,
+    "supplierBudgets": [
+      { "supplier": "Valta", "budget": null },
+      { "supplier": "Zoograd", "budget": null },
+      { "supplier": "Pet Products", "budget": null },
+      { "supplier": "Onikienko", "budget": null },
+      { "supplier": "Arkon", "budget": null },
+      { "supplier": "Japanese suppliers", "budget": null },
+      { "supplier": "other", "budget": null }
+    ],
+    "categoryBudgets": [],
+    "monthEndLiquidityForecast": null
+  },
+  "dataFreshness": {
+    "profileAsOf": "2026-07-19",
+    "lastFinancialRefreshAt": null,
+    "maximumAgeDays": {
+      "cashBalance": 1,
+      "mandatoryExpenses": 7,
+      "supplierCommitments": 1,
+      "revenueForecast": 7,
+      "purchasingHistory": 35
+    }
+  },
+  "manualOverrides": {
+    "active": false,
+    "targetField": null,
+    "overrideValue": null,
+    "reason": null,
+    "requestedBy": null,
+    "approvedBy": null,
+    "approvedAt": null,
+    "expiresAt": null
+  }
+}
