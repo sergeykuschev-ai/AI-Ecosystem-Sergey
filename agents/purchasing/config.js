@@ -102,9 +102,42 @@ const DEMAND_ENGINE_CONFIG = Object.freeze({
   }),
 });
 
+const MISKA_FINANCIAL_CONTROLLER_CONFIG = Object.freeze({
+  version: 'financial-controller-v1',
+  store_profile: 'miska',
+  currency: 'RUB',
+  warning_reserve_surplus: 30000,
+  defaults: Object.freeze({
+    cash_balance: 118000,
+    bank_balance: 300000,
+    expected_revenue: 685899,
+    fixed_expenses: Object.freeze({
+      rent: 60000,
+      payroll: 75000,
+      taxes: 39750,
+    }),
+    acquiring_rate: 0.025,
+    supplier_debt: 0,
+    committed_supplier_payments: 0,
+    minimum_reserve: 100000,
+  }),
+  historical_reference: Object.freeze({
+    period: '2026-01_to_2026-06',
+    average_revenue: 685899,
+    median_revenue: 675759,
+    average_purchasing_spend: 347444,
+    median_purchasing_spend: 362179,
+    working_purchasing_range: Object.freeze({
+      minimum: 362000,
+      maximum: 379000,
+    }),
+  }),
+});
+
 module.exports = {
   DELIVERY_THRESHOLD,
   EXPENSIVE_ROWS_LIMIT,
   DECISION_ENGINE_CONFIG,
   DEMAND_ENGINE_CONFIG,
+  MISKA_FINANCIAL_CONTROLLER_CONFIG,
 };

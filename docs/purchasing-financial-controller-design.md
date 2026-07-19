@@ -1,6 +1,8 @@
 # Purchasing Financial Controller — Miska Design
 
-Status: design proposal only. No runtime implementation exists in this change.
+Status: the local cash-and-reserve controller described below is implemented as
+`financial-controller-v1`. The broader planning architecture remains a future
+design.
 
 ## A. Objective
 
@@ -18,6 +20,62 @@ The controller evaluates facts and proposed order totals. It does not select
 products, recalculate demand, alter Phase 1 or Phase 2 decisions, or submit a
 purchase order.
 
+### Implemented v1 boundary
+
+The independent runtime module is
+`agents/purchasing/services/financial_controller.js`. It is deliberately not
+imported by `order_agent.js`, so existing Purchasing Agent entry points,
+product calculations, workflow statuses, and order quantities remain
+unchanged.
+
+The v1 public input uses the approved flat local contract:
+
+```json
+{
+  "cash_balance": 118000,
+  "bank_balance": 300000,
+  "expected_revenue": 685899,
+  "fixed_expenses": {
+    "rent": 60000,
+    "payroll": 75000,
+    "taxes": 39750
+  },
+  "acquiring_rate": 0.025,
+  "supplier_debt": 0,
+  "committed_supplier_payments": 0,
+  "minimum_reserve": 100000,
+  "proposed_order_amount": 103389.40
+}
+```
+
+`fixed_expenses` may also be an array of `{ "name", "amount" }` objects. Every
+present amount must be finite and non-negative. Missing critical fields remain
+`null` in dependent results and produce `PRELIMINARY`; invalid present values
+fail validation.
+
+The module exports:
+
+- `evaluateFinancialPurchase(input, options)` for the generic flat contract;
+- `buildMiskaFinancialInput(orderAmount, overrides)` to copy Miska defaults;
+- `evaluateMiskaPurchase(orderAmount, overrides)` as the local convenience
+  entry point;
+- `buildFinancialPurchaseReport(result)` for the complete Russian report.
+
+Local usage:
+
+```js
+const {
+  evaluateMiskaPurchase,
+  buildFinancialPurchaseReport,
+} = require('./agents/purchasing/services/financial_controller');
+
+const result = evaluateMiskaPurchase(103389.40);
+const report = buildFinancialPurchaseReport(result);
+```
+
+This call has no external side effects. It does not read 1C, a bank, an API, or
+n8n and does not submit payment or supplier-order data.
+
 ### Proposed architecture
 
 ```mermaid
@@ -34,7 +92,8 @@ flowchart LR
   R --> U["Human review / future n8n orchestration"]
 ```
 
-Proposed future services, not files created by this design change:
+The implemented v1 service covers validation, the cash-and-reserve calculation,
+decision status, and Russian reporting. Broader future services remain:
 
 - a financial-profile validator;
 - a historical purchasing baseline calculator;
@@ -43,7 +102,7 @@ Proposed future services, not files created by this design change:
 - a scenario evaluator and approval policy;
 - a formatter for JSON and readable reports.
 
-The future public function should accept plain serializable objects and remain
+The broader future public function should accept plain serializable objects and remain
 independently callable without n8n. A possible contract is:
 
 ```text
@@ -99,7 +158,7 @@ The versioned profile contains:
 - currency;
 - minimum and target monthly revenue plans;
 - forecast monthly revenue and actual revenue to date;
-- current cash balance;
+- cash balance and bank balance available to the model;
 - confirmed expected cash inflows;
 - named mandatory expenses;
 - already paid expenses and unpaid mandatory expenses;
@@ -133,10 +192,9 @@ item supports:
 
 The controller may calculate total unpaid mandatory expenses from items only
 when the expense list is declared complete and every required item has a known
-amount. It must not infer a complete total from the currently known rent,
-payroll, and tax baseline alone. The current 190,000 RUB baseline is
-provisional until Sergey verifies that the mandatory-expense schedule is
-complete.
+amount. For Miska v1 the approved fixed-expense total is 174,750 RUB: rent
+60,000 RUB, payroll 75,000 RUB, and taxes 39,750 RUB. Acquiring is variable and
+is added separately as 2.5% of expected revenue.
 
 ### Purchasing scenarios
 
@@ -162,7 +220,14 @@ the same validation and include traceable line sums.
 
 ## D. Data confidence
 
-Every financial input uses an evidence envelope:
+The implemented v1 flat contract treats all nine fields as critical. Missing
+fields produce `PRELIMINARY`, list `missing_critical_fields`, and leave every
+dependent calculation `null`. It never substitutes defaults inside the generic
+evaluator. Miska defaults are applied only by the explicitly selected
+`buildMiskaFinancialInput` or `evaluateMiskaPurchase` helper, and explicit
+`null` overrides remain `null`.
+
+The broader future financial profile uses an evidence envelope:
 
 ```json
 {
@@ -181,7 +246,7 @@ Allowed confidence levels are `high`, `medium`, `low`, and `unknown`. Proposed
 source types are `bank`, `1c`, `payment_calendar`, `invoice`, `analytics`,
 `manual`, and `derived`.
 
-### Critical inputs
+### Future extended critical inputs
 
 These inputs are required for a final `affordable: yes` decision:
 
@@ -228,7 +293,56 @@ inventory-opportunity justification are critical for aggressive mode.
 
 Let all amounts refer to the same current month and currency.
 
-### A. Cash-based capacity
+### Implemented v1 formulas
+
+```text
+total_available_cash =
+  cash_balance + bank_balance
+
+estimated_acquiring =
+  expected_revenue × acquiring_rate
+
+total_mandatory_expenses =
+  sum(fixed_expenses) + estimated_acquiring
+
+available_after_expenses =
+  total_available_cash
+  - total_mandatory_expenses
+  - supplier_debt
+  - committed_supplier_payments
+
+available_after_order =
+  available_after_expenses - proposed_order_amount
+
+reserve_surplus =
+  available_after_order - minimum_reserve
+
+maximum_safe_order_amount =
+  total_available_cash
+  - total_mandatory_expenses
+  - supplier_debt
+  - committed_supplier_payments
+  - minimum_reserve
+```
+
+Calculations retain full precision internally. All returned monetary fields are
+rounded to two decimal places at the result boundary, with exact half-cent
+values rounded away from zero.
+
+Decision precedence makes every required status operationally distinct:
+
+1. `PRELIMINARY` when any critical input is missing.
+2. `REJECTED` when `available_after_order < 0`.
+3. `MANUAL_APPROVAL_REQUIRED` when liquidity is non-negative but
+   `reserve_surplus < 0`.
+4. `APPROVED_WITH_WARNING` when `0 <= reserve_surplus < 30000` RUB.
+5. `APPROVED` when `reserve_surplus >= 30000` RUB.
+
+This precedence resolves the overlap between manual review and rejection:
+reserve breach with positive liquidity may be reviewed manually, while
+negative liquidity is rejected. Neither status changes the order itself.
+
+### Future A. Extended cash-based capacity
 
 ```text
 cashBasedCapacity =
@@ -400,6 +514,10 @@ month. It is subtracted after the baseline is selected.
 
 ## G. Three budget modes
 
+The following modes remain future planning design. V1 never activates
+aggressive mode and always returns
+`automatic_aggressive_mode_allowed: false`.
+
 | Mode | Eligibility | Financial ceiling | Purchasing categories | Approval | Risk and wording |
 | --- | --- | --- | --- | --- | --- |
 | Minimum | Cash and expense data complete; reserve protected | Minimum of safe budget and capacity preserving desired reserve when configured | Existing `must_buy`, strategic ABC A, and non-speculative necessities | Normal human purchasing approval; no automatic submission | Low/medium. “Cash-protective minimum order.” |
@@ -412,6 +530,10 @@ mode, the controller flags incompatibility and requests a separately prepared
 scenario from the Purchasing Agent or user.
 
 ## H. Scenario evaluation
+
+The multi-scenario structure below remains the future controller contract. V1
+evaluates one supplied `proposed_order_amount` at a time and can be called
+independently for each existing scenario.
 
 Each scenario result contains:
 
@@ -664,10 +786,10 @@ Sergey must confirm or supply:
 13. Supplier and category budget ownership.
 14. Definition of an overdue mandatory payment and who may override it.
 15. Approval authority for minimum, working, and aggressive modes.
-16. Whether payroll has a known minimum and maximum around the 85,000 RUB
-    default.
-17. Which utilities, acquiring fees, loans, and other fixed costs apply to
-    Miska and whether the 190,000 RUB baseline is complete or partial.
+16. Whether the approved 75,000 RUB payroll value should later become a
+    configurable minimum/default/maximum range.
+17. Whether utilities, loan payments, or other fixed costs should be added to a
+    later profile beyond the currently approved v1 expense list.
 
 ## O. Recommended implementation phases
 

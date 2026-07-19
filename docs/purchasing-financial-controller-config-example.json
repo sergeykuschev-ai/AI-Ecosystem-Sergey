@@ -1,407 +1,65 @@
 {
-  "schemaVersion": "purchasing-financial-profile-v1",
-  "storeProfile": {
-    "storeId": "miska",
-    "storeName": "Miska",
-    "purchasingProfile": "miska",
-    "currency": "RUB",
-    "timezone": "Asia/Vladivostok"
+  "schema_version": "purchasing-financial-controller-input-v1",
+  "store_profile": "miska",
+  "currency": "RUB",
+  "profile_status": "approved_manual_profile_v1",
+  "as_of": "2026-07-19",
+  "input": {
+    "cash_balance": 118000,
+    "bank_balance": 300000,
+    "expected_revenue": 685899,
+    "fixed_expenses": {
+      "rent": 60000,
+      "payroll": 75000,
+      "taxes": 39750
+    },
+    "acquiring_rate": 0.025,
+    "supplier_debt": 0,
+    "committed_supplier_payments": 0,
+    "minimum_reserve": 100000,
+    "proposed_order_amount": 103389.4
   },
-  "currentMonth": {
-    "startDate": "2026-07-01",
-    "endDate": "2026-07-31"
+  "input_provenance": {
+    "source": "owner_approved_miska_financial_parameters",
+    "source_type": "manual",
+    "confidence": "medium",
+    "verified_by_owner": true,
+    "assumed": false,
+    "notes": [
+      "expected_revenue uses the approved January-June 2026 average revenue",
+      "supplier debt and committed supplier payments are confirmed zero",
+      "supplier payments are settled within the same month",
+      "no overdue or deferred supplier obligations are included"
+    ]
   },
-  "revenue": {
-    "minimumMonthlyPlan": {
-      "value": 750000,
-      "source": "owner_provided_profile_parameter",
-      "sourceType": "manual",
-      "asOf": "2026-07-19",
-      "confidence": "medium",
-      "manuallyEntered": true,
-      "verified": false,
-      "assumed": false
-    },
-    "targetMonthlyPlan": {
-      "value": 800000,
-      "source": "owner_provided_profile_parameter",
-      "sourceType": "manual",
-      "asOf": "2026-07-19",
-      "confidence": "medium",
-      "manuallyEntered": true,
-      "verified": false,
-      "assumed": false
-    },
-    "forecastRevenue": {
-      "value": null,
-      "source": null,
-      "sourceType": null,
-      "asOf": null,
-      "confidence": "unknown",
-      "manuallyEntered": false,
-      "verified": false,
-      "assumed": false
-    },
-    "actualRevenueToDate": {
-      "value": null,
-      "source": null,
-      "sourceType": null,
-      "asOf": null,
-      "confidence": "unknown",
-      "manuallyEntered": false,
-      "verified": false,
-      "assumed": false
-    }
+  "controller_policy": {
+    "warning_reserve_surplus": 30000,
+    "automatic_aggressive_mode_allowed": false,
+    "changes_order_composition": false,
+    "external_integrations_enabled": false
   },
-  "cash": {
-    "currentCashBalance": {
-      "value": null,
-      "source": null,
-      "sourceType": null,
-      "asOf": null,
-      "confidence": "unknown",
-      "manuallyEntered": false,
-      "verified": false,
-      "assumed": false
+  "historical_reference": {
+    "period": "2026-01_to_2026-06",
+    "monthly_values": null,
+    "average_revenue": 685899,
+    "median_revenue": 675759,
+    "average_purchasing_spend": 347444,
+    "median_purchasing_spend": 362179,
+    "working_purchasing_range": {
+      "minimum": 362000,
+      "maximum": 379000
     },
-    "expectedCashInflows": {
-      "value": null,
-      "items": null,
-      "source": null,
-      "sourceType": null,
-      "asOf": null,
-      "confidence": "unknown",
-      "manuallyEntered": false,
-      "verified": false,
-      "assumed": false
-    }
+    "calculation_note": "Raw monthly values were not supplied and are not fabricated. These aggregates are reference metadata and do not change the v1 cash-reserve formula."
   },
-  "mandatoryExpenses": {
-    "declaredComplete": {
-      "value": null,
-      "source": null,
-      "sourceType": null,
-      "asOf": null,
-      "confidence": "unknown",
-      "manuallyEntered": false,
-      "verified": false,
-      "assumed": false
-    },
-    "knownPlanningBaseline": {
-      "value": 190000,
-      "calculation": "rent 70000 + payroll default 85000 + taxes 35000",
-      "status": "provisional_pending_sergey_completeness_verification",
-      "source": "owner_provided_profile_parameters",
-      "sourceType": "derived",
-      "asOf": "2026-07-19",
-      "confidence": "medium",
-      "manuallyEntered": false,
-      "verified": false,
-      "assumed": false
-    },
-    "items": [
-      {
-        "code": "rent",
-        "name": "Rent",
-        "category": "rent",
-        "mandatoryThisMonth": true,
-        "plannedAmount": 70000,
-        "configuredRange": null,
-        "paidAmount": null,
-        "unpaidAmount": null,
-        "dueDate": null,
-        "paymentStatus": "unknown",
-        "source": "owner_provided_profile_parameter",
-        "sourceType": "manual",
-        "asOf": "2026-07-19",
-        "confidence": "medium",
-        "manuallyEntered": true,
-        "verified": false,
-        "assumed": false
-      },
-      {
-        "code": "payroll",
-        "name": "Payroll",
-        "category": "payroll",
-        "mandatoryThisMonth": true,
-        "plannedAmount": 85000,
-        "configuredRange": {
-          "minimum": null,
-          "default": 85000,
-          "maximum": null
-        },
-        "paidAmount": null,
-        "unpaidAmount": null,
-        "dueDate": null,
-        "paymentStatus": "unknown",
-        "source": "owner_provided_profile_parameter",
-        "sourceType": "manual",
-        "asOf": "2026-07-19",
-        "confidence": "medium",
-        "manuallyEntered": true,
-        "verified": false,
-        "assumed": false
-      },
-      {
-        "code": "taxes",
-        "name": "Taxes",
-        "category": "taxes",
-        "mandatoryThisMonth": true,
-        "plannedAmount": 35000,
-        "configuredRange": null,
-        "paidAmount": null,
-        "unpaidAmount": null,
-        "dueDate": null,
-        "paymentStatus": "unknown",
-        "source": "owner_provided_profile_parameter",
-        "sourceType": "manual",
-        "asOf": "2026-07-19",
-        "confidence": "medium",
-        "manuallyEntered": true,
-        "verified": false,
-        "assumed": false
-      },
-      {
-        "code": "utilities",
-        "name": "Utilities",
-        "category": "utilities",
-        "mandatoryThisMonth": null,
-        "plannedAmount": null,
-        "configuredRange": null,
-        "paidAmount": null,
-        "unpaidAmount": null,
-        "dueDate": null,
-        "paymentStatus": "unknown",
-        "source": null,
-        "sourceType": null,
-        "asOf": null,
-        "confidence": "unknown",
-        "manuallyEntered": false,
-        "verified": false,
-        "assumed": false
-      },
-      {
-        "code": "acquiring_fees",
-        "name": "Acquiring fees",
-        "category": "acquiring_fees",
-        "mandatoryThisMonth": null,
-        "plannedAmount": null,
-        "configuredRange": null,
-        "paidAmount": null,
-        "unpaidAmount": null,
-        "dueDate": null,
-        "paymentStatus": "unknown",
-        "source": null,
-        "sourceType": null,
-        "asOf": null,
-        "confidence": "unknown",
-        "manuallyEntered": false,
-        "verified": false,
-        "assumed": false
-      },
-      {
-        "code": "loan_payments",
-        "name": "Loan payments",
-        "category": "loan_payments",
-        "mandatoryThisMonth": null,
-        "plannedAmount": null,
-        "configuredRange": null,
-        "paidAmount": null,
-        "unpaidAmount": null,
-        "dueDate": null,
-        "paymentStatus": "unknown",
-        "source": null,
-        "sourceType": null,
-        "asOf": null,
-        "confidence": "unknown",
-        "manuallyEntered": false,
-        "verified": false,
-        "assumed": false
-      },
-      {
-        "code": "other_fixed_costs",
-        "name": "Other fixed costs",
-        "category": "other_fixed_costs",
-        "mandatoryThisMonth": null,
-        "plannedAmount": null,
-        "configuredRange": null,
-        "paidAmount": null,
-        "unpaidAmount": null,
-        "dueDate": null,
-        "paymentStatus": "unknown",
-        "source": null,
-        "sourceType": null,
-        "asOf": null,
-        "confidence": "unknown",
-        "manuallyEntered": false,
-        "verified": false,
-        "assumed": false
-      }
-    ],
-    "alreadyPaidExpenses": {
-      "value": null,
-      "source": null,
-      "sourceType": null,
-      "asOf": null,
-      "confidence": "unknown",
-      "manuallyEntered": false,
-      "verified": false,
-      "assumed": false
-    },
-    "unpaidMandatoryExpenses": {
-      "value": null,
-      "source": null,
-      "sourceType": null,
-      "asOf": null,
-      "confidence": "unknown",
-      "manuallyEntered": false,
-      "verified": false,
-      "assumed": false
-    }
-  },
-  "supplierCommitments": {
-    "existingApprovedSupplierPayments": {
-      "value": null,
-      "items": null,
-      "source": null,
-      "sourceType": null,
-      "asOf": null,
-      "confidence": "unknown",
-      "manuallyEntered": false,
-      "verified": false,
-      "assumed": false
-    },
-    "currentMonthPurchasesAlreadyCommitted": {
-      "value": null,
-      "source": null,
-      "sourceType": null,
-      "asOf": null,
-      "confidence": "unknown",
-      "manuallyEntered": false,
-      "verified": false,
-      "assumed": false
-    }
-  },
-  "purchasingHistory": {
-    "monthlyValues": null,
-    "averageMonthlyPurchasingSpend": {
-      "value": null,
-      "source": null,
-      "sourceType": null,
-      "asOf": null,
-      "confidence": "unknown",
-      "manuallyEntered": false,
-      "verified": false,
-      "assumed": false
-    },
-    "averagePurchasingSpendWindowMonths": 6,
-    "planningBaselineMethod": "median_latest_six_completed_months",
-    "trimmedMean": {
-      "enabled": true,
-      "tailFraction": 0.1,
-      "minimumMonths": 6
-    },
-    "weightedRecentAverage": {
-      "enabledForDiagnostics": true,
-      "weightsNewestToOldest": [0.3, 0.25, 0.18, 0.12, 0.09, 0.06]
-    }
-  },
-  "liquidity": {
-    "minimumLiquidityReserve": {
-      "value": null,
-      "source": null,
-      "sourceType": null,
-      "asOf": null,
-      "confidence": "unknown",
-      "manuallyEntered": false,
-      "verified": false,
-      "assumed": false
-    },
-    "desiredLiquidityReserve": {
-      "value": null,
-      "source": null,
-      "sourceType": null,
-      "asOf": null,
-      "confidence": "unknown",
-      "manuallyEntered": false,
-      "verified": false,
-      "assumed": false
-    },
-    "orderConsumesMostCashThreshold": null
-  },
-  "purchasingPolicy": {
-    "maximumPurchasingShareOfForecastRevenue": {
-      "value": null,
-      "source": null,
-      "sourceType": null,
-      "asOf": null,
-      "confidence": "unknown",
-      "manuallyEntered": false,
-      "verified": false,
-      "assumed": false
-    },
-    "defaultFinancialMode": "working",
-    "allowedModes": ["minimum", "working", "aggressive"],
-    "purchaseFrequency": {
-      "cadence": null,
-      "expectedNextSupplierOrderDate": null,
-      "source": null,
-      "sourceType": null,
-      "asOf": null,
-      "confidence": "unknown",
-      "manuallyEntered": false,
-      "verified": false,
-      "assumed": false
-    },
-    "paymentTerms": {
-      "value": null,
-      "bySupplier": null,
-      "source": null,
-      "sourceType": null,
-      "asOf": null,
-      "confidence": "unknown",
-      "manuallyEntered": false,
-      "verified": false,
-      "assumed": false
-    }
-  },
-  "monthlyPurchasingPlan": {
-    "openingPurchasingBudget": null,
-    "purchasesAlreadyCommitted": null,
-    "currentProposedOrder": null,
-    "remainingBudget": null,
-    "plannedReserveForNextOrder": null,
-    "supplierBudgets": [
-      { "supplier": "Valta", "budget": null },
-      { "supplier": "Zoograd", "budget": null },
-      { "supplier": "Pet Products", "budget": null },
-      { "supplier": "Onikienko", "budget": null },
-      { "supplier": "Arkon", "budget": null },
-      { "supplier": "Japanese suppliers", "budget": null },
-      { "supplier": "other", "budget": null }
-    ],
-    "categoryBudgets": [],
-    "monthEndLiquidityForecast": null
-  },
-  "dataFreshness": {
-    "profileAsOf": "2026-07-19",
-    "lastFinancialRefreshAt": null,
-    "maximumAgeDays": {
-      "cashBalance": 1,
-      "mandatoryExpenses": 7,
-      "supplierCommitments": 1,
-      "revenueForecast": 7,
-      "purchasingHistory": 35
-    }
-  },
-  "manualOverrides": {
-    "active": false,
-    "targetField": null,
-    "overrideValue": null,
-    "reason": null,
-    "requestedBy": null,
-    "approvedBy": null,
-    "approvedAt": null,
-    "expiresAt": null
+  "expected_result": {
+    "status": "APPROVED_WITH_WARNING",
+    "total_available_cash": 418000,
+    "fixed_expenses_total": 174750,
+    "estimated_acquiring": 17147.48,
+    "total_mandatory_expenses": 191897.48,
+    "available_after_expenses": 226102.53,
+    "available_after_order": 122713.13,
+    "reserve_surplus": 22713.13,
+    "maximum_safe_order_amount": 126102.53
   }
 }
