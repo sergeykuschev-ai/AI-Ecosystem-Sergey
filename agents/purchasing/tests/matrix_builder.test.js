@@ -180,7 +180,7 @@ function existingMatch(overrides = {}) {
 }
 
 test('loads the versioned conservative Miska Matrix Builder configuration', () => {
-  assert.equal(CONFIG.version, 'miska-matrix-builder-v0.5.2');
+  assert.equal(CONFIG.version, 'miska-matrix-builder-v0.5.3');
   assert.equal(CONFIG.core_policy.minimum_completed_weeks, 8);
   assert.equal(CONFIG.stock_policy.preferred_weeks, 12);
   assert.equal(CONFIG.owner_review_policy.max_owner_action_items, 30);
@@ -777,6 +777,7 @@ test('CLI dry-run creates no output directory', async () => {
   const result = await runMatrixBuilderCli([
     '--input', SYNTHETIC_XLSX,
     '--output-dir', outputRoot,
+    '--owner-decisions', path.join(TEMP_DIRECTORY, 'missing-owner-decisions.json'),
     '--report-date', '2026-07-19',
     '--dry-run',
   ], { output: () => {}, currentDate: '2026-07-20T10:11:12.000Z' });
@@ -809,17 +810,24 @@ test('CLI writes Matrix Builder files and the Owner Review Dashboard', async () 
   const ownerReview = JSON.parse(fs.readFileSync(
     path.join(result.runDirectory, 'owner-review.json'), 'utf8'
   ));
-  assert.equal(ownerReview.report_version, 'owner-review-v0.5.2');
+  assert.equal(ownerReview.report_version, 'owner-review-v0.5.3');
+  assert.equal(ownerReview.owner_decisions.records_loaded, 0);
   assert.ok(ownerReview.items.every(item =>
     Number.isFinite(item.owner_review_score) &&
     typeof item.owner_review_priority === 'string' &&
-    Array.isArray(item.owner_review_reasons)
+    Array.isArray(item.owner_review_reasons) &&
+    typeof item.owner_decision_status === 'string' &&
+    typeof item.owner_decision_applied === 'boolean' &&
+    typeof item.owner_decision_conflict === 'boolean' &&
+    (item.owner_decision_summary === null ||
+      typeof item.owner_decision_summary === 'string')
   ));
   const metadata = JSON.parse(fs.readFileSync(
     path.join(result.runDirectory, 'run-metadata.json'), 'utf8'
   ));
   assert.equal(metadata.input.sku_count, 6);
   assert.equal(metadata.configuration.version, CONFIG.version);
+  assert.equal(metadata.owner_decisions.summary.records_loaded, 0);
   assert.equal(metadata.dry_run, false);
 });
 

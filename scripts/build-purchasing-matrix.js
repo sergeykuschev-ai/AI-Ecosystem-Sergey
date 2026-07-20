@@ -12,6 +12,10 @@ const {
   buildOwnerReviewReport,
 } = require('../agents/purchasing/matrix_builder/owner_review_dashboard');
 const {
+  applyOwnerDecisions,
+  loadOwnerDecisions,
+} = require('../agents/purchasing/matrix_builder/owner_decisions');
+const {
   localDateParts,
   optionalSha256File,
   safeWriteRunFiles,
@@ -24,6 +28,10 @@ const REPOSITORY_ROOT = path.resolve(__dirname, '..');
 const DEFAULT_OUTPUT_DIRECTORY = path.join(
   REPOSITORY_ROOT,
   'output/purchasing-matrix'
+);
+const DEFAULT_OWNER_DECISIONS_PATH = path.join(
+  REPOSITORY_ROOT,
+  'data/purchasing/miska-owner-decisions.json'
 );
 
 class MatrixBuilderCliError extends Error {
@@ -67,6 +75,7 @@ function parseArguments(argv) {
     inputPath: null,
     outputDirectory: DEFAULT_OUTPUT_DIRECTORY,
     existingMatrixPath: null,
+    ownerDecisionsPath: DEFAULT_OWNER_DECISIONS_PATH,
     configPath: DEFAULT_MATRIX_BUILDER_CONFIG_PATH,
     reportDate: null,
     dryRun: false,
@@ -81,6 +90,7 @@ function parseArguments(argv) {
       '--input',
       '--output-dir',
       '--existing-matrix',
+      '--owner-decisions',
       '--config',
       '--report-date',
     ].includes(argument)) {
@@ -91,6 +101,8 @@ function parseArguments(argv) {
         parsed.outputDirectory = path.resolve(value);
       } else if (argument === '--existing-matrix') {
         parsed.existingMatrixPath = path.resolve(value);
+      } else if (argument === '--owner-decisions') {
+        parsed.ownerDecisionsPath = path.resolve(value);
       } else if (argument === '--config') {
         parsed.configPath = path.resolve(value);
       } else {
@@ -124,6 +136,7 @@ function helpText() {
     '  --input <путь>             Входной SmartZapas .xlsx или .xls',
     '  --output-dir <путь>        Корневая папка результатов',
     '  --existing-matrix <путь>   Действующая матрица; её значения сохраняются',
+    '  --owner-decisions <путь>   История решений владельца; отсутствие допустимо',
     '  --config <путь>            Конфигурация правил Matrix Builder',
     '  --report-date <YYYY-MM-DD> Явная дата отчёта, если её нет в источнике',
     '  --dry-run                  Рассчитать черновик без записи файлов',
@@ -139,6 +152,8 @@ function buildRunMetadata({
   generatedAt,
   runDirectory,
   generatedFiles,
+  ownerDecisionApplication,
+  ownerDecisionsSource,
 }) {
   return {
     version: 1,
@@ -166,6 +181,14 @@ function buildRunMetadata({
       path: result.configPath,
       sha256: sha256File(result.configPath),
       version: result.config.version,
+    },
+    owner_decisions: {
+      path: ownerDecisionsSource.sourcePath,
+      sha256: ownerDecisionsSource.missing
+        ? null
+        : optionalSha256File(ownerDecisionsSource.sourcePath),
+      missing: ownerDecisionsSource.missing,
+      summary: ownerDecisionApplication.summary,
     },
     output_directory: args.dryRun ? null : runDirectory,
     files: args.dryRun ? [] : generatedFiles,
@@ -213,13 +236,22 @@ async function runMatrixBuilderCli(argv, dependencies = {}) {
     reportDate: args.reportDate,
     generatedAt,
   });
-  const ownerReview = buildOwnerReviewModel(
+  const ownerDecisionsSource = loadOwnerDecisions(args.ownerDecisionsPath, {
+    allowMissing: true,
+  });
+  const ownerDecisionApplication = applyOwnerDecisions(
     result.draft,
+    ownerDecisionsSource.store
+  );
+  const ownerReviewDraft = ownerDecisionApplication.draft;
+  const ownerReview = buildOwnerReviewModel(
+    ownerReviewDraft,
     result.manualReview,
-    result.config
+    result.config,
+    ownerDecisionApplication.summary
   );
   const ownerReviewReport = buildOwnerReviewReport(
-    result.draft,
+    ownerReviewDraft,
     result.manualReview,
     result.config,
     ownerReview
@@ -238,6 +270,8 @@ async function runMatrixBuilderCli(argv, dependencies = {}) {
     generatedAt,
     runDirectory,
     generatedFiles,
+    ownerDecisionApplication,
+    ownerDecisionsSource,
   });
 
   if (!args.dryRun) {
@@ -259,6 +293,8 @@ async function runMatrixBuilderCli(argv, dependencies = {}) {
     result,
     ownerReview,
     ownerReviewReport,
+    ownerDecisionApplication,
+    ownerDecisionsSource,
     metadata,
   };
 }
@@ -274,6 +310,7 @@ async function main() {
 
 module.exports = {
   DEFAULT_OUTPUT_DIRECTORY,
+  DEFAULT_OWNER_DECISIONS_PATH,
   MatrixBuilderCliError,
   calendarDate,
   parseArguments,

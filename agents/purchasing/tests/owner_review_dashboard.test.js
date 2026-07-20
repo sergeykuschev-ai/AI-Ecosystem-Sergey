@@ -278,8 +278,8 @@ test('missing purchase price is displayed as «нет данных», never zero
   const report = buildOwnerReviewReport(
     dashboardDraft([missingPrice]), null, config()
   );
-  const largeSection = report.split('## 5. 💰 LARGE INVENTORY REVIEW')[1]
-    .split('## 6. 🛡️ POLICY REVIEW')[0];
+  const largeSection = report.split('## 6. 💰 LARGE INVENTORY REVIEW')[1]
+    .split('## 7. 🛡️ POLICY REVIEW')[0];
   assert.ok(largeSection.includes('нет данных'));
   assert.ok(!largeSection.includes('| 0 ₽ |'));
 });

@@ -33,6 +33,11 @@ const CATEGORY_PROFILE_LABELS = Object.freeze({
   medical_and_care: 'Медицинские товары и уход',
 });
 
+const OWNER_REASON_EXPLANATIONS = Object.freeze({
+  OWNER_DECISION_CONFLICT: 'новая рекомендация существенно конфликтует с решением владельца',
+  OWNER_REJECTED_EXIT: 'владелец отклонил EXIT; товар оставлен на ручном контроле',
+});
+
 function display(value, fallback = 'нет данных') {
   return value === null || value === undefined || value === ''
     ? fallback
@@ -114,7 +119,7 @@ function reasonTexts(item, preferredCodes = null) {
     ? codes.filter(code => preferred.has(code))
     : codes;
   const resolved = (selectedCodes.length > 0 ? selectedCodes : codes)
-    .map(code => REASON_EXPLANATIONS[code] || code);
+    .map(code => OWNER_REASON_EXPLANATIONS[code] || REASON_EXPLANATIONS[code] || code);
   return Array.from(new Set(resolved));
 }
 
@@ -159,6 +164,20 @@ function scoreOwnerReviewItem(item, ownerPolicy = DEFAULT_OWNER_REVIEW_POLICY) {
   const missingPriceRisk = hasReason(item, 'missing_purchase_price') && largeInventory;
   const identityOnly = identityOnlyIssue(item);
 
+  if (
+    item.owner_decision_suppress_review &&
+    !item.owner_decision_conflict &&
+    !item.owner_decision_force_review
+  ) {
+    return {
+      owner_review_score: 0,
+      owner_review_priority: 'NONE',
+      owner_review_reasons: ['owner_decision_applied'],
+      owner_action_required: false,
+    };
+  }
+
+  add(item.owner_decision_conflict, 'approved_conflict_score', 'OWNER_DECISION_CONFLICT');
   add(item.approved_policy_conflict, 'approved_conflict_score', 'approved_policy_conflict');
   if (criticalInventory) {
     add(true, 'critical_inventory_score', 'critical_inventory_value');
@@ -173,7 +192,12 @@ function scoreOwnerReviewItem(item, ownerPolicy = DEFAULT_OWNER_REVIEW_POLICY) {
   add(identityOnly, 'identity_only_score', 'identity_only_issue');
 
   let priority = 'NONE';
-  if (item.approved_policy_conflict || criticalInventory || strategicExitRisk(item)) {
+  if (
+    item.owner_decision_conflict ||
+    item.approved_policy_conflict ||
+    criticalInventory ||
+    strategicExitRisk(item)
+  ) {
     priority = 'P1';
   } else if (
     item.suggested_role === 'EXIT' ||
@@ -184,6 +208,11 @@ function scoreOwnerReviewItem(item, ownerPolicy = DEFAULT_OWNER_REVIEW_POLICY) {
   } else if (score > 0) {
     priority = 'P3';
   }
+  if (item.owner_decision_force_review && priority === 'NONE') {
+    priority = 'P2';
+    score = ownerPolicy.commercial_review_score;
+    reasons.push('owner_decision_requires_review');
+  }
   return {
     owner_review_score: score,
     owner_review_priority: priority,
@@ -193,8 +222,10 @@ function scoreOwnerReviewItem(item, ownerPolicy = DEFAULT_OWNER_REVIEW_POLICY) {
 }
 
 function compareOwnerItems(left, right) {
-  const leftConflict = left.item.approved_policy_conflict ? 0 : 1;
-  const rightConflict = right.item.approved_policy_conflict ? 0 : 1;
+  const leftConflict = left.item.approved_policy_conflict ||
+    left.item.owner_decision_conflict ? 0 : 1;
+  const rightConflict = right.item.approved_policy_conflict ||
+    right.item.owner_decision_conflict ? 0 : 1;
   return (
     (OWNER_PRIORITY[left.review.owner_review_priority] ?? 9) -
       (OWNER_PRIORITY[right.review.owner_review_priority] ?? 9) ||
@@ -208,6 +239,7 @@ function compareOwnerItems(left, right) {
 }
 
 function recommendedAction(item) {
+  if (item.owner_decision_conflict) return 'пересмотреть решение владельца';
   if (item.approved_policy_conflict) return 'проверить minimum/target/maximum';
   if (strategicExitRisk(item)) return 'подтвердить стратегическую защиту';
   if (item.suggested_role === 'EXIT') return 'утвердить EXIT';
@@ -360,13 +392,20 @@ function dataQualityGroups(items) {
 }
 
 function commercialReviewItems(items) {
-  return items.filter(item =>
-    hasQueue(item, 'commercial_review') ||
-    hasQueue(item, 'large_inventory_review') ||
-    hasReason(item, 'strategic_low_demand') ||
-    hasReason(item, 'short_long_trend_conflict') ||
-    hasReason(item, 'possible_new_product')
-  );
+  return items.filter(item => {
+    if (
+      item.owner_decision_suppress_review &&
+      !item.owner_decision_conflict &&
+      !item.owner_decision_force_review
+    ) return false;
+    return item.owner_decision_force_review ||
+      item.owner_decision_conflict ||
+      hasQueue(item, 'commercial_review') ||
+      hasQueue(item, 'large_inventory_review') ||
+      hasReason(item, 'strategic_low_demand') ||
+      hasReason(item, 'short_long_trend_conflict') ||
+      hasReason(item, 'possible_new_product');
+  });
 }
 
 function uniqueItems(items) {
@@ -379,7 +418,12 @@ function uniqueItems(items) {
   });
 }
 
-function buildOwnerReviewModel(draft, manualReview = null, config = null) {
+function buildOwnerReviewModel(
+  draft,
+  manualReview = null,
+  config = null,
+  ownerDecisionSummary = null
+) {
   const items = draft.items || [];
   const ownerPolicy = config?.owner_review_policy || DEFAULT_OWNER_REVIEW_POLICY;
   const scoredEntries = items
@@ -393,7 +437,9 @@ function buildOwnerReviewModel(draft, manualReview = null, config = null) {
     ownerPolicy.max_owner_action_items
   );
   const ownerActionItems = ownerActionEntries.map(entry => entry.item);
-  const exitItems = items.filter(item => item.suggested_role === 'EXIT');
+  const exitItems = items.filter(item =>
+    item.suggested_role === 'EXIT' && !item.owner_exit_approved
+  );
   const largeInventoryItems = items
     .filter(item => hasQueue(item, 'large_inventory_review'))
     .sort((left, right) =>
@@ -412,7 +458,11 @@ function buildOwnerReviewModel(draft, manualReview = null, config = null) {
     ...exitItems,
     ...approvedConflicts,
     ...criticalLargeInventory,
-  ]);
+  ]).filter(item =>
+    !item.owner_decision_suppress_review ||
+    item.owner_decision_conflict ||
+    item.owner_decision_force_review
+  );
   const p1Count = scoredEntries.filter(entry =>
     entry.review.owner_review_priority === 'P1'
   ).length;
@@ -429,11 +479,22 @@ function buildOwnerReviewModel(draft, manualReview = null, config = null) {
 
   return {
     version: 1,
-    report_version: 'owner-review-v0.5.2',
+    report_version: 'owner-review-v0.5.3',
     generated_at: draft.generated_at,
     source: draft.source,
     owner_review_policy: ownerPolicy,
     status: globalStatus,
+    owner_decisions: ownerDecisionSummary || {
+      records_loaded: 0,
+      active_skus_loaded: 0,
+      matched_active_skus: 0,
+      applied: 0,
+      conflicts: 0,
+      deferred: 0,
+      excluded_from_repeat_review: 0,
+      unmatched_active_skus: [],
+      excluded_skus: [],
+    },
     summary: {
       owner_action_required_total: allOwnerActionEntries.length,
       owner_action_displayed: ownerActionEntries.length,
@@ -460,6 +521,10 @@ function buildOwnerReviewModel(draft, manualReview = null, config = null) {
       owner_review_reasons: review.owner_review_reasons,
       owner_action_required: review.owner_action_required,
       recommended_action: recommendedAction(item),
+      owner_decision_status: item.owner_decision_status || 'none',
+      owner_decision_applied: item.owner_decision_applied === true,
+      owner_decision_conflict: item.owner_decision_conflict === true,
+      owner_decision_summary: item.owner_decision_summary || null,
     })),
     sections: {
       owner_action_required: ownerActionItems.map(item => item.rowIdentity),
@@ -508,6 +573,7 @@ function buildOwnerReviewReport(
   const scoreByIdentity = new Map(model.items.map(item => [item.rowIdentity, item]));
   const qualityGroups = dataQualityGroups(items);
   const maxQualityExamples = model.owner_review_policy.max_data_quality_examples;
+  const ownerDecisions = model.owner_decisions || {};
   const coreOwnerItems = coreItems.filter(item =>
     scoreByIdentity.get(item.rowIdentity)?.owner_action_required
   );
@@ -564,7 +630,32 @@ function buildOwnerReviewReport(
     '',
     '---',
     '',
-    '## 2. 🚨 OWNER ACTION REQUIRED',
+    '## 2. 🧠 OWNER DECISIONS APPLIED',
+    '',
+    ...markdownTable(
+      ['Показатель', 'Количество'],
+      [
+        ['Загружено записей истории', ownerDecisions.records_loaded ?? 0],
+        ['Загружено активных SKU', ownerDecisions.active_skus_loaded ?? 0],
+        ['Применено', ownerDecisions.applied ?? 0],
+        ['Новые конфликты', ownerDecisions.conflicts ?? 0],
+        ['Отложено (DEFER)', ownerDecisions.deferred ?? 0],
+        ['Исключено из повторного review', ownerDecisions.excluded_from_repeat_review ?? 0],
+      ]
+    ),
+    '',
+    `**Исключённые SKU:** ${(ownerDecisions.excluded_skus || []).length > 0
+      ? ownerDecisions.excluded_skus.map(markdown).join(', ')
+      : 'нет'}.`,
+    '',
+    `**Активные SKU без совпадения в текущем отчёте:** ` +
+      `${(ownerDecisions.unmatched_active_skus || []).length > 0
+        ? ownerDecisions.unmatched_active_skus.map(markdown).join(', ')
+        : 'нет'}.`,
+    '',
+    '---',
+    '',
+    '## 3. 🚨 OWNER ACTION REQUIRED',
     '',
     `Показано **${ownerActionItems.length}** из **${model.summary.owner_action_required_total}**. ` +
       `Лимит: ${model.owner_review_policy.max_owner_action_items}.`,
@@ -583,7 +674,7 @@ function buildOwnerReviewReport(
     '',
     '---',
     '',
-    '## 3. 🟢 CORE REVIEW',
+    '## 4. 🟢 CORE REVIEW',
     '',
     `CORE: **${coreItems.length}**. Требуют решения владельца: **${coreOwnerItems.length}**.`,
     '',
@@ -620,7 +711,7 @@ function buildOwnerReviewReport(
     '',
     '---',
     '',
-    '## 4. 🚪 EXIT APPROVAL',
+    '## 5. 🚪 EXIT APPROVAL',
     '',
     `Кандидатов EXIT: **${exitItems.length}**. Решение заранее не выбрано.`,
     '',
@@ -651,7 +742,7 @@ function buildOwnerReviewReport(
     '',
     '---',
     '',
-    '## 5. 💰 LARGE INVENTORY REVIEW',
+    '## 6. 💰 LARGE INVENTORY REVIEW',
     '',
     `Позиций: **${largeInventoryItems.length}**. Сортировка по maximum stock value.`,
     '',
@@ -677,7 +768,7 @@ function buildOwnerReviewReport(
     '',
     '---',
     '',
-    '## 6. 🛡️ POLICY REVIEW',
+    '## 7. 🛡️ POLICY REVIEW',
     '',
     '### Approved conflicts',
     '',
@@ -718,7 +809,7 @@ function buildOwnerReviewReport(
     '',
     '---',
     '',
-    '## 7. 🧠 COMMERCIAL REVIEW',
+    '## 8. 🧠 COMMERCIAL REVIEW',
     '',
     `Коммерческих решений: **${commercialItems.length}**. ` +
       'Identity-only и price-only ошибки сюда не включаются.',
@@ -733,7 +824,7 @@ function buildOwnerReviewReport(
     '',
     '---',
     '',
-    '## 8. 🧪 DATA QUALITY',
+    '## 9. 🧪 DATA QUALITY',
     '',
     `В каждой группе показаны первые ${maxQualityExamples} примеров. ` +
       'Полные списки находятся в owner-review.json и техническом отчёте.',
@@ -760,7 +851,7 @@ function buildOwnerReviewReport(
   lines.push(
     '---',
     '',
-    '## 9. ✅ OWNER DECISION SHEET',
+    '## 10. ✅ OWNER DECISION SHEET',
     '',
     `Уникальных SKU: **${decisionItems.length}**. Дубли между секциями объединены.`,
     '',
