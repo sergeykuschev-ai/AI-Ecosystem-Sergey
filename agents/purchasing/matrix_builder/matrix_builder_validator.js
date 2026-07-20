@@ -200,6 +200,10 @@ function validateMatrixBuilderConfig(value) {
     value.inventory_value_review,
     'inventory_value_review'
   );
+  const ownerReviewPolicy = requireObject(
+    value.owner_review_policy,
+    'owner_review_policy'
+  );
   const classification = requireObject(value.classification, 'classification');
   const coreMinimumWeeks = requirePositiveInteger(
     corePolicy.minimum_completed_weeks,
@@ -277,6 +281,32 @@ function validateMatrixBuilderConfig(value) {
     throw new MatrixBuilderError(
       'critical_threshold_rub не может быть меньше review_threshold_rub.',
       'INVALID_CONFIG'
+    );
+  }
+  const validatedOwnerReviewPolicy = {
+    max_owner_action_items: requirePositiveInteger(
+      ownerReviewPolicy.max_owner_action_items,
+      'owner_review_policy.max_owner_action_items'
+    ),
+    max_data_quality_examples: requirePositiveInteger(
+      ownerReviewPolicy.max_data_quality_examples,
+      'owner_review_policy.max_data_quality_examples'
+    ),
+  };
+  for (const field of [
+    'approved_conflict_score',
+    'critical_inventory_score',
+    'large_inventory_score',
+    'exit_candidate_score',
+    'strategic_item_score',
+    'commercial_review_score',
+    'missing_price_risk_score',
+    'insufficient_data_score',
+    'identity_only_score',
+  ]) {
+    validatedOwnerReviewPolicy[field] = requirePositiveNumber(
+      ownerReviewPolicy[field],
+      `owner_review_policy.${field}`
     );
   }
 
@@ -474,6 +504,7 @@ function validateMatrixBuilderConfig(value) {
       review_threshold_rub: reviewThresholdRub,
       critical_threshold_rub: criticalThresholdRub,
     },
+    owner_review_policy: validatedOwnerReviewPolicy,
     classification: {
       core_abc_classes: stringArray(
         classification.core_abc_classes,

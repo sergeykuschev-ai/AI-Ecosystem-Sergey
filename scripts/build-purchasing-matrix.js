@@ -8,6 +8,10 @@ const {
   buildMatrixDraftFromSmartZapasXlsx,
 } = require('../agents/purchasing/matrix_builder/matrix_builder');
 const {
+  buildOwnerReviewModel,
+  buildOwnerReviewReport,
+} = require('../agents/purchasing/matrix_builder/owner_review_dashboard');
+const {
   localDateParts,
   optionalSha256File,
   safeWriteRunFiles,
@@ -209,10 +213,23 @@ async function runMatrixBuilderCli(argv, dependencies = {}) {
     reportDate: args.reportDate,
     generatedAt,
   });
+  const ownerReview = buildOwnerReviewModel(
+    result.draft,
+    result.manualReview,
+    result.config
+  );
+  const ownerReviewReport = buildOwnerReviewReport(
+    result.draft,
+    result.manualReview,
+    result.config,
+    ownerReview
+  );
   const generatedFiles = [
     'matrix-draft.json',
     'matrix-report.txt',
     'manual-review.json',
+    'owner-review.json',
+    'owner-review-report.md',
     'run-metadata.json',
   ];
   const metadata = buildRunMetadata({
@@ -228,6 +245,8 @@ async function runMatrixBuilderCli(argv, dependencies = {}) {
       { name: 'matrix-draft.json', content: serializeJson(result.draft) },
       { name: 'matrix-report.txt', content: `${result.reportText.trimEnd()}\n` },
       { name: 'manual-review.json', content: serializeJson(result.manualReview) },
+      { name: 'owner-review.json', content: serializeJson(ownerReview) },
+      { name: 'owner-review-report.md', content: `${ownerReviewReport.trimEnd()}\n` },
       { name: 'run-metadata.json', content: serializeJson(metadata) },
     ], dependencies.writeOptions || {});
   }
@@ -238,6 +257,8 @@ async function runMatrixBuilderCli(argv, dependencies = {}) {
     runDirectory,
     generatedFiles: args.dryRun ? [] : generatedFiles,
     result,
+    ownerReview,
+    ownerReviewReport,
     metadata,
   };
 }

@@ -180,9 +180,11 @@ function existingMatch(overrides = {}) {
 }
 
 test('loads the versioned conservative Miska Matrix Builder configuration', () => {
-  assert.equal(CONFIG.version, 'miska-matrix-builder-v0.5.1');
+  assert.equal(CONFIG.version, 'miska-matrix-builder-v0.5.2');
   assert.equal(CONFIG.core_policy.minimum_completed_weeks, 8);
   assert.equal(CONFIG.stock_policy.preferred_weeks, 12);
+  assert.equal(CONFIG.owner_review_policy.max_owner_action_items, 30);
+  assert.equal(CONFIG.owner_review_policy.approved_conflict_score, 100);
   assert.equal(CONFIG.explicit_role_rules.length, 0);
 });
 
@@ -783,7 +785,7 @@ test('CLI dry-run creates no output directory', async () => {
   assert.equal(result.result.draft.summary.total_sku, 6);
 });
 
-test('CLI writes exactly four validated Matrix Builder files', async () => {
+test('CLI writes Matrix Builder files and the Owner Review Dashboard', async () => {
   const outputRoot = path.join(TEMP_DIRECTORY, 'written');
   const result = await runMatrixBuilderCli([
     '--input', SYNTHETIC_XLSX,
@@ -794,8 +796,25 @@ test('CLI writes exactly four validated Matrix Builder files', async () => {
     'manual-review.json',
     'matrix-draft.json',
     'matrix-report.txt',
+    'owner-review-report.md',
+    'owner-review.json',
     'run-metadata.json',
   ]);
+  const ownerReport = fs.readFileSync(
+    path.join(result.runDirectory, 'owner-review-report.md'), 'utf8'
+  );
+  assert.ok(ownerReport.includes('Owner Review — ассортиментная матрица'));
+  assert.ok(ownerReport.includes('EXECUTIVE SUMMARY'));
+  assert.ok(ownerReport.includes('OWNER DECISION SHEET'));
+  const ownerReview = JSON.parse(fs.readFileSync(
+    path.join(result.runDirectory, 'owner-review.json'), 'utf8'
+  ));
+  assert.equal(ownerReview.report_version, 'owner-review-v0.5.2');
+  assert.ok(ownerReview.items.every(item =>
+    Number.isFinite(item.owner_review_score) &&
+    typeof item.owner_review_priority === 'string' &&
+    Array.isArray(item.owner_review_reasons)
+  ));
   const metadata = JSON.parse(fs.readFileSync(
     path.join(result.runDirectory, 'run-metadata.json'), 'utf8'
   ));

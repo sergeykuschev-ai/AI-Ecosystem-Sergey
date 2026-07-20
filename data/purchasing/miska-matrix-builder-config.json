@@ -1,5 +1,5 @@
 {
-  "version": "miska-matrix-builder-v0.5.1",
+  "version": "miska-matrix-builder-v0.5.2",
   "status": "draft_policy_requires_owner_confirmation",
   "store": "Миска",
   "core_policy": {
@@ -32,6 +32,19 @@
     "enabled": true,
     "review_threshold_rub": 10000,
     "critical_threshold_rub": 20000
+  },
+  "owner_review_policy": {
+    "max_owner_action_items": 30,
+    "max_data_quality_examples": 20,
+    "approved_conflict_score": 100,
+    "critical_inventory_score": 80,
+    "large_inventory_score": 60,
+    "exit_candidate_score": 50,
+    "strategic_item_score": 40,
+    "commercial_review_score": 30,
+    "missing_price_risk_score": 25,
+    "insufficient_data_score": 10,
+    "identity_only_score": 5
   },
   "classification": {
     "core_abc_classes": ["A", "B"],
