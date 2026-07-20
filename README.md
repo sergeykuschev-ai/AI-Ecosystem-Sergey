@@ -22,6 +22,11 @@ See [the assortment matrix guide](docs/purchasing-assortment-matrix.md) and
 [the full-run CLI guide](docs/purchasing-run-cli.md) for the contracts and
 operating procedure.
 
+Every normal full run also creates deterministic JSON and Markdown
+recommendation explanations. See
+[the Recommendation Explanation Layer guide](docs/purchasing-recommendation-explainer.md)
+for its read-only contract and confidence rules.
+
 Build a separate, non-authoritative draft assortment matrix for review:
 
 ```bash

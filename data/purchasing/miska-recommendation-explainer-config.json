@@ -1,0 +1,14 @@
+{
+  "version": "miska-recommendation-explainer-v0.6",
+  "store": "Миска",
+  "confidence_policy": {
+    "low_if_missing_any": [
+      "free_stock",
+      "sales_period"
+    ],
+    "medium_if_missing_any": [
+      "unit_price"
+    ],
+    "use_decision_confidence_as_ceiling": true
+  }
+}

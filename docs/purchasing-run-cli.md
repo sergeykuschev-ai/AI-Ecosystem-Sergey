@@ -134,7 +134,9 @@ Each run uses a timestamp folder:
 output/purchasing/
 └── 2026-07-19_14-35-12/
     ├── result.json
+    ├── recommendation-explanations.json
     ├── report.txt
+    ├── recommendation-explanations-report.md
     └── run-metadata.json
 ```
 
@@ -145,6 +147,10 @@ indentation, and a final newline.
 Purchasing Agent entry point. `report.txt` contains a compact owner header,
 Phase 1/2 decision distributions, warnings and critical problems, followed by
 the existing Russian agent report and financial assessment.
+`recommendation-explanations.json` and
+`recommendation-explanations-report.md` are deterministic presentation/audit
+artifacts. They explain the already-computed purchasing, matrix, owner, and
+financial signals without changing `result.json`.
 
 ## Output formats
 
@@ -154,13 +160,13 @@ Create JSON and text:
 --format all
 ```
 
-Create only `result.json`:
+Create JSON result and JSON explanations:
 
 ```bash
 --format json
 ```
 
-Create only `report.txt`:
+Create the text report and Markdown explanations:
 
 ```bash
 --format text
@@ -221,9 +227,19 @@ Example terminal summary:
   "status": "success_with_warnings",
   "generated_files": [
     "result.json",
+    "recommendation-explanations.json",
     "report.txt",
+    "recommendation-explanations-report.md",
     "run-metadata.json"
   ],
+  "recommendation_explanations": {
+    "version": "miska-recommendation-explainer-v0.6",
+    "explained_sku_count": 403,
+    "json_file": "recommendation-explanations.json",
+    "markdown_file": "recommendation-explanations-report.md",
+    "matrix_context_available": true,
+    "matrix_builder_version": "miska-matrix-builder-v0.5.3"
+  },
   "warnings": [
     "Verify that SmartZapas free stock or analyzer recommendation reflects expected receipts"
   ],

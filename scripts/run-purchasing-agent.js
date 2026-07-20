@@ -8,6 +8,19 @@ const packageJson = require('../package.json');
 const {
   runOrderAgentFromSmartZapasXlsxWithDemand,
 } = require('../agents/purchasing/order_agent');
+const {
+  DEFAULT_MATRIX_BUILDER_CONFIG_PATH,
+  buildMatrixDraftFromSmartZapasXlsx,
+} = require('../agents/purchasing/matrix_builder/matrix_builder');
+const {
+  applyOwnerDecisions,
+  loadOwnerDecisions,
+} = require('../agents/purchasing/matrix_builder/owner_decisions');
+const {
+  DEFAULT_RECOMMENDATION_EXPLAINER_CONFIG_PATH,
+  buildRecommendationExplanations,
+  buildRecommendationExplanationsReport,
+} = require('../agents/purchasing/explanations/recommendation_explainer');
 
 const REPOSITORY_ROOT = path.resolve(__dirname, '..');
 const DEFAULT_FINANCIAL_DATA_PATH = path.join(
@@ -21,6 +34,10 @@ const DEFAULT_ASSORTMENT_MATRIX_PATH = path.join(
 const DEFAULT_OUTPUT_DIRECTORY = path.join(
   REPOSITORY_ROOT,
   'output/purchasing'
+);
+const DEFAULT_OWNER_DECISIONS_PATH = path.join(
+  REPOSITORY_ROOT,
+  'data/purchasing/miska-owner-decisions.json'
 );
 const ALLOWED_FORMATS = Object.freeze(['all', 'json', 'text']);
 const ALLOWED_EXCEL_EXTENSIONS = Object.freeze(['.xlsx', '.xls']);
@@ -218,8 +235,12 @@ function randomSuffix() {
 
 function generatedFileNames(format) {
   const names = [];
-  if (format === 'all' || format === 'json') names.push('result.json');
-  if (format === 'all' || format === 'text') names.push('report.txt');
+  if (format === 'all' || format === 'json') {
+    names.push('result.json', 'recommendation-explanations.json');
+  }
+  if (format === 'all' || format === 'text') {
+    names.push('report.txt', 'recommendation-explanations-report.md');
+  }
   names.push('run-metadata.json');
   return names;
 }
@@ -572,6 +593,33 @@ async function defaultAgentRunner(
   );
 }
 
+async function defaultExplanationContextBuilder(
+  inputPath,
+  assortmentMatrixPath,
+  reportMetadata = {}
+) {
+  const matrixResult = await buildMatrixDraftFromSmartZapasXlsx(inputPath, {
+    configPath: DEFAULT_MATRIX_BUILDER_CONFIG_PATH,
+    existingMatrixPath: assortmentMatrixPath,
+    reportDate: reportMetadata.reportDate,
+    generatedAt: reportMetadata.generatedAt,
+  });
+  const ownerDecisions = loadOwnerDecisions(DEFAULT_OWNER_DECISIONS_PATH, {
+    allowMissing: true,
+  });
+  const ownerApplication = applyOwnerDecisions(
+    matrixResult.draft,
+    ownerDecisions.store
+  );
+  return {
+    matrixDraft: ownerApplication.draft,
+    ownerDecisionSummary: ownerApplication.summary,
+    matrixBuilderVersion: matrixResult.draft.builder_version,
+    ownerDecisionsPath: ownerDecisions.sourcePath,
+    ownerDecisionsMissing: ownerDecisions.missing,
+  };
+}
+
 async function runPurchasingCli(argv, dependencies = {}) {
   const output = dependencies.output || console.log;
   const args = parseArguments(argv);
@@ -619,7 +667,35 @@ async function runPurchasingCli(argv, dependencies = {}) {
   }
 
   const agentJson = agentResult[0].json;
-  const warnings = collectRunWarnings(agentJson);
+  let explanationContext = {
+    matrixDraft: null,
+    ownerDecisionSummary: null,
+    matrixBuilderVersion: null,
+    ownerDecisionsPath: DEFAULT_OWNER_DECISIONS_PATH,
+    ownerDecisionsMissing: true,
+  };
+  const explanationWarnings = [];
+  const explanationContextBuilder = dependencies.explanationContextBuilder ||
+    defaultExplanationContextBuilder;
+  try {
+    explanationContext = await explanationContextBuilder(
+      args.inputPath,
+      args.assortmentMatrixPath,
+      { reportDate: args.reportDate, generatedAt: startedTimestamp }
+    );
+  } catch (error) {
+    explanationWarnings.push(
+      `Recommendation Explainer: Matrix Builder context недоступен: ${error.message}`
+    );
+  }
+  const explanations = buildRecommendationExplanations(agentResult, {
+    matrixDraft: explanationContext.matrixDraft,
+  });
+  const explanationsReport = buildRecommendationExplanationsReport(explanations);
+  const warnings = Array.from(new Set([
+    ...collectRunWarnings(agentJson),
+    ...explanationWarnings,
+  ]));
   const status = warnings.length > 0 ? 'success_with_warnings' : 'success';
   const reportText = buildOwnerReport({
     agentJson,
@@ -656,15 +732,46 @@ async function runPurchasingCli(argv, dependencies = {}) {
     generated_files: generatedFiles,
     warnings,
     errors: [],
+    recommendation_explanations: {
+      version: explanations.explanation_version,
+      explained_sku_count: explanations.explained_sku_count,
+      json_file: args.format === 'all' || args.format === 'json'
+        ? 'recommendation-explanations.json'
+        : null,
+      markdown_file: args.format === 'all' || args.format === 'text'
+        ? 'recommendation-explanations-report.md'
+        : null,
+      config_file: path.normalize(
+        DEFAULT_RECOMMENDATION_EXPLAINER_CONFIG_PATH
+      ),
+      config_sha256: optionalSha256File(
+        DEFAULT_RECOMMENDATION_EXPLAINER_CONFIG_PATH
+      ),
+      matrix_context_available: Boolean(explanationContext.matrixDraft),
+      matrix_builder_version: explanationContext.matrixBuilderVersion,
+      owner_decisions_file: path.normalize(
+        explanationContext.ownerDecisionsPath || DEFAULT_OWNER_DECISIONS_PATH
+      ),
+      owner_decisions_missing: explanationContext.ownerDecisionsMissing,
+      owner_decisions_summary: explanationContext.ownerDecisionSummary,
+    },
   };
 
   if (!args.dryRun) {
     const files = [];
     if (args.format === 'all' || args.format === 'json') {
       files.push({ name: 'result.json', content: serializeJson(agentResult) });
+      files.push({
+        name: 'recommendation-explanations.json',
+        content: serializeJson(explanations),
+      });
     }
     if (args.format === 'all' || args.format === 'text') {
       files.push({ name: 'report.txt', content: reportText });
+      files.push({
+        name: 'recommendation-explanations-report.md',
+        content: explanationsReport,
+      });
     }
     files.push({
       name: 'run-metadata.json',
@@ -691,6 +798,9 @@ async function runPurchasingCli(argv, dependencies = {}) {
     generatedFiles: args.dryRun ? [] : generatedFiles,
     metadata,
     reportText,
+    explanations,
+    explanationsReport,
+    explanationContext,
     agentResult,
   };
 }
@@ -708,6 +818,7 @@ module.exports = {
   DEFAULT_FINANCIAL_DATA_PATH,
   DEFAULT_ASSORTMENT_MATRIX_PATH,
   DEFAULT_OUTPUT_DIRECTORY,
+  DEFAULT_OWNER_DECISIONS_PATH,
   ALLOWED_FORMATS,
   ALLOWED_EXCEL_EXTENSIONS,
   PurchasingRunError,
@@ -727,6 +838,7 @@ module.exports = {
   helpText,
   terminalSummary,
   defaultAgentRunner,
+  defaultExplanationContextBuilder,
   runPurchasingCli,
   main,
 };

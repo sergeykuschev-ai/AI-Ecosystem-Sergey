@@ -72,6 +72,7 @@ test('successfully runs the agent with a valid XLSX', async () => {
   assert.equal(result.mode, 'written');
   assert.equal(result.agentResult[0].json.product_rows_count, 6);
   assert.equal(result.agentResult[0].json.decisions.length, 6);
+  assert.equal(result.explanations.explained_sku_count, 6);
   assert.equal(sha256File(XLSX_FIXTURE_PATH), inputHashBefore);
   assert.equal(sha256File(FINANCIAL_DATA_PATH), financeHashBefore);
 });
@@ -139,6 +140,30 @@ test('creates report.txt with the owner summary and existing agent report', asyn
   assert.ok(report.includes('# ДАННЫЕ ИЗ ОТЧЁТА MIN-MAX ВАЛТЫ'));
 });
 
+test('creates deterministic Recommendation Explanation artifacts', async () => {
+  const result = await runPurchasingCli(
+    baseArguments('recommendation-explanations'),
+    dependencies()
+  );
+  const explanations = readJson(path.join(
+    result.runDirectory,
+    'recommendation-explanations.json'
+  ));
+  const report = fs.readFileSync(path.join(
+    result.runDirectory,
+    'recommendation-explanations-report.md'
+  ), 'utf8');
+  assert.equal(explanations.explained_sku_count, 6);
+  assert.equal(explanations.items.length, 6);
+  assert.ok(explanations.items.every(item =>
+    typeof item.explanation_summary === 'string' &&
+    Array.isArray(item.explanation_reasons) &&
+    ['high', 'medium', 'low'].includes(item.confidence_level)
+  ));
+  assert.ok(report.includes('Recommendation Explanations'));
+  assert.ok(report.includes('Manual Review Required'));
+});
+
 test('creates run-metadata.json for every normal run', async () => {
   const result = await runPurchasingCli(
     baseArguments('metadata-file'),
@@ -152,6 +177,15 @@ test('creates run-metadata.json for every normal run', async () => {
   assert.equal(metadata.node_version, process.version);
   assert.equal(metadata.agent_version, '1.0.0');
   assert.equal(metadata.duration_ms, 1000);
+  assert.equal(metadata.recommendation_explanations.explained_sku_count, 6);
+  assert.equal(
+    metadata.recommendation_explanations.json_file,
+    'recommendation-explanations.json'
+  );
+  assert.equal(
+    metadata.recommendation_explanations.markdown_file,
+    'recommendation-explanations-report.md'
+  );
 });
 
 test('metadata contains the exact SHA-256 of the input file', async () => {
@@ -167,34 +201,38 @@ test('metadata contains the exact SHA-256 of the input file', async () => {
   assert.equal(metadata.input_file_size, fs.statSync(XLSX_FIXTURE_PATH).size);
 });
 
-test('--format json creates only result.json and metadata', async () => {
+test('--format json creates JSON result, explanations, and metadata', async () => {
   const result = await runPurchasingCli(
     baseArguments('json-only', ['--format', 'json']),
     dependencies()
   );
 
   assert.deepEqual(filesIn(result.runDirectory), [
+    'recommendation-explanations.json',
     'result.json',
     'run-metadata.json',
   ]);
   assert.deepEqual(result.metadata.generated_files, [
     'result.json',
+    'recommendation-explanations.json',
     'run-metadata.json',
   ]);
 });
 
-test('--format text creates only report.txt and metadata', async () => {
+test('--format text creates text report, explanations, and metadata', async () => {
   const result = await runPurchasingCli(
     baseArguments('text-only', ['--format', 'text']),
     dependencies()
   );
 
   assert.deepEqual(filesIn(result.runDirectory), [
+    'recommendation-explanations-report.md',
     'report.txt',
     'run-metadata.json',
   ]);
   assert.deepEqual(result.metadata.generated_files, [
     'report.txt',
+    'recommendation-explanations-report.md',
     'run-metadata.json',
   ]);
 });
@@ -399,7 +437,9 @@ test('metadata records status, normalized paths, warnings, and generated files',
   assert.equal(metadata.output_directory, path.normalize(result.runDirectory));
   assert.deepEqual(metadata.generated_files, [
     'result.json',
+    'recommendation-explanations.json',
     'report.txt',
+    'recommendation-explanations-report.md',
     'run-metadata.json',
   ]);
   assert.ok(Array.isArray(metadata.warnings));
