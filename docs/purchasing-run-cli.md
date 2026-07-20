@@ -261,9 +261,11 @@ exit code:
 Папка запуска уже существует ... Используйте --force ...
 ```
 
-`--force` explicitly permits replacement of only `result.json`, `report.txt`,
-and `run-metadata.json` requested for that exact timestamp folder. Neighboring
-run folders and unrelated files are not removed.
+`--force` explicitly permits replacement of files requested for that exact
+timestamp folder: `result.json`, `report.txt`, `run-metadata.json`, and, when
+created by the selected format, `recommendation-explanations.json` and
+`recommendation-explanations-report.md`. Neighboring run folders and unrelated
+files are not removed.
 
 ## Safe-write behavior
 

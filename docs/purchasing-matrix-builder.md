@@ -51,6 +51,9 @@ Each written run contains exactly:
   product row;
 - `matrix-report.txt`: Russian-language owner review;
 - `manual-review.json`: unique review items plus the six named review queues;
+- `owner-review.json`: owner-facing review dashboard data with applied owner
+  decisions;
+- `owner-review-report.md`: Markdown owner review dashboard;
 - `run-metadata.json`: source/config hashes, timestamps, counts, and validation
   totals.
 
@@ -112,7 +115,7 @@ horizons, shelf presentation, and lead time.
 
 ## Stock policy
 
-The v0.5.1 policy requires eight reliable completed weeks and prefers twelve.
+The v0.5.3 policy requires eight reliable completed weeks and prefers twelve.
 It records short (4), base (8), preferred (12), and full-history averages. The
 short average can raise the selected 8/12-week baseline only up to the
 configured multiple of the full-history average:
@@ -153,7 +156,7 @@ other valid SKU results.
 Before promoting any recommendation into the working matrix, the owner should
 review `manual-review.json`, reconcile conflicts, confirm NEW/EXIT candidates,
 and explicitly approve the stock-policy parameters. Promotion is intentionally
-outside Matrix Builder v0.5.1.
+outside Matrix Builder v0.5.3.
 
 An approved item must be transferred manually: copy only the owner-confirmed
 `priority`, `minimum_shelf_stock`, `target_stock`, and `allow_zero_stock` values
