@@ -1,24 +1,118 @@
 {
-  "version": "miska-matrix-builder-v1",
+  "version": "miska-matrix-builder-v0.5.1",
   "status": "draft_policy_requires_owner_confirmation",
   "store": "Миска",
+  "core_policy": {
+    "minimum_completed_weeks": 8,
+    "preferred_completed_weeks": 12,
+    "minimum_active_week_ratio": 0.5,
+    "minimum_average_weekly_sales": 1.5,
+    "short_term_growth_cap": 1.5
+  },
+  "exit_policy": {
+    "consumables_zero_sales_weeks": 8,
+    "slow_moving_zero_sales_weeks": 12,
+    "durable_zero_sales_weeks": 26,
+    "require_no_current_week_sales": true,
+    "require_no_supplier_demand": true,
+    "protect_strategic_items": true,
+    "require_sufficient_history": true
+  },
   "stock_policy": {
-    "history_window_completed_weeks": 4,
-    "minimum_completed_weeks": 2,
-    "minimum_cover_weeks": 0.5,
+    "base_weeks": 8,
+    "preferred_weeks": 12,
+    "short_window_weeks": 4,
+    "long_term_growth_cap": 1.5,
     "target_cover_weeks": 2,
     "maximum_cover_weeks": 4,
-    "safety_stock_factor": 0.5,
+    "minimum_policy_data_weeks": 8,
     "large_policy_review_threshold_units": 50
+  },
+  "inventory_value_review": {
+    "enabled": true,
+    "review_threshold_rub": 10000,
+    "critical_threshold_rub": 20000
   },
   "classification": {
     "core_abc_classes": ["A", "B"],
     "core_xyz_classes": ["X", "Y"],
-    "core_minimum_weeks_with_sales": 3,
     "exit_abc_classes": ["C", "D"],
     "exit_xyz_classes": ["Z", "ZZ"],
     "strategic_core_priority": "important"
   },
+  "category_profiles": [
+    {
+      "id": "medical_and_care",
+      "exit_zero_sales_weeks": 26,
+      "match_any_tokens": [
+        "вет",
+        "ветеринарная",
+        "диета",
+        "лечебный",
+        "попона",
+        "послеоперационная",
+        "шампунь",
+        "уход"
+      ],
+      "minimum_shelf_units": 1,
+      "minimum_cover_weeks": 0,
+      "lead_time_weeks": 2
+    },
+    {
+      "id": "durable",
+      "exit_zero_sales_weeks": 26,
+      "match_any_tokens": [
+        "миска",
+        "игрушка",
+        "рулетка",
+        "ошейник",
+        "поводок",
+        "аксессуар"
+      ],
+      "minimum_shelf_units": 1,
+      "minimum_cover_weeks": 0,
+      "lead_time_weeks": 2
+    },
+    {
+      "id": "slow_specialized",
+      "exit_zero_sales_weeks": 12,
+      "match_any_tokens": [
+        "попугаев",
+        "попугайчиков",
+        "грызунов",
+        "хомяков",
+        "крыс",
+        "мышей",
+        "аквариум"
+      ],
+      "minimum_shelf_units": 1,
+      "minimum_cover_weeks": 0,
+      "lead_time_weeks": 2
+    },
+    {
+      "id": "small_consumable",
+      "exit_zero_sales_weeks": 8,
+      "match_any_tokens": [
+        "влажный",
+        "пауч",
+        "лакомство",
+        "палочки",
+        "крем"
+      ],
+      "minimum_shelf_units": 2,
+      "minimum_cover_weeks": 0.25,
+      "lead_time_weeks": 1
+    },
+    {
+      "id": "default_consumable",
+      "default": true,
+      "exit_zero_sales_weeks": 8,
+      "match_any_tokens": [],
+      "minimum_shelf_units": 1,
+      "minimum_cover_weeks": 0.25,
+      "lead_time_weeks": 1
+    }
+  ],
   "explicit_role_rules": [],
   "strategic_groups": [
     {
@@ -42,9 +136,20 @@
       "required_tokens": ["award", "indoor", "big", "cats"]
     },
     {
+      "id": "award_medium_breed_puppy",
+      "brand": "AWARD",
+      "required_tokens": ["award", "сухой", "корм"],
+      "required_token_groups": [
+        ["щен", "щенков"],
+        ["средн", "средних"],
+        ["пород", "породы"]
+      ]
+    },
+    {
       "id": "award_main_dog_food",
       "brand": "AWARD",
-      "required_tokens": ["award", "сухой", "корм", "собак"]
+      "required_tokens": ["award", "сухой", "корм"],
+      "required_token_groups": [["собак", "собаки"]]
     },
     {
       "id": "craftia_harmona",
@@ -62,19 +167,9 @@
       "required_tokens": ["craftia", "galena"]
     },
     {
-      "id": "mnyams_wet_food",
-      "brand": "Мнямс",
-      "required_tokens": ["мнямс", "влажный", "корм"]
-    },
-    {
       "id": "mnyams_cream_treats",
       "brand": "Мнямс",
       "required_tokens": ["мнямс", "крем", "лакомство"]
-    },
-    {
-      "id": "mnyams_popular_treats",
-      "brand": "Мнямс",
-      "required_tokens": ["мнямс", "лакомство"]
     },
     {
       "id": "cats_choice_tofu_plain",
@@ -102,6 +197,11 @@
       "required_tokens": ["bambini", "волнистых", "попугаев"]
     },
     {
+      "id": "bambini_large_parrots",
+      "brand": "Bambini Pets",
+      "required_tokens": ["bambini", "крупных", "попугаев"]
+    },
+    {
       "id": "bambini_rats_mice",
       "brand": "Bambini Pets",
       "required_tokens": ["bambini", "крыс", "мышей"]
@@ -110,11 +210,6 @@
       "id": "bambini_hamsters",
       "brand": "Bambini Pets",
       "required_tokens": ["bambini", "хомяков"]
-    },
-    {
-      "id": "bambini_bird_rodent_food",
-      "brand": "Bambini Pets",
-      "required_tokens": ["bambini", "корм"]
     },
     {
       "id": "ferma_fedora_cream_treats",

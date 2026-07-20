@@ -31,6 +31,7 @@ being produced without its required assortment control.
       "brand": "AWARD",
       "category": "Сухой корм для кошек",
       "priority": "critical",
+      "policy_status": "approved",
       "minimum_shelf_stock": 2,
       "target_stock": 4,
       "allow_zero_stock": false,
@@ -41,10 +42,13 @@ being produced without its required assortment control.
 ```
 
 Required item fields are `name`, `priority`, `minimum_shelf_stock`,
-`target_stock`, and `allow_zero_stock`. `article`, `brand`, `category`, and
-`notes` are optional. Allowed priorities are `critical`, `important`, and
-`standard`. Stock values must be finite numbers greater than or equal to zero,
-and `target_stock` cannot be below `minimum_shelf_stock`.
+`target_stock`, and `allow_zero_stock`. `policy_status` is explicit in the
+working file and accepts `approved`, `placeholder`, or
+`requires_confirmation`; legacy files without it load as `approved` for
+backward compatibility. `article`, `brand`, `category`, and `notes` are
+optional. Allowed priorities are `critical`, `important`, and `standard`.
+Stock values must be finite numbers greater than or equal to zero, and
+`target_stock` cannot be below `minimum_shelf_stock`.
 
 Do not invent articles or stock policies. When an article is not confirmed,
 keep it `null` and add `article_requires_confirmation` to `notes`.
@@ -52,11 +56,12 @@ keep it `null` and add `article_requires_confirmation` to `notes`.
 The initial file contains the requested AWARD, CRAFTIA, Мнямс, Cat's Choice,
 Bambini Pets, and Ферма кота Федора groups using names and articles observed in
 the 2026-07-19 local SmartZapas report. The AWARD Urinary 2/4 critical policy
-is the only item policy explicitly supplied with the implementation request.
-Other initial entries use a non-enforcing `standard`, 0/0 policy and carry
-`priority_and_stock_policy_require_confirmation`; a business owner must set
-their real priority and shelf thresholds before those entries become
-enforcing rules.
+is the only item policy explicitly supplied with the implementation request;
+it has `policy_status: "approved"`. Other initial entries use a non-enforcing
+`standard`, 0/0 policy with `policy_status: "placeholder"`. Matrix Builder may
+show their differences but does not treat them as approved conflicts. A
+business owner must set their real priority and shelf thresholds before those
+entries become approved rules.
 
 ## Deterministic matching
 

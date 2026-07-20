@@ -160,6 +160,14 @@ test('loads and validates the working Miska assortment matrix', () => {
   assert.ok(loaded.matrix.items.some(item => item.brand === 'AWARD'));
   assert.ok(loaded.matrix.items.some(item => item.brand === 'CRAFTIA HARMONA'));
   assert.ok(loaded.matrix.items.some(item => item.brand === "Cat's Choice"));
+  assert.equal(
+    loaded.matrix.items.filter(item => item.policy_status === 'approved').length,
+    1
+  );
+  assert.equal(
+    loaded.matrix.items.filter(item => item.policy_status === 'placeholder').length,
+    loaded.matrix.items.length - 1
+  );
 });
 
 test('reports a clear error when the matrix file is absent', () => {
@@ -197,6 +205,7 @@ test('accepts absent optional item fields and rejects absent required fields', (
   });
   assert.equal(value.items[0].article, null);
   assert.equal(value.items[0].brand, null);
+  assert.equal(value.items[0].policy_status, 'approved');
 
   assert.throws(
     () => validateAssortmentMatrix({
@@ -206,6 +215,16 @@ test('accepts absent optional item fields and rejects absent required fields', (
       items: [{ name: 'Incomplete' }],
     }),
     error => error instanceof AssortmentMatrixError
+  );
+});
+
+test('validates explicit assortment policy status', () => {
+  const value = matrix([matrixItem({ policy_status: 'placeholder' })]);
+  assert.equal(value.items[0].policy_status, 'placeholder');
+  assert.throws(
+    () => matrix([matrixItem({ policy_status: 'draft' })]),
+    error => error instanceof AssortmentMatrixError &&
+      error.code === 'INVALID_POLICY_STATUS'
   );
 });
 

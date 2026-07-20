@@ -40,7 +40,9 @@ function buildMatrixBuilderReport(draft, manualReview) {
   const coreItems = draft.items.filter(item => item.suggested_role === 'CORE');
   const newItems = draft.items.filter(item => item.suggested_role === 'NEW');
   const exitItems = draft.items.filter(item => item.suggested_role === 'EXIT');
-  const conflictItems = draft.items.filter(item => item.policy_conflict);
+  const conflictItems = draft.items.filter(item => item.approved_policy_conflict);
+  const placeholderItems = draft.items.filter(item => item.placeholder_difference);
+  const reviewQueues = manualReview.review_queues || {};
   const missingDataItems = draft.items.filter(item =>
     item.data_quality.missing_fields.length > 0 ||
     item.validation.errors.length > 0 ||
@@ -71,7 +73,12 @@ function buildMatrixBuilderReport(draft, manualReview) {
     `- Low confidence: ${summary.confidence.low}`,
     `- Ручная проверка: ${summary.manual_review}`,
     `- Товары действующей матрицы: ${summary.existing_matrix_items}`,
-    `- Конфликты политик: ${summary.policy_conflicts}`,
+    `- Конфликты с approved policy: ${summary.approved_policy_conflicts ?? summary.policy_conflicts}`,
+    `- Отличия от placeholder: ${summary.placeholder_differences ?? 0}`,
+    `- Identity remediation: ${summary.review_queues?.identity_remediation ?? 0}`,
+    `- Commercial review: ${summary.review_queues?.commercial_review ?? 0}`,
+    `- Exit review: ${summary.review_queues?.exit_review ?? 0}`,
+    `- Large inventory review: ${summary.review_queues?.large_inventory_review ?? 0}`,
     `- Без полной политики остатков: ${summary.products_without_stock_policy}`,
     `- Ошибки валидации SKU: ${draft.validation_summary.error_count}`,
     `- Предупреждения валидации SKU: ${draft.validation_summary.warning_count}`,
@@ -94,6 +101,20 @@ function buildMatrixBuilderReport(draft, manualReview) {
   appendItems(lines, exitItems);
   lines.push('', '## КОНФЛИКТЫ С ДЕЙСТВУЮЩЕЙ МАТРИЦЕЙ', '');
   appendItems(lines, conflictItems);
+  lines.push('', '## ОТЛИЧИЯ ОТ PLACEHOLDER-ПОЛИТИК', '');
+  appendItems(lines, placeholderItems);
+  lines.push('', '## ОЧЕРЕДИ РУЧНОЙ ПРОВЕРКИ', '');
+  for (const queue of [
+    'identity_remediation',
+    'commercial_review',
+    'exit_review',
+    'policy_conflict',
+    'large_inventory_review',
+    'insufficient_data',
+  ]) {
+    lines.push('', `### ${queue}`, '');
+    appendItems(lines, reviewQueues[queue] || []);
+  }
   lines.push('', '## ПОЗИЦИИ ДЛЯ РУЧНОЙ ПРОВЕРКИ', '');
   appendItems(lines, manualReview.items);
   lines.push('', '## НЕХВАТКА ДАННЫХ', '');
@@ -102,10 +123,10 @@ function buildMatrixBuilderReport(draft, manualReview) {
     '',
     '## РЕКОМЕНДУЕМЫЕ СЛЕДУЮЩИЕ ДЕЙСТВИЯ',
     '',
-    '1. Проверить позиции из manual-review.json и подтвердить их роль.',
-    '2. Проверить конфликты с действующей матрицей; по умолчанию сохранить действующую политику.',
-    '3. Подтвердить параметры покрытия и safety stock в конфигурации Matrix Builder.',
-    '4. Отдельно подтвердить кандидатов NEW и EXIT.',
+    '1. Обработать identity_remediation отдельно от коммерческих решений.',
+    '2. Сохранить approved policy и проверить только реальные approved-конфликты.',
+    '3. Рассматривать placeholder differences как предложения, а не утверждённые конфликты.',
+    '4. Отдельно подтвердить commercial_review, EXIT и крупные политики запаса.',
     '5. Переносить в рабочую матрицу только явно утверждённые владельцем позиции.',
     ''
   );

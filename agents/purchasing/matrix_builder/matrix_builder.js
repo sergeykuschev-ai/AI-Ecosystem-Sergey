@@ -21,6 +21,7 @@ const { calculateStockPolicy } = require('./matrix_stock_policy');
 const {
   assessDataQuality,
   classifyRole,
+  resolveCategoryProfile,
   suggestPriority,
 } = require('./matrix_role_classifier');
 const { buildMatrixBuilderReport } = require('./matrix_builder_report');
@@ -73,11 +74,17 @@ function existingPolicy(match) {
     minimum_shelf_stock: match.item.minimum_shelf_stock,
     target_stock: match.item.target_stock,
     allow_zero_stock: match.item.allow_zero_stock,
+    policy_status: match.item.policy_status || 'approved',
     match_method: match.matchMethod,
   };
 }
 
 function policiesConflict(existing, suggested) {
+  if (!existing || (existing.policy_status || 'approved') !== 'approved') return false;
+  return policiesDiffer(existing, suggested);
+}
+
+function policiesDiffer(existing, suggested) {
   if (!existing) return false;
   if (existing.priority !== suggested.priority) return true;
   if (
@@ -89,7 +96,7 @@ function policiesConflict(existing, suggested) {
 }
 
 function effectivePolicy(existing, suggested) {
-  if (!existing) return { ...suggested };
+  if (!existing || existing.policy_status !== 'approved') return { ...suggested };
   return {
     priority: existing.priority,
     minimum_shelf_stock: existing.minimum_shelf_stock,
@@ -118,22 +125,36 @@ function buildDraftItem({
   ambiguousIdentity,
   config,
 }) {
-  const stockPolicy = calculateStockPolicy(row, config);
+  const categoryProfile = resolveCategoryProfile(row, config);
+  const stockPolicy = calculateStockPolicy(row, config, categoryProfile);
   const roleResult = classifyRole({
     row,
     stockPolicy,
     existingItem: existingMatch?.item || null,
     config,
+    categoryProfile,
   });
   const priorityResult = suggestPriority({
     roleResult,
     existingItem: existingMatch?.item || null,
     config,
   });
-  const quality = assessDataQuality({ row, stockPolicy, ambiguousIdentity });
+  const quality = assessDataQuality({
+    row,
+    stockPolicy,
+    ambiguousIdentity,
+    config,
+  });
   const suggestedPolicy = automaticPolicy(stockPolicy, priorityResult.priority);
   const preservedPolicy = existingPolicy(existingMatch);
-  const policyConflict = policiesConflict(preservedPolicy, suggestedPolicy);
+  const approvedPolicyConflict = policiesConflict(preservedPolicy, suggestedPolicy);
+  const placeholderDifference = Boolean(
+    preservedPolicy?.policy_status === 'placeholder' &&
+    policiesDiffer(preservedPolicy, suggestedPolicy)
+  );
+  const policyRequiresConfirmation = Boolean(
+    preservedPolicy?.policy_status === 'requires_confirmation'
+  );
   const selectedPolicy = effectivePolicy(preservedPolicy, suggestedPolicy);
   const missingInventory = row.freeStock === null || row.stockDays === null;
   const belowExpectedStock =
@@ -144,9 +165,45 @@ function buildDraftItem({
     suggestedPolicy.maximum_stock !== null &&
     suggestedPolicy.maximum_stock >
       config.stock_policy.large_policy_review_threshold_units;
-  const existingNeedsConfirmation = Boolean(
-    existingMatch?.item?.notes?.includes('requires_confirmation')
+  const purchasePrice = finiteNumberOrNull(row.priceNum);
+  const maximumStockValue = purchasePrice !== null &&
+    selectedPolicy.maximum_stock !== null
+    ? Math.round(
+      (purchasePrice * selectedPolicy.maximum_stock + Number.EPSILON) * 100
+    ) / 100
+    : null;
+  const inventoryValueLevel = maximumStockValue !== null &&
+    config.inventory_value_review.enabled
+    ? maximumStockValue >= config.inventory_value_review.critical_threshold_rub
+      ? 'critical'
+      : maximumStockValue >= config.inventory_value_review.review_threshold_rub
+        ? 'review'
+        : null
+    : null;
+  const missingPurchasePrice = purchasePrice === null;
+  const identityQueue = quality.reasons.some(reason =>
+    ['missing_stable_identifier', 'ambiguous_identity'].includes(reason)
   );
+  const commercialQueue =
+    ['NEW', 'UNCLASSIFIED'].includes(roleResult.role) ||
+    roleResult.reasonCodes.includes('strategic_low_demand') ||
+    roleResult.reasonCodes.some(reason => reason.startsWith('exit_blocked_')) ||
+    stockPolicy.growthCapApplied ||
+    policyRequiresConfirmation;
+  const insufficientDataQueue =
+    stockPolicy.calculationStatus !== 'calculated' ||
+    missingInventory ||
+    missingPurchasePrice;
+  const reviewQueueMemberships = [
+    ...(identityQueue ? ['identity_remediation'] : []),
+    ...(commercialQueue ? ['commercial_review'] : []),
+    ...(roleResult.role === 'EXIT' ? ['exit_review'] : []),
+    ...(approvedPolicyConflict ? ['policy_conflict'] : []),
+    ...(largeSuggestedPolicy || inventoryValueLevel
+      ? ['large_inventory_review']
+      : []),
+    ...(insufficientDataQueue ? ['insufficient_data'] : []),
+  ];
   const reasonCodes = uniqueReasonCodes([
     ...stockPolicy.reasonCodes,
     ...roleResult.reasonCodes,
@@ -155,22 +212,45 @@ function buildDraftItem({
     ...(preservedPolicy ? ['existing_matrix_policy'] : []),
     ...(missingInventory ? ['missing_inventory_data'] : []),
     ...(belowExpectedStock ? ['below_expected_stock'] : []),
-    ...(policyConflict || largeSuggestedPolicy || existingNeedsConfirmation
+    ...(approvedPolicyConflict ? ['approved_policy_conflict'] : []),
+    ...(placeholderDifference ? ['placeholder_difference'] : []),
+    ...(policyRequiresConfirmation
       ? ['policy_requires_confirmation']
       : []),
+    ...(largeSuggestedPolicy ? ['large_inventory_units'] : []),
+    ...(inventoryValueLevel === 'review' ? ['large_inventory_value'] : []),
+    ...(inventoryValueLevel === 'critical' ? ['critical_inventory_value'] : []),
+    ...(missingPurchasePrice ? ['missing_purchase_price'] : []),
   ]);
   const manualReviewReasons = uniqueReasonCodes([
-    ...(quality.confidence === 'low' ? quality.reasons : []),
-    ...(policyConflict ? ['policy_requires_confirmation'] : []),
-    ...(largeSuggestedPolicy ? ['policy_requires_confirmation'] : []),
-    ...(existingNeedsConfirmation ? ['policy_requires_confirmation'] : []),
-    ...(['NEW', 'EXIT', 'UNCLASSIFIED'].includes(roleResult.role)
-      ? roleResult.reasonCodes
+    ...(identityQueue ? quality.reasons.filter(reason =>
+      ['missing_stable_identifier', 'ambiguous_identity'].includes(reason)
+    ) : []),
+    ...(approvedPolicyConflict ? ['approved_policy_conflict'] : []),
+    ...(policyRequiresConfirmation ? ['policy_requires_confirmation'] : []),
+    ...(largeSuggestedPolicy ? ['large_inventory_units'] : []),
+    ...(inventoryValueLevel === 'review' ? ['large_inventory_value'] : []),
+    ...(inventoryValueLevel === 'critical' ? ['critical_inventory_value'] : []),
+    ...(roleResult.role === 'EXIT'
+      ? [roleResult.exitEvaluation?.noSalesReason, 'possible_exit_candidate']
       : []),
+    ...(commercialQueue ? roleResult.reasonCodes.filter(reason => [
+      'possible_new_product',
+      'policy_requires_confirmation',
+      'strategic_low_demand',
+      'short_long_trend_conflict',
+      'growth_cap_applied',
+      'exit_blocked_current_week_sale',
+      'exit_blocked_recent_sale',
+      'exit_blocked_supplier_demand',
+      'exit_blocked_strategic_policy',
+      'exit_blocked_approved_policy',
+    ].includes(reason)) : []),
     ...(stockPolicy.calculationStatus !== 'calculated'
       ? ['insufficient_sales_history']
       : []),
-    ...(ambiguousIdentity ? ['ambiguous_identity'] : []),
+    ...(missingInventory ? ['missing_inventory_data'] : []),
+    ...(missingPurchasePrice ? ['missing_purchase_price'] : []),
   ]);
   const strategicBrands = Array.from(new Set(
     roleResult.strategicGroups.map(group => group.brand)
@@ -202,37 +282,65 @@ function buildDraftItem({
     suggested_maximum_stock: selectedPolicy.maximum_stock,
     suggested_safety_stock: selectedPolicy.safety_stock,
     suggested_allow_zero_stock: preservedPolicy
+      ?.policy_status === 'approved'
       ? preservedPolicy.allow_zero_stock
       : roleResult.role === 'EXIT',
     existing_matrix_item: Boolean(existingMatch),
-    existing_policy_preserved: Boolean(existingMatch),
+    existing_policy_preserved: preservedPolicy?.policy_status === 'approved',
     existing_policy: preservedPolicy,
     suggested_policy: suggestedPolicy,
-    policy_conflict: policyConflict,
-    recommended_action: preservedPolicy
-      ? policyConflict
-        ? 'keep_existing_and_review_difference'
-        : 'keep_existing'
+    approved_policy_conflict: approvedPolicyConflict,
+    placeholder_difference: placeholderDifference,
+    policy_requires_confirmation: policyRequiresConfirmation,
+    policy_conflict: approvedPolicyConflict,
+    maximum_stock_value: maximumStockValue,
+    inventory_value_review_level: inventoryValueLevel,
+    recommended_action: preservedPolicy?.policy_status === 'approved'
+      ? approvedPolicyConflict
+        ? 'keep_approved_and_review_difference'
+        : 'keep_approved'
+      : preservedPolicy
+        ? policyRequiresConfirmation
+          ? 'review_unconfirmed_policy'
+          : 'use_automatic_draft_and_record_placeholder_difference'
       : manualReviewReasons.length > 0
         ? 'owner_review_required'
         : 'consider_for_matrix',
     confidence: quality.confidence,
-    manual_review_required: manualReviewReasons.length > 0,
+    manual_review_required: reviewQueueMemberships.length > 0,
     manual_review_reasons: manualReviewReasons,
+    review_queue_memberships: reviewQueueMemberships,
     evidence: {
       abc: row.abc || null,
       xyz: row.xyz || null,
       completed_weeks_used: stockPolicy.completedWeeksUsed,
+      total_completed_weeks_available: stockPolicy.totalCompletedWeeksAvailable,
       invalid_completed_weeks: stockPolicy.invalidCompletedWeeks,
       weekly_sales: stockPolicy.weeklySales,
       average_weekly_sales: stockPolicy.averageWeeklySales,
+      short_average: stockPolicy.shortAverage,
+      base_average: stockPolicy.baseAverage,
+      preferred_average: stockPolicy.preferredAverage,
+      long_term_average: stockPolicy.longTermAverage,
+      effective_average: stockPolicy.effectiveAverage,
+      growth_cap_applied: stockPolicy.growthCapApplied,
+      short_long_ratio: stockPolicy.shortLongRatio,
       weeks_with_sales: stockPolicy.weeksWithSales,
+      active_week_ratio: stockPolicy.activeWeekRatio,
+      category_profile: stockPolicy.categoryProfile,
+      weekly_sales_standard_deviation: stockPolicy.weeklySalesStandardDeviation,
+      lead_time_weeks: stockPolicy.leadTimeWeeks,
+      safety_stock_formula: stockPolicy.safetyStockFormula,
+      safety_stock_data_quality: stockPolicy.safetyStockDataQuality,
+      policy_formula: stockPolicy.policyFormula,
       free_stock: finiteNumberOrNull(row.freeStock),
       stock_days: finiteNumberOrNull(row.stockDays),
       excess_stock: finiteNumberOrNull(row.excessStock),
       supplier_recommended_qty: finiteNumberOrNull(row.supplierOrderQty),
       supplier_need_qty: finiteNumberOrNull(row.needQty),
-      purchase_price: finiteNumberOrNull(row.priceNum),
+      purchase_price: purchasePrice,
+      maximum_stock_value: maximumStockValue,
+      inventory_value_review_level: inventoryValueLevel,
       supplier_order_sum: finiteNumberOrNull(row.supplierOrderSum),
       phase1_decision: phase1Decision?.decision || null,
       phase2_decision: phase2Decision?.decision || null,
@@ -242,7 +350,9 @@ function buildDraftItem({
         id: group.id,
         brand: group.brand,
         required_tokens: group.required_tokens,
+        required_token_groups: group.required_token_groups,
       })),
+      exit_evaluation: roleResult.exitEvaluation,
     },
     data_quality: {
       confidence: quality.confidence,
@@ -251,9 +361,10 @@ function buildDraftItem({
       missing_fields: [
         ...(row.freeStock === null ? ['free_stock'] : []),
         ...(row.stockDays === null ? ['stock_days'] : []),
-        ...(stockPolicy.completedWeeksUsed < config.stock_policy.minimum_completed_weeks
+        ...(stockPolicy.completedWeeksUsed < config.stock_policy.minimum_policy_data_weeks
           ? ['completed_weekly_sales']
           : []),
+        ...(missingPurchasePrice ? ['purchase_price'] : []),
       ],
     },
     reason_codes: reasonCodes,
@@ -267,7 +378,8 @@ function buildDraftItem({
         ? {
           match_method: existingMatch.matchMethod,
           matrix_item_index: existingMatch.itemIndex,
-          policy_preserved: true,
+          policy_status: existingMatch.item.policy_status,
+          policy_preserved: existingMatch.item.policy_status === 'approved',
         }
         : null,
       source: {
@@ -312,7 +424,35 @@ function summarizeDraft(items) {
     },
     manual_review: count(item => item.manual_review_required),
     existing_matrix_items: count(item => item.existing_matrix_item),
-    policy_conflicts: count(item => item.policy_conflict),
+    policy_conflicts: count(item => item.approved_policy_conflict),
+    approved_policy_conflicts: count(item => item.approved_policy_conflict),
+    placeholder_differences: count(item => item.placeholder_difference),
+    policies_requiring_confirmation: count(item =>
+      item.policy_requires_confirmation
+    ),
+    large_inventory_review: count(item =>
+      item.review_queue_memberships.includes('large_inventory_review')
+    ),
+    review_queues: {
+      identity_remediation: count(item =>
+        item.review_queue_memberships.includes('identity_remediation')
+      ),
+      commercial_review: count(item =>
+        item.review_queue_memberships.includes('commercial_review')
+      ),
+      exit_review: count(item =>
+        item.review_queue_memberships.includes('exit_review')
+      ),
+      policy_conflict: count(item =>
+        item.review_queue_memberships.includes('policy_conflict')
+      ),
+      large_inventory_review: count(item =>
+        item.review_queue_memberships.includes('large_inventory_review')
+      ),
+      insufficient_data: count(item =>
+        item.review_queue_memberships.includes('insufficient_data')
+      ),
+    },
     products_without_stock_policy: count(item =>
       item.suggested_minimum_shelf_stock === null ||
       item.suggested_target_stock === null ||
@@ -390,7 +530,10 @@ function buildMatrixDraft({
     config: {
       version: config.version,
       status: config.status,
+      core_policy: config.core_policy,
+      exit_policy: config.exit_policy,
       stock_policy: config.stock_policy,
+      inventory_value_review: config.inventory_value_review,
     },
     status: 'draft',
     warnings: [
@@ -403,20 +546,27 @@ function buildMatrixDraft({
   };
   const validated = validateMatrixDraft(draftBase, config).draft;
   validated.summary = summarizeDraft(validated.items);
+  validated.review_queues = Object.fromEntries(
+    Object.keys(validated.summary.review_queues).map(queue => [
+      queue,
+      validated.items
+        .filter(item => item.review_queue_memberships.includes(queue))
+        .map(item => item.rowIdentity),
+    ])
+  );
   return validated;
 }
 
 function buildManualReviewFile(draft) {
-  const items = draft.items.filter(item =>
-    item.manual_review_required ||
-    item.confidence === 'low' ||
-    item.policy_conflict ||
-    ['NEW', 'EXIT'].includes(item.suggested_role) ||
-    item.reason_codes.includes('ambiguous_identity') ||
-    item.suggested_minimum_shelf_stock === null ||
-    item.suggested_target_stock === null ||
-    item.suggested_maximum_stock === null
-  );
+  const items = draft.items.filter(item => item.review_queue_memberships.length > 0);
+  const queueNames = [
+    'identity_remediation',
+    'commercial_review',
+    'exit_review',
+    'policy_conflict',
+    'large_inventory_review',
+    'insufficient_data',
+  ];
   return {
     version: 1,
     generated_at: draft.generated_at,
@@ -424,6 +574,10 @@ function buildManualReviewFile(draft) {
     source: draft.source,
     item_count: items.length,
     items,
+    review_queues: Object.fromEntries(queueNames.map(queue => [
+      queue,
+      items.filter(item => item.review_queue_memberships.includes(queue)),
+    ])),
   };
 }
 
@@ -473,6 +627,7 @@ module.exports = {
   duplicateIdentityRows,
   ambiguousMatrixRows,
   policiesConflict,
+  policiesDiffer,
   effectivePolicy,
   buildDraftItem,
   summarizeDraft,

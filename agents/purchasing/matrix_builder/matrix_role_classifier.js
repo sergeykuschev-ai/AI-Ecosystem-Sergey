@@ -10,9 +10,24 @@ function productTokens(name) {
 
 function matchStrategicGroups(row, config) {
   const tokens = productTokens(row.name);
-  return config.strategic_groups.filter(group =>
-    group.required_tokens.every(token => tokens.has(token))
+  const article = normalizedArticle(row.article);
+  return config.strategic_groups.filter(group => {
+    const articleMatch = article && group.exact_articles.includes(article);
+    const tokenMatch =
+      group.required_tokens.every(token => tokens.has(token)) &&
+      group.required_token_groups.every(alternatives =>
+        alternatives.some(token => tokens.has(token))
+      );
+    return articleMatch || tokenMatch;
+  });
+}
+
+function resolveCategoryProfile(row, config) {
+  const tokens = productTokens(row.name);
+  const matched = config.category_profiles.find(profile =>
+    !profile.default && profile.match_any_tokens.some(token => tokens.has(token))
   );
+  return matched || config.category_profiles.find(profile => profile.default);
 }
 
 function matchExplicitRoleRule(row, config) {
@@ -25,7 +40,121 @@ function matchExplicitRoleRule(row, config) {
   return matches.length === 1 ? matches[0] : null;
 }
 
-function classifyRole({ row, stockPolicy, existingItem, config }) {
+function positiveNumber(value) {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0;
+}
+
+function completedExitHistory(row, horizon) {
+  const completed = (Array.isArray(row.weeklySalesHistory)
+    ? row.weeklySalesHistory
+    : [])
+    .filter(period => period && period.completionStatus === 'completed')
+    .sort((left, right) => left.periodStart.localeCompare(right.periodStart))
+    .slice(-horizon);
+  const reliable = completed.filter(period =>
+    typeof period.quantity === 'number' &&
+    Number.isFinite(period.quantity) &&
+    period.quantity >= 0
+  );
+  return {
+    completed,
+    reliable,
+    sufficient: reliable.length >= horizon,
+    hasSales: reliable.some(period => period.quantity > 0),
+  };
+}
+
+function exitNoSalesReason(horizon) {
+  if (horizon >= 26) return 'exit_no_sales_26_weeks';
+  if (horizon >= 12) return 'exit_no_sales_12_weeks';
+  return 'exit_no_sales_8_weeks';
+}
+
+function evaluateExit({
+  row,
+  existingItem,
+  strategicGroups,
+  categoryProfile,
+  config,
+}) {
+  const horizon = categoryProfile.exit_zero_sales_weeks;
+  const history = completedExitHistory(row, horizon);
+  const currentWeekSale = (Array.isArray(row.weeklySalesHistory)
+    ? row.weeklySalesHistory
+    : []).some(period =>
+    period?.completionStatus === 'partial' && positiveNumber(period.quantity)
+  );
+  const supplierDemand = positiveNumber(row.needQty) ||
+    positiveNumber(row.supplierOrderQty);
+  const availabilityWindow = Array.isArray(row.weeklyAvailabilityHistory)
+    ? row.weeklyAvailabilityHistory
+      .filter(period => period?.completionStatus === 'completed')
+      .sort((left, right) => left.periodStart.localeCompare(right.periodStart))
+      .slice(-horizon)
+    : [];
+  const reliableAvailability = availabilityWindow.filter(period =>
+    typeof period.available === 'boolean' ||
+    (typeof period.availableStock === 'number' &&
+      Number.isFinite(period.availableStock) && period.availableStock >= 0)
+  );
+  const historicalAvailabilityPresent = availabilityWindow.length > 0;
+  const historicallyAvailable = reliableAvailability.some(period =>
+    period.available === true || period.availableStock > 0
+  );
+  const strategicProtected =
+    config.exit_policy.protect_strategic_items && strategicGroups.length > 0;
+  const approvedProtected = existingItem &&
+    (existingItem.policy_status || 'approved') === 'approved' &&
+    ['critical', 'important'].includes(existingItem.priority);
+  const blockers = [];
+
+  if (!history.sufficient && config.exit_policy.require_sufficient_history) {
+    blockers.push('exit_insufficient_history');
+  }
+  if (history.sufficient && history.hasSales) {
+    blockers.push('exit_blocked_recent_sale');
+  }
+  if (currentWeekSale && config.exit_policy.require_no_current_week_sales) {
+    blockers.push('exit_blocked_current_week_sale');
+  }
+  if (supplierDemand && config.exit_policy.require_no_supplier_demand) {
+    blockers.push('exit_blocked_supplier_demand');
+  }
+  if (strategicProtected) blockers.push('exit_blocked_strategic_policy');
+  if (approvedProtected) blockers.push('exit_blocked_approved_policy');
+  if (
+    historicalAvailabilityPresent &&
+    (reliableAvailability.length < horizon || !historicallyAvailable)
+  ) blockers.push('exit_insufficient_history');
+
+  return {
+    horizonWeeks: horizon,
+    completedWeeksObserved: history.reliable.length,
+    noSalesInHorizon: history.sufficient && !history.hasSales,
+    currentWeekSale,
+    supplierDemand,
+    strategicProtected,
+    approvedProtected,
+    blockers,
+    eligible: history.sufficient && !history.hasSales && blockers.length === 0,
+    noSalesReason: history.sufficient && !history.hasSales
+      ? exitNoSalesReason(horizon)
+      : null,
+    historicalAvailabilityStatus: !historicalAvailabilityPresent
+      ? 'not_available'
+      : historicallyAvailable && reliableAvailability.length >= horizon
+        ? 'confirmed_available_in_horizon'
+        : 'insufficient_or_unavailable_in_horizon',
+  };
+}
+
+function classifyRole({
+  row,
+  stockPolicy,
+  existingItem,
+  config,
+  categoryProfile = resolveCategoryProfile(row, config),
+}) {
   const abc = normalizeClass(row.abc);
   const xyz = normalizeClass(row.xyz);
   const strategicGroups = matchStrategicGroups(row, config);
@@ -38,6 +167,8 @@ function classifyRole({ row, stockPolicy, existingItem, config }) {
       reasonCodes: ['policy_requires_confirmation'],
       strategicGroups,
       explicitRule,
+      categoryProfile,
+      exitEvaluation: null,
       provenance: {
         method: 'exact_config_rule',
         rule: {
@@ -51,80 +182,82 @@ function classifyRole({ row, stockPolicy, existingItem, config }) {
 
   const highAbc = config.classification.core_abc_classes.includes(abc);
   const stableXyz = config.classification.core_xyz_classes.includes(xyz);
-  const regularSales =
-    stockPolicy.completedWeeksUsed >= config.stock_policy.minimum_completed_weeks &&
-    stockPolicy.weeksWithSales >=
-      config.classification.core_minimum_weeks_with_sales &&
-    stockPolicy.averageWeeklySales > 0;
-  const positiveSupplierOrder =
-    typeof row.supplierOrderQty === 'number' && row.supplierOrderQty > 0;
-  const positiveExcess =
-    typeof row.excessStock === 'number' && row.excessStock > 0;
+  const longEnough =
+    stockPolicy.completedWeeksUsed >= config.core_policy.minimum_completed_weeks;
+  const averageStrong =
+    stockPolicy.longTermAverage !== null &&
+    stockPolicy.longTermAverage >= config.core_policy.minimum_average_weekly_sales;
+  const activeEnough =
+    stockPolicy.activeWeekRatio !== null &&
+    stockPolicy.activeWeekRatio >= config.core_policy.minimum_active_week_ratio;
+  const positiveSupplierOrder = positiveNumber(row.supplierOrderQty);
+  const positiveExcess = positiveNumber(row.excessStock);
 
   if (highAbc) reasonCodes.push('high_abc_rank');
   if (stableXyz) reasonCodes.push('stable_xyz_rank');
-  if (regularSales) {
+  if (longEnough && averageStrong && activeEnough) {
     reasonCodes.push('stable_sales', 'regular_weekly_sales');
+  }
+  if (!longEnough) reasonCodes.push('core_insufficient_history');
+  if (longEnough && !averageStrong) reasonCodes.push('core_below_average_threshold');
+  if (longEnough && !activeEnough) reasonCodes.push('core_below_active_week_ratio');
+  if (stockPolicy.growthCapApplied) {
+    reasonCodes.push('short_long_trend_conflict', 'growth_cap_applied');
   }
   if (positiveSupplierOrder) reasonCodes.push('supplier_recommends_order');
   if (positiveExcess) reasonCodes.push('excess_stock');
   if (strategicGroups.length > 0) reasonCodes.push('strategic_brand_group');
+  if (strategicGroups.length > 0 && !(averageStrong && activeEnough)) {
+    reasonCodes.push('strategic_low_demand');
+  }
 
-  if (highAbc && stableXyz && regularSales && !positiveExcess) {
+  if (
+    highAbc &&
+    stableXyz &&
+    longEnough &&
+    averageStrong &&
+    activeEnough &&
+    !positiveExcess
+  ) {
     return {
       role: 'CORE',
-      reasonCodes,
+      reasonCodes: Array.from(new Set(reasonCodes)),
       strategicGroups,
       explicitRule: null,
+      categoryProfile,
+      exitEvaluation: null,
       provenance: {
-        method: 'deterministic_core_signals',
+        method: 'long_horizon_core_signals',
         sourceFields: ['abc', 'xyz', 'weeklySalesHistory', 'excessStock'],
+        minimumCompletedWeeks: config.core_policy.minimum_completed_weeks,
+        minimumActiveWeekRatio: config.core_policy.minimum_active_week_ratio,
+        minimumAverageWeeklySales:
+          config.core_policy.minimum_average_weekly_sales,
       },
     };
   }
 
-  const enoughHistory =
-    stockPolicy.completedWeeksUsed >= config.stock_policy.minimum_completed_weeks;
-  const allReliableWeeksZero =
-    enoughHistory &&
-    stockPolicy.averageWeeklySales === 0 &&
-    stockPolicy.weeksWithSales === 0;
-  const hasConfirmedInventory =
-    (typeof row.freeStock === 'number' && row.freeStock > 0) || positiveExcess;
+  const exitEvaluation = evaluateExit({
+    row,
+    existingItem,
+    strategicGroups,
+    categoryProfile,
+    config,
+  });
+  const hasConfirmedInventory = positiveNumber(row.freeStock) || positiveExcess;
   const hasStableIdentifier = Boolean(
     row.barcode || row.internalProductId || row.article
   );
   const exitClasses =
     config.classification.exit_abc_classes.includes(abc) &&
     config.classification.exit_xyz_classes.includes(xyz);
+  const possibleNew =
+    stockPolicy.totalCompletedWeeksAvailable < config.core_policy.minimum_completed_weeks &&
+    row.reportedSalesQuantity === null;
 
   if (
     !existingItem &&
-    exitClasses &&
-    allReliableWeeksZero &&
-    hasConfirmedInventory &&
-    hasStableIdentifier
-  ) {
-    return {
-      role: 'EXIT',
-      reasonCodes: Array.from(new Set([
-        ...reasonCodes,
-        'no_completed_week_sales',
-        'possible_exit_candidate',
-      ])),
-      strategicGroups,
-      explicitRule: null,
-      provenance: {
-        method: 'deterministic_exit_candidate_signals',
-        sourceFields: ['abc', 'xyz', 'weeklySalesHistory', 'freeStock', 'excessStock'],
-      },
-    };
-  }
-
-  if (
-    !existingItem &&
-    !enoughHistory &&
-    row.reportedSalesQuantity === null
+    possibleNew
   ) {
     return {
       role: 'NEW',
@@ -135,6 +268,8 @@ function classifyRole({ row, stockPolicy, existingItem, config }) {
       ])),
       strategicGroups,
       explicitRule: null,
+      categoryProfile,
+      exitEvaluation,
       provenance: {
         method: 'possible_new_short_history',
         sourceFields: ['weeklySalesHistory', 'reportedSalesQuantity'],
@@ -142,11 +277,45 @@ function classifyRole({ row, stockPolicy, existingItem, config }) {
     };
   }
 
+  if (
+    exitClasses &&
+    exitEvaluation.eligible &&
+    hasConfirmedInventory &&
+    hasStableIdentifier
+  ) {
+    return {
+      role: 'EXIT',
+      reasonCodes: Array.from(new Set([
+        ...reasonCodes,
+        exitEvaluation.noSalesReason,
+        'possible_exit_candidate',
+      ])),
+      strategicGroups,
+      explicitRule: null,
+      categoryProfile,
+      exitEvaluation,
+      provenance: {
+        method: 'category_horizon_exit_candidate_signals',
+        sourceFields: [
+          'abc',
+          'xyz',
+          'weeklySalesHistory',
+          'freeStock',
+          'excessStock',
+          'needQty',
+          'supplierOrderQty',
+        ],
+        horizonWeeks: exitEvaluation.horizonWeeks,
+      },
+    };
+  }
+
+  if (exitClasses) reasonCodes.push(...exitEvaluation.blockers);
   const lowSignificance = ['C', 'D'].includes(abc) || ['Z', 'ZZ'].includes(xyz);
   const irregular =
     stockPolicy.weeksWithSales > 0 &&
     stockPolicy.weeksWithSales < stockPolicy.completedWeeksUsed;
-  if (lowSignificance || irregular || positiveExcess) {
+  if (lowSignificance || irregular || positiveExcess || strategicGroups.length > 0) {
     return {
       role: 'OPTIONAL',
       reasonCodes: Array.from(new Set([
@@ -155,8 +324,12 @@ function classifyRole({ row, stockPolicy, existingItem, config }) {
       ])),
       strategicGroups,
       explicitRule: null,
+      categoryProfile,
+      exitEvaluation,
       provenance: {
-        method: 'deterministic_optional_signals',
+        method: strategicGroups.length > 0 && !lowSignificance
+          ? 'strategic_low_demand_optional'
+          : 'deterministic_optional_signals',
         sourceFields: ['abc', 'xyz', 'weeklySalesHistory', 'excessStock'],
       },
     };
@@ -166,11 +339,15 @@ function classifyRole({ row, stockPolicy, existingItem, config }) {
     role: 'UNCLASSIFIED',
     reasonCodes: Array.from(new Set([
       ...reasonCodes,
-      ...(enoughHistory ? [] : ['insufficient_sales_history']),
+      ...(stockPolicy.calculationStatus === 'calculated'
+        ? []
+        : ['insufficient_sales_history']),
       'policy_requires_confirmation',
     ])),
     strategicGroups,
     explicitRule: null,
+    categoryProfile,
+    exitEvaluation,
     provenance: {
       method: 'insufficient_or_conflicting_signals',
       sourceFields: ['abc', 'xyz', 'weeklySalesHistory'],
@@ -179,11 +356,11 @@ function classifyRole({ row, stockPolicy, existingItem, config }) {
 }
 
 function suggestPriority({ roleResult, existingItem, config }) {
-  if (existingItem?.priority === 'critical') {
+  if (existingItem && (existingItem.policy_status || 'approved') === 'approved') {
     return {
-      priority: 'critical',
+      priority: existingItem.priority,
       reasonCodes: ['existing_matrix_policy'],
-      provenance: { method: 'existing_critical_policy' },
+      provenance: { method: 'approved_existing_policy' },
     };
   }
   if (roleResult.explicitRule?.priority) {
@@ -195,17 +372,16 @@ function suggestPriority({ roleResult, existingItem, config }) {
   }
   if (roleResult.role === 'CORE') {
     return {
-      priority: roleResult.strategicGroups.length > 0
-        ? config.classification.strategic_core_priority
-        : 'important',
-      reasonCodes: roleResult.strategicGroups.length > 0
-        ? ['stable_sales', 'strategic_brand_group']
-        : ['stable_sales'],
-      provenance: {
-        method: roleResult.strategicGroups.length > 0
-          ? 'stable_core_with_strategic_group'
-          : 'stable_core',
-      },
+      priority: 'important',
+      reasonCodes: ['stable_sales'],
+      provenance: { method: 'long_horizon_core' },
+    };
+  }
+  if (roleResult.strategicGroups.length > 0) {
+    return {
+      priority: config.classification.strategic_core_priority,
+      reasonCodes: ['strategic_brand_group'],
+      provenance: { method: 'strategic_group_without_core_promotion' },
     };
   }
   if (['NEW', 'EXIT', 'UNCLASSIFIED'].includes(roleResult.role)) {
@@ -222,7 +398,7 @@ function suggestPriority({ roleResult, existingItem, config }) {
   };
 }
 
-function assessDataQuality({ row, stockPolicy, ambiguousIdentity }) {
+function assessDataQuality({ row, stockPolicy, ambiguousIdentity, config }) {
   const hasStableIdentity = Boolean(
     row.barcode || row.internalProductId || row.article
   );
@@ -237,11 +413,13 @@ function assessDataQuality({ row, stockPolicy, ambiguousIdentity }) {
     row.stockDays >= 0;
   const invalidNumericData = [row.freeStock, row.stockDays, row.excessStock]
     .some(value => typeof value === 'number' && (!Number.isFinite(value) || value < 0));
+  const insufficientHistory =
+    stockPolicy.completedWeeksUsed < config.stock_policy.minimum_policy_data_weeks;
 
   if (
     ambiguousIdentity ||
     !hasStableIdentity ||
-    stockPolicy.completedWeeksUsed < 2 ||
+    insufficientHistory ||
     invalidNumericData ||
     !row.name
   ) {
@@ -250,13 +428,13 @@ function assessDataQuality({ row, stockPolicy, ambiguousIdentity }) {
       reasons: [
         ...(ambiguousIdentity ? ['ambiguous_identity'] : []),
         ...(!hasStableIdentity ? ['missing_stable_identifier'] : []),
-        ...(stockPolicy.completedWeeksUsed < 2 ? ['insufficient_sales_history'] : []),
+        ...(insufficientHistory ? ['insufficient_sales_history'] : []),
         ...(invalidNumericData ? ['missing_inventory_data'] : []),
       ],
     };
   }
   if (
-    stockPolicy.completedWeeksUsed >= 4 &&
+    stockPolicy.completedWeeksUsed >= config.stock_policy.preferred_weeks &&
     abc &&
     xyz &&
     validInventory &&
@@ -276,7 +454,10 @@ function assessDataQuality({ row, stockPolicy, ambiguousIdentity }) {
 module.exports = {
   productTokens,
   matchStrategicGroups,
+  resolveCategoryProfile,
   matchExplicitRoleRule,
+  completedExitHistory,
+  evaluateExit,
   classifyRole,
   suggestPriority,
   assessDataQuality,

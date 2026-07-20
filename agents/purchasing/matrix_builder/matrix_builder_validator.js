@@ -44,6 +44,27 @@ const REASON_CODES = Object.freeze([
   'policy_requires_confirmation',
   'role_requires_margin_data',
   'seasonality_not_confirmed',
+  'core_insufficient_history',
+  'core_below_average_threshold',
+  'core_below_active_week_ratio',
+  'short_long_trend_conflict',
+  'growth_cap_applied',
+  'strategic_low_demand',
+  'exit_no_sales_8_weeks',
+  'exit_no_sales_12_weeks',
+  'exit_no_sales_26_weeks',
+  'exit_blocked_current_week_sale',
+  'exit_blocked_recent_sale',
+  'exit_blocked_supplier_demand',
+  'exit_blocked_strategic_policy',
+  'exit_blocked_approved_policy',
+  'exit_insufficient_history',
+  'missing_purchase_price',
+  'large_inventory_value',
+  'critical_inventory_value',
+  'large_inventory_units',
+  'approved_policy_conflict',
+  'placeholder_difference',
 ]);
 
 const REASON_EXPLANATIONS = Object.freeze({
@@ -67,6 +88,27 @@ const REASON_EXPLANATIONS = Object.freeze({
   policy_requires_confirmation: 'Автоматическое предложение требует подтверждения владельца.',
   role_requires_margin_data: 'Для роли PROFIT нет подтверждённых данных о марже.',
   seasonality_not_confirmed: 'Сезонность не подтверждена настройкой или достаточной историей.',
+  core_insufficient_history: 'Для автоматического CORE недостаточно длинной истории.',
+  core_below_average_threshold: 'Длинная средняя скорость ниже порога автоматического CORE.',
+  core_below_active_week_ratio: 'Доля недель с продажами ниже порога автоматического CORE.',
+  short_long_trend_conflict: 'Короткая и длинная средние существенно расходятся.',
+  growth_cap_applied: 'Короткий рост ограничен относительно длинной средней.',
+  strategic_low_demand: 'Стратегическая позиция имеет слабый спрос и требует коммерческой проверки.',
+  exit_no_sales_8_weeks: 'Продажи отсутствуют восемь завершённых недель.',
+  exit_no_sales_12_weeks: 'Продажи отсутствуют двенадцать завершённых недель.',
+  exit_no_sales_26_weeks: 'Продажи отсутствуют двадцать шесть завершённых недель.',
+  exit_blocked_current_week_sale: 'Продажа в текущей неполной неделе блокирует EXIT.',
+  exit_blocked_recent_sale: 'Недавняя завершённая неделя с продажей блокирует EXIT.',
+  exit_blocked_supplier_demand: 'Потребность или заказ поставщика блокирует EXIT.',
+  exit_blocked_strategic_policy: 'Стратегическая защита блокирует EXIT.',
+  exit_blocked_approved_policy: 'Утверждённая critical/important политика блокирует EXIT.',
+  exit_insufficient_history: 'Наблюдаемой истории недостаточно для EXIT.',
+  missing_purchase_price: 'Нет закупочной цены для оценки стоимости максимального запаса.',
+  large_inventory_value: 'Стоимость максимального запаса превышает порог проверки.',
+  critical_inventory_value: 'Стоимость максимального запаса превышает критический порог.',
+  large_inventory_units: 'Максимальный запас превышает порог в единицах.',
+  approved_policy_conflict: 'Автоматическое предложение отличается от утверждённой политики.',
+  placeholder_difference: 'Автоматическое предложение отличается от временной заглушки матрицы.',
 });
 
 class MatrixBuilderError extends Error {
@@ -117,6 +159,26 @@ function requirePositiveInteger(value, fieldName) {
   return value;
 }
 
+function requireBoolean(value, fieldName) {
+  if (typeof value !== 'boolean') {
+    throw new MatrixBuilderError(
+      `${fieldName} должен быть boolean.`,
+      'INVALID_CONFIG'
+    );
+  }
+  return value;
+}
+
+function requirePositiveNumber(value, fieldName) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+    throw new MatrixBuilderError(
+      `${fieldName} должен быть конечным числом больше нуля.`,
+      'INVALID_CONFIG'
+    );
+  }
+  return value;
+}
+
 function stringArray(value, fieldName) {
   if (!Array.isArray(value) || value.some(item =>
     typeof item !== 'string' || item.trim() === ''
@@ -131,26 +193,64 @@ function stringArray(value, fieldName) {
 
 function validateMatrixBuilderConfig(value) {
   requireObject(value, 'Конфигурация Matrix Builder');
+  const corePolicy = requireObject(value.core_policy, 'core_policy');
+  const exitPolicy = requireObject(value.exit_policy, 'exit_policy');
   const stockPolicy = requireObject(value.stock_policy, 'stock_policy');
+  const inventoryValueReview = requireObject(
+    value.inventory_value_review,
+    'inventory_value_review'
+  );
   const classification = requireObject(value.classification, 'classification');
-  const minimumCompletedWeeks = requirePositiveInteger(
-    stockPolicy.minimum_completed_weeks,
-    'stock_policy.minimum_completed_weeks'
+  const coreMinimumWeeks = requirePositiveInteger(
+    corePolicy.minimum_completed_weeks,
+    'core_policy.minimum_completed_weeks'
   );
-  const historyWindow = requirePositiveInteger(
-    stockPolicy.history_window_completed_weeks,
-    'stock_policy.history_window_completed_weeks'
+  const corePreferredWeeks = requirePositiveInteger(
+    corePolicy.preferred_completed_weeks,
+    'core_policy.preferred_completed_weeks'
   );
-  if (historyWindow < minimumCompletedWeeks) {
+  if (corePreferredWeeks < coreMinimumWeeks) {
     throw new MatrixBuilderError(
-      'history_window_completed_weeks не может быть меньше minimum_completed_weeks.',
+      'core_policy.preferred_completed_weeks не может быть меньше minimum_completed_weeks.',
       'INVALID_CONFIG'
     );
   }
-  const minimumCover = requireNonNegativeNumber(
-    stockPolicy.minimum_cover_weeks,
-    'stock_policy.minimum_cover_weeks'
+  const activeWeekRatio = requireNonNegativeNumber(
+    corePolicy.minimum_active_week_ratio,
+    'core_policy.minimum_active_week_ratio'
   );
+  if (activeWeekRatio > 1) {
+    throw new MatrixBuilderError(
+      'core_policy.minimum_active_week_ratio не может быть больше 1.',
+      'INVALID_CONFIG'
+    );
+  }
+  const baseWeeks = requirePositiveInteger(
+    stockPolicy.base_weeks,
+    'stock_policy.base_weeks'
+  );
+  const preferredWeeks = requirePositiveInteger(
+    stockPolicy.preferred_weeks,
+    'stock_policy.preferred_weeks'
+  );
+  const shortWindowWeeks = requirePositiveInteger(
+    stockPolicy.short_window_weeks,
+    'stock_policy.short_window_weeks'
+  );
+  const minimumPolicyWeeks = requirePositiveInteger(
+    stockPolicy.minimum_policy_data_weeks,
+    'stock_policy.minimum_policy_data_weeks'
+  );
+  if (
+    preferredWeeks < baseWeeks ||
+    baseWeeks < minimumPolicyWeeks ||
+    shortWindowWeeks > baseWeeks
+  ) {
+    throw new MatrixBuilderError(
+      'stock_policy должен соблюдать short_window <= minimum_policy_data <= base <= preferred.',
+      'INVALID_CONFIG'
+    );
+  }
   const targetCover = requireNonNegativeNumber(
     stockPolicy.target_cover_weeks,
     'stock_policy.target_cover_weeks'
@@ -159,9 +259,23 @@ function validateMatrixBuilderConfig(value) {
     stockPolicy.maximum_cover_weeks,
     'stock_policy.maximum_cover_weeks'
   );
-  if (minimumCover > targetCover || targetCover > maximumCover) {
+  if (targetCover > maximumCover) {
     throw new MatrixBuilderError(
-      'Периоды покрытия должны соблюдать minimum <= target <= maximum.',
+      'Периоды покрытия должны соблюдать target <= maximum.',
+      'INVALID_CONFIG'
+    );
+  }
+  const reviewThresholdRub = requirePositiveNumber(
+    inventoryValueReview.review_threshold_rub,
+    'inventory_value_review.review_threshold_rub'
+  );
+  const criticalThresholdRub = requirePositiveNumber(
+    inventoryValueReview.critical_threshold_rub,
+    'inventory_value_review.critical_threshold_rub'
+  );
+  if (criticalThresholdRub < reviewThresholdRub) {
+    throw new MatrixBuilderError(
+      'critical_threshold_rub не может быть меньше review_threshold_rub.',
       'INVALID_CONFIG'
     );
   }
@@ -221,12 +335,62 @@ function validateMatrixBuilderConfig(value) {
       id,
       brand: requireNonEmptyString(group.brand, `strategic_groups[${index}].brand`),
       category: group.category || null,
+      exact_articles: Array.isArray(group.exact_articles)
+        ? stringArray(group.exact_articles, `strategic_groups[${index}].exact_articles`)
+          .map(normalizedArticle)
+        : [],
       required_tokens: stringArray(
         group.required_tokens,
         `strategic_groups[${index}].required_tokens`
       ).map(token => normalizedName(token)),
+      required_token_groups: Array.isArray(group.required_token_groups)
+        ? group.required_token_groups.map((tokens, groupIndex) => stringArray(
+          tokens,
+          `strategic_groups[${index}].required_token_groups[${groupIndex}]`
+        ).map(token => normalizedName(token)))
+        : [],
     };
   });
+
+  if (!Array.isArray(value.category_profiles) || value.category_profiles.length === 0) {
+    throw new MatrixBuilderError(
+      'category_profiles должен быть непустым массивом.',
+      'INVALID_CONFIG'
+    );
+  }
+  const categoryProfiles = value.category_profiles.map((profile, index) => {
+    requireObject(profile, `category_profiles[${index}]`);
+    return {
+      id: requireNonEmptyString(profile.id, `category_profiles[${index}].id`),
+      default: profile.default === true,
+      exit_zero_sales_weeks: requirePositiveInteger(
+        profile.exit_zero_sales_weeks,
+        `category_profiles[${index}].exit_zero_sales_weeks`
+      ),
+      match_any_tokens: stringArray(
+        profile.match_any_tokens,
+        `category_profiles[${index}].match_any_tokens`
+      ).map(token => normalizedName(token)),
+      minimum_shelf_units: requireNonNegativeNumber(
+        profile.minimum_shelf_units,
+        `category_profiles[${index}].minimum_shelf_units`
+      ),
+      minimum_cover_weeks: requireNonNegativeNumber(
+        profile.minimum_cover_weeks,
+        `category_profiles[${index}].minimum_cover_weeks`
+      ),
+      lead_time_weeks: requirePositiveNumber(
+        profile.lead_time_weeks,
+        `category_profiles[${index}].lead_time_weeks`
+      ),
+    };
+  });
+  if (categoryProfiles.filter(profile => profile.default).length !== 1) {
+    throw new MatrixBuilderError(
+      'category_profiles должен содержать ровно один default-профиль.',
+      'INVALID_CONFIG'
+    );
+  }
 
   const strategicCorePriority = requireNonEmptyString(
     classification.strategic_core_priority,
@@ -243,20 +407,72 @@ function validateMatrixBuilderConfig(value) {
     version: requireNonEmptyString(value.version, 'version'),
     status: requireNonEmptyString(value.status, 'status'),
     store: requireNonEmptyString(value.store, 'store'),
+    core_policy: {
+      minimum_completed_weeks: coreMinimumWeeks,
+      preferred_completed_weeks: corePreferredWeeks,
+      minimum_active_week_ratio: activeWeekRatio,
+      minimum_average_weekly_sales: requireNonNegativeNumber(
+        corePolicy.minimum_average_weekly_sales,
+        'core_policy.minimum_average_weekly_sales'
+      ),
+      short_term_growth_cap: requirePositiveNumber(
+        corePolicy.short_term_growth_cap,
+        'core_policy.short_term_growth_cap'
+      ),
+    },
+    exit_policy: {
+      consumables_zero_sales_weeks: requirePositiveInteger(
+        exitPolicy.consumables_zero_sales_weeks,
+        'exit_policy.consumables_zero_sales_weeks'
+      ),
+      slow_moving_zero_sales_weeks: requirePositiveInteger(
+        exitPolicy.slow_moving_zero_sales_weeks,
+        'exit_policy.slow_moving_zero_sales_weeks'
+      ),
+      durable_zero_sales_weeks: requirePositiveInteger(
+        exitPolicy.durable_zero_sales_weeks,
+        'exit_policy.durable_zero_sales_weeks'
+      ),
+      require_no_current_week_sales: requireBoolean(
+        exitPolicy.require_no_current_week_sales,
+        'exit_policy.require_no_current_week_sales'
+      ),
+      require_no_supplier_demand: requireBoolean(
+        exitPolicy.require_no_supplier_demand,
+        'exit_policy.require_no_supplier_demand'
+      ),
+      protect_strategic_items: requireBoolean(
+        exitPolicy.protect_strategic_items,
+        'exit_policy.protect_strategic_items'
+      ),
+      require_sufficient_history: requireBoolean(
+        exitPolicy.require_sufficient_history,
+        'exit_policy.require_sufficient_history'
+      ),
+    },
     stock_policy: {
-      history_window_completed_weeks: historyWindow,
-      minimum_completed_weeks: minimumCompletedWeeks,
-      minimum_cover_weeks: minimumCover,
+      base_weeks: baseWeeks,
+      preferred_weeks: preferredWeeks,
+      short_window_weeks: shortWindowWeeks,
+      long_term_growth_cap: requirePositiveNumber(
+        stockPolicy.long_term_growth_cap,
+        'stock_policy.long_term_growth_cap'
+      ),
       target_cover_weeks: targetCover,
       maximum_cover_weeks: maximumCover,
-      safety_stock_factor: requireNonNegativeNumber(
-        stockPolicy.safety_stock_factor,
-        'stock_policy.safety_stock_factor'
-      ),
+      minimum_policy_data_weeks: minimumPolicyWeeks,
       large_policy_review_threshold_units: requireNonNegativeNumber(
         stockPolicy.large_policy_review_threshold_units,
         'stock_policy.large_policy_review_threshold_units'
       ),
+    },
+    inventory_value_review: {
+      enabled: requireBoolean(
+        inventoryValueReview.enabled,
+        'inventory_value_review.enabled'
+      ),
+      review_threshold_rub: reviewThresholdRub,
+      critical_threshold_rub: criticalThresholdRub,
     },
     classification: {
       core_abc_classes: stringArray(
@@ -266,10 +482,6 @@ function validateMatrixBuilderConfig(value) {
       core_xyz_classes: stringArray(
         classification.core_xyz_classes,
         'classification.core_xyz_classes'
-      ),
-      core_minimum_weeks_with_sales: requirePositiveInteger(
-        classification.core_minimum_weeks_with_sales,
-        'classification.core_minimum_weeks_with_sales'
       ),
       exit_abc_classes: stringArray(
         classification.exit_abc_classes,
@@ -281,6 +493,7 @@ function validateMatrixBuilderConfig(value) {
       ),
       strategic_core_priority: strategicCorePriority,
     },
+    category_profiles: categoryProfiles,
     explicit_role_rules: explicitRoleRules,
     strategic_groups: strategicGroups,
   };
@@ -383,11 +596,19 @@ function validateMatrixDraft(draft, config) {
     const validation = validateDraftItem(item, config);
     errorCount += validation.errors.length;
     warningCount += validation.warnings.length;
+    const reviewQueueMemberships = Array.isArray(item.review_queue_memberships)
+      ? [...item.review_queue_memberships]
+      : [];
+    if (
+      validation.errors.length > 0 &&
+      !reviewQueueMemberships.includes('insufficient_data')
+    ) reviewQueueMemberships.push('insufficient_data');
     return {
       ...item,
       validation,
+      review_queue_memberships: reviewQueueMemberships,
       manual_review_required:
-        item.manual_review_required || validation.errors.length > 0,
+        reviewQueueMemberships.length > 0 || validation.errors.length > 0,
     };
   });
   return {

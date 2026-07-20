@@ -78,6 +78,29 @@ function fourWeeks(quantities = [2, 2, 2, 2]) {
   ];
 }
 
+function weeklyHistory(quantities, start = '2026-04-20') {
+  const first = new Date(`${start}T00:00:00.000Z`);
+  return quantities.map((quantity, index) => {
+    const date = new Date(first);
+    date.setUTCDate(date.getUTCDate() + (index * 7));
+    return week(date.toISOString().slice(0, 10), quantity, {
+      sourceColumn: `W${index + 1}`,
+    });
+  });
+}
+
+function eightWeeks(quantities = Array(8).fill(2)) {
+  return weeklyHistory(quantities, '2026-05-18');
+}
+
+function twelveWeeks(quantities = Array(12).fill(2)) {
+  return weeklyHistory(quantities);
+}
+
+function twentySixWeeks(quantities = Array(26).fill(0)) {
+  return weeklyHistory(quantities, '2026-01-12');
+}
+
 function row(overrides = {}) {
   const rowNumber = overrides.rowNumber || 10;
   return {
@@ -86,21 +109,24 @@ function row(overrides = {}) {
     article: Object.hasOwn(overrides, 'article') ? overrides.article : 'SKU-1',
     barcode: Object.hasOwn(overrides, 'barcode') ? overrides.barcode : '460000000001',
     internalProductId: overrides.internalProductId || null,
-    name: overrides.name || 'AWARD Urinary тестовый корм 400 г',
+    name: overrides.name || 'Стабильный расходный корм 400 г',
     supplier: overrides.supplier || 'Тестовый поставщик',
     abc: Object.hasOwn(overrides, 'abc') ? overrides.abc : 'A',
     xyz: Object.hasOwn(overrides, 'xyz') ? overrides.xyz : 'X',
-    weeklySalesHistory: overrides.weeklySalesHistory || fourWeeks(),
+    weeklySalesHistory: overrides.weeklySalesHistory || twelveWeeks(),
     reportedSalesQuantity: Object.hasOwn(overrides, 'reportedSalesQuantity')
       ? overrides.reportedSalesQuantity
-      : 8,
+      : 24,
+    reportedSalesPeriodDays: Object.hasOwn(overrides, 'reportedSalesPeriodDays')
+      ? overrides.reportedSalesPeriodDays
+      : 84,
     freeStock: Object.hasOwn(overrides, 'freeStock') ? overrides.freeStock : 2,
     stockDays: Object.hasOwn(overrides, 'stockDays') ? overrides.stockDays : 7,
     excessStock: Object.hasOwn(overrides, 'excessStock') ? overrides.excessStock : 0,
     supplierOrderQty: Object.hasOwn(overrides, 'supplierOrderQty')
       ? overrides.supplierOrderQty
-      : 1,
-    needQty: Object.hasOwn(overrides, 'needQty') ? overrides.needQty : 1,
+      : 0,
+    needQty: Object.hasOwn(overrides, 'needQty') ? overrides.needQty : 0,
     priceNum: Object.hasOwn(overrides, 'priceNum') ? overrides.priceNum : 100,
     supplierOrderSum: Object.hasOwn(overrides, 'supplierOrderSum')
       ? overrides.supplierOrderSum
@@ -139,10 +165,11 @@ function existingMatch(overrides = {}) {
     matchMethod: 'article',
     item: {
       article: 'SKU-1',
-      name: 'AWARD Urinary тестовый корм 400 г',
+      name: 'Стабильный расходный корм 400 г',
       brand: 'AWARD',
       category: 'Корм',
       priority: 'critical',
+      policy_status: 'approved',
       minimum_shelf_stock: 2,
       target_stock: 4,
       allow_zero_stock: false,
@@ -153,8 +180,9 @@ function existingMatch(overrides = {}) {
 }
 
 test('loads the versioned conservative Miska Matrix Builder configuration', () => {
-  assert.equal(CONFIG.version, 'miska-matrix-builder-v1');
-  assert.ok(CONFIG.stock_policy.minimum_completed_weeks >= 2);
+  assert.equal(CONFIG.version, 'miska-matrix-builder-v0.5.1');
+  assert.equal(CONFIG.core_policy.minimum_completed_weeks, 8);
+  assert.equal(CONFIG.stock_policy.preferred_weeks, 12);
   assert.equal(CONFIG.explicit_role_rules.length, 0);
 });
 
@@ -174,11 +202,13 @@ test('orders completed weekly history chronologically and excludes partial perio
 });
 
 test('calculates conservative monotonic stock levels from completed weeks', () => {
-  const policy = calculateStockPolicy(row({ weeklySalesHistory: fourWeeks([1, 2, 3, 4]) }), CONFIG);
+  const policy = calculateStockPolicy(row({
+    weeklySalesHistory: twelveWeeks([1, 2, 3, 4, 2, 2, 3, 3, 2, 3, 3, 4]),
+  }), CONFIG);
   assert.equal(policy.calculationStatus, 'calculated');
   assert.ok(policy.minimumShelfStock <= policy.targetStock);
   assert.ok(policy.targetStock <= policy.maximumStock);
-  assert.equal(policy.completedWeeksUsed, 4);
+  assert.equal(policy.completedWeeksUsed, 12);
 });
 
 test('keeps stock policy null when completed history is insufficient', () => {
@@ -193,14 +223,14 @@ test('does not convert an invalid weekly value to zero', () => {
   const policy = calculateStockPolicy(row({
     weeklySalesHistory: [week('2026-06-29', null), week('2026-07-06', 2)],
   }), CONFIG);
-  assert.equal(policy.completedWeeksUsed, 1);
-  assert.equal(policy.invalidCompletedWeeks, 1);
-  assert.equal(policy.averageWeeklySales, 2);
+  assert.equal(policy.completedWeeksUsed, 0);
+  assert.equal(policy.shortAverage, 2);
+  assert.equal(policy.averageWeeklySales, null);
   assert.equal(policy.minimumShelfStock, null);
 });
 
 test('preserves confirmed zero-sales weeks as numeric zero', () => {
-  const policy = calculateStockPolicy(row({ weeklySalesHistory: fourWeeks([0, 0, 0, 0]) }), CONFIG);
+  const policy = calculateStockPolicy(row({ weeklySalesHistory: eightWeeks(Array(8).fill(0)) }), CONFIG);
   assert.equal(policy.averageWeeklySales, 0);
   assert.equal(policy.minimumShelfStock, 0);
   assert.equal(policy.targetStock, 0);
@@ -219,7 +249,9 @@ test('classifies stable A/X demand as CORE', () => {
 });
 
 test('does not classify weak or irregular demand as CORE', () => {
-  const sourceRow = row({ weeklySalesHistory: fourWeeks([0, 0, 0, 2]) });
+  const sourceRow = row({
+    weeklySalesHistory: twelveWeeks([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2]),
+  });
   const result = classifyRole({
     row: sourceRow,
     stockPolicy: calculateStockPolicy(sourceRow, CONFIG),
@@ -270,7 +302,8 @@ test('marks a weak classified zero-sales stocked product as EXIT candidate', () 
   const item = draftItem(row({
     abc: 'C',
     xyz: 'Z',
-    weeklySalesHistory: fourWeeks([0, 0, 0, 0]),
+    name: 'Обычный влажный корм 100 г',
+    weeklySalesHistory: eightWeeks(Array(8).fill(0)),
     freeStock: 5,
     reportedSalesQuantity: 0,
   }));
@@ -286,7 +319,8 @@ test('does not suggest EXIT without a stable source identifier', () => {
     internalProductId: null,
     abc: 'C',
     xyz: 'Z',
-    weeklySalesHistory: fourWeeks([0, 0, 0, 0]),
+    name: 'Обычный влажный корм 100 г',
+    weeklySalesHistory: eightWeeks(Array(8).fill(0)),
     freeStock: 5,
     reportedSalesQuantity: 0,
   }));
@@ -295,7 +329,11 @@ test('does not suggest EXIT without a stable source identifier', () => {
 });
 
 test('uses OPTIONAL for supported but low-significance assortment', () => {
-  const item = draftItem(row({ abc: 'C', xyz: 'Y' }));
+  const item = draftItem(row({
+    name: 'Обычный поддерживаемый ассортимент 400 г',
+    abc: 'C',
+    xyz: 'Y',
+  }));
   assert.equal(item.suggested_role, 'OPTIONAL');
   assert.equal(item.suggested_priority, 'standard');
 });
@@ -305,6 +343,222 @@ test('matches strategic groups only by all exact normalized tokens', () => {
   const near = matchStrategicGroups(row({ name: 'AWARD Urin корм 400 г' }), CONFIG);
   assert.equal(exact.some(group => group.id === 'award_urinary'), true);
   assert.equal(near.some(group => group.id === 'award_urinary'), false);
+});
+
+test('CORE requires long history and not only four active weeks', () => {
+  const item = draftItem(row({
+    weeklySalesHistory: fourWeeks([4, 4, 4, 4]),
+  }));
+  assert.notEqual(item.suggested_role, 'CORE');
+  assert.equal(item.evidence.completed_weeks_used, 0);
+});
+
+test('low absolute weekly sales do not qualify for CORE', () => {
+  const item = draftItem(row({
+    weeklySalesHistory: twelveWeeks(Array(12).fill(0.75)),
+  }));
+  assert.notEqual(item.suggested_role, 'CORE');
+  assert.ok(item.reason_codes.includes('core_below_average_threshold'));
+});
+
+test('strategic low-demand product can be important without becoming CORE', () => {
+  const item = draftItem(row({
+    name: 'AWARD Urinary тестовый корм 400 г',
+    weeklySalesHistory: twelveWeeks([1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0]),
+  }));
+  assert.notEqual(item.suggested_role, 'CORE');
+  assert.equal(item.suggested_priority, 'important');
+  assert.ok(item.review_queue_memberships.includes('commercial_review'));
+});
+
+test('current partial-week sale blocks EXIT', () => {
+  const item = draftItem(row({
+    name: 'Влажный корм тестовый 100 г',
+    abc: 'C',
+    xyz: 'Z',
+    weeklySalesHistory: [
+      ...eightWeeks(Array(8).fill(0)),
+      week('2026-07-13', 1, { completionStatus: 'partial' }),
+    ],
+    reportedSalesQuantity: 1,
+    freeStock: 1,
+  }));
+  assert.notEqual(item.suggested_role, 'EXIT');
+  assert.ok(item.reason_codes.includes('exit_blocked_current_week_sale'));
+});
+
+test('sale five completed weeks ago blocks eight-week EXIT', () => {
+  const item = draftItem(row({
+    name: 'Влажный корм тестовый 100 г',
+    abc: 'C',
+    xyz: 'Z',
+    weeklySalesHistory: eightWeeks([0, 0, 1, 0, 0, 0, 0, 0]),
+    reportedSalesQuantity: 1,
+    freeStock: 1,
+  }));
+  assert.notEqual(item.suggested_role, 'EXIT');
+  assert.ok(item.reason_codes.includes('exit_blocked_recent_sale'));
+});
+
+test('positive supplier need blocks EXIT', () => {
+  const item = draftItem(row({
+    name: 'Влажный корм тестовый 100 г',
+    abc: 'C', xyz: 'Z',
+    weeklySalesHistory: eightWeeks(Array(8).fill(0)),
+    reportedSalesQuantity: 0,
+    needQty: 1,
+    freeStock: 1,
+  }));
+  assert.notEqual(item.suggested_role, 'EXIT');
+  assert.ok(item.reason_codes.includes('exit_blocked_supplier_demand'));
+});
+
+test('positive supplier order blocks EXIT', () => {
+  const item = draftItem(row({
+    name: 'Влажный корм тестовый 100 г',
+    abc: 'C', xyz: 'Z',
+    weeklySalesHistory: eightWeeks(Array(8).fill(0)),
+    reportedSalesQuantity: 0,
+    supplierOrderQty: 1,
+    freeStock: 1,
+  }));
+  assert.notEqual(item.suggested_role, 'EXIT');
+  assert.ok(item.reason_codes.includes('exit_blocked_supplier_demand'));
+});
+
+test('strategic veterinary diet is protected from EXIT', () => {
+  const item = draftItem(row({
+    name: 'Вет диета CRAFTIA GALENA CAT RENAL CARE 1,4 кг',
+    abc: 'D', xyz: 'ZZ',
+    weeklySalesHistory: twentySixWeeks(),
+    reportedSalesQuantity: 0,
+    freeStock: 1,
+  }));
+  assert.notEqual(item.suggested_role, 'EXIT');
+  assert.ok(item.reason_codes.includes('exit_blocked_strategic_policy'));
+});
+
+test('durable and consumable categories use different EXIT horizons', () => {
+  const consumable = draftItem(row({
+    name: 'Влажный корм тестовый 100 г',
+    abc: 'C', xyz: 'Z',
+    weeklySalesHistory: eightWeeks(Array(8).fill(0)),
+    reportedSalesQuantity: 0,
+    freeStock: 1,
+  }));
+  const insufficientDurable = draftItem(row({
+    name: 'Миска тестовая 200 мл',
+    abc: 'C', xyz: 'Z',
+    weeklySalesHistory: twelveWeeks(Array(12).fill(0)),
+    reportedSalesQuantity: 0,
+    freeStock: 1,
+  }));
+  const observedDurable = draftItem(row({
+    name: 'Миска тестовая 300 мл',
+    abc: 'C', xyz: 'Z',
+    weeklySalesHistory: twentySixWeeks(),
+    reportedSalesQuantity: 0,
+    freeStock: 1,
+  }));
+  assert.equal(consumable.suggested_role, 'EXIT');
+  assert.notEqual(insufficientDurable.suggested_role, 'EXIT');
+  assert.equal(observedDurable.suggested_role, 'EXIT');
+  assert.ok(insufficientDurable.reason_codes.includes('exit_insufficient_history'));
+});
+
+test('approved critical policy blocks EXIT and remains unchanged', () => {
+  const item = draftItem(row({
+    name: 'Влажный корм утверждённый 100 г',
+    abc: 'C', xyz: 'Z',
+    weeklySalesHistory: eightWeeks(Array(8).fill(0)),
+    reportedSalesQuantity: 0,
+    freeStock: 1,
+  }), { existingMatch: existingMatch() });
+  assert.notEqual(item.suggested_role, 'EXIT');
+  assert.ok(item.reason_codes.includes('exit_blocked_approved_policy'));
+  assert.equal(item.suggested_priority, 'critical');
+  assert.equal(item.suggested_minimum_shelf_stock, 2);
+  assert.equal(item.suggested_target_stock, 4);
+});
+
+test('growth cap limits a four-week spike against long-term average', () => {
+  const policy = calculateStockPolicy(row({
+    weeklySalesHistory: twelveWeeks([
+      1, 1, 1, 1, 1, 1, 1, 1, 10, 10, 10, 10,
+    ]),
+  }), CONFIG);
+  assert.equal(policy.shortAverage, 10);
+  assert.equal(policy.longTermAverage, 4);
+  assert.equal(policy.effectiveAverage, 6);
+  assert.equal(policy.growthCapApplied, true);
+});
+
+test('growth cap also constrains a preferred average above the long-term cap', () => {
+  const policy = calculateStockPolicy(row({
+    weeklySalesHistory: twentySixWeeks([
+      ...Array(14).fill(1),
+      ...Array(8).fill(10),
+      ...Array(4).fill(20),
+    ]),
+  }), CONFIG);
+  assert.equal(policy.shortAverage, 20);
+  assert.ok(policy.preferredAverage > policy.longTermAverage * 1.5);
+  assert.equal(
+    policy.effectiveAverage,
+    Math.round(policy.longTermAverage * 1.5 * 10000) / 10000
+  );
+  assert.equal(policy.growthCapApplied, true);
+});
+
+test('stock policy exposes base and preferred long-horizon averages', () => {
+  const policy = calculateStockPolicy(row({
+    weeklySalesHistory: twelveWeeks([1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3]),
+  }), CONFIG);
+  assert.equal(policy.baseAverage, 2.5);
+  assert.equal(policy.preferredAverage, 2);
+  assert.equal(policy.completedWeeksUsed, 12);
+});
+
+test('minimum shelf stock and safety stock are calculated independently', () => {
+  const policy = calculateStockPolicy(row({
+    weeklySalesHistory: twelveWeeks(Array(12).fill(2)),
+  }), CONFIG);
+  assert.equal(policy.minimumShelfStock, 1);
+  assert.equal(policy.safetyStock, 0);
+  assert.notEqual(policy.minimumShelfStock, policy.safetyStock);
+});
+
+test('expensive maximum policy enters large inventory review', () => {
+  const item = draftItem(row({
+    weeklySalesHistory: twelveWeeks(Array(12).fill(10)),
+    priceNum: 1000,
+  }));
+  assert.ok(item.maximum_stock_value >= 20000);
+  assert.equal(item.inventory_value_review_level, 'critical');
+  assert.ok(item.review_queue_memberships.includes('large_inventory_review'));
+});
+
+test('missing purchase price remains null and enters insufficient-data review', () => {
+  const item = draftItem(row({ priceNum: null }));
+  assert.equal(item.maximum_stock_value, null);
+  assert.ok(item.reason_codes.includes('missing_purchase_price'));
+  assert.ok(item.review_queue_memberships.includes('insufficient_data'));
+});
+
+test('placeholder difference is not an approved policy conflict', () => {
+  const item = draftItem(row(), {
+    existingMatch: existingMatch({
+      policy_status: 'placeholder',
+      priority: 'standard',
+      minimum_shelf_stock: 0,
+      target_stock: 0,
+      allow_zero_stock: true,
+    }),
+  });
+  assert.equal(item.approved_policy_conflict, false);
+  assert.equal(item.placeholder_difference, true);
+  assert.equal(item.existing_policy_preserved, false);
+  assert.ok(item.suggested_target_stock > 0);
 });
 
 test('assigns low confidence and manual review to ambiguous identity', () => {
@@ -320,6 +574,7 @@ test('assigns low confidence when no stable source identifier is available', () 
     row: sourceRow,
     stockPolicy: calculateStockPolicy(sourceRow, CONFIG),
     ambiguousIdentity: false,
+    config: CONFIG,
   });
   assert.equal(quality.confidence, 'low');
   assert.ok(quality.reasons.includes('missing_stable_identifier'));
@@ -327,7 +582,7 @@ test('assigns low confidence when no stable source identifier is available', () 
 });
 
 test('preserves existing critical policy instead of overwriting it', () => {
-  const item = draftItem(row({ weeklySalesHistory: fourWeeks([10, 10, 10, 10]) }), {
+  const item = draftItem(row({ weeklySalesHistory: twelveWeeks(Array(12).fill(10)) }), {
     existingMatch: existingMatch(),
   });
   assert.equal(item.suggested_priority, 'critical');
@@ -343,11 +598,11 @@ test('reports but does not apply a conflict with existing policy', () => {
     target_stock: 10,
   };
   assert.equal(policiesConflict(existingMatch().item, automatic), true);
-  const item = draftItem(row({ weeklySalesHistory: fourWeeks([10, 10, 10, 10]) }), {
+  const item = draftItem(row({ weeklySalesHistory: twelveWeeks(Array(12).fill(10)) }), {
     existingMatch: existingMatch(),
   });
   assert.equal(item.policy_conflict, true);
-  assert.equal(item.recommended_action, 'keep_existing_and_review_difference');
+  assert.equal(item.recommended_action, 'keep_approved_and_review_difference');
 });
 
 test('exposes human-readable explanation and source provenance', () => {
@@ -418,6 +673,27 @@ test('manual-review output contains low-confidence and NEW/EXIT items', () => {
   const review = buildManualReviewFile(draft);
   assert.equal(review.item_count, 1);
   assert.equal(review.items[0].rowIdentity, 'new-row');
+});
+
+test('review queues are separated while unique manual review does not double-count', () => {
+  const multiQueue = draftItem(row({
+    rowIdentity: 'multi-queue',
+    article: null,
+    barcode: null,
+    internalProductId: null,
+    weeklySalesHistory: twelveWeeks(Array(12).fill(10)),
+    priceNum: 1000,
+  }));
+  const draft = {
+    generated_at: '2026-07-20T00:00:00.000Z',
+    source: { sku_count: 1 },
+    items: [multiQueue],
+  };
+  const review = buildManualReviewFile(draft);
+  assert.equal(review.item_count, 1);
+  assert.equal(review.review_queues.identity_remediation.length, 1);
+  assert.equal(review.review_queues.large_inventory_review.length, 1);
+  assert.equal(review.items[0].rowIdentity, 'multi-queue');
 });
 
 test('text report contains all required review sections', () => {

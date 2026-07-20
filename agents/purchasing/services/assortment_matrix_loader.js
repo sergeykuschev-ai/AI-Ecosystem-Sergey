@@ -8,6 +8,11 @@ const ALLOWED_PRIORITIES = Object.freeze([
   'important',
   'standard',
 ]);
+const ALLOWED_POLICY_STATUSES = Object.freeze([
+  'approved',
+  'placeholder',
+  'requires_confirmation',
+]);
 
 class AssortmentMatrixError extends Error {
   constructor(message, code, cause) {
@@ -104,6 +109,15 @@ function validateAssortmentMatrix(value) {
         'INVALID_PRIORITY'
       );
     }
+    const policyStatus = item.policy_status === undefined
+      ? 'approved'
+      : requireNonEmptyString(item.policy_status, `${prefix}.policy_status`);
+    if (!ALLOWED_POLICY_STATUSES.includes(policyStatus)) {
+      throw new AssortmentMatrixError(
+        `${prefix}.policy_status должен быть одним из: ${ALLOWED_POLICY_STATUSES.join(', ')}.`,
+        'INVALID_POLICY_STATUS'
+      );
+    }
     const minimumShelfStock = nonNegativeNumber(
       item.minimum_shelf_stock,
       `${prefix}.minimum_shelf_stock`
@@ -131,6 +145,7 @@ function validateAssortmentMatrix(value) {
       brand: optionalString(item.brand, `${prefix}.brand`),
       category: optionalString(item.category, `${prefix}.category`),
       priority,
+      policy_status: policyStatus,
       minimum_shelf_stock: minimumShelfStock,
       target_stock: targetStock,
       allow_zero_stock: item.allow_zero_stock,
@@ -357,6 +372,7 @@ function buildDemandAssortmentSource(matrix, rows, matchResult) {
 
 module.exports = {
   ALLOWED_PRIORITIES,
+  ALLOWED_POLICY_STATUSES,
   AssortmentMatrixError,
   normalizedName,
   normalizedArticle,
