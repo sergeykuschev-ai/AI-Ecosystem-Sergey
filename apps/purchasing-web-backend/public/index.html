@@ -225,21 +225,40 @@
           <button type="button" data-filter="all" aria-pressed="true">
             Все товары
           </button>
-          <button type="button" data-filter="buy" aria-pressed="false">
-            Купить
+          <button type="button" data-filter="undecided" aria-pressed="false">
+            Только без решения
           </button>
-          <button type="button" data-filter="do-not-buy" aria-pressed="false">
-            Не покупать
+          <button type="button" data-filter="owner-buy" aria-pressed="false">
+            Подтверждено
+          </button>
+          <button type="button" data-filter="owner-skip" aria-pressed="false">
+            Исключено
+          </button>
+          <button type="button" data-filter="owner-defer" aria-pressed="false">
+            Отложено
           </button>
           <button type="button" data-filter="owner-review" aria-pressed="false">
             Owner Review
           </button>
-          <button type="button" data-filter="auto-approved" aria-pressed="false">
-            Автоматически одобрено
-          </button>
-          <button type="button" data-filter="pending-review" aria-pressed="false">
-            Ожидает проверки
-          </button>
+        </div>
+
+        <div class="decision-counters" aria-label="Решения владельца">
+          <article>
+            <span>Нужно решение</span>
+            <strong id="decision-needs">—</strong>
+          </article>
+          <article class="decision-counter-buy">
+            <span>Подтверждено к закупке</span>
+            <strong id="decision-buy">—</strong>
+          </article>
+          <article>
+            <span>Исключено</span>
+            <strong id="decision-skip">—</strong>
+          </article>
+          <article class="decision-counter-defer">
+            <span>Отложено</span>
+            <strong id="decision-defer">—</strong>
+          </article>
         </div>
 
         <div class="products-state" id="products-loading" role="status" hidden>
@@ -265,11 +284,10 @@
                 <tr>
                   <th class="product-name-column" aria-sort="none">
                     <button type="button" data-sort="name">
-                      Наименование
+                      Товар
                       <span aria-hidden="true"></span>
                     </button>
                   </th>
-                  <th>Бренд</th>
                   <th class="numeric-column" aria-sort="none">
                     <button type="button" data-sort="free_stock">
                       Остаток
@@ -278,26 +296,23 @@
                   </th>
                   <th class="numeric-column" aria-sort="none">
                     <button type="button" data-sort="sales_28_days">
-                      Продажи
+                      Продажи 28 дней
                       <span aria-hidden="true"></span>
                     </button>
                   </th>
                   <th class="numeric-column" aria-sort="none">
                     <button type="button" data-sort="recommended_quantity">
-                      Рекомендовано, шт.
+                      Рекомендовано
                       <span aria-hidden="true"></span>
                     </button>
                   </th>
-                  <th class="numeric-column">Цена</th>
                   <th class="numeric-column" aria-sort="none">
                     <button type="button" data-sort="recommended_line_value">
                       Сумма
                       <span aria-hidden="true"></span>
                     </button>
                   </th>
-                  <th>Статус</th>
-                  <th>Owner Review</th>
-                  <th class="reason-column">Причина</th>
+                  <th class="decision-column">Решение</th>
                 </tr>
               </thead>
               <tbody id="products-body"></tbody>

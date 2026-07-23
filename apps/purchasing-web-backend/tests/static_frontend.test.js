@@ -9,16 +9,22 @@ const {
   createPurchasingWebServer,
 } = require('../server');
 const {
+  FrontendError,
   buildItemsUrl,
+  buildDecisionUrl,
   createItemRow,
+  createItemRows,
+  decisionCounterView,
   formatRub,
   paginationLabel,
+  plainReason,
   pollRunStatus,
   renderItemRows,
   requestJson,
   selectArtifacts,
   setProductsPanelState,
   summaryView,
+  technicalExplanation,
 } = require('../public/app');
 
 const PUBLIC_ROOT = path.resolve(__dirname, '../public');
@@ -49,13 +55,27 @@ function fakeElement(tagName = 'div') {
     tagName,
     children: [],
     className: '',
+    dataset: {},
+    attributes: {},
+    listeners: {},
     hidden: false,
     textContent: '',
+    disabled: false,
     append(...children) {
       this.children.push(...children);
     },
+    prepend(...children) {
+      this.children.unshift(...children);
+    },
     replaceChildren(...children) {
       this.children = [...children];
+    },
+    setAttribute(name, value) {
+      this.attributes[name] = String(value);
+    },
+    addEventListener(name, listener) {
+      this.listeners[name] ||= [];
+      this.listeners[name].push(listener);
     },
     set innerHTML(value) {
       throw new Error(`Unsafe innerHTML assignment: ${value}`);
@@ -117,6 +137,20 @@ test('GET / serves the Russian frontend with secure headers', async () => {
   ]) {
     assert.match(body, new RegExp(label));
   }
+  for (const heading of [
+    'Товар',
+    'Остаток',
+    'Продажи 28 дней',
+    'Рекомендовано',
+    'Сумма',
+    'Решение',
+  ]) {
+    assert.match(body, new RegExp(`>\\s*${heading}`));
+  }
+  assert.doesNotMatch(body, /<th>Бренд<\/th>/);
+  assert.doesNotMatch(body, /<th[^>]*>Цена<\/th>/);
+  assert.doesNotMatch(body, /<th[^>]*>Owner Review<\/th>/);
+  assert.doesNotMatch(body, /<th[^>]*>Причина<\/th>/);
 });
 
 test('products panel stays hidden before completed and opens when ready', () => {
@@ -304,10 +338,14 @@ test('item search and filters use server-side query parameters', () => {
   assert.equal(search.searchParams.get('q'), 'AWARD 7173648');
   assert.equal(search.searchParams.get('page_size'), '25');
 
-  const ownerReview = new URL(buildItemsUrl(baseUrl, {
-    filter: 'owner-review',
+  const undecided = new URL(buildItemsUrl(baseUrl, {
+    filter: 'undecided',
   }), 'http://localhost');
-  assert.equal(ownerReview.searchParams.get('owner_review'), 'true');
+  assert.equal(undecided.searchParams.get('owner_decision'), 'missing');
+  assert.equal(
+    buildDecisionUrl(baseUrl, 'smartzapas:row%20one'),
+    `${baseUrl}/smartzapas%3Arow%2520one/decision`
+  );
 });
 
 test('amount sorting and pagination are encoded deterministically', () => {
@@ -331,10 +369,24 @@ test('amount sorting and pagination are encoded deterministically', () => {
   }), 'Показано 51–100 из 123');
 });
 
+test('owner decision counters map updated API totals', () => {
+  assert.deepEqual(decisionCounterView({
+    needs_decision: 17,
+    confirmed_buy: 8,
+    excluded: 4,
+    deferred: 2,
+  }), {
+    needsDecision: '17',
+    confirmedBuy: '8',
+    excluded: '4',
+    deferred: '2',
+  });
+});
+
 test('item renderer treats API text as textContent', () => {
   const documentObject = fakeDocument();
   const malicious = '<img src=x onerror=alert(1)>';
-  const row = createItemRow(documentObject, {
+  const rows = createItemRows(documentObject, {
     sku: malicious,
     name: malicious,
     supplier: malicious,
@@ -348,10 +400,143 @@ test('item renderer treats API text as textContent', () => {
     explanation: { summary: malicious },
   });
 
-  assert.equal(row.children[0].children[0].textContent, malicious);
-  assert.equal(row.children[0].children[1].textContent, `Артикул: ${malicious}`);
-  assert.equal(row.children[1].textContent, malicious);
-  assert.equal(row.children[9].textContent, malicious);
+  const row = rows[0];
+  const details = rows[1];
+  const expand = row.children[0].children[0];
+  assert.equal(expand.children[0].textContent, malicious);
+  assert.equal(expand.children[1].textContent, `Артикул: ${malicious}`);
+  assert.equal(expand.children[2].textContent, malicious);
+  assert.match(
+    details.children[0].children[0].children[0].textContent,
+    /окончательное решение/
+  );
+  assert.equal(details.hidden, true);
+  expand.listeners.click[0]();
+  assert.equal(details.hidden, false);
+  assert.equal(expand.attributes['aria-expanded'], 'true');
+});
+
+test('plain-language reasons cover missing stock and EXIT review', () => {
+  const reason = plainReason({
+    matrix: {
+      role: 'EXIT',
+      owner_review_required: true,
+      reason_codes: ['possible_exit_candidate'],
+      missing_fields: ['free_stock'],
+    },
+  });
+  assert.match(reason, /нет достоверного остатка/i);
+  assert.match(reason, /вывод/);
+  assert.doesNotMatch(reason, /possible_exit_candidate/);
+
+  const technical = technicalExplanation({
+    explanation: {
+      summary:
+        'Товар предложен к EXIT готовым результатом Matrix Builder; ' +
+        'требуется manual review Purchasing Agent.',
+    },
+  });
+  assert.doesNotMatch(
+    technical,
+    /EXIT|Matrix Builder|manual review|Purchasing Agent/
+  );
+});
+
+test('owner action saves once, updates the row and rolls back on error', async () => {
+  const documentObject = fakeDocument();
+  const item = {
+    row_id: 'row-1',
+    sku: 'SKU-1',
+    name: 'Товар',
+    quantities: { provisional_quantity: 3 },
+    amounts: { provisional_line_value: 30 },
+    matrix: {},
+    owner_decision: { decision: null, quantity: null },
+  };
+  const calls = [];
+  const [row] = createItemRows(documentObject, item, {
+    async onDecision(input) {
+      calls.push({
+        decision: input.decision,
+        quantity: input.quantity,
+      });
+      return {
+        item: {
+          ...input.item,
+          owner_decision: {
+            status: 'active',
+            decision: input.decision,
+            quantity: input.quantity,
+          },
+        },
+      };
+    },
+  });
+  const decisionCell = row.children[5];
+  const controls = decisionCell.children[1];
+  const buyButton = controls.children[1];
+  controls.children[0].value = '9';
+  await buyButton.listeners.click[0]();
+  assert.deepEqual(calls[0], { decision: 'BUY', quantity: 9 });
+  assert.equal(item.owner_decision.decision, 'BUY');
+  assert.equal(decisionCell.children[2].textContent, 'Сохранено');
+  await controls.children[2].listeners.click[0]();
+  assert.deepEqual(calls[1], { decision: 'SKIP', quantity: 0 });
+  assert.equal(item.owner_decision.decision, 'SKIP');
+  await controls.children[3].listeners.click[0]();
+  assert.deepEqual(calls[2], { decision: 'DEFER', quantity: null });
+  assert.equal(item.owner_decision.decision, 'DEFER');
+
+  const failingItem = structuredClone(item);
+  const [failingRow] = createItemRows(documentObject, failingItem, {
+    async onDecision() {
+      throw new FrontendError('OWNER_DECISION_STORAGE_ERROR');
+    },
+  });
+  const failingDecisionCell = failingRow.children[5];
+  const skipButton = failingDecisionCell.children[1].children[2];
+  await skipButton.listeners.click[0]();
+  assert.equal(failingItem.owner_decision.decision, 'DEFER');
+  assert.match(failingDecisionCell.children[2].textContent, /Не удалось/);
+});
+
+test('owner action exposes saving state and prevents a second click', async () => {
+  const documentObject = fakeDocument();
+  let complete;
+  let calls = 0;
+  const [row] = createItemRows(documentObject, {
+    row_id: 'row-1',
+    sku: 'SKU-1',
+    quantities: { provisional_quantity: 2 },
+    matrix: {},
+    owner_decision: { decision: null, quantity: null },
+  }, {
+    onDecision() {
+      calls += 1;
+      return new Promise(resolve => {
+        complete = resolve;
+      });
+    },
+  });
+  const decisionCell = row.children[5];
+  const controls = decisionCell.children[1];
+  const pending = controls.children[1].listeners.click[0]();
+  assert.equal(decisionCell.children[2].textContent, 'Сохраняем…');
+  assert.equal(controls.children[1].disabled, true);
+  assert.equal(controls.children[2].disabled, true);
+  complete({
+    item: {
+      owner_decision: {
+        status: 'active',
+        decision: 'BUY',
+        quantity: 2,
+      },
+    },
+  });
+  await pending;
+  assert.equal(calls, 1);
+  assert.equal(controls.children[1].disabled, false);
+  assert.equal(decisionCell.children[2].textContent, 'Сохранено');
 });
 
 test('API error and empty item list have explicit UI states', async () => {

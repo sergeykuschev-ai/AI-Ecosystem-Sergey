@@ -30,15 +30,11 @@
   });
   const ITEM_FILTERS = Object.freeze({
     all: Object.freeze({}),
-    buy: Object.freeze({ positive_order: 'true' }),
-    'do-not-buy': Object.freeze({ decision: 'do_not_buy' }),
+    undecided: Object.freeze({ owner_decision: 'missing' }),
+    'owner-buy': Object.freeze({ owner_decision: 'BUY' }),
+    'owner-skip': Object.freeze({ owner_decision: 'SKIP' }),
+    'owner-defer': Object.freeze({ owner_decision: 'DEFER' }),
     'owner-review': Object.freeze({ owner_review: 'true' }),
-    'auto-approved': Object.freeze({
-      workflow_status: 'auto_approved',
-    }),
-    'pending-review': Object.freeze({
-      workflow_status: 'pending_manual_review',
-    }),
   });
   const ITEM_SORTS = Object.freeze([
     'source_row',
@@ -65,6 +61,12 @@
       'Расчёт занимает больше 10 минут. Попробуйте повторить позже.',
     NETWORK_ERROR:
       'Нет связи с локальным сервером. Проверьте, что он запущен.',
+    INVALID_OWNER_DECISION:
+      'Проверьте количество и повторите сохранение решения.',
+    OWNER_DECISION_STORAGE_ERROR:
+      'Не удалось сохранить решение. Попробуйте ещё раз.',
+    ITEM_DECISION_UNAVAILABLE:
+      'Для этого товара решение сейчас недоступно.',
   });
 
   class FrontendError extends Error {
@@ -91,6 +93,15 @@
       : '—';
   }
 
+  function decisionCounterView(summary) {
+    return {
+      needsDecision: displayCount(summary?.needs_decision),
+      confirmedBuy: displayCount(summary?.confirmed_buy),
+      excluded: displayCount(summary?.excluded),
+      deferred: displayCount(summary?.deferred),
+    };
+  }
+
   function formatQuantity(value) {
     if (typeof value !== 'number' || !Number.isFinite(value)) return '—';
     return new Intl.NumberFormat('ru-RU', {
@@ -113,25 +124,148 @@
   }
 
   function itemStatusView(item) {
+    if (item?.owner_decision?.decision) {
+      return {
+        label: 'Решение владельца сохранено',
+        className: 'status-auto',
+      };
+    }
     const statuses = {
-      auto_approved: ['Автоодобрено', 'status-auto'],
-      pending_manual_review: ['Ожидает проверки', 'status-pending'],
-      no_order_action: ['Не покупать', 'status-skip'],
-      confidently_excluded: ['Не покупать', 'status-skip'],
-      postponed: ['Отложено', 'status-skip'],
+      auto_approved: ['Агент рекомендует заказать', 'status-auto'],
+      pending_manual_review: ['Нужно решение владельца', 'status-pending'],
+      no_order_action: ['Агент не рекомендует заказывать', 'status-skip'],
+      confidently_excluded:
+        ['Агент не рекомендует заказывать', 'status-skip'],
+      postponed: ['Нужно решение владельца', 'status-pending'],
     };
     const exact = statuses[item?.workflow_status];
     if (exact) return { label: exact[0], className: exact[1] };
     if (['must_buy', 'recommended'].includes(item?.decision)) {
-      return { label: 'Купить', className: 'status-buy' };
+      return { label: 'Агент рекомендует заказать', className: 'status-buy' };
     }
     if (item?.decision === 'do_not_buy') {
-      return { label: 'Не покупать', className: 'status-skip' };
+      return {
+        label: 'Агент не рекомендует заказывать',
+        className: 'status-skip',
+      };
     }
     if (item?.decision === 'manual_review') {
-      return { label: 'На проверке', className: 'status-pending' };
+      return { label: 'Нужно решение владельца', className: 'status-pending' };
     }
     return { label: 'Без решения', className: 'status-skip' };
+  }
+
+  function matrixRoleLabel(role) {
+    return {
+      CORE: 'Основной ассортимент',
+      IMPORTANT: 'Важный ассортимент',
+      OPTIONAL: 'Дополнительный ассортимент',
+      EXIT: 'Кандидат на вывод',
+      UNCLASSIFIED: 'Роль требует уточнения',
+    }[role] || 'Не определена';
+  }
+
+  function technicalExplanation(item) {
+    const text = String(item?.explanation?.summary || '');
+    if (!text) return 'Дополнительное техническое объяснение отсутствует.';
+    return text
+      .replace(/Purchasing Agent/gi, 'агент')
+      .replace(/Matrix Builder/gi, 'анализ ассортимента')
+      .replace(/\bmanual review\b/gi, 'решение владельца')
+      .replace(/\boverlay\b/gi, 'управленческий слой')
+      .replace(/\bDTO\b/gi, 'данные отчёта')
+      .replace(/\bEXIT\b/g, 'кандидат на вывод')
+      .replace(/\bCORE\b/g, 'основной ассортимент')
+      .replace(/\bOPTIONAL\b/g, 'дополнительный ассортимент')
+      .replace(/\bUNCLASSIFIED\b/g, 'роль требует уточнения');
+  }
+
+  function ownerDecisionView(item) {
+    const decision = item?.owner_decision?.decision;
+    if (decision === 'BUY') {
+      return {
+        label: `Заказать ${formatQuantity(
+          item.owner_decision.quantity
+        )} шт.`,
+        className: 'decision-buy',
+      };
+    }
+    if (decision === 'SKIP') {
+      return { label: 'Не заказывать', className: 'decision-skip' };
+    }
+    if (decision === 'DEFER') {
+      return { label: 'Отложено', className: 'decision-defer' };
+    }
+    if (item?.owner_decision?.status === 'active') {
+      return {
+        label: 'Есть решение по ассортименту',
+        className: 'decision-none',
+      };
+    }
+    return { label: 'Решение не принято', className: 'decision-none' };
+  }
+
+  function plainReason(item) {
+    const codes = new Set([
+      ...(item?.matrix?.reason_codes || []),
+      ...(item?.explanation?.reason_codes || []),
+    ]);
+    const missing = new Set(item?.matrix?.missing_fields || []);
+    const reasons = [];
+    const technicalText = String(item?.explanation?.summary || '');
+    if (
+      missing.has('free_stock') ||
+      /отсутств.*(?:остат|склад)|нет достоверн.*остат/i.test(technicalText)
+    ) {
+      reasons.push(
+        'В отчёте нет достоверного остатка. Проверьте фактическое наличие ' +
+        'товара перед заказом.'
+      );
+    }
+    if (
+      codes.has('possible_exit_candidate') ||
+      item?.matrix?.role === 'EXIT'
+    ) {
+      reasons.push(
+        'Товар относится к кандидатам на вывод из ассортимента. ' +
+        'Агент не рекомендует его заказывать.'
+      );
+    }
+    if (codes.has('approved_policy_conflict')) {
+      reasons.push('Рекомендация отличается от утверждённой политики.');
+    }
+    if (
+      codes.has('irregular_sales') ||
+      codes.has('core_below_active_week_ratio')
+    ) {
+      reasons.push('Продажи нерегулярны, поэтому нужен осторожный запас.');
+    }
+    if (item?.matrix?.owner_review_required === true) {
+      reasons.push(
+        'Агент не смог принять окончательное решение. ' +
+        'Выберите действие вручную.'
+      );
+    }
+    return reasons.slice(0, 2).join(' ') ||
+      technicalExplanation(item) ||
+      'Рекомендация сформирована по продажам и текущему остатку.';
+  }
+
+  function buildDecisionUrl(itemsUrl, rowId) {
+    const safeBase = safeRunLink(itemsUrl);
+    if (
+      !safeBase ||
+      !safeBase.endsWith('/items') ||
+      typeof rowId !== 'string' ||
+      rowId.length < 1 ||
+      rowId.length > 512 ||
+      rowId.includes('\0') ||
+      rowId.includes('/') ||
+      rowId.includes('\\')
+    ) {
+      throw new FrontendError('INVALID_OWNER_DECISION');
+    }
+    return `${safeBase}/${encodeURIComponent(rowId)}/decision`;
   }
 
   function buildItemsUrl(baseUrl, state = {}) {
@@ -184,24 +318,40 @@
     return cell;
   }
 
-  function createItemRow(documentObject, item) {
+  function appendDetail(documentObject, container, label, value) {
+    const block = documentObject.createElement('div');
+    const term = documentObject.createElement('span');
+    const description = documentObject.createElement('strong');
+    term.textContent = label;
+    description.textContent = value;
+    block.append(term, description);
+    container.append(block);
+  }
+
+  function createItemRows(documentObject, item, options = {}) {
     const row = documentObject.createElement('tr');
+    row.className = 'product-row';
     const nameCell = documentObject.createElement('td');
+    const expandButton = documentObject.createElement('button');
+    expandButton.type = 'button';
+    expandButton.className = 'product-expand';
+    expandButton.setAttribute('aria-expanded', 'false');
     const name = documentObject.createElement('strong');
     name.className = 'product-name';
     name.textContent = item?.name || 'Без названия';
     const sku = documentObject.createElement('span');
     sku.className = 'product-sku';
     sku.textContent = item?.sku ? `Артикул: ${item.sku}` : 'Артикул не указан';
-    nameCell.append(name, sku);
+    const supplier = documentObject.createElement('span');
+    supplier.className = 'product-supplier';
+    supplier.textContent = item?.brand || item?.supplier || 'Бренд не указан';
+    const expandIcon = documentObject.createElement('span');
+    expandIcon.className = 'product-expand-icon';
+    expandIcon.textContent = '⌄';
+    expandButton.append(name, sku, supplier, expandIcon);
+    nameCell.append(expandButton);
     row.append(nameCell);
 
-    appendTextCell(
-      documentObject,
-      row,
-      item?.supplier || '—',
-      'product-brand'
-    );
     appendTextCell(
       documentObject,
       row,
@@ -223,51 +373,187 @@
     appendTextCell(
       documentObject,
       row,
-      formatRub(item?.amounts?.unit_price),
-      'numeric-cell'
-    );
-    appendTextCell(
-      documentObject,
-      row,
       formatRub(recommendedLineValue(item)),
       'numeric-cell'
     );
 
-    const statusCell = documentObject.createElement('td');
-    const statusBadge = documentObject.createElement('span');
-    const status = itemStatusView(item);
-    statusBadge.className = `table-badge ${status.className}`;
-    statusBadge.textContent = status.label;
-    statusCell.append(statusBadge);
-    row.append(statusCell);
+    const decisionCell = documentObject.createElement('td');
+    decisionCell.className = 'decision-cell';
+    const decisionStatus = documentObject.createElement('span');
+    const controls = documentObject.createElement('div');
+    controls.className = 'decision-controls';
+    const quantity = documentObject.createElement('input');
+    quantity.type = 'number';
+    quantity.min = '0';
+    quantity.max = '10000';
+    quantity.step = '1';
+    quantity.inputMode = 'numeric';
+    quantity.setAttribute('aria-label', 'Количество к заказу');
+    const initialQuantity = item?.owner_decision?.decision === 'BUY'
+      ? item.owner_decision.quantity
+      : recommendedQuantity(item);
+    quantity.value = Number.isFinite(initialQuantity)
+      ? String(Math.max(0, Math.round(initialQuantity)))
+      : '0';
 
-    const ownerCell = documentObject.createElement('td');
-    if (item?.matrix?.owner_review_required === true) {
-      const ownerBadge = documentObject.createElement('span');
-      ownerBadge.className = 'table-badge owner-review';
-      ownerBadge.textContent = 'Требуется';
-      ownerCell.append(ownerBadge);
-    } else {
-      const ownerEmpty = documentObject.createElement('span');
-      ownerEmpty.className = 'owner-review-empty';
-      ownerEmpty.textContent = 'Нет';
-      ownerCell.append(ownerEmpty);
+    const actionDefinitions = [
+      ['BUY', 'Заказать', 'action-buy'],
+      ['SKIP', 'Не заказывать', 'action-skip'],
+      ['DEFER', 'Отложить', 'action-defer'],
+    ];
+    const buttons = actionDefinitions.map(([decision, label, className]) => {
+      const button = documentObject.createElement('button');
+      button.type = 'button';
+      button.className = `decision-action ${className}`;
+      button.dataset.decision = decision;
+      button.textContent = label;
+      controls.append(button);
+      return button;
+    });
+    controls.prepend(quantity);
+    const saveMessage = documentObject.createElement('small');
+    saveMessage.className = 'decision-save-message';
+
+    function syncDecisionStatus() {
+      const view = ownerDecisionView(item);
+      decisionStatus.className = `decision-status ${view.className}`;
+      decisionStatus.textContent = view.label;
+      for (const button of buttons) {
+        button.setAttribute(
+          'aria-pressed',
+          String(button.dataset.decision === item?.owner_decision?.decision)
+        );
+      }
     }
-    row.append(ownerCell);
+    syncDecisionStatus();
 
-    appendTextCell(
+    for (const button of buttons) {
+      button.addEventListener('click', async () => {
+        if (typeof options.onDecision !== 'function') return;
+        const decision = button.dataset.decision;
+        const requestedQuantity = decision === 'BUY'
+          ? Number(quantity.value)
+          : decision === 'SKIP'
+            ? 0
+            : null;
+        if (
+          decision === 'BUY' &&
+          (!Number.isInteger(requestedQuantity) ||
+            requestedQuantity < 0 ||
+            requestedQuantity > 10000)
+        ) {
+          saveMessage.textContent =
+            'Введите целое количество от 0 до 10000.';
+          saveMessage.dataset.tone = 'error';
+          return;
+        }
+        for (const action of buttons) action.disabled = true;
+        quantity.disabled = true;
+        saveMessage.textContent = 'Сохраняем…';
+        saveMessage.dataset.tone = 'saving';
+        try {
+          const result = await options.onDecision({
+            item,
+            decision,
+            quantity: requestedQuantity,
+          });
+          item.owner_decision = result.item.owner_decision;
+          if (item.owner_decision.decision === 'BUY') {
+            quantity.value = String(item.owner_decision.quantity ?? 0);
+          }
+          syncDecisionStatus();
+          saveMessage.textContent = 'Сохранено';
+          saveMessage.dataset.tone = 'success';
+          if (typeof options.onSaved === 'function') {
+            options.onSaved(result);
+          }
+        } catch (error) {
+          saveMessage.textContent =
+            ERROR_MESSAGES[error?.code] ||
+            'Не удалось сохранить. Решение не изменено.';
+          saveMessage.dataset.tone = 'error';
+        } finally {
+          for (const action of buttons) action.disabled = false;
+          quantity.disabled = false;
+        }
+      });
+    }
+    decisionCell.append(decisionStatus, controls, saveMessage);
+    row.append(decisionCell);
+
+    const detailsRow = documentObject.createElement('tr');
+    detailsRow.className = 'product-details-row';
+    detailsRow.hidden = true;
+    const detailsCell = documentObject.createElement('td');
+    detailsCell.colSpan = 6;
+    const details = documentObject.createElement('div');
+    details.className = 'product-details';
+    const facts = documentObject.createElement('div');
+    facts.className = 'product-detail-grid';
+    const status = itemStatusView(item);
+    appendDetail(
       documentObject,
-      row,
-      item?.explanation?.summary || 'Причина не указана',
-      'reason-text'
+      facts,
+      'Цена',
+      formatRub(item?.amounts?.unit_price)
     );
-    return row;
+    appendDetail(documentObject, facts, 'Статус расчёта', status.label);
+    appendDetail(
+      documentObject,
+      facts,
+      'Роль в матрице',
+      matrixRoleLabel(item?.matrix?.role)
+    );
+    appendDetail(
+      documentObject,
+      facts,
+      'Текущее решение',
+      ownerDecisionView(item).label
+    );
+    const reason = documentObject.createElement('p');
+    reason.className = 'plain-reason';
+    reason.textContent = plainReason(item);
+    const signals = documentObject.createElement('p');
+    signals.className = 'matrix-signals';
+    signals.textContent =
+      `Сигналы матрицы: средние продажи ` +
+      `${formatQuantity(item?.matrix?.average_weekly_sales)} шт./нед., ` +
+      `активность ${typeof item?.matrix?.active_week_ratio === 'number'
+        ? Math.round(item.matrix.active_week_ratio * 100)
+        : '—'}%, ` +
+      `стратегическая защита — ` +
+      `${item?.matrix?.strategic_protected ? 'да' : 'нет'}.`;
+    const missing = documentObject.createElement('p');
+    missing.className = 'missing-data';
+    missing.textContent = item?.matrix?.missing_fields?.length
+      ? `Не хватает данных: ${item.matrix.missing_fields.join(', ')}.`
+      : 'Критичных пропусков данных не обнаружено.';
+    const technical = documentObject.createElement('details');
+    const technicalSummary = documentObject.createElement('summary');
+    technicalSummary.textContent = 'Технические детали';
+    const technicalText = documentObject.createElement('pre');
+    technicalText.textContent = technicalExplanation(item);
+    technical.append(technicalSummary, technicalText);
+    details.append(reason, facts, signals, missing, technical);
+    detailsCell.append(details);
+    detailsRow.append(detailsCell);
+
+    expandButton.addEventListener('click', () => {
+      const open = detailsRow.hidden;
+      detailsRow.hidden = !open;
+      expandButton.setAttribute('aria-expanded', String(open));
+    });
+    return [row, detailsRow];
   }
 
-  function renderItemRows(documentObject, body, items) {
+  function createItemRow(documentObject, item, options = {}) {
+    return createItemRows(documentObject, item, options)[0];
+  }
+
+  function renderItemRows(documentObject, body, items, options = {}) {
     body.replaceChildren();
     for (const item of Array.isArray(items) ? items : []) {
-      body.append(createItemRow(documentObject, item));
+      body.append(...createItemRows(documentObject, item, options));
     }
   }
 
@@ -440,6 +726,12 @@
       productsPrevious:
         documentObject.getElementById('products-previous'),
       productsNext: documentObject.getElementById('products-next'),
+      decisionCounters: {
+        needsDecision: documentObject.getElementById('decision-needs'),
+        confirmedBuy: documentObject.getElementById('decision-buy'),
+        excluded: documentObject.getElementById('decision-skip'),
+        deferred: documentObject.getElementById('decision-defer'),
+      },
       sortButtons: Array.from(
         documentObject.querySelectorAll('[data-sort]')
       ),
@@ -538,10 +830,37 @@
       elements.productsRange.textContent = 'Показано 0 из 0';
       elements.productsPrevious.disabled = true;
       elements.productsNext.disabled = true;
+      renderDecisionCounters(null);
       renderItemRows(documentObject, elements.productsBody, []);
       syncFilterControls();
       syncSortControls();
       setProductsPanelState(elements, 'hidden');
+    }
+
+    function renderDecisionCounters(summary) {
+      const view = decisionCounterView(summary);
+      for (const [name, element] of Object.entries(
+        elements.decisionCounters
+      )) {
+        element.textContent = view[name];
+      }
+    }
+
+    async function saveItemDecision(input) {
+      const decisionUrl = buildDecisionUrl(
+        itemState.baseUrl,
+        input.item.row_id
+      );
+      return requestJson(fetchFunction, decisionUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          decision: input.decision,
+          quantity: input.quantity,
+        }),
+      });
     }
 
     function renderItemsPayload(payload) {
@@ -553,7 +872,16 @@
       itemState.totalPages = Number.isInteger(pagination.total_pages)
         ? pagination.total_pages
         : 0;
-      renderItemRows(documentObject, elements.productsBody, items);
+      renderDecisionCounters(payload?.owner_decisions);
+      renderItemRows(documentObject, elements.productsBody, items, {
+        onDecision: saveItemDecision,
+        onSaved(result) {
+          renderDecisionCounters(result.owner_decisions);
+          if (itemState.filter === 'undecided') {
+            setTimeout(() => loadItems(), 650);
+          }
+        },
+      });
       elements.productsRange.textContent = paginationLabel(pagination);
       elements.productsPrevious.disabled = itemState.page <= 1;
       elements.productsNext.disabled =
@@ -867,14 +1195,20 @@
 
   const publicApi = {
     FrontendError,
+    buildDecisionUrl,
     buildItemsUrl,
     createItemRow,
+    createItemRows,
     createApplication,
+    decisionCounterView,
     formatDuration,
     formatQuantity,
     formatRub,
     itemStatusView,
+    matrixRoleLabel,
+    ownerDecisionView,
     paginationLabel,
+    plainReason,
     pollRunStatus,
     recommendedLineValue,
     recommendedQuantity,
@@ -885,6 +1219,7 @@
     selectArtifacts,
     setProductsPanelState,
     summaryView,
+    technicalExplanation,
   };
 
   if (typeof module !== 'undefined' && module.exports) {

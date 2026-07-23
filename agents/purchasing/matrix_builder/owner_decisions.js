@@ -10,6 +10,8 @@ const OWNER_DECISIONS = Object.freeze([
   'REQUIRE_STOCK',
   'ACCEPT_POLICY',
   'OVERRIDE_POLICY',
+  'BUY',
+  'SKIP',
   'DEFER',
 ]);
 
@@ -123,6 +125,17 @@ function optionalPolicyOverride(value, decision) {
   return result;
 }
 
+function optionalOrderQuantity(value) {
+  if (value === null || value === undefined) return null;
+  if (!Number.isInteger(value) || value < 0 || value > 10000) {
+    throw new OwnerDecisionError(
+      'owner_order_quantity должен быть целым числом от 0 до 10000.',
+      'INVALID_OWNER_DECISION'
+    );
+  }
+  return value;
+}
+
 function validateOwnerDecision(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new OwnerDecisionError('Запись owner decision должна быть объектом.', 'INVALID_OWNER_DECISION');
@@ -155,6 +168,9 @@ function validateOwnerDecision(value) {
     owner_policy_override: optionalPolicyOverride(
       value.owner_policy_override,
       ownerDecision
+    ),
+    owner_order_quantity: optionalOrderQuantity(
+      value.owner_order_quantity
     ),
     reason: nonEmptyString(value.reason, 'reason'),
     decided_at: isoTimestamp(value.decided_at),
@@ -349,6 +365,11 @@ function applyDecisionToItem(sourceItem, decision, builderVersion) {
   item.owner_decision_summary = decision
     ? `${decision.owner_decision}: ${decision.reason}`
     : null;
+  item.owner_order_decision = decision &&
+    ['BUY', 'SKIP', 'DEFER'].includes(decision.owner_decision)
+    ? decision.owner_decision
+    : null;
+  item.owner_order_quantity = decision?.owner_order_quantity ?? null;
   item.owner_decision_suppress_review = false;
   item.owner_decision_force_review = false;
   item.owner_decision_excluded_from_review = false;

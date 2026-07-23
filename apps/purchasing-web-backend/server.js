@@ -14,6 +14,9 @@ const {
   RunQueryService,
 } = require('./application/run_query_service');
 const {
+  OwnerDecisionService,
+} = require('./application/owner_decision_service');
+const {
   FileRunRegistry,
 } = require('./storage/file_run_registry');
 const { createRouter } = require('./http/router');
@@ -73,14 +76,21 @@ function createPurchasingWebServer(options = {}) {
   const registry = options.registry || new FileRunRegistry({
     runsRoot: options.runsRoot || DEFAULT_RUNS_ROOT,
   });
+  const serverPaths = options.serverPaths || DEFAULT_SERVER_PATHS;
+  const ownerDecisionService = options.ownerDecisionService ||
+    new OwnerDecisionService({
+      registry,
+      ownerDecisionsPath: serverPaths.ownerDecisionsPath,
+      now: options.now,
+    });
   const queryService = options.queryService ||
-    new RunQueryService(registry);
+    new RunQueryService(registry, { ownerDecisionService });
   const handlers = options.handlers || createRunHandlers({
     registry,
     queryService,
     orchestrator: options.orchestrator,
     uploadRoot: options.uploadRoot || DEFAULT_UPLOAD_ROOT,
-    serverPaths: options.serverPaths || DEFAULT_SERVER_PATHS,
+    serverPaths,
     uploadOptions: options.uploadOptions,
     runLock: options.runLock,
   });

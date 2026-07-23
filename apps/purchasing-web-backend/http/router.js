@@ -5,6 +5,8 @@ const { HttpError, sendError, sendSuccess } = require('./responses');
 const RUN_ROUTE = /^\/api\/v1\/runs\/([^/]+)$/;
 const SUMMARY_ROUTE = /^\/api\/v1\/runs\/([^/]+)\/summary$/;
 const ITEMS_ROUTE = /^\/api\/v1\/runs\/([^/]+)\/items$/;
+const ITEM_DECISION_ROUTE =
+  /^\/api\/v1\/runs\/([^/]+)\/items\/([^/]+)\/decision$/;
 const OWNER_REVIEW_ROUTE =
   /^\/api\/v1\/runs\/([^/]+)\/owner-review$/;
 const ARTIFACTS_ROUTE =
@@ -16,6 +18,34 @@ function queryObject(searchParams) {
   const query = {};
   for (const [name, value] of searchParams) query[name] = value;
   return query;
+}
+
+function decodeItemId(rawItemId) {
+  let itemId;
+  try {
+    itemId = decodeURIComponent(rawItemId);
+  } catch (error) {
+    throw new HttpError(
+      'INVALID_ITEM_ID',
+      'Item ID имеет недопустимое значение.',
+      { cause: error }
+    );
+  }
+  if (
+    !itemId ||
+    itemId.length > 512 ||
+    itemId.includes('\0') ||
+    itemId.includes('/') ||
+    itemId.includes('\\') ||
+    /%(?:00|2e|2f|5c)/i.test(itemId) ||
+    itemId === '..'
+  ) {
+    throw new HttpError(
+      'INVALID_ITEM_ID',
+      'Item ID имеет недопустимое значение.'
+    );
+  }
+  return itemId;
 }
 
 function createRouter(handlers, options = {}) {
@@ -53,6 +83,8 @@ function createRouter(handlers, options = {}) {
           url.pathname.match(SUMMARY_ROUTE);
         const itemsMatch = request.method === 'GET' &&
           url.pathname.match(ITEMS_ROUTE);
+        const itemDecisionMatch = request.method === 'PUT' &&
+          rawPath.match(ITEM_DECISION_ROUTE);
         const ownerReviewMatch = request.method === 'GET' &&
           url.pathname.match(OWNER_REVIEW_ROUTE);
         const artifactsMatch = request.method === 'GET' &&
@@ -60,7 +92,14 @@ function createRouter(handlers, options = {}) {
         const artifactMatch = request.method === 'GET' &&
           rawPath.match(ARTIFACT_ROUTE);
 
-        if (artifactMatch) {
+        if (itemDecisionMatch) {
+          runId = itemDecisionMatch[1];
+          result = await handlers.saveOwnerDecision(
+            runId,
+            decodeItemId(itemDecisionMatch[2]),
+            request
+          );
+        } else if (artifactMatch) {
           runId = artifactMatch[1];
           result = await handlers.downloadArtifact(
             runId,
@@ -118,10 +157,12 @@ function createRouter(handlers, options = {}) {
 module.exports = {
   ARTIFACT_ROUTE,
   ARTIFACTS_ROUTE,
+  ITEM_DECISION_ROUTE,
   ITEMS_ROUTE,
   OWNER_REVIEW_ROUTE,
   RUN_ROUTE,
   SUMMARY_ROUTE,
   createRouter,
+  decodeItemId,
   queryObject,
 };

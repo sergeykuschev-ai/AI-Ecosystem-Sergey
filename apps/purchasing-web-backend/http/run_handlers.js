@@ -25,6 +25,42 @@ const {
 const { streamArtifact } = require('./artifact_handler');
 const { HttpError } = require('./responses');
 
+const MAX_DECISION_BODY_BYTES = 4096;
+
+async function readDecisionBody(request) {
+  const contentType = String(request.headers['content-type'] || '')
+    .split(';')[0]
+    .trim()
+    .toLowerCase();
+  if (contentType !== 'application/json') {
+    throw new HttpError(
+      'INVALID_OWNER_DECISION',
+      'Решение должно быть передано как application/json.'
+    );
+  }
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of request) {
+    size += chunk.length;
+    if (size > MAX_DECISION_BODY_BYTES) {
+      throw new HttpError(
+        'INVALID_OWNER_DECISION',
+        'Тело решения превышает допустимый размер.'
+      );
+    }
+    chunks.push(chunk);
+  }
+  try {
+    return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  } catch (error) {
+    throw new HttpError(
+      'INVALID_OWNER_DECISION',
+      'Решение содержит некорректный JSON.',
+      { cause: error }
+    );
+  }
+}
+
 function reportDateDependencies(reportDate) {
   if (!reportDate) return {};
   return {
@@ -188,6 +224,15 @@ function createRunHandlers(options) {
       };
     },
 
+    async saveOwnerDecision(runId, itemId, request) {
+      const input = await readDecisionBody(request);
+      return {
+        statusCode: 200,
+        data: queryService.saveOwnerDecision(runId, itemId, input),
+        runId,
+      };
+    },
+
     getOwnerReview(runId, query) {
       return {
         statusCode: 200,
@@ -221,7 +266,9 @@ function createRunHandlers(options) {
 }
 
 module.exports = {
+  MAX_DECISION_BODY_BYTES,
   createRunHandlers,
   orchestrationHttpError,
+  readDecisionBody,
   reportDateDependencies,
 };

@@ -63,7 +63,9 @@ function mapPurchasingItems(bundle) {
         product.barcode ||
         product.internalProductId ||
         null,
+      barcode: product.barcode || null,
       name: product.name || null,
+      brand: product.brand || matrix.brand || null,
       supplier: product.supplier || null,
       decision: decision.decision || product.phase2Decision || null,
       workflow_status: product.workflowStatus || null,
@@ -85,6 +87,20 @@ function mapPurchasingItems(bundle) {
           ...(memberships.get(rowIdentity) || []),
         ],
         recommended_action: owner.recommended_action || null,
+        reason_codes: Array.isArray(matrix.reason_codes)
+          ? [...matrix.reason_codes]
+          : [],
+        missing_fields: Array.isArray(matrix.data_quality?.missing_fields)
+          ? [...matrix.data_quality.missing_fields]
+          : [],
+        average_weekly_sales: finiteOrNull(
+          matrix.evidence?.average_weekly_sales
+        ),
+        active_week_ratio: finiteOrNull(
+          matrix.evidence?.active_week_ratio
+        ),
+        strategic_protected:
+          (matrix.evidence?.strategic_group_matches || []).length > 0,
       },
       stock: {
         free_stock: finiteOrNull(product.freeStock),
@@ -119,6 +135,14 @@ function mapPurchasingItems(bundle) {
         risk_flags: Array.isArray(explanation.risk_flags)
           ? [...explanation.risk_flags]
           : [],
+      },
+      owner_decision: {
+        status: matrix.owner_decision_status || 'none',
+        decision: matrix.owner_order_decision || null,
+        quantity: finiteOrNull(matrix.owner_order_quantity),
+        decided_at: null,
+        decided_by: null,
+        reason: matrix.owner_decision_summary || null,
       },
     };
   });

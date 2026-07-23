@@ -2,6 +2,9 @@ const {
   DEFAULT_PAGE_SIZE,
   MAX_PAGE_SIZE,
 } = require('../config');
+const {
+  ownerDecisionSummary,
+} = require('./owner_decision_service');
 
 const ALLOWED_SORTS = Object.freeze([
   'source_row',
@@ -163,7 +166,9 @@ function itemMatches(item, filters) {
   if (filters.q) {
     const haystack = [
       item.sku || '',
+      item.barcode || '',
       item.name || '',
+      item.brand || '',
       item.supplier || '',
     ].join(' ')
       .toLowerCase()
@@ -191,6 +196,15 @@ function itemMatches(item, filters) {
       (item.quantities?.provisional_quantity ?? 0) > 0;
     if (positive !== filters.positive_order) return false;
   }
+  if (
+    filters.owner_decision === 'missing' &&
+    item.owner_decision?.decision
+  ) return false;
+  if (
+    filters.owner_decision &&
+    filters.owner_decision !== 'missing' &&
+    item.owner_decision?.decision !== filters.owner_decision
+  ) return false;
   return true;
 }
 
@@ -209,9 +223,10 @@ function ownerSectionItem(item) {
 }
 
 class RunQueryService {
-  constructor(registry) {
+  constructor(registry, options = {}) {
     if (!registry) throw new TypeError('Run registry обязателен.');
     this.registry = registry;
+    this.ownerDecisionService = options.ownerDecisionService || null;
   }
 
   getRunStatus(runId) {
@@ -221,6 +236,38 @@ class RunQueryService {
   getRunSummary(runId) {
     ensureCompleted(this.getRunStatus(runId));
     return this.registry.getRunSummary(runId);
+  }
+
+  getDecoratedItems(runId) {
+    const items = this.registry.getItems(runId);
+    return this.ownerDecisionService
+      ? this.ownerDecisionService.decorateItems(items)
+      : items;
+  }
+
+  getOwnerDecisionSummary(runId) {
+    ensureCompleted(this.getRunStatus(runId));
+    return ownerDecisionSummary(this.getDecoratedItems(runId));
+  }
+
+  saveOwnerDecision(runId, itemId, input) {
+    ensureCompleted(this.getRunStatus(runId));
+    if (!this.ownerDecisionService) {
+      throw new RunQueryError(
+        'OWNER_DECISION_STORAGE_ERROR',
+        'Owner Decisions Memory недоступна.'
+      );
+    }
+    const item = this.ownerDecisionService.saveDecision(
+      runId,
+      itemId,
+      input
+    );
+    return {
+      run_id: runId,
+      item,
+      owner_decisions: this.getOwnerDecisionSummary(runId),
+    };
   }
 
   listItems(runId, query = {}) {
@@ -243,6 +290,11 @@ class RunQueryService {
         query.positive_order,
         'positive_order'
       ),
+      owner_decision: enumQuery(
+        query.owner_decision,
+        ['missing', 'BUY', 'SKIP', 'DEFER'],
+        'owner_decision'
+      ),
     };
     const sort = enumQuery(
       query.sort || 'source_row',
@@ -254,7 +306,8 @@ class RunQueryService {
       ALLOWED_ORDERS,
       'order'
     );
-    const filtered = this.registry.getItems(runId)
+    const allItems = this.getDecoratedItems(runId);
+    const filtered = allItems
       .filter(item => itemMatches(item, filters))
       .sort((left, right) => compareItems(left, right, sort, order));
     const result = pagination(filtered, page, pageSize);
@@ -267,6 +320,7 @@ class RunQueryService {
         sort,
         order,
       },
+      owner_decisions: ownerDecisionSummary(allItems),
     };
   }
 
@@ -289,7 +343,7 @@ class RunQueryService {
       'page_size',
       MAX_PAGE_SIZE
     );
-    const matching = this.registry.getItems(runId)
+    const matching = this.getDecoratedItems(runId)
       .filter(item =>
         item.matrix?.owner_review_sections?.includes(sectionKey)
       )
