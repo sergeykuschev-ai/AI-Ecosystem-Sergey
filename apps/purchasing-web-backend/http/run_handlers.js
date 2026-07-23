@@ -196,6 +196,17 @@ function createRunHandlers(options) {
       };
     },
 
+    listArtifacts(runId) {
+      return {
+        statusCode: 200,
+        data: {
+          run_id: runId,
+          artifacts: queryService.listArtifacts(runId),
+        },
+        runId,
+      };
+    },
+
     async downloadArtifact(runId, rawArtifactName, response) {
       await streamArtifact({
         artifactStore: registry.artifactStore,

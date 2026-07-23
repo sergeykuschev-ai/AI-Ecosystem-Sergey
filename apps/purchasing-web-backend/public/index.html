@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta
+      name="description"
+      content="Локальный интерфейс запуска AI-агента закупщика магазина «Миска»"
+    >
+    <title>AI-агент закупщик «Миска»</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <main class="page-shell">
+      <header class="hero">
+        <p class="eyebrow">Purchasing Agent</p>
+        <h1>AI-агент закупщик «Миска»</h1>
+        <p class="hero-copy">
+          Загрузите актуальный отчёт SmartZapas и получите проверенный расчёт
+          закупки с финансовой оценкой.
+        </p>
+      </header>
+
+      <section class="workspace" aria-label="Запуск расчёта закупки">
+        <article class="card upload-card">
+          <div class="section-heading">
+            <div>
+              <p class="step-label">Шаг 1</p>
+              <h2>Загрузите отчёт</h2>
+            </div>
+            <span class="format-badge">XLSX · XLS</span>
+          </div>
+
+          <form id="run-form" novalidate>
+            <label class="file-picker" for="file-input">
+              <span class="file-picker-icon" aria-hidden="true">↑</span>
+              <span>
+                <strong>Выбрать Excel-файл</strong>
+                <small>До 20 МБ, формат .xlsx или .xls</small>
+              </span>
+            </label>
+            <input
+              id="file-input"
+              name="file"
+              type="file"
+              accept=".xlsx,.xls"
+              aria-describedby="file-help file-error"
+            >
+
+            <div class="selected-file" id="selected-file" hidden>
+              <span class="file-status-dot" aria-hidden="true"></span>
+              <span id="selected-file-name"></span>
+            </div>
+            <p class="field-help" id="file-help">
+              Исходный файл используется только для текущего локального
+              расчёта.
+            </p>
+            <p class="inline-error" id="file-error" role="alert" hidden></p>
+
+            <button class="primary-button" id="run-button" type="submit" disabled>
+              Запустить расчёт
+            </button>
+          </form>
+        </article>
+
+        <article class="card status-card" aria-labelledby="status-title">
+          <div class="section-heading">
+            <div>
+              <p class="step-label">Шаг 2</p>
+              <h2 id="status-title">Статус расчёта</h2>
+            </div>
+            <span class="status-pill" id="status-pill">Ожидание</span>
+          </div>
+
+          <ol class="status-list" id="status-list">
+            <li data-state="selected">
+              <span class="status-marker" aria-hidden="true"></span>
+              <span>Файл выбран</span>
+            </li>
+            <li data-state="uploading">
+              <span class="status-marker" aria-hidden="true"></span>
+              <span>Загрузка</span>
+            </li>
+            <li data-state="processing">
+              <span class="status-marker" aria-hidden="true"></span>
+              <span>Расчёт выполняется</span>
+            </li>
+            <li data-state="completed">
+              <span class="status-marker" aria-hidden="true"></span>
+              <span>Готово</span>
+            </li>
+            <li data-state="failed">
+              <span class="status-marker" aria-hidden="true"></span>
+              <span>Ошибка</span>
+            </li>
+          </ol>
+          <p class="status-message" id="status-message" aria-live="polite">
+            Выберите Excel-файл, чтобы начать.
+          </p>
+        </article>
+      </section>
+
+      <section class="results" id="results" aria-labelledby="results-title" hidden>
+        <div class="results-heading">
+          <div>
+            <p class="step-label">Результат</p>
+            <h2 id="results-title">Итоги расчёта</h2>
+          </div>
+          <p id="calculation-time">Время расчёта: —</p>
+        </div>
+
+        <div class="metric-grid">
+          <article class="metric metric-primary">
+            <span>SKU в отчёте</span>
+            <strong id="sku-count">—</strong>
+          </article>
+          <article class="metric">
+            <span>Сумма анализатора</span>
+            <strong id="analyzer-order-sum">—</strong>
+          </article>
+          <article class="metric">
+            <span>Автоматически одобрено</span>
+            <strong id="auto-approved-sum">—</strong>
+          </article>
+          <article class="metric metric-attention">
+            <span>Ожидает проверки</span>
+            <strong id="pending-review-sum">—</strong>
+          </article>
+          <article class="metric">
+            <span>Рабочий максимум</span>
+            <strong id="working-maximum-sum">—</strong>
+          </article>
+          <article class="metric">
+            <span>Финансово оценено</span>
+            <strong id="financially-assessed-sum">—</strong>
+          </article>
+        </div>
+
+        <div class="result-details">
+          <article>
+            <span>Финансовый статус</span>
+            <strong id="financial-status">—</strong>
+          </article>
+          <article>
+            <span>Позиций Owner Review</span>
+            <strong id="owner-review-count">—</strong>
+          </article>
+        </div>
+      </section>
+
+      <section
+        class="downloads card"
+        id="downloads"
+        aria-labelledby="downloads-title"
+        hidden
+      >
+        <div class="section-heading">
+          <div>
+            <p class="step-label">Файлы</p>
+            <h2 id="downloads-title">Скачать результаты</h2>
+          </div>
+        </div>
+        <div class="download-grid">
+          <button type="button" data-artifact-key="result">
+            Скачать result.json
+          </button>
+          <button type="button" data-artifact-key="report">
+            Скачать report.txt
+          </button>
+          <button type="button" data-artifact-key="owner-review">
+            Скачать Owner Review
+          </button>
+          <button type="button" data-artifact-key="explanations">
+            Скачать объяснения рекомендаций
+          </button>
+        </div>
+        <p class="field-help" id="download-message" aria-live="polite"></p>
+      </section>
+    </main>
+  </body>
+</html>

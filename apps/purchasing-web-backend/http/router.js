@@ -7,6 +7,8 @@ const SUMMARY_ROUTE = /^\/api\/v1\/runs\/([^/]+)\/summary$/;
 const ITEMS_ROUTE = /^\/api\/v1\/runs\/([^/]+)\/items$/;
 const OWNER_REVIEW_ROUTE =
   /^\/api\/v1\/runs\/([^/]+)\/owner-review$/;
+const ARTIFACTS_ROUTE =
+  /^\/api\/v1\/runs\/([^/]+)\/artifacts$/;
 const ARTIFACT_ROUTE =
   /^\/api\/v1\/runs\/([^/]+)\/artifacts\/(.*)$/;
 
@@ -18,6 +20,7 @@ function queryObject(searchParams) {
 
 function createRouter(handlers, options = {}) {
   const uuid = options.uuid || crypto.randomUUID;
+  const staticHandler = options.staticHandler;
 
   return async function route(request, response) {
     const requestId = uuid();
@@ -27,7 +30,21 @@ function createRouter(handlers, options = {}) {
       const rawPath = String(request.url || '').split('?')[0];
       let result;
 
-      if (request.method === 'POST' && url.pathname === '/api/v1/runs') {
+      if (
+        request.method === 'GET' &&
+        !url.pathname.startsWith('/api/')
+      ) {
+        if (!staticHandler) {
+          throw new HttpError(
+            'ROUTE_NOT_FOUND',
+            'Запрошенный endpoint не найден.'
+          );
+        }
+        result = await staticHandler(rawPath, response);
+      } else if (
+        request.method === 'POST' &&
+        url.pathname === '/api/v1/runs'
+      ) {
         result = await handlers.createRun(request, { requestId });
       } else {
         const statusMatch = request.method === 'GET' &&
@@ -38,6 +55,8 @@ function createRouter(handlers, options = {}) {
           url.pathname.match(ITEMS_ROUTE);
         const ownerReviewMatch = request.method === 'GET' &&
           url.pathname.match(OWNER_REVIEW_ROUTE);
+        const artifactsMatch = request.method === 'GET' &&
+          url.pathname.match(ARTIFACTS_ROUTE);
         const artifactMatch = request.method === 'GET' &&
           rawPath.match(ARTIFACT_ROUTE);
 
@@ -48,6 +67,9 @@ function createRouter(handlers, options = {}) {
             artifactMatch[2],
             response
           );
+        } else if (artifactsMatch) {
+          runId = artifactsMatch[1];
+          result = handlers.listArtifacts(runId);
         } else if (summaryMatch) {
           runId = summaryMatch[1];
           result = handlers.getRunSummary(runId);
@@ -95,6 +117,7 @@ function createRouter(handlers, options = {}) {
 
 module.exports = {
   ARTIFACT_ROUTE,
+  ARTIFACTS_ROUTE,
   ITEMS_ROUTE,
   OWNER_REVIEW_ROUTE,
   RUN_ROUTE,

@@ -111,8 +111,8 @@ test('POST run returns 201, Location, v1 status and sanitized source', async () 
   assert.equal(fs.existsSync(path.join(runDirectory, 'run.json')), true);
 });
 
-test('GET summary, items and owner-review expose compact v1 DTOs', async () => {
-  const [summary, items, ownerReview] = await Promise.all([
+test('GET summary, items, owner-review and artifacts expose compact DTOs', async () => {
+  const [summary, items, ownerReview, artifacts] = await Promise.all([
     jsonResponse(`${baseUrl}/api/v1/runs/${completedRunId}/summary`),
     jsonResponse(
       `${baseUrl}/api/v1/runs/${completedRunId}/items?page_size=2`
@@ -121,9 +121,12 @@ test('GET summary, items and owner-review expose compact v1 DTOs', async () => {
       `${baseUrl}/api/v1/runs/${completedRunId}/owner-review` +
       '?section=top_priority&page_size=2'
     ),
+    jsonResponse(
+      `${baseUrl}/api/v1/runs/${completedRunId}/artifacts`
+    ),
   ]);
 
-  for (const result of [summary, items, ownerReview]) {
+  for (const result of [summary, items, ownerReview, artifacts]) {
     assert.equal(result.response.status, 200);
     assert.equal(result.body.api_version, 'v1');
   }
@@ -133,6 +136,13 @@ test('GET summary, items and owner-review expose compact v1 DTOs', async () => {
   assert.equal(items.body.data.pagination.page_size, 2);
   assert.equal(ownerReview.body.data.run_id, completedRunId);
   assert.equal(ownerReview.body.data.section, 'top_priority');
+  assert.equal(artifacts.body.data.run_id, completedRunId);
+  assert.equal(artifacts.body.data.artifacts.length, 10);
+  assert.ok(artifacts.body.data.artifacts.every(artifact =>
+    artifact.download_url.startsWith(
+      `/api/v1/runs/${completedRunId}/artifacts/`
+    )
+  ));
 });
 
 test('unknown run and invalid UUID return safe v1 errors', async () => {

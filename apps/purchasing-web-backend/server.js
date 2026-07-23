@@ -18,6 +18,7 @@ const {
 } = require('./storage/file_run_registry');
 const { createRouter } = require('./http/router');
 const { createRunHandlers } = require('./http/run_handlers');
+const { createStaticHandler } = require('./http/static_handler');
 const {
   cleanupExpiredRuns,
   cleanupStaleUploads,
@@ -83,7 +84,13 @@ function createPurchasingWebServer(options = {}) {
     uploadOptions: options.uploadOptions,
     runLock: options.runLock,
   });
-  const router = createRouter(handlers, options.routerOptions);
+  const staticHandler = options.staticHandler || createStaticHandler({
+    publicRoot: options.publicRoot,
+  });
+  const router = createRouter(handlers, {
+    ...options.routerOptions,
+    staticHandler,
+  });
   const server = http.createServer((request, response) => {
     router(request, response);
   });
