@@ -139,7 +139,7 @@
                   role="menuitem"
                   data-artifact-key="owner-review"
                 >
-                  Owner Review
+                  Решения владельца
                 </button>
                 <button
                   type="button"
@@ -187,7 +187,7 @@
             <strong id="financial-status">—</strong>
           </article>
           <article>
-            <span>Позиций Owner Review</span>
+            <span>Позиций для решения</span>
             <strong id="owner-review-count">—</strong>
           </article>
         </div>
@@ -223,42 +223,21 @@
           aria-label="Фильтры товаров"
         >
           <button type="button" data-filter="all" aria-pressed="true">
-            Все товары
+            <span>Все товары</span>
+            <strong id="decision-all">—</strong>
           </button>
-          <button type="button" data-filter="undecided" aria-pressed="false">
-            Только без решения
-          </button>
-          <button type="button" data-filter="owner-buy" aria-pressed="false">
-            Подтверждено
-          </button>
-          <button type="button" data-filter="owner-skip" aria-pressed="false">
-            Исключено
-          </button>
-          <button type="button" data-filter="owner-defer" aria-pressed="false">
-            Отложено
-          </button>
-          <button type="button" data-filter="owner-review" aria-pressed="false">
-            Owner Review
-          </button>
-        </div>
-
-        <div class="decision-counters" aria-label="Решения владельца">
-          <article>
-            <span>Нужно решение</span>
+          <button type="button" data-filter="needs" aria-pressed="false">
+            <span>Нужно решить</span>
             <strong id="decision-needs">—</strong>
-          </article>
-          <article class="decision-counter-buy">
-            <span>Подтверждено к закупке</span>
+          </button>
+          <button type="button" data-filter="confirmed" aria-pressed="false">
+            <span>Подтверждены</span>
             <strong id="decision-buy">—</strong>
-          </article>
-          <article>
-            <span>Исключено</span>
+          </button>
+          <button type="button" data-filter="skip" aria-pressed="false">
+            <span>Не заказывать</span>
             <strong id="decision-skip">—</strong>
-          </article>
-          <article class="decision-counter-defer">
-            <span>Отложено</span>
-            <strong id="decision-defer">—</strong>
-          </article>
+          </button>
         </div>
 
         <div class="products-state" id="products-loading" role="status" hidden>

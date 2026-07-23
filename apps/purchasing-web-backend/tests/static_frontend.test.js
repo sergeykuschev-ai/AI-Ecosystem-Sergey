@@ -15,11 +15,14 @@ const {
   createItemRow,
   createItemRows,
   decisionCounterView,
+  defaultDecisionFilter,
   formatRub,
+  itemMatchesDecisionFilter,
   paginationLabel,
   plainReason,
   pollRunStatus,
   renderItemRows,
+  requestNeedsDecisionItems,
   requestJson,
   selectArtifacts,
   setProductsPanelState,
@@ -132,7 +135,7 @@ test('GET / serves the Russian frontend with secure headers', async () => {
   for (const label of [
     'Полный отчёт',
     'Result JSON',
-    'Owner Review',
+    'Решения владельца',
     'Объяснения рекомендаций',
   ]) {
     assert.match(body, new RegExp(label));
@@ -151,6 +154,18 @@ test('GET / serves the Russian frontend with secure headers', async () => {
   assert.doesNotMatch(body, /<th[^>]*>Цена<\/th>/);
   assert.doesNotMatch(body, /<th[^>]*>Owner Review<\/th>/);
   assert.doesNotMatch(body, /<th[^>]*>Причина<\/th>/);
+  for (const label of [
+    'Все товары',
+    'Нужно решить',
+    'Подтверждены',
+    'Не заказывать',
+  ]) {
+    assert.match(body, new RegExp(`>\\s*${label}\\s*<`));
+  }
+  assert.doesNotMatch(
+    body,
+    />\s*(?:Owner Review|manual review|BUY|SKIP|DEFER)\s*</i
+  );
 });
 
 test('products panel stays hidden before completed and opens when ready', () => {
@@ -228,6 +243,22 @@ test('decision controls wrap as a whole and remain readable', () => {
   assert.doesNotMatch(
     css,
     /\.decision-action\s*\{[^}]*font-size:\s*0\.6[0-9]rem/s
+  );
+});
+
+test('decision tabs are large, counted and do not use horizontal scrolling', () => {
+  const css = fs.readFileSync(path.join(PUBLIC_ROOT, 'styles.css'), 'utf8');
+  assert.match(
+    css,
+    /\.product-filters\s*\{[^}]*grid-template-columns:\s*repeat\(4,/s
+  );
+  assert.match(
+    css,
+    /\.product-filters button\s*\{[^}]*min-height:\s*52px/s
+  );
+  assert.doesNotMatch(
+    css,
+    /\.product-filters\s*\{[^}]*overflow-x:\s*auto/s
   );
 });
 
@@ -406,17 +437,167 @@ test('amount sorting and pagination are encoded deterministically', () => {
 });
 
 test('owner decision counters map updated API totals', () => {
-  assert.deepEqual(decisionCounterView({
+  const initial = decisionCounterView({
     needs_decision: 17,
     confirmed_buy: 8,
     excluded: 4,
     deferred: 2,
-  }), {
-    needsDecision: '17',
+  }, 31);
+  assert.deepEqual(initial, {
+    all: '31',
+    needsDecision: '19',
     confirmedBuy: '8',
     excluded: '4',
-    deferred: '2',
   });
+  const afterBuy = decisionCounterView({
+    needs_decision: 16,
+    confirmed_buy: 9,
+    excluded: 4,
+    deferred: 2,
+  }, 31);
+  assert.equal(afterBuy.needsDecision, '18');
+  assert.equal(afterBuy.confirmedBuy, '9');
+});
+
+test('decision tab defaults to unresolved work and falls back to all', () => {
+  assert.equal(defaultDecisionFilter({
+    needs_decision: 2,
+    deferred: 0,
+  }), 'needs');
+  assert.equal(defaultDecisionFilter({
+    needs_decision: 0,
+    deferred: 1,
+  }), 'needs');
+  assert.equal(defaultDecisionFilter({
+    needs_decision: 0,
+    deferred: 0,
+  }), 'all');
+});
+
+test('decision tabs show the correct owner choices', () => {
+  const undecided = { owner_decision: { decision: null } };
+  const confirmed = { owner_decision: { decision: 'BUY' } };
+  const skipped = { owner_decision: { decision: 'SKIP' } };
+  const deferred = { owner_decision: { decision: 'DEFER' } };
+  const items = [undecided, confirmed, skipped, deferred];
+
+  assert.deepEqual(
+    items.filter(item => itemMatchesDecisionFilter(item, 'all')),
+    items
+  );
+  assert.deepEqual(
+    items.filter(item => itemMatchesDecisionFilter(item, 'needs')),
+    [undecided, deferred]
+  );
+  assert.deepEqual(
+    items.filter(item => itemMatchesDecisionFilter(item, 'confirmed')),
+    [confirmed]
+  );
+  assert.deepEqual(
+    items.filter(item => itemMatchesDecisionFilter(item, 'skip')),
+    [skipped]
+  );
+});
+
+test('unresolved tab combines undecided and deferred server results', async () => {
+  const summary = {
+    needs_decision: 1,
+    confirmed_buy: 1,
+    excluded: 1,
+    deferred: 1,
+  };
+  const source = {
+    missing: [{
+      row_id: 'row-2',
+      source_row: 2,
+      owner_decision: { decision: null },
+    }],
+    DEFER: [{
+      row_id: 'row-1',
+      source_row: 1,
+      owner_decision: { decision: 'DEFER' },
+    }],
+  };
+  const fetchFunction = async requestUrl => {
+    const url = new URL(requestUrl, 'http://localhost');
+    const ownerDecision = url.searchParams.get('owner_decision');
+    const items = source[ownerDecision] || [];
+    return {
+      ok: true,
+      async json() {
+        return {
+          data: {
+            items,
+            pagination: {
+              page: 1,
+              page_size: 100,
+              total_items: items.length,
+              total_pages: items.length ? 1 : 0,
+            },
+            owner_decisions: summary,
+          },
+        };
+      },
+    };
+  };
+
+  const payload = await requestNeedsDecisionItems(
+    fetchFunction,
+    '/api/v1/runs/11111111-1111-4111-8111-111111111111/items',
+    {
+      page: 1,
+      pageSize: 25,
+      q: '',
+      sort: 'source_row',
+      order: 'asc',
+    }
+  );
+  assert.deepEqual(
+    payload.items.map(item => item.row_id),
+    ['row-1', 'row-2']
+  );
+  assert.equal(payload.pagination.total_items, 2);
+  assert.deepEqual(payload.owner_decisions, summary);
+});
+
+test('final choices leave unresolved tab while defer remains', async () => {
+  async function choose(decision) {
+    const documentObject = fakeDocument();
+    const item = {
+      row_id: `row-${decision}`,
+      source_row: 1,
+      quantities: { provisional_quantity: 2 },
+      matrix: {},
+      owner_decision: { decision: null, quantity: null },
+    };
+    const rows = createItemRows(documentObject, item, {
+      async onDecision(input) {
+        return {
+          item: {
+            ...input.item,
+            owner_decision: {
+              status: 'active',
+              decision: input.decision,
+              quantity: input.quantity,
+            },
+          },
+        };
+      },
+      onSaved(_result, savedItem) {
+        return {
+          remove: !itemMatchesDecisionFilter(savedItem, 'needs'),
+        };
+      },
+    });
+    const actionGroup = rows[0].children[5].children[1].children[1];
+    const buttonIndex = { BUY: 0, SKIP: 1, DEFER: 2 }[decision];
+    await actionGroup.children[buttonIndex].listeners.click[0]();
+    return rows[0].hidden;
+  }
+
+  assert.equal(await choose('BUY'), true);
+  assert.equal(await choose('SKIP'), true);
+  assert.equal(await choose('DEFER'), false);
 });
 
 test('item renderer treats API text as textContent', () => {

@@ -31,10 +31,9 @@
   const ITEM_FILTERS = Object.freeze({
     all: Object.freeze({}),
     undecided: Object.freeze({ owner_decision: 'missing' }),
-    'owner-buy': Object.freeze({ owner_decision: 'BUY' }),
-    'owner-skip': Object.freeze({ owner_decision: 'SKIP' }),
-    'owner-defer': Object.freeze({ owner_decision: 'DEFER' }),
-    'owner-review': Object.freeze({ owner_review: 'true' }),
+    deferred: Object.freeze({ owner_decision: 'DEFER' }),
+    confirmed: Object.freeze({ owner_decision: 'BUY' }),
+    skip: Object.freeze({ owner_decision: 'SKIP' }),
   });
   const ITEM_SORTS = Object.freeze([
     'source_row',
@@ -93,13 +92,33 @@
       : '—';
   }
 
-  function decisionCounterView(summary) {
+  function decisionCounterView(summary, totalItems) {
+    const unresolved = Number.isInteger(summary?.needs_decision) &&
+      Number.isInteger(summary?.deferred)
+      ? summary.needs_decision + summary.deferred
+      : null;
     return {
-      needsDecision: displayCount(summary?.needs_decision),
+      all: displayCount(totalItems),
+      needsDecision: displayCount(unresolved),
       confirmedBuy: displayCount(summary?.confirmed_buy),
       excluded: displayCount(summary?.excluded),
-      deferred: displayCount(summary?.deferred),
     };
+  }
+
+  function defaultDecisionFilter(summary) {
+    const unresolved = (summary?.needs_decision || 0) +
+      (summary?.deferred || 0);
+    return unresolved > 0 ? 'needs' : 'all';
+  }
+
+  function itemMatchesDecisionFilter(item, filter) {
+    const decision = item?.owner_decision?.decision || null;
+    if (filter === 'needs') {
+      return decision === null || decision === 'DEFER';
+    }
+    if (filter === 'confirmed') return decision === 'BUY';
+    if (filter === 'skip') return decision === 'SKIP';
+    return true;
   }
 
   function formatQuantity(value) {
@@ -295,6 +314,104 @@
     return `${safeBase}?${parameters.toString()}`;
   }
 
+  function itemSortValue(item, sort) {
+    if (sort === 'name') return String(item?.name || '').toLocaleLowerCase();
+    if (sort === 'recommended_quantity') return recommendedQuantity(item);
+    if (sort === 'recommended_line_value') {
+      return recommendedLineValue(item);
+    }
+    if (sort === 'free_stock') return item?.stock?.free_stock ?? null;
+    if (sort === 'sales_28_days') {
+      return item?.sales?.last_28_days ?? null;
+    }
+    return item?.source_row ?? null;
+  }
+
+  function compareItemValues(left, right, sort, order) {
+    const leftValue = itemSortValue(left, sort);
+    const rightValue = itemSortValue(right, sort);
+    let result = 0;
+    if (leftValue === null && rightValue !== null) return 1;
+    if (leftValue !== null && rightValue === null) return -1;
+    if (typeof leftValue === 'string') {
+      result = leftValue.localeCompare(String(rightValue), 'ru');
+    } else if (leftValue !== rightValue) {
+      result = Number(leftValue) - Number(rightValue);
+    }
+    if (result !== 0) return order === 'desc' ? -result : result;
+    return String(left?.row_id || '').localeCompare(
+      String(right?.row_id || '')
+    );
+  }
+
+  async function requestCompleteItemFilter(
+    fetchFunction,
+    baseUrl,
+    state,
+    filter
+  ) {
+    const requestState = {
+      ...state,
+      filter,
+      page: 1,
+      pageSize: 100,
+    };
+    const first = await requestJson(
+      fetchFunction,
+      buildItemsUrl(baseUrl, requestState)
+    );
+    const totalPages = first?.pagination?.total_pages || 0;
+    const remaining = await Promise.all(
+      Array.from(
+        { length: Math.max(0, totalPages - 1) },
+        (_, index) => requestJson(
+          fetchFunction,
+          buildItemsUrl(baseUrl, {
+            ...requestState,
+            page: index + 2,
+          })
+        )
+      )
+    );
+    return {
+      items: [
+        ...(first?.items || []),
+        ...remaining.flatMap(payload => payload?.items || []),
+      ],
+      owner_decisions: first?.owner_decisions || null,
+    };
+  }
+
+  async function requestNeedsDecisionItems(fetchFunction, baseUrl, state) {
+    const [undecided, deferred] = await Promise.all([
+      requestCompleteItemFilter(fetchFunction, baseUrl, state, 'undecided'),
+      requestCompleteItemFilter(fetchFunction, baseUrl, state, 'deferred'),
+    ]);
+    const items = [...undecided.items, ...deferred.items]
+      .filter(item => itemMatchesDecisionFilter(item, 'needs'))
+      .sort((left, right) => compareItemValues(
+        left,
+        right,
+        state.sort,
+        state.order
+      ));
+    const pageSize = state.pageSize;
+    const totalPages = Math.ceil(items.length / pageSize);
+    const page = Math.min(state.page, Math.max(1, totalPages));
+    const start = (page - 1) * pageSize;
+    return {
+      items: items.slice(start, start + pageSize),
+      pagination: {
+        page,
+        page_size: pageSize,
+        total_items: items.length,
+        total_pages: totalPages,
+      },
+      owner_decisions:
+        undecided.owner_decisions || deferred.owner_decisions,
+    };
+  }
+
   function paginationLabel(pagination = {}) {
     const total = Number.isInteger(pagination.total_items)
       ? pagination.total_items
@@ -472,7 +589,11 @@
           saveMessage.textContent = 'Сохранено';
           saveMessage.dataset.tone = 'success';
           if (typeof options.onSaved === 'function') {
-            options.onSaved(result);
+            const effect = options.onSaved(result, item);
+            if (effect?.remove === true) {
+              row.hidden = true;
+              detailsRow.hidden = true;
+            }
           }
         } catch (error) {
           saveMessage.textContent =
@@ -730,10 +851,10 @@
         documentObject.getElementById('products-previous'),
       productsNext: documentObject.getElementById('products-next'),
       decisionCounters: {
+        all: documentObject.getElementById('decision-all'),
         needsDecision: documentObject.getElementById('decision-needs'),
         confirmedBuy: documentObject.getElementById('decision-buy'),
         excluded: documentObject.getElementById('decision-skip'),
-        deferred: documentObject.getElementById('decision-defer'),
       },
       sortButtons: Array.from(
         documentObject.querySelectorAll('[data-sort]')
@@ -771,6 +892,8 @@
       sort: 'source_row',
       order: 'asc',
       totalPages: 0,
+      totalItems: null,
+      defaultFilterResolved: false,
     };
 
     function setExportOpen(open) {
@@ -827,6 +950,8 @@
         sort: 'source_row',
         order: 'asc',
         totalPages: 0,
+        totalItems: null,
+        defaultFilterResolved: false,
       });
       elements.productsSearch.value = '';
       elements.productsPageSize.value = '25';
@@ -841,7 +966,7 @@
     }
 
     function renderDecisionCounters(summary) {
-      const view = decisionCounterView(summary);
+      const view = decisionCounterView(summary, itemState.totalItems);
       for (const [name, element] of Object.entries(
         elements.decisionCounters
       )) {
@@ -875,14 +1000,25 @@
       itemState.totalPages = Number.isInteger(pagination.total_pages)
         ? pagination.total_pages
         : 0;
+      if (
+        itemState.filter === 'all' &&
+        Number.isInteger(pagination.total_items)
+      ) {
+        itemState.totalItems = pagination.total_items;
+      }
       renderDecisionCounters(payload?.owner_decisions);
       renderItemRows(documentObject, elements.productsBody, items, {
         onDecision: saveItemDecision,
-        onSaved(result) {
+        onSaved(result, savedItem) {
           renderDecisionCounters(result.owner_decisions);
-          if (itemState.filter === 'undecided') {
-            setTimeout(() => loadItems(), 650);
+          const remove = !itemMatchesDecisionFilter(
+            savedItem,
+            itemState.filter
+          );
+          if (remove) {
+            setTimeout(() => loadItems({ silent: true }), 0);
           }
+          return { remove };
         },
       });
       elements.productsRange.textContent = paginationLabel(pagination);
@@ -896,16 +1032,38 @@
       );
     }
 
-    async function loadItems() {
+    async function loadItems(options = {}) {
       if (!itemState.baseUrl) return;
       const sequence = ++itemRequestSequence;
-      setProductsPanelState(elements, 'loading');
+      if (!options.silent) setProductsPanelState(elements, 'loading');
       try {
-        const payload = await requestJson(
-          fetchFunction,
-          buildItemsUrl(itemState.baseUrl, itemState)
-        );
+        const payload = itemState.filter === 'needs'
+          ? await requestNeedsDecisionItems(
+            fetchFunction,
+            itemState.baseUrl,
+            itemState
+          )
+          : await requestJson(
+            fetchFunction,
+            buildItemsUrl(itemState.baseUrl, itemState)
+          );
         if (sequence !== itemRequestSequence) return;
+        if (!itemState.defaultFilterResolved) {
+          itemState.defaultFilterResolved = true;
+          if (Number.isInteger(payload?.pagination?.total_items)) {
+            itemState.totalItems = payload.pagination.total_items;
+          }
+          const initialFilter = defaultDecisionFilter(
+            payload?.owner_decisions
+          );
+          if (initialFilter !== itemState.filter) {
+            itemState.filter = initialFilter;
+            itemState.page = 1;
+            renderDecisionCounters(payload?.owner_decisions);
+            syncFilterControls();
+            return loadItems();
+          }
+        }
         renderItemsPayload(payload);
       } catch {
         if (sequence !== itemRequestSequence) return;
@@ -1204,9 +1362,11 @@
     createItemRows,
     createApplication,
     decisionCounterView,
+    defaultDecisionFilter,
     formatDuration,
     formatQuantity,
     formatRub,
+    itemMatchesDecisionFilter,
     itemStatusView,
     matrixRoleLabel,
     ownerDecisionView,
@@ -1216,6 +1376,7 @@
     recommendedLineValue,
     recommendedQuantity,
     renderItemRows,
+    requestNeedsDecisionItems,
     requestJson,
     safeArtifactDownloadUrl,
     safeRunLink,
