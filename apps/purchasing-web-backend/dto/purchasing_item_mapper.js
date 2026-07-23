@@ -91,6 +91,9 @@ function mapPurchasingItems(bundle) {
         stock_known: typeof product.freeStock === 'number' &&
           Number.isFinite(product.freeStock),
       },
+      sales: {
+        last_28_days: finiteOrNull(product.sales28),
+      },
       quantities: {
         analyzer_quantity: finiteOrNull(
           product.analyzerCalculatedQuantity

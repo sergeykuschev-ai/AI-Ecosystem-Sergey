@@ -9,9 +9,15 @@ const {
   createPurchasingWebServer,
 } = require('../server');
 const {
+  buildItemsUrl,
+  createItemRow,
   formatRub,
+  paginationLabel,
   pollRunStatus,
+  renderItemRows,
+  requestJson,
   selectArtifacts,
+  setProductsPanelState,
   summaryView,
 } = require('../public/app');
 
@@ -38,6 +44,43 @@ async function rawRequest(requestPath) {
   });
 }
 
+function fakeElement(tagName = 'div') {
+  return {
+    tagName,
+    children: [],
+    className: '',
+    hidden: false,
+    textContent: '',
+    append(...children) {
+      this.children.push(...children);
+    },
+    replaceChildren(...children) {
+      this.children = [...children];
+    },
+    set innerHTML(value) {
+      throw new Error(`Unsafe innerHTML assignment: ${value}`);
+    },
+  };
+}
+
+function fakeDocument() {
+  return {
+    createElement(tagName) {
+      return fakeElement(tagName);
+    },
+  };
+}
+
+function panelElements() {
+  return {
+    products: fakeElement(),
+    productsLoading: fakeElement(),
+    productsError: fakeElement(),
+    productsEmpty: fakeElement(),
+    productsContent: fakeElement(),
+  };
+}
+
 before(async () => {
   server = createPurchasingWebServer();
   server.listen(0, '127.0.0.1');
@@ -62,6 +105,8 @@ test('GET / serves the Russian frontend with secure headers', async () => {
   );
   assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
   assert.match(body, /AI-агент закупщик «Миска»/);
+  assert.match(body, /id="products"[\s\S]*hidden/);
+  assert.match(body, /Товары к закупке/);
   assert.doesNotMatch(body, /Скачать результаты/);
   assert.match(body, />\s*Экспорт\s*</);
   for (const label of [
@@ -72,6 +117,16 @@ test('GET / serves the Russian frontend with secure headers', async () => {
   ]) {
     assert.match(body, new RegExp(label));
   }
+});
+
+test('products panel stays hidden before completed and opens when ready', () => {
+  const elements = panelElements();
+  setProductsPanelState(elements, 'hidden');
+  assert.equal(elements.products.hidden, true);
+  setProductsPanelState(elements, 'ready');
+  assert.equal(elements.products.hidden, false);
+  assert.equal(elements.productsContent.hidden, false);
+  assert.equal(elements.productsLoading.hidden, true);
 });
 
 test('whitelisted CSS and JavaScript have correct content types', async () => {
@@ -233,4 +288,91 @@ test('artifact buttons accept only whitelisted manifest download URLs', () => {
   });
   assert.deepEqual(Object.keys(selected), ['result']);
   assert.equal(selected.result.name, 'result.json');
+});
+
+test('item search and filters use server-side query parameters', () => {
+  const baseUrl =
+    '/api/v1/runs/11111111-1111-4111-8111-111111111111/items';
+  const search = new URL(buildItemsUrl(baseUrl, {
+    page: 1,
+    pageSize: 25,
+    q: 'AWARD 7173648',
+    filter: 'all',
+    sort: 'source_row',
+    order: 'asc',
+  }), 'http://localhost');
+  assert.equal(search.searchParams.get('q'), 'AWARD 7173648');
+  assert.equal(search.searchParams.get('page_size'), '25');
+
+  const ownerReview = new URL(buildItemsUrl(baseUrl, {
+    filter: 'owner-review',
+  }), 'http://localhost');
+  assert.equal(ownerReview.searchParams.get('owner_review'), 'true');
+});
+
+test('amount sorting and pagination are encoded deterministically', () => {
+  const baseUrl =
+    '/api/v1/runs/11111111-1111-4111-8111-111111111111/items';
+  const url = new URL(buildItemsUrl(baseUrl, {
+    page: 2,
+    pageSize: 50,
+    filter: 'all',
+    sort: 'recommended_line_value',
+    order: 'desc',
+  }), 'http://localhost');
+  assert.equal(url.searchParams.get('sort'), 'recommended_line_value');
+  assert.equal(url.searchParams.get('order'), 'desc');
+  assert.equal(url.searchParams.get('page'), '2');
+  assert.equal(url.searchParams.get('page_size'), '50');
+  assert.equal(paginationLabel({
+    page: 2,
+    page_size: 50,
+    total_items: 123,
+  }), 'Показано 51–100 из 123');
+});
+
+test('item renderer treats API text as textContent', () => {
+  const documentObject = fakeDocument();
+  const malicious = '<img src=x onerror=alert(1)>';
+  const row = createItemRow(documentObject, {
+    sku: malicious,
+    name: malicious,
+    supplier: malicious,
+    decision: 'manual_review',
+    workflow_status: 'pending_manual_review',
+    stock: { free_stock: 1 },
+    sales: { last_28_days: 2 },
+    quantities: { provisional_quantity: 3 },
+    amounts: { unit_price: 10, provisional_line_value: 30 },
+    matrix: { owner_review_required: true },
+    explanation: { summary: malicious },
+  });
+
+  assert.equal(row.children[0].children[0].textContent, malicious);
+  assert.equal(row.children[0].children[1].textContent, `Артикул: ${malicious}`);
+  assert.equal(row.children[1].textContent, malicious);
+  assert.equal(row.children[9].textContent, malicious);
+});
+
+test('API error and empty item list have explicit UI states', async () => {
+  await assert.rejects(
+    requestJson(async () => ({
+      ok: false,
+      async json() {
+        return { error: { code: 'RUN_FAILED' } };
+      },
+    }), '/api/v1/runs/fixture/items'),
+    error => error.code === 'RUN_FAILED'
+  );
+
+  const errorElements = panelElements();
+  setProductsPanelState(errorElements, 'error');
+  assert.equal(errorElements.products.hidden, false);
+  assert.equal(errorElements.productsError.hidden, false);
+
+  const body = fakeElement('tbody');
+  renderItemRows(fakeDocument(), body, []);
+  assert.equal(body.children.length, 0);
+  setProductsPanelState(errorElements, 'empty');
+  assert.equal(errorElements.productsEmpty.hidden, false);
 });

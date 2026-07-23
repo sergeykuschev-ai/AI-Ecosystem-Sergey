@@ -40,6 +40,16 @@ button {
   cursor: pointer;
 }
 
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 button:focus-visible,
 input:focus-visible,
 .file-picker:has(input:focus-visible) {
@@ -495,6 +505,301 @@ h2 {
   margin-bottom: 4px;
 }
 
+.products {
+  margin-top: 22px;
+}
+
+.products-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 20px;
+}
+
+.products-search {
+  width: min(360px, 48%);
+}
+
+.products-search input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 11px 14px;
+  background: #fbfcfb;
+  color: var(--text);
+}
+
+.products-search input::placeholder {
+  color: #909b95;
+}
+
+.products-search input:focus {
+  border-color: var(--green);
+  background: #fff;
+  outline: 3px solid rgba(35, 122, 80, 0.14);
+}
+
+.product-filters {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  margin: 0 -4px 20px;
+  padding: 4px;
+  scrollbar-width: thin;
+}
+
+.product-filters button {
+  flex: none;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: #fff;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.product-filters button:hover,
+.product-filters button[aria-pressed="true"] {
+  border-color: #b9cec0;
+  background: var(--green-soft);
+  color: var(--green-dark);
+}
+
+.products-state {
+  display: flex;
+  min-height: 120px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px dashed var(--line);
+  border-radius: 16px;
+  background: #fbfcfb;
+  color: var(--muted);
+  text-align: center;
+}
+
+.products-error {
+  border-color: #edc9c9;
+  background: var(--red-soft);
+  color: var(--red);
+}
+
+.loading-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow:
+    15px 0 0 rgba(35, 122, 80, 0.55),
+    30px 0 0 rgba(35, 122, 80, 0.22);
+  margin-right: 30px;
+}
+
+.table-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  scrollbar-width: thin;
+}
+
+.table-scroll table {
+  width: 100%;
+  min-width: 1280px;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.79rem;
+}
+
+.table-scroll th,
+.table-scroll td {
+  border-bottom: 1px solid #e7ece9;
+  padding: 12px 11px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.table-scroll th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #f4f7f5;
+  color: #59665f;
+  font-size: 0.71rem;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.table-scroll tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.table-scroll tbody tr:hover td {
+  background: #fafcfb;
+}
+
+.table-scroll th button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  text-transform: inherit;
+}
+
+.table-scroll th button:hover {
+  color: var(--green-dark);
+}
+
+.table-scroll th[aria-sort="ascending"] button span::after {
+  content: "↑";
+}
+
+.table-scroll th[aria-sort="descending"] button span::after {
+  content: "↓";
+}
+
+.product-name-column {
+  width: 260px;
+}
+
+.reason-column {
+  width: 260px;
+}
+
+.numeric-column,
+.numeric-cell {
+  text-align: right !important;
+  white-space: nowrap;
+}
+
+.product-name {
+  display: block;
+  max-width: 260px;
+  color: var(--text);
+  font-weight: 700;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.product-sku {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.7rem;
+  overflow-wrap: anywhere;
+}
+
+.product-brand {
+  display: block;
+  max-width: 150px;
+  overflow-wrap: anywhere;
+}
+
+.reason-text {
+  max-width: 260px;
+  color: var(--muted);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.table-badge {
+  display: inline-flex;
+  max-width: 145px;
+  align-items: center;
+  border-radius: 999px;
+  padding: 5px 8px;
+  background: #edf1ef;
+  color: #506058;
+  font-size: 0.69rem;
+  font-weight: 750;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.table-badge.status-buy,
+.table-badge.status-auto {
+  background: var(--green-soft);
+  color: var(--green-dark);
+}
+
+.table-badge.status-pending,
+.table-badge.owner-review {
+  background: var(--orange-soft);
+  color: #9c5116;
+}
+
+.table-badge.status-skip {
+  background: #f0f2f1;
+  color: #69766f;
+}
+
+.owner-review-empty {
+  color: #9aa39e;
+}
+
+.pagination {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 16px;
+  margin-top: 16px;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.pagination label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pagination select,
+.pagination button {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--text);
+}
+
+.pagination select {
+  padding: 7px 28px 7px 9px;
+}
+
+.pagination p {
+  margin: 0;
+  text-align: center;
+}
+
+.pagination-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.pagination button {
+  padding: 8px 12px;
+  font-weight: 700;
+}
+
+.pagination button:hover:not(:disabled) {
+  border-color: var(--green);
+  color: var(--green-dark);
+}
+
+.pagination button:disabled {
+  color: #a6aea9;
+  cursor: not-allowed;
+}
+
 [hidden] {
   display: none !important;
 }
@@ -508,6 +813,15 @@ h2 {
   .workspace,
   .metric-grid {
     grid-template-columns: 1fr;
+  }
+
+  .products-heading {
+    display: block;
+  }
+
+  .products-search {
+    width: 100%;
+    margin-top: 16px;
   }
 
   .metric {
@@ -550,6 +864,20 @@ h2 {
 
   .result-details {
     grid-template-columns: 1fr;
+  }
+
+  .pagination {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .pagination p {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    text-align: left;
+  }
+
+  .pagination-buttons {
+    justify-content: flex-end;
   }
 }
 

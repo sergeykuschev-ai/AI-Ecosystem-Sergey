@@ -8,6 +8,10 @@ const ALLOWED_SORTS = Object.freeze([
   'name',
   'approved_quantity',
   'line_value',
+  'recommended_quantity',
+  'recommended_line_value',
+  'free_stock',
+  'sales_28_days',
   'owner_priority',
 ]);
 const ALLOWED_ORDERS = Object.freeze(['asc', 'desc']);
@@ -89,6 +93,21 @@ function primarySortValue(item, sort) {
   if (sort === 'line_value') {
     return item.amounts?.approved_line_value ?? null;
   }
+  if (sort === 'recommended_quantity') {
+    return item.quantities?.approved_quantity ??
+      item.quantities?.provisional_quantity ??
+      item.quantities?.calculated_quantity ??
+      null;
+  }
+  if (sort === 'recommended_line_value') {
+    return item.amounts?.approved_line_value ??
+      item.amounts?.provisional_line_value ??
+      null;
+  }
+  if (sort === 'free_stock') return item.stock?.free_stock ?? null;
+  if (sort === 'sales_28_days') {
+    return item.sales?.last_28_days ?? null;
+  }
   return item.matrix?.owner_review_priority ?? null;
 }
 
@@ -142,7 +161,11 @@ function ensureCompleted(status) {
 
 function itemMatches(item, filters) {
   if (filters.q) {
-    const haystack = `${item.sku || ''} ${item.name || ''}`
+    const haystack = [
+      item.sku || '',
+      item.name || '',
+      item.supplier || '',
+    ].join(' ')
       .toLowerCase()
       .replace(/ё/g, 'е');
     if (!haystack.includes(filters.q)) return false;

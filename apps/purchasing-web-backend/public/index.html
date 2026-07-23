@@ -192,6 +192,139 @@
           </article>
         </div>
       </section>
+
+      <section
+        class="products card"
+        id="products"
+        aria-labelledby="products-title"
+        hidden
+      >
+        <div class="products-heading">
+          <div>
+            <p class="step-label">Детализация</p>
+            <h2 id="products-title">Товары к закупке</h2>
+          </div>
+          <label class="products-search" for="products-search">
+            <span class="visually-hidden">Поиск товаров</span>
+            <input
+              id="products-search"
+              type="search"
+              maxlength="100"
+              placeholder="Название, бренд или артикул"
+              autocomplete="off"
+            >
+          </label>
+        </div>
+
+        <div
+          class="product-filters"
+          id="product-filters"
+          role="group"
+          aria-label="Фильтры товаров"
+        >
+          <button type="button" data-filter="all" aria-pressed="true">
+            Все товары
+          </button>
+          <button type="button" data-filter="buy" aria-pressed="false">
+            Купить
+          </button>
+          <button type="button" data-filter="do-not-buy" aria-pressed="false">
+            Не покупать
+          </button>
+          <button type="button" data-filter="owner-review" aria-pressed="false">
+            Owner Review
+          </button>
+          <button type="button" data-filter="auto-approved" aria-pressed="false">
+            Автоматически одобрено
+          </button>
+          <button type="button" data-filter="pending-review" aria-pressed="false">
+            Ожидает проверки
+          </button>
+        </div>
+
+        <div class="products-state" id="products-loading" role="status" hidden>
+          <span class="loading-dot" aria-hidden="true"></span>
+          Загружаем товары…
+        </div>
+        <div
+          class="products-state products-error"
+          id="products-error"
+          role="alert"
+          hidden
+        >
+          Не удалось загрузить товары. Попробуйте ещё раз.
+        </div>
+        <div class="products-state" id="products-empty" hidden>
+          По выбранным условиям товары не найдены.
+        </div>
+
+        <div id="products-content" hidden>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th class="product-name-column" aria-sort="none">
+                    <button type="button" data-sort="name">
+                      Наименование
+                      <span aria-hidden="true"></span>
+                    </button>
+                  </th>
+                  <th>Бренд</th>
+                  <th class="numeric-column" aria-sort="none">
+                    <button type="button" data-sort="free_stock">
+                      Остаток
+                      <span aria-hidden="true"></span>
+                    </button>
+                  </th>
+                  <th class="numeric-column" aria-sort="none">
+                    <button type="button" data-sort="sales_28_days">
+                      Продажи
+                      <span aria-hidden="true"></span>
+                    </button>
+                  </th>
+                  <th class="numeric-column" aria-sort="none">
+                    <button type="button" data-sort="recommended_quantity">
+                      Рекомендовано, шт.
+                      <span aria-hidden="true"></span>
+                    </button>
+                  </th>
+                  <th class="numeric-column">Цена</th>
+                  <th class="numeric-column" aria-sort="none">
+                    <button type="button" data-sort="recommended_line_value">
+                      Сумма
+                      <span aria-hidden="true"></span>
+                    </button>
+                  </th>
+                  <th>Статус</th>
+                  <th>Owner Review</th>
+                  <th class="reason-column">Причина</th>
+                </tr>
+              </thead>
+              <tbody id="products-body"></tbody>
+            </table>
+          </div>
+
+          <div class="pagination">
+            <label for="products-page-size">
+              Строк на странице
+              <select id="products-page-size">
+                <option value="25" selected>25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+              </select>
+            </label>
+            <p id="products-range">Показано 0 из 0</p>
+            <div class="pagination-buttons">
+              <button id="products-previous" type="button" disabled>
+                Назад
+              </button>
+              <button id="products-next" type="button" disabled>
+                Вперёд
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
     </main>
   </body>
 </html>

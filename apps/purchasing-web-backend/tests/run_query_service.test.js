@@ -134,6 +134,38 @@ test('all supported filters use compact DTO fields', () => {
   ));
 });
 
+test('item search includes supplier and extended sorts are stable', () => {
+  const all = service.listItems(RUN_ID, { page_size: 100 });
+  const supplierItem = all.items.find(item => item.supplier);
+  assert.ok(supplierItem);
+  const supplierSearch = service.listItems(RUN_ID, {
+    q: supplierItem.supplier,
+    page_size: 100,
+  });
+  assert.ok(supplierSearch.items.some(
+    item => item.row_id === supplierItem.row_id
+  ));
+
+  for (const sort of [
+    'recommended_quantity',
+    'recommended_line_value',
+    'free_stock',
+    'sales_28_days',
+  ]) {
+    const first = service.listItems(RUN_ID, {
+      sort,
+      order: 'desc',
+      page_size: 100,
+    }).items;
+    const second = service.listItems(RUN_ID, {
+      sort,
+      order: 'desc',
+      page_size: 100,
+    }).items;
+    assert.deepEqual(first, second, sort);
+  }
+});
+
 test('default sorting is source_row asc and then row_id asc', () => {
   const first = service.listItems(RUN_ID, { page_size: 100 }).items;
   const second = service.listItems(RUN_ID, { page_size: 100 }).items;

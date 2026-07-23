@@ -74,8 +74,18 @@ test('PurchasingItemDTO preserves unknown numeric values as null', () => {
   const unknownStock = items.find(item => item.stock.stock_known === false);
   assert.ok(unknownStock);
   assert.equal(unknownStock.stock.free_stock, null);
+  assert.equal(unknownStock.sales.last_28_days, null);
   assert.equal(unknownStock.quantities.approved_quantity, null);
   assert.equal(unknownStock.amounts.approved_line_value, null);
+});
+
+test('PurchasingItemDTO exposes the existing 28-day sales metric', () => {
+  const modifiedBundle = structuredClone(bundle);
+  const source =
+    modifiedBundle.agentResult[0].json.workingOrderProducts[0];
+  source.sales28 = 12;
+  const [item] = mapPurchasingItems(modifiedBundle);
+  assert.equal(item.sales.last_28_days, 12);
 });
 
 test('all SKU are mapped without loss', () => {
