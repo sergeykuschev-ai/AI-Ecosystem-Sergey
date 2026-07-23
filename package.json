@@ -7,7 +7,7 @@
     "doc": "docs"
   },
   "scripts": {
-    "test": "node --test agents/purchasing/tests/*.test.js",
+    "test": "node --test agents/purchasing/tests/*.test.js apps/purchasing-web-backend/tests/*.test.js",
     "finance:update:miska": "node scripts/update-miska-financial-data.js",
     "finance:check:miska": "node scripts/update-miska-financial-data.js --check",
     "purchasing:run": "node scripts/run-purchasing-agent.js",
