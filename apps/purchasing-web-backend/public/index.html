@@ -107,7 +107,51 @@
             <p class="step-label">Результат</p>
             <h2 id="results-title">Итоги расчёта</h2>
           </div>
-          <p id="calculation-time">Время расчёта: —</p>
+          <div class="results-actions">
+            <div class="export-control">
+              <button
+                class="export-button"
+                id="export-button"
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded="false"
+                aria-controls="export-menu"
+                disabled
+              >
+                Экспорт
+                <span aria-hidden="true">⌄</span>
+              </button>
+              <div
+                class="export-menu"
+                id="export-menu"
+                role="menu"
+                aria-label="Экспорт результатов"
+                hidden
+              >
+                <button type="button" role="menuitem" data-artifact-key="report">
+                  Полный отчёт
+                </button>
+                <button type="button" role="menuitem" data-artifact-key="result">
+                  Result JSON
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  data-artifact-key="owner-review"
+                >
+                  Owner Review
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  data-artifact-key="explanations"
+                >
+                  Объяснения рекомендаций
+                </button>
+              </div>
+            </div>
+            <p id="calculation-time">Время расчёта: —</p>
+          </div>
         </div>
 
         <div class="metric-grid">
@@ -147,35 +191,6 @@
             <strong id="owner-review-count">—</strong>
           </article>
         </div>
-      </section>
-
-      <section
-        class="downloads card"
-        id="downloads"
-        aria-labelledby="downloads-title"
-        hidden
-      >
-        <div class="section-heading">
-          <div>
-            <p class="step-label">Файлы</p>
-            <h2 id="downloads-title">Скачать результаты</h2>
-          </div>
-        </div>
-        <div class="download-grid">
-          <button type="button" data-artifact-key="result">
-            Скачать result.json
-          </button>
-          <button type="button" data-artifact-key="report">
-            Скачать report.txt
-          </button>
-          <button type="button" data-artifact-key="owner-review">
-            Скачать Owner Review
-          </button>
-          <button type="button" data-artifact-key="explanations">
-            Скачать объяснения рекомендаций
-          </button>
-        </div>
-        <p class="field-help" id="download-message" aria-live="polite"></p>
       </section>
     </main>
   </body>

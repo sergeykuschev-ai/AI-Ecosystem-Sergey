@@ -62,6 +62,16 @@ test('GET / serves the Russian frontend with secure headers', async () => {
   );
   assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
   assert.match(body, /AI-агент закупщик «Миска»/);
+  assert.doesNotMatch(body, /Скачать результаты/);
+  assert.match(body, />\s*Экспорт\s*</);
+  for (const label of [
+    'Полный отчёт',
+    'Result JSON',
+    'Owner Review',
+    'Объяснения рекомендаций',
+  ]) {
+    assert.match(body, new RegExp(label));
+  }
 });
 
 test('whitelisted CSS and JavaScript have correct content types', async () => {

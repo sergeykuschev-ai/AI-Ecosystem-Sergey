@@ -213,8 +213,8 @@
         documentObject.querySelectorAll('#status-list li')
       ),
       results: documentObject.getElementById('results'),
-      downloads: documentObject.getElementById('downloads'),
-      downloadMessage: documentObject.getElementById('download-message'),
+      exportButton: documentObject.getElementById('export-button'),
+      exportMenu: documentObject.getElementById('export-menu'),
       calculationTime: documentObject.getElementById('calculation-time'),
       summary: {
         skuCount: documentObject.getElementById('sku-count'),
@@ -238,6 +238,26 @@
     let selectedFile = null;
     let active = false;
     let availableArtifacts = {};
+
+    function setExportOpen(open) {
+      const shouldOpen = open && !elements.exportButton.disabled;
+      elements.exportButton.setAttribute(
+        'aria-expanded',
+        String(shouldOpen)
+      );
+      elements.exportMenu.hidden = !shouldOpen;
+    }
+
+    function resetExports() {
+      availableArtifacts = {};
+      setExportOpen(false);
+      elements.exportButton.disabled = true;
+      for (const button of documentObject.querySelectorAll(
+        '[data-artifact-key]'
+      )) {
+        button.disabled = true;
+      }
+    }
 
     function setFieldError(message) {
       elements.fileError.textContent = message || '';
@@ -287,9 +307,8 @@
       const file = elements.fileInput.files?.[0] || null;
       const code = validateFile(file);
       selectedFile = code ? null : file;
-      availableArtifacts = {};
+      resetExports();
       elements.results.hidden = true;
-      elements.downloads.hidden = true;
       elements.selectedFile.hidden = !file;
       elements.selectedFileName.textContent = file?.name || '';
       elements.runButton.disabled = !selectedFile || active;
@@ -322,11 +341,8 @@
       for (const button of buttons) {
         button.disabled = !availableArtifacts[button.dataset.artifactKey];
       }
-      elements.downloadMessage.textContent =
-        Object.keys(availableArtifacts).length === Object.keys(ARTIFACTS).length
-          ? 'Файлы готовы к скачиванию.'
-          : 'Часть файлов недоступна для скачивания.';
-      elements.downloads.hidden = false;
+      elements.exportButton.disabled =
+        Object.keys(availableArtifacts).length === 0;
     }
 
     async function submitRun(event) {
@@ -342,7 +358,7 @@
       elements.runButton.disabled = true;
       setFieldError('');
       elements.results.hidden = true;
-      elements.downloads.hidden = true;
+      resetExports();
       renderStatus('uploading', 'Отчёт загружается на локальный сервер.');
       const processingHint = setTimeout(() => {
         if (active) {
@@ -417,6 +433,7 @@
       const key = event.currentTarget.dataset.artifactKey;
       const artifact = availableArtifacts[key];
       if (!artifact) return;
+      setExportOpen(false);
       const link = documentObject.createElement('a');
       link.href = artifact.downloadUrl;
       link.download = artifact.name;
@@ -428,12 +445,30 @@
 
     elements.fileInput.addEventListener('change', updateFileSelection);
     elements.form.addEventListener('submit', submitRun);
+    elements.exportButton.addEventListener('click', () => {
+      setExportOpen(elements.exportMenu.hidden);
+    });
+    documentObject.addEventListener('click', event => {
+      if (
+        !elements.exportMenu.hidden &&
+        !event.target.closest('.export-control')
+      ) {
+        setExportOpen(false);
+      }
+    });
+    documentObject.addEventListener('keydown', event => {
+      if (event.key === 'Escape') {
+        setExportOpen(false);
+        elements.exportButton.focus();
+      }
+    });
     for (const button of documentObject.querySelectorAll(
       '[data-artifact-key]'
     )) {
       button.disabled = true;
       button.addEventListener('click', downloadArtifact);
     }
+    resetExports();
     return {
       submitRun,
       updateFileSelection,
