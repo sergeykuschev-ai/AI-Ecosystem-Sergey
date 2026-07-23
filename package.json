@@ -11,7 +11,8 @@
     "finance:update:miska": "node scripts/update-miska-financial-data.js",
     "finance:check:miska": "node scripts/update-miska-financial-data.js --check",
     "purchasing:run": "node scripts/run-purchasing-agent.js",
-    "purchasing:matrix:build": "node scripts/build-purchasing-matrix.js"
+    "purchasing:matrix:build": "node scripts/build-purchasing-matrix.js",
+    "purchasing:web": "node apps/purchasing-web-backend/server.js"
   },
   "repository": {
     "type": "git",

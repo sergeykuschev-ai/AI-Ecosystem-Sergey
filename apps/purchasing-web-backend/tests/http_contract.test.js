@@ -175,13 +175,14 @@ test('invalid query returns 400 and responses never leak stack or paths', async 
   assert.equal(serialized.includes('/private/'), false);
 });
 
-test('server is bound to localhost and artifact download is absent', async () => {
+test('server is bound to localhost and artifact download is available', async () => {
   assert.equal(server.address().address, '127.0.0.1');
   const artifact = await jsonResponse(
     `${baseUrl}/api/v1/runs/${completedRunId}/artifacts/result.json`
   );
-  assert.equal(artifact.response.status, 404);
-  assert.equal(artifact.body.error.code, 'ROUTE_NOT_FOUND');
+  assert.equal(artifact.response.status, 200);
+  assert.ok(Array.isArray(artifact.body));
+  assert.equal(artifact.response.headers.get('cache-control'), 'no-store');
 });
 
 test('successful upload staging directory is cleaned', () => {

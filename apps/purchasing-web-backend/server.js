@@ -7,6 +7,7 @@ const {
   DEFAULT_SERVER_PATHS,
   DEFAULT_UPLOAD_ROOT,
   resolveHttpPort,
+  resolveRetentionTtlMs,
 } = require('./config');
 const {
   RunQueryService,
@@ -16,6 +17,55 @@ const {
 } = require('./storage/file_run_registry');
 const { createRouter } = require('./http/router');
 const { createRunHandlers } = require('./http/run_handlers');
+const {
+  cleanupExpiredRuns,
+  cleanupStaleUploads,
+} = require('./storage/retention_cleanup');
+
+function safeCleanupLog(logger, message) {
+  if (logger && typeof logger.warn === 'function') logger.warn(message);
+}
+
+function runStartupCleanup(options = {}) {
+  const logger = options.logger || console;
+  let runCleanup = null;
+  let uploadCleanup = null;
+  try {
+    runCleanup = cleanupExpiredRuns({
+      runsRoot: options.runsRoot || DEFAULT_RUNS_ROOT,
+      ttlMs: options.retentionTtlMs ?? resolveRetentionTtlMs(),
+      now: options.now,
+    });
+    if (runCleanup.errors > 0) {
+      safeCleanupLog(
+        logger,
+        'Purchasing Web cleanup: часть run-каталогов не обработана.'
+      );
+    }
+  } catch {
+    safeCleanupLog(
+      logger,
+      'Purchasing Web cleanup: не удалось очистить устаревшие runs.'
+    );
+  }
+  try {
+    uploadCleanup = cleanupStaleUploads({
+      uploadRoot: options.uploadRoot || DEFAULT_UPLOAD_ROOT,
+    });
+    if (uploadCleanup.errors > 0) {
+      safeCleanupLog(
+        logger,
+        'Purchasing Web cleanup: часть временных uploads не обработана.'
+      );
+    }
+  } catch {
+    safeCleanupLog(
+      logger,
+      'Purchasing Web cleanup: не удалось очистить временные uploads.'
+    );
+  }
+  return { runs: runCleanup, uploads: uploadCleanup };
+}
 
 function createPurchasingWebServer(options = {}) {
   const registry = options.registry || new FileRunRegistry({
@@ -44,6 +94,7 @@ function createPurchasingWebServer(options = {}) {
 }
 
 function startPurchasingWebServer(options = {}) {
+  runStartupCleanup(options);
   const server = createPurchasingWebServer(options);
   const port = options.port ?? resolveHttpPort();
   server.listen(port, DEFAULT_HTTP_HOST);
@@ -62,5 +113,7 @@ if (require.main === module) {
 
 module.exports = {
   createPurchasingWebServer,
+  runStartupCleanup,
+  safeCleanupLog,
   startPurchasingWebServer,
 };

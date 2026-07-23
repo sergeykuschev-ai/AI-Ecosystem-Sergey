@@ -83,16 +83,20 @@ function sha256(content) {
 }
 
 function artifactPayloads(bundle) {
+  const agentJson = Array.isArray(bundle.agentResult)
+    ? bundle.agentResult[0]?.json
+    : null;
   return {
     'result.json': serializeJson(bundle.agentResult),
-    'matrix-draft.json': serializeJson(bundle.matrixDraft),
-    'manual-review.json': serializeJson(bundle.manualReview),
-    'owner-review.json': serializeJson(bundle.ownerReview),
-    'owner-review-report.md': `${bundle.ownerReviewReport.trimEnd()}\n`,
+    'report.txt': `${String(agentJson?.minmax_text || '').trimEnd()}\n`,
     'recommendation-explanations.json': serializeJson(bundle.explanations),
     'recommendation-explanations-report.md':
       `${bundle.explanationsReport.trimEnd()}\n`,
+    'matrix-draft.json': serializeJson(bundle.matrixDraft),
     'matrix-report.txt': `${bundle.matrixReportText.trimEnd()}\n`,
+    'manual-review.json': serializeJson(bundle.manualReview),
+    'owner-review.json': serializeJson(bundle.ownerReview),
+    'owner-review-report.md': `${bundle.ownerReviewReport.trimEnd()}\n`,
     'run-metadata.json': serializeJson({
       version: 1,
       run_id: bundle.run_id,
@@ -140,6 +144,8 @@ class FileArtifactStore {
           'application/octet-stream',
         size_bytes: Buffer.byteLength(content),
         sha256: sha256(content),
+        download_url:
+          `/api/v1/runs/${bundle.run_id}/artifacts/${name}`,
       };
     });
     const manifest = {
@@ -169,6 +175,164 @@ class FileArtifactStore {
       throw new ArtifactStoreError(
         code,
         'Artifact manifest недоступен.',
+        { cause: error }
+      );
+    }
+  }
+
+  openArtifactForStreaming(runId, artifactName) {
+    assertRunId(runId);
+    if (!ARTIFACT_NAMES.includes(artifactName)) {
+      throw new ArtifactStoreError(
+        'ARTIFACT_NOT_ALLOWED',
+        'Artifact не входит в разрешённый whitelist.'
+      );
+    }
+
+    const artifactDirectory = this.artifactDirectory(runId);
+    try {
+      const directoryStatus = this.fs.lstatSync(artifactDirectory);
+      const manifestStatus = this.fs.lstatSync(path.join(
+        artifactDirectory,
+        'manifest.json'
+      ));
+      if (
+        directoryStatus.isSymbolicLink() ||
+        !directoryStatus.isDirectory() ||
+        manifestStatus.isSymbolicLink() ||
+        !manifestStatus.isFile()
+      ) {
+        throw new ArtifactStoreError(
+          'ARTIFACT_NOT_ALLOWED',
+          'Artifact storage path не разрешён.'
+        );
+      }
+    } catch (error) {
+      if (error instanceof ArtifactStoreError) throw error;
+      if (error.code === 'ENOENT') {
+        throw new ArtifactStoreError(
+          'ARTIFACT_NOT_FOUND',
+          'Artifact не найден.',
+          { cause: error }
+        );
+      }
+      throw new ArtifactStoreError(
+        'ARTIFACT_STREAM_ERROR',
+        'Artifact storage недоступен.',
+        { cause: error }
+      );
+    }
+
+    let manifest;
+    try {
+      manifest = this.readManifest(runId);
+    } catch (error) {
+      throw new ArtifactStoreError(
+        error.code === 'ARTIFACT_MANIFEST_NOT_FOUND'
+          ? 'ARTIFACT_NOT_FOUND'
+          : 'ARTIFACT_STREAM_ERROR',
+        error.code === 'ARTIFACT_MANIFEST_NOT_FOUND'
+          ? 'Artifact не найден.'
+          : 'Artifact manifest повреждён.',
+        { cause: error }
+      );
+    }
+    if (manifest.run_id !== runId) {
+      throw new ArtifactStoreError(
+        'ARTIFACT_STREAM_ERROR',
+        'Artifact manifest не принадлежит запрошенному run.'
+      );
+    }
+    const manifestEntry = Array.isArray(manifest.artifacts)
+      ? manifest.artifacts.find(item => item?.name === artifactName)
+      : null;
+    if (!manifestEntry) {
+      throw new ArtifactStoreError(
+        'ARTIFACT_NOT_FOUND',
+        'Artifact не найден.'
+      );
+    }
+
+    const candidatePath = path.join(artifactDirectory, artifactName);
+    let directoryRealPath;
+    let artifactRealPath;
+    let descriptor;
+    try {
+      directoryRealPath = this.fs.realpathSync(artifactDirectory);
+      const linkStatus = this.fs.lstatSync(candidatePath);
+      if (linkStatus.isSymbolicLink() || !linkStatus.isFile()) {
+        throw new ArtifactStoreError(
+          'ARTIFACT_NOT_ALLOWED',
+          'Artifact path не разрешён.'
+        );
+      }
+      artifactRealPath = this.fs.realpathSync(candidatePath);
+      const relativePath = path.relative(
+        directoryRealPath,
+        artifactRealPath
+      );
+      if (
+        relativePath === '' ||
+        relativePath.startsWith(`..${path.sep}`) ||
+        relativePath === '..' ||
+        path.isAbsolute(relativePath)
+      ) {
+        throw new ArtifactStoreError(
+          'ARTIFACT_NOT_ALLOWED',
+          'Artifact path выходит за пределы run.'
+        );
+      }
+      const noFollow = this.fs.constants?.O_NOFOLLOW || 0;
+      descriptor = this.fs.openSync(
+        artifactRealPath,
+        this.fs.constants.O_RDONLY | noFollow
+      );
+      const status = this.fs.fstatSync(descriptor);
+      if (
+        !status.isFile() ||
+        status.size !== manifestEntry.size_bytes
+      ) {
+        throw new ArtifactStoreError(
+          'ARTIFACT_STREAM_ERROR',
+          'Artifact не прошёл проверку целостности.'
+        );
+      }
+      const stream = this.fs.createReadStream(null, {
+        fd: descriptor,
+        autoClose: true,
+      });
+      descriptor = undefined;
+      return {
+        name: artifactName,
+        contentType: CONTENT_TYPES[path.extname(artifactName)] ||
+          'application/octet-stream',
+        sizeBytes: status.size,
+        stream,
+      };
+    } catch (error) {
+      if (descriptor !== undefined) {
+        try {
+          this.fs.closeSync(descriptor);
+        } catch {}
+      }
+      if (error instanceof ArtifactStoreError) throw error;
+      if (error.code === 'ENOENT') {
+        throw new ArtifactStoreError(
+          'ARTIFACT_NOT_FOUND',
+          'Artifact не найден.',
+          { cause: error }
+        );
+      }
+      if (error.code === 'ELOOP') {
+        throw new ArtifactStoreError(
+          'ARTIFACT_NOT_ALLOWED',
+          'Artifact path не разрешён.',
+          { cause: error }
+        );
+      }
+      throw new ArtifactStoreError(
+        'ARTIFACT_STREAM_ERROR',
+        'Не удалось открыть artifact stream.',
         { cause: error }
       );
     }

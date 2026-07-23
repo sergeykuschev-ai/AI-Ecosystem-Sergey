@@ -22,13 +22,14 @@ const RUN_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]
 
 const ARTIFACT_NAMES = Object.freeze([
   'result.json',
+  'report.txt',
+  'recommendation-explanations.json',
+  'recommendation-explanations-report.md',
   'matrix-draft.json',
+  'matrix-report.txt',
   'manual-review.json',
   'owner-review.json',
   'owner-review-report.md',
-  'recommendation-explanations.json',
-  'recommendation-explanations-report.md',
-  'matrix-report.txt',
   'run-metadata.json',
 ]);
 
@@ -68,6 +69,19 @@ function resolveHttpPort(value = process.env.PURCHASING_WEB_PORT) {
   return port;
 }
 
+function resolveRetentionTtlMs(
+  value = process.env.PURCHASING_WEB_RETENTION_TTL_MS
+) {
+  if (value === undefined || value === '') return DEFAULT_RETENTION_TTL_MS;
+  const ttlMs = Number(value);
+  if (!Number.isFinite(ttlMs) || ttlMs < 0) {
+    throw new TypeError(
+      'PURCHASING_WEB_RETENTION_TTL_MS должен быть неотрицательным числом.'
+    );
+  }
+  return ttlMs;
+}
+
 module.exports = {
   ARTIFACT_NAMES,
   DEFAULT_HTTP_HOST,
@@ -86,4 +100,5 @@ module.exports = {
   RUN_ID_PATTERN,
   isValidRunId,
   resolveHttpPort,
+  resolveRetentionTtlMs,
 };

@@ -4,6 +4,7 @@ const path = require('node:path');
 const {
   DEFAULT_RETENTION_TTL_MS,
   DEFAULT_RUNS_ROOT,
+  DEFAULT_UPLOAD_ROOT,
   isValidRunId,
 } = require('../config');
 
@@ -63,4 +64,39 @@ function cleanupExpiredRuns(options = {}) {
   };
 }
 
-module.exports = { cleanupExpiredRuns };
+function cleanupStaleUploads(options = {}) {
+  const fsModule = options.fsModule || fs;
+  const uploadRoot = path.resolve(options.uploadRoot || DEFAULT_UPLOAD_ROOT);
+  if (!fsModule.existsSync(uploadRoot)) {
+    return { removed: 0, errors: 0 };
+  }
+
+  let removed = 0;
+  let errors = 0;
+  for (const entry of fsModule.readdirSync(uploadRoot, {
+    withFileTypes: true,
+  })) {
+    if (!entry.isDirectory() || !isValidRunId(entry.name)) continue;
+    const uploadDirectory = path.join(uploadRoot, entry.name);
+    try {
+      for (const name of ['upload.tmp', 'source.xlsx', 'source.xls']) {
+        const filePath = path.join(uploadDirectory, name);
+        if (fsModule.existsSync(filePath)) {
+          fsModule.rmSync(filePath, { force: true });
+          removed += 1;
+        }
+      }
+      if (fsModule.readdirSync(uploadDirectory).length === 0) {
+        fsModule.rmdirSync(uploadDirectory);
+      }
+    } catch {
+      errors += 1;
+    }
+  }
+  return { removed, errors };
+}
+
+module.exports = {
+  cleanupExpiredRuns,
+  cleanupStaleUploads,
+};

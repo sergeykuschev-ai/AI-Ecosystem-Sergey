@@ -19,6 +19,7 @@ const {
   cleanupUploadDirectory,
   parseExcelUpload,
 } = require('./upload_handler');
+const { streamArtifact } = require('./artifact_handler');
 const { HttpError } = require('./responses');
 
 function reportDateDependencies(reportDate) {
@@ -178,6 +179,17 @@ function createRunHandlers(options) {
         data: queryService.getOwnerReview(runId, query),
         runId,
       };
+    },
+
+    async downloadArtifact(runId, rawArtifactName, response) {
+      await streamArtifact({
+        artifactStore: registry.artifactStore,
+        queryService,
+        response,
+        runId,
+        rawArtifactName,
+      });
+      return { streamed: true, runId };
     },
   };
 }
