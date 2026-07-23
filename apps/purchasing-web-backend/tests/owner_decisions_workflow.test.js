@@ -15,6 +15,9 @@ const {
 const {
   createPurchasingWebServer,
 } = require('../server');
+const {
+  ownerDecisionSummary,
+} = require('../application/owner_decision_service');
 
 const RUN_ID = '12121212-1212-4121-8121-121212121212';
 const ROW_ID = 'smartzapas:fixture:Лист_1:6';
@@ -114,6 +117,28 @@ function decisionUrl(rowId = ROW_ID) {
     `${encodeURIComponent(rowId)}/decision`;
 }
 
+test('pending decisions require an explicit Owner Review signal', () => {
+  const item = (ownerReviewRequired, decision) => ({
+    matrix: ownerReviewRequired === undefined
+      ? {}
+      : { owner_review_required: ownerReviewRequired },
+    owner_decision: { decision },
+  });
+  assert.deepEqual(ownerDecisionSummary([
+    item(true, null),
+    item(true, 'DEFER'),
+    item(true, 'BUY'),
+    item(true, 'SKIP'),
+    item(false, null),
+    item(undefined, null),
+  ]), {
+    needs_decision: 2,
+    confirmed_buy: 1,
+    excluded: 1,
+    deferred: 1,
+  });
+});
+
 before(async () => {
   temporaryRoot = fs.mkdtempSync(path.join(
     os.tmpdir(),
@@ -139,7 +164,7 @@ test('PUT saves BUY in append-only Owner Decisions Memory', async () => {
   assert.equal(saved.body.data.item.owner_decision.decision, 'BUY');
   assert.equal(saved.body.data.item.owner_decision.quantity, 7);
   assert.deepEqual(saved.body.data.owner_decisions, {
-    needs_decision: 1,
+    needs_decision: 0,
     confirmed_buy: 1,
     excluded: 0,
     deferred: 0,

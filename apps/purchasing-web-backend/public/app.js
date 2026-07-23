@@ -30,8 +30,14 @@
   });
   const ITEM_FILTERS = Object.freeze({
     all: Object.freeze({}),
-    undecided: Object.freeze({ owner_decision: 'missing' }),
-    deferred: Object.freeze({ owner_decision: 'DEFER' }),
+    undecided: Object.freeze({
+      owner_review: 'true',
+      owner_decision: 'missing',
+    }),
+    deferred: Object.freeze({
+      owner_review: 'true',
+      owner_decision: 'DEFER',
+    }),
     confirmed: Object.freeze({ owner_decision: 'BUY' }),
     skip: Object.freeze({ owner_decision: 'SKIP' }),
   });
@@ -93,29 +99,27 @@
   }
 
   function decisionCounterView(summary, totalItems) {
-    const unresolved = Number.isInteger(summary?.needs_decision) &&
-      Number.isInteger(summary?.deferred)
-      ? summary.needs_decision + summary.deferred
-      : null;
     return {
       all: displayCount(totalItems),
-      needsDecision: displayCount(unresolved),
+      needsDecision: displayCount(summary?.needs_decision),
       confirmedBuy: displayCount(summary?.confirmed_buy),
       excluded: displayCount(summary?.excluded),
     };
   }
 
   function defaultDecisionFilter(summary) {
-    const unresolved = (summary?.needs_decision || 0) +
-      (summary?.deferred || 0);
-    return unresolved > 0 ? 'needs' : 'all';
+    return (summary?.needs_decision || 0) > 0 ? 'needs' : 'all';
+  }
+
+  function needsOwnerDecisionView(item) {
+    const ownerDecision = item?.owner_decision?.decision || null;
+    return item?.matrix?.owner_review_required === true &&
+      (ownerDecision === null || ownerDecision === 'DEFER');
   }
 
   function itemMatchesDecisionFilter(item, filter) {
     const decision = item?.owner_decision?.decision || null;
-    if (filter === 'needs') {
-      return decision === null || decision === 'DEFER';
-    }
+    if (filter === 'needs') return needsOwnerDecisionView(item);
     if (filter === 'confirmed') return decision === 'BUY';
     if (filter === 'skip') return decision === 'SKIP';
     return true;
@@ -387,14 +391,18 @@
       requestCompleteItemFilter(fetchFunction, baseUrl, state, 'undecided'),
       requestCompleteItemFilter(fetchFunction, baseUrl, state, 'deferred'),
     ]);
-    const items = [...undecided.items, ...deferred.items]
-      .filter(item => itemMatchesDecisionFilter(item, 'needs'))
-      .sort((left, right) => compareItemValues(
-        left,
-        right,
-        state.sort,
-        state.order
-      ));
+    const uniqueItems = new Map();
+    for (const item of [...undecided.items, ...deferred.items]) {
+      if (
+        typeof item?.row_id === 'string' &&
+        itemMatchesDecisionFilter(item, 'needs')
+      ) {
+        uniqueItems.set(item.row_id, item);
+      }
+    }
+    const items = [...uniqueItems.values()].sort((left, right) =>
+      compareItemValues(left, right, state.sort, state.order)
+    );
     const pageSize = state.pageSize;
     const totalPages = Math.ceil(items.length / pageSize);
     const page = Math.min(state.page, Math.max(1, totalPages));
@@ -1369,6 +1377,7 @@
     itemMatchesDecisionFilter,
     itemStatusView,
     matrixRoleLabel,
+    needsOwnerDecisionView,
     ownerDecisionView,
     paginationLabel,
     plainReason,

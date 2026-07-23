@@ -18,6 +18,7 @@ const {
   defaultDecisionFilter,
   formatRub,
   itemMatchesDecisionFilter,
+  needsOwnerDecisionView,
   paginationLabel,
   plainReason,
   pollRunStatus,
@@ -408,7 +409,13 @@ test('item search and filters use server-side query parameters', () => {
   const undecided = new URL(buildItemsUrl(baseUrl, {
     filter: 'undecided',
   }), 'http://localhost');
+  assert.equal(undecided.searchParams.get('owner_review'), 'true');
   assert.equal(undecided.searchParams.get('owner_decision'), 'missing');
+  const deferred = new URL(buildItemsUrl(baseUrl, {
+    filter: 'deferred',
+  }), 'http://localhost');
+  assert.equal(deferred.searchParams.get('owner_review'), 'true');
+  assert.equal(deferred.searchParams.get('owner_decision'), 'DEFER');
   assert.equal(
     buildDecisionUrl(baseUrl, 'smartzapas:row%20one'),
     `${baseUrl}/smartzapas%3Arow%2520one/decision`
@@ -445,7 +452,7 @@ test('owner decision counters map updated API totals', () => {
   }, 31);
   assert.deepEqual(initial, {
     all: '31',
-    needsDecision: '19',
+    needsDecision: '17',
     confirmedBuy: '8',
     excluded: '4',
   });
@@ -455,7 +462,7 @@ test('owner decision counters map updated API totals', () => {
     excluded: 4,
     deferred: 2,
   }, 31);
-  assert.equal(afterBuy.needsDecision, '18');
+  assert.equal(afterBuy.needsDecision, '16');
   assert.equal(afterBuy.confirmedBuy, '9');
 });
 
@@ -467,7 +474,7 @@ test('decision tab defaults to unresolved work and falls back to all', () => {
   assert.equal(defaultDecisionFilter({
     needs_decision: 0,
     deferred: 1,
-  }), 'needs');
+  }), 'all');
   assert.equal(defaultDecisionFilter({
     needs_decision: 0,
     deferred: 0,
@@ -475,11 +482,21 @@ test('decision tab defaults to unresolved work and falls back to all', () => {
 });
 
 test('decision tabs show the correct owner choices', () => {
-  const undecided = { owner_decision: { decision: null } };
+  const undecided = {
+    matrix: { owner_review_required: true },
+    owner_decision: { decision: null },
+  };
   const confirmed = { owner_decision: { decision: 'BUY' } };
   const skipped = { owner_decision: { decision: 'SKIP' } };
-  const deferred = { owner_decision: { decision: 'DEFER' } };
-  const items = [undecided, confirmed, skipped, deferred];
+  const deferred = {
+    matrix: { owner_review_required: true },
+    owner_decision: { decision: 'DEFER' },
+  };
+  const automatic = {
+    matrix: { owner_review_required: false },
+    owner_decision: { decision: null },
+  };
+  const items = [undecided, confirmed, skipped, deferred, automatic];
 
   assert.deepEqual(
     items.filter(item => itemMatchesDecisionFilter(item, 'all')),
@@ -499,27 +516,48 @@ test('decision tabs show the correct owner choices', () => {
   );
 });
 
-test('unresolved tab combines undecided and deferred server results', async () => {
+test('missing Owner Review signal never makes an item unresolved', () => {
+  assert.equal(needsOwnerDecisionView({
+    matrix: { owner_review_required: true },
+    owner_decision: { decision: null },
+  }), true);
+  assert.equal(needsOwnerDecisionView({
+    matrix: { owner_review_required: false },
+    owner_decision: { decision: null },
+  }), false);
+  assert.equal(needsOwnerDecisionView({
+    matrix: {},
+    owner_decision: { decision: null },
+  }), false);
+});
+
+test('unresolved tab combines reviewed missing and deferred without duplicates', async () => {
   const summary = {
-    needs_decision: 1,
+    needs_decision: 3,
     confirmed_buy: 1,
     excluded: 1,
-    deferred: 1,
+    deferred: 2,
   };
+  const reviewedItem = (rowId, sourceRow, decision) => ({
+    row_id: rowId,
+    source_row: sourceRow,
+    matrix: { owner_review_required: true },
+    owner_decision: { decision },
+  });
   const source = {
-    missing: [{
-      row_id: 'row-2',
-      source_row: 2,
-      owner_decision: { decision: null },
-    }],
-    DEFER: [{
-      row_id: 'row-1',
-      source_row: 1,
-      owner_decision: { decision: 'DEFER' },
-    }],
+    missing: [
+      reviewedItem('row-2', 2, null),
+      reviewedItem('row-1', 1, null),
+    ],
+    DEFER: [
+      reviewedItem('row-1', 1, 'DEFER'),
+      reviewedItem('row-3', 3, 'DEFER'),
+    ],
   };
+  const requestedOwnerReview = [];
   const fetchFunction = async requestUrl => {
     const url = new URL(requestUrl, 'http://localhost');
+    requestedOwnerReview.push(url.searchParams.get('owner_review'));
     const ownerDecision = url.searchParams.get('owner_decision');
     const items = source[ownerDecision] || [];
     return {
@@ -554,10 +592,11 @@ test('unresolved tab combines undecided and deferred server results', async () =
   );
   assert.deepEqual(
     payload.items.map(item => item.row_id),
-    ['row-1', 'row-2']
+    ['row-1', 'row-2', 'row-3']
   );
-  assert.equal(payload.pagination.total_items, 2);
+  assert.equal(payload.pagination.total_items, 3);
   assert.deepEqual(payload.owner_decisions, summary);
+  assert.ok(requestedOwnerReview.every(value => value === 'true'));
 });
 
 test('final choices leave unresolved tab while defer remains', async () => {
@@ -567,7 +606,7 @@ test('final choices leave unresolved tab while defer remains', async () => {
       row_id: `row-${decision}`,
       source_row: 1,
       quantities: { provisional_quantity: 2 },
-      matrix: {},
+      matrix: { owner_review_required: true },
       owner_decision: { decision: null, quantity: null },
     };
     const rows = createItemRows(documentObject, item, {

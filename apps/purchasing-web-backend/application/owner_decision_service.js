@@ -4,7 +4,6 @@ const {
   loadOwnerDecisions,
   normalizeSku,
 } = require('../../../agents/purchasing/matrix_builder/owner_decisions');
-
 const WEB_OWNER_DECISIONS = Object.freeze(['BUY', 'SKIP', 'DEFER']);
 const MAX_OWNER_ORDER_QUANTITY = 10000;
 
@@ -106,7 +105,12 @@ function ownerDecisionSummary(items) {
     if (decision === 'BUY') summary.confirmed_buy += 1;
     else if (decision === 'SKIP') summary.excluded += 1;
     else if (decision === 'DEFER') summary.deferred += 1;
-    else summary.needs_decision += 1;
+    if (
+      item.matrix?.owner_review_required === true &&
+      (decision === null || decision === undefined || decision === 'DEFER')
+    ) {
+      summary.needs_decision += 1;
+    }
   }
   return summary;
 }
