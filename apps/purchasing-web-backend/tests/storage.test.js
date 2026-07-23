@@ -120,7 +120,7 @@ test('completed bundle is atomically published with all required files', () => {
     assert.doesNotThrow(() => JSON.parse(content));
   });
   assert.equal(temporaryFiles(root).length, 0);
-  assert.equal(saved.manifest.artifacts.length, 14);
+  assert.equal(saved.manifest.artifacts.length, 16);
   const history = JSON.parse(fs.readFileSync(
     path.join(root, 'owner-learning-history.json'),
     'utf8'
@@ -132,6 +132,13 @@ test('completed bundle is atomically published with all required files', () => {
     'artifacts',
     'owner-learning-patterns.json'
   )), true);
+  const proposals = JSON.parse(fs.readFileSync(path.join(
+    runDirectory,
+    'artifacts',
+    'owner-rule-proposals.json'
+  ), 'utf8'));
+  assert.equal(proposals.reportVersion, 'owner-rule-proposals-v0.3');
+  assert.equal(proposals.proposalsCount, 0);
   assert.ok(saved.manifest.artifacts.every(artifact =>
     artifact.download_url ===
       `/api/v1/runs/${RUN_ID}/artifacts/${artifact.name}`
@@ -154,7 +161,7 @@ test('completed run is readable after registry recreation', () => {
     recreatedRegistry.getOwnerReview(RUN_ID).run_id,
     RUN_ID
   );
-  assert.equal(recreatedRegistry.listArtifacts(RUN_ID).length, 14);
+  assert.equal(recreatedRegistry.listArtifacts(RUN_ID).length, 16);
 });
 
 test('history failure is logged without changing completed run storage', () => {

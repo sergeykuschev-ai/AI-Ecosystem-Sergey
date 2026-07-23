@@ -209,6 +209,14 @@ test('persists Owner Learning history and current-run pattern artifacts', async 
     result.runDirectory,
     'owner-learning-patterns.md'
   ), 'utf8');
+  const proposals = readJson(path.join(
+    result.runDirectory,
+    'owner-rule-proposals.json'
+  ));
+  const proposalsReport = fs.readFileSync(path.join(
+    result.runDirectory,
+    'owner-rule-proposals.md'
+  ), 'utf8');
 
   assert.equal(history.schemaVersion, 'owner-learning-history-v0.2');
   assert.equal(history.runs.length, 1);
@@ -216,6 +224,11 @@ test('persists Owner Learning history and current-run pattern artifacts', async 
   assert.equal(patterns.reportVersion, 'owner-learning-patterns-v0.2');
   assert.equal(patterns.historyRunsCount, 1);
   assert.match(report, /^# Повторяющиеся решения владельца/m);
+  assert.equal(proposals.reportVersion, 'owner-rule-proposals-v0.3');
+  assert.equal(proposals.proposalsCount, 0);
+  assert.deepEqual(proposals.proposals, []);
+  assert.match(proposalsReport, /^# Предложения правил владельца/m);
+  assert.match(proposalsReport, /Ни одно предложение не применяется/);
 });
 
 test('history failure is logged without failing the purchasing run', async () => {
@@ -296,6 +309,8 @@ test('--format json creates JSON result, explanations, and metadata', async () =
     'owner-learning-patterns.md',
     'owner-learning-report.json',
     'owner-learning-report.md',
+    'owner-rule-proposals.json',
+    'owner-rule-proposals.md',
     'recommendation-explanations.json',
     'result.json',
     'run-metadata.json',
@@ -307,6 +322,8 @@ test('--format json creates JSON result, explanations, and metadata', async () =
     'owner-learning-report.md',
     'owner-learning-patterns.json',
     'owner-learning-patterns.md',
+    'owner-rule-proposals.json',
+    'owner-rule-proposals.md',
     'run-metadata.json',
   ]);
 });
@@ -322,6 +339,8 @@ test('--format text creates text report, explanations, and metadata', async () =
     'owner-learning-patterns.md',
     'owner-learning-report.json',
     'owner-learning-report.md',
+    'owner-rule-proposals.json',
+    'owner-rule-proposals.md',
     'recommendation-explanations-report.md',
     'report.txt',
     'run-metadata.json',
@@ -333,6 +352,8 @@ test('--format text creates text report, explanations, and metadata', async () =
     'owner-learning-report.md',
     'owner-learning-patterns.json',
     'owner-learning-patterns.md',
+    'owner-rule-proposals.json',
+    'owner-rule-proposals.md',
     'run-metadata.json',
   ]);
 });
@@ -544,6 +565,8 @@ test('metadata records status, normalized paths, warnings, and generated files',
     'owner-learning-report.md',
     'owner-learning-patterns.json',
     'owner-learning-patterns.md',
+    'owner-rule-proposals.json',
+    'owner-rule-proposals.md',
     'run-metadata.json',
   ]);
   assert.ok(Array.isArray(metadata.warnings));

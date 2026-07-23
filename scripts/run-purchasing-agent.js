@@ -44,6 +44,14 @@ const {
 } = require(
   '../agents/purchasing/owner_learning/owner_learning_history'
 );
+const {
+  buildOwnerRuleProposals,
+  buildOwnerRuleProposalsMarkdown,
+  unavailableOwnerRuleProposals,
+  unavailableOwnerRuleProposalsMarkdown,
+} = require(
+  '../agents/purchasing/owner_learning/owner_rule_proposals'
+);
 
 const REPOSITORY_ROOT = path.resolve(__dirname, '..');
 const DEFAULT_FINANCIAL_DATA_PATH = path.join(
@@ -270,6 +278,7 @@ function generatedFileNames(format) {
   }
   names.push('owner-learning-report.json', 'owner-learning-report.md');
   names.push('owner-learning-patterns.json', 'owner-learning-patterns.md');
+  names.push('owner-rule-proposals.json', 'owner-rule-proposals.md');
   names.push('run-metadata.json');
   return names;
 }
@@ -794,10 +803,39 @@ async function runPurchasingCli(argv, dependencies = {}) {
   const historyWarnings = ownerLearningHistoryError
     ? [`Owner Learning History: ${ownerLearningHistoryError}`]
     : [];
+  let ownerRuleProposals;
+  let ownerRuleProposalsReport;
+  let ownerRuleProposalsError = null;
+  try {
+    ownerRuleProposals = buildOwnerRuleProposals(ownerLearningPatterns, {
+      generatedAt: startedTimestamp,
+    });
+    ownerRuleProposalsReport = buildOwnerRuleProposalsMarkdown(
+      ownerRuleProposals
+    );
+  } catch (error) {
+    ownerRuleProposalsError = error.code || 'PROPOSALS_UNAVAILABLE';
+    output(
+      `Предупреждение Owner Rule Proposals: ${
+        ownerRuleProposalsError
+      }.`
+    );
+    ownerRuleProposals = unavailableOwnerRuleProposals(
+      startedTimestamp,
+      ownerLearningPatterns?.reportVersion,
+      ownerRuleProposalsError
+    );
+    ownerRuleProposalsReport =
+      unavailableOwnerRuleProposalsMarkdown();
+  }
+  const proposalWarnings = ownerRuleProposalsError
+    ? [`Owner Rule Proposals: ${ownerRuleProposalsError}`]
+    : [];
   const warnings = Array.from(new Set([
     ...collectRunWarnings(agentJson),
     ...explanationWarnings,
     ...historyWarnings,
+    ...proposalWarnings,
   ]));
   const status = warnings.length > 0 ? 'success_with_warnings' : 'success';
   const reportText = buildOwnerReport({
@@ -869,6 +907,16 @@ async function runPurchasingCli(argv, dependencies = {}) {
       patterns_json_file: 'owner-learning-patterns.json',
       patterns_markdown_file: 'owner-learning-patterns.md',
     },
+    owner_rule_proposals: {
+      report_version: ownerRuleProposals.reportVersion,
+      source_patterns_version: ownerRuleProposals.sourcePatternsVersion,
+      proposals_count: ownerRuleProposals.proposalsCount,
+      skipped_invalid_candidates:
+        ownerRuleProposals.skippedInvalidCandidates,
+      error: ownerRuleProposalsError,
+      json_file: 'owner-rule-proposals.json',
+      markdown_file: 'owner-rule-proposals.md',
+    },
   };
 
   if (!args.dryRun) {
@@ -902,6 +950,14 @@ async function runPurchasingCli(argv, dependencies = {}) {
     files.push({
       name: 'owner-learning-patterns.md',
       content: ownerLearningPatternsReport,
+    });
+    files.push({
+      name: 'owner-rule-proposals.json',
+      content: serializeJson(ownerRuleProposals),
+    });
+    files.push({
+      name: 'owner-rule-proposals.md',
+      content: ownerRuleProposalsReport,
     });
     files.push({
       name: 'run-metadata.json',
@@ -938,6 +994,9 @@ async function runPurchasingCli(argv, dependencies = {}) {
     ownerLearningHistoryError,
     ownerLearningPatterns,
     ownerLearningPatternsReport,
+    ownerRuleProposals,
+    ownerRuleProposalsReport,
+    ownerRuleProposalsError,
     explanationContext,
     agentResult,
   };

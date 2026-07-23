@@ -14,6 +14,14 @@ const {
 } = require(
   '../../../agents/purchasing/owner_learning/owner_learning_history'
 );
+const {
+  buildOwnerRuleProposals,
+  buildOwnerRuleProposalsMarkdown,
+  unavailableOwnerRuleProposals,
+  unavailableOwnerRuleProposalsMarkdown,
+} = require(
+  '../../../agents/purchasing/owner_learning/owner_rule_proposals'
+);
 const { mapOwnerReview } = require('../dto/owner_review_mapper');
 const {
   mapPurchasingItems,
@@ -171,8 +179,39 @@ class FileRunRegistry {
           ownerLearningPatternsReport: unavailablePatternsMarkdown(),
         };
       }
+      let bundleWithProposals;
+      try {
+        const proposals = buildOwnerRuleProposals(
+          bundleWithPatterns.ownerLearningPatterns,
+          { generatedAt: bundle.generated_at }
+        );
+        bundleWithProposals = {
+          ...bundleWithPatterns,
+          ownerRuleProposals: proposals,
+          ownerRuleProposalsReport:
+            buildOwnerRuleProposalsMarkdown(proposals),
+        };
+      } catch (proposalError) {
+        const proposalErrorCode = proposalError.code ||
+          'PROPOSALS_UNAVAILABLE';
+        try {
+          this.logger.error(
+            `Owner Rule Proposals: ${proposalErrorCode}.`
+          );
+        } catch {}
+        bundleWithProposals = {
+          ...bundleWithPatterns,
+          ownerRuleProposals: unavailableOwnerRuleProposals(
+            bundle.generated_at,
+            bundleWithPatterns.ownerLearningPatterns?.reportVersion,
+            proposalErrorCode
+          ),
+          ownerRuleProposalsReport:
+            unavailableOwnerRuleProposalsMarkdown(),
+        };
+      }
       const manifest = this.artifactStore.saveBundleArtifacts(
-        bundleWithPatterns
+        bundleWithProposals
       );
 
       this.writeJson(bundle.run_id, 'summary.json', summary);

@@ -35,6 +35,8 @@ const ARTIFACT_NAMES = Object.freeze([
   'owner-learning-report.md',
   'owner-learning-patterns.json',
   'owner-learning-patterns.md',
+  'owner-rule-proposals.json',
+  'owner-rule-proposals.md',
   'run-metadata.json',
 ]);
 
