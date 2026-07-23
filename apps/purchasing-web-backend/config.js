@@ -31,6 +31,8 @@ const ARTIFACT_NAMES = Object.freeze([
   'manual-review.json',
   'owner-review.json',
   'owner-review-report.md',
+  'owner-learning-report.json',
+  'owner-learning-report.md',
   'run-metadata.json',
 ]);
 

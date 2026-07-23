@@ -164,6 +164,31 @@ test('creates deterministic Recommendation Explanation artifacts', async () => {
   assert.ok(report.includes('Manual Review Required'));
 });
 
+test('creates Owner Learning JSON and Markdown artifacts', async () => {
+  const result = await runPurchasingCli(
+    baseArguments('owner-learning'),
+    dependencies()
+  );
+  const learning = readJson(path.join(
+    result.runDirectory,
+    'owner-learning-report.json'
+  ));
+  const report = fs.readFileSync(path.join(
+    result.runDirectory,
+    'owner-learning-report.md'
+  ), 'utf8');
+
+  assert.equal(learning.reportVersion, 'owner-learning-v0.1');
+  assert.equal(learning.totalItems, 6);
+  assert.equal(
+    learning.automaticItems + learning.reviewRequiredItems,
+    learning.totalItems
+  );
+  assert.match(report, /^# Отчёт обучения закупщика/m);
+  assert.match(report, /## Решения владельца/);
+  assert.match(report, /## Сравнение с агентом/);
+});
+
 test('creates run-metadata.json for every normal run', async () => {
   const result = await runPurchasingCli(
     baseArguments('metadata-file'),
@@ -208,6 +233,8 @@ test('--format json creates JSON result, explanations, and metadata', async () =
   );
 
   assert.deepEqual(filesIn(result.runDirectory), [
+    'owner-learning-report.json',
+    'owner-learning-report.md',
     'recommendation-explanations.json',
     'result.json',
     'run-metadata.json',
@@ -215,6 +242,8 @@ test('--format json creates JSON result, explanations, and metadata', async () =
   assert.deepEqual(result.metadata.generated_files, [
     'result.json',
     'recommendation-explanations.json',
+    'owner-learning-report.json',
+    'owner-learning-report.md',
     'run-metadata.json',
   ]);
 });
@@ -226,6 +255,8 @@ test('--format text creates text report, explanations, and metadata', async () =
   );
 
   assert.deepEqual(filesIn(result.runDirectory), [
+    'owner-learning-report.json',
+    'owner-learning-report.md',
     'recommendation-explanations-report.md',
     'report.txt',
     'run-metadata.json',
@@ -233,6 +264,8 @@ test('--format text creates text report, explanations, and metadata', async () =
   assert.deepEqual(result.metadata.generated_files, [
     'report.txt',
     'recommendation-explanations-report.md',
+    'owner-learning-report.json',
+    'owner-learning-report.md',
     'run-metadata.json',
   ]);
 });
@@ -440,6 +473,8 @@ test('metadata records status, normalized paths, warnings, and generated files',
     'recommendation-explanations.json',
     'report.txt',
     'recommendation-explanations-report.md',
+    'owner-learning-report.json',
+    'owner-learning-report.md',
     'run-metadata.json',
   ]);
   assert.ok(Array.isArray(metadata.warnings));

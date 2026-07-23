@@ -120,7 +120,7 @@ test('completed bundle is atomically published with all required files', () => {
     assert.doesNotThrow(() => JSON.parse(content));
   });
   assert.equal(temporaryFiles(root).length, 0);
-  assert.equal(saved.manifest.artifacts.length, 10);
+  assert.equal(saved.manifest.artifacts.length, 12);
   assert.ok(saved.manifest.artifacts.every(artifact =>
     artifact.download_url ===
       `/api/v1/runs/${RUN_ID}/artifacts/${artifact.name}`
@@ -143,7 +143,7 @@ test('completed run is readable after registry recreation', () => {
     recreatedRegistry.getOwnerReview(RUN_ID).run_id,
     RUN_ID
   );
-  assert.equal(recreatedRegistry.listArtifacts(RUN_ID).length, 10);
+  assert.equal(recreatedRegistry.listArtifacts(RUN_ID).length, 12);
 });
 
 test('failed run stores only a safe run error', () => {

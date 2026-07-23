@@ -97,6 +97,9 @@ function artifactPayloads(bundle) {
     'manual-review.json': serializeJson(bundle.manualReview),
     'owner-review.json': serializeJson(bundle.ownerReview),
     'owner-review-report.md': `${bundle.ownerReviewReport.trimEnd()}\n`,
+    'owner-learning-report.json': serializeJson(bundle.ownerLearning),
+    'owner-learning-report.md':
+      `${bundle.ownerLearningReport.trimEnd()}\n`,
     'run-metadata.json': serializeJson({
       version: 1,
       run_id: bundle.run_id,

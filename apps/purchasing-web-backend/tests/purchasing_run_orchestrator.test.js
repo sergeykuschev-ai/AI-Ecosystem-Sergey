@@ -72,6 +72,9 @@ test('full fixture pipeline returns one consistent in-memory bundle', async () =
   assert.equal(bundle.explanations.explained_sku_count, 6);
   assert.equal(bundle.explanations.items.length, 6);
   assert.equal(typeof bundle.ownerReviewReport, 'string');
+  assert.equal(bundle.ownerLearning.totalItems, 6);
+  assert.equal(typeof bundle.ownerLearningReport, 'string');
+  assert.match(bundle.ownerLearningReport, /Отчёт обучения закупщика/);
   assert.equal(typeof bundle.explanationsReport, 'string');
   assert.equal(typeof bundle.matrixReportText, 'string');
   assert.deepEqual(

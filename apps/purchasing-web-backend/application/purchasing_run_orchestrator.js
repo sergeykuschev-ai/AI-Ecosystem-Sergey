@@ -21,6 +21,13 @@ const {
   '../../../agents/purchasing/explanations/recommendation_explainer'
 );
 const {
+  buildOwnerLearningInput,
+  buildOwnerLearningMarkdown,
+  buildOwnerLearningReport,
+} = require(
+  '../../../agents/purchasing/owner_learning/owner_learning_report'
+);
+const {
   PurchasingWebApplicationError,
 } = require('./application_error');
 
@@ -33,6 +40,8 @@ const DEFAULT_DEPENDENCIES = Object.freeze({
   buildOwnerReviewReport,
   buildExplanations: buildRecommendationExplanations,
   buildExplanationsReport: buildRecommendationExplanationsReport,
+  buildOwnerLearning: buildOwnerLearningReport,
+  buildOwnerLearningMarkdown,
 });
 
 function assertNonEmptyString(value, field) {
@@ -289,8 +298,15 @@ async function runPurchasingWebOrchestrator(
 
   let ownerApplication;
   let ownerReview;
+  let ownerLearningReview;
   let ownerReviewReport;
   try {
+    ownerLearningReview = dependencies.buildOwnerReview(
+      matrixResult.draft,
+      matrixResult.manualReview,
+      matrixResult.config,
+      null
+    );
     const ownerDecisions = dependencies.loadOwnerDecisions(
       request.ownerDecisionsPath,
       { allowMissing: true }
@@ -315,6 +331,28 @@ async function runPurchasingWebOrchestrator(
     throw stageError(
       'OWNER_REVIEW_FAILED',
       'Не удалось сформировать Owner Review.',
+      error
+    );
+  }
+
+  let ownerLearning;
+  let ownerLearningReport;
+  try {
+    ownerLearning = dependencies.buildOwnerLearning({
+      ...buildOwnerLearningInput(
+        agentJsonFromResult(agentResult),
+        ownerLearningReview,
+        ownerApplication.draft
+      ),
+      generatedAt: request.generatedAt,
+    });
+    ownerLearningReport = dependencies.buildOwnerLearningMarkdown(
+      ownerLearning
+    );
+  } catch (error) {
+    throw stageError(
+      'OWNER_LEARNING_FAILED',
+      'Не удалось сформировать Owner Learning Report.',
       error
     );
   }
@@ -352,6 +390,8 @@ async function runPurchasingWebOrchestrator(
     manualReview: matrixResult.manualReview,
     ownerReview,
     ownerReviewReport,
+    ownerLearning,
+    ownerLearningReport,
     explanations,
     explanationsReport,
     matrixReportText: matrixResult.reportText,

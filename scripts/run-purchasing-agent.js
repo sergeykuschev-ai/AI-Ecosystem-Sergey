@@ -17,10 +17,22 @@ const {
   loadOwnerDecisions,
 } = require('../agents/purchasing/matrix_builder/owner_decisions');
 const {
+  buildOwnerReviewModel,
+} = require(
+  '../agents/purchasing/matrix_builder/owner_review_dashboard'
+);
+const {
   DEFAULT_RECOMMENDATION_EXPLAINER_CONFIG_PATH,
   buildRecommendationExplanations,
   buildRecommendationExplanationsReport,
 } = require('../agents/purchasing/explanations/recommendation_explainer');
+const {
+  buildOwnerLearningInput,
+  buildOwnerLearningMarkdown,
+  buildOwnerLearningReport,
+} = require(
+  '../agents/purchasing/owner_learning/owner_learning_report'
+);
 
 const REPOSITORY_ROOT = path.resolve(__dirname, '..');
 const DEFAULT_FINANCIAL_DATA_PATH = path.join(
@@ -241,6 +253,7 @@ function generatedFileNames(format) {
   if (format === 'all' || format === 'text') {
     names.push('report.txt', 'recommendation-explanations-report.md');
   }
+  names.push('owner-learning-report.json', 'owner-learning-report.md');
   names.push('run-metadata.json');
   return names;
 }
@@ -607,12 +620,26 @@ async function defaultExplanationContextBuilder(
   const ownerDecisions = loadOwnerDecisions(DEFAULT_OWNER_DECISIONS_PATH, {
     allowMissing: true,
   });
+  const ownerLearningReview = buildOwnerReviewModel(
+    matrixResult.draft,
+    matrixResult.manualReview,
+    matrixResult.config,
+    null
+  );
   const ownerApplication = applyOwnerDecisions(
     matrixResult.draft,
     ownerDecisions.store
   );
+  const ownerReview = buildOwnerReviewModel(
+    ownerApplication.draft,
+    matrixResult.manualReview,
+    matrixResult.config,
+    ownerApplication.summary
+  );
   return {
     matrixDraft: ownerApplication.draft,
+    ownerReview,
+    ownerLearningReview,
     ownerDecisionSummary: ownerApplication.summary,
     matrixBuilderVersion: matrixResult.draft.builder_version,
     ownerDecisionsPath: ownerDecisions.sourcePath,
@@ -669,6 +696,8 @@ async function runPurchasingCli(argv, dependencies = {}) {
   const agentJson = agentResult[0].json;
   let explanationContext = {
     matrixDraft: null,
+    ownerReview: null,
+    ownerLearningReview: null,
     ownerDecisionSummary: null,
     matrixBuilderVersion: null,
     ownerDecisionsPath: DEFAULT_OWNER_DECISIONS_PATH,
@@ -692,6 +721,15 @@ async function runPurchasingCli(argv, dependencies = {}) {
     matrixDraft: explanationContext.matrixDraft,
   });
   const explanationsReport = buildRecommendationExplanationsReport(explanations);
+  const ownerLearning = buildOwnerLearningReport({
+    ...buildOwnerLearningInput(
+      agentJson,
+      explanationContext.ownerLearningReview,
+      explanationContext.matrixDraft
+    ),
+    generatedAt: startedTimestamp,
+  });
+  const ownerLearningReport = buildOwnerLearningMarkdown(ownerLearning);
   const warnings = Array.from(new Set([
     ...collectRunWarnings(agentJson),
     ...explanationWarnings,
@@ -755,6 +793,11 @@ async function runPurchasingCli(argv, dependencies = {}) {
       owner_decisions_missing: explanationContext.ownerDecisionsMissing,
       owner_decisions_summary: explanationContext.ownerDecisionSummary,
     },
+    owner_learning: {
+      report_version: ownerLearning.reportVersion,
+      json_file: 'owner-learning-report.json',
+      markdown_file: 'owner-learning-report.md',
+    },
   };
 
   if (!args.dryRun) {
@@ -773,6 +816,14 @@ async function runPurchasingCli(argv, dependencies = {}) {
         content: explanationsReport,
       });
     }
+    files.push({
+      name: 'owner-learning-report.json',
+      content: serializeJson(ownerLearning),
+    });
+    files.push({
+      name: 'owner-learning-report.md',
+      content: ownerLearningReport,
+    });
     files.push({
       name: 'run-metadata.json',
       content: serializeJson(metadata),
@@ -800,6 +851,8 @@ async function runPurchasingCli(argv, dependencies = {}) {
     reportText,
     explanations,
     explanationsReport,
+    ownerLearning,
+    ownerLearningReport,
     explanationContext,
     agentResult,
   };
