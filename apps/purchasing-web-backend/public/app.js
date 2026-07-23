@@ -218,8 +218,7 @@
       /отсутств.*(?:остат|склад)|нет достоверн.*остат/i.test(technicalText)
     ) {
       reasons.push(
-        'В отчёте нет достоверного остатка. Проверьте фактическое наличие ' +
-        'товара перед заказом.'
+        'В отчёте нет остатка. Проверьте наличие товара в магазине.'
       );
     }
     if (
@@ -227,8 +226,8 @@
       item?.matrix?.role === 'EXIT'
     ) {
       reasons.push(
-        'Товар относится к кандидатам на вывод из ассортимента. ' +
-        'Агент не рекомендует его заказывать.'
+        'Товар предложен к выводу из ассортимента. ' +
+        'Заказывать его не рекомендуется.'
       );
     }
     if (codes.has('approved_policy_conflict')) {
@@ -332,6 +331,7 @@
     const row = documentObject.createElement('tr');
     row.className = 'product-row';
     const nameCell = documentObject.createElement('td');
+    nameCell.setAttribute('data-label', 'Товар');
     const expandButton = documentObject.createElement('button');
     expandButton.type = 'button';
     expandButton.className = 'product-expand';
@@ -352,33 +352,38 @@
     nameCell.append(expandButton);
     row.append(nameCell);
 
-    appendTextCell(
+    const stockCell = appendTextCell(
       documentObject,
       row,
       formatQuantity(item?.stock?.free_stock),
       'numeric-cell'
     );
-    appendTextCell(
+    stockCell.setAttribute('data-label', 'Остаток');
+    const salesCell = appendTextCell(
       documentObject,
       row,
       formatQuantity(item?.sales?.last_28_days),
       'numeric-cell'
     );
-    appendTextCell(
+    salesCell.setAttribute('data-label', 'Продажи 28 дней');
+    const quantityCell = appendTextCell(
       documentObject,
       row,
       formatQuantity(recommendedQuantity(item)),
       'numeric-cell'
     );
-    appendTextCell(
+    quantityCell.setAttribute('data-label', 'Рекомендовано');
+    const amountCell = appendTextCell(
       documentObject,
       row,
       formatRub(recommendedLineValue(item)),
       'numeric-cell'
     );
+    amountCell.setAttribute('data-label', 'Сумма');
 
     const decisionCell = documentObject.createElement('td');
     decisionCell.className = 'decision-cell';
+    decisionCell.setAttribute('data-label', 'Решение');
     const decisionStatus = documentObject.createElement('span');
     const controls = documentObject.createElement('div');
     controls.className = 'decision-controls';
@@ -401,16 +406,18 @@
       ['SKIP', 'Не заказывать', 'action-skip'],
       ['DEFER', 'Отложить', 'action-defer'],
     ];
+    const actionGroup = documentObject.createElement('div');
+    actionGroup.className = 'decision-action-group';
     const buttons = actionDefinitions.map(([decision, label, className]) => {
       const button = documentObject.createElement('button');
       button.type = 'button';
       button.className = `decision-action ${className}`;
       button.dataset.decision = decision;
       button.textContent = label;
-      controls.append(button);
+      actionGroup.append(button);
       return button;
     });
-    controls.prepend(quantity);
+    controls.append(quantity, actionGroup);
     const saveMessage = documentObject.createElement('small');
     saveMessage.className = 'decision-save-message';
 
@@ -501,12 +508,6 @@
     appendDetail(
       documentObject,
       facts,
-      'Роль в матрице',
-      matrixRoleLabel(item?.matrix?.role)
-    );
-    appendDetail(
-      documentObject,
-      facts,
       'Текущее решение',
       ownerDecisionView(item).label
     );
@@ -516,7 +517,8 @@
     const signals = documentObject.createElement('p');
     signals.className = 'matrix-signals';
     signals.textContent =
-      `Сигналы матрицы: средние продажи ` +
+      `Ассортимент: ${matrixRoleLabel(item?.matrix?.role)}. ` +
+      `Средние продажи ` +
       `${formatQuantity(item?.matrix?.average_weekly_sales)} шт./нед., ` +
       `активность ${typeof item?.matrix?.active_week_ratio === 'number'
         ? Math.round(item.matrix.active_week_ratio * 100)
@@ -529,8 +531,9 @@
       ? `Не хватает данных: ${item.matrix.missing_fields.join(', ')}.`
       : 'Критичных пропусков данных не обнаружено.';
     const technical = documentObject.createElement('details');
+    technical.open = false;
     const technicalSummary = documentObject.createElement('summary');
-    technicalSummary.textContent = 'Технические детали';
+    technicalSummary.textContent = 'Показать технические детали';
     const technicalText = documentObject.createElement('pre');
     technicalText.textContent = technicalExplanation(item);
     technical.append(technicalSummary, technicalText);

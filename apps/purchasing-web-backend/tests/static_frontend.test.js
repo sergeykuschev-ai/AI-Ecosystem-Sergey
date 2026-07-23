@@ -211,6 +211,42 @@ test('frontend assets contain no external URL or remote dependency', () => {
   }
 });
 
+test('decision controls wrap as a whole and remain readable', () => {
+  const css = fs.readFileSync(path.join(PUBLIC_ROOT, 'styles.css'), 'utf8');
+  assert.match(
+    css,
+    /\.decision-controls\s*\{[^}]*flex-wrap:\s*wrap/s
+  );
+  assert.match(
+    css,
+    /\.decision-action-group\s*\{[^}]*min-width:\s*238px[^}]*flex-wrap:\s*nowrap/s
+  );
+  assert.match(
+    css,
+    /\.decision-action\s*\{[^}]*white-space:\s*nowrap/s
+  );
+  assert.doesNotMatch(
+    css,
+    /\.decision-action\s*\{[^}]*font-size:\s*0\.6[0-9]rem/s
+  );
+});
+
+test('narrow viewport uses cards without horizontal table scrolling', () => {
+  const css = fs.readFileSync(path.join(PUBLIC_ROOT, 'styles.css'), 'utf8');
+  const narrowStyles = css.match(
+    /@media \(max-width: 899px\) \{([\s\S]*?)\n\}\n\n@media \(max-width: 820px\)/
+  )?.[1] || '';
+  assert.match(narrowStyles, /\.table-scroll\s*\{[^}]*overflow-x:\s*visible/s);
+  assert.match(
+    narrowStyles,
+    /\.table-scroll \.product-row\s*\{[^}]*display:\s*grid/s
+  );
+  assert.match(
+    narrowStyles,
+    /\.table-scroll table,[^}]*min-width:\s*0/s
+  );
+});
+
 test('RUB and summary formatting preserve distinct monetary amounts', () => {
   const formatted = formatRub(1234567.8);
   assert.match(formatted, /1[\s\u00a0]234[\s\u00a0]567,80/);
@@ -411,6 +447,12 @@ test('item renderer treats API text as textContent', () => {
     /окончательное решение/
   );
   assert.equal(details.hidden, true);
+  const technical = details.children[0].children[0].children[4];
+  assert.equal(technical.open, false);
+  assert.equal(
+    technical.children[0].textContent,
+    'Показать технические детали'
+  );
   expand.listeners.click[0]();
   assert.equal(details.hidden, false);
   assert.equal(expand.attributes['aria-expanded'], 'true');
@@ -425,9 +467,13 @@ test('plain-language reasons cover missing stock and EXIT review', () => {
       missing_fields: ['free_stock'],
     },
   });
-  assert.match(reason, /нет достоверного остатка/i);
-  assert.match(reason, /вывод/);
+  assert.match(reason, /В отчёте нет остатка/);
+  assert.match(reason, /Товар предложен к выводу/);
   assert.doesNotMatch(reason, /possible_exit_candidate/);
+  assert.doesNotMatch(
+    reason,
+    /Matrix Builder|EXIT|DTO|overlay|manual review|Purchasing Agent/
+  );
 
   const technical = technicalExplanation({
     explanation: {
@@ -474,16 +520,17 @@ test('owner action saves once, updates the row and rolls back on error', async (
   });
   const decisionCell = row.children[5];
   const controls = decisionCell.children[1];
-  const buyButton = controls.children[1];
+  const actionGroup = controls.children[1];
+  const buyButton = actionGroup.children[0];
   controls.children[0].value = '9';
   await buyButton.listeners.click[0]();
   assert.deepEqual(calls[0], { decision: 'BUY', quantity: 9 });
   assert.equal(item.owner_decision.decision, 'BUY');
   assert.equal(decisionCell.children[2].textContent, 'Сохранено');
-  await controls.children[2].listeners.click[0]();
+  await actionGroup.children[1].listeners.click[0]();
   assert.deepEqual(calls[1], { decision: 'SKIP', quantity: 0 });
   assert.equal(item.owner_decision.decision, 'SKIP');
-  await controls.children[3].listeners.click[0]();
+  await actionGroup.children[2].listeners.click[0]();
   assert.deepEqual(calls[2], { decision: 'DEFER', quantity: null });
   assert.equal(item.owner_decision.decision, 'DEFER');
 
@@ -494,7 +541,8 @@ test('owner action saves once, updates the row and rolls back on error', async (
     },
   });
   const failingDecisionCell = failingRow.children[5];
-  const skipButton = failingDecisionCell.children[1].children[2];
+  const skipButton =
+    failingDecisionCell.children[1].children[1].children[1];
   await skipButton.listeners.click[0]();
   assert.equal(failingItem.owner_decision.decision, 'DEFER');
   assert.match(failingDecisionCell.children[2].textContent, /Не удалось/);
@@ -520,10 +568,11 @@ test('owner action exposes saving state and prevents a second click', async () =
   });
   const decisionCell = row.children[5];
   const controls = decisionCell.children[1];
-  const pending = controls.children[1].listeners.click[0]();
+  const actions = controls.children[1];
+  const pending = actions.children[0].listeners.click[0]();
   assert.equal(decisionCell.children[2].textContent, 'Сохраняем…');
-  assert.equal(controls.children[1].disabled, true);
-  assert.equal(controls.children[2].disabled, true);
+  assert.equal(actions.children[0].disabled, true);
+  assert.equal(actions.children[1].disabled, true);
   complete({
     item: {
       owner_decision: {
@@ -535,7 +584,7 @@ test('owner action exposes saving state and prevents a second click', async () =
   });
   await pending;
   assert.equal(calls, 1);
-  assert.equal(controls.children[1].disabled, false);
+  assert.equal(actions.children[0].disabled, false);
   assert.equal(decisionCell.children[2].textContent, 'Сохранено');
 });
 
