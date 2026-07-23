@@ -100,6 +100,8 @@ configuration, or raw Excel rows.
 - Success: `201 Created`
 - `Location`: `/api/v1/runs/<runId>`
 - Processing is synchronous in v1.
+- Only one purchasing pipeline may run in a backend process at a time.
+  A concurrent request receives `409 RUN_ALREADY_IN_PROGRESS`.
 
 ```bash
 curl --fail-with-body \
@@ -263,6 +265,13 @@ On server startup:
 
 The default completed-run TTL is 24 hours.
 
+## Graceful shutdown
+
+The CLI server handles `SIGINT` and `SIGTERM`. On the first signal it stops
+accepting new connections and waits up to 10 seconds for active HTTP
+connections to finish. A second signal closes active connections and forces
+termination. Shutdown does not delete a `processing` run.
+
 ## HTTP errors
 
 | Status | Codes |
@@ -270,7 +279,7 @@ The default completed-run TTL is 24 hours.
 | `400` | `INVALID_MULTIPART`, `FILE_REQUIRED`, `MULTIPLE_FILES`, `INVALID_REPORT_DATE`, `INVALID_QUERY`, `INVALID_RUN_ID`, `INVALID_ARTIFACT_NAME` |
 | `403` | `ARTIFACT_NOT_ALLOWED` |
 | `404` | `RUN_NOT_FOUND`, `ARTIFACT_NOT_FOUND` |
-| `409` | `RUN_NOT_READY`, `RUN_FAILED` |
+| `409` | `RUN_NOT_READY`, `RUN_FAILED`, `RUN_ALREADY_IN_PROGRESS` |
 | `413` | `UPLOAD_TOO_LARGE` |
 | `415` | `UNSUPPORTED_FILE_TYPE` |
 | `422` | `INVALID_WORKBOOK`, `INPUT_CONTRACT_ERROR` |

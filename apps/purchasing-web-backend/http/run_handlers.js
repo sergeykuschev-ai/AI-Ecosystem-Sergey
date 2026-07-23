@@ -16,6 +16,9 @@ const {
   runPurchasingWebOrchestrator,
 } = require('../application/purchasing_run_orchestrator');
 const {
+  DEFAULT_RUN_EXECUTION_LOCK,
+} = require('../application/run_execution_lock');
+const {
   cleanupUploadDirectory,
   parseExcelUpload,
 } = require('./upload_handler');
@@ -71,6 +74,7 @@ function createRunHandlers(options) {
     uuid = crypto.randomUUID,
     now = () => new Date().toISOString(),
     uploadOptions = {},
+    runLock = DEFAULT_RUN_EXECUTION_LOCK,
   } = options;
 
   if (!registry || !queryService) {
@@ -79,6 +83,13 @@ function createRunHandlers(options) {
 
   return {
     async createRun(request, context) {
+      const releaseLock = runLock.tryAcquire();
+      if (!releaseLock) {
+        throw new HttpError(
+          'RUN_ALREADY_IN_PROGRESS',
+          'Другой purchasing run уже выполняется.'
+        );
+      }
       let upload = null;
       let runId = null;
       let processingCreated = false;
@@ -144,8 +155,12 @@ function createRunHandlers(options) {
         }
         throw Object.assign(error, { runId });
       } finally {
-        if (upload?.cleanup) upload.cleanup();
-        else cleanupUploadDirectory(uploadRoot, context.requestId);
+        try {
+          if (upload?.cleanup) upload.cleanup();
+          else cleanupUploadDirectory(uploadRoot, context.requestId);
+        } finally {
+          releaseLock();
+        }
       }
     },
 
