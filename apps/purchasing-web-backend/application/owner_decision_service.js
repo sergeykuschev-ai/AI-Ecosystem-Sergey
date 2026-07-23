@@ -115,6 +115,33 @@ function ownerDecisionSummary(items) {
   return summary;
 }
 
+function decisionCandidates(item) {
+  const candidates = [];
+  for (const value of [item?.sku, item?.barcode, item?.row_id]) {
+    try {
+      const normalized = normalizeSku(value);
+      if (!candidates.includes(normalized)) candidates.push(normalized);
+    } catch {}
+  }
+  return candidates;
+}
+
+function decisionIdentifierCounts(items) {
+  const counts = new Map();
+  for (const item of items || []) {
+    for (const candidate of decisionCandidates(item)) {
+      counts.set(candidate, (counts.get(candidate) || 0) + 1);
+    }
+  }
+  return counts;
+}
+
+function uniqueDecisionKey(item, identifierCounts) {
+  return decisionCandidates(item).find(
+    candidate => identifierCounts.get(candidate) === 1
+  ) || null;
+}
+
 class OwnerDecisionService {
   constructor(options = {}) {
     if (!options.registry) {
@@ -139,24 +166,14 @@ class OwnerDecisionService {
 
   decorateItems(items) {
     const active = this.activeDecisions();
-    const skuCounts = new Map();
-    for (const item of items || []) {
-      try {
-        if (!item.sku) continue;
-        const sku = normalizeSku(item.sku);
-        skuCounts.set(sku, (skuCounts.get(sku) || 0) + 1);
-      } catch {}
-    }
+    const identifierCounts = decisionIdentifierCounts(items);
     return (items || []).map(item => {
-      let decision = null;
-      try {
-        if (item.sku) {
-          const sku = normalizeSku(item.sku);
-          if (skuCounts.get(sku) === 1) {
-            decision = active.get(sku) || null;
-          }
-        }
-      } catch {}
+      const decisionKey = decisionCandidates(item).find(candidate =>
+        identifierCounts.get(candidate) === 1 && active.has(candidate)
+      );
+      const decision = decisionKey
+        ? active.get(decisionKey)
+        : null;
       return {
         ...item,
         owner_decision: decisionView(decision),
@@ -176,25 +193,14 @@ class OwnerDecisionService {
         'Товар в указанном run не найден.'
       );
     }
-    if (!item.sku) {
+    const decisionKey = uniqueDecisionKey(
+      item,
+      decisionIdentifierCounts(items)
+    );
+    if (!decisionKey) {
       throw new OwnerDecisionServiceError(
         'ITEM_DECISION_UNAVAILABLE',
-        'Для товара без однозначного SKU нельзя сохранить решение.'
-      );
-    }
-    const normalizedSku = normalizeSku(item.sku);
-    const matchingSkuCount = items.filter(candidate => {
-      try {
-        return candidate.sku &&
-          normalizeSku(candidate.sku) === normalizedSku;
-      } catch {
-        return false;
-      }
-    }).length;
-    if (matchingSkuCount !== 1) {
-      throw new OwnerDecisionServiceError(
-        'ITEM_DECISION_UNAVAILABLE',
-        'Для неоднозначного SKU нельзя сохранить решение.'
+        'Для товара не удалось определить безопасный ключ решения.'
       );
     }
     const reason = {
@@ -205,7 +211,7 @@ class OwnerDecisionService {
     let saved;
     try {
       saved = this.appendDecision(this.ownerDecisionsPath, {
-        sku: item.sku,
+        sku: decisionKey,
         owner_decision: validated.decision,
         owner_role_override: null,
         owner_policy_override: null,

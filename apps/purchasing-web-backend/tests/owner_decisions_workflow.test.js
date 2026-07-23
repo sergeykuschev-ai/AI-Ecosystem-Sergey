@@ -16,6 +16,7 @@ const {
   createPurchasingWebServer,
 } = require('../server');
 const {
+  OwnerDecisionService,
   ownerDecisionSummary,
 } = require('../application/owner_decision_service');
 
@@ -137,6 +138,78 @@ test('pending decisions require an explicit Owner Review signal', () => {
     excluded: 1,
     deferred: 1,
   });
+});
+
+test('all review items accept BUY, SKIP, and DEFER without a unique SKU', () => {
+  const isolatedRoot = fs.mkdtempSync(path.join(
+    os.tmpdir(),
+    'purchasing-owner-identities-'
+  ));
+  const isolatedDecisionsPath = path.join(
+    isolatedRoot,
+    'owner-decisions.json'
+  );
+  const items = [
+    {
+      row_id: 'smartzapas:fixture:sheet:8',
+      sku: null,
+      barcode: null,
+      matrix: { owner_review_required: true },
+    },
+    {
+      row_id: 'smartzapas:fixture:sheet:9',
+      sku: 'DUPLICATE',
+      barcode: null,
+      matrix: { owner_review_required: true },
+    },
+    {
+      row_id: 'smartzapas:fixture:sheet:10',
+      sku: 'DUPLICATE',
+      barcode: null,
+      matrix: { owner_review_required: true },
+    },
+  ];
+  const service = new OwnerDecisionService({
+    registry: {
+      getItems() {
+        return structuredClone(items);
+      },
+    },
+    ownerDecisionsPath: isolatedDecisionsPath,
+    now: () => '2026-07-23T11:00:00.000Z',
+  });
+
+  try {
+    service.saveDecision('run', items[0].row_id, {
+      decision: 'BUY',
+      quantity: 2,
+    });
+    service.saveDecision('run', items[1].row_id, {
+      decision: 'SKIP',
+      quantity: 0,
+    });
+    service.saveDecision('run', items[2].row_id, {
+      decision: 'DEFER',
+      quantity: null,
+    });
+
+    assert.deepEqual(
+      service.decorateItems(items).map(
+        item => item.owner_decision.decision
+      ),
+      ['BUY', 'SKIP', 'DEFER']
+    );
+    const stored = JSON.parse(fs.readFileSync(
+      isolatedDecisionsPath,
+      'utf8'
+    ));
+    assert.deepEqual(
+      stored.decisions.map(decision => decision.sku),
+      items.map(item => item.row_id.toUpperCase())
+    );
+  } finally {
+    fs.rmSync(isolatedRoot, { recursive: true, force: true });
+  }
 });
 
 before(async () => {
