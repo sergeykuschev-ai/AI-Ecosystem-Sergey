@@ -82,7 +82,7 @@ test('status, summary, and artifact manifest are queryable', () => {
   assert.equal(service.getRunStatus(RUN_ID).status, 'completed');
   assert.equal(service.getRunSummary(RUN_ID).sku_count, 6);
   const artifacts = service.listArtifacts(RUN_ID);
-  assert.equal(artifacts.length, 12);
+  assert.equal(artifacts.length, 14);
   assert.ok(artifacts.every(item =>
     item.download_url.startsWith(`/api/v1/runs/${RUN_ID}/artifacts/`)
   ));

@@ -73,10 +73,16 @@ function runStartupCleanup(options = {}) {
 }
 
 function createPurchasingWebServer(options = {}) {
+  const serverPaths = options.serverPaths || DEFAULT_SERVER_PATHS;
   const registry = options.registry || new FileRunRegistry({
     runsRoot: options.runsRoot || DEFAULT_RUNS_ROOT,
+    ownerLearningHistoryPath: options.ownerLearningHistoryPath || (
+      options.runsRoot
+        ? undefined
+        : serverPaths.ownerLearningHistoryPath
+    ),
+    logger: options.logger,
   });
-  const serverPaths = options.serverPaths || DEFAULT_SERVER_PATHS;
   const ownerDecisionService = options.ownerDecisionService ||
     new OwnerDecisionService({
       registry,

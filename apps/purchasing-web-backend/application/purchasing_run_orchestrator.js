@@ -28,6 +28,11 @@ const {
   '../../../agents/purchasing/owner_learning/owner_learning_report'
 );
 const {
+  buildHistoryRunEntry,
+} = require(
+  '../../../agents/purchasing/owner_learning/owner_learning_history'
+);
+const {
   PurchasingWebApplicationError,
 } = require('./application_error');
 
@@ -336,15 +341,23 @@ async function runPurchasingWebOrchestrator(
   }
 
   let ownerLearning;
+  let ownerLearningHistoryEntry;
   let ownerLearningReport;
   try {
+    const ownerLearningInput = buildOwnerLearningInput(
+      agentJsonFromResult(agentResult),
+      ownerLearningReview,
+      ownerApplication.draft
+    );
     ownerLearning = dependencies.buildOwnerLearning({
-      ...buildOwnerLearningInput(
-        agentJsonFromResult(agentResult),
-        ownerLearningReview,
-        ownerApplication.draft
-      ),
+      ...ownerLearningInput,
       generatedAt: request.generatedAt,
+    });
+    ownerLearningHistoryEntry = buildHistoryRunEntry({
+      runId: request.runId,
+      generatedAt: request.generatedAt,
+      report: ownerLearning,
+      learningInput: ownerLearningInput,
     });
     ownerLearningReport = dependencies.buildOwnerLearningMarkdown(
       ownerLearning
@@ -391,6 +404,7 @@ async function runPurchasingWebOrchestrator(
     ownerReview,
     ownerReviewReport,
     ownerLearning,
+    ownerLearningHistoryEntry,
     ownerLearningReport,
     explanations,
     explanationsReport,

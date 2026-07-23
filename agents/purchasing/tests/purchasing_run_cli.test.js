@@ -106,6 +106,7 @@ test('creates a separate timestamp folder for each distinct run time', async () 
   assert.deepEqual(filesIn(root), [
     '2026-07-19_12-34-56',
     '2026-07-19_12-34-57',
+    'owner-learning-history.json',
   ]);
 });
 
@@ -189,6 +190,64 @@ test('creates Owner Learning JSON and Markdown artifacts', async () => {
   assert.match(report, /## Сравнение с агентом/);
 });
 
+test('persists Owner Learning history and current-run pattern artifacts', async () => {
+  const root = outputDirectory('owner-learning-history');
+  const result = await runPurchasingCli([
+    '--input', XLSX_FIXTURE_PATH,
+    '--financial-data', FINANCIAL_DATA_PATH,
+    '--output-dir', root,
+  ], dependencies());
+  const history = readJson(path.join(
+    root,
+    'owner-learning-history.json'
+  ));
+  const patterns = readJson(path.join(
+    result.runDirectory,
+    'owner-learning-patterns.json'
+  ));
+  const report = fs.readFileSync(path.join(
+    result.runDirectory,
+    'owner-learning-patterns.md'
+  ), 'utf8');
+
+  assert.equal(history.schemaVersion, 'owner-learning-history-v0.2');
+  assert.equal(history.runs.length, 1);
+  assert.equal(history.runs[0].runId, result.metadata.run_id);
+  assert.equal(patterns.reportVersion, 'owner-learning-patterns-v0.2');
+  assert.equal(patterns.historyRunsCount, 1);
+  assert.match(report, /^# Повторяющиеся решения владельца/m);
+});
+
+test('history failure is logged without failing the purchasing run', async () => {
+  const root = outputDirectory('damaged-owner-learning-history');
+  fs.mkdirSync(root, { recursive: true });
+  fs.writeFileSync(
+    path.join(root, 'owner-learning-history.json'),
+    '{ damaged',
+    'utf8'
+  );
+  const messages = [];
+  const result = await runPurchasingCli([
+    '--input', XLSX_FIXTURE_PATH,
+    '--financial-data', FINANCIAL_DATA_PATH,
+    '--output-dir', root,
+  ], dependencies({ output: message => messages.push(message) }));
+
+  assert.equal(result.status, 'success_with_warnings');
+  assert.equal(result.ownerLearningHistoryError, 'HISTORY_INVALID');
+  assert.equal(result.ownerLearningPatterns.status, 'unavailable');
+  assert.ok(messages.some(message =>
+    message.includes('Owner Learning History: HISTORY_INVALID')
+  ));
+  assert.equal(
+    fs.readFileSync(
+      path.join(root, 'owner-learning-history.json'),
+      'utf8'
+    ),
+    '{ damaged'
+  );
+});
+
 test('creates run-metadata.json for every normal run', async () => {
   const result = await runPurchasingCli(
     baseArguments('metadata-file'),
@@ -233,6 +292,8 @@ test('--format json creates JSON result, explanations, and metadata', async () =
   );
 
   assert.deepEqual(filesIn(result.runDirectory), [
+    'owner-learning-patterns.json',
+    'owner-learning-patterns.md',
     'owner-learning-report.json',
     'owner-learning-report.md',
     'recommendation-explanations.json',
@@ -244,6 +305,8 @@ test('--format json creates JSON result, explanations, and metadata', async () =
     'recommendation-explanations.json',
     'owner-learning-report.json',
     'owner-learning-report.md',
+    'owner-learning-patterns.json',
+    'owner-learning-patterns.md',
     'run-metadata.json',
   ]);
 });
@@ -255,6 +318,8 @@ test('--format text creates text report, explanations, and metadata', async () =
   );
 
   assert.deepEqual(filesIn(result.runDirectory), [
+    'owner-learning-patterns.json',
+    'owner-learning-patterns.md',
     'owner-learning-report.json',
     'owner-learning-report.md',
     'recommendation-explanations-report.md',
@@ -266,6 +331,8 @@ test('--format text creates text report, explanations, and metadata', async () =
     'recommendation-explanations-report.md',
     'owner-learning-report.json',
     'owner-learning-report.md',
+    'owner-learning-patterns.json',
+    'owner-learning-patterns.md',
     'run-metadata.json',
   ]);
 });
@@ -475,6 +542,8 @@ test('metadata records status, normalized paths, warnings, and generated files',
     'recommendation-explanations-report.md',
     'owner-learning-report.json',
     'owner-learning-report.md',
+    'owner-learning-patterns.json',
+    'owner-learning-patterns.md',
     'run-metadata.json',
   ]);
   assert.ok(Array.isArray(metadata.warnings));

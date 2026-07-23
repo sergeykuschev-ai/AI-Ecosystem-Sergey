@@ -5,6 +5,15 @@ const {
   DEFAULT_RUNS_ROOT,
   isValidRunId,
 } = require('../config');
+const {
+  buildOwnerLearningPatterns,
+  buildOwnerLearningPatternsMarkdown,
+  unavailablePatterns,
+  unavailablePatternsMarkdown,
+  updateOwnerLearningHistory,
+} = require(
+  '../../../agents/purchasing/owner_learning/owner_learning_history'
+);
 const { mapOwnerReview } = require('../dto/owner_review_mapper');
 const {
   mapPurchasingItems,
@@ -58,6 +67,11 @@ class FileRunRegistry {
   constructor(options = {}) {
     this.runsRoot = path.resolve(options.runsRoot || DEFAULT_RUNS_ROOT);
     this.fs = options.fsModule || fs;
+    this.ownerLearningHistoryPath = path.resolve(
+      options.ownerLearningHistoryPath ||
+      path.join(this.runsRoot, 'owner-learning-history.json')
+    );
+    this.logger = options.logger || console;
     this.artifactStore = options.artifactStore || new FileArtifactStore({
       runsRoot: this.runsRoot,
       fsModule: this.fs,
@@ -124,7 +138,42 @@ class FileRunRegistry {
       const summary = mapRunSummary(bundle);
       const items = mapPurchasingItems(bundle);
       const ownerReview = mapOwnerReview(bundle);
-      const manifest = this.artifactStore.saveBundleArtifacts(bundle);
+      let bundleWithPatterns;
+      try {
+        const historyResult = updateOwnerLearningHistory(
+          this.ownerLearningHistoryPath,
+          bundle.ownerLearningHistoryEntry,
+          { fsModule: this.fs }
+        );
+        const patterns = buildOwnerLearningPatterns(
+          historyResult.history,
+          bundle.generated_at
+        );
+        bundleWithPatterns = {
+          ...bundle,
+          ownerLearningPatterns: patterns,
+          ownerLearningPatternsReport:
+            buildOwnerLearningPatternsMarkdown(patterns),
+        };
+      } catch (historyError) {
+        const historyErrorCode = historyError.code || 'HISTORY_UNAVAILABLE';
+        try {
+          this.logger.error(
+            `Owner Learning History: ${historyErrorCode}.`
+          );
+        } catch {}
+        bundleWithPatterns = {
+          ...bundle,
+          ownerLearningPatterns: unavailablePatterns(
+            bundle.generated_at,
+            historyErrorCode
+          ),
+          ownerLearningPatternsReport: unavailablePatternsMarkdown(),
+        };
+      }
+      const manifest = this.artifactStore.saveBundleArtifacts(
+        bundleWithPatterns
+      );
 
       this.writeJson(bundle.run_id, 'summary.json', summary);
       this.writeJson(bundle.run_id, 'items.json', items);

@@ -120,7 +120,18 @@ test('completed bundle is atomically published with all required files', () => {
     assert.doesNotThrow(() => JSON.parse(content));
   });
   assert.equal(temporaryFiles(root).length, 0);
-  assert.equal(saved.manifest.artifacts.length, 12);
+  assert.equal(saved.manifest.artifacts.length, 14);
+  const history = JSON.parse(fs.readFileSync(
+    path.join(root, 'owner-learning-history.json'),
+    'utf8'
+  ));
+  assert.equal(history.schemaVersion, 'owner-learning-history-v0.2');
+  assert.equal(history.runs.length, 1);
+  assert.equal(fs.existsSync(path.join(
+    runDirectory,
+    'artifacts',
+    'owner-learning-patterns.json'
+  )), true);
   assert.ok(saved.manifest.artifacts.every(artifact =>
     artifact.download_url ===
       `/api/v1/runs/${RUN_ID}/artifacts/${artifact.name}`
@@ -143,7 +154,38 @@ test('completed run is readable after registry recreation', () => {
     recreatedRegistry.getOwnerReview(RUN_ID).run_id,
     RUN_ID
   );
-  assert.equal(recreatedRegistry.listArtifacts(RUN_ID).length, 12);
+  assert.equal(recreatedRegistry.listArtifacts(RUN_ID).length, 14);
+});
+
+test('history failure is logged without changing completed run storage', () => {
+  const root = temporaryRoot();
+  const historyPath = path.join(root, 'owner-learning-history.json');
+  fs.writeFileSync(historyPath, '{ damaged', 'utf8');
+  const messages = [];
+  const artifactStore = new FileArtifactStore({ runsRoot: root });
+  const registry = new FileRunRegistry({
+    runsRoot: root,
+    artifactStore,
+    logger: { error: message => messages.push(message) },
+  });
+  createProcessing(registry, RUN_ID);
+
+  const saved = registry.saveCompletedRun(sourceBundle, {
+    completedAt: GENERATED_AT,
+  });
+  const patterns = JSON.parse(fs.readFileSync(path.join(
+    root,
+    RUN_ID,
+    'artifacts',
+    'owner-learning-patterns.json'
+  ), 'utf8'));
+
+  assert.equal(saved.status.status, 'completed');
+  assert.equal(patterns.status, 'unavailable');
+  assert.deepEqual(messages, [
+    'Owner Learning History: HISTORY_INVALID.',
+  ]);
+  assert.equal(fs.readFileSync(historyPath, 'utf8'), '{ damaged');
 });
 
 test('failed run stores only a safe run error', () => {

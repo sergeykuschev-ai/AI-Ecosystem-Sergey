@@ -33,6 +33,8 @@ const ARTIFACT_NAMES = Object.freeze([
   'owner-review-report.md',
   'owner-learning-report.json',
   'owner-learning-report.md',
+  'owner-learning-patterns.json',
+  'owner-learning-patterns.md',
   'run-metadata.json',
 ]);
 
@@ -56,6 +58,10 @@ const DEFAULT_SERVER_PATHS = Object.freeze({
   recommendationConfigPath: path.join(
     REPOSITORY_ROOT,
     'data/purchasing/miska-recommendation-explainer-config.json'
+  ),
+  ownerLearningHistoryPath: path.join(
+    REPOSITORY_ROOT,
+    'output/purchasing/owner-learning-history.json'
   ),
 });
 

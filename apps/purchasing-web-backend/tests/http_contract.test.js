@@ -137,7 +137,7 @@ test('GET summary, items, owner-review and artifacts expose compact DTOs', async
   assert.equal(ownerReview.body.data.run_id, completedRunId);
   assert.equal(ownerReview.body.data.section, 'top_priority');
   assert.equal(artifacts.body.data.run_id, completedRunId);
-  assert.equal(artifacts.body.data.artifacts.length, 12);
+  assert.equal(artifacts.body.data.artifacts.length, 14);
   assert.ok(artifacts.body.data.artifacts.every(artifact =>
     artifact.download_url.startsWith(
       `/api/v1/runs/${completedRunId}/artifacts/`

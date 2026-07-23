@@ -154,12 +154,24 @@ function buildOwnerLearningInput(agentJson, ownerReview, matrixDraft) {
     item.rowIdentity,
     item,
   ]));
+  const matrixItems = new Map((matrixDraft?.items || []).map(item => [
+    item.rowIdentity,
+    item,
+  ]));
   return {
-    items: products.map(product => ({
-      itemId: product.rowIdentity,
-      owner_review_required:
-        reviews.get(product.rowIdentity)?.owner_action_required === true,
-    })),
+    items: products.map(product => {
+      const matrixItem = matrixItems.get(product.rowIdentity);
+      return {
+        itemId: product.rowIdentity,
+        sku: matrixItem?.article || product.article || null,
+        barcode: matrixItem?.barcode || product.barcode || null,
+        rowId: product.rowIdentity,
+        name: matrixItem?.name || product.name || null,
+        brand: matrixItem?.brand || null,
+        owner_review_required:
+          reviews.get(product.rowIdentity)?.owner_action_required === true,
+      };
+    }),
     recommendations: (agentJson?.decisions || []).map(recommendation => ({
       itemId: recommendation.rowIdentity,
       status: recommendation.decision,

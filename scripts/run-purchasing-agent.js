@@ -33,6 +33,17 @@ const {
 } = require(
   '../agents/purchasing/owner_learning/owner_learning_report'
 );
+const {
+  buildHistoryRunEntry,
+  buildOwnerLearningPatterns,
+  buildOwnerLearningPatternsMarkdown,
+  readHistory,
+  unavailablePatterns,
+  unavailablePatternsMarkdown,
+  updateOwnerLearningHistory,
+} = require(
+  '../agents/purchasing/owner_learning/owner_learning_history'
+);
 
 const REPOSITORY_ROOT = path.resolve(__dirname, '..');
 const DEFAULT_FINANCIAL_DATA_PATH = path.join(
@@ -50,6 +61,10 @@ const DEFAULT_OUTPUT_DIRECTORY = path.join(
 const DEFAULT_OWNER_DECISIONS_PATH = path.join(
   REPOSITORY_ROOT,
   'data/purchasing/miska-owner-decisions.json'
+);
+const DEFAULT_OWNER_LEARNING_HISTORY_PATH = path.join(
+  DEFAULT_OUTPUT_DIRECTORY,
+  'owner-learning-history.json'
 );
 const ALLOWED_FORMATS = Object.freeze(['all', 'json', 'text']);
 const ALLOWED_EXCEL_EXTENSIONS = Object.freeze(['.xlsx', '.xls']);
@@ -254,6 +269,7 @@ function generatedFileNames(format) {
     names.push('report.txt', 'recommendation-explanations-report.md');
   }
   names.push('owner-learning-report.json', 'owner-learning-report.md');
+  names.push('owner-learning-patterns.json', 'owner-learning-patterns.md');
   names.push('run-metadata.json');
   return names;
 }
@@ -721,18 +737,67 @@ async function runPurchasingCli(argv, dependencies = {}) {
     matrixDraft: explanationContext.matrixDraft,
   });
   const explanationsReport = buildRecommendationExplanationsReport(explanations);
+  const ownerLearningInput = buildOwnerLearningInput(
+    agentJson,
+    explanationContext.ownerLearningReview,
+    explanationContext.matrixDraft
+  );
   const ownerLearning = buildOwnerLearningReport({
-    ...buildOwnerLearningInput(
-      agentJson,
-      explanationContext.ownerLearningReview,
-      explanationContext.matrixDraft
-    ),
+    ...ownerLearningInput,
     generatedAt: startedTimestamp,
   });
   const ownerLearningReport = buildOwnerLearningMarkdown(ownerLearning);
+  const ownerLearningHistoryPath = dependencies.ownerLearningHistoryPath ||
+    path.join(args.outputDirectory, 'owner-learning-history.json');
+  const ownerLearningHistoryEntry = buildHistoryRunEntry({
+    runId,
+    generatedAt: startedTimestamp,
+    report: ownerLearning,
+    learningInput: ownerLearningInput,
+  });
+  let ownerLearningHistory;
+  let ownerLearningHistoryAdded = false;
+  let ownerLearningHistoryError = null;
+  let ownerLearningPatterns;
+  let ownerLearningPatternsReport;
+  try {
+    const historyResult = args.dryRun
+      ? { history: readHistory(
+        ownerLearningHistoryPath,
+        dependencies.ownerLearningHistoryOptions
+      ), added: false }
+      : updateOwnerLearningHistory(
+        ownerLearningHistoryPath,
+        ownerLearningHistoryEntry,
+        dependencies.ownerLearningHistoryOptions
+      );
+    ownerLearningHistory = historyResult.history;
+    ownerLearningHistoryAdded = historyResult.added;
+    ownerLearningPatterns = buildOwnerLearningPatterns(
+      ownerLearningHistory,
+      startedTimestamp
+    );
+    ownerLearningPatternsReport = buildOwnerLearningPatternsMarkdown(
+      ownerLearningPatterns
+    );
+  } catch (error) {
+    ownerLearningHistoryError = error.code || 'HISTORY_UNAVAILABLE';
+    output(
+      `Предупреждение Owner Learning History: ${ownerLearningHistoryError}.`
+    );
+    ownerLearningPatterns = unavailablePatterns(
+      startedTimestamp,
+      ownerLearningHistoryError
+    );
+    ownerLearningPatternsReport = unavailablePatternsMarkdown();
+  }
+  const historyWarnings = ownerLearningHistoryError
+    ? [`Owner Learning History: ${ownerLearningHistoryError}`]
+    : [];
   const warnings = Array.from(new Set([
     ...collectRunWarnings(agentJson),
     ...explanationWarnings,
+    ...historyWarnings,
   ]));
   const status = warnings.length > 0 ? 'success_with_warnings' : 'success';
   const reportText = buildOwnerReport({
@@ -797,6 +862,12 @@ async function runPurchasingCli(argv, dependencies = {}) {
       report_version: ownerLearning.reportVersion,
       json_file: 'owner-learning-report.json',
       markdown_file: 'owner-learning-report.md',
+      history_file: path.normalize(ownerLearningHistoryPath),
+      history_run_added: ownerLearningHistoryAdded,
+      history_error: ownerLearningHistoryError,
+      patterns_version: ownerLearningPatterns.reportVersion,
+      patterns_json_file: 'owner-learning-patterns.json',
+      patterns_markdown_file: 'owner-learning-patterns.md',
     },
   };
 
@@ -823,6 +894,14 @@ async function runPurchasingCli(argv, dependencies = {}) {
     files.push({
       name: 'owner-learning-report.md',
       content: ownerLearningReport,
+    });
+    files.push({
+      name: 'owner-learning-patterns.json',
+      content: serializeJson(ownerLearningPatterns),
+    });
+    files.push({
+      name: 'owner-learning-patterns.md',
+      content: ownerLearningPatternsReport,
     });
     files.push({
       name: 'run-metadata.json',
@@ -853,6 +932,12 @@ async function runPurchasingCli(argv, dependencies = {}) {
     explanationsReport,
     ownerLearning,
     ownerLearningReport,
+    ownerLearningHistory,
+    ownerLearningHistoryEntry,
+    ownerLearningHistoryAdded,
+    ownerLearningHistoryError,
+    ownerLearningPatterns,
+    ownerLearningPatternsReport,
     explanationContext,
     agentResult,
   };
@@ -872,6 +957,7 @@ module.exports = {
   DEFAULT_ASSORTMENT_MATRIX_PATH,
   DEFAULT_OUTPUT_DIRECTORY,
   DEFAULT_OWNER_DECISIONS_PATH,
+  DEFAULT_OWNER_LEARNING_HISTORY_PATH,
   ALLOWED_FORMATS,
   ALLOWED_EXCEL_EXTENSIONS,
   PurchasingRunError,

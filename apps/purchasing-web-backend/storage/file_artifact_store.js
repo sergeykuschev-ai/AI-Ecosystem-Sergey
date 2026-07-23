@@ -100,6 +100,10 @@ function artifactPayloads(bundle) {
     'owner-learning-report.json': serializeJson(bundle.ownerLearning),
     'owner-learning-report.md':
       `${bundle.ownerLearningReport.trimEnd()}\n`,
+    'owner-learning-patterns.json':
+      serializeJson(bundle.ownerLearningPatterns),
+    'owner-learning-patterns.md':
+      `${bundle.ownerLearningPatternsReport.trimEnd()}\n`,
     'run-metadata.json': serializeJson({
       version: 1,
       run_id: bundle.run_id,
