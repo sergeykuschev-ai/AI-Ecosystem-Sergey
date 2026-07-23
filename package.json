@@ -7,11 +7,12 @@
     "doc": "docs"
   },
   "scripts": {
-    "test": "node --test agents/purchasing/tests/*.test.js",
+    "test": "node --test agents/purchasing/tests/*.test.js apps/purchasing-web-backend/tests/*.test.js",
     "finance:update:miska": "node scripts/update-miska-financial-data.js",
     "finance:check:miska": "node scripts/update-miska-financial-data.js --check",
     "purchasing:run": "node scripts/run-purchasing-agent.js",
-    "purchasing:matrix:build": "node scripts/build-purchasing-matrix.js"
+    "purchasing:matrix:build": "node scripts/build-purchasing-matrix.js",
+    "purchasing:web": "node apps/purchasing-web-backend/server.js"
   },
   "repository": {
     "type": "git",
@@ -26,6 +27,7 @@
   },
   "homepage": "https://github.com/sergeykuschev-ai/AI-Ecosystem-Sergey#readme",
   "dependencies": {
+    "busboy": "^1.6.0",
     "fflate": "^0.8.3",
     "read-excel-file": "^9.3.2"
   }

@@ -39,3 +39,20 @@ npm run purchasing:matrix:build -- \
 The Matrix Builder never overwrites the working matrix or changes order
 quantities. See [the Matrix Builder guide](docs/purchasing-matrix-builder.md)
 for classification limits, policy provenance, and the manual-review workflow.
+
+## Purchasing Web Backend v1
+
+Start the local HTTP backend for a future owner-facing web interface:
+
+```bash
+npm run purchasing:web
+```
+
+The server listens only on `127.0.0.1:3210`, accepts a SmartZapas Excel
+workbook, runs the existing Purchasing Agent orchestration, exposes compact
+browser DTOs, and streams whitelisted run artifacts. It does not send or
+change purchase orders and does not provide a frontend.
+
+See [the Purchasing Web Backend v1 guide](docs/purchasing-web-backend-v1.md)
+for API contracts, upload limits, artifact security, retention, errors, and
+local-version constraints.
