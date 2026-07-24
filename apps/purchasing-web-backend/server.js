@@ -81,6 +81,8 @@ function createPurchasingWebServer(options = {}) {
         ? undefined
         : serverPaths.ownerLearningHistoryPath
     ),
+    approvedRulesPath: options.approvedRulesPath ||
+      serverPaths.approvedRulesPath,
     logger: options.logger,
   });
   const ownerDecisionService = options.ownerDecisionService ||

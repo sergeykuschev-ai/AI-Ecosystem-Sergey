@@ -217,6 +217,14 @@ test('persists Owner Learning history and current-run pattern artifacts', async 
     result.runDirectory,
     'owner-rule-proposals.md'
   ), 'utf8');
+  const preview = readJson(path.join(
+    result.runDirectory,
+    'approved-rule-preview.json'
+  ));
+  const previewReport = fs.readFileSync(path.join(
+    result.runDirectory,
+    'approved-rule-preview.md'
+  ), 'utf8');
 
   assert.equal(history.schemaVersion, 'owner-learning-history-v0.2');
   assert.equal(history.runs.length, 1);
@@ -229,6 +237,14 @@ test('persists Owner Learning history and current-run pattern artifacts', async 
   assert.deepEqual(proposals.proposals, []);
   assert.match(proposalsReport, /^# Предложения правил владельца/m);
   assert.match(proposalsReport, /Ни одно предложение не применяется/);
+  assert.equal(preview.reportVersion, 'approved-rule-preview-v0.5');
+  assert.equal(preview.activeRulesCount, 0);
+  assert.deepEqual(preview.matches, []);
+  assert.match(
+    previewReport,
+    /^# Предварительный просмотр утверждённых правил/m
+  );
+  assert.match(previewReport, /Это только предварительный просмотр/);
 });
 
 test('history failure is logged without failing the purchasing run', async () => {
@@ -259,6 +275,40 @@ test('history failure is logged without failing the purchasing run', async () =>
     ),
     '{ damaged'
   );
+});
+
+test('damaged approved rules do not fail or overwrite the purchasing run', async () => {
+  const root = outputDirectory('damaged-approved-rules');
+  fs.mkdirSync(root, { recursive: true });
+  const approvedRulesPath = path.join(root, 'owner-approved-rules.json');
+  fs.writeFileSync(approvedRulesPath, '{ damaged', 'utf8');
+  const messages = [];
+  const result = await runPurchasingCli([
+    '--input', XLSX_FIXTURE_PATH,
+    '--financial-data', FINANCIAL_DATA_PATH,
+    '--output-dir', root,
+  ], dependencies({
+    approvedRulesPath,
+    output: message => messages.push(message),
+  }));
+
+  assert.equal(result.status, 'success_with_warnings');
+  assert.equal(
+    result.approvedRulePreviewError,
+    'RULE_REGISTRY_CORRUPTED'
+  );
+  assert.equal(result.approvedRulePreview.status, 'unavailable');
+  assert.equal(fs.readFileSync(approvedRulesPath, 'utf8'), '{ damaged');
+  assert.equal(
+    readJson(path.join(
+      result.runDirectory,
+      'approved-rule-preview.json'
+    )).status,
+    'unavailable'
+  );
+  assert.ok(messages.some(message =>
+    message.includes('Approved Rule Preview: RULE_REGISTRY_CORRUPTED')
+  ));
 });
 
 test('creates run-metadata.json for every normal run', async () => {
@@ -305,6 +355,8 @@ test('--format json creates JSON result, explanations, and metadata', async () =
   );
 
   assert.deepEqual(filesIn(result.runDirectory), [
+    'approved-rule-preview.json',
+    'approved-rule-preview.md',
     'owner-learning-patterns.json',
     'owner-learning-patterns.md',
     'owner-learning-report.json',
@@ -324,6 +376,8 @@ test('--format json creates JSON result, explanations, and metadata', async () =
     'owner-learning-patterns.md',
     'owner-rule-proposals.json',
     'owner-rule-proposals.md',
+    'approved-rule-preview.json',
+    'approved-rule-preview.md',
     'run-metadata.json',
   ]);
 });
@@ -335,6 +389,8 @@ test('--format text creates text report, explanations, and metadata', async () =
   );
 
   assert.deepEqual(filesIn(result.runDirectory), [
+    'approved-rule-preview.json',
+    'approved-rule-preview.md',
     'owner-learning-patterns.json',
     'owner-learning-patterns.md',
     'owner-learning-report.json',
@@ -354,6 +410,8 @@ test('--format text creates text report, explanations, and metadata', async () =
     'owner-learning-patterns.md',
     'owner-rule-proposals.json',
     'owner-rule-proposals.md',
+    'approved-rule-preview.json',
+    'approved-rule-preview.md',
     'run-metadata.json',
   ]);
 });
@@ -567,6 +625,8 @@ test('metadata records status, normalized paths, warnings, and generated files',
     'owner-learning-patterns.md',
     'owner-rule-proposals.json',
     'owner-rule-proposals.md',
+    'approved-rule-preview.json',
+    'approved-rule-preview.md',
     'run-metadata.json',
   ]);
   assert.ok(Array.isArray(metadata.warnings));

@@ -52,6 +52,20 @@ const {
 } = require(
   '../agents/purchasing/owner_learning/owner_rule_proposals'
 );
+const {
+  DEFAULT_REGISTRY_PATH: DEFAULT_APPROVED_RULES_PATH,
+  loadApprovedRules,
+} = require(
+  '../agents/purchasing/owner_learning/owner_rule_registry'
+);
+const {
+  buildApprovedRulePreview,
+  buildApprovedRulePreviewMarkdown,
+  unavailableApprovedRulePreview,
+  unavailableApprovedRulePreviewMarkdown,
+} = require(
+  '../agents/purchasing/owner_learning/approved_rule_preview'
+);
 
 const REPOSITORY_ROOT = path.resolve(__dirname, '..');
 const DEFAULT_FINANCIAL_DATA_PATH = path.join(
@@ -279,6 +293,7 @@ function generatedFileNames(format) {
   names.push('owner-learning-report.json', 'owner-learning-report.md');
   names.push('owner-learning-patterns.json', 'owner-learning-patterns.md');
   names.push('owner-rule-proposals.json', 'owner-rule-proposals.md');
+  names.push('approved-rule-preview.json', 'approved-rule-preview.md');
   names.push('run-metadata.json');
   return names;
 }
@@ -831,11 +846,52 @@ async function runPurchasingCli(argv, dependencies = {}) {
   const proposalWarnings = ownerRuleProposalsError
     ? [`Owner Rule Proposals: ${ownerRuleProposalsError}`]
     : [];
+  let approvedRulePreview;
+  let approvedRulePreviewReport;
+  let approvedRulePreviewError = null;
+  try {
+    const approvedRulesLoader = dependencies.approvedRulesLoader ||
+      loadApprovedRules;
+    const approvedRules = approvedRulesLoader({
+      registryPath: dependencies.approvedRulesPath ||
+        DEFAULT_APPROVED_RULES_PATH,
+      logger: { error() {} },
+      ...(dependencies.approvedRulesLoadOptions || {}),
+    });
+    const previewBuilder = dependencies.approvedRulePreviewBuilder ||
+      buildApprovedRulePreview;
+    approvedRulePreview = previewBuilder({
+      agentResult,
+      approvedRules,
+      generatedAt: startedTimestamp,
+    });
+    approvedRulePreviewReport = buildApprovedRulePreviewMarkdown(
+      approvedRulePreview
+    );
+  } catch (error) {
+    approvedRulePreviewError = error.code ||
+      'APPROVED_RULE_PREVIEW_UNAVAILABLE';
+    output(
+      `Предупреждение Approved Rule Preview: ${
+        approvedRulePreviewError
+      }.`
+    );
+    approvedRulePreview = unavailableApprovedRulePreview(
+      startedTimestamp,
+      approvedRulePreviewError
+    );
+    approvedRulePreviewReport =
+      unavailableApprovedRulePreviewMarkdown();
+  }
+  const approvedRulePreviewWarnings = approvedRulePreviewError
+    ? [`Approved Rule Preview: ${approvedRulePreviewError}`]
+    : [];
   const warnings = Array.from(new Set([
     ...collectRunWarnings(agentJson),
     ...explanationWarnings,
     ...historyWarnings,
     ...proposalWarnings,
+    ...approvedRulePreviewWarnings,
   ]));
   const status = warnings.length > 0 ? 'success_with_warnings' : 'success';
   const reportText = buildOwnerReport({
@@ -917,6 +973,19 @@ async function runPurchasingCli(argv, dependencies = {}) {
       json_file: 'owner-rule-proposals.json',
       markdown_file: 'owner-rule-proposals.md',
     },
+    approved_rule_preview: {
+      report_version: approvedRulePreview.reportVersion,
+      approved_rules_schema_version:
+        approvedRulePreview.approvedRulesSchemaVersion,
+      active_rules_count: approvedRulePreview.activeRulesCount,
+      matched_rules_count: approvedRulePreview.matchedRulesCount,
+      conflicting_rules_count: approvedRulePreview.conflictingRulesCount,
+      would_change_decision_count:
+        approvedRulePreview.wouldChangeDecisionCount,
+      error: approvedRulePreviewError,
+      json_file: 'approved-rule-preview.json',
+      markdown_file: 'approved-rule-preview.md',
+    },
   };
 
   if (!args.dryRun) {
@@ -960,6 +1029,14 @@ async function runPurchasingCli(argv, dependencies = {}) {
       content: ownerRuleProposalsReport,
     });
     files.push({
+      name: 'approved-rule-preview.json',
+      content: serializeJson(approvedRulePreview),
+    });
+    files.push({
+      name: 'approved-rule-preview.md',
+      content: approvedRulePreviewReport,
+    });
+    files.push({
       name: 'run-metadata.json',
       content: serializeJson(metadata),
     });
@@ -997,6 +1074,9 @@ async function runPurchasingCli(argv, dependencies = {}) {
     ownerRuleProposals,
     ownerRuleProposalsReport,
     ownerRuleProposalsError,
+    approvedRulePreview,
+    approvedRulePreviewReport,
+    approvedRulePreviewError,
     explanationContext,
     agentResult,
   };
@@ -1017,6 +1097,7 @@ module.exports = {
   DEFAULT_OUTPUT_DIRECTORY,
   DEFAULT_OWNER_DECISIONS_PATH,
   DEFAULT_OWNER_LEARNING_HISTORY_PATH,
+  DEFAULT_APPROVED_RULES_PATH,
   ALLOWED_FORMATS,
   ALLOWED_EXCEL_EXTENSIONS,
   PurchasingRunError,

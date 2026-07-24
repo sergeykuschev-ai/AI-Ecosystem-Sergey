@@ -37,6 +37,8 @@ const ARTIFACT_NAMES = Object.freeze([
   'owner-learning-patterns.md',
   'owner-rule-proposals.json',
   'owner-rule-proposals.md',
+  'approved-rule-preview.json',
+  'approved-rule-preview.md',
   'run-metadata.json',
 ]);
 
@@ -56,6 +58,10 @@ const DEFAULT_SERVER_PATHS = Object.freeze({
   ownerDecisionsPath: path.join(
     REPOSITORY_ROOT,
     'data/purchasing/miska-owner-decisions.json'
+  ),
+  approvedRulesPath: path.join(
+    REPOSITORY_ROOT,
+    'data/purchasing/owner-approved-rules.json'
   ),
   recommendationConfigPath: path.join(
     REPOSITORY_ROOT,

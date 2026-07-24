@@ -108,6 +108,10 @@ function artifactPayloads(bundle) {
       serializeJson(bundle.ownerRuleProposals),
     'owner-rule-proposals.md':
       `${bundle.ownerRuleProposalsReport.trimEnd()}\n`,
+    'approved-rule-preview.json':
+      serializeJson(bundle.approvedRulePreview),
+    'approved-rule-preview.md':
+      `${bundle.approvedRulePreviewReport.trimEnd()}\n`,
     'run-metadata.json': serializeJson({
       version: 1,
       run_id: bundle.run_id,

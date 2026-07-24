@@ -62,9 +62,13 @@ function temporaryRoot() {
   return root;
 }
 
-function registryAt(root) {
+function registryAt(root, options = {}) {
   const artifactStore = new FileArtifactStore({ runsRoot: root });
-  return new FileRunRegistry({ runsRoot: root, artifactStore });
+  return new FileRunRegistry({
+    runsRoot: root,
+    artifactStore,
+    ...options,
+  });
 }
 
 function createProcessing(registry, runId, createdAt = GENERATED_AT) {
@@ -120,7 +124,7 @@ test('completed bundle is atomically published with all required files', () => {
     assert.doesNotThrow(() => JSON.parse(content));
   });
   assert.equal(temporaryFiles(root).length, 0);
-  assert.equal(saved.manifest.artifacts.length, 16);
+  assert.equal(saved.manifest.artifacts.length, 18);
   const history = JSON.parse(fs.readFileSync(
     path.join(root, 'owner-learning-history.json'),
     'utf8'
@@ -139,6 +143,14 @@ test('completed bundle is atomically published with all required files', () => {
   ), 'utf8'));
   assert.equal(proposals.reportVersion, 'owner-rule-proposals-v0.3');
   assert.equal(proposals.proposalsCount, 0);
+  const preview = JSON.parse(fs.readFileSync(path.join(
+    runDirectory,
+    'artifacts',
+    'approved-rule-preview.json'
+  ), 'utf8'));
+  assert.equal(preview.reportVersion, 'approved-rule-preview-v0.5');
+  assert.equal(preview.activeRulesCount, 0);
+  assert.deepEqual(preview.matches, []);
   assert.ok(saved.manifest.artifacts.every(artifact =>
     artifact.download_url ===
       `/api/v1/runs/${RUN_ID}/artifacts/${artifact.name}`
@@ -161,7 +173,7 @@ test('completed run is readable after registry recreation', () => {
     recreatedRegistry.getOwnerReview(RUN_ID).run_id,
     RUN_ID
   );
-  assert.equal(recreatedRegistry.listArtifacts(RUN_ID).length, 16);
+  assert.equal(recreatedRegistry.listArtifacts(RUN_ID).length, 18);
 });
 
 test('history failure is logged without changing completed run storage', () => {
@@ -193,6 +205,36 @@ test('history failure is logged without changing completed run storage', () => {
     'Owner Learning History: HISTORY_INVALID.',
   ]);
   assert.equal(fs.readFileSync(historyPath, 'utf8'), '{ damaged');
+});
+
+test('approved rules failure is logged without changing completed run', () => {
+  const root = temporaryRoot();
+  const approvedRulesPath = path.join(root, 'owner-approved-rules.json');
+  fs.writeFileSync(approvedRulesPath, '{ damaged', 'utf8');
+  const messages = [];
+  const registry = registryAt(root, {
+    approvedRulesPath,
+    logger: { error: message => messages.push(message) },
+  });
+  createProcessing(registry, RUN_ID);
+
+  const saved = registry.saveCompletedRun(sourceBundle, {
+    completedAt: GENERATED_AT,
+  });
+  const preview = JSON.parse(fs.readFileSync(path.join(
+    root,
+    RUN_ID,
+    'artifacts',
+    'approved-rule-preview.json'
+  ), 'utf8'));
+
+  assert.equal(saved.status.status, 'completed');
+  assert.equal(preview.status, 'unavailable');
+  assert.equal(preview.errorCode, 'RULE_REGISTRY_CORRUPTED');
+  assert.deepEqual(messages, [
+    'Approved Rule Preview: RULE_REGISTRY_CORRUPTED.',
+  ]);
+  assert.equal(fs.readFileSync(approvedRulesPath, 'utf8'), '{ damaged');
 });
 
 test('failed run stores only a safe run error', () => {
