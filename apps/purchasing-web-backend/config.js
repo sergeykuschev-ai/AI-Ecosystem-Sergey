@@ -19,6 +19,7 @@ const DEFAULT_SHUTDOWN_TIMEOUT_MS = 10 * 1000;
 const DEFAULT_RETENTION_TTL_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 100;
+const DEFAULT_APPROVED_RULE_MODE = 'PREVIEW';
 const RUN_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const ARTIFACT_NAMES = Object.freeze([
@@ -39,6 +40,7 @@ const ARTIFACT_NAMES = Object.freeze([
   'owner-rule-proposals.md',
   'approved-rule-preview.json',
   'approved-rule-preview.md',
+  'approved-rule-applications.json',
   'run-metadata.json',
 ]);
 
@@ -99,8 +101,17 @@ function resolveRetentionTtlMs(
   return ttlMs;
 }
 
+function resolveApprovedRuleMode(
+  value = process.env.PURCHASING_APPROVED_RULE_MODE
+) {
+  return value === undefined || value === ''
+    ? DEFAULT_APPROVED_RULE_MODE
+    : value;
+}
+
 module.exports = {
   ARTIFACT_NAMES,
+  DEFAULT_APPROVED_RULE_MODE,
   DEFAULT_HTTP_HOST,
   DEFAULT_HTTP_PORT,
   DEFAULT_PAGE_SIZE,
@@ -117,6 +128,7 @@ module.exports = {
   REPOSITORY_ROOT,
   RUN_ID_PATTERN,
   isValidRunId,
+  resolveApprovedRuleMode,
   resolveHttpPort,
   resolveRetentionTtlMs,
 };

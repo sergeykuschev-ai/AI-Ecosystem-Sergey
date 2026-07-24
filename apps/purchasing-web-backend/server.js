@@ -7,6 +7,7 @@ const {
   DEFAULT_SERVER_PATHS,
   DEFAULT_SHUTDOWN_TIMEOUT_MS,
   DEFAULT_UPLOAD_ROOT,
+  resolveApprovedRuleMode,
   resolveHttpPort,
   resolveRetentionTtlMs,
 } = require('./config');
@@ -101,6 +102,8 @@ function createPurchasingWebServer(options = {}) {
     serverPaths,
     uploadOptions: options.uploadOptions,
     runLock: options.runLock,
+    approvedRuleMode: options.approvedRuleMode ??
+      resolveApprovedRuleMode(),
   });
   const staticHandler = options.staticHandler || createStaticHandler({
     publicRoot: options.publicRoot,

@@ -111,6 +111,7 @@ function createRunHandlers(options) {
     now = () => new Date().toISOString(),
     uploadOptions = {},
     runLock = DEFAULT_RUN_EXECUTION_LOCK,
+    approvedRuleMode,
   } = options;
 
   if (!registry || !queryService) {
@@ -158,6 +159,8 @@ function createRunHandlers(options) {
           configPath: serverPaths.configPath,
           matrixPath: serverPaths.matrixPath,
           ownerDecisionsPath: serverPaths.ownerDecisionsPath,
+          approvedRulesPath: serverPaths.approvedRulesPath,
+          approvedRuleMode,
           recommendationConfigPath:
             serverPaths.recommendationConfigPath,
         }, reportDateDependencies(upload.reportDate));

@@ -56,10 +56,17 @@ The bind address is intentionally not configurable in v1.
 |---|---:|---|
 | `PURCHASING_WEB_PORT` | `3210` | Local HTTP port, from `0` through `65535` |
 | `PURCHASING_WEB_RETENTION_TTL_MS` | `86400000` | Completed-run retention period in milliseconds |
+| `PURCHASING_APPROVED_RULE_MODE` | `PREVIEW` | Approved Rules mode: `OFF`, `PREVIEW`, or explicitly enabled `APPLY_SAFE` |
 
 Server-side financial, Matrix Builder, assortment-matrix, Owner Decisions, and
 Recommendation Explainer paths come from backend configuration. An HTTP client
 cannot provide or override local server paths.
+
+Approved Rules are preview-only by default. `OFF` skips their processing.
+`APPLY_SAFE` may only remove an existing positive quantity or move a zero
+quantity between `SKIP` and `DEFER`; it never creates a positive quantity.
+Registry, preview, rule-application, or financial-recalculation failures fall
+back to the complete baseline order.
 
 ## API v1
 
@@ -150,9 +157,16 @@ The summary deliberately separates five monetary meanings:
 | `auto_approved_sum` | Sum automatically approved by decision rules |
 | `pending_review_sum` | Sum still awaiting manual review |
 | `working_maximum_sum` | Maximum working-order exposure, including pending lines |
-| `financially_assessed_sum` | Sum assessed by Financial Controller |
+| `financially_assessed_sum` | Legacy Analyzer-order sum assessed by Financial Controller |
 
 There is no ambiguous `total_order_sum` browser field.
+
+When `APPLY_SAFE` changes at least one working-order line, the summary also
+contains `applied_working_order_financial`. This separate object reports the
+working-order amounts, SKU, units, reserve, and financial status before and
+after the approved rule. It does not replace `financially_assessed_sum` or the
+legacy `financial_assessment` in `result.json`. If no rule is applied, the
+object is `null` and the complete baseline result remains unchanged.
 
 ### Purchasing items
 
@@ -218,6 +232,15 @@ Allowed artifact names are fixed:
 - `manual-review.json`
 - `owner-review.json`
 - `owner-review-report.md`
+- `owner-learning-report.json`
+- `owner-learning-report.md`
+- `owner-learning-patterns.json`
+- `owner-learning-patterns.md`
+- `owner-rule-proposals.json`
+- `owner-rule-proposals.md`
+- `approved-rule-preview.json`
+- `approved-rule-preview.md`
+- `approved-rule-applications.json` (published only in `APPLY_SAFE`)
 - `run-metadata.json`
 
 The client name is never used directly as a filesystem path. Resolution

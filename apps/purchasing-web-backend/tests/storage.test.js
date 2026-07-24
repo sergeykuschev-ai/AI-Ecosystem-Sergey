@@ -176,6 +176,29 @@ test('completed run is readable after registry recreation', () => {
   assert.equal(recreatedRegistry.listArtifacts(RUN_ID).length, 18);
 });
 
+test('APPLY_SAFE bundle publishes the application artifact', async () => {
+  const root = temporaryRoot();
+  const registry = registryAt(root);
+  const applyBundle = await runPurchasingWebOrchestrator({
+    ...runRequest(),
+    approvedRuleMode: 'APPLY_SAFE',
+  });
+  createProcessing(registry, RUN_ID);
+  const saved = registry.saveCompletedRun(applyBundle, {
+    completedAt: GENERATED_AT,
+  });
+  const applications = JSON.parse(fs.readFileSync(path.join(
+    root,
+    RUN_ID,
+    'artifacts',
+    'approved-rule-applications.json'
+  ), 'utf8'));
+
+  assert.equal(saved.manifest.artifacts.length, 19);
+  assert.equal(applications.mode, 'APPLY_SAFE');
+  assert.equal(applications.status, 'APPLIED');
+});
+
 test('history failure is logged without changing completed run storage', () => {
   const root = temporaryRoot();
   const historyPath = path.join(root, 'owner-learning-history.json');
@@ -218,7 +241,10 @@ test('approved rules failure is logged without changing completed run', () => {
   });
   createProcessing(registry, RUN_ID);
 
-  const saved = registry.saveCompletedRun(sourceBundle, {
+  const legacyBundle = { ...sourceBundle };
+  delete legacyBundle.approvedRulePreview;
+  delete legacyBundle.approvedRulePreviewReport;
+  const saved = registry.saveCompletedRun(legacyBundle, {
     completedAt: GENERATED_AT,
   });
   const preview = JSON.parse(fs.readFileSync(path.join(

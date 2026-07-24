@@ -230,40 +230,48 @@ class FileRunRegistry {
         };
       }
       let bundleWithPreview;
-      try {
-        const approvedRules = this.approvedRulesLoader({
-          registryPath: this.approvedRulesPath,
-          fsModule: this.fs,
-          logger: { error() {} },
-        });
-        const preview = buildApprovedRulePreview({
-          agentResult: bundle.agentResult,
-          approvedRules,
-          generatedAt: bundle.generated_at,
-        });
+      if (Object.hasOwn(bundle, 'approvedRulePreview')) {
         bundleWithPreview = {
           ...bundleWithProposals,
-          approvedRulePreview: preview,
-          approvedRulePreviewReport:
-            buildApprovedRulePreviewMarkdown(preview),
+          approvedRulePreview: bundle.approvedRulePreview,
+          approvedRulePreviewReport: bundle.approvedRulePreviewReport,
         };
-      } catch (previewError) {
-        const previewErrorCode = previewError.code ||
-          'APPROVED_RULE_PREVIEW_UNAVAILABLE';
+      } else {
         try {
-          this.logger.error(
-            `Approved Rule Preview: ${previewErrorCode}.`
-          );
-        } catch {}
-        bundleWithPreview = {
-          ...bundleWithProposals,
-          approvedRulePreview: unavailableApprovedRulePreview(
-            bundle.generated_at,
-            previewErrorCode
-          ),
-          approvedRulePreviewReport:
-            unavailableApprovedRulePreviewMarkdown(),
-        };
+          const approvedRules = this.approvedRulesLoader({
+            registryPath: this.approvedRulesPath,
+            fsModule: this.fs,
+            logger: { error() {} },
+          });
+          const preview = buildApprovedRulePreview({
+            agentResult: bundle.agentResult,
+            approvedRules,
+            generatedAt: bundle.generated_at,
+          });
+          bundleWithPreview = {
+            ...bundleWithProposals,
+            approvedRulePreview: preview,
+            approvedRulePreviewReport:
+              buildApprovedRulePreviewMarkdown(preview),
+          };
+        } catch (previewError) {
+          const previewErrorCode = previewError.code ||
+            'APPROVED_RULE_PREVIEW_UNAVAILABLE';
+          try {
+            this.logger.error(
+              `Approved Rule Preview: ${previewErrorCode}.`
+            );
+          } catch {}
+          bundleWithPreview = {
+            ...bundleWithProposals,
+            approvedRulePreview: unavailableApprovedRulePreview(
+              bundle.generated_at,
+              previewErrorCode
+            ),
+            approvedRulePreviewReport:
+              unavailableApprovedRulePreviewMarkdown(),
+          };
+        }
       }
       const manifest = this.artifactStore.saveBundleArtifacts(
         bundleWithPreview

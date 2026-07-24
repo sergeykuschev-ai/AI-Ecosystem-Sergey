@@ -33,6 +33,17 @@ const {
   '../../../agents/purchasing/owner_learning/owner_learning_history'
 );
 const {
+  DEFAULT_REGISTRY_PATH: DEFAULT_APPROVED_RULES_PATH,
+  loadApprovedRules,
+} = require(
+  '../../../agents/purchasing/owner_learning/owner_rule_registry'
+);
+const {
+  processApprovedRules,
+} = require(
+  '../../../agents/purchasing/owner_learning/approved_rule_application'
+);
+const {
   PurchasingWebApplicationError,
 } = require('./application_error');
 
@@ -47,6 +58,8 @@ const DEFAULT_DEPENDENCIES = Object.freeze({
   buildExplanationsReport: buildRecommendationExplanationsReport,
   buildOwnerLearning: buildOwnerLearningReport,
   buildOwnerLearningMarkdown,
+  loadApprovedRules,
+  processApprovedRules,
 });
 
 function assertNonEmptyString(value, field) {
@@ -286,6 +299,16 @@ async function runPurchasingWebOrchestrator(
     );
   }
 
+  const approvedRuleProcessing = dependencies.processApprovedRules({
+    agentResult,
+    approvedRuleMode: request.approvedRuleMode,
+    approvedRulesPath: request.approvedRulesPath ||
+      DEFAULT_APPROVED_RULES_PATH,
+    loadApprovedRules: dependencies.loadApprovedRules,
+    generatedAt: request.generatedAt,
+  }, dependencyOverrides.approvedRuleApplicationDependencies || {});
+  agentResult = approvedRuleProcessing.agentResult;
+
   let matrixResult;
   try {
     matrixResult = await dependencies.buildMatrix(request.inputPath, {
@@ -410,6 +433,15 @@ async function runPurchasingWebOrchestrator(
     explanationsReport,
     matrixReportText: matrixResult.reportText,
     ownerDecisionSummary: ownerApplication.summary,
+    approvedRuleMode: approvedRuleProcessing.mode,
+    approvedRuleWarnings: approvedRuleProcessing.warnings,
+    approvedRulePreview: approvedRuleProcessing.approvedRulePreview,
+    approvedRulePreviewReport:
+      approvedRuleProcessing.approvedRulePreviewReport,
+    approvedRulePreviewError:
+      approvedRuleProcessing.approvedRulePreviewError,
+    approvedRuleApplications:
+      approvedRuleProcessing.approvedRuleApplications,
   };
 }
 

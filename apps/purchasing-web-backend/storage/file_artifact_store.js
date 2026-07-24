@@ -13,6 +13,11 @@ const CONTENT_TYPES = Object.freeze({
   '.md': 'text/markdown; charset=utf-8',
   '.txt': 'text/plain; charset=utf-8',
 });
+const OPTIONAL_ARTIFACT_NAMES = new Set([
+  'approved-rule-preview.json',
+  'approved-rule-preview.md',
+  'approved-rule-applications.json',
+]);
 
 class ArtifactStoreError extends Error {
   constructor(code, message, options = {}) {
@@ -86,7 +91,7 @@ function artifactPayloads(bundle) {
   const agentJson = Array.isArray(bundle.agentResult)
     ? bundle.agentResult[0]?.json
     : null;
-  return {
+  const payloads = {
     'result.json': serializeJson(bundle.agentResult),
     'report.txt': `${String(agentJson?.minmax_text || '').trimEnd()}\n`,
     'recommendation-explanations.json': serializeJson(bundle.explanations),
@@ -108,10 +113,6 @@ function artifactPayloads(bundle) {
       serializeJson(bundle.ownerRuleProposals),
     'owner-rule-proposals.md':
       `${bundle.ownerRuleProposalsReport.trimEnd()}\n`,
-    'approved-rule-preview.json':
-      serializeJson(bundle.approvedRulePreview),
-    'approved-rule-preview.md':
-      `${bundle.approvedRulePreviewReport.trimEnd()}\n`,
     'run-metadata.json': serializeJson({
       version: 1,
       run_id: bundle.run_id,
@@ -119,6 +120,17 @@ function artifactPayloads(bundle) {
       status: bundle.status,
     }),
   };
+  if (bundle.approvedRulePreview) {
+    payloads['approved-rule-preview.json'] =
+      serializeJson(bundle.approvedRulePreview);
+    payloads['approved-rule-preview.md'] =
+      `${bundle.approvedRulePreviewReport.trimEnd()}\n`;
+  }
+  if (bundle.approvedRuleApplications) {
+    payloads['approved-rule-applications.json'] =
+      serializeJson(bundle.approvedRuleApplications);
+  }
+  return payloads;
 }
 
 class FileArtifactStore {
@@ -140,9 +152,10 @@ class FileArtifactStore {
     assertRunId(bundle?.run_id);
     const payloads = artifactPayloads(bundle);
     const artifactDirectory = this.artifactDirectory(bundle.run_id);
-    const artifacts = ARTIFACT_NAMES.map(name => {
+    const artifacts = ARTIFACT_NAMES.flatMap(name => {
       const content = payloads[name];
       if (typeof content !== 'string') {
+        if (OPTIONAL_ARTIFACT_NAMES.has(name)) return [];
         throw new ArtifactStoreError(
           'INVALID_ARTIFACT_CONTENT',
           'Application bundle не содержит обязательный artifact.'
@@ -153,7 +166,7 @@ class FileArtifactStore {
         content,
         { fsModule: this.fs }
       );
-      return {
+      return [{
         name,
         content_type: CONTENT_TYPES[path.extname(name)] ||
           'application/octet-stream',
@@ -161,7 +174,7 @@ class FileArtifactStore {
         sha256: sha256(content),
         download_url:
           `/api/v1/runs/${bundle.run_id}/artifacts/${name}`,
-      };
+      }];
     });
     const manifest = {
       version: 1,
@@ -363,6 +376,7 @@ module.exports = {
   ArtifactStoreError,
   CONTENT_TYPES,
   FileArtifactStore,
+  OPTIONAL_ARTIFACT_NAMES,
   artifactPayloads,
   assertRunId,
   atomicWriteFile,

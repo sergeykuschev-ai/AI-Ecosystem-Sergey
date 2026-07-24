@@ -416,6 +416,48 @@ test('--format text creates text report, explanations, and metadata', async () =
   ]);
 });
 
+test('OFF skips Approved Rule artifacts and preserves the agent result', async () => {
+  const preview = await runPurchasingCli(
+    baseArguments('mode-preview'),
+    dependencies({ approvedRuleMode: 'PREVIEW' })
+  );
+  const off = await runPurchasingCli(
+    baseArguments('mode-off'),
+    dependencies({ approvedRuleMode: 'OFF' })
+  );
+
+  assert.deepEqual(off.agentResult, preview.agentResult);
+  assert.equal(off.approvedRulePreview, null);
+  assert.equal(
+    fs.existsSync(path.join(
+      off.runDirectory,
+      'approved-rule-preview.json'
+    )),
+    false
+  );
+  assert.equal(off.metadata.approved_rule_preview.mode, 'OFF');
+});
+
+test('APPLY_SAFE publishes its separate application artifact', async () => {
+  const result = await runPurchasingCli(
+    baseArguments('mode-apply-safe'),
+    dependencies({ approvedRuleMode: 'APPLY_SAFE' })
+  );
+  const applications = readJson(path.join(
+    result.runDirectory,
+    'approved-rule-applications.json'
+  ));
+
+  assert.equal(applications.mode, 'APPLY_SAFE');
+  assert.equal(applications.status, 'APPLIED');
+  assert.equal(applications.activeRules, 0);
+  assert.deepEqual(applications.applications, []);
+  assert.equal(
+    result.metadata.approved_rule_application.json_file,
+    'approved-rule-applications.json'
+  );
+});
+
 test('--dry-run creates no output directory or files', async () => {
   const root = outputDirectory('dry-run');
   const result = await runPurchasingCli([
