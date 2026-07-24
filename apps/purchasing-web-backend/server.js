@@ -90,6 +90,11 @@ function createPurchasingWebServer(options = {}) {
     new OwnerDecisionService({
       registry,
       ownerDecisionsPath: serverPaths.ownerDecisionsPath,
+      ownerDecisionHistoryPath:
+        serverPaths.ownerDecisionHistoryPath,
+      applicationMode: options.approvedRuleMode ??
+        resolveApprovedRuleMode(),
+      logger: options.logger,
       now: options.now,
     });
   const queryService = options.queryService ||

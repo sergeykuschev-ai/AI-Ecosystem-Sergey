@@ -258,15 +258,16 @@ class RunQueryService {
         'Owner Decisions Memory недоступна.'
       );
     }
-    const item = this.ownerDecisionService.saveDecision(
+    const saved = this.ownerDecisionService.saveDecision(
       runId,
       itemId,
       input
     );
     return {
       run_id: runId,
-      item,
+      item: saved.item,
       owner_decisions: this.getOwnerDecisionSummary(runId),
+      decisionHistory: saved.decisionHistory,
     };
   }
 

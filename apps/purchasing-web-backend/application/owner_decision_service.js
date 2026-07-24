@@ -4,6 +4,27 @@ const {
   loadOwnerDecisions,
   normalizeSku,
 } = require('../../../agents/purchasing/matrix_builder/owner_decisions');
+const {
+  buildStableItemKey,
+  stableKeyContext,
+} = require(
+  '../../../agents/purchasing/owner_learning/owner_learning_history'
+);
+const {
+  normalizeAgentRecommendation,
+} = require(
+  '../../../agents/purchasing/owner_learning/owner_learning_report'
+);
+const {
+  recordOwnerDecisionHistory,
+} = require(
+  '../../../agents/purchasing/owner_learning/owner_decision_history_recorder'
+);
+const {
+  APPLICATION_MODES,
+} = require(
+  '../../../agents/purchasing/owner_learning/owner_decision_history'
+);
 const WEB_OWNER_DECISIONS = Object.freeze(['BUY', 'SKIP', 'DEFER']);
 const MAX_OWNER_ORDER_QUANTITY = 10000;
 
@@ -142,6 +163,79 @@ function uniqueDecisionKey(item, identifierCounts) {
   ) || null;
 }
 
+function stableItemKey(item, items) {
+  const identities = (items || []).map(candidate => ({
+    sku: candidate.sku,
+    barcode: candidate.barcode,
+    rowId: candidate.row_id,
+    name: candidate.name,
+    brand: candidate.brand,
+  }));
+  const index = (items || []).findIndex(
+    candidate => candidate.row_id === item.row_id
+  );
+  return buildStableItemKey(
+    identities[index],
+    stableKeyContext(identities)
+  );
+}
+
+function firstNonNegativeNumber(...values) {
+  return values.find(
+    value =>
+      typeof value === 'number' &&
+      Number.isFinite(value) &&
+      value >= 0
+  ) ?? null;
+}
+
+function historyFinancialContext(summary = {}) {
+  return {
+    analyzerOrderAmount:
+      summary.amounts?.analyzer_order_sum ?? null,
+    workingOrderAmount:
+      summary.amounts?.auto_approved_sum ?? null,
+    appliedWorkingOrderAmount:
+      summary.applied_working_order_financial?.amount_after ?? null,
+    financialStatus:
+      summary.applied_working_order_financial?.financial_status ??
+      summary.financial?.status ??
+      null,
+    currency: summary.currency ?? null,
+  };
+}
+
+function skippedHistoryResult() {
+  return {
+    status: 'SKIPPED',
+    decisionId: null,
+    added: false,
+    warning: {
+      code: 'DECISION_HISTORY_CONTEXT_INCOMPLETE',
+      message:
+        'Недостаточно подтверждённого контекста для записи истории.',
+    },
+  };
+}
+
+function unavailableHistoryResult(logger) {
+  if (typeof logger?.warn === 'function') {
+    logger.warn(
+      '[DECISION_HISTORY_UNAVAILABLE] ' +
+      'Owner Decision History недоступен.'
+    );
+  }
+  return {
+    status: 'UNAVAILABLE',
+    decisionId: null,
+    added: false,
+    warning: {
+      code: 'DECISION_HISTORY_UNAVAILABLE',
+      message: 'Историю решения временно не удалось сохранить.',
+    },
+  };
+}
+
 class OwnerDecisionService {
   constructor(options = {}) {
     if (!options.registry) {
@@ -152,9 +246,19 @@ class OwnerDecisionService {
     }
     this.registry = options.registry;
     this.ownerDecisionsPath = options.ownerDecisionsPath;
+    this.ownerDecisionHistoryPath =
+      options.ownerDecisionHistoryPath || null;
+    this.applicationMode = APPLICATION_MODES.includes(
+      options.applicationMode
+    )
+      ? options.applicationMode
+      : null;
+    this.logger = options.logger || console;
     this.now = options.now || (() => new Date().toISOString());
     this.appendDecision = options.appendDecision || appendOwnerDecision;
     this.loadDecisions = options.loadDecisions || loadOwnerDecisions;
+    this.recordHistory = options.recordHistory ||
+      recordOwnerDecisionHistory;
   }
 
   activeDecisions() {
@@ -229,9 +333,86 @@ class OwnerDecisionService {
         { cause: error }
       );
     }
-    return {
+    const savedItem = {
       ...item,
       owner_decision: decisionView(saved.decision),
+    };
+    let itemStableKey;
+    try {
+      itemStableKey = stableItemKey(item, items);
+    } catch {
+      return {
+        item: savedItem,
+        decisionHistory: skippedHistoryResult(),
+      };
+    }
+    let summary = {};
+    try {
+      if (typeof this.registry.getRunSummary === 'function') {
+        summary = this.registry.getRunSummary(runId);
+      }
+    } catch {}
+    let decisionHistory;
+    try {
+      decisionHistory = this.recordHistory({
+        historyFilePath: this.ownerDecisionHistoryPath,
+        source: 'OWNER_REVIEW',
+        runContext: {
+          runId,
+          recordedAt: saved.decision.decided_at,
+          applicationMode: this.applicationMode,
+        },
+        itemContext: {
+          supplier: item.supplier ?? null,
+          stableItemKey: itemStableKey,
+          sku: item.sku ?? null,
+          productName: item.name ?? null,
+          brand: item.brand ?? null,
+          category: item.category ?? null,
+        },
+        agentDecision: {
+          recommendation:
+            normalizeAgentRecommendation(item.decision),
+          quantity: firstNonNegativeNumber(
+            item.quantities?.approved_quantity,
+            item.quantities?.provisional_quantity,
+            item.quantities?.calculated_quantity,
+            item.quantities?.analyzer_quantity
+          ),
+        },
+        ownerDecision: {
+          decision: validated.decision,
+          quantity: validated.quantity,
+          reasonCode: 'NOT_SPECIFIED',
+          comment: null,
+        },
+        financialContext: historyFinancialContext(summary),
+        inventoryContext: {
+          freeStock: item.stock?.free_stock ?? null,
+          reserve: null,
+          incomingQuantity: null,
+          daysOfStock: null,
+        },
+        salesContext: {
+          sales7d: null,
+          sales14d: null,
+          sales30d: null,
+          averageDailySales: null,
+        },
+        metadata: {
+          itemId: item.row_id,
+          workflowStatus: item.workflow_status ?? null,
+          ownerReviewRequired:
+            item.matrix?.owner_review_required === true,
+        },
+        logger: this.logger,
+      });
+    } catch {
+      decisionHistory = unavailableHistoryResult(this.logger);
+    }
+    return {
+      item: savedItem,
+      decisionHistory,
     };
   }
 }
@@ -242,6 +423,7 @@ module.exports = {
   OwnerDecisionServiceError,
   WEB_OWNER_DECISIONS,
   decisionView,
+  historyFinancialContext,
   ownerDecisionSummary,
   validateItemId,
   validateWebDecision,

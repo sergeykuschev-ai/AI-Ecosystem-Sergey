@@ -6,6 +6,12 @@ const {
   REPORT_VERSION: PROPOSALS_VERSION,
   buildProposalId,
 } = require('./owner_rule_proposals');
+const {
+  DEFAULT_HISTORY_PATH,
+} = require('./owner_decision_history');
+const {
+  recordOwnerDecisionHistory,
+} = require('./owner_decision_history_recorder');
 
 const REGISTRY_SCHEMA_VERSION = 'owner-approved-rules-v0.4';
 const DEFAULT_REGISTRY_PATH = path.resolve(
@@ -423,6 +429,104 @@ function buildRuleId(proposalId) {
   return `approved-rule-${digest}`;
 }
 
+function inferredSku(proposal) {
+  const explicit = optionalString(proposal?.sku);
+  if (explicit) return explicit;
+  const stableItemKey = optionalString(proposal?.stableItemKey);
+  return stableItemKey?.startsWith('sku:')
+    ? stableItemKey.slice('sku:'.length)
+    : null;
+}
+
+function optionalNonNegativeNumber(value) {
+  return typeof value === 'number' &&
+    Number.isFinite(value) &&
+    value >= 0
+    ? value
+    : null;
+}
+
+function skippedHistoryResult() {
+  return {
+    status: 'SKIPPED',
+    decisionId: null,
+    added: false,
+    warning: {
+      code: 'DECISION_HISTORY_DISABLED',
+      message: 'Запись истории отключена для этой операции.',
+    },
+  };
+}
+
+function recordApprovedRuleHistory(proposal, rule, options = {}) {
+  if (options.recordDecisionHistory === false) {
+    return skippedHistoryResult();
+  }
+  const recorder = options.historyRecorder ||
+    recordOwnerDecisionHistory;
+  try {
+    return recorder({
+      historyFilePath:
+        options.ownerDecisionHistoryPath || DEFAULT_HISTORY_PATH,
+      source: 'APPROVED_RULE',
+      runContext: {
+        runId: proposal.runId ?? null,
+        recordedAt: rule.approvedAt,
+        applicationMode: proposal.applicationMode ?? null,
+      },
+      itemContext: {
+        supplier: proposal.supplier ?? null,
+        stableItemKey: rule.stableItemKey,
+        sku: inferredSku(proposal),
+        productName: rule.name,
+        brand: rule.brand,
+        category: proposal.category ?? null,
+      },
+      agentDecision: {
+        recommendation:
+          proposal.agentRecommendation ?? null,
+        quantity: optionalNonNegativeNumber(
+          proposal.agentQuantity
+        ),
+      },
+      ownerDecision: {
+        decision: rule.approvedDecision,
+        quantity: rule.approvedDecision === 'SKIP' ? 0 : null,
+        reasonCode:
+          proposal.reasonCode ?? 'NOT_SPECIFIED',
+        comment:
+          proposal.ownerComment ?? rule.notes ?? null,
+      },
+      ruleContext: {
+        ruleId: rule.ruleId,
+      },
+      financialContext: proposal.financialContext || {},
+      inventoryContext: proposal.inventoryContext || {},
+      salesContext: proposal.salesContext || {},
+      metadata: {
+        proposalId: rule.proposalId,
+      },
+      logger: options.logger,
+    });
+  } catch {
+    if (typeof options.logger?.warn === 'function') {
+      options.logger.warn(
+        '[DECISION_HISTORY_UNAVAILABLE] ' +
+        'Owner Decision History недоступен.'
+      );
+    }
+    return {
+      status: 'UNAVAILABLE',
+      decisionId: null,
+      added: false,
+      warning: {
+        code: 'DECISION_HISTORY_UNAVAILABLE',
+        message: 'Историю решения временно не удалось сохранить.',
+      },
+    };
+  }
+}
+
 function approveProposal(proposal, options = {}) {
   const validatedProposal = validateProposal(proposal);
   const registry = loadApprovedRules(options);
@@ -430,7 +534,10 @@ function approveProposal(proposal, options = {}) {
     registry,
     validatedProposal.proposalId
   );
-  if (existing) return existing;
+  if (existing) {
+    recordApprovedRuleHistory(proposal, existing, options);
+    return existing;
+  }
   const approvedAt = options.approvedAt ||
     new Date(options.currentDate || Date.now()).toISOString();
   if (!validIsoDate(approvedAt)) {
@@ -457,6 +564,7 @@ function approveProposal(proposal, options = {}) {
     updatedAt: approvedAt,
     rules: [...registry.rules, rule],
   }, options);
+  recordApprovedRuleHistory(proposal, rule, options);
   return rule;
 }
 
@@ -472,6 +580,7 @@ module.exports = {
   findRuleByProposalId,
   findRuleByStableItemKey,
   loadApprovedRules,
+  recordApprovedRuleHistory,
   saveApprovedRules,
   validateRegistry,
 };

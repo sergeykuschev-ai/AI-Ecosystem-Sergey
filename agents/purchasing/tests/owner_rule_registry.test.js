@@ -18,6 +18,9 @@ const {
 const {
   buildOwnerRuleProposals,
 } = require('../owner_learning/owner_rule_proposals');
+const {
+  loadDecisionHistory,
+} = require('../owner_learning/owner_decision_history');
 
 const temporaryDirectories = [];
 
@@ -37,6 +40,7 @@ function temporaryRegistryOptions(overrides = {}) {
     markdownPath: path.join(directory, 'owner-approved-rules.md'),
     randomSuffix: 'test',
     logger: { error() {} },
+    recordDecisionHistory: false,
     ...overrides,
   };
 }
@@ -240,4 +244,103 @@ test('invalid proposal is rejected without creating storage', () => {
       error.code === 'RULE_REGISTRY_INVALID'
   );
   assert.equal(fs.existsSync(options.registryPath), false);
+});
+
+test('approved proposal appends one APPROVED_RULE history entry', () => {
+  const options = temporaryRegistryOptions({
+    approvedAt: '2026-07-24T10:00:00.000Z',
+    recordDecisionHistory: true,
+  });
+  options.ownerDecisionHistoryPath = path.join(
+    path.dirname(options.registryPath),
+    'owner-decision-history.json'
+  );
+  const sourceProposal = proposal();
+  const rule = approveProposal(sourceProposal, options);
+  const history = loadDecisionHistory({
+    filePath: options.ownerDecisionHistoryPath,
+  });
+
+  assert.equal(history.entries.length, 1);
+  assert.equal(history.entries[0].source, 'APPROVED_RULE');
+  assert.equal(history.entries[0].stableItemKey, rule.stableItemKey);
+  assert.equal(history.entries[0].ownerDecision, rule.approvedDecision);
+  assert.equal(history.entries[0].ruleId, rule.ruleId);
+  assert.equal(
+    history.entries[0].metadata.proposalId,
+    sourceProposal.proposalId
+  );
+});
+
+test('repeated approval does not duplicate decision history', () => {
+  const options = temporaryRegistryOptions({
+    approvedAt: '2026-07-24T10:00:00.000Z',
+    recordDecisionHistory: true,
+  });
+  options.ownerDecisionHistoryPath = path.join(
+    path.dirname(options.registryPath),
+    'owner-decision-history.json'
+  );
+  const sourceProposal = proposal();
+
+  approveProposal(sourceProposal, options);
+  approveProposal(sourceProposal, {
+    ...options,
+    approvedAt: '2026-07-25T10:00:00.000Z',
+  });
+
+  assert.equal(loadDecisionHistory({
+    filePath: options.ownerDecisionHistoryPath,
+  }).entries.length, 1);
+});
+
+test('history failure does not block approval or overwrite history', () => {
+  const warnings = [];
+  const options = temporaryRegistryOptions({
+    approvedAt: '2026-07-24T10:00:00.000Z',
+    recordDecisionHistory: true,
+    logger: {
+      error() {},
+      warn(message) { warnings.push(message); },
+    },
+  });
+  options.ownerDecisionHistoryPath = path.join(
+    path.dirname(options.registryPath),
+    'owner-decision-history.json'
+  );
+  fs.writeFileSync(
+    options.ownerDecisionHistoryPath,
+    '{ damaged history',
+    'utf8'
+  );
+  const before = fs.readFileSync(
+    options.ownerDecisionHistoryPath,
+    'utf8'
+  );
+
+  const rule = approveProposal(proposal(), options);
+
+  assert.equal(rule.status, 'ACTIVE');
+  assert.equal(loadApprovedRules(options).rules.length, 1);
+  assert.equal(
+    fs.readFileSync(options.ownerDecisionHistoryPath, 'utf8'),
+    before
+  );
+  assert.equal(warnings.length, 1);
+  assert.doesNotMatch(warnings[0], new RegExp(options.registryPath));
+});
+
+test('proposal preview does not create decision history', () => {
+  const options = temporaryRegistryOptions({
+    recordDecisionHistory: true,
+  });
+  options.ownerDecisionHistoryPath = path.join(
+    path.dirname(options.registryPath),
+    'owner-decision-history.json'
+  );
+
+  const sourceProposal = proposal();
+
+  assert.equal(sourceProposal.status, 'PENDING');
+  assert.equal(fs.existsSync(options.ownerDecisionHistoryPath), false);
 });

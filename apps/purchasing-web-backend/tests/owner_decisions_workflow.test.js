@@ -19,11 +19,17 @@ const {
   OwnerDecisionService,
   ownerDecisionSummary,
 } = require('../application/owner_decision_service');
+const {
+  loadDecisionHistory,
+} = require(
+  '../../../agents/purchasing/owner_learning/owner_decision_history'
+);
 
 const RUN_ID = '12121212-1212-4121-8121-121212121212';
 const ROW_ID = 'smartzapas:fixture:Лист_1:6';
 let temporaryRoot;
 let decisionsPath;
+let decisionHistoryPath;
 let server;
 let baseUrl;
 
@@ -94,6 +100,7 @@ async function startServer() {
     serverPaths: {
       ...DEFAULT_SERVER_PATHS,
       ownerDecisionsPath: decisionsPath,
+      ownerDecisionHistoryPath: decisionHistoryPath,
     },
     now: () => '2026-07-23T10:00:00.000Z',
   });
@@ -218,6 +225,10 @@ before(async () => {
     'purchasing-owner-web-'
   ));
   decisionsPath = path.join(temporaryRoot, 'owner-decisions.json');
+  decisionHistoryPath = path.join(
+    temporaryRoot,
+    'owner-decision-history.json'
+  );
   await startServer();
 });
 
@@ -248,6 +259,16 @@ test('PUT saves BUY in append-only Owner Decisions Memory', async () => {
   assert.equal(store.decisions[0].owner_decision, 'BUY');
   assert.equal(store.decisions[0].owner_order_quantity, 7);
   assert.equal(store.decisions[0].decided_by, 'owner-web-ui');
+  assert.equal(saved.body.data.decisionHistory.status, 'RECORDED');
+  const history = loadDecisionHistory({
+    filePath: decisionHistoryPath,
+  });
+  assert.equal(history.entries.length, 1);
+  assert.equal(history.entries[0].source, 'OWNER_REVIEW');
+  assert.equal(history.entries[0].runId, RUN_ID);
+  assert.equal(history.entries[0].stableItemKey, 'sku:SKU-1');
+  assert.equal(history.entries[0].ownerDecision, 'BUY');
+  assert.equal(history.entries[0].ownerQuantity, 7);
 });
 
 test('latest active decision wins and history remains intact', async () => {
@@ -271,6 +292,79 @@ test('latest active decision wins and history remains intact', async () => {
     JSON.parse(fs.readFileSync(decisionsPath, 'utf8')).decisions.length,
     3
   );
+  assert.equal(loadDecisionHistory({
+    filePath: decisionHistoryPath,
+  }).entries.length, 3);
+});
+
+test('repeated identical Owner Review decision does not duplicate history',
+  async () => {
+    const repeated = await jsonRequest(decisionUrl(), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ decision: 'DEFER', quantity: null }),
+    });
+
+    assert.equal(repeated.response.status, 200);
+    assert.equal(
+      repeated.body.data.decisionHistory.status,
+      'DUPLICATE'
+    );
+    assert.equal(loadDecisionHistory({
+      filePath: decisionHistoryPath,
+    }).entries.length, 3);
+  });
+
+test('history failure does not block Owner Review persistence', () => {
+  const isolatedRoot = fs.mkdtempSync(path.join(
+    os.tmpdir(),
+    'purchasing-owner-history-failure-'
+  ));
+  const isolatedDecisionsPath = path.join(
+    isolatedRoot,
+    'owner-decisions.json'
+  );
+  const corruptedHistoryPath = path.join(
+    isolatedRoot,
+    'owner-decision-history.json'
+  );
+  const warnings = [];
+  fs.writeFileSync(corruptedHistoryPath, '{ damaged history', 'utf8');
+  const before = fs.readFileSync(corruptedHistoryPath, 'utf8');
+  const service = new OwnerDecisionService({
+    registry: new FixtureRegistry(),
+    ownerDecisionsPath: isolatedDecisionsPath,
+    ownerDecisionHistoryPath: corruptedHistoryPath,
+    now: () => '2026-07-23T12:00:00.000Z',
+    logger: {
+      warn(message) { warnings.push(message); },
+      error() {},
+    },
+  });
+
+  try {
+    const saved = service.saveDecision(RUN_ID, ROW_ID, {
+      decision: 'SKIP',
+      quantity: 0,
+    });
+
+    assert.equal(saved.item.owner_decision.decision, 'SKIP');
+    assert.equal(saved.decisionHistory.status, 'UNAVAILABLE');
+    assert.equal(
+      JSON.parse(
+        fs.readFileSync(isolatedDecisionsPath, 'utf8')
+      ).decisions.length,
+      1
+    );
+    assert.equal(fs.readFileSync(corruptedHistoryPath, 'utf8'), before);
+    assert.equal(warnings.length, 1);
+    assert.doesNotMatch(
+      warnings[0],
+      new RegExp(corruptedHistoryPath)
+    );
+  } finally {
+    fs.rmSync(isolatedRoot, { recursive: true, force: true });
+  }
 });
 
 test('decision persists after server restart', async () => {
