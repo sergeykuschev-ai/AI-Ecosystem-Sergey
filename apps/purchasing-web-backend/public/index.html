@@ -541,6 +541,81 @@
         </form>
       </div>
 
+      <div
+        class="candidate-modal"
+        id="rule-materialization-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="rule-materialization-title"
+        hidden
+      >
+        <form class="candidate-modal-panel" id="rule-materialization-form">
+          <div class="section-heading">
+            <div>
+              <p class="step-label">Owner Learning</p>
+              <h2 id="rule-materialization-title">
+                Создать неактивное правило
+              </h2>
+            </div>
+            <button
+              class="candidate-modal-close"
+              id="rule-materialization-close"
+              type="button"
+              aria-label="Закрыть"
+            >×</button>
+          </div>
+          <dl class="candidate-modal-summary">
+            <div>
+              <dt>Товар</dt>
+              <dd id="rule-materialization-candidate">—</dd>
+            </div>
+            <div>
+              <dt>Решение</dt>
+              <dd id="rule-materialization-decision">—</dd>
+            </div>
+            <div>
+              <dt>Confidence</dt>
+              <dd id="rule-materialization-confidence">—</dd>
+            </div>
+            <div>
+              <dt>Priority</dt>
+              <dd id="rule-materialization-priority">—</dd>
+            </div>
+            <div>
+              <dt>Eligibility</dt>
+              <dd id="rule-materialization-eligibility">—</dd>
+            </div>
+          </dl>
+          <p class="candidate-approval-warning">
+            Будет создано неактивное правило. Оно не изменит текущий или
+            будущий заказ, пока не будет отдельно включено владельцем.
+          </p>
+          <label class="candidate-approve-confirmation">
+            <input id="rule-materialization-checkbox" type="checkbox">
+            Я понимаю, что правило создаётся неактивным и пока не
+            применяется.
+          </label>
+          <p
+            class="inline-error"
+            id="rule-materialization-error"
+            role="alert"
+            hidden
+          ></p>
+          <div class="candidate-modal-actions">
+            <button
+              class="secondary-button"
+              id="rule-materialization-cancel"
+              type="button"
+            >Отмена</button>
+            <button
+              class="primary-button"
+              id="rule-materialization-submit"
+              type="submit"
+            >Создать неактивное правило</button>
+          </div>
+        </form>
+      </div>
+
       <section class="results" id="results" aria-labelledby="results-title" hidden>
         <div class="results-heading">
           <div>

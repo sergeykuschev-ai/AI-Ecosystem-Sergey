@@ -30,6 +30,12 @@ const {
   '../../../agents/purchasing/owner_learning/owner_learning_candidate_lifecycle'
 );
 const {
+  findMaterializationByCandidate,
+  loadMaterializationJournal,
+} = require(
+  '../../../agents/purchasing/owner_learning/owner_rule_materialization_journal'
+);
+const {
   mapOwnerLearningCandidate,
 } = require('../dto/owner_learning_candidates_mapper');
 
@@ -97,6 +103,8 @@ class OwnerLearningCandidatesService {
     this.historyFilePath = options.historyFilePath;
     this.lifecycleFilePath =
       options.lifecycleFilePath || null;
+    this.materializationsFilePath =
+      options.materializationsFilePath || null;
     this.logger = options.logger || console;
     this.now = options.now || (() => new Date());
     this.loadHistory = options.loadHistory || loadDecisionHistory;
@@ -114,6 +122,8 @@ class OwnerLearningCandidatesService {
       options.mapCandidate || mapOwnerLearningCandidate;
     this.loadLifecycle =
       options.loadLifecycle || loadCandidateLifecycle;
+    this.loadMaterializations =
+      options.loadMaterializations || loadMaterializationJournal;
   }
 
   lifecycleForCandidates(candidates) {
@@ -168,6 +178,67 @@ class OwnerLearningCandidatesService {
     }
   }
 
+  materializationsForCandidates(candidates) {
+    const notMaterialized = candidate => ({
+      ...candidate,
+      materialization: {
+        status: 'NOT_MATERIALIZED',
+        ruleId: null,
+        ruleStatus: null,
+        materializedAt: null,
+      },
+    });
+    if (!this.materializationsFilePath) {
+      return {
+        candidates: candidates.map(notMaterialized),
+        warning: null,
+      };
+    }
+    try {
+      const journal = this.loadMaterializations({
+        filePath: this.materializationsFilePath,
+      });
+      return {
+        candidates: candidates.map(candidate => {
+          const event = findMaterializationByCandidate(
+            journal,
+            candidate.candidateId
+          );
+          if (!event) return notMaterialized(candidate);
+          return {
+            ...candidate,
+            materialization: {
+              status: 'MATERIALIZED',
+              ruleId: event.ruleId,
+              ruleStatus: event.ruleStatus,
+              materializedAt: event.recordedAt,
+            },
+          };
+        }),
+        warning: null,
+      };
+    } catch {
+      if (typeof this.logger?.warn === 'function') {
+        this.logger.warn(
+          '[RULE_MATERIALIZATION_STORAGE_UNAVAILABLE] ' +
+          'Materialization-контекст кандидатов недоступен.'
+        );
+      }
+      return {
+        candidates: candidates.map(candidate => ({
+          ...notMaterialized(candidate),
+          materialization: {
+            status: 'UNAVAILABLE',
+            ruleId: null,
+            ruleStatus: null,
+            materializedAt: null,
+          },
+        })),
+        warning: 'RULE_MATERIALIZATION_STORAGE_UNAVAILABLE',
+      };
+    }
+  }
+
   getCandidates({
     filters = {},
     analyticsOptions = {},
@@ -215,6 +286,10 @@ class OwnerLearningCandidatesService {
       );
       const lifecycleResult =
         this.lifecycleForCandidates(safeCandidates);
+      const materializationResult =
+        this.materializationsForCandidates(
+          lifecycleResult.candidates
+        );
       return {
         status: 'AVAILABLE',
         generatedAt,
@@ -222,9 +297,10 @@ class OwnerLearningCandidatesService {
           lifecycleResult.candidates,
           analytics
         ),
-        candidates: lifecycleResult.candidates,
+        candidates: materializationResult.candidates,
         warning: null,
         lifecycleWarning: lifecycleResult.warning,
+        materializationWarning: materializationResult.warning,
       };
     } catch {
       if (typeof this.logger?.warn === 'function') {

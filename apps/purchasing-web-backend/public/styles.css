@@ -513,6 +513,17 @@ h2 {
   padding-top: 16px;
 }
 
+.candidate-materialization {
+  margin-top: 16px;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+
+.candidate-materialization-status {
+  color: var(--green-dark);
+  font-weight: 800;
+}
+
 .candidate-lifecycle-status {
   color: var(--muted);
   font-weight: 750;

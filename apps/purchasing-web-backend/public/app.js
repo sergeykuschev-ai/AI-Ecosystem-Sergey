@@ -55,6 +55,8 @@
     '/api/v1/owner-learning/candidates';
   const OWNER_LEARNING_LIFECYCLE_URL =
     '/api/v1/owner-learning/candidate-lifecycle';
+  const OWNER_RULE_MATERIALIZATION_BASE_URL =
+    '/api/v1/owner-learning/candidates';
   const DECISION_LABELS = Object.freeze({
     BUY: 'Купить',
     SKIP: 'Пропустить',
@@ -227,6 +229,20 @@
       'Выберите причину отклонения или переноса.',
     OWNER_LEARNING_LIFECYCLE_CONFIRMATION_REQUIRED:
       'Подтвердите, что правило ещё не создаётся и не применяется.',
+    OWNER_RULE_MATERIALIZATION_CONFIRMATION_REQUIRED:
+      'Подтвердите создание неактивного правила.',
+    OWNER_RULE_MATERIALIZATION_INVALID_INPUT:
+      'Запрос создания правила некорректен.',
+    CANDIDATE_NOT_APPROVED:
+      'Кандидат больше не находится в статусе «Одобрен».',
+    CANDIDATE_NOT_ELIGIBLE:
+      'Кандидат больше не соответствует безопасным требованиям.',
+    CANDIDATE_TYPE_NOT_MATERIALIZABLE:
+      'Для этого типа кандидата создание правила недоступно.',
+    RULE_REGISTRY_UNAVAILABLE:
+      'Реестр правил временно недоступен.',
+    RULE_MATERIALIZATION_STORAGE_UNAVAILABLE:
+      'Состояние создания правил временно недоступно.',
   });
 
   class FrontendError extends Error {
@@ -1263,6 +1279,38 @@
     };
   }
 
+  function shouldShowMaterialize(candidate = {}) {
+    return candidate.lifecycle?.status === 'APPROVED' &&
+      candidate.materialization?.status === 'NOT_MATERIALIZED' &&
+      candidate.eligibility?.status === 'ELIGIBLE' &&
+      candidate.patternType === 'SAME_ITEM_SAME_DECISION' &&
+      candidate.proposedRuleType === 'ITEM_DECISION_OVERRIDE' &&
+      candidate.scopeType === 'ITEM';
+  }
+
+  function buildMaterializationUrl(candidateId) {
+    if (
+      typeof candidateId !== 'string' ||
+      !/^[0-9a-f]{64}$/i.test(candidateId)
+    ) {
+      throw new FrontendError(
+        'OWNER_RULE_MATERIALIZATION_INVALID_INPUT'
+      );
+    }
+    return `${OWNER_RULE_MATERIALIZATION_BASE_URL}/${
+      candidateId
+    }/materialize-rule`;
+  }
+
+  function buildMaterializationPayload(confirmed) {
+    if (confirmed !== true) {
+      throw new FrontendError(
+        'OWNER_RULE_MATERIALIZATION_CONFIRMATION_REQUIRED'
+      );
+    }
+    return { confirmation: true };
+  }
+
   function candidateViewState(result) {
     if (result?.status === 'UNAVAILABLE') return 'unavailable';
     if (
@@ -1366,7 +1414,8 @@
   function createCandidateCard(
     documentObject,
     candidate = {},
-    onLifecycleAction = null
+    onLifecycleAction = null,
+    onMaterialize = null
   ) {
     const card = documentObject.createElement('article');
     card.className = 'candidate-card';
@@ -1519,6 +1568,50 @@
       lifecycle.append(warning);
     }
 
+    const materialization = documentObject.createElement('section');
+    materialization.className = 'candidate-materialization';
+    const materializationHeading = documentObject.createElement('h4');
+    materializationHeading.textContent = 'Неактивное правило';
+    materialization.append(materializationHeading);
+    if (candidate.materialization?.status === 'MATERIALIZED') {
+      const status = documentObject.createElement('p');
+      const decision = documentObject.createElement('p');
+      const date = documentObject.createElement('p');
+      const safety = documentObject.createElement('p');
+      status.className = 'candidate-materialization-status';
+      status.textContent = 'Неактивное правило создано';
+      decision.textContent = 'Решение: ' +
+        decisionLabel(candidate.proposedAction?.decision);
+      date.textContent = 'Дата: ' +
+        formatHistoryDate(candidate.materialization.materializedAt);
+      safety.className = 'candidate-approval-warning';
+      safety.textContent = 'Правило пока не влияет на закупку.';
+      materialization.append(status, decision, date, safety);
+    } else if (
+      candidate.materialization?.status === 'UNAVAILABLE'
+    ) {
+      const unavailable = documentObject.createElement('p');
+      unavailable.textContent =
+        'Состояние создания правил временно недоступно.';
+      materialization.append(unavailable);
+    } else if (shouldShowMaterialize(candidate)) {
+      const button = documentObject.createElement('button');
+      button.type = 'button';
+      button.className = 'primary-button';
+      button.textContent = 'Создать неактивное правило';
+      if (typeof onMaterialize === 'function') {
+        button.addEventListener('click', () =>
+          onMaterialize(candidate)
+        );
+      }
+      materialization.append(button);
+    } else {
+      const unavailable = documentObject.createElement('p');
+      unavailable.textContent =
+        'Создание правила недоступно для текущего состояния.';
+      materialization.append(unavailable);
+    }
+
     card.append(
       heading,
       badges,
@@ -1527,7 +1620,8 @@
       explanation,
       details,
       recommended,
-      lifecycle
+      lifecycle,
+      materialization
     );
     return card;
   }
@@ -1536,14 +1630,16 @@
     documentObject,
     parent,
     candidates,
-    onLifecycleAction = null
+    onLifecycleAction = null,
+    onMaterialize = null
   ) {
     parent.replaceChildren();
     for (const candidate of Array.isArray(candidates) ? candidates : []) {
       parent.append(createCandidateCard(
         documentObject,
         candidate,
-        onLifecycleAction
+        onLifecycleAction,
+        onMaterialize
       ));
     }
   }
@@ -1723,6 +1819,34 @@
         documentObject.getElementById('candidate-approve-checkbox'),
       candidateModalError:
         documentObject.getElementById('candidate-modal-error'),
+      ruleMaterializationModal:
+        documentObject.getElementById('rule-materialization-modal'),
+      ruleMaterializationForm:
+        documentObject.getElementById('rule-materialization-form'),
+      ruleMaterializationClose:
+        documentObject.getElementById('rule-materialization-close'),
+      ruleMaterializationCancel:
+        documentObject.getElementById('rule-materialization-cancel'),
+      ruleMaterializationSubmit:
+        documentObject.getElementById('rule-materialization-submit'),
+      ruleMaterializationCandidate:
+        documentObject.getElementById('rule-materialization-candidate'),
+      ruleMaterializationDecision:
+        documentObject.getElementById('rule-materialization-decision'),
+      ruleMaterializationConfidence:
+        documentObject.getElementById(
+          'rule-materialization-confidence'
+        ),
+      ruleMaterializationPriority:
+        documentObject.getElementById('rule-materialization-priority'),
+      ruleMaterializationEligibility:
+        documentObject.getElementById(
+          'rule-materialization-eligibility'
+        ),
+      ruleMaterializationCheckbox:
+        documentObject.getElementById('rule-materialization-checkbox'),
+      ruleMaterializationError:
+        documentObject.getElementById('rule-materialization-error'),
       candidateSummary: {
         total: documentObject.getElementById('candidate-total'),
         eligible: documentObject.getElementById('candidate-eligible'),
@@ -1773,6 +1897,7 @@
     let candidateRequestSequence = 0;
     let currentCandidates = [];
     let pendingLifecycleChange = null;
+    let pendingMaterializationCandidate = null;
     let searchTimer = null;
     const itemState = {
       baseUrl: null,
@@ -1876,6 +2001,34 @@
       }
     }
 
+    function closeRuleMaterializationModal() {
+      pendingMaterializationCandidate = null;
+      elements.ruleMaterializationModal.hidden = true;
+      elements.ruleMaterializationError.hidden = true;
+      elements.ruleMaterializationError.textContent = '';
+      elements.ruleMaterializationSubmit.disabled = false;
+    }
+
+    function openRuleMaterializationModal(candidate) {
+      pendingMaterializationCandidate = candidate;
+      elements.ruleMaterializationCandidate.textContent =
+        candidate.displayScope?.primary || '—';
+      elements.ruleMaterializationDecision.textContent =
+        decisionLabel(candidate.proposedAction?.decision);
+      elements.ruleMaterializationConfidence.textContent =
+        `${formatQuantity(candidate.confidence?.score)} · ` +
+        confidenceLabel(candidate.confidence?.level);
+      elements.ruleMaterializationPriority.textContent =
+        `${formatQuantity(candidate.ranking?.priorityScore)} · ` +
+        priorityLabel(candidate.ranking?.priorityLevel);
+      elements.ruleMaterializationEligibility.textContent =
+        eligibilityLabel(candidate.eligibility?.status);
+      elements.ruleMaterializationCheckbox.checked = false;
+      elements.ruleMaterializationError.hidden = true;
+      elements.ruleMaterializationError.textContent = '';
+      elements.ruleMaterializationModal.hidden = false;
+    }
+
     function renderCurrentCandidates() {
       const candidates = filterCandidates(
         currentCandidates,
@@ -1885,7 +2038,8 @@
         documentObject,
         elements.candidateList,
         candidates,
-        openCandidateLifecycleModal
+        openCandidateLifecycleModal,
+        openRuleMaterializationModal
       );
       setCandidatePanelState(
         elements,
@@ -1948,6 +2102,54 @@
       }
     }
 
+    async function submitRuleMaterialization(event) {
+      event.preventDefault();
+      if (!pendingMaterializationCandidate) return;
+      elements.ruleMaterializationError.hidden = true;
+      elements.ruleMaterializationSubmit.disabled = true;
+      try {
+        const payload = buildMaterializationPayload(
+          elements.ruleMaterializationCheckbox.checked === true
+        );
+        const result = await requestJson(
+          fetchFunction,
+          buildMaterializationUrl(
+            pendingMaterializationCandidate.candidateId
+          ),
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          }
+        );
+        const candidate = currentCandidates.find(value =>
+          value.candidateId === result.candidate_id
+        );
+        if (candidate) {
+          candidate.materialization = {
+            status: 'MATERIALIZED',
+            ruleId: result.rule?.rule_id || null,
+            ruleStatus: result.rule?.status || null,
+            materializedAt: result.rule?.created_at || null,
+          };
+        }
+        elements.candidateActionStatus.textContent =
+          result.status === 'ALREADY_MATERIALIZED'
+            ? 'Неактивное правило уже было создано ранее.'
+            : 'Неактивное правило создано.';
+        closeRuleMaterializationModal();
+        renderCurrentCandidates();
+      } catch (error) {
+        const code = error instanceof FrontendError
+          ? error.code
+          : 'NETWORK_ERROR';
+        elements.ruleMaterializationError.textContent =
+          lifecycleErrorMessage(code);
+        elements.ruleMaterializationError.hidden = false;
+        elements.ruleMaterializationSubmit.disabled = false;
+      }
+    }
+
     async function loadCandidates() {
       const sequence = ++candidateRequestSequence;
       const filters = candidateFilters();
@@ -1991,7 +2193,8 @@
           documentObject,
           elements.candidateList,
           candidates,
-          openCandidateLifecycleModal
+          openCandidateLifecycleModal,
+          openRuleMaterializationModal
         );
         setCandidatePanelState(elements, 'ready');
       } catch (error) {
@@ -2424,6 +2627,18 @@
       'click',
       closeCandidateLifecycleModal
     );
+    elements.ruleMaterializationForm.addEventListener(
+      'submit',
+      submitRuleMaterialization
+    );
+    elements.ruleMaterializationClose.addEventListener(
+      'click',
+      closeRuleMaterializationModal
+    );
+    elements.ruleMaterializationCancel.addEventListener(
+      'click',
+      closeRuleMaterializationModal
+    );
     elements.exportButton.addEventListener('click', () => {
       setExportOpen(elements.exportMenu.hidden);
     });
@@ -2440,6 +2655,7 @@
         setExportOpen(false);
         elements.exportButton.focus();
         closeCandidateLifecycleModal();
+        closeRuleMaterializationModal();
       }
     });
     for (const button of documentObject.querySelectorAll(
@@ -2490,6 +2706,8 @@
       loadDecisionHistory,
       loadItems,
       openCandidateLifecycleModal,
+      openRuleMaterializationModal,
+      submitRuleMaterialization,
       submitCandidateLifecycle,
       submitRun,
       updateFileSelection,
@@ -2505,6 +2723,8 @@
     buildItemsUrl,
     buildLifecyclePayload,
     buildLifecycleStatusUrl,
+    buildMaterializationPayload,
+    buildMaterializationUrl,
     candidateLifecycleActions,
     candidateViewState,
     confidenceLabel,
@@ -2552,6 +2772,7 @@
     setHistoryPanelState,
     setProductsPanelState,
     summaryView,
+    shouldShowMaterialize,
     reasonLabel,
     technicalExplanation,
   };

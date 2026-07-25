@@ -19,6 +19,12 @@ const OWNER_LEARNING_LIFECYCLE_DETAIL_ROUTE =
   /^\/api\/v1\/owner-learning\/candidate-lifecycle\/([0-9a-f]{64})$/;
 const OWNER_LEARNING_LIFECYCLE_STATUS_ROUTE =
   /^\/api\/v1\/owner-learning\/candidate-lifecycle\/([0-9a-f]{64})\/status$/;
+const OWNER_RULE_MATERIALIZATIONS_ROUTE =
+  '/api/v1/owner-learning/rule-materializations';
+const OWNER_RULE_MATERIALIZATION_DETAIL_ROUTE =
+  /^\/api\/v1\/owner-learning\/rule-materializations\/([0-9a-f]{64})$/;
+const OWNER_RULE_MATERIALIZE_ROUTE =
+  /^\/api\/v1\/owner-learning\/candidates\/([0-9a-f]{64})\/materialize-rule$/;
 const ARTIFACTS_ROUTE =
   /^\/api\/v1\/runs\/([^/]+)\/artifacts$/;
 const ARTIFACT_ROUTE =
@@ -124,6 +130,32 @@ function createRouter(handlers, options = {}) {
           match[1],
           request
         );
+      } else if (
+        request.method === 'GET' &&
+        url.pathname === OWNER_RULE_MATERIALIZATIONS_ROUTE
+      ) {
+        result = handlers.listOwnerRuleMaterializations();
+      } else if (
+        request.method === 'GET' &&
+        url.pathname.match(
+          OWNER_RULE_MATERIALIZATION_DETAIL_ROUTE
+        )
+      ) {
+        const match = url.pathname.match(
+          OWNER_RULE_MATERIALIZATION_DETAIL_ROUTE
+        );
+        result = handlers.getOwnerRuleMaterialization(match[1]);
+      } else if (
+        request.method === 'POST' &&
+        url.pathname.match(OWNER_RULE_MATERIALIZE_ROUTE)
+      ) {
+        const match = url.pathname.match(
+          OWNER_RULE_MATERIALIZE_ROUTE
+        );
+        result = await handlers.materializeOwnerRule(
+          match[1],
+          request
+        );
       } else {
         const statusMatch = request.method === 'GET' &&
           url.pathname.match(RUN_ROUTE);
@@ -213,6 +245,9 @@ module.exports = {
   OWNER_LEARNING_LIFECYCLE_DETAIL_ROUTE,
   OWNER_LEARNING_LIFECYCLE_ROUTE,
   OWNER_LEARNING_LIFECYCLE_STATUS_ROUTE,
+  OWNER_RULE_MATERIALIZATIONS_ROUTE,
+  OWNER_RULE_MATERIALIZATION_DETAIL_ROUTE,
+  OWNER_RULE_MATERIALIZE_ROUTE,
   RUN_ROUTE,
   SUMMARY_ROUTE,
   createRouter,

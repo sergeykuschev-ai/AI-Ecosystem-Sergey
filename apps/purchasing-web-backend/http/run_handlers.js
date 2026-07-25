@@ -35,6 +35,11 @@ const {
   mapLifecycleState,
 } = require('../dto/owner_learning_candidate_lifecycle_mapper');
 const {
+  mapMaterializationEvent,
+  mapMaterializationList,
+  mapMaterializationResult,
+} = require('../dto/owner_rule_materialization_mapper');
+const {
   ACTIONS: LIFECYCLE_ACTIONS,
   MAX_OWNER_COMMENT_LENGTH,
   REASON_CODES: LIFECYCLE_REASON_CODES,
@@ -51,6 +56,7 @@ const {
 
 const MAX_DECISION_BODY_BYTES = 4096;
 const MAX_LIFECYCLE_BODY_BYTES = 4096;
+const MAX_MATERIALIZATION_BODY_BYTES = 1024;
 const LIFECYCLE_TARGET_STATUSES = Object.freeze([
   'UNDER_REVIEW',
   'APPROVED',
@@ -585,6 +591,59 @@ async function readLifecycleBody(request) {
   };
 }
 
+async function readMaterializationBody(request) {
+  const contentType = String(request.headers['content-type'] || '')
+    .split(';')[0]
+    .trim()
+    .toLowerCase();
+  if (contentType !== 'application/json') {
+    throw new HttpError(
+      'OWNER_RULE_MATERIALIZATION_INVALID_INPUT',
+      'Materialization должна быть передана как application/json.'
+    );
+  }
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of request) {
+    size += chunk.length;
+    if (size > MAX_MATERIALIZATION_BODY_BYTES) {
+      throw new HttpError(
+        'OWNER_RULE_MATERIALIZATION_INVALID_INPUT',
+        'Тело materialization превышает допустимый размер.'
+      );
+    }
+    chunks.push(chunk);
+  }
+  let input;
+  try {
+    input = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  } catch (error) {
+    throw new HttpError(
+      'OWNER_RULE_MATERIALIZATION_INVALID_INPUT',
+      'Materialization содержит некорректный JSON.',
+      { cause: error }
+    );
+  }
+  if (
+    !input ||
+    typeof input !== 'object' ||
+    Array.isArray(input) ||
+    Object.keys(input).some(name => name !== 'confirmation')
+  ) {
+    throw new HttpError(
+      'OWNER_RULE_MATERIALIZATION_INVALID_INPUT',
+      'Materialization содержит неподдерживаемые поля.'
+    );
+  }
+  if (input.confirmation !== true) {
+    throw new HttpError(
+      'OWNER_RULE_MATERIALIZATION_CONFIRMATION_REQUIRED',
+      'Необходимо явно подтвердить создание неактивного правила.'
+    );
+  }
+  return { confirmation: true };
+}
+
 function reportDateDependencies(reportDate) {
   if (!reportDate) return {};
   return {
@@ -639,6 +698,7 @@ function createRunHandlers(options) {
     ownerDecisionAnalyticsService,
     ownerLearningCandidatesService,
     ownerLearningCandidateLifecycleService,
+    ownerRuleMaterializationService,
   } = options;
 
   if (
@@ -832,6 +892,37 @@ function createRunHandlers(options) {
       };
     },
 
+    listOwnerRuleMaterializations() {
+      return {
+        statusCode: 200,
+        data: mapMaterializationList(
+          ownerRuleMaterializationService.listMaterializations()
+        ),
+      };
+    },
+
+    getOwnerRuleMaterialization(candidateId) {
+      return {
+        statusCode: 200,
+        data: mapMaterializationEvent(
+          ownerRuleMaterializationService
+            .getMaterializationByCandidate({ candidateId })
+        ),
+      };
+    },
+
+    async materializeOwnerRule(candidateId, request) {
+      await readMaterializationBody(request);
+      const result =
+        ownerRuleMaterializationService.materializeCandidateRule({
+          candidateId,
+        });
+      return {
+        statusCode: result.status === 'CREATED' ? 201 : 200,
+        data: mapMaterializationResult(result),
+      };
+    },
+
     listArtifacts(runId) {
       return {
         statusCode: 200,
@@ -860,10 +951,12 @@ module.exports = {
   MAX_ANALYTICS_ITEMS,
   MAX_DECISION_BODY_BYTES,
   MAX_LIFECYCLE_BODY_BYTES,
+  MAX_MATERIALIZATION_BODY_BYTES,
   createRunHandlers,
   orchestrationHttpError,
   readDecisionBody,
   readLifecycleBody,
+  readMaterializationBody,
   parseOwnerDecisionAnalyticsQuery,
   parseOwnerLearningCandidatesQuery,
   reportDateDependencies,

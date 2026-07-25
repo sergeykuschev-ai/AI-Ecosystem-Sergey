@@ -67,6 +67,121 @@ function validIsoDate(value) {
   );
 }
 
+function optionalMaterializationFields(value) {
+  const hasMaterializationFields = [
+    'scopeType',
+    'scopeKey',
+    'action',
+    'source',
+    'createdAt',
+    'updatedAt',
+    'provenance',
+  ].some(field => value[field] !== undefined);
+  if (!hasMaterializationFields) return {};
+  if (
+    value.source !== 'OWNER_LEARNING_CANDIDATE' ||
+    value.scopeType !== 'ITEM' ||
+    value.scopeKey !== value.stableItemKey ||
+    !validIsoDate(value.createdAt) ||
+    !validIsoDate(value.updatedAt) ||
+    !value.action ||
+    typeof value.action !== 'object' ||
+    Array.isArray(value.action) ||
+    !value.provenance ||
+    typeof value.provenance !== 'object' ||
+    Array.isArray(value.provenance)
+  ) {
+    throw new OwnerRuleRegistryError(
+      'RULE_REGISTRY_INVALID',
+      'Owner Rule Registry: materialization-поля некорректны.'
+    );
+  }
+  const decision = requiredString(
+    value.action.decision,
+    'action.decision'
+  ).toUpperCase();
+  const quantityStrategy = requiredString(
+    value.action.quantityStrategy,
+    'action.quantityStrategy'
+  ).toUpperCase();
+  if (
+    decision !== value.approvedDecision ||
+    !SUPPORTED_DECISIONS.has(decision) ||
+    quantityStrategy !== (
+      decision === 'BUY'
+        ? 'KEEP_AGENT_QUANTITY'
+        : 'NO_QUANTITY_CHANGE'
+    ) ||
+    value.action.quantityValue !== null ||
+    value.status !== 'DISABLED'
+  ) {
+    throw new OwnerRuleRegistryError(
+      'RULE_REGISTRY_INVALID',
+      'Owner Rule Registry: materialized rule небезопасен.'
+    );
+  }
+  const provenance = value.provenance;
+  if (
+    provenance.source !== 'OWNER_LEARNING_CANDIDATE' ||
+    provenance.candidateId === undefined ||
+    provenance.lifecycleEventId === undefined ||
+    provenance.patternType !== 'SAME_ITEM_SAME_DECISION' ||
+    provenance.eligibilityStatus !== 'ELIGIBLE' ||
+    !validIsoDate(provenance.materializedAt) ||
+    !Number.isInteger(provenance.confidenceScore) ||
+    provenance.confidenceScore < 0 ||
+    provenance.confidenceScore > 100 ||
+    !Number.isInteger(provenance.priorityScore) ||
+    provenance.priorityScore < 0 ||
+    provenance.priorityScore > 100
+  ) {
+    throw new OwnerRuleRegistryError(
+      'RULE_REGISTRY_INVALID',
+      'Owner Rule Registry: provenance materialization некорректен.'
+    );
+  }
+  return {
+    scopeType: 'ITEM',
+    scopeKey: value.stableItemKey,
+    action: {
+      decision,
+      quantityStrategy,
+      quantityValue: null,
+    },
+    source: 'OWNER_LEARNING_CANDIDATE',
+    createdAt: value.createdAt,
+    updatedAt: value.updatedAt,
+    provenance: {
+      source: 'OWNER_LEARNING_CANDIDATE',
+      candidateId: requiredString(
+        provenance.candidateId,
+        'provenance.candidateId'
+      ),
+      lifecycleEventId: requiredString(
+        provenance.lifecycleEventId,
+        'provenance.lifecycleEventId'
+      ),
+      patternType: 'SAME_ITEM_SAME_DECISION',
+      confidenceScore: provenance.confidenceScore,
+      confidenceLevel: requiredString(
+        provenance.confidenceLevel,
+        'provenance.confidenceLevel'
+      ),
+      priorityScore: provenance.priorityScore,
+      priorityLevel: requiredString(
+        provenance.priorityLevel,
+        'provenance.priorityLevel'
+      ),
+      eligibilityStatus: 'ELIGIBLE',
+      materializedAt: provenance.materializedAt,
+      materializationVersion: requiredString(
+        provenance.materializationVersion,
+        'provenance.materializationVersion'
+      ),
+    },
+  };
+}
+
 function emptyApprovedRulesRegistry() {
   return {
     schemaVersion: REGISTRY_SCHEMA_VERSION,
@@ -112,7 +227,7 @@ function validateRule(value) {
       'Owner Rule Registry: notes должен быть строкой или null.'
     );
   }
-  return {
+  const base = {
     ruleId: requiredString(value.ruleId, 'ruleId'),
     proposalId: requiredString(value.proposalId, 'proposalId'),
     stableItemKey: requiredString(value.stableItemKey, 'stableItemKey'),
@@ -127,6 +242,15 @@ function validateRule(value) {
       'createdFromVersion'
     ),
     notes,
+  };
+  return {
+    ...base,
+    ...optionalMaterializationFields({
+      ...value,
+      status,
+      approvedDecision,
+      stableItemKey: base.stableItemKey,
+    }),
   };
 }
 
@@ -378,6 +502,25 @@ function findRuleByStableItemKey(registryOrRules, stableItemKey) {
   ) || null;
 }
 
+function findRuleByMaterialization(
+  registryOrRules,
+  { candidateId, materializationId } = {}
+) {
+  const normalizedCandidateId = optionalString(candidateId);
+  const normalizedMaterializationId =
+    optionalString(materializationId);
+  return ruleList(registryOrRules).find(rule =>
+    (
+      normalizedCandidateId &&
+      rule.provenance?.candidateId === normalizedCandidateId
+    ) ||
+    (
+      normalizedMaterializationId &&
+      rule.proposalId === normalizedMaterializationId
+    )
+  ) || null;
+}
+
 function validateProposal(proposal) {
   if (!proposal || typeof proposal !== 'object' || Array.isArray(proposal)) {
     throw new OwnerRuleRegistryError(
@@ -579,6 +722,7 @@ module.exports = {
   emptyApprovedRulesRegistry,
   findRuleByProposalId,
   findRuleByStableItemKey,
+  findRuleByMaterialization,
   loadApprovedRules,
   recordApprovedRuleHistory,
   saveApprovedRules,

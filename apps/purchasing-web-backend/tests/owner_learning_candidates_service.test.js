@@ -22,6 +22,12 @@ const {
   '../../../agents/purchasing/owner_learning/owner_learning_candidate_lifecycle'
 );
 const {
+  MATERIALIZATION_JOURNAL_SCHEMA_VERSION,
+  appendMaterializationEvent,
+} = require(
+  '../../../agents/purchasing/owner_learning/owner_rule_materialization_journal'
+);
+const {
   mapOwnerLearningCandidates,
 } = require('../dto/owner_learning_candidates_mapper');
 
@@ -489,4 +495,94 @@ test('unavailable lifecycle falls back to NEW without hiding candidates', () => 
     value.lifecycle.status === 'NEW'
   ));
   assert.equal(fs.readFileSync(lifecycleFilePath, 'utf8'), '{broken');
+});
+
+test('candidate materialization defaults to NOT_MATERIALIZED', () => {
+  const historyPath = temporaryHistoryPath();
+  const materializationsFilePath = `${historyPath}.materializations`;
+  writeHistory(historyPath, [
+    historyEntry(1),
+    historyEntry(2),
+    historyEntry(3),
+    historyEntry(4),
+  ]);
+  const result = service(historyPath, {
+    materializationsFilePath,
+  }).getCandidates();
+  assert.ok(result.candidates.length > 0);
+  assert.ok(result.candidates.every(value =>
+    value.materialization.status === 'NOT_MATERIALIZED' &&
+    value.materialization.ruleId === null
+  ));
+});
+
+test('candidate materialization overlays journal state', () => {
+  const historyPath = temporaryHistoryPath();
+  const materializationsFilePath = `${historyPath}.materializations`;
+  writeHistory(historyPath, [
+    historyEntry(1),
+    historyEntry(2),
+    historyEntry(3),
+    historyEntry(4),
+  ]);
+  const initial = service(historyPath, {
+    materializationsFilePath,
+  }).getCandidates();
+  const source = initial.candidates[0];
+  appendMaterializationEvent({
+    filePath: materializationsFilePath,
+    event: {
+      schemaVersion: MATERIALIZATION_JOURNAL_SCHEMA_VERSION,
+      materializationId: 'materialization-a',
+      recordedAt: AS_OF,
+      candidateId: source.candidateId,
+      lifecycleEventId: 'lifecycle-a',
+      ruleId: 'approved-rule-a',
+      resultStatus: 'CREATED',
+      ruleStatus: 'DISABLED',
+      fingerprint: 'fingerprint-a',
+      snapshot: {
+        patternType: source.patternType,
+        proposedRuleType: source.proposedRuleType,
+        proposedDecision: source.proposedAction.decision,
+        confidenceScore: source.confidence.score,
+        confidenceLevel: source.confidence.level,
+        priorityScore: source.ranking.priorityScore,
+        priorityLevel: source.ranking.priorityLevel,
+      },
+      metadata: {},
+    },
+  });
+  const result = service(historyPath, {
+    materializationsFilePath,
+  }).getCandidates();
+  assert.deepEqual(result.candidates[0].materialization, {
+    status: 'MATERIALIZED',
+    ruleId: 'approved-rule-a',
+    ruleStatus: 'DISABLED',
+    materializedAt: AS_OF,
+  });
+});
+
+test('unavailable materialization overlay does not hide candidates', () => {
+  const historyPath = temporaryHistoryPath();
+  const materializationsFilePath = `${historyPath}.materializations`;
+  writeHistory(historyPath, [
+    historyEntry(1),
+    historyEntry(2),
+    historyEntry(3),
+    historyEntry(4),
+  ]);
+  fs.writeFileSync(materializationsFilePath, '{broken', 'utf8');
+  const result = service(historyPath, {
+    materializationsFilePath,
+  }).getCandidates();
+  assert.equal(result.status, 'AVAILABLE');
+  assert.equal(
+    result.materializationWarning,
+    'RULE_MATERIALIZATION_STORAGE_UNAVAILABLE'
+  );
+  assert.ok(result.candidates.every(value =>
+    value.materialization.status === 'UNAVAILABLE'
+  ));
 });

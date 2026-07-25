@@ -105,6 +105,7 @@ function mapOwnerLearningCandidate(
 ) {
   return {
     candidateId: nullableText(candidate.candidateId),
+    scopeKey: nullableText(candidate.scopeKey),
     patternType: nullableText(candidate.patternType),
     scopeType: nullableText(candidate.scopeType),
     displayScope: displayScope(candidate, analytics),
@@ -230,6 +231,16 @@ function mapCandidateDto(candidate = {}) {
     },
     explanation: mapExplanation(candidate.explanation),
     lifecycle: mapLifecycle(candidate.lifecycle),
+    materialization: {
+      status:
+        nullableText(candidate.materialization?.status) ||
+        'NOT_MATERIALIZED',
+      ruleId: nullableText(candidate.materialization?.ruleId),
+      ruleStatus:
+        nullableText(candidate.materialization?.ruleStatus),
+      materializedAt:
+        nullableText(candidate.materialization?.materializedAt),
+    },
   };
 }
 
@@ -249,6 +260,12 @@ function mapOwnerLearningCandidates(result = {}) {
   const lifecycleWarning = nullableText(result.lifecycleWarning);
   if (lifecycleWarning) {
     mapped.lifecycle_warning = lifecycleWarning;
+  }
+  const materializationWarning = nullableText(
+    result.materializationWarning
+  );
+  if (materializationWarning) {
+    mapped.materialization_warning = materializationWarning;
   }
   return mapped;
 }

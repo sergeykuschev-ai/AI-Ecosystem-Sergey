@@ -15,6 +15,8 @@ const {
   buildCandidatesUrl,
   buildLifecyclePayload,
   buildLifecycleStatusUrl,
+  buildMaterializationPayload,
+  buildMaterializationUrl,
   buildItemsUrl,
   buildDecisionUrl,
   candidateViewState,
@@ -51,6 +53,7 @@ const {
   setHistoryPanelState,
   setCandidatePanelState,
   setProductsPanelState,
+  shouldShowMaterialize,
   summaryView,
   technicalExplanation,
   reasonLabel,
@@ -1489,4 +1492,129 @@ test('lifecycle frontend exposes safe retry messages for API failures', () => {
     /временно недоступны/i
   );
   assert.match(lifecycleErrorMessage('NETWORK_ERROR'), /Нет связи/);
+});
+
+test('materialization modal contains confirmation and safety wording', async () => {
+  const response = await fetch(`${baseUrl}/`);
+  const body = await response.text();
+  for (const id of [
+    'rule-materialization-modal',
+    'rule-materialization-form',
+    'rule-materialization-checkbox',
+    'rule-materialization-submit',
+    'rule-materialization-error',
+  ]) {
+    assert.match(body, new RegExp(`id="${id}"`));
+  }
+  assert.match(
+    body,
+    /Будет создано неактивное правило\. Оно не изменит текущий или\s+будущий заказ/
+  );
+  assert.match(
+    body,
+    /Я понимаю, что правило создаётся неактивным и пока не\s+применяется\./
+  );
+});
+
+test('materialize button is limited to approved eligible item candidate', () => {
+  const eligible = candidateFixture({
+    candidateId: 'a'.repeat(64),
+    proposedRuleType: 'ITEM_DECISION_OVERRIDE',
+    lifecycle: { status: 'APPROVED' },
+    materialization: { status: 'NOT_MATERIALIZED' },
+  });
+  assert.equal(shouldShowMaterialize(eligible), true);
+  for (const status of [
+    'NEW',
+    'UNDER_REVIEW',
+    'REJECTED',
+    'POSTPONED',
+  ]) {
+    assert.equal(shouldShowMaterialize({
+      ...eligible,
+      lifecycle: { status },
+    }), false);
+  }
+  assert.equal(shouldShowMaterialize({
+    ...eligible,
+    eligibility: { status: 'REVIEW_ONLY' },
+  }), false);
+  assert.equal(shouldShowMaterialize({
+    ...eligible,
+    materialization: { status: 'MATERIALIZED' },
+  }), false);
+});
+
+test('materialization sends confirmation only and requires checkbox', () => {
+  assert.throws(
+    () => buildMaterializationPayload(false),
+    error =>
+      error.code ===
+        'OWNER_RULE_MATERIALIZATION_CONFIRMATION_REQUIRED'
+  );
+  assert.deepEqual(buildMaterializationPayload(true), {
+    confirmation: true,
+  });
+  assert.equal(
+    buildMaterializationUrl('a'.repeat(64)),
+    `/api/v1/owner-learning/candidates/${
+      'a'.repeat(64)
+    }/materialize-rule`
+  );
+  assert.throws(() => buildMaterializationUrl('../private'));
+});
+
+test('candidate card shows materialization create and success states safely', () => {
+  const base = candidateFixture({
+    candidateId: 'a'.repeat(64),
+    proposedRuleType: 'ITEM_DECISION_OVERRIDE',
+    lifecycle: { status: 'APPROVED' },
+    materialization: { status: 'NOT_MATERIALIZED' },
+  });
+  const available = descendantText(
+    createCandidateCard(fakeDocument(), base)
+  );
+  assert.match(available, /Создать неактивное правило/);
+  const created = descendantText(createCandidateCard(
+    fakeDocument(),
+    {
+      ...base,
+      displayScope: {
+        primary: '<img src=x onerror=alert(1)>',
+        secondary: null,
+      },
+      materialization: {
+        status: 'MATERIALIZED',
+        ruleStatus: 'DISABLED',
+        materializedAt: '2026-07-25T04:00:00.000Z',
+      },
+    }
+  ));
+  assert.match(created, /Неактивное правило создано/);
+  assert.match(created, /Правило пока не влияет на закупку\./);
+  assert.match(created, /<img src=x onerror=alert\(1\)>/);
+  assert.doesNotMatch(
+    created,
+    /Активировать|Включить|Применить|Изменить заказ|Удалить правило/
+  );
+});
+
+test('materialization unavailable and API failures have retry-safe text', () => {
+  const visible = descendantText(createCandidateCard(
+    fakeDocument(),
+    candidateFixture({
+      materialization: { status: 'UNAVAILABLE' },
+    })
+  ));
+  assert.match(visible, /временно недоступно/i);
+  assert.match(
+    lifecycleErrorMessage('RULE_REGISTRY_UNAVAILABLE'),
+    /временно недоступен/i
+  );
+  assert.match(
+    lifecycleErrorMessage(
+      'RULE_MATERIALIZATION_STORAGE_UNAVAILABLE'
+    ),
+    /временно недоступно/i
+  );
 });

@@ -29,6 +29,9 @@ const {
   './application/owner_learning_candidate_lifecycle_service'
 );
 const {
+  OwnerRuleMaterializationService,
+} = require('./application/owner_rule_materialization_service');
+const {
   FileRunRegistry,
 } = require('./storage/file_run_registry');
 const { createRouter } = require('./http/router');
@@ -90,6 +93,13 @@ function createPurchasingWebServer(options = {}) {
     options.ownerLearningCandidateLifecycleFilePath ||
     serverPaths.ownerLearningCandidateLifecycleFilePath ||
     DEFAULT_SERVER_PATHS.ownerLearningCandidateLifecycleFilePath;
+  const materializationsFilePath =
+    options.ownerLearningRuleMaterializationsFilePath ||
+    serverPaths.ownerLearningRuleMaterializationsFilePath ||
+    DEFAULT_SERVER_PATHS.ownerLearningRuleMaterializationsFilePath;
+  const approvedRulesPath = options.approvedRulesPath ||
+    serverPaths.approvedRulesPath ||
+    DEFAULT_SERVER_PATHS.approvedRulesPath;
   const registry = options.registry || new FileRunRegistry({
     runsRoot: options.runsRoot || DEFAULT_RUNS_ROOT,
     ownerLearningHistoryPath: options.ownerLearningHistoryPath || (
@@ -97,8 +107,7 @@ function createPurchasingWebServer(options = {}) {
         ? undefined
         : serverPaths.ownerLearningHistoryPath
     ),
-    approvedRulesPath: options.approvedRulesPath ||
-      serverPaths.approvedRulesPath,
+    approvedRulesPath,
     logger: options.logger,
   });
   const ownerDecisionService = options.ownerDecisionService ||
@@ -128,6 +137,7 @@ function createPurchasingWebServer(options = {}) {
       historyFilePath: options.ownerDecisionHistoryFilePath ||
         serverPaths.ownerDecisionHistoryPath,
       lifecycleFilePath,
+      materializationsFilePath,
       logger: options.logger,
       now: options.now,
     });
@@ -136,6 +146,16 @@ function createPurchasingWebServer(options = {}) {
     new OwnerLearningCandidateLifecycleService({
       lifecycleFilePath,
       candidatesService: ownerLearningCandidatesService,
+      logger: options.logger,
+      now: options.now,
+    });
+  const ownerRuleMaterializationService =
+    options.ownerRuleMaterializationService ||
+    new OwnerRuleMaterializationService({
+      candidatesService: ownerLearningCandidatesService,
+      lifecycleService: ownerLearningCandidateLifecycleService,
+      materializationsFilePath,
+      registryPath: approvedRulesPath,
       logger: options.logger,
       now: options.now,
     });
@@ -152,6 +172,7 @@ function createPurchasingWebServer(options = {}) {
     ownerDecisionAnalyticsService,
     ownerLearningCandidatesService,
     ownerLearningCandidateLifecycleService,
+    ownerRuleMaterializationService,
   });
   const staticHandler = options.staticHandler || createStaticHandler({
     publicRoot: options.publicRoot,
