@@ -32,6 +32,9 @@ const {
   OwnerRuleMaterializationService,
 } = require('./application/owner_rule_materialization_service');
 const {
+  OwnerMaterializedRulesService,
+} = require('./application/owner_materialized_rules_service');
+const {
   FileRunRegistry,
 } = require('./storage/file_run_registry');
 const { createRouter } = require('./http/router');
@@ -159,6 +162,16 @@ function createPurchasingWebServer(options = {}) {
       logger: options.logger,
       now: options.now,
     });
+  const ownerMaterializedRulesService =
+    options.ownerMaterializedRulesService ||
+    new OwnerMaterializedRulesService({
+      approvedRulesFilePath: approvedRulesPath,
+      materializationsFilePath,
+      candidateLifecycleFilePath: lifecycleFilePath,
+      candidatesService: ownerLearningCandidatesService,
+      logger: options.logger,
+      now: options.now,
+    });
   const handlers = options.handlers || createRunHandlers({
     registry,
     queryService,
@@ -173,6 +186,7 @@ function createPurchasingWebServer(options = {}) {
     ownerLearningCandidatesService,
     ownerLearningCandidateLifecycleService,
     ownerRuleMaterializationService,
+    ownerMaterializedRulesService,
   });
   const staticHandler = options.staticHandler || createStaticHandler({
     publicRoot: options.publicRoot,

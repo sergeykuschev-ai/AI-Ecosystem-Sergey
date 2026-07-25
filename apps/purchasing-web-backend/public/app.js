@@ -57,6 +57,8 @@
     '/api/v1/owner-learning/candidate-lifecycle';
   const OWNER_RULE_MATERIALIZATION_BASE_URL =
     '/api/v1/owner-learning/candidates';
+  const OWNER_MATERIALIZED_RULES_URL =
+    '/api/v1/owner-learning/materialized-rules';
   const DECISION_LABELS = Object.freeze({
     BUY: 'Купить',
     SKIP: 'Пропустить',
@@ -233,6 +235,8 @@
       'Подтвердите создание неактивного правила.',
     OWNER_RULE_MATERIALIZATION_INVALID_INPUT:
       'Запрос создания правила некорректен.',
+    OWNER_MATERIALIZED_RULES_INVALID_INPUT:
+      'Проверьте выбранные фильтры и повторите запрос.',
     CANDIDATE_NOT_APPROVED:
       'Кандидат больше не находится в статусе «Одобрен».',
     CANDIDATE_NOT_ELIGIBLE:
@@ -1658,6 +1662,263 @@
     }
   }
 
+  function buildMaterializedRulesUrl(filters = {}) {
+    const parameters = new URLSearchParams();
+    for (const name of [
+      'status',
+      'decision',
+      'confidenceLevel',
+      'priorityLevel',
+      'lifecycleStatus',
+      'candidateAvailability',
+      'dateFrom',
+      'dateTo',
+      'search',
+    ]) {
+      const value = typeof filters[name] === 'string'
+        ? filters[name].trim()
+        : '';
+      if (value) parameters.set(name, value);
+    }
+    parameters.set('sortBy', 'materializedAt');
+    parameters.set('sortDirection', 'desc');
+    parameters.set('limit', '100');
+    return `${OWNER_MATERIALIZED_RULES_URL}?${parameters.toString()}`;
+  }
+
+  function hasMaterializedRuleFilters(filters = {}) {
+    return [
+      'status',
+      'decision',
+      'confidenceLevel',
+      'priorityLevel',
+      'lifecycleStatus',
+      'candidateAvailability',
+      'dateFrom',
+      'dateTo',
+      'search',
+    ].some(name =>
+      typeof filters[name] === 'string' &&
+      filters[name].trim() !== ''
+    );
+  }
+
+  function materializedRulesViewState(result, filters = {}) {
+    if (result?.status === 'UNAVAILABLE') return 'unavailable';
+    if (
+      result?.status !== 'AVAILABLE' ||
+      !result.summary ||
+      !Array.isArray(result.rules)
+    ) {
+      return 'invalid';
+    }
+    if (result.rules.length === 0) {
+      return hasMaterializedRuleFilters(filters)
+        ? 'no-results'
+        : 'empty';
+    }
+    return 'ready';
+  }
+
+  function setMaterializedRulesPanelState(elements, state) {
+    elements.materializedRulesLoading.hidden = state !== 'loading';
+    elements.materializedRulesEmpty.hidden = state !== 'empty';
+    elements.materializedRulesNoResults.hidden =
+      state !== 'no-results';
+    elements.materializedRulesUnavailable.hidden =
+      state !== 'unavailable';
+    elements.materializedRulesInvalid.hidden = state !== 'invalid';
+    elements.materializedRulesNetwork.hidden = state !== 'network';
+    elements.materializedRulesContent.hidden = state !== 'ready';
+  }
+
+  function resetMaterializedRulesFilters(elements) {
+    for (const element of [
+      elements.materializedRulesStatus,
+      elements.materializedRulesDecision,
+      elements.materializedRulesConfidence,
+      elements.materializedRulesPriority,
+      elements.materializedRulesLifecycle,
+      elements.materializedRulesAvailability,
+      elements.materializedRulesDateFrom,
+      elements.materializedRulesDateTo,
+      elements.materializedRulesSearch,
+    ]) {
+      element.value = '';
+    }
+  }
+
+  function materializedRuleStatusLabel(status) {
+    return status === 'ACTIVE' ? 'Активно' :
+      status === 'DISABLED' ? 'Неактивно' : '—';
+  }
+
+  function materializedRuleSafetyLabel(rule = {}) {
+    return rule.safety?.affectsPurchasing === true
+      ? 'Может влиять на закупку'
+      : 'Не влияет на закупку';
+  }
+
+  function candidateAvailabilityLabel(status) {
+    return status === 'AVAILABLE' ? 'Доступен' :
+      status === 'UNAVAILABLE' ? 'Недоступен' : '—';
+  }
+
+  function renderMaterializedRulesSummary(elements, summary = {}) {
+    const values = {
+      total: summary.totalRules,
+      active: summary.activeRules,
+      disabled: summary.disabledRules,
+      buy: summary.buyRules,
+      skip: summary.skipRules,
+      defer: summary.deferRules,
+    };
+    for (const [name, value] of Object.entries(values)) {
+      elements.materializedRulesSummary[name].textContent =
+        displayCount(value);
+    }
+  }
+
+  function createMaterializedRuleCard(
+    documentObject,
+    rule = {},
+    onDetail = null
+  ) {
+    const card = documentObject.createElement('article');
+    card.className = 'materialized-rule-card';
+    const heading = documentObject.createElement('header');
+    const scope = documentObject.createElement('div');
+    const name = documentObject.createElement('h3');
+    const sku = documentObject.createElement('p');
+    const detailButton = documentObject.createElement('button');
+    name.textContent = rule.displayScope?.primary || '—';
+    sku.textContent = rule.displayScope?.secondary || '—';
+    detailButton.type = 'button';
+    detailButton.className = 'secondary-button';
+    detailButton.textContent = 'Подробнее';
+    if (typeof onDetail === 'function') {
+      detailButton.addEventListener('click', () => onDetail(rule));
+    }
+    scope.append(name, sku);
+    heading.append(scope, detailButton);
+
+    const badges = documentObject.createElement('div');
+    badges.className = 'materialized-rule-badges';
+    for (const [text, className] of [
+      [
+        materializedRuleStatusLabel(rule.status),
+        rule.status === 'ACTIVE' ? 'rule-active' : 'rule-disabled',
+      ],
+      [decisionLabel(rule.action?.decision), 'rule-decision'],
+      [
+        `Confidence: ${formatQuantity(
+          rule.provenance?.confidenceScore
+        )} · ${confidenceLabel(rule.provenance?.confidenceLevel)}`,
+        'rule-confidence',
+      ],
+      [
+        `Priority: ${formatQuantity(
+          rule.provenance?.priorityScore
+        )} · ${priorityLabel(rule.provenance?.priorityLevel)}`,
+        'rule-priority',
+      ],
+    ]) {
+      const badge = documentObject.createElement('span');
+      badge.className = `materialized-rule-badge ${className}`;
+      badge.textContent = text;
+      badges.append(badge);
+    }
+
+    const facts = documentObject.createElement('dl');
+    facts.className = 'materialized-rule-facts';
+    for (const [label, value] of [
+      [
+        'Lifecycle',
+        rule.lifecycle?.status
+          ? lifecycleStatusLabel(rule.lifecycle.status)
+          : '—',
+      ],
+      [
+        'Текущий кандидат',
+        candidateAvailabilityLabel(
+          rule.candidateAvailability?.status
+        ),
+      ],
+      [
+        'Материализовано',
+        formatHistoryDate(rule.provenance?.materializedAt),
+      ],
+      [
+        'Обновлено',
+        formatHistoryDate(rule.timestamps?.updatedAt),
+      ],
+      ['Источник', rule.source?.label || '—'],
+    ]) {
+      appendCandidateFact(documentObject, facts, label, value);
+    }
+
+    const safety = documentObject.createElement('p');
+    safety.className = 'materialized-rule-safety';
+    safety.textContent = materializedRuleSafetyLabel(rule);
+    card.append(heading, badges, facts, safety);
+
+    if (rule.candidateAvailability?.status === 'UNAVAILABLE') {
+      const unavailable = documentObject.createElement('p');
+      unavailable.className =
+        'materialized-rule-candidate-unavailable';
+      unavailable.textContent =
+        'Текущий кандидат больше не формируется, но созданное правило ' +
+        'сохранено.';
+      card.append(unavailable);
+    }
+    return card;
+  }
+
+  function renderMaterializedRuleCards(
+    documentObject,
+    parent,
+    rules,
+    onDetail = null
+  ) {
+    parent.replaceChildren();
+    for (const rule of Array.isArray(rules) ? rules : []) {
+      parent.append(createMaterializedRuleCard(
+        documentObject,
+        rule,
+        onDetail
+      ));
+    }
+  }
+
+  function renderMaterializedRuleDetail(elements, rule = {}) {
+    const values = {
+      name: rule.displayScope?.primary,
+      sku: rule.displayScope?.secondary,
+      decision: decisionLabel(rule.action?.decision),
+      quantity: rule.action?.quantityStrategy,
+      status: materializedRuleStatusLabel(rule.status),
+      source: rule.source?.label,
+      confidence:
+        `${formatQuantity(rule.provenance?.confidenceScore)} · ` +
+        confidenceLabel(rule.provenance?.confidenceLevel),
+      priority:
+        `${formatQuantity(rule.provenance?.priorityScore)} · ` +
+        priorityLabel(rule.provenance?.priorityLevel),
+      eligibility: rule.provenance?.eligibilityStatus,
+      lifecycle: rule.lifecycle?.status
+        ? lifecycleStatusLabel(rule.lifecycle.status)
+        : null,
+      created: formatHistoryDate(rule.timestamps?.createdAt),
+      updated: formatHistoryDate(rule.timestamps?.updatedAt),
+    };
+    for (const [name, value] of Object.entries(values)) {
+      elements.materializedRuleDetail[name].textContent =
+        value || '—';
+    }
+    elements.materializedRuleDetail.safety.textContent =
+      rule.safety?.message || '—';
+  }
+
   async function pollRunStatus(options) {
     const {
       fetchFunction,
@@ -1861,6 +2122,134 @@
             'candidate-critical-priority'
           ),
       },
+      materializedRulesForm:
+        documentObject.getElementById('materialized-rules-filters'),
+      materializedRulesStatus:
+        documentObject.getElementById('materialized-rules-status'),
+      materializedRulesDecision:
+        documentObject.getElementById('materialized-rules-decision'),
+      materializedRulesConfidence:
+        documentObject.getElementById(
+          'materialized-rules-confidence'
+        ),
+      materializedRulesPriority:
+        documentObject.getElementById('materialized-rules-priority'),
+      materializedRulesLifecycle:
+        documentObject.getElementById('materialized-rules-lifecycle'),
+      materializedRulesAvailability:
+        documentObject.getElementById(
+          'materialized-rules-availability'
+        ),
+      materializedRulesDateFrom:
+        documentObject.getElementById('materialized-rules-date-from'),
+      materializedRulesDateTo:
+        documentObject.getElementById('materialized-rules-date-to'),
+      materializedRulesSearch:
+        documentObject.getElementById('materialized-rules-search'),
+      materializedRulesReset:
+        documentObject.getElementById('materialized-rules-reset'),
+      materializedRulesLoading:
+        documentObject.getElementById('materialized-rules-loading'),
+      materializedRulesEmpty:
+        documentObject.getElementById('materialized-rules-empty'),
+      materializedRulesNoResults:
+        documentObject.getElementById(
+          'materialized-rules-no-results'
+        ),
+      materializedRulesUnavailable:
+        documentObject.getElementById(
+          'materialized-rules-unavailable'
+        ),
+      materializedRulesInvalid:
+        documentObject.getElementById('materialized-rules-invalid'),
+      materializedRulesNetwork:
+        documentObject.getElementById('materialized-rules-network'),
+      materializedRulesContent:
+        documentObject.getElementById('materialized-rules-content'),
+      materializedRulesContextWarning:
+        documentObject.getElementById(
+          'materialized-rules-context-warning'
+        ),
+      materializedRulesList:
+        documentObject.getElementById('materialized-rules-list'),
+      materializedRulesSummary: {
+        total:
+          documentObject.getElementById('materialized-rules-total'),
+        active:
+          documentObject.getElementById('materialized-rules-active'),
+        disabled:
+          documentObject.getElementById('materialized-rules-disabled'),
+        buy: documentObject.getElementById('materialized-rules-buy'),
+        skip: documentObject.getElementById('materialized-rules-skip'),
+        defer:
+          documentObject.getElementById('materialized-rules-defer'),
+      },
+      materializedRuleDetailModal:
+        documentObject.getElementById(
+          'materialized-rule-detail-modal'
+        ),
+      materializedRuleDetailClose:
+        documentObject.getElementById(
+          'materialized-rule-detail-close'
+        ),
+      materializedRuleDetailDone:
+        documentObject.getElementById(
+          'materialized-rule-detail-done'
+        ),
+      materializedRuleDetail: {
+        name:
+          documentObject.getElementById(
+            'materialized-rule-detail-name'
+          ),
+        sku:
+          documentObject.getElementById(
+            'materialized-rule-detail-sku'
+          ),
+        decision:
+          documentObject.getElementById(
+            'materialized-rule-detail-decision'
+          ),
+        quantity:
+          documentObject.getElementById(
+            'materialized-rule-detail-quantity'
+          ),
+        status:
+          documentObject.getElementById(
+            'materialized-rule-detail-status'
+          ),
+        source:
+          documentObject.getElementById(
+            'materialized-rule-detail-source'
+          ),
+        confidence:
+          documentObject.getElementById(
+            'materialized-rule-detail-confidence'
+          ),
+        priority:
+          documentObject.getElementById(
+            'materialized-rule-detail-priority'
+          ),
+        eligibility:
+          documentObject.getElementById(
+            'materialized-rule-detail-eligibility'
+          ),
+        lifecycle:
+          documentObject.getElementById(
+            'materialized-rule-detail-lifecycle'
+          ),
+        created:
+          documentObject.getElementById(
+            'materialized-rule-detail-created'
+          ),
+        updated:
+          documentObject.getElementById(
+            'materialized-rule-detail-updated'
+          ),
+        safety:
+          documentObject.getElementById(
+            'materialized-rule-detail-safety'
+          ),
+      },
       decisionCounters: {
         all: documentObject.getElementById('decision-all'),
         needsDecision: documentObject.getElementById('decision-needs'),
@@ -1895,6 +2284,7 @@
     let itemRequestSequence = 0;
     let historyRequestSequence = 0;
     let candidateRequestSequence = 0;
+    let materializedRulesRequestSequence = 0;
     let currentCandidates = [];
     let pendingLifecycleChange = null;
     let pendingMaterializationCandidate = null;
@@ -2206,6 +2596,96 @@
               'OWNER_LEARNING_CANDIDATES_INVALID_INPUT'
             ? 'invalid'
             : 'unavailable'
+        );
+      }
+    }
+
+    function materializedRulesFilters() {
+      return {
+        status: elements.materializedRulesStatus.value,
+        decision: elements.materializedRulesDecision.value,
+        confidenceLevel:
+          elements.materializedRulesConfidence.value,
+        priorityLevel: elements.materializedRulesPriority.value,
+        lifecycleStatus:
+          elements.materializedRulesLifecycle.value,
+        candidateAvailability:
+          elements.materializedRulesAvailability.value,
+        dateFrom: elements.materializedRulesDateFrom.value,
+        dateTo: elements.materializedRulesDateTo.value,
+        search: elements.materializedRulesSearch.value,
+      };
+    }
+
+    function closeMaterializedRuleDetail() {
+      elements.materializedRuleDetailModal.hidden = true;
+    }
+
+    function openMaterializedRuleDetail(rule) {
+      renderMaterializedRuleDetail(elements, rule);
+      elements.materializedRuleDetailModal.hidden = false;
+    }
+
+    function materializedRulesWarningText(result) {
+      if (
+        result?.warning ===
+        'OWNER_RULE_MATERIALIZATION_HISTORY_UNAVAILABLE'
+      ) {
+        return 'История создания правил временно недоступна. ' +
+          'Текущее состояние правил показано из реестра.';
+      }
+      if (
+        result?.warning ===
+          'OWNER_MATERIALIZED_RULES_CANDIDATE_CONTEXT_UNAVAILABLE' ||
+        result?.warning ===
+          'OWNER_MATERIALIZED_RULES_LIFECYCLE_CONTEXT_UNAVAILABLE'
+      ) {
+        return 'Текущий контекст кандидатов временно недоступен. ' +
+          'Созданные правила продолжают отображаться.';
+      }
+      return '';
+    }
+
+    async function loadMaterializedRules() {
+      const sequence = ++materializedRulesRequestSequence;
+      const filters = materializedRulesFilters();
+      setMaterializedRulesPanelState(elements, 'loading');
+      try {
+        const result = await requestJson(
+          fetchFunction,
+          buildMaterializedRulesUrl(filters)
+        );
+        if (sequence !== materializedRulesRequestSequence) return;
+        const state = materializedRulesViewState(result, filters);
+        if (state !== 'ready') {
+          renderMaterializedRuleCards(
+            documentObject,
+            elements.materializedRulesList,
+            []
+          );
+          setMaterializedRulesPanelState(elements, state);
+          return;
+        }
+        renderMaterializedRulesSummary(elements, result.summary);
+        renderMaterializedRuleCards(
+          documentObject,
+          elements.materializedRulesList,
+          result.rules,
+          openMaterializedRuleDetail
+        );
+        const warning = materializedRulesWarningText(result);
+        elements.materializedRulesContextWarning.textContent = warning;
+        elements.materializedRulesContextWarning.hidden = !warning;
+        setMaterializedRulesPanelState(elements, 'ready');
+      } catch (error) {
+        if (sequence !== materializedRulesRequestSequence) return;
+        setMaterializedRulesPanelState(
+          elements,
+          error instanceof FrontendError &&
+            error.code ===
+              'OWNER_MATERIALIZED_RULES_INVALID_INPUT'
+            ? 'invalid'
+            : 'network'
         );
       }
     }
@@ -2615,6 +3095,22 @@
       resetCandidateFilters(elements);
       loadCandidates();
     });
+    elements.materializedRulesForm.addEventListener('submit', event => {
+      event.preventDefault();
+      loadMaterializedRules();
+    });
+    elements.materializedRulesReset.addEventListener('click', () => {
+      resetMaterializedRulesFilters(elements);
+      loadMaterializedRules();
+    });
+    elements.materializedRuleDetailClose.addEventListener(
+      'click',
+      closeMaterializedRuleDetail
+    );
+    elements.materializedRuleDetailDone.addEventListener(
+      'click',
+      closeMaterializedRuleDetail
+    );
     elements.candidateLifecycleForm.addEventListener(
       'submit',
       submitCandidateLifecycle
@@ -2656,6 +3152,7 @@
         elements.exportButton.focus();
         closeCandidateLifecycleModal();
         closeRuleMaterializationModal();
+        closeMaterializedRuleDetail();
       }
     });
     for (const button of documentObject.querySelectorAll(
@@ -2700,12 +3197,15 @@
     resetItems();
     loadDecisionHistory();
     loadCandidates();
+    loadMaterializedRules();
     return {
       activateItems,
       loadCandidates,
       loadDecisionHistory,
+      loadMaterializedRules,
       loadItems,
       openCandidateLifecycleModal,
+      openMaterializedRuleDetail,
       openRuleMaterializationModal,
       submitRuleMaterialization,
       submitCandidateLifecycle,
@@ -2723,12 +3223,14 @@
     buildItemsUrl,
     buildLifecyclePayload,
     buildLifecycleStatusUrl,
+    buildMaterializedRulesUrl,
     buildMaterializationPayload,
     buildMaterializationUrl,
     candidateLifecycleActions,
     candidateViewState,
     confidenceLabel,
     createCandidateCard,
+    createMaterializedRuleCard,
     createItemRow,
     createItemRows,
     createApplication,
@@ -2748,6 +3250,9 @@
     lifecycleStatusLabel,
     lifecycleErrorMessage,
     matrixRoleLabel,
+    materializedRuleSafetyLabel,
+    materializedRuleStatusLabel,
+    materializedRulesViewState,
     needsOwnerDecisionView,
     ownerActionLabel,
     ownerDecisionView,
@@ -2761,8 +3266,12 @@
     renderAnalytics,
     renderCandidateCards,
     renderCandidateSummary,
+    renderMaterializedRuleCards,
+    renderMaterializedRuleDetail,
+    renderMaterializedRulesSummary,
     renderItemRows,
     resetCandidateFilters,
+    resetMaterializedRulesFilters,
     requestNeedsDecisionItems,
     requestJson,
     safeArtifactDownloadUrl,
@@ -2770,6 +3279,7 @@
     selectArtifacts,
     setCandidatePanelState,
     setHistoryPanelState,
+    setMaterializedRulesPanelState,
     setProductsPanelState,
     summaryView,
     shouldShowMaterialize,

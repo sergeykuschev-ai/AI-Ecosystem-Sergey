@@ -113,7 +113,7 @@ function optionalMaterializationFields(value) {
         : 'NO_QUANTITY_CHANGE'
     ) ||
     value.action.quantityValue !== null ||
-    value.status !== 'DISABLED'
+    !RULE_STATUSES.has(value.status)
   ) {
     throw new OwnerRuleRegistryError(
       'RULE_REGISTRY_INVALID',

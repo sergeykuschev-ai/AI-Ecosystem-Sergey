@@ -40,6 +40,10 @@ const {
   mapMaterializationResult,
 } = require('../dto/owner_rule_materialization_mapper');
 const {
+  mapOwnerMaterializedRuleDetail,
+  mapOwnerMaterializedRules,
+} = require('../dto/owner_materialized_rules_mapper');
+const {
   ACTIONS: LIFECYCLE_ACTIONS,
   MAX_OWNER_COMMENT_LENGTH,
   REASON_CODES: LIFECYCLE_REASON_CODES,
@@ -107,6 +111,26 @@ const CANDIDATE_QUERY_NAMES = new Set([
   ...ANALYTICS_OPTION_NAMES,
   ...CANDIDATE_CONFIDENCE_OPTION_NAMES,
   ...CANDIDATE_RANKING_OPTION_NAMES,
+]);
+const MATERIALIZED_RULE_FILTER_NAMES = Object.freeze([
+  'status',
+  'decision',
+  'confidenceLevel',
+  'priorityLevel',
+  'lifecycleStatus',
+  'candidateAvailability',
+  'dateFrom',
+  'dateTo',
+  'search',
+]);
+const MATERIALIZED_RULE_OPTION_NAMES = Object.freeze([
+  'sortBy',
+  'sortDirection',
+  'limit',
+]);
+const MATERIALIZED_RULE_QUERY_NAMES = new Set([
+  ...MATERIALIZED_RULE_FILTER_NAMES,
+  ...MATERIALIZED_RULE_OPTION_NAMES,
 ]);
 
 function analyticsInputError(message) {
@@ -465,6 +489,160 @@ function parseOwnerLearningCandidatesQuery(query = {}) {
   };
 }
 
+function materializedRulesInputError(message) {
+  return new HttpError(
+    'OWNER_MATERIALIZED_RULES_INVALID_INPUT',
+    message
+  );
+}
+
+function materializedRulesText(value, name) {
+  if (
+    typeof value !== 'string' ||
+    value.trim() === '' ||
+    value.length > 512 ||
+    value.includes('\0')
+  ) {
+    throw materializedRulesInputError(
+      `Параметр ${name} имеет неверное значение.`
+    );
+  }
+  return value.trim();
+}
+
+function materializedRulesEnum(value, name, values) {
+  const normalized = materializedRulesText(
+    value,
+    name
+  ).toUpperCase();
+  if (!values.includes(normalized)) {
+    throw materializedRulesInputError(
+      `Параметр ${name} не поддерживается.`
+    );
+  }
+  return normalized;
+}
+
+function materializedRulesDate(value, name) {
+  const normalized = materializedRulesText(value, name);
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(normalized);
+  const source = dateOnly
+    ? `${normalized}T${
+      name === 'dateTo' ? '23:59:59.999' : '00:00:00.000'
+    }Z`
+    : normalized;
+  if (
+    !Number.isFinite(Date.parse(source)) ||
+    (!dateOnly && !normalized.endsWith('Z')) ||
+    (
+      dateOnly &&
+      new Date(Date.parse(source)).toISOString().slice(0, 10) !==
+        normalized
+    )
+  ) {
+    throw materializedRulesInputError(
+      `Параметр ${name} должен быть UTC-датой.`
+    );
+  }
+  return new Date(Date.parse(source)).toISOString();
+}
+
+function parseOwnerMaterializedRulesQuery(query = {}) {
+  for (const name of Object.keys(query)) {
+    if (!MATERIALIZED_RULE_QUERY_NAMES.has(name)) {
+      throw materializedRulesInputError(
+        `Параметр ${name} не поддерживается.`
+      );
+    }
+  }
+  const filters = {};
+  const options = {};
+  const enums = {
+    status: ['ACTIVE', 'DISABLED'],
+    decision: ['BUY', 'SKIP', 'DEFER'],
+    confidenceLevel: ['LOW', 'MEDIUM', 'HIGH', 'VERY_HIGH'],
+    priorityLevel: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'],
+    lifecycleStatus: [
+      'NEW',
+      'UNDER_REVIEW',
+      'APPROVED',
+      'REJECTED',
+      'POSTPONED',
+    ],
+    candidateAvailability: ['AVAILABLE', 'UNAVAILABLE'],
+  };
+  for (const [name, values] of Object.entries(enums)) {
+    if (query[name] !== undefined) {
+      filters[name] = materializedRulesEnum(
+        query[name],
+        name,
+        values
+      );
+    }
+  }
+  for (const name of ['dateFrom', 'dateTo']) {
+    if (query[name] !== undefined) {
+      filters[name] = materializedRulesDate(query[name], name);
+    }
+  }
+  if (
+    filters.dateFrom &&
+    filters.dateTo &&
+    Date.parse(filters.dateFrom) > Date.parse(filters.dateTo)
+  ) {
+    throw materializedRulesInputError(
+      'dateFrom не может быть позже dateTo.'
+    );
+  }
+  if (query.search !== undefined) {
+    filters.search = materializedRulesText(query.search, 'search');
+  }
+  if (query.sortBy !== undefined) {
+    const sortBy = materializedRulesText(query.sortBy, 'sortBy');
+    if (![
+      'materializedAt',
+      'updatedAt',
+      'confidenceScore',
+      'priorityScore',
+      'decision',
+      'status',
+    ].includes(sortBy)) {
+      throw materializedRulesInputError(
+        'Параметр sortBy не поддерживается.'
+      );
+    }
+    options.sortBy = sortBy;
+  }
+  if (query.sortDirection !== undefined) {
+    const direction = materializedRulesText(
+      query.sortDirection,
+      'sortDirection'
+    ).toLowerCase();
+    if (!['asc', 'desc'].includes(direction)) {
+      throw materializedRulesInputError(
+        'Параметр sortDirection не поддерживается.'
+      );
+    }
+    options.sortDirection = direction;
+  }
+  if (query.limit !== undefined) {
+    const normalized = materializedRulesText(query.limit, 'limit');
+    const limit = Number(normalized);
+    if (
+      !/^\d+$/.test(normalized) ||
+      !Number.isInteger(limit) ||
+      limit < 1 ||
+      limit > 100
+    ) {
+      throw materializedRulesInputError(
+        'Параметр limit должен быть от 1 до 100.'
+      );
+    }
+    options.limit = limit;
+  }
+  return { filters, options };
+}
+
 async function readDecisionBody(request) {
   const contentType = String(request.headers['content-type'] || '')
     .split(';')[0]
@@ -699,6 +877,7 @@ function createRunHandlers(options) {
     ownerLearningCandidatesService,
     ownerLearningCandidateLifecycleService,
     ownerRuleMaterializationService,
+    ownerMaterializedRulesService,
   } = options;
 
   if (
@@ -923,6 +1102,25 @@ function createRunHandlers(options) {
       };
     },
 
+    listOwnerMaterializedRules(query) {
+      const input = parseOwnerMaterializedRulesQuery(query);
+      return {
+        statusCode: 200,
+        data: mapOwnerMaterializedRules(
+          ownerMaterializedRulesService.listRules(input)
+        ),
+      };
+    },
+
+    getOwnerMaterializedRule(ruleId) {
+      return {
+        statusCode: 200,
+        data: mapOwnerMaterializedRuleDetail(
+          ownerMaterializedRulesService.getRule({ ruleId })
+        ),
+      };
+    },
+
     listArtifacts(runId) {
       return {
         statusCode: 200,
@@ -959,5 +1157,6 @@ module.exports = {
   readMaterializationBody,
   parseOwnerDecisionAnalyticsQuery,
   parseOwnerLearningCandidatesQuery,
+  parseOwnerMaterializedRulesQuery,
   reportDateDependencies,
 };

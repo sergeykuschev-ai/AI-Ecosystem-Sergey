@@ -446,6 +446,274 @@
         </div>
       </section>
 
+      <section
+        class="materialized-rules card"
+        id="materialized-rules"
+        aria-labelledby="materialized-rules-title"
+      >
+        <div class="section-heading">
+          <div>
+            <p class="step-label">Owner Learning</p>
+            <h2 id="materialized-rules-title">Материализованные правила</h2>
+          </div>
+          <span class="format-badge">Только чтение</span>
+        </div>
+
+        <p class="materialized-rules-safety">
+          Этот раздел показывает созданные правила. Управление активацией
+          будет добавлено отдельно. Неактивные правила не влияют на закупку.
+        </p>
+
+        <form
+          class="materialized-rules-filters"
+          id="materialized-rules-filters"
+          aria-label="Фильтры материализованных правил"
+        >
+          <label>
+            Статус
+            <select id="materialized-rules-status" name="status">
+              <option value="">Все статусы</option>
+              <option value="ACTIVE">Активно</option>
+              <option value="DISABLED">Неактивно</option>
+            </select>
+          </label>
+          <label>
+            Решение
+            <select id="materialized-rules-decision" name="decision">
+              <option value="">Все решения</option>
+              <option value="BUY">Купить</option>
+              <option value="SKIP">Пропустить</option>
+              <option value="DEFER">Отложить</option>
+            </select>
+          </label>
+          <label>
+            Confidence
+            <select
+              id="materialized-rules-confidence"
+              name="confidenceLevel"
+            >
+              <option value="">Все уровни</option>
+              <option value="LOW">Низкая</option>
+              <option value="MEDIUM">Средняя</option>
+              <option value="HIGH">Высокая</option>
+              <option value="VERY_HIGH">Очень высокая</option>
+            </select>
+          </label>
+          <label>
+            Priority
+            <select
+              id="materialized-rules-priority"
+              name="priorityLevel"
+            >
+              <option value="">Все уровни</option>
+              <option value="LOW">Низкий</option>
+              <option value="MEDIUM">Средний</option>
+              <option value="HIGH">Высокий</option>
+              <option value="CRITICAL">Критический</option>
+            </select>
+          </label>
+          <label>
+            Lifecycle кандидата
+            <select
+              id="materialized-rules-lifecycle"
+              name="lifecycleStatus"
+            >
+              <option value="">Все статусы</option>
+              <option value="NEW">Новый</option>
+              <option value="UNDER_REVIEW">На проверке</option>
+              <option value="APPROVED">Одобрен</option>
+              <option value="REJECTED">Отклонён</option>
+              <option value="POSTPONED">Отложен</option>
+            </select>
+          </label>
+          <label>
+            Текущий кандидат
+            <select
+              id="materialized-rules-availability"
+              name="candidateAvailability"
+            >
+              <option value="">Любая доступность</option>
+              <option value="AVAILABLE">Доступен</option>
+              <option value="UNAVAILABLE">Недоступен</option>
+            </select>
+          </label>
+          <label>
+            С даты
+            <input
+              id="materialized-rules-date-from"
+              name="dateFrom"
+              type="date"
+            >
+          </label>
+          <label>
+            По дату
+            <input
+              id="materialized-rules-date-to"
+              name="dateTo"
+              type="date"
+            >
+          </label>
+          <label class="materialized-rules-search">
+            Поиск
+            <input
+              id="materialized-rules-search"
+              name="search"
+              type="search"
+              maxlength="512"
+              placeholder="Товар или SKU"
+            >
+          </label>
+          <div class="materialized-rules-filter-actions">
+            <button class="secondary-button" type="submit">Обновить</button>
+            <button
+              class="secondary-button"
+              id="materialized-rules-reset"
+              type="button"
+            >
+              Сбросить фильтры
+            </button>
+          </div>
+        </form>
+
+        <div
+          class="materialized-rules-state"
+          id="materialized-rules-loading"
+          role="status"
+        >
+          <span class="loading-dot" aria-hidden="true"></span>
+          Загружаем материализованные правила…
+        </div>
+        <div
+          class="materialized-rules-state"
+          id="materialized-rules-empty"
+          hidden
+        >
+          Материализованных правил пока нет.
+        </div>
+        <div
+          class="materialized-rules-state"
+          id="materialized-rules-no-results"
+          hidden
+        >
+          По выбранным фильтрам правила не найдены.
+        </div>
+        <div
+          class="materialized-rules-state materialized-rules-warning"
+          id="materialized-rules-unavailable"
+          hidden
+        >
+          Реестр правил временно недоступен. Работа закупщика не затронута.
+        </div>
+        <div
+          class="materialized-rules-state materialized-rules-warning"
+          id="materialized-rules-invalid"
+          role="alert"
+          hidden
+        >
+          Проверьте выбранные фильтры и повторите запрос.
+        </div>
+        <div
+          class="materialized-rules-state materialized-rules-warning"
+          id="materialized-rules-network"
+          role="alert"
+          hidden
+        >
+          Не удалось загрузить правила. Проверьте соединение и повторите
+          запрос.
+        </div>
+
+        <div id="materialized-rules-content" hidden>
+          <p
+            class="materialized-rules-context-warning"
+            id="materialized-rules-context-warning"
+            hidden
+          ></p>
+          <div
+            class="materialized-rules-summary"
+            aria-label="Сводка материализованных правил"
+          >
+            <article>
+              <span>Всего правил</span>
+              <strong id="materialized-rules-total">—</strong>
+            </article>
+            <article>
+              <span>Активных</span>
+              <strong id="materialized-rules-active">—</strong>
+            </article>
+            <article>
+              <span>Неактивных</span>
+              <strong id="materialized-rules-disabled">—</strong>
+            </article>
+            <article>
+              <span>BUY</span>
+              <strong id="materialized-rules-buy">—</strong>
+            </article>
+            <article>
+              <span>SKIP</span>
+              <strong id="materialized-rules-skip">—</strong>
+            </article>
+            <article>
+              <span>DEFER</span>
+              <strong id="materialized-rules-defer">—</strong>
+            </article>
+          </div>
+          <div
+            class="materialized-rules-list"
+            id="materialized-rules-list"
+            aria-live="polite"
+          ></div>
+        </div>
+      </section>
+
+      <div
+        class="candidate-modal"
+        id="materialized-rule-detail-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="materialized-rule-detail-title"
+        hidden
+      >
+        <section class="candidate-modal-panel">
+          <div class="section-heading">
+            <div>
+              <p class="step-label">Только чтение</p>
+              <h2 id="materialized-rule-detail-title">Подробнее о правиле</h2>
+            </div>
+            <button
+              class="candidate-modal-close"
+              id="materialized-rule-detail-close"
+              type="button"
+              aria-label="Закрыть"
+            >×</button>
+          </div>
+          <dl class="candidate-modal-summary">
+            <div><dt>Товар</dt><dd id="materialized-rule-detail-name">—</dd></div>
+            <div><dt>SKU</dt><dd id="materialized-rule-detail-sku">—</dd></div>
+            <div><dt>Решение</dt><dd id="materialized-rule-detail-decision">—</dd></div>
+            <div><dt>Quantity strategy</dt><dd id="materialized-rule-detail-quantity">—</dd></div>
+            <div><dt>Статус</dt><dd id="materialized-rule-detail-status">—</dd></div>
+            <div><dt>Источник</dt><dd id="materialized-rule-detail-source">—</dd></div>
+            <div><dt>Confidence</dt><dd id="materialized-rule-detail-confidence">—</dd></div>
+            <div><dt>Priority</dt><dd id="materialized-rule-detail-priority">—</dd></div>
+            <div><dt>Eligibility</dt><dd id="materialized-rule-detail-eligibility">—</dd></div>
+            <div><dt>Lifecycle</dt><dd id="materialized-rule-detail-lifecycle">—</dd></div>
+            <div><dt>Создано</dt><dd id="materialized-rule-detail-created">—</dd></div>
+            <div><dt>Обновлено</dt><dd id="materialized-rule-detail-updated">—</dd></div>
+          </dl>
+          <p
+            class="materialized-rule-detail-safety"
+            id="materialized-rule-detail-safety"
+          >—</p>
+          <div class="candidate-modal-actions">
+            <button
+              class="secondary-button"
+              id="materialized-rule-detail-done"
+              type="button"
+            >Закрыть</button>
+          </div>
+        </section>
+      </div>
+
       <div
         class="candidate-modal"
         id="candidate-lifecycle-modal"

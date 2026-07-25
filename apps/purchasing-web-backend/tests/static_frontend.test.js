@@ -15,6 +15,7 @@ const {
   buildCandidatesUrl,
   buildLifecyclePayload,
   buildLifecycleStatusUrl,
+  buildMaterializedRulesUrl,
   buildMaterializationPayload,
   buildMaterializationUrl,
   buildItemsUrl,
@@ -23,6 +24,7 @@ const {
   candidateLifecycleActions,
   confidenceLabel,
   createCandidateCard,
+  createMaterializedRuleCard,
   createItemRow,
   createItemRows,
   decisionCounterView,
@@ -36,6 +38,9 @@ const {
   itemMatchesDecisionFilter,
   lifecycleErrorMessage,
   lifecycleStatusLabel,
+  materializedRuleSafetyLabel,
+  materializedRuleStatusLabel,
+  materializedRulesViewState,
   needsOwnerDecisionView,
   paginationLabel,
   plainReason,
@@ -46,12 +51,17 @@ const {
   renderAnalytics,
   renderCandidateCards,
   renderCandidateSummary,
+  renderMaterializedRuleCards,
+  renderMaterializedRuleDetail,
+  renderMaterializedRulesSummary,
   resetCandidateFilters,
+  resetMaterializedRulesFilters,
   requestNeedsDecisionItems,
   requestJson,
   selectArtifacts,
   setHistoryPanelState,
   setCandidatePanelState,
+  setMaterializedRulesPanelState,
   setProductsPanelState,
   shouldShowMaterialize,
   summaryView,
@@ -241,6 +251,101 @@ function candidateFixture(overrides = {}) {
   };
 }
 
+function materializedRulesElements() {
+  const input = value => ({ value });
+  return {
+    materializedRulesLoading: fakeElement(),
+    materializedRulesEmpty: fakeElement(),
+    materializedRulesNoResults: fakeElement(),
+    materializedRulesUnavailable: fakeElement(),
+    materializedRulesInvalid: fakeElement(),
+    materializedRulesNetwork: fakeElement(),
+    materializedRulesContent: fakeElement(),
+    materializedRulesStatus: input('DISABLED'),
+    materializedRulesDecision: input('SKIP'),
+    materializedRulesConfidence: input('VERY_HIGH'),
+    materializedRulesPriority: input('HIGH'),
+    materializedRulesLifecycle: input('APPROVED'),
+    materializedRulesAvailability: input('UNAVAILABLE'),
+    materializedRulesDateFrom: input('2026-07-01'),
+    materializedRulesDateTo: input('2026-07-25'),
+    materializedRulesSearch: input('AWARD 7177004'),
+    materializedRulesSummary: {
+      total: fakeElement('strong'),
+      active: fakeElement('strong'),
+      disabled: fakeElement('strong'),
+      buy: fakeElement('strong'),
+      skip: fakeElement('strong'),
+      defer: fakeElement('strong'),
+    },
+    materializedRuleDetail: Object.fromEntries(
+      [
+        'name',
+        'sku',
+        'decision',
+        'quantity',
+        'status',
+        'source',
+        'confidence',
+        'priority',
+        'eligibility',
+        'lifecycle',
+        'created',
+        'updated',
+        'safety',
+      ].map(name => [name, fakeElement()])
+    ),
+  };
+}
+
+function materializedRuleFixture(overrides = {}) {
+  return {
+    ruleId: 'approved-rule-private-id',
+    status: 'DISABLED',
+    ruleType: 'ITEM_DECISION_OVERRIDE',
+    displayScope: {
+      primary: '<img src=x onerror=alert(1)>',
+      secondary: '7177004',
+    },
+    action: {
+      decision: 'SKIP',
+      quantityStrategy: 'NO_QUANTITY_CHANGE',
+      quantityValue: null,
+    },
+    source: {
+      type: 'OWNER_LEARNING_CANDIDATE',
+      label: 'Кандидат Owner Learning',
+    },
+    provenance: {
+      candidateId: 'private-candidate-id',
+      patternType: 'SAME_ITEM_SAME_DECISION',
+      confidenceScore: 91,
+      confidenceLevel: 'VERY_HIGH',
+      priorityScore: 88,
+      priorityLevel: 'HIGH',
+      eligibilityStatus: 'ELIGIBLE',
+      materializedAt: '2026-07-25T04:00:00.000Z',
+      materializationVersion: 'v0.9.0',
+    },
+    lifecycle: {
+      status: 'APPROVED',
+      lastAction: 'APPROVE',
+      lastRecordedAt: '2026-07-24T04:00:00.000Z',
+      reasonCode: 'READY_FOR_RULE',
+    },
+    candidateAvailability: { status: 'UNAVAILABLE' },
+    timestamps: {
+      createdAt: '2026-07-25T04:00:00.000Z',
+      updatedAt: '2026-07-25T04:00:00.000Z',
+    },
+    safety: {
+      affectsPurchasing: false,
+      message: 'Правило неактивно и не влияет на закупку.',
+    },
+    ...overrides,
+  };
+}
+
 function descendantText(element) {
   return [
     element.textContent,
@@ -310,7 +415,7 @@ test('GET / serves the Russian frontend with secure headers', async () => {
     assert.match(body, new RegExp(`>\\s*${label}\\s*<`));
   }
   assert.doesNotMatch(
-    body,
+    productsBody,
     />\s*(?:Owner Review|manual review|BUY|SKIP|DEFER)\s*</i
   );
 });
@@ -1616,5 +1721,273 @@ test('materialization unavailable and API failures have retry-safe text', () => 
       'RULE_MATERIALIZATION_STORAGE_UNAVAILABLE'
     ),
     /временно недоступно/i
+  );
+});
+
+test('materialized rules section is read-only and contains safety text',
+  async () => {
+    const response = await fetch(`${baseUrl}/`);
+    const body = await response.text();
+    assert.match(body, /id="materialized-rules"/);
+    assert.match(body, /Материализованные правила/);
+    assert.match(
+      body,
+      /Этот раздел показывает созданные правила\. Управление активацией\s+будет добавлено отдельно\. Неактивные правила не влияют на закупку\./
+    );
+    const section = body.match(
+      /<section\s+class="materialized-rules card"[\s\S]*?<\/section>/
+    )?.[0] || '';
+    for (const label of [
+      'Всего правил',
+      'Активных',
+      'Неактивных',
+      'BUY',
+      'SKIP',
+      'DEFER',
+    ]) {
+      assert.match(section, new RegExp(label));
+    }
+    assert.doesNotMatch(
+      section,
+      />\s*(Активировать|Выключить|Удалить|Изменить|Применить)\s*</
+    );
+  }
+);
+
+test('materialized rules URL sends filters, search, sorting and limit', () => {
+  const url = new URL(buildMaterializedRulesUrl({
+    status: 'DISABLED',
+    decision: 'SKIP',
+    confidenceLevel: 'VERY_HIGH',
+    priorityLevel: 'HIGH',
+    lifecycleStatus: 'APPROVED',
+    candidateAvailability: 'UNAVAILABLE',
+    dateFrom: '2026-07-01',
+    dateTo: '2026-07-25',
+    search: 'AWARD & 7177004',
+  }), 'http://local');
+  assert.equal(
+    url.pathname,
+    '/api/v1/owner-learning/materialized-rules'
+  );
+  assert.equal(url.searchParams.get('status'), 'DISABLED');
+  assert.equal(url.searchParams.get('decision'), 'SKIP');
+  assert.equal(url.searchParams.get('confidenceLevel'), 'VERY_HIGH');
+  assert.equal(url.searchParams.get('priorityLevel'), 'HIGH');
+  assert.equal(url.searchParams.get('lifecycleStatus'), 'APPROVED');
+  assert.equal(
+    url.searchParams.get('candidateAvailability'),
+    'UNAVAILABLE'
+  );
+  assert.equal(url.searchParams.get('search'), 'AWARD & 7177004');
+  assert.equal(url.searchParams.get('sortBy'), 'materializedAt');
+  assert.equal(url.searchParams.get('sortDirection'), 'desc');
+  assert.equal(url.searchParams.get('limit'), '100');
+});
+
+test('materialized rules states cover loading, empty, no results and unavailable',
+  () => {
+    const empty = {
+      status: 'AVAILABLE',
+      summary: { totalRules: 0 },
+      rules: [],
+    };
+    assert.equal(materializedRulesViewState(empty), 'empty');
+    assert.equal(
+      materializedRulesViewState(empty, { search: 'missing' }),
+      'no-results'
+    );
+    assert.equal(
+      materializedRulesViewState({ status: 'UNAVAILABLE' }),
+      'unavailable'
+    );
+    assert.equal(
+      materializedRulesViewState({ status: 'AVAILABLE' }),
+      'invalid'
+    );
+    const elements = materializedRulesElements();
+    setMaterializedRulesPanelState(elements, 'loading');
+    assert.equal(elements.materializedRulesLoading.hidden, false);
+    setMaterializedRulesPanelState(elements, 'empty');
+    assert.equal(elements.materializedRulesEmpty.hidden, false);
+    setMaterializedRulesPanelState(elements, 'no-results');
+    assert.equal(elements.materializedRulesNoResults.hidden, false);
+    setMaterializedRulesPanelState(elements, 'unavailable');
+    assert.equal(elements.materializedRulesUnavailable.hidden, false);
+    setMaterializedRulesPanelState(elements, 'network');
+    assert.equal(elements.materializedRulesNetwork.hidden, false);
+  }
+);
+
+test('materialized rules summary renders all six counts', () => {
+  const elements = materializedRulesElements();
+  renderMaterializedRulesSummary(elements, {
+    totalRules: 4,
+    activeRules: 1,
+    disabledRules: 3,
+    buyRules: 2,
+    skipRules: 1,
+    deferRules: 1,
+  });
+  assert.deepEqual(
+    Object.fromEntries(
+      Object.entries(elements.materializedRulesSummary).map(
+        ([name, element]) => [name, element.textContent]
+      )
+    ),
+    {
+      total: '4',
+      active: '1',
+      disabled: '3',
+      buy: '2',
+      skip: '1',
+      defer: '1',
+    }
+  );
+});
+
+test('materialized rule labels distinguish statuses and safety', () => {
+  assert.equal(materializedRuleStatusLabel('ACTIVE'), 'Активно');
+  assert.equal(materializedRuleStatusLabel('DISABLED'), 'Неактивно');
+  assert.equal(
+    materializedRuleSafetyLabel({
+      safety: { affectsPurchasing: true },
+    }),
+    'Может влиять на закупку'
+  );
+  assert.equal(
+    materializedRuleSafetyLabel(materializedRuleFixture()),
+    'Не влияет на закупку'
+  );
+  assert.equal(decisionLabel('BUY'), 'Купить');
+  assert.equal(decisionLabel('SKIP'), 'Пропустить');
+  assert.equal(decisionLabel('DEFER'), 'Отложить');
+});
+
+test('materialized rule card uses text nodes and hides ruleId', () => {
+  const card = createMaterializedRuleCard(
+    fakeDocument(),
+    materializedRuleFixture()
+  );
+  const visible = descendantText(card);
+  assert.match(visible, /<img src=x onerror=alert\(1\)>/);
+  assert.match(visible, /7177004/);
+  assert.match(visible, /Пропустить/);
+  assert.match(visible, /Неактивно/);
+  assert.match(visible, /Не влияет на закупку/);
+  assert.match(visible, /Кандидат Owner Learning/);
+  assert.match(visible, /Подробнее/);
+  assert.match(
+    visible,
+    /Текущий кандидат больше не формируется, но созданное правило сохранено\./
+  );
+  for (const forbidden of [
+    'approved-rule-private-id',
+    'private-candidate-id',
+    'scopeKey',
+    'stableItemKey',
+  ]) {
+    assert.equal(visible.includes(forbidden), false, forbidden);
+  }
+});
+
+test('materialized rule card handles ACTIVE and nulls safely', () => {
+  const parent = fakeElement();
+  renderMaterializedRuleCards(fakeDocument(), parent, [
+    materializedRuleFixture({
+      status: 'ACTIVE',
+      displayScope: { primary: null, secondary: null },
+      provenance: {
+        confidenceScore: null,
+        confidenceLevel: null,
+        priorityScore: null,
+        priorityLevel: null,
+        materializedAt: null,
+      },
+      lifecycle: {
+        status: null,
+        lastAction: null,
+        lastRecordedAt: null,
+        reasonCode: null,
+      },
+      candidateAvailability: { status: 'AVAILABLE' },
+      safety: {
+        affectsPurchasing: true,
+        message: 'Правило активно и может влиять на закупку.',
+      },
+    }),
+  ]);
+  const visible = descendantText(parent);
+  assert.match(visible, /Активно/);
+  assert.match(visible, /Может влиять на закупку/);
+  assert.match(visible, /—/);
+});
+
+test('materialized rule detail shows allowlisted business fields only', () => {
+  const elements = materializedRulesElements();
+  renderMaterializedRuleDetail(
+    elements,
+    materializedRuleFixture()
+  );
+  assert.equal(
+    elements.materializedRuleDetail.name.textContent,
+    '<img src=x onerror=alert(1)>'
+  );
+  assert.equal(
+    elements.materializedRuleDetail.sku.textContent,
+    '7177004'
+  );
+  assert.equal(
+    elements.materializedRuleDetail.decision.textContent,
+    'Пропустить'
+  );
+  assert.equal(
+    elements.materializedRuleDetail.safety.textContent,
+    'Правило неактивно и не влияет на закупку.'
+  );
+  const visible = Object.values(elements.materializedRuleDetail)
+    .map(element => element.textContent)
+    .join(' ');
+  assert.equal(visible.includes('approved-rule-private-id'), false);
+  assert.equal(visible.includes('private-candidate-id'), false);
+});
+
+test('reset clears every materialized rules filter', () => {
+  const elements = materializedRulesElements();
+  resetMaterializedRulesFilters(elements);
+  for (const name of [
+    'materializedRulesStatus',
+    'materializedRulesDecision',
+    'materializedRulesConfidence',
+    'materializedRulesPriority',
+    'materializedRulesLifecycle',
+    'materializedRulesAvailability',
+    'materializedRulesDateFrom',
+    'materializedRulesDateTo',
+    'materializedRulesSearch',
+  ]) {
+    assert.equal(elements[name].value, '');
+  }
+});
+
+test('materialized rules UI has no write endpoint or action labels', () => {
+  const script = fs.readFileSync(
+    path.join(PUBLIC_ROOT, 'app.js'),
+    'utf8'
+  );
+  const html = fs.readFileSync(
+    path.join(PUBLIC_ROOT, 'index.html'),
+    'utf8'
+  );
+  assert.doesNotMatch(
+    script,
+    /materialized-rules[^'"]*\/(?:activate|disable|delete|edit|apply)/i
+  );
+  const section = html.match(
+    /<section\s+class="materialized-rules card"[\s\S]*?<\/section>/
+  )?.[0] || '';
+  assert.doesNotMatch(
+    section,
+    />\s*(Активировать|Выключить|Удалить|Изменить|Применить)\s*</
   );
 });

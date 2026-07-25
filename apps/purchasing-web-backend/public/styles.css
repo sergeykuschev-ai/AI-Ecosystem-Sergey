@@ -261,6 +261,206 @@ h2 {
   margin-top: 22px;
 }
 
+.materialized-rules {
+  margin-top: 22px;
+}
+
+.materialized-rules-safety {
+  margin: -6px 0 22px;
+  border-left: 4px solid var(--green);
+  border-radius: 10px;
+  background: var(--green-soft);
+  padding: 14px 16px;
+  color: var(--green-dark);
+  line-height: 1.5;
+}
+
+.materialized-rules-filters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.materialized-rules-filters label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.materialized-rules-filters input,
+.materialized-rules-filters select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  padding: 10px 12px;
+  color: var(--text);
+}
+
+.materialized-rules-filter-actions {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+}
+
+.materialized-rules-filter-actions button {
+  flex: 1;
+}
+
+.materialized-rules-state {
+  border-radius: 14px;
+  background: #f4f7f5;
+  padding: 18px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.materialized-rules-warning,
+.materialized-rules-context-warning {
+  background: var(--orange-soft);
+  color: #824414;
+}
+
+.materialized-rules-context-warning {
+  margin: 0 0 16px;
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.materialized-rules-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.materialized-rules-summary article {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fafcfb;
+  padding: 16px;
+}
+
+.materialized-rules-summary span,
+.materialized-rules-summary strong {
+  display: block;
+}
+
+.materialized-rules-summary span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.materialized-rules-summary strong {
+  margin-top: 5px;
+  font-size: 1.45rem;
+}
+
+.materialized-rules-list {
+  display: grid;
+  gap: 14px;
+}
+
+.materialized-rule-card {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #fff;
+  padding: 18px;
+}
+
+.materialized-rule-card > header {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.materialized-rule-card h3,
+.materialized-rule-card p {
+  margin-top: 0;
+}
+
+.materialized-rule-card h3 {
+  margin-bottom: 4px;
+}
+
+.materialized-rule-card header p {
+  margin-bottom: 0;
+  color: var(--muted);
+}
+
+.materialized-rule-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.materialized-rule-badge {
+  border-radius: 999px;
+  background: #eef2ef;
+  padding: 6px 9px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 750;
+}
+
+.materialized-rule-badge.rule-active {
+  background: var(--orange-soft);
+  color: #824414;
+}
+
+.materialized-rule-badge.rule-disabled {
+  background: var(--green-soft);
+  color: var(--green-dark);
+}
+
+.materialized-rule-facts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.materialized-rule-facts div {
+  border-radius: 12px;
+  background: #f7f9f8;
+  padding: 11px;
+}
+
+.materialized-rule-facts dt {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.materialized-rule-facts dd {
+  margin: 4px 0 0;
+  font-weight: 750;
+}
+
+.materialized-rule-safety {
+  color: var(--green-dark);
+  font-weight: 800;
+}
+
+.materialized-rule-candidate-unavailable {
+  border-radius: 10px;
+  background: var(--orange-soft);
+  padding: 10px 12px;
+  color: #824414;
+}
+
+.materialized-rule-detail-safety {
+  border-radius: 12px;
+  background: var(--green-soft);
+  padding: 13px;
+  color: var(--green-dark);
+  font-weight: 750;
+}
+
 .candidate-safety {
   margin: -6px 0 22px;
   border-left: 4px solid var(--green);
@@ -1686,12 +1886,15 @@ h2 {
   }
 
   .history-summary,
-  .candidate-summary {
+  .candidate-summary,
+  .materialized-rules-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .candidate-filters,
-  .candidate-facts {
+  .candidate-facts,
+  .materialized-rules-filters,
+  .materialized-rule-facts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1759,11 +1962,19 @@ h2 {
   .candidate-filters,
   .candidate-summary,
   .candidate-facts,
-  .candidate-detail-grid {
+  .candidate-detail-grid,
+  .materialized-rules-filters,
+  .materialized-rules-summary,
+  .materialized-rule-facts {
     grid-template-columns: 1fr;
   }
 
-  .candidate-filter-actions {
+  .candidate-filter-actions,
+  .materialized-rules-filter-actions {
+    display: grid;
+  }
+
+  .materialized-rule-card > header {
     display: grid;
   }
 

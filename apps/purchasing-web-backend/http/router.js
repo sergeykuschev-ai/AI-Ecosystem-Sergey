@@ -25,6 +25,10 @@ const OWNER_RULE_MATERIALIZATION_DETAIL_ROUTE =
   /^\/api\/v1\/owner-learning\/rule-materializations\/([0-9a-f]{64})$/;
 const OWNER_RULE_MATERIALIZE_ROUTE =
   /^\/api\/v1\/owner-learning\/candidates\/([0-9a-f]{64})\/materialize-rule$/;
+const OWNER_MATERIALIZED_RULES_ROUTE =
+  '/api/v1/owner-learning/materialized-rules';
+const OWNER_MATERIALIZED_RULE_DETAIL_ROUTE =
+  /^\/api\/v1\/owner-learning\/materialized-rules\/([A-Za-z0-9_-]{1,128})$/;
 const ARTIFACTS_ROUTE =
   /^\/api\/v1\/runs\/([^/]+)\/artifacts$/;
 const ARTIFACT_ROUTE =
@@ -156,6 +160,21 @@ function createRouter(handlers, options = {}) {
           match[1],
           request
         );
+      } else if (
+        request.method === 'GET' &&
+        url.pathname === OWNER_MATERIALIZED_RULES_ROUTE
+      ) {
+        result = handlers.listOwnerMaterializedRules(
+          queryObject(url.searchParams)
+        );
+      } else if (
+        request.method === 'GET' &&
+        url.pathname.match(OWNER_MATERIALIZED_RULE_DETAIL_ROUTE)
+      ) {
+        const match = url.pathname.match(
+          OWNER_MATERIALIZED_RULE_DETAIL_ROUTE
+        );
+        result = handlers.getOwnerMaterializedRule(match[1]);
       } else {
         const statusMatch = request.method === 'GET' &&
           url.pathname.match(RUN_ROUTE);
@@ -245,6 +264,8 @@ module.exports = {
   OWNER_LEARNING_LIFECYCLE_DETAIL_ROUTE,
   OWNER_LEARNING_LIFECYCLE_ROUTE,
   OWNER_LEARNING_LIFECYCLE_STATUS_ROUTE,
+  OWNER_MATERIALIZED_RULES_ROUTE,
+  OWNER_MATERIALIZED_RULE_DETAIL_ROUTE,
   OWNER_RULE_MATERIALIZATIONS_ROUTE,
   OWNER_RULE_MATERIALIZATION_DETAIL_ROUTE,
   OWNER_RULE_MATERIALIZE_ROUTE,
