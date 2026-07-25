@@ -12,27 +12,39 @@ const {
   FrontendError,
   analyticsViewState,
   buildAnalyticsUrl,
+  buildCandidatesUrl,
   buildItemsUrl,
   buildDecisionUrl,
+  candidateViewState,
+  confidenceLabel,
+  createCandidateCard,
   createItemRow,
   createItemRows,
   decisionCounterView,
   decisionLabel,
   defaultDecisionFilter,
+  eligibilityLabel,
+  filterCandidates,
+  formatSignedQuantity,
   formatRub,
   formatPercent,
   itemMatchesDecisionFilter,
   needsOwnerDecisionView,
   paginationLabel,
   plainReason,
+  priorityLabel,
   patternLabel,
   pollRunStatus,
   renderItemRows,
   renderAnalytics,
+  renderCandidateCards,
+  renderCandidateSummary,
+  resetCandidateFilters,
   requestNeedsDecisionItems,
   requestJson,
   selectArtifacts,
   setHistoryPanelState,
+  setCandidatePanelState,
   setProductsPanelState,
   summaryView,
   technicalExplanation,
@@ -134,6 +146,90 @@ function historyElements() {
       disagreements: fakeElement('strong'),
       agreementRate: fakeElement('strong'),
     },
+  };
+}
+
+function candidateElements() {
+  return {
+    candidateLoading: fakeElement(),
+    candidateEmpty: fakeElement(),
+    candidateNoPatterns: fakeElement(),
+    candidateNoResults: fakeElement(),
+    candidateUnavailable: fakeElement(),
+    candidateInvalid: fakeElement(),
+    candidateContent: fakeElement(),
+    candidateList: fakeElement(),
+    candidateSupplier: { value: 'Валта' },
+    candidateBrand: { value: 'AWARD' },
+    candidateDecision: { value: 'SKIP' },
+    candidateReason: { value: 'LOW_SALES' },
+    candidateDateFrom: { value: '2026-07-01' },
+    candidateDateTo: { value: '2026-07-25' },
+    candidateEligibility: { value: 'ELIGIBLE' },
+    candidateConfidence: { value: 'VERY_HIGH' },
+    candidatePriority: { value: 'CRITICAL' },
+    candidateSummary: {
+      total: fakeElement('strong'),
+      eligible: fakeElement('strong'),
+      reviewOnly: fakeElement('strong'),
+      ineligible: fakeElement('strong'),
+      highPriority: fakeElement('strong'),
+      criticalPriority: fakeElement('strong'),
+    },
+  };
+}
+
+function candidateFixture(overrides = {}) {
+  return {
+    candidateId: 'private-candidate-id',
+    patternType: 'SAME_ITEM_SAME_DECISION',
+    scopeType: 'ITEM',
+    scopeKey: 'technical-scope-key',
+    displayScope: {
+      primary: '<img src=x onerror=alert(1)>',
+      secondary: null,
+    },
+    proposedAction: {
+      decision: 'SKIP',
+      quantityStrategy: 'NO_QUANTITY_CHANGE',
+      quantityValue: null,
+    },
+    confidence: { score: 86, level: 'VERY_HIGH' },
+    ranking: {
+      priorityScore: 79,
+      priorityLevel: 'CRITICAL',
+      rank: 1,
+    },
+    evidence: {
+      occurrences: 7,
+      dominantShare: 0.875,
+      firstRecordedAt: '2026-01-01T00:00:00.000Z',
+      lastRecordedAt: '2026-07-20T00:00:00.000Z',
+      historySpanDays: 200,
+      evidenceDecisionIds: ['private-decision-id'],
+    },
+    impact: {
+      estimatedAffectedItems: 1,
+      estimatedHistoricalQuantityDelta: -12,
+      hasFinancialEstimate: false,
+    },
+    eligibility: {
+      status: 'ELIGIBLE',
+      reasons: ['ELIGIBLE_STRICT_CRITERIA_MET'],
+    },
+    explanation: {
+      headline: 'Повторяющееся решение по товару',
+      summary:
+        'В истории обнаружено повторяющееся решение SKIP по товару.',
+      details: ['Повторений: 7'],
+      strengths: ['Высокая повторяемость'],
+      risks: ['Есть противоречия'],
+      recommendedOwnerAction: 'REVIEW_AND_APPROVE',
+      explanationCodes: ['HIGH_CONFIDENCE'],
+    },
+    ownerComment: 'private comment',
+    metadata: { private: true },
+    ...overrides,
   };
 }
 
@@ -1030,4 +1126,238 @@ test('analytics renderer shows summary, labels, patterns and item table safely',
   ]) {
     assert.equal(visible.includes(forbidden), false);
   }
+});
+
+test('read-only candidate dashboard and all required states are present', async () => {
+  const response = await fetch(`${baseUrl}/`);
+  const body = await response.text();
+  const section = body.match(
+    /<section[\s\S]*?id="learning-candidates"[\s\S]*?<\/section>/
+  )?.[0] || '';
+
+  assert.match(body, /id="learning-candidates"/);
+  assert.match(body, />Кандидаты для обучения</);
+  assert.match(
+    body,
+    /Кандидаты сформированы по истории решений и предназначены только\s+для ручной проверки\. Никакие правила автоматически не создаются\s+и не применяются\./
+  );
+  for (const id of [
+    'candidate-loading',
+    'candidate-empty',
+    'candidate-no-patterns',
+    'candidate-no-results',
+    'candidate-unavailable',
+    'candidate-invalid',
+  ]) {
+    assert.match(body, new RegExp(`id="${id}"`));
+  }
+  assert.match(
+    body,
+    /История решений пока пуста\. Кандидаты появятся после накопления\s+подтверждённых решений\./
+  );
+  assert.match(body, /Устойчивые паттерны пока не найдены\./);
+  assert.match(
+    body,
+    /Кандидаты временно недоступны\. Работа закупщика не затронута\./
+  );
+  assert.doesNotMatch(
+    section,
+    /<button[^>]*>\s*(?:Одобрить|Создать правило|Применить|Отклонить|Отложить)\s*<\/button>/i
+  );
+});
+
+test('candidate labels use the required cautious Russian wording', () => {
+  assert.equal(eligibilityLabel('ELIGIBLE'), 'Можно рассмотреть');
+  assert.equal(
+    eligibilityLabel('REVIEW_ONLY'),
+    'Только ручной анализ'
+  );
+  assert.equal(
+    eligibilityLabel('INELIGIBLE'),
+    'Недостаточно безопасно'
+  );
+  assert.equal(confidenceLabel('LOW'), 'Низкая');
+  assert.equal(confidenceLabel('MEDIUM'), 'Средняя');
+  assert.equal(confidenceLabel('HIGH'), 'Высокая');
+  assert.equal(confidenceLabel('VERY_HIGH'), 'Очень высокая');
+  assert.equal(priorityLabel('LOW'), 'Низкий');
+  assert.equal(priorityLabel('MEDIUM'), 'Средний');
+  assert.equal(priorityLabel('HIGH'), 'Высокий');
+  assert.equal(
+    priorityLabel('CRITICAL'),
+    'Критический для проверки'
+  );
+  assert.equal(formatSignedQuantity(12), '+12');
+  assert.equal(formatSignedQuantity(-12), '−12');
+  assert.equal(formatSignedQuantity(null), '—');
+});
+
+test('candidate filters send history filters only to backend', () => {
+  const url = new URL(buildCandidatesUrl({
+    supplier: 'Валта & Ко',
+    brand: 'AWARD',
+    ownerDecision: 'SKIP',
+    reasonCode: 'LOW_SALES',
+    dateFrom: '2026-07-01',
+    dateTo: '2026-07-25',
+    eligibility: 'ELIGIBLE',
+    confidence: 'VERY_HIGH',
+    priority: 'CRITICAL',
+  }), 'http://local');
+
+  assert.equal(
+    url.pathname,
+    '/api/v1/owner-learning/candidates'
+  );
+  assert.equal(url.searchParams.get('supplier'), 'Валта & Ко');
+  assert.equal(url.searchParams.get('brand'), 'AWARD');
+  assert.equal(url.searchParams.get('ownerDecision'), 'SKIP');
+  assert.equal(url.searchParams.get('reasonCode'), 'LOW_SALES');
+  assert.equal(url.searchParams.get('dateFrom'), '2026-07-01');
+  assert.equal(url.searchParams.get('dateTo'), '2026-07-25');
+  assert.equal(url.searchParams.get('eligibility'), null);
+  assert.equal(url.searchParams.get('confidence'), null);
+  assert.equal(url.searchParams.get('priority'), null);
+  assert.equal(url.searchParams.get('includeIneligible'), 'true');
+  assert.equal(url.searchParams.get('limit'), '100');
+});
+
+test('candidate state distinguishes loading, empty, patterns and unavailable', () => {
+  assert.equal(candidateViewState({
+    status: 'AVAILABLE',
+    summary: {
+      historyEntries: 0,
+      patternsFound: 0,
+      totalCandidates: 0,
+    },
+    candidates: [],
+  }), 'empty');
+  assert.equal(candidateViewState({
+    status: 'AVAILABLE',
+    summary: {
+      historyEntries: 3,
+      patternsFound: 0,
+      totalCandidates: 0,
+    },
+    candidates: [],
+  }), 'no-patterns');
+  assert.equal(
+    candidateViewState({ status: 'UNAVAILABLE' }),
+    'unavailable'
+  );
+  assert.equal(candidateViewState({ status: 'AVAILABLE' }), 'invalid');
+
+  const elements = candidateElements();
+  setCandidatePanelState(elements, 'loading');
+  assert.equal(elements.candidateLoading.hidden, false);
+  setCandidatePanelState(elements, 'no-results');
+  assert.equal(elements.candidateNoResults.hidden, false);
+  setCandidatePanelState(elements, 'unavailable');
+  assert.equal(elements.candidateUnavailable.hidden, false);
+});
+
+test('candidate summary and frontend-only filters are deterministic', () => {
+  const elements = candidateElements();
+  renderCandidateSummary(elements, {
+    totalCandidates: 7,
+    eligible: 2,
+    reviewOnly: 3,
+    ineligible: 2,
+    highPriority: 3,
+    criticalPriority: 1,
+  });
+  assert.equal(elements.candidateSummary.total.textContent, '7');
+  assert.equal(elements.candidateSummary.eligible.textContent, '2');
+  assert.equal(elements.candidateSummary.reviewOnly.textContent, '3');
+  assert.equal(elements.candidateSummary.ineligible.textContent, '2');
+
+  const eligible = candidateFixture();
+  const reviewOnly = candidateFixture({
+    eligibility: { status: 'REVIEW_ONLY', reasons: [] },
+    confidence: { score: 60, level: 'HIGH' },
+    ranking: { priorityScore: 60, priorityLevel: 'HIGH', rank: 2 },
+  });
+  assert.deepEqual(
+    filterCandidates([eligible, reviewOnly], {
+      eligibility: 'REVIEW_ONLY',
+      confidence: 'HIGH',
+      priority: 'HIGH',
+    }),
+    [reviewOnly]
+  );
+});
+
+test('reset clears every candidate filter', () => {
+  const elements = candidateElements();
+  resetCandidateFilters(elements);
+  for (const key of [
+    'candidateSupplier',
+    'candidateBrand',
+    'candidateDecision',
+    'candidateReason',
+    'candidateDateFrom',
+    'candidateDateTo',
+    'candidateEligibility',
+    'candidateConfidence',
+    'candidatePriority',
+  ]) {
+    assert.equal(elements[key].value, '');
+  }
+});
+
+test('candidate card renders facts and explanations using text nodes only', () => {
+  const candidate = candidateFixture();
+  const card = createCandidateCard(fakeDocument(), candidate);
+  const visible = descendantText(card);
+
+  assert.match(visible, /#1/);
+  assert.match(visible, /<img src=x onerror=alert\(1\)>/);
+  assert.match(visible, /Повторяется одно решение по товару/);
+  assert.match(visible, /Confidence: 86 · Очень высокая/);
+  assert.match(visible, /Критический для проверки/);
+  assert.match(visible, /Можно рассмотреть/);
+  assert.match(visible, /Пропустить/);
+  assert.match(visible, /87,5|87\.5/);
+  assert.match(visible, /−12/);
+  assert.match(visible, /Повторяющееся решение по товару/);
+  assert.match(visible, /Высокая повторяемость/);
+  assert.match(visible, /Есть противоречия/);
+  assert.match(
+    visible,
+    /Рассмотреть и при необходимости одобрить позже/
+  );
+  for (const forbidden of [
+    'private-candidate-id',
+    'technical-scope-key',
+    'private-decision-id',
+    'private comment',
+    'metadata',
+  ]) {
+    assert.equal(visible.includes(forbidden), false);
+  }
+});
+
+test('candidate renderer handles nulls without exposing identifiers', () => {
+  const parent = fakeElement();
+  renderCandidateCards(fakeDocument(), parent, [
+    candidateFixture({
+      candidateId: 'hidden-id',
+      displayScope: { primary: null, secondary: null },
+      confidence: { score: null, level: null },
+      evidence: {
+        occurrences: 1,
+        dominantShare: null,
+        firstRecordedAt: null,
+        lastRecordedAt: null,
+      },
+      impact: {
+        estimatedAffectedItems: 0,
+        estimatedHistoricalQuantityDelta: null,
+      },
+    }),
+  ]);
+  const visible = descendantText(parent);
+
+  assert.match(visible, /—/);
+  assert.equal(visible.includes('hidden-id'), false);
 });

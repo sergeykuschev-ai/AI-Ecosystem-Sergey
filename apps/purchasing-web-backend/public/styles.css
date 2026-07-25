@@ -257,6 +257,256 @@ h2 {
   text-transform: uppercase;
 }
 
+.learning-candidates {
+  margin-top: 22px;
+}
+
+.candidate-safety {
+  margin: -6px 0 22px;
+  border-left: 4px solid var(--green);
+  border-radius: 10px;
+  background: var(--green-soft);
+  padding: 14px 16px;
+  color: var(--green-dark);
+  line-height: 1.5;
+}
+
+.candidate-filters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.candidate-filters label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.candidate-filters input,
+.candidate-filters select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  padding: 10px 12px;
+  color: var(--text);
+}
+
+.candidate-filter-actions {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+}
+
+.candidate-filter-actions button {
+  flex: 1;
+}
+
+.candidate-state {
+  border-radius: 14px;
+  background: #f4f7f5;
+  padding: 18px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.candidate-warning {
+  background: var(--orange-soft);
+  color: #824414;
+}
+
+.candidate-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.candidate-summary article {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fafcfb;
+  padding: 16px;
+}
+
+.candidate-summary span,
+.candidate-summary strong {
+  display: block;
+}
+
+.candidate-summary span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.candidate-summary strong {
+  margin-top: 5px;
+  font-size: 1.45rem;
+}
+
+.candidate-list {
+  display: grid;
+  gap: 16px;
+}
+
+.candidate-card {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #fff;
+  padding: 20px;
+}
+
+.candidate-card > header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.candidate-card h3,
+.candidate-card h4,
+.candidate-card h5,
+.candidate-card p {
+  margin-top: 0;
+}
+
+.candidate-card h3 {
+  margin-bottom: 3px;
+  font-size: 1.1rem;
+}
+
+.candidate-card header p {
+  margin-bottom: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.candidate-rank {
+  flex: none;
+  border-radius: 999px;
+  background: var(--green-soft);
+  padding: 7px 10px;
+  color: var(--green-dark);
+  font-weight: 800;
+}
+
+.candidate-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.candidate-badge {
+  border-radius: 999px;
+  background: #eef2ef;
+  padding: 6px 9px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 750;
+}
+
+.candidate-badge.eligibility-eligible {
+  background: var(--green-soft);
+  color: var(--green-dark);
+}
+
+.candidate-badge.eligibility-review_only {
+  background: var(--orange-soft);
+  color: #824414;
+}
+
+.candidate-badge.eligibility-ineligible {
+  background: #f2eeee;
+  color: #704040;
+}
+
+.candidate-pattern {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.candidate-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.candidate-facts div {
+  border-radius: 12px;
+  background: #f7f9f8;
+  padding: 11px;
+}
+
+.candidate-facts dt {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.candidate-facts dd {
+  margin: 4px 0 0;
+  font-weight: 750;
+}
+
+.candidate-explanation {
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+
+.candidate-explanation h4 {
+  margin-bottom: 6px;
+}
+
+.candidate-explanation p {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.candidate-card details {
+  margin-top: 12px;
+}
+
+.candidate-card summary {
+  color: var(--green-dark);
+  cursor: pointer;
+  font-weight: 750;
+}
+
+.candidate-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.candidate-detail-grid section {
+  border-radius: 12px;
+  background: #f7f9f8;
+  padding: 13px;
+}
+
+.candidate-detail-grid h5 {
+  margin-bottom: 8px;
+}
+
+.candidate-detail-grid ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+}
+
+.candidate-recommended-action {
+  margin: 16px 0 0;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+  font-weight: 750;
+}
+
 .card,
 .results {
   border: 1px solid rgba(220, 229, 223, 0.92);
@@ -1293,7 +1543,13 @@ h2 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .history-summary {
+  .history-summary,
+  .candidate-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .candidate-filters,
+  .candidate-facts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1357,8 +1613,16 @@ h2 {
   }
 
   .history-filters,
-  .history-summary {
+  .history-summary,
+  .candidate-filters,
+  .candidate-summary,
+  .candidate-facts,
+  .candidate-detail-grid {
     grid-template-columns: 1fr;
+  }
+
+  .candidate-filter-actions {
+    display: grid;
   }
 
   .product-detail-grid {

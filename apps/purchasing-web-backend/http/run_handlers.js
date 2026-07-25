@@ -28,6 +28,9 @@ const {
   mapOwnerDecisionAnalytics,
 } = require('../dto/owner_decision_analytics_mapper');
 const {
+  mapOwnerLearningCandidates,
+} = require('../dto/owner_learning_candidates_mapper');
+const {
   OWNER_DECISIONS,
   REASON_CODES,
   SOURCES,
@@ -56,6 +59,24 @@ const ANALYTICS_OPTION_NAMES = Object.freeze([
 const ANALYTICS_QUERY_NAMES = new Set([
   ...ANALYTICS_FILTER_NAMES,
   ...ANALYTICS_OPTION_NAMES,
+]);
+const CANDIDATE_CONFIDENCE_OPTION_NAMES = Object.freeze([
+  'asOf',
+  'maxEvidenceDecisionIds',
+  'includeLowConfidence',
+]);
+const CANDIDATE_RANKING_OPTION_NAMES = Object.freeze([
+  'minOccurrencesForEligibility',
+  'minDominantShareForEligibility',
+  'maxContradictionShareForEligibility',
+  'includeIneligible',
+  'limit',
+]);
+const CANDIDATE_QUERY_NAMES = new Set([
+  ...ANALYTICS_FILTER_NAMES,
+  ...ANALYTICS_OPTION_NAMES,
+  ...CANDIDATE_CONFIDENCE_OPTION_NAMES,
+  ...CANDIDATE_RANKING_OPTION_NAMES,
 ]);
 
 function analyticsInputError(message) {
@@ -200,6 +221,220 @@ function parseOwnerDecisionAnalyticsQuery(query = {}) {
   return { filters, options };
 }
 
+function candidateInputError(message) {
+  return new HttpError(
+    'OWNER_LEARNING_CANDIDATES_INVALID_INPUT',
+    message
+  );
+}
+
+function candidateText(value, name) {
+  if (
+    typeof value !== 'string' ||
+    value.trim() === '' ||
+    value.length > 512 ||
+    value.includes('\0')
+  ) {
+    throw candidateInputError(
+      `Параметр ${name} имеет неверное значение.`
+    );
+  }
+  return value.trim();
+}
+
+function candidateEnum(value, name, values) {
+  const normalized = candidateText(value, name).toUpperCase();
+  if (!values.includes(normalized)) {
+    throw candidateInputError(`Параметр ${name} не поддерживается.`);
+  }
+  return normalized;
+}
+
+function candidateInteger(value, name, maximum = null) {
+  const normalized = candidateText(value, name);
+  const number = Number(normalized);
+  if (
+    !/^\d+$/.test(normalized) ||
+    !Number.isSafeInteger(number) ||
+    number < 1 ||
+    (maximum !== null && number > maximum)
+  ) {
+    throw candidateInputError(
+      `Параметр ${name} вне допустимого диапазона.`
+    );
+  }
+  return number;
+}
+
+function candidateShare(value, name) {
+  const normalized = candidateText(value, name);
+  if (!/^(?:0(?:\.\d+)?|1(?:\.0+)?)$/.test(normalized)) {
+    throw candidateInputError(
+      `Параметр ${name} должен быть числом от 0 до 1.`
+    );
+  }
+  const number = Number(normalized);
+  if (!Number.isFinite(number) || number < 0 || number > 1) {
+    throw candidateInputError(
+      `Параметр ${name} должен быть числом от 0 до 1.`
+    );
+  }
+  return number;
+}
+
+function candidateBoolean(value, name) {
+  const normalized = candidateText(value, name);
+  if (normalized !== 'true' && normalized !== 'false') {
+    throw candidateInputError(
+      `Параметр ${name} должен быть true или false.`
+    );
+  }
+  return normalized === 'true';
+}
+
+function candidateDate(value, name) {
+  const normalized = candidateText(value, name);
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(normalized);
+  const timestamp = Date.parse(
+    dateOnly ? `${normalized}T00:00:00.000Z` : normalized
+  );
+  if (
+    !Number.isFinite(timestamp) ||
+    (dateOnly &&
+      new Date(timestamp).toISOString().slice(0, 10) !== normalized)
+  ) {
+    throw candidateInputError(
+      `Параметр ${name} должен быть датой.`
+    );
+  }
+  return normalized;
+}
+
+function candidateAsOf(value) {
+  const normalized = candidateText(value, 'asOf');
+  if (
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(
+      normalized
+    ) ||
+    !Number.isFinite(Date.parse(normalized))
+  ) {
+    throw candidateInputError(
+      'Параметр asOf должен быть ISO UTC datetime.'
+    );
+  }
+  return new Date(Date.parse(normalized)).toISOString();
+}
+
+function parseOwnerLearningCandidatesQuery(query = {}) {
+  for (const name of Object.keys(query)) {
+    if (!CANDIDATE_QUERY_NAMES.has(name)) {
+      throw candidateInputError(`Параметр ${name} не поддерживается.`);
+    }
+  }
+  const filters = {};
+  const analyticsOptions = {};
+  const confidenceOptions = {};
+  const rankingOptions = {};
+  for (const name of ['supplier', 'brand', 'category', 'stableItemKey']) {
+    if (query[name] !== undefined) {
+      filters[name] = candidateText(query[name], name);
+    }
+  }
+  if (query.source !== undefined) {
+    filters.source = candidateEnum(query.source, 'source', SOURCES);
+  }
+  if (query.ownerDecision !== undefined) {
+    filters.ownerDecision = candidateEnum(
+      query.ownerDecision,
+      'ownerDecision',
+      OWNER_DECISIONS
+    );
+  }
+  if (query.reasonCode !== undefined) {
+    filters.reasonCode = candidateEnum(
+      query.reasonCode,
+      'reasonCode',
+      REASON_CODES
+    );
+  }
+  for (const name of ['dateFrom', 'dateTo']) {
+    if (query[name] !== undefined) {
+      filters[name] = candidateDate(query[name], name);
+    }
+  }
+  if (
+    filters.dateFrom &&
+    filters.dateTo &&
+    Date.parse(filters.dateFrom) > Date.parse(filters.dateTo)
+  ) {
+    throw candidateInputError('dateFrom не может быть позже dateTo.');
+  }
+  if (query.minOccurrences !== undefined) {
+    analyticsOptions.minOccurrences = candidateInteger(
+      query.minOccurrences,
+      'minOccurrences'
+    );
+  }
+  if (query.dominantShareThreshold !== undefined) {
+    analyticsOptions.dominantShareThreshold = candidateShare(
+      query.dominantShareThreshold,
+      'dominantShareThreshold'
+    );
+  }
+  if (query.maxItems !== undefined) {
+    analyticsOptions.maxItems = candidateInteger(
+      query.maxItems,
+      'maxItems',
+      MAX_ANALYTICS_ITEMS
+    );
+  }
+  if (query.asOf !== undefined) {
+    confidenceOptions.asOf = candidateAsOf(query.asOf);
+  }
+  if (query.maxEvidenceDecisionIds !== undefined) {
+    confidenceOptions.maxEvidenceDecisionIds = candidateInteger(
+      query.maxEvidenceDecisionIds,
+      'maxEvidenceDecisionIds',
+      100
+    );
+  }
+  if (query.includeLowConfidence !== undefined) {
+    confidenceOptions.includeLowConfidence = candidateBoolean(
+      query.includeLowConfidence,
+      'includeLowConfidence'
+    );
+  }
+  if (query.minOccurrencesForEligibility !== undefined) {
+    rankingOptions.minOccurrencesForEligibility = candidateInteger(
+      query.minOccurrencesForEligibility,
+      'minOccurrencesForEligibility'
+    );
+  }
+  for (const name of [
+    'minDominantShareForEligibility',
+    'maxContradictionShareForEligibility',
+  ]) {
+    if (query[name] !== undefined) {
+      rankingOptions[name] = candidateShare(query[name], name);
+    }
+  }
+  if (query.includeIneligible !== undefined) {
+    rankingOptions.includeIneligible = candidateBoolean(
+      query.includeIneligible,
+      'includeIneligible'
+    );
+  }
+  if (query.limit !== undefined) {
+    rankingOptions.limit = candidateInteger(query.limit, 'limit', 100);
+  }
+  return {
+    filters,
+    analyticsOptions,
+    confidenceOptions,
+    rankingOptions,
+  };
+}
+
 async function readDecisionBody(request) {
   const contentType = String(request.headers['content-type'] || '')
     .split(';')[0]
@@ -286,11 +521,17 @@ function createRunHandlers(options) {
     runLock = DEFAULT_RUN_EXECUTION_LOCK,
     approvedRuleMode,
     ownerDecisionAnalyticsService,
+    ownerLearningCandidatesService,
   } = options;
 
-  if (!registry || !queryService || !ownerDecisionAnalyticsService) {
+  if (
+    !registry ||
+    !queryService ||
+    !ownerDecisionAnalyticsService ||
+    !ownerLearningCandidatesService
+  ) {
     throw new TypeError(
-      'Registry, query service и analytics service обязательны.'
+      'Registry, query service и owner learning services обязательны.'
     );
   }
 
@@ -429,6 +670,15 @@ function createRunHandlers(options) {
       };
     },
 
+    getOwnerLearningCandidates(query) {
+      const input = parseOwnerLearningCandidatesQuery(query);
+      const result = ownerLearningCandidatesService.getCandidates(input);
+      return {
+        statusCode: 200,
+        data: mapOwnerLearningCandidates(result),
+      };
+    },
+
     listArtifacts(runId) {
       return {
         statusCode: 200,
@@ -460,5 +710,6 @@ module.exports = {
   orchestrationHttpError,
   readDecisionBody,
   parseOwnerDecisionAnalyticsQuery,
+  parseOwnerLearningCandidatesQuery,
   reportDateDependencies,
 };

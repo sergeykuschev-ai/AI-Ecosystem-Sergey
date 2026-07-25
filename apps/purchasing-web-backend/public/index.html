@@ -266,6 +266,181 @@
         </div>
       </section>
 
+      <section
+        class="learning-candidates card"
+        id="learning-candidates"
+        aria-labelledby="learning-candidates-title"
+      >
+        <div class="section-heading">
+          <div>
+            <p class="step-label">Owner Learning</p>
+            <h2 id="learning-candidates-title">Кандидаты для обучения</h2>
+          </div>
+          <span class="format-badge">Только чтение</span>
+        </div>
+
+        <p class="candidate-safety" id="candidate-safety">
+          Кандидаты сформированы по истории решений и предназначены только
+          для ручной проверки. Никакие правила автоматически не создаются
+          и не применяются.
+        </p>
+
+        <form
+          class="candidate-filters"
+          id="candidate-filters"
+          aria-label="Фильтры кандидатов для обучения"
+        >
+          <label>
+            Поставщик
+            <input id="candidate-supplier" name="supplier" type="search">
+          </label>
+          <label>
+            Бренд
+            <input id="candidate-brand" name="brand" type="search">
+          </label>
+          <label>
+            Решение
+            <select id="candidate-decision" name="ownerDecision">
+              <option value="">Все решения</option>
+              <option value="BUY">Купить</option>
+              <option value="SKIP">Пропустить</option>
+              <option value="DEFER">Отложить</option>
+              <option value="REVIEW">Проверить</option>
+            </select>
+          </label>
+          <label>
+            Причина
+            <select id="candidate-reason" name="reasonCode">
+              <option value="">Все причины</option>
+              <option value="TOO_MUCH_STOCK">Слишком большой остаток</option>
+              <option value="LOW_SALES">Низкие продажи</option>
+              <option value="STRATEGIC_ITEM">Стратегический товар</option>
+              <option value="REQUIRED_ASSORTMENT">Обязательный ассортимент</option>
+              <option value="SEASONAL">Сезонность</option>
+              <option value="SUPPLIER_CONSTRAINT">Ограничение поставщика</option>
+              <option value="PRICE_TOO_HIGH">Высокая цена</option>
+              <option value="OWNER_EXPERIENCE">Опыт владельца</option>
+              <option value="OTHER">Другое</option>
+              <option value="NOT_SPECIFIED">Причина не указана</option>
+            </select>
+          </label>
+          <label>
+            С даты
+            <input id="candidate-date-from" name="dateFrom" type="date">
+          </label>
+          <label>
+            По дату
+            <input id="candidate-date-to" name="dateTo" type="date">
+          </label>
+          <label>
+            Статус кандидата
+            <select id="candidate-eligibility" name="eligibility">
+              <option value="">Все статусы</option>
+              <option value="ELIGIBLE">Можно рассмотреть</option>
+              <option value="REVIEW_ONLY">Только ручной анализ</option>
+              <option value="INELIGIBLE">Недостаточно безопасно</option>
+            </select>
+          </label>
+          <label>
+            Уровень confidence
+            <select id="candidate-confidence" name="confidence">
+              <option value="">Все уровни</option>
+              <option value="LOW">Низкая</option>
+              <option value="MEDIUM">Средняя</option>
+              <option value="HIGH">Высокая</option>
+              <option value="VERY_HIGH">Очень высокая</option>
+            </select>
+          </label>
+          <label>
+            Уровень приоритета
+            <select id="candidate-priority" name="priority">
+              <option value="">Все уровни</option>
+              <option value="LOW">Низкий</option>
+              <option value="MEDIUM">Средний</option>
+              <option value="HIGH">Высокий</option>
+              <option value="CRITICAL">Критический для проверки</option>
+            </select>
+          </label>
+          <div class="candidate-filter-actions">
+            <button class="secondary-button" type="submit">Обновить</button>
+            <button
+              class="secondary-button"
+              id="candidate-reset"
+              type="button"
+            >
+              Сбросить фильтры
+            </button>
+          </div>
+        </form>
+
+        <div class="candidate-state" id="candidate-loading" role="status">
+          <span class="loading-dot" aria-hidden="true"></span>
+          Загружаем кандидатов…
+        </div>
+        <div class="candidate-state" id="candidate-empty" hidden>
+          История решений пока пуста. Кандидаты появятся после накопления
+          подтверждённых решений.
+        </div>
+        <div class="candidate-state" id="candidate-no-patterns" hidden>
+          Устойчивые паттерны пока не найдены.
+        </div>
+        <div class="candidate-state" id="candidate-no-results" hidden>
+          По выбранным фильтрам кандидаты не найдены.
+        </div>
+        <div
+          class="candidate-state candidate-warning"
+          id="candidate-unavailable"
+          hidden
+        >
+          Кандидаты временно недоступны. Работа закупщика не затронута.
+        </div>
+        <div
+          class="candidate-state candidate-warning"
+          id="candidate-invalid"
+          role="alert"
+          hidden
+        >
+          Проверьте выбранные фильтры и повторите запрос.
+        </div>
+
+        <div id="candidate-content" hidden>
+          <div
+            class="candidate-summary"
+            aria-label="Сводка кандидатов для обучения"
+          >
+            <article>
+              <span>Всего кандидатов</span>
+              <strong id="candidate-total">—</strong>
+            </article>
+            <article>
+              <span>Можно рассмотреть</span>
+              <strong id="candidate-eligible">—</strong>
+            </article>
+            <article>
+              <span>Только наблюдение</span>
+              <strong id="candidate-review-only">—</strong>
+            </article>
+            <article>
+              <span>Нельзя использовать</span>
+              <strong id="candidate-ineligible">—</strong>
+            </article>
+            <article>
+              <span>Высокий приоритет</span>
+              <strong id="candidate-high-priority">—</strong>
+            </article>
+            <article>
+              <span>Критический приоритет</span>
+              <strong id="candidate-critical-priority">—</strong>
+            </article>
+          </div>
+          <div
+            class="candidate-list"
+            id="candidate-list"
+            aria-live="polite"
+          ></div>
+        </div>
+      </section>
+
       <section class="results" id="results" aria-labelledby="results-title" hidden>
         <div class="results-heading">
           <div>

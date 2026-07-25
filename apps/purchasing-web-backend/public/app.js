@@ -51,6 +51,8 @@
   ]);
   const OWNER_DECISION_ANALYTICS_URL =
     '/api/v1/owner-learning/decision-history/analytics';
+  const OWNER_LEARNING_CANDIDATES_URL =
+    '/api/v1/owner-learning/candidates';
   const DECISION_LABELS = Object.freeze({
     BUY: 'Купить',
     SKIP: 'Пропустить',
@@ -81,6 +83,30 @@
     AGENT_DISAGREEMENT_REPEAT:
       'Повторные расхождения с агентом',
   });
+  const ELIGIBILITY_LABELS = Object.freeze({
+    ELIGIBLE: 'Можно рассмотреть',
+    REVIEW_ONLY: 'Только ручной анализ',
+    INELIGIBLE: 'Недостаточно безопасно',
+  });
+  const CONFIDENCE_LABELS = Object.freeze({
+    LOW: 'Низкая',
+    MEDIUM: 'Средняя',
+    HIGH: 'Высокая',
+    VERY_HIGH: 'Очень высокая',
+  });
+  const PRIORITY_LABELS = Object.freeze({
+    LOW: 'Низкий',
+    MEDIUM: 'Средний',
+    HIGH: 'Высокий',
+    CRITICAL: 'Критический для проверки',
+  });
+  const OWNER_ACTION_LABELS = Object.freeze({
+    REVIEW_AND_APPROVE:
+      'Рассмотреть и при необходимости одобрить позже',
+    REVIEW_ONLY: 'Провести ручной анализ',
+    COLLECT_MORE_HISTORY: 'Накопить больше истории',
+    DO_NOT_CREATE_RULE: 'Не создавать правило',
+  });
 
   const ERROR_MESSAGES = Object.freeze({
     FILE_REQUIRED: 'Выберите Excel-файл.',
@@ -105,6 +131,8 @@
     ITEM_DECISION_UNAVAILABLE:
       'Для этого товара решение сейчас недоступно.',
     OWNER_DECISION_ANALYTICS_INVALID_INPUT:
+      'Проверьте выбранные фильтры и повторите запрос.',
+    OWNER_LEARNING_CANDIDATES_INVALID_INPUT:
       'Проверьте выбранные фильтры и повторите запрос.',
   });
 
@@ -1034,6 +1062,294 @@
     }
   }
 
+  function eligibilityLabel(value) {
+    return ELIGIBILITY_LABELS[value] || '—';
+  }
+
+  function confidenceLabel(value) {
+    return CONFIDENCE_LABELS[value] || '—';
+  }
+
+  function priorityLabel(value) {
+    return PRIORITY_LABELS[value] || '—';
+  }
+
+  function ownerActionLabel(value) {
+    return OWNER_ACTION_LABELS[value] || '—';
+  }
+
+  function formatSignedQuantity(value) {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return '—';
+    const formatted = formatQuantity(Math.abs(value));
+    if (value > 0) return `+${formatted}`;
+    if (value < 0) return `−${formatted}`;
+    return formatted;
+  }
+
+  function buildCandidatesUrl(filters = {}) {
+    const parameters = new URLSearchParams();
+    for (const name of [
+      'supplier',
+      'brand',
+      'ownerDecision',
+      'reasonCode',
+      'dateFrom',
+      'dateTo',
+    ]) {
+      const value = typeof filters[name] === 'string'
+        ? filters[name].trim()
+        : '';
+      if (value) parameters.set(name, value);
+    }
+    parameters.set('maxItems', '100');
+    parameters.set('includeLowConfidence', 'true');
+    parameters.set('includeIneligible', 'true');
+    parameters.set('limit', '100');
+    return `${OWNER_LEARNING_CANDIDATES_URL}?${parameters.toString()}`;
+  }
+
+  function candidateViewState(result) {
+    if (result?.status === 'UNAVAILABLE') return 'unavailable';
+    if (
+      result?.status !== 'AVAILABLE' ||
+      !result.summary ||
+      !Array.isArray(result.candidates)
+    ) {
+      return 'invalid';
+    }
+    if (result.summary.historyEntries === 0) return 'empty';
+    if (
+      result.summary.patternsFound === 0 ||
+      result.summary.totalCandidates === 0
+    ) {
+      return 'no-patterns';
+    }
+    return 'ready';
+  }
+
+  function setCandidatePanelState(elements, state) {
+    elements.candidateLoading.hidden = state !== 'loading';
+    elements.candidateEmpty.hidden = state !== 'empty';
+    elements.candidateNoPatterns.hidden = state !== 'no-patterns';
+    elements.candidateNoResults.hidden = state !== 'no-results';
+    elements.candidateUnavailable.hidden = state !== 'unavailable';
+    elements.candidateInvalid.hidden = state !== 'invalid';
+    elements.candidateContent.hidden = state !== 'ready';
+  }
+
+  function filterCandidates(candidates, filters = {}) {
+    return (Array.isArray(candidates) ? candidates : []).filter(
+      candidate =>
+        (
+          !filters.eligibility ||
+          candidate?.eligibility?.status === filters.eligibility
+        ) &&
+        (
+          !filters.confidence ||
+          candidate?.confidence?.level === filters.confidence
+        ) &&
+        (
+          !filters.priority ||
+          candidate?.ranking?.priorityLevel === filters.priority
+        )
+    );
+  }
+
+  function resetCandidateFilters(elements) {
+    for (const element of [
+      elements.candidateSupplier,
+      elements.candidateBrand,
+      elements.candidateDecision,
+      elements.candidateReason,
+      elements.candidateDateFrom,
+      elements.candidateDateTo,
+      elements.candidateEligibility,
+      elements.candidateConfidence,
+      elements.candidatePriority,
+    ]) {
+      element.value = '';
+    }
+  }
+
+  function appendCandidateFact(
+    documentObject,
+    list,
+    label,
+    value
+  ) {
+    const group = documentObject.createElement('div');
+    const term = documentObject.createElement('dt');
+    const description = documentObject.createElement('dd');
+    term.textContent = label;
+    description.textContent = value;
+    group.append(term, description);
+    list.append(group);
+  }
+
+  function appendCandidateList(
+    documentObject,
+    parent,
+    titleText,
+    values
+  ) {
+    const section = documentObject.createElement('section');
+    const title = documentObject.createElement('h5');
+    const list = documentObject.createElement('ul');
+    title.textContent = titleText;
+    const safeValues = Array.isArray(values) && values.length > 0
+      ? values
+      : ['—'];
+    for (const value of safeValues) {
+      const item = documentObject.createElement('li');
+      item.textContent = typeof value === 'string' ? value : '—';
+      list.append(item);
+    }
+    section.append(title, list);
+    parent.append(section);
+  }
+
+  function createCandidateCard(documentObject, candidate = {}) {
+    const card = documentObject.createElement('article');
+    card.className = 'candidate-card';
+
+    const heading = documentObject.createElement('header');
+    const rank = documentObject.createElement('span');
+    const scope = documentObject.createElement('div');
+    const name = documentObject.createElement('h3');
+    const secondary = documentObject.createElement('p');
+    rank.className = 'candidate-rank';
+    rank.textContent = Number.isInteger(candidate.ranking?.rank)
+      ? `#${candidate.ranking.rank}`
+      : '—';
+    name.textContent = candidate.displayScope?.primary || '—';
+    secondary.textContent = candidate.displayScope?.secondary || '—';
+    scope.append(name, secondary);
+    heading.append(rank, scope);
+
+    const badges = documentObject.createElement('div');
+    badges.className = 'candidate-badges';
+    for (const [value, className] of [
+      [
+        eligibilityLabel(candidate.eligibility?.status),
+        `eligibility-${String(
+          candidate.eligibility?.status || ''
+        ).toLowerCase()}`,
+      ],
+      [
+        `Confidence: ${formatQuantity(candidate.confidence?.score)} · ` +
+          confidenceLabel(candidate.confidence?.level),
+        'candidate-confidence',
+      ],
+      [
+        `Приоритет: ${
+          formatQuantity(candidate.ranking?.priorityScore)
+        } · ${priorityLabel(candidate.ranking?.priorityLevel)}`,
+        'candidate-priority',
+      ],
+    ]) {
+      const badge = documentObject.createElement('span');
+      badge.className = `candidate-badge ${className}`;
+      badge.textContent = value;
+      badges.append(badge);
+    }
+
+    const pattern = documentObject.createElement('p');
+    pattern.className = 'candidate-pattern';
+    pattern.textContent = patternLabel(candidate.patternType);
+
+    const facts = documentObject.createElement('dl');
+    facts.className = 'candidate-facts';
+    const period = candidate.evidence?.firstRecordedAt ||
+        candidate.evidence?.lastRecordedAt
+      ? `${formatHistoryDate(candidate.evidence?.firstRecordedAt)} — ` +
+        formatHistoryDate(candidate.evidence?.lastRecordedAt)
+      : '—';
+    for (const [label, value] of [
+      ['Решение', decisionLabel(candidate.proposedAction?.decision)],
+      ['Повторений', displayCount(candidate.evidence?.occurrences)],
+      ['Dominant share', formatPercent(candidate.evidence?.dominantShare)],
+      ['Период наблюдения', period],
+      [
+        'Затронуто товаров',
+        displayCount(candidate.impact?.estimatedAffectedItems),
+      ],
+      [
+        'Историческая разница количества',
+        formatSignedQuantity(
+          candidate.impact?.estimatedHistoricalQuantityDelta
+        ),
+      ],
+    ]) {
+      appendCandidateFact(documentObject, facts, label, value);
+    }
+
+    const explanation = documentObject.createElement('section');
+    explanation.className = 'candidate-explanation';
+    const headline = documentObject.createElement('h4');
+    const summary = documentObject.createElement('p');
+    headline.textContent = candidate.explanation?.headline || '—';
+    summary.textContent = candidate.explanation?.summary || '—';
+    explanation.append(headline, summary);
+
+    const details = documentObject.createElement('details');
+    const detailsSummary = documentObject.createElement('summary');
+    const detailGrid = documentObject.createElement('div');
+    detailsSummary.textContent = 'Раскрыть подробности';
+    detailGrid.className = 'candidate-detail-grid';
+    appendCandidateList(
+      documentObject,
+      detailGrid,
+      'Сильные стороны',
+      candidate.explanation?.strengths
+    );
+    appendCandidateList(
+      documentObject,
+      detailGrid,
+      'Риски',
+      candidate.explanation?.risks
+    );
+    details.append(detailsSummary, detailGrid);
+
+    const recommended = documentObject.createElement('p');
+    recommended.className = 'candidate-recommended-action';
+    recommended.textContent = 'Рекомендуемое действие: ' +
+      ownerActionLabel(
+        candidate.explanation?.recommendedOwnerAction
+      );
+
+    card.append(
+      heading,
+      badges,
+      pattern,
+      facts,
+      explanation,
+      details,
+      recommended
+    );
+    return card;
+  }
+
+  function renderCandidateCards(documentObject, parent, candidates) {
+    parent.replaceChildren();
+    for (const candidate of Array.isArray(candidates) ? candidates : []) {
+      parent.append(createCandidateCard(documentObject, candidate));
+    }
+  }
+
+  function renderCandidateSummary(elements, summary = {}) {
+    const values = {
+      total: summary.totalCandidates,
+      eligible: summary.eligible,
+      reviewOnly: summary.reviewOnly,
+      ineligible: summary.ineligible,
+      highPriority: summary.highPriority,
+      criticalPriority: summary.criticalPriority,
+    };
+    for (const [name, value] of Object.entries(values)) {
+      elements.candidateSummary[name].textContent = displayCount(value);
+    }
+  }
+
   async function pollRunStatus(options) {
     const {
       fetchFunction,
@@ -1123,6 +1439,58 @@
         agreementRate:
           documentObject.getElementById('history-agreement-rate'),
       },
+      candidateForm:
+        documentObject.getElementById('candidate-filters'),
+      candidateSupplier:
+        documentObject.getElementById('candidate-supplier'),
+      candidateBrand:
+        documentObject.getElementById('candidate-brand'),
+      candidateDecision:
+        documentObject.getElementById('candidate-decision'),
+      candidateReason:
+        documentObject.getElementById('candidate-reason'),
+      candidateDateFrom:
+        documentObject.getElementById('candidate-date-from'),
+      candidateDateTo:
+        documentObject.getElementById('candidate-date-to'),
+      candidateEligibility:
+        documentObject.getElementById('candidate-eligibility'),
+      candidateConfidence:
+        documentObject.getElementById('candidate-confidence'),
+      candidatePriority:
+        documentObject.getElementById('candidate-priority'),
+      candidateReset:
+        documentObject.getElementById('candidate-reset'),
+      candidateLoading:
+        documentObject.getElementById('candidate-loading'),
+      candidateEmpty:
+        documentObject.getElementById('candidate-empty'),
+      candidateNoPatterns:
+        documentObject.getElementById('candidate-no-patterns'),
+      candidateNoResults:
+        documentObject.getElementById('candidate-no-results'),
+      candidateUnavailable:
+        documentObject.getElementById('candidate-unavailable'),
+      candidateInvalid:
+        documentObject.getElementById('candidate-invalid'),
+      candidateContent:
+        documentObject.getElementById('candidate-content'),
+      candidateList:
+        documentObject.getElementById('candidate-list'),
+      candidateSummary: {
+        total: documentObject.getElementById('candidate-total'),
+        eligible: documentObject.getElementById('candidate-eligible'),
+        reviewOnly:
+          documentObject.getElementById('candidate-review-only'),
+        ineligible:
+          documentObject.getElementById('candidate-ineligible'),
+        highPriority:
+          documentObject.getElementById('candidate-high-priority'),
+        criticalPriority:
+          documentObject.getElementById(
+            'candidate-critical-priority'
+          ),
+      },
       decisionCounters: {
         all: documentObject.getElementById('decision-all'),
         needsDecision: documentObject.getElementById('decision-needs'),
@@ -1156,6 +1524,7 @@
     let availableArtifacts = {};
     let itemRequestSequence = 0;
     let historyRequestSequence = 0;
+    let candidateRequestSequence = 0;
     let searchTimer = null;
     const itemState = {
       baseUrl: null,
@@ -1201,6 +1570,73 @@
           elements,
           error instanceof FrontendError &&
             error.code === 'OWNER_DECISION_ANALYTICS_INVALID_INPUT'
+            ? 'invalid'
+            : 'unavailable'
+        );
+      }
+    }
+
+    function candidateFilters() {
+      return {
+        supplier: elements.candidateSupplier.value,
+        brand: elements.candidateBrand.value,
+        ownerDecision: elements.candidateDecision.value,
+        reasonCode: elements.candidateReason.value,
+        dateFrom: elements.candidateDateFrom.value,
+        dateTo: elements.candidateDateTo.value,
+        eligibility: elements.candidateEligibility.value,
+        confidence: elements.candidateConfidence.value,
+        priority: elements.candidatePriority.value,
+      };
+    }
+
+    async function loadCandidates() {
+      const sequence = ++candidateRequestSequence;
+      const filters = candidateFilters();
+      setCandidatePanelState(elements, 'loading');
+      try {
+        const result = await requestJson(
+          fetchFunction,
+          buildCandidatesUrl(filters)
+        );
+        if (sequence !== candidateRequestSequence) return;
+        const state = candidateViewState(result);
+        if (state !== 'ready') {
+          renderCandidateCards(
+            documentObject,
+            elements.candidateList,
+            []
+          );
+          setCandidatePanelState(elements, state);
+          return;
+        }
+        const candidates = filterCandidates(
+          result.candidates,
+          filters
+        );
+        if (candidates.length === 0) {
+          renderCandidateCards(
+            documentObject,
+            elements.candidateList,
+            []
+          );
+          setCandidatePanelState(elements, 'no-results');
+          return;
+        }
+        renderCandidateSummary(elements, result.summary);
+        renderCandidateCards(
+          documentObject,
+          elements.candidateList,
+          candidates
+        );
+        setCandidatePanelState(elements, 'ready');
+      } catch (error) {
+        if (sequence !== candidateRequestSequence) return;
+        setCandidatePanelState(
+          elements,
+          error instanceof FrontendError &&
+            error.code ===
+              'OWNER_LEARNING_CANDIDATES_INVALID_INPUT'
             ? 'invalid'
             : 'unavailable'
         );
@@ -1604,6 +2040,14 @@
       event.preventDefault();
       loadDecisionHistory();
     });
+    elements.candidateForm.addEventListener('submit', event => {
+      event.preventDefault();
+      loadCandidates();
+    });
+    elements.candidateReset.addEventListener('click', () => {
+      resetCandidateFilters(elements);
+      loadCandidates();
+    });
     elements.exportButton.addEventListener('click', () => {
       setExportOpen(elements.exportMenu.hidden);
     });
@@ -1662,8 +2106,10 @@
     resetExports();
     resetItems();
     loadDecisionHistory();
+    loadCandidates();
     return {
       activateItems,
+      loadCandidates,
       loadDecisionHistory,
       loadItems,
       submitRun,
@@ -1673,43 +2119,56 @@
 
   const publicApi = {
     FrontendError,
+    analyticsViewState,
+    buildAnalyticsUrl,
+    buildCandidatesUrl,
     buildDecisionUrl,
     buildItemsUrl,
-    buildAnalyticsUrl,
+    candidateViewState,
+    confidenceLabel,
+    createCandidateCard,
     createItemRow,
     createItemRows,
     createApplication,
     decisionCounterView,
     decisionLabel,
     defaultDecisionFilter,
+    eligibilityLabel,
+    filterCandidates,
     formatDuration,
     formatHistoryDate,
     formatPercent,
     formatQuantity,
     formatRub,
+    formatSignedQuantity,
     itemMatchesDecisionFilter,
     itemStatusView,
     matrixRoleLabel,
     needsOwnerDecisionView,
+    ownerActionLabel,
     ownerDecisionView,
     paginationLabel,
     patternLabel,
+    priorityLabel,
     plainReason,
     pollRunStatus,
     recommendedLineValue,
     recommendedQuantity,
+    renderAnalytics,
+    renderCandidateCards,
+    renderCandidateSummary,
     renderItemRows,
+    resetCandidateFilters,
     requestNeedsDecisionItems,
     requestJson,
     safeArtifactDownloadUrl,
     safeRunLink,
     selectArtifacts,
+    setCandidatePanelState,
     setHistoryPanelState,
     setProductsPanelState,
     summaryView,
-    analyticsViewState,
     reasonLabel,
-    renderAnalytics,
     technicalExplanation,
   };
 
