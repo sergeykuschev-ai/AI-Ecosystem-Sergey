@@ -31,6 +31,17 @@ const {
   mapOwnerLearningCandidates,
 } = require('../dto/owner_learning_candidates_mapper');
 const {
+  mapLifecycleList,
+  mapLifecycleState,
+} = require('../dto/owner_learning_candidate_lifecycle_mapper');
+const {
+  ACTIONS: LIFECYCLE_ACTIONS,
+  MAX_OWNER_COMMENT_LENGTH,
+  REASON_CODES: LIFECYCLE_REASON_CODES,
+} = require(
+  '../../../agents/purchasing/owner_learning/owner_learning_candidate_lifecycle'
+);
+const {
   OWNER_DECISIONS,
   REASON_CODES,
   SOURCES,
@@ -39,6 +50,19 @@ const {
 );
 
 const MAX_DECISION_BODY_BYTES = 4096;
+const MAX_LIFECYCLE_BODY_BYTES = 4096;
+const LIFECYCLE_TARGET_STATUSES = Object.freeze([
+  'UNDER_REVIEW',
+  'APPROVED',
+  'REJECTED',
+  'POSTPONED',
+]);
+const LIFECYCLE_BODY_FIELDS = new Set([
+  'targetStatus',
+  'action',
+  'reasonCode',
+  'ownerComment',
+]);
 const MAX_ANALYTICS_ITEMS = 100;
 const ANALYTICS_FILTER_NAMES = Object.freeze([
   'source',
@@ -469,6 +493,98 @@ async function readDecisionBody(request) {
   }
 }
 
+function lifecycleInputError(message) {
+  return new HttpError(
+    'OWNER_LEARNING_LIFECYCLE_INVALID_INPUT',
+    message
+  );
+}
+
+async function readLifecycleBody(request) {
+  const contentType = String(request.headers['content-type'] || '')
+    .split(';')[0]
+    .trim()
+    .toLowerCase();
+  if (contentType !== 'application/json') {
+    throw lifecycleInputError(
+      'Изменение статуса должно быть передано как application/json.'
+    );
+  }
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of request) {
+    size += chunk.length;
+    if (size > MAX_LIFECYCLE_BODY_BYTES) {
+      throw lifecycleInputError(
+        'Тело изменения статуса превышает допустимый размер.'
+      );
+    }
+    chunks.push(chunk);
+  }
+  let input;
+  try {
+    input = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  } catch (error) {
+    throw new HttpError(
+      'OWNER_LEARNING_LIFECYCLE_INVALID_INPUT',
+      'Изменение статуса содержит некорректный JSON.',
+      { cause: error }
+    );
+  }
+  if (
+    !input ||
+    typeof input !== 'object' ||
+    Array.isArray(input)
+  ) {
+    throw lifecycleInputError(
+      'Изменение статуса должно быть объектом.'
+    );
+  }
+  for (const name of Object.keys(input)) {
+    if (!LIFECYCLE_BODY_FIELDS.has(name)) {
+      throw lifecycleInputError(
+        `Поле ${name} не поддерживается.`
+      );
+    }
+  }
+  const enumField = (name, values, fallback = null) => {
+    if (input[name] === undefined && fallback !== null) return fallback;
+    if (typeof input[name] !== 'string') {
+      throw lifecycleInputError(`Поле ${name} имеет неверное значение.`);
+    }
+    const normalized = input[name].trim().toUpperCase();
+    if (!values.includes(normalized)) {
+      throw lifecycleInputError(`Поле ${name} не поддерживается.`);
+    }
+    return normalized;
+  };
+  let ownerComment = null;
+  if (input.ownerComment !== undefined && input.ownerComment !== null) {
+    if (
+      typeof input.ownerComment !== 'string' ||
+      input.ownerComment.length > MAX_OWNER_COMMENT_LENGTH
+    ) {
+      throw lifecycleInputError(
+        'Комментарий владельца превышает допустимую длину.'
+      );
+    }
+    ownerComment = input.ownerComment.trim() || null;
+  }
+  return {
+    targetStatus: enumField(
+      'targetStatus',
+      LIFECYCLE_TARGET_STATUSES
+    ),
+    action: enumField('action', LIFECYCLE_ACTIONS),
+    reasonCode: enumField(
+      'reasonCode',
+      LIFECYCLE_REASON_CODES,
+      'NOT_SPECIFIED'
+    ),
+    ownerComment,
+  };
+}
+
 function reportDateDependencies(reportDate) {
   if (!reportDate) return {};
   return {
@@ -522,6 +638,7 @@ function createRunHandlers(options) {
     approvedRuleMode,
     ownerDecisionAnalyticsService,
     ownerLearningCandidatesService,
+    ownerLearningCandidateLifecycleService,
   } = options;
 
   if (
@@ -679,6 +796,42 @@ function createRunHandlers(options) {
       };
     },
 
+    getOwnerLearningCandidateStates() {
+      const result =
+        ownerLearningCandidateLifecycleService.getCandidateStates();
+      return {
+        statusCode: 200,
+        data: mapLifecycleList(result),
+      };
+    },
+
+    getOwnerLearningCandidateState(candidateId) {
+      const result =
+        ownerLearningCandidateLifecycleService.getCandidateState({
+          candidateId,
+        });
+      return {
+        statusCode: 200,
+        data: mapLifecycleState(result, { includeComment: true }),
+      };
+    },
+
+    async changeOwnerLearningCandidateStatus(candidateId, request) {
+      const input = await readLifecycleBody(request);
+      const result =
+        ownerLearningCandidateLifecycleService.changeCandidateStatus({
+          candidateId,
+          ...input,
+        });
+      return {
+        statusCode: 200,
+        data: {
+          ...mapLifecycleState(result.state),
+          duplicate: result.added === false,
+        },
+      };
+    },
+
     listArtifacts(runId) {
       return {
         statusCode: 200,
@@ -706,9 +859,11 @@ function createRunHandlers(options) {
 module.exports = {
   MAX_ANALYTICS_ITEMS,
   MAX_DECISION_BODY_BYTES,
+  MAX_LIFECYCLE_BODY_BYTES,
   createRunHandlers,
   orchestrationHttpError,
   readDecisionBody,
+  readLifecycleBody,
   parseOwnerDecisionAnalyticsQuery,
   parseOwnerLearningCandidatesQuery,
   reportDateDependencies,

@@ -16,6 +16,12 @@ const {
   OwnerLearningCandidatesService,
 } = require('../application/owner_learning_candidates_service');
 const {
+  appendCandidateLifecycleEvent,
+  createCandidateLifecycleEvent,
+} = require(
+  '../../../agents/purchasing/owner_learning/owner_learning_candidate_lifecycle'
+);
+const {
   mapOwnerLearningCandidates,
 } = require('../dto/owner_learning_candidates_mapper');
 
@@ -378,4 +384,109 @@ test('DTO allowlist excludes all private and technical fields', () => {
   assert.ok(response.candidates.every(candidate =>
     Object.keys(candidate.ranking).length === 3
   ));
+});
+
+test('candidate lifecycle defaults to NEW when there are no events', () => {
+  const historyPath = temporaryHistoryPath();
+  const lifecycleFilePath = `${historyPath}.lifecycle`;
+  writeHistory(historyPath, [
+    historyEntry(1),
+    historyEntry(2),
+    historyEntry(3),
+    historyEntry(4),
+  ]);
+  const result = service(historyPath, {
+    lifecycleFilePath,
+  }).getCandidates();
+
+  assert.equal(result.status, 'AVAILABLE');
+  assert.ok(result.candidates.length > 0);
+  assert.ok(result.candidates.every(value =>
+    value.lifecycle.status === 'NEW' &&
+    value.lifecycle.lastAction === null &&
+    value.lifecycle.lastRecordedAt === null &&
+    value.lifecycle.reasonCode === null
+  ));
+});
+
+test('candidate lifecycle overlays the latest status', () => {
+  const historyPath = temporaryHistoryPath();
+  const lifecycleFilePath = `${historyPath}.lifecycle`;
+  writeHistory(historyPath, [
+    historyEntry(1),
+    historyEntry(2),
+    historyEntry(3),
+    historyEntry(4),
+  ]);
+  const initial = service(historyPath, {
+    lifecycleFilePath,
+  }).getCandidates();
+  const candidateId = initial.candidates[0].candidateId;
+  appendCandidateLifecycleEvent({
+    filePath: lifecycleFilePath,
+    event: createCandidateLifecycleEvent({
+      recordedAt: AS_OF,
+      candidateId,
+      fromStatus: 'NEW',
+      toStatus: 'APPROVED',
+      action: 'APPROVE',
+      actor: 'OWNER',
+      reasonCode: 'READY_FOR_RULE',
+      candidateSnapshot: {
+        patternType: initial.candidates[0].patternType,
+        scopeType: initial.candidates[0].scopeType,
+        displayScope: initial.candidates[0].displayScope,
+        proposedRuleType:
+          initial.candidates[0].proposedRuleType,
+        proposedDecision:
+          initial.candidates[0].proposedAction.decision,
+        confidenceScore:
+          initial.candidates[0].confidence.score,
+        confidenceLevel:
+          initial.candidates[0].confidence.level,
+        priorityScore:
+          initial.candidates[0].ranking.priorityScore,
+        priorityLevel:
+          initial.candidates[0].ranking.priorityLevel,
+        eligibilityStatus:
+          initial.candidates[0].eligibility.status,
+      },
+    }),
+  });
+
+  const result = service(historyPath, {
+    lifecycleFilePath,
+  }).getCandidates();
+  assert.deepEqual(result.candidates[0].lifecycle, {
+    status: 'APPROVED',
+    lastAction: 'APPROVE',
+    lastRecordedAt: AS_OF,
+    reasonCode: 'READY_FOR_RULE',
+  });
+});
+
+test('unavailable lifecycle falls back to NEW without hiding candidates', () => {
+  const historyPath = temporaryHistoryPath();
+  const lifecycleFilePath = `${historyPath}.lifecycle`;
+  writeHistory(historyPath, [
+    historyEntry(1),
+    historyEntry(2),
+    historyEntry(3),
+    historyEntry(4),
+  ]);
+  fs.writeFileSync(lifecycleFilePath, '{broken', 'utf8');
+
+  const result = service(historyPath, {
+    lifecycleFilePath,
+  }).getCandidates();
+  assert.equal(result.status, 'AVAILABLE');
+  assert.ok(result.candidates.length > 0);
+  assert.equal(
+    result.lifecycleWarning,
+    'OWNER_LEARNING_LIFECYCLE_UNAVAILABLE'
+  );
+  assert.ok(result.candidates.every(value =>
+    value.lifecycle.status === 'NEW'
+  ));
+  assert.equal(fs.readFileSync(lifecycleFilePath, 'utf8'), '{broken');
 });

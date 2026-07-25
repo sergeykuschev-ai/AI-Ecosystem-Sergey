@@ -53,6 +53,8 @@
     '/api/v1/owner-learning/decision-history/analytics';
   const OWNER_LEARNING_CANDIDATES_URL =
     '/api/v1/owner-learning/candidates';
+  const OWNER_LEARNING_LIFECYCLE_URL =
+    '/api/v1/owner-learning/candidate-lifecycle';
   const DECISION_LABELS = Object.freeze({
     BUY: 'Купить',
     SKIP: 'Пропустить',
@@ -107,6 +109,85 @@
     COLLECT_MORE_HISTORY: 'Накопить больше истории',
     DO_NOT_CREATE_RULE: 'Не создавать правило',
   });
+  const LIFECYCLE_STATUS_LABELS = Object.freeze({
+    NEW: 'Новый',
+    UNDER_REVIEW: 'На проверке',
+    APPROVED: 'Одобрен для будущего правила',
+    REJECTED: 'Отклонён',
+    POSTPONED: 'Отложен',
+  });
+  const LIFECYCLE_ACTIONS = Object.freeze({
+    NEW: Object.freeze([
+      Object.freeze({
+        label: 'Начать проверку',
+        targetStatus: 'UNDER_REVIEW',
+        action: 'START_REVIEW',
+      }),
+      Object.freeze({
+        label: 'Одобрить для создания правила',
+        targetStatus: 'APPROVED',
+        action: 'APPROVE',
+      }),
+      Object.freeze({
+        label: 'Отклонить',
+        targetStatus: 'REJECTED',
+        action: 'REJECT',
+      }),
+      Object.freeze({
+        label: 'Отложить',
+        targetStatus: 'POSTPONED',
+        action: 'POSTPONE',
+      }),
+    ]),
+    UNDER_REVIEW: Object.freeze([
+      Object.freeze({
+        label: 'Одобрить для создания правила',
+        targetStatus: 'APPROVED',
+        action: 'APPROVE',
+      }),
+      Object.freeze({
+        label: 'Отклонить',
+        targetStatus: 'REJECTED',
+        action: 'REJECT',
+      }),
+      Object.freeze({
+        label: 'Отложить',
+        targetStatus: 'POSTPONED',
+        action: 'POSTPONE',
+      }),
+    ]),
+    POSTPONED: Object.freeze([
+      Object.freeze({
+        label: 'Вернуть на проверку',
+        targetStatus: 'UNDER_REVIEW',
+        action: 'REOPEN',
+      }),
+      Object.freeze({
+        label: 'Одобрить для создания правила',
+        targetStatus: 'APPROVED',
+        action: 'APPROVE',
+      }),
+      Object.freeze({
+        label: 'Отклонить',
+        targetStatus: 'REJECTED',
+        action: 'REJECT',
+      }),
+    ]),
+    REJECTED: Object.freeze([
+      Object.freeze({
+        label: 'Вернуть на проверку',
+        targetStatus: 'UNDER_REVIEW',
+        action: 'REOPEN',
+      }),
+    ]),
+    APPROVED: Object.freeze([
+      Object.freeze({
+        label: 'Вернуть на проверку',
+        targetStatus: 'UNDER_REVIEW',
+        action: 'REOPEN',
+      }),
+    ]),
+  });
 
   const ERROR_MESSAGES = Object.freeze({
     FILE_REQUIRED: 'Выберите Excel-файл.',
@@ -134,6 +215,18 @@
       'Проверьте выбранные фильтры и повторите запрос.',
     OWNER_LEARNING_CANDIDATES_INVALID_INPUT:
       'Проверьте выбранные фильтры и повторите запрос.',
+    OWNER_LEARNING_LIFECYCLE_INVALID_INPUT:
+      'Проверьте причину и комментарий, затем повторите.',
+    OWNER_LEARNING_LIFECYCLE_TRANSITION_INVALID:
+      'Статус кандидата уже изменился. Обновите список и повторите.',
+    CANDIDATE_NOT_AVAILABLE:
+      'Кандидат больше не доступен в текущей истории.',
+    OWNER_LEARNING_LIFECYCLE_UNAVAILABLE:
+      'Статусы кандидатов временно недоступны.',
+    OWNER_LEARNING_LIFECYCLE_REASON_REQUIRED:
+      'Выберите причину отклонения или переноса.',
+    OWNER_LEARNING_LIFECYCLE_CONFIRMATION_REQUIRED:
+      'Подтвердите, что правило ещё не создаётся и не применяется.',
   });
 
   class FrontendError extends Error {
@@ -1108,6 +1201,68 @@
     return `${OWNER_LEARNING_CANDIDATES_URL}?${parameters.toString()}`;
   }
 
+  function lifecycleStatusLabel(status) {
+    return LIFECYCLE_STATUS_LABELS[status] ||
+      LIFECYCLE_STATUS_LABELS.NEW;
+  }
+
+  function lifecycleErrorMessage(code) {
+    return ERROR_MESSAGES[code] || ERROR_MESSAGES.NETWORK_ERROR;
+  }
+
+  function candidateLifecycleActions(status) {
+    return LIFECYCLE_ACTIONS[status] || LIFECYCLE_ACTIONS.NEW;
+  }
+
+  function buildLifecycleStatusUrl(candidateId) {
+    if (
+      typeof candidateId !== 'string' ||
+      !/^[0-9a-f]{64}$/i.test(candidateId)
+    ) {
+      throw new FrontendError(
+        'OWNER_LEARNING_LIFECYCLE_INVALID_INPUT'
+      );
+    }
+    return `${OWNER_LEARNING_LIFECYCLE_URL}/${candidateId}/status`;
+  }
+
+  function buildLifecyclePayload(action, input = {}) {
+    const reasonCode = typeof input.reasonCode === 'string' &&
+        input.reasonCode
+      ? input.reasonCode
+      : 'NOT_SPECIFIED';
+    if (
+      ['REJECTED', 'POSTPONED'].includes(action?.targetStatus) &&
+      reasonCode === 'NOT_SPECIFIED'
+    ) {
+      throw new FrontendError(
+        'OWNER_LEARNING_LIFECYCLE_REASON_REQUIRED'
+      );
+    }
+    if (
+      action?.targetStatus === 'APPROVED' &&
+      input.approvedConfirmed !== true
+    ) {
+      throw new FrontendError(
+        'OWNER_LEARNING_LIFECYCLE_CONFIRMATION_REQUIRED'
+      );
+    }
+    const ownerComment = typeof input.ownerComment === 'string'
+      ? input.ownerComment.trim()
+      : '';
+    if (ownerComment.length > 1000) {
+      throw new FrontendError(
+        'OWNER_LEARNING_LIFECYCLE_INVALID_INPUT'
+      );
+    }
+    return {
+      targetStatus: action?.targetStatus,
+      action: action?.action,
+      reasonCode,
+      ownerComment: ownerComment || null,
+    };
+  }
+
   function candidateViewState(result) {
     if (result?.status === 'UNAVAILABLE') return 'unavailable';
     if (
@@ -1208,7 +1363,11 @@
     parent.append(section);
   }
 
-  function createCandidateCard(documentObject, candidate = {}) {
+  function createCandidateCard(
+    documentObject,
+    candidate = {},
+    onLifecycleAction = null
+  ) {
     const card = documentObject.createElement('article');
     card.className = 'candidate-card';
 
@@ -1317,6 +1476,49 @@
         candidate.explanation?.recommendedOwnerAction
       );
 
+    const lifecycle = documentObject.createElement('section');
+    lifecycle.className = 'candidate-lifecycle';
+    const lifecycleHeading = documentObject.createElement('h4');
+    const lifecycleStatus = documentObject.createElement('p');
+    lifecycleHeading.textContent = 'Решение владельца';
+    lifecycleStatus.className = 'candidate-lifecycle-status';
+    lifecycleStatus.textContent = 'Статус: ' + lifecycleStatusLabel(
+      candidate.lifecycle?.status || 'NEW'
+    );
+    const actionContainer = documentObject.createElement('div');
+    actionContainer.className = 'candidate-lifecycle-actions';
+    const actions = candidateLifecycleActions(
+      candidate.lifecycle?.status || 'NEW'
+    );
+    for (const action of actions) {
+      const button = documentObject.createElement('button');
+      button.type = 'button';
+      button.className = action.action === 'APPROVE'
+        ? 'primary-button'
+        : 'secondary-button';
+      button.textContent = action.label;
+      button.dataset.targetStatus = action.targetStatus;
+      button.dataset.action = action.action;
+      if (typeof onLifecycleAction === 'function') {
+        button.addEventListener('click', () =>
+          onLifecycleAction(candidate, action)
+        );
+      }
+      actionContainer.append(button);
+    }
+    lifecycle.append(
+      lifecycleHeading,
+      lifecycleStatus,
+      actionContainer
+    );
+    if (actions.some(action => action.action === 'APPROVE')) {
+      const warning = documentObject.createElement('p');
+      warning.className = 'candidate-approval-warning';
+      warning.textContent =
+        'Одобрение кандидата пока не создаёт и не применяет правило.';
+      lifecycle.append(warning);
+    }
+
     card.append(
       heading,
       badges,
@@ -1324,15 +1526,25 @@
       facts,
       explanation,
       details,
-      recommended
+      recommended,
+      lifecycle
     );
     return card;
   }
 
-  function renderCandidateCards(documentObject, parent, candidates) {
+  function renderCandidateCards(
+    documentObject,
+    parent,
+    candidates,
+    onLifecycleAction = null
+  ) {
     parent.replaceChildren();
     for (const candidate of Array.isArray(candidates) ? candidates : []) {
-      parent.append(createCandidateCard(documentObject, candidate));
+      parent.append(createCandidateCard(
+        documentObject,
+        candidate,
+        onLifecycleAction
+      ));
     }
   }
 
@@ -1477,6 +1689,40 @@
         documentObject.getElementById('candidate-content'),
       candidateList:
         documentObject.getElementById('candidate-list'),
+      candidateActionStatus:
+        documentObject.getElementById('candidate-action-status'),
+      candidateLifecycleModal:
+        documentObject.getElementById('candidate-lifecycle-modal'),
+      candidateLifecycleForm:
+        documentObject.getElementById('candidate-lifecycle-form'),
+      candidateModalClose:
+        documentObject.getElementById('candidate-modal-close'),
+      candidateModalCancel:
+        documentObject.getElementById('candidate-modal-cancel'),
+      candidateModalSubmit:
+        documentObject.getElementById('candidate-modal-submit'),
+      candidateModalCandidate:
+        documentObject.getElementById('candidate-modal-candidate'),
+      candidateModalStatus:
+        documentObject.getElementById('candidate-modal-status'),
+      candidateModalConfidence:
+        documentObject.getElementById('candidate-modal-confidence'),
+      candidateModalPriority:
+        documentObject.getElementById('candidate-modal-priority'),
+      candidateModalEligibility:
+        documentObject.getElementById('candidate-modal-eligibility'),
+      candidateModalReason:
+        documentObject.getElementById('candidate-modal-reason'),
+      candidateModalComment:
+        documentObject.getElementById('candidate-modal-comment'),
+      candidateApproveConfirmation:
+        documentObject.getElementById(
+          'candidate-approve-confirmation'
+        ),
+      candidateApproveCheckbox:
+        documentObject.getElementById('candidate-approve-checkbox'),
+      candidateModalError:
+        documentObject.getElementById('candidate-modal-error'),
       candidateSummary: {
         total: documentObject.getElementById('candidate-total'),
         eligible: documentObject.getElementById('candidate-eligible'),
@@ -1525,6 +1771,8 @@
     let itemRequestSequence = 0;
     let historyRequestSequence = 0;
     let candidateRequestSequence = 0;
+    let currentCandidates = [];
+    let pendingLifecycleChange = null;
     let searchTimer = null;
     const itemState = {
       baseUrl: null,
@@ -1590,6 +1838,116 @@
       };
     }
 
+    function closeCandidateLifecycleModal() {
+      pendingLifecycleChange = null;
+      elements.candidateLifecycleModal.hidden = true;
+      elements.candidateModalError.hidden = true;
+      elements.candidateModalError.textContent = '';
+      elements.candidateModalSubmit.disabled = false;
+    }
+
+    function openCandidateLifecycleModal(candidate, action) {
+      pendingLifecycleChange = { candidate, action };
+      elements.candidateModalCandidate.textContent =
+        candidate.displayScope?.primary || '—';
+      elements.candidateModalStatus.textContent =
+        lifecycleStatusLabel(action.targetStatus);
+      elements.candidateModalConfidence.textContent =
+        `${formatQuantity(candidate.confidence?.score)} · ` +
+        confidenceLabel(candidate.confidence?.level);
+      elements.candidateModalPriority.textContent =
+        `${formatQuantity(candidate.ranking?.priorityScore)} · ` +
+        priorityLabel(candidate.ranking?.priorityLevel);
+      elements.candidateModalEligibility.textContent =
+        eligibilityLabel(candidate.eligibility?.status);
+      elements.candidateModalReason.value =
+        action.action === 'APPROVE'
+          ? 'READY_FOR_RULE'
+          : 'NOT_SPECIFIED';
+      elements.candidateModalComment.value = '';
+      elements.candidateApproveCheckbox.checked = false;
+      elements.candidateApproveConfirmation.hidden =
+        action.action !== 'APPROVE';
+      elements.candidateModalError.hidden = true;
+      elements.candidateModalError.textContent = '';
+      elements.candidateLifecycleModal.hidden = false;
+      if (typeof elements.candidateModalReason.focus === 'function') {
+        elements.candidateModalReason.focus();
+      }
+    }
+
+    function renderCurrentCandidates() {
+      const candidates = filterCandidates(
+        currentCandidates,
+        candidateFilters()
+      );
+      renderCandidateCards(
+        documentObject,
+        elements.candidateList,
+        candidates,
+        openCandidateLifecycleModal
+      );
+      setCandidatePanelState(
+        elements,
+        candidates.length > 0 ? 'ready' : 'no-results'
+      );
+    }
+
+    async function submitCandidateLifecycle(event) {
+      event.preventDefault();
+      if (!pendingLifecycleChange) return;
+      elements.candidateModalError.hidden = true;
+      elements.candidateModalSubmit.disabled = true;
+      try {
+        const payload = buildLifecyclePayload(
+          pendingLifecycleChange.action,
+          {
+            reasonCode: elements.candidateModalReason.value,
+            ownerComment: elements.candidateModalComment.value,
+            approvedConfirmed:
+              elements.candidateApproveCheckbox.checked === true,
+          }
+        );
+        const result = await requestJson(
+          fetchFunction,
+          buildLifecycleStatusUrl(
+            pendingLifecycleChange.candidate.candidateId
+          ),
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          }
+        );
+        const candidate = currentCandidates.find(value =>
+          value.candidateId === result.candidate_id
+        );
+        if (candidate) {
+          candidate.lifecycle = {
+            status: result.status,
+            lastAction: result.last_event?.action || null,
+            lastRecordedAt:
+              result.last_event?.recorded_at || null,
+            reasonCode:
+              result.last_event?.reason_code || null,
+          };
+        }
+        elements.candidateActionStatus.textContent = result.duplicate
+          ? 'Статус уже был сохранён; дубль не создан.'
+          : 'Статус кандидата обновлён.';
+        closeCandidateLifecycleModal();
+        renderCurrentCandidates();
+      } catch (error) {
+        const code = error instanceof FrontendError
+          ? error.code
+          : 'NETWORK_ERROR';
+        elements.candidateModalError.textContent =
+          lifecycleErrorMessage(code);
+        elements.candidateModalError.hidden = false;
+        elements.candidateModalSubmit.disabled = false;
+      }
+    }
+
     async function loadCandidates() {
       const sequence = ++candidateRequestSequence;
       const filters = candidateFilters();
@@ -1614,6 +1972,11 @@
           result.candidates,
           filters
         );
+        currentCandidates = result.candidates;
+        elements.candidateActionStatus.textContent =
+          result.lifecycle_warning
+            ? ERROR_MESSAGES.OWNER_LEARNING_LIFECYCLE_UNAVAILABLE
+            : '';
         if (candidates.length === 0) {
           renderCandidateCards(
             documentObject,
@@ -1627,7 +1990,8 @@
         renderCandidateCards(
           documentObject,
           elements.candidateList,
-          candidates
+          candidates,
+          openCandidateLifecycleModal
         );
         setCandidatePanelState(elements, 'ready');
       } catch (error) {
@@ -2048,6 +2412,18 @@
       resetCandidateFilters(elements);
       loadCandidates();
     });
+    elements.candidateLifecycleForm.addEventListener(
+      'submit',
+      submitCandidateLifecycle
+    );
+    elements.candidateModalClose.addEventListener(
+      'click',
+      closeCandidateLifecycleModal
+    );
+    elements.candidateModalCancel.addEventListener(
+      'click',
+      closeCandidateLifecycleModal
+    );
     elements.exportButton.addEventListener('click', () => {
       setExportOpen(elements.exportMenu.hidden);
     });
@@ -2063,6 +2439,7 @@
       if (event.key === 'Escape') {
         setExportOpen(false);
         elements.exportButton.focus();
+        closeCandidateLifecycleModal();
       }
     });
     for (const button of documentObject.querySelectorAll(
@@ -2112,6 +2489,8 @@
       loadCandidates,
       loadDecisionHistory,
       loadItems,
+      openCandidateLifecycleModal,
+      submitCandidateLifecycle,
       submitRun,
       updateFileSelection,
     };
@@ -2124,6 +2503,9 @@
     buildCandidatesUrl,
     buildDecisionUrl,
     buildItemsUrl,
+    buildLifecyclePayload,
+    buildLifecycleStatusUrl,
+    candidateLifecycleActions,
     candidateViewState,
     confidenceLabel,
     createCandidateCard,
@@ -2143,6 +2525,8 @@
     formatSignedQuantity,
     itemMatchesDecisionFilter,
     itemStatusView,
+    lifecycleStatusLabel,
+    lifecycleErrorMessage,
     matrixRoleLabel,
     needsOwnerDecisionView,
     ownerActionLabel,

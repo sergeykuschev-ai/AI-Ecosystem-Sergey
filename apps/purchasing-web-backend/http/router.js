@@ -13,6 +13,12 @@ const OWNER_DECISION_ANALYTICS_ROUTE =
   '/api/v1/owner-learning/decision-history/analytics';
 const OWNER_LEARNING_CANDIDATES_ROUTE =
   '/api/v1/owner-learning/candidates';
+const OWNER_LEARNING_LIFECYCLE_ROUTE =
+  '/api/v1/owner-learning/candidate-lifecycle';
+const OWNER_LEARNING_LIFECYCLE_DETAIL_ROUTE =
+  /^\/api\/v1\/owner-learning\/candidate-lifecycle\/([0-9a-f]{64})$/;
+const OWNER_LEARNING_LIFECYCLE_STATUS_ROUTE =
+  /^\/api\/v1\/owner-learning\/candidate-lifecycle\/([0-9a-f]{64})\/status$/;
 const ARTIFACTS_ROUTE =
   /^\/api\/v1\/runs\/([^/]+)\/artifacts$/;
 const ARTIFACT_ROUTE =
@@ -93,6 +99,30 @@ function createRouter(handlers, options = {}) {
       ) {
         result = handlers.getOwnerLearningCandidates(
           queryObject(url.searchParams)
+        );
+      } else if (
+        request.method === 'GET' &&
+        url.pathname === OWNER_LEARNING_LIFECYCLE_ROUTE
+      ) {
+        result = handlers.getOwnerLearningCandidateStates();
+      } else if (
+        request.method === 'GET' &&
+        url.pathname.match(OWNER_LEARNING_LIFECYCLE_DETAIL_ROUTE)
+      ) {
+        const match = url.pathname.match(
+          OWNER_LEARNING_LIFECYCLE_DETAIL_ROUTE
+        );
+        result = handlers.getOwnerLearningCandidateState(match[1]);
+      } else if (
+        request.method === 'POST' &&
+        url.pathname.match(OWNER_LEARNING_LIFECYCLE_STATUS_ROUTE)
+      ) {
+        const match = url.pathname.match(
+          OWNER_LEARNING_LIFECYCLE_STATUS_ROUTE
+        );
+        result = await handlers.changeOwnerLearningCandidateStatus(
+          match[1],
+          request
         );
       } else {
         const statusMatch = request.method === 'GET' &&
@@ -180,6 +210,9 @@ module.exports = {
   OWNER_REVIEW_ROUTE,
   OWNER_DECISION_ANALYTICS_ROUTE,
   OWNER_LEARNING_CANDIDATES_ROUTE,
+  OWNER_LEARNING_LIFECYCLE_DETAIL_ROUTE,
+  OWNER_LEARNING_LIFECYCLE_ROUTE,
+  OWNER_LEARNING_LIFECYCLE_STATUS_ROUTE,
   RUN_ROUTE,
   SUMMARY_ROUTE,
   createRouter,

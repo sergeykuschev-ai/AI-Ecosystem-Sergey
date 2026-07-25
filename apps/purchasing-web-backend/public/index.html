@@ -111,7 +111,7 @@
             <p class="step-label">Owner Learning</p>
             <h2 id="decision-history-title">История решений</h2>
           </div>
-          <span class="format-badge">Только чтение</span>
+          <span class="format-badge">Решение владельца</span>
         </div>
 
         <form
@@ -438,8 +438,108 @@
             id="candidate-list"
             aria-live="polite"
           ></div>
+          <p
+            class="candidate-action-status"
+            id="candidate-action-status"
+            aria-live="polite"
+          ></p>
         </div>
       </section>
+
+      <div
+        class="candidate-modal"
+        id="candidate-lifecycle-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="candidate-modal-title"
+        hidden
+      >
+        <form class="candidate-modal-panel" id="candidate-lifecycle-form">
+          <div class="section-heading">
+            <div>
+              <p class="step-label">Решение владельца</p>
+              <h2 id="candidate-modal-title">Изменить статус кандидата</h2>
+            </div>
+            <button
+              class="candidate-modal-close"
+              id="candidate-modal-close"
+              type="button"
+              aria-label="Закрыть"
+            >×</button>
+          </div>
+          <dl class="candidate-modal-summary">
+            <div>
+              <dt>Кандидат</dt>
+              <dd id="candidate-modal-candidate">—</dd>
+            </div>
+            <div>
+              <dt>Новый статус</dt>
+              <dd id="candidate-modal-status">—</dd>
+            </div>
+            <div>
+              <dt>Confidence</dt>
+              <dd id="candidate-modal-confidence">—</dd>
+            </div>
+            <div>
+              <dt>Priority</dt>
+              <dd id="candidate-modal-priority">—</dd>
+            </div>
+            <div>
+              <dt>Eligibility</dt>
+              <dd id="candidate-modal-eligibility">—</dd>
+            </div>
+          </dl>
+          <label>
+            Причина
+            <select id="candidate-modal-reason">
+              <option value="NOT_SPECIFIED">Причина не указана</option>
+              <option value="READY_FOR_RULE">Готово для будущего правила</option>
+              <option value="NEEDS_MORE_HISTORY">Нужно больше истории</option>
+              <option value="INSUFFICIENT_EVIDENCE">Недостаточно подтверждений</option>
+              <option value="TOO_BROAD">Слишком широкая область</option>
+              <option value="CONTRADICTORY_HISTORY">Противоречивая история</option>
+              <option value="NOT_RELEVANT">Неактуально</option>
+              <option value="OWNER_EXPERIENCE">Опыт владельца</option>
+              <option value="OTHER">Другое</option>
+            </select>
+          </label>
+          <label>
+            Комментарий владельца
+            <textarea
+              id="candidate-modal-comment"
+              maxlength="1000"
+              rows="4"
+            ></textarea>
+          </label>
+          <label
+            class="candidate-approve-confirmation"
+            id="candidate-approve-confirmation"
+            hidden
+          >
+            <input id="candidate-approve-checkbox" type="checkbox">
+            Я понимаю, что на этом этапе правило ещё не создаётся и не
+            применяется.
+          </label>
+          <p
+            class="inline-error"
+            id="candidate-modal-error"
+            role="alert"
+            hidden
+          ></p>
+          <div class="candidate-modal-actions">
+            <button
+              class="secondary-button"
+              id="candidate-modal-cancel"
+              type="button"
+            >Отмена</button>
+            <button
+              class="primary-button"
+              id="candidate-modal-submit"
+              type="submit"
+            >Подтвердить изменение</button>
+          </div>
+        </form>
+      </div>
 
       <section class="results" id="results" aria-labelledby="results-title" hidden>
         <div class="results-heading">

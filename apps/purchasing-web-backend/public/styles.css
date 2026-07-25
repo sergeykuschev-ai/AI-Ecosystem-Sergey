@@ -507,6 +507,137 @@ h2 {
   font-weight: 750;
 }
 
+.candidate-lifecycle {
+  margin-top: 16px;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+
+.candidate-lifecycle-status {
+  color: var(--muted);
+  font-weight: 750;
+}
+
+.candidate-lifecycle-actions,
+.candidate-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.candidate-lifecycle-actions button {
+  width: auto;
+}
+
+.candidate-approval-warning {
+  margin: 12px 0 0;
+  border-radius: 10px;
+  background: var(--orange-soft);
+  padding: 10px 12px;
+  color: #824414;
+  font-size: 0.82rem;
+}
+
+.candidate-action-status {
+  min-height: 1.5em;
+  margin-bottom: 0;
+  color: var(--green-dark);
+  font-weight: 750;
+}
+
+.candidate-modal {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow-y: auto;
+  background: rgba(21, 35, 27, 0.58);
+  padding: 20px;
+}
+
+.candidate-modal[hidden] {
+  display: none;
+}
+
+.candidate-modal-panel {
+  width: min(640px, 100%);
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: var(--shadow);
+  padding: 24px;
+}
+
+.candidate-modal-close {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.8rem;
+  cursor: pointer;
+}
+
+.candidate-modal-panel > label {
+  display: grid;
+  gap: 7px;
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 750;
+}
+
+.candidate-modal-panel select,
+.candidate-modal-panel textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  color: var(--text);
+  font: inherit;
+}
+
+.candidate-modal-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.candidate-modal-summary div {
+  border-radius: 12px;
+  background: #f7f9f8;
+  padding: 10px;
+}
+
+.candidate-modal-summary dt {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.candidate-modal-summary dd {
+  margin: 4px 0 0;
+  font-weight: 750;
+}
+
+.candidate-modal-panel .candidate-approve-confirmation {
+  display: flex;
+  align-items: flex-start;
+  color: #824414;
+}
+
+.candidate-approve-confirmation[hidden] {
+  display: none;
+}
+
+.candidate-approve-confirmation input {
+  flex: none;
+  margin-top: 3px;
+}
+
+.candidate-modal-actions {
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
 .card,
 .results {
   border: 1px solid rgba(220, 229, 223, 0.92);

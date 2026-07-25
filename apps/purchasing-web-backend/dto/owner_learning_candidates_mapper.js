@@ -89,6 +89,15 @@ function mapExplanation(explanation = {}) {
   };
 }
 
+function mapLifecycle(lifecycle = {}) {
+  return {
+    status: nullableText(lifecycle.status) || 'NEW',
+    lastAction: nullableText(lifecycle.lastAction),
+    lastRecordedAt: nullableText(lifecycle.lastRecordedAt),
+    reasonCode: nullableText(lifecycle.reasonCode),
+  };
+}
+
 function mapOwnerLearningCandidate(
   candidate = {},
   explanation = {},
@@ -144,6 +153,7 @@ function mapOwnerLearningCandidate(
       reasons: textList(candidate.eligibility?.reasons),
     },
     explanation: mapExplanation(explanation),
+    lifecycle: mapLifecycle(candidate.lifecycle),
   };
 }
 
@@ -219,12 +229,13 @@ function mapCandidateDto(candidate = {}) {
       reasons: textList(candidate.eligibility?.reasons),
     },
     explanation: mapExplanation(candidate.explanation),
+    lifecycle: mapLifecycle(candidate.lifecycle),
   };
 }
 
 function mapOwnerLearningCandidates(result = {}) {
   const available = result.status === 'AVAILABLE';
-  return {
+  const mapped = {
     status: available ? 'AVAILABLE' : 'UNAVAILABLE',
     generated_at: available
       ? nullableText(result.generatedAt)
@@ -235,6 +246,11 @@ function mapOwnerLearningCandidates(result = {}) {
       : [],
     warning: nullableText(result.warning),
   };
+  const lifecycleWarning = nullableText(result.lifecycleWarning);
+  if (lifecycleWarning) {
+    mapped.lifecycle_warning = lifecycleWarning;
+  }
+  return mapped;
 }
 
 module.exports = {

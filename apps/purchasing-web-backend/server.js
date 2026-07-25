@@ -24,6 +24,11 @@ const {
   OwnerLearningCandidatesService,
 } = require('./application/owner_learning_candidates_service');
 const {
+  OwnerLearningCandidateLifecycleService,
+} = require(
+  './application/owner_learning_candidate_lifecycle_service'
+);
+const {
   FileRunRegistry,
 } = require('./storage/file_run_registry');
 const { createRouter } = require('./http/router');
@@ -81,6 +86,10 @@ function runStartupCleanup(options = {}) {
 
 function createPurchasingWebServer(options = {}) {
   const serverPaths = options.serverPaths || DEFAULT_SERVER_PATHS;
+  const lifecycleFilePath =
+    options.ownerLearningCandidateLifecycleFilePath ||
+    serverPaths.ownerLearningCandidateLifecycleFilePath ||
+    DEFAULT_SERVER_PATHS.ownerLearningCandidateLifecycleFilePath;
   const registry = options.registry || new FileRunRegistry({
     runsRoot: options.runsRoot || DEFAULT_RUNS_ROOT,
     ownerLearningHistoryPath: options.ownerLearningHistoryPath || (
@@ -118,6 +127,15 @@ function createPurchasingWebServer(options = {}) {
     new OwnerLearningCandidatesService({
       historyFilePath: options.ownerDecisionHistoryFilePath ||
         serverPaths.ownerDecisionHistoryPath,
+      lifecycleFilePath,
+      logger: options.logger,
+      now: options.now,
+    });
+  const ownerLearningCandidateLifecycleService =
+    options.ownerLearningCandidateLifecycleService ||
+    new OwnerLearningCandidateLifecycleService({
+      lifecycleFilePath,
+      candidatesService: ownerLearningCandidatesService,
       logger: options.logger,
       now: options.now,
     });
@@ -133,6 +151,7 @@ function createPurchasingWebServer(options = {}) {
       resolveApprovedRuleMode(),
     ownerDecisionAnalyticsService,
     ownerLearningCandidatesService,
+    ownerLearningCandidateLifecycleService,
   });
   const staticHandler = options.staticHandler || createStaticHandler({
     publicRoot: options.publicRoot,

@@ -13,9 +13,12 @@ const {
   analyticsViewState,
   buildAnalyticsUrl,
   buildCandidatesUrl,
+  buildLifecyclePayload,
+  buildLifecycleStatusUrl,
   buildItemsUrl,
   buildDecisionUrl,
   candidateViewState,
+  candidateLifecycleActions,
   confidenceLabel,
   createCandidateCard,
   createItemRow,
@@ -29,6 +32,8 @@ const {
   formatRub,
   formatPercent,
   itemMatchesDecisionFilter,
+  lifecycleErrorMessage,
+  lifecycleStatusLabel,
   needsOwnerDecisionView,
   paginationLabel,
   plainReason,
@@ -1128,7 +1133,7 @@ test('analytics renderer shows summary, labels, patterns and item table safely',
   }
 });
 
-test('read-only candidate dashboard and all required states are present', async () => {
+test('candidate lifecycle dashboard and confirmation modal are present', async () => {
   const response = await fetch(`${baseUrl}/`);
   const body = await response.text();
   const section = body.match(
@@ -1148,6 +1153,11 @@ test('read-only candidate dashboard and all required states are present', async 
     'candidate-no-results',
     'candidate-unavailable',
     'candidate-invalid',
+    'candidate-lifecycle-modal',
+    'candidate-lifecycle-form',
+    'candidate-approve-checkbox',
+    'candidate-modal-reason',
+    'candidate-modal-comment',
   ]) {
     assert.match(body, new RegExp(`id="${id}"`));
   }
@@ -1160,9 +1170,10 @@ test('read-only candidate dashboard and all required states are present', async 
     body,
     /Кандидаты временно недоступны\. Работа закупщика не затронута\./
   );
-  assert.doesNotMatch(
-    section,
-    /<button[^>]*>\s*(?:Одобрить|Создать правило|Применить|Отклонить|Отложить)\s*<\/button>/i
+  assert.doesNotMatch(section, /<button[^>]*>\s*Применить\s*<\/button>/i);
+  assert.match(
+    body,
+    /Я понимаю, что на этом этапе правило ещё не создаётся и не\s+применяется\./
   );
 });
 
@@ -1360,4 +1371,122 @@ test('candidate renderer handles nulls without exposing identifiers', () => {
 
   assert.match(visible, /—/);
   assert.equal(visible.includes('hidden-id'), false);
+});
+
+test('lifecycle statuses and allowed buttons match every state', () => {
+  const labels = {
+    NEW: ['Начать проверку', 'Одобрить для создания правила', 'Отклонить', 'Отложить'],
+    UNDER_REVIEW: ['Одобрить для создания правила', 'Отклонить', 'Отложить'],
+    POSTPONED: ['Вернуть на проверку', 'Одобрить для создания правила', 'Отклонить'],
+    APPROVED: ['Вернуть на проверку'],
+    REJECTED: ['Вернуть на проверку'],
+  };
+  for (const [status, expected] of Object.entries(labels)) {
+    assert.deepEqual(
+      candidateLifecycleActions(status).map(value => value.label),
+      expected
+    );
+    if (status !== 'NEW') {
+      assert.notEqual(lifecycleStatusLabel(status), 'Новый');
+    }
+  }
+  assert.equal(lifecycleStatusLabel('NEW'), 'Новый');
+});
+
+test('candidate cards show lifecycle status, actions and approval warning', () => {
+  for (const status of [
+    'NEW',
+    'UNDER_REVIEW',
+    'POSTPONED',
+    'APPROVED',
+    'REJECTED',
+  ]) {
+    const card = createCandidateCard(
+      fakeDocument(),
+      candidateFixture({ lifecycle: { status } })
+    );
+    const visible = descendantText(card);
+    assert.match(visible, new RegExp(lifecycleStatusLabel(status)));
+    for (const action of candidateLifecycleActions(status)) {
+      assert.match(visible, new RegExp(action.label));
+    }
+    if (candidateLifecycleActions(status).some(
+      value => value.action === 'APPROVE'
+    )) {
+      assert.match(
+        visible,
+        /Одобрение кандидата пока не создаёт и не применяет правило\./
+      );
+    }
+    assert.doesNotMatch(visible, /Применить/);
+  }
+});
+
+test('lifecycle modal requires approval checkbox and rejection reason', () => {
+  const approve = candidateLifecycleActions('NEW').find(
+    value => value.action === 'APPROVE'
+  );
+  assert.throws(
+    () => buildLifecyclePayload(approve, {
+      reasonCode: 'READY_FOR_RULE',
+      approvedConfirmed: false,
+    }),
+    error =>
+      error.code ===
+        'OWNER_LEARNING_LIFECYCLE_CONFIRMATION_REQUIRED'
+  );
+  for (const actionName of ['REJECT', 'POSTPONE']) {
+    const action = candidateLifecycleActions('NEW').find(
+      value => value.action === actionName
+    );
+    assert.throws(
+      () => buildLifecyclePayload(action, {
+        reasonCode: 'NOT_SPECIFIED',
+      }),
+      error =>
+        error.code === 'OWNER_LEARNING_LIFECYCLE_REASON_REQUIRED'
+    );
+  }
+});
+
+test('lifecycle request contains only the allowed payload', () => {
+  const approve = candidateLifecycleActions('NEW').find(
+    value => value.action === 'APPROVE'
+  );
+  const payload = buildLifecyclePayload(approve, {
+    reasonCode: 'READY_FOR_RULE',
+    ownerComment: '<img src=x onerror=alert(1)>',
+    approvedConfirmed: true,
+    candidateSnapshot: { confidenceScore: 100 },
+  });
+  assert.deepEqual(payload, {
+    targetStatus: 'APPROVED',
+    action: 'APPROVE',
+    reasonCode: 'READY_FOR_RULE',
+    ownerComment: '<img src=x onerror=alert(1)>',
+  });
+  assert.equal(Object.hasOwn(payload, 'candidateSnapshot'), false);
+  assert.equal(
+    buildLifecycleStatusUrl('a'.repeat(64)),
+    `/api/v1/owner-learning/candidate-lifecycle/${'a'.repeat(64)}/status`
+  );
+  assert.throws(() => buildLifecycleStatusUrl('../private'));
+});
+
+test('lifecycle frontend exposes safe retry messages for API failures', () => {
+  assert.match(
+    lifecycleErrorMessage(
+      'OWNER_LEARNING_LIFECYCLE_TRANSITION_INVALID'
+    ),
+    /обновите список/i
+  );
+  assert.match(
+    lifecycleErrorMessage('CANDIDATE_NOT_AVAILABLE'),
+    /больше не доступен/i
+  );
+  assert.match(
+    lifecycleErrorMessage('OWNER_LEARNING_LIFECYCLE_UNAVAILABLE'),
+    /временно недоступны/i
+  );
+  assert.match(lifecycleErrorMessage('NETWORK_ERROR'), /Нет связи/);
 });

@@ -24,6 +24,12 @@ const {
   '../../../agents/purchasing/owner_learning/owner_learning_explanations'
 );
 const {
+  getCandidateLifecycleState,
+  loadCandidateLifecycle,
+} = require(
+  '../../../agents/purchasing/owner_learning/owner_learning_candidate_lifecycle'
+);
+const {
   mapOwnerLearningCandidate,
 } = require('../dto/owner_learning_candidates_mapper');
 
@@ -89,6 +95,8 @@ class OwnerLearningCandidatesService {
       throw new TypeError('Путь к Owner Decision History обязателен.');
     }
     this.historyFilePath = options.historyFilePath;
+    this.lifecycleFilePath =
+      options.lifecycleFilePath || null;
     this.logger = options.logger || console;
     this.now = options.now || (() => new Date());
     this.loadHistory = options.loadHistory || loadDecisionHistory;
@@ -104,6 +112,60 @@ class OwnerLearningCandidatesService {
       options.buildExplanations || buildCandidateExplanations;
     this.mapCandidate =
       options.mapCandidate || mapOwnerLearningCandidate;
+    this.loadLifecycle =
+      options.loadLifecycle || loadCandidateLifecycle;
+  }
+
+  lifecycleForCandidates(candidates) {
+    const newState = candidate => ({
+      ...candidate,
+      lifecycle: {
+        status: 'NEW',
+        lastAction: null,
+        lastRecordedAt: null,
+        reasonCode: null,
+      },
+    });
+    if (!this.lifecycleFilePath) {
+      return {
+        candidates: candidates.map(newState),
+        warning: null,
+      };
+    }
+    try {
+      const lifecycle = this.loadLifecycle({
+        filePath: this.lifecycleFilePath,
+      });
+      return {
+        candidates: candidates.map(candidate => {
+          const state = getCandidateLifecycleState({
+            lifecycle,
+            candidateId: candidate.candidateId,
+          });
+          return {
+            ...candidate,
+            lifecycle: {
+              status: state.status,
+              lastAction: state.lastAction,
+              lastRecordedAt: state.lastRecordedAt,
+              reasonCode: state.reasonCode,
+            },
+          };
+        }),
+        warning: null,
+      };
+    } catch {
+      if (typeof this.logger?.warn === 'function') {
+        this.logger.warn(
+          '[OWNER_LEARNING_LIFECYCLE_UNAVAILABLE] ' +
+          'Lifecycle-контекст кандидатов недоступен.'
+        );
+      }
+      return {
+        candidates: candidates.map(newState),
+        warning: 'OWNER_LEARNING_LIFECYCLE_UNAVAILABLE',
+      };
+    }
   }
 
   getCandidates({
@@ -151,12 +213,18 @@ class OwnerLearningCandidatesService {
           analytics
         )
       );
+      const lifecycleResult =
+        this.lifecycleForCandidates(safeCandidates);
       return {
         status: 'AVAILABLE',
         generatedAt,
-        summary: summarize(safeCandidates, analytics),
-        candidates: safeCandidates,
+        summary: summarize(
+          lifecycleResult.candidates,
+          analytics
+        ),
+        candidates: lifecycleResult.candidates,
         warning: null,
+        lifecycleWarning: lifecycleResult.warning,
       };
     } catch {
       if (typeof this.logger?.warn === 'function') {
