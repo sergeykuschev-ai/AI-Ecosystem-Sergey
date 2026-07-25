@@ -49,6 +49,38 @@
     'free_stock',
     'sales_28_days',
   ]);
+  const OWNER_DECISION_ANALYTICS_URL =
+    '/api/v1/owner-learning/decision-history/analytics';
+  const DECISION_LABELS = Object.freeze({
+    BUY: 'Купить',
+    SKIP: 'Пропустить',
+    DEFER: 'Отложить',
+    REVIEW: 'Проверить',
+  });
+  const REASON_LABELS = Object.freeze({
+    TOO_MUCH_STOCK: 'Слишком большой остаток',
+    LOW_SALES: 'Низкие продажи',
+    STRATEGIC_ITEM: 'Стратегический товар',
+    REQUIRED_ASSORTMENT: 'Обязательный ассортимент',
+    SEASONAL: 'Сезонность',
+    SUPPLIER_CONSTRAINT: 'Ограничение поставщика',
+    PRICE_TOO_HIGH: 'Высокая цена',
+    OWNER_EXPERIENCE: 'Опыт владельца',
+    OTHER: 'Другое',
+    NOT_SPECIFIED: 'Причина не указана',
+  });
+  const PATTERN_LABELS = Object.freeze({
+    SAME_ITEM_SAME_DECISION:
+      'Повторяется одно решение по товару',
+    SAME_ITEM_SAME_REASON:
+      'Повторяется одна причина по товару',
+    BRAND_DECISION_BIAS:
+      'Устойчивый паттерн по бренду',
+    SUPPLIER_DECISION_BIAS:
+      'Устойчивый паттерн по поставщику',
+    AGENT_DISAGREEMENT_REPEAT:
+      'Повторные расхождения с агентом',
+  });
 
   const ERROR_MESSAGES = Object.freeze({
     FILE_REQUIRED: 'Выберите Excel-файл.',
@@ -72,6 +104,8 @@
       'Не удалось сохранить решение. Попробуйте ещё раз.',
     ITEM_DECISION_UNAVAILABLE:
       'Для этого товара решение сейчас недоступно.',
+    OWNER_DECISION_ANALYTICS_INVALID_INPUT:
+      'Проверьте выбранные фильтры и повторите запрос.',
   });
 
   class FrontendError extends Error {
@@ -801,6 +835,205 @@
     return payload?.data;
   }
 
+  function formatPercent(value) {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return '—';
+    return new Intl.NumberFormat('ru-RU', {
+      style: 'percent',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 1,
+    }).format(value);
+  }
+
+  function formatHistoryDate(value) {
+    if (typeof value !== 'string') return '—';
+    const timestamp = Date.parse(value);
+    if (!Number.isFinite(timestamp)) return '—';
+    return new Intl.DateTimeFormat('ru-RU', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    }).format(new Date(timestamp));
+  }
+
+  function decisionLabel(value) {
+    return DECISION_LABELS[value] || '—';
+  }
+
+  function reasonLabel(value) {
+    return REASON_LABELS[value] || value || '—';
+  }
+
+  function patternLabel(value) {
+    return PATTERN_LABELS[value] || '—';
+  }
+
+  function dominantValueLabel(value) {
+    if (typeof value !== 'string') return '—';
+    if (value.includes('->')) {
+      const [from, to] = value.split('->');
+      return `${decisionLabel(from)} → ${decisionLabel(to)}`;
+    }
+    return DECISION_LABELS[value] || REASON_LABELS[value] || value;
+  }
+
+  function buildAnalyticsUrl(filters = {}) {
+    const parameters = new URLSearchParams();
+    for (const name of [
+      'supplier',
+      'brand',
+      'ownerDecision',
+      'reasonCode',
+      'dateFrom',
+      'dateTo',
+    ]) {
+      const value = typeof filters[name] === 'string'
+        ? filters[name].trim()
+        : '';
+      if (value) parameters.set(name, value);
+    }
+    parameters.set('maxItems', '100');
+    return `${OWNER_DECISION_ANALYTICS_URL}?${parameters.toString()}`;
+  }
+
+  function analyticsViewState(result) {
+    if (result?.status === 'UNAVAILABLE') return 'unavailable';
+    if (result?.status !== 'AVAILABLE' || !result.data) return 'invalid';
+    if (result.data.population?.totalEntries === 0) return 'empty';
+    if (result.data.population?.filteredEntries === 0) {
+      return 'no-results';
+    }
+    return 'ready';
+  }
+
+  function setHistoryPanelState(elements, state) {
+    elements.historyLoading.hidden = state !== 'loading';
+    elements.historyEmpty.hidden = state !== 'empty';
+    elements.historyNoResults.hidden = state !== 'no-results';
+    elements.historyUnavailable.hidden = state !== 'unavailable';
+    elements.historyInvalid.hidden = state !== 'invalid';
+    elements.historyContent.hidden = state !== 'ready';
+  }
+
+  function appendHistoryCell(documentObject, row, value) {
+    const cell = documentObject.createElement('td');
+    cell.textContent = value;
+    row.append(cell);
+  }
+
+  function patternScopeLabel(pattern, itemsByKey) {
+    if (pattern?.scopeType === 'ITEM') {
+      const item = itemsByKey.get(pattern.scopeKey);
+      return item?.productName || item?.sku || 'Товар без названия';
+    }
+    return typeof pattern?.scopeKey === 'string'
+      ? pattern.scopeKey
+      : '—';
+  }
+
+  function renderAnalytics(
+    documentObject,
+    elements,
+    analytics
+  ) {
+    const population = analytics?.population || {};
+    const agreement = analytics?.agreementAnalysis || {};
+    const summaryValues = {
+      total: population.filteredEntries,
+      items: population.uniqueItems,
+      brands: population.uniqueBrands,
+      suppliers: population.uniqueSuppliers,
+      agreements: agreement.agreements,
+      disagreements: agreement.disagreements,
+    };
+    for (const [name, value] of Object.entries(summaryValues)) {
+      elements.historySummary[name].textContent = displayCount(value);
+    }
+    elements.historySummary.agreementRate.textContent =
+      formatPercent(agreement.agreementRate);
+
+    elements.historyDecisionDistribution.replaceChildren();
+    for (const decision of ['BUY', 'SKIP', 'DEFER', 'REVIEW']) {
+      const row = documentObject.createElement('div');
+      const term = documentObject.createElement('dt');
+      const count = documentObject.createElement('dd');
+      term.textContent = decisionLabel(decision);
+      count.textContent = displayCount(
+        analytics?.ownerDecisionDistribution?.[decision]
+      );
+      row.append(term, count);
+      elements.historyDecisionDistribution.append(row);
+    }
+
+    elements.historyReasons.replaceChildren();
+    for (const reason of analytics?.reasonDistribution || []) {
+      const row = documentObject.createElement('tr');
+      appendHistoryCell(
+        documentObject,
+        row,
+        reasonLabel(reason.reasonCode)
+      );
+      appendHistoryCell(
+        documentObject,
+        row,
+        displayCount(reason.count)
+      );
+      appendHistoryCell(
+        documentObject,
+        row,
+        formatPercent(reason.share)
+      );
+      elements.historyReasons.append(row);
+    }
+
+    const items = Array.isArray(analytics?.itemAnalytics)
+      ? analytics.itemAnalytics
+      : [];
+    const itemsByKey = new Map(
+      items.map(item => [item.stableItemKey, item])
+    );
+    elements.historyPatterns.replaceChildren();
+    for (const pattern of analytics?.repeatedDecisionPatterns || []) {
+      const row = documentObject.createElement('tr');
+      const period = pattern.firstRecordedAt || pattern.lastRecordedAt
+        ? `${formatHistoryDate(pattern.firstRecordedAt)} — ` +
+          formatHistoryDate(pattern.lastRecordedAt)
+        : '—';
+      for (const value of [
+        patternLabel(pattern.patternType),
+        patternScopeLabel(pattern, itemsByKey),
+        displayCount(pattern.occurrences),
+        dominantValueLabel(pattern.dominantValue),
+        formatPercent(pattern.share),
+        period,
+      ]) {
+        appendHistoryCell(documentObject, row, value);
+      }
+      elements.historyPatterns.append(row);
+    }
+
+    elements.historyItems.replaceChildren();
+    for (const item of items) {
+      const row = documentObject.createElement('tr');
+      for (const value of [
+        item.productName || '—',
+        item.sku || '—',
+        item.brand || '—',
+        item.supplier || '—',
+        displayCount(item.totalEntries),
+        decisionLabel(item.dominantOwnerDecision),
+        displayCount(item.agreements),
+        displayCount(item.disagreements),
+        formatPercent(item.agreementRate),
+        formatQuantity(item.averageOwnerQuantity),
+        formatQuantity(item.ownerQuantityDeltaAverage),
+        formatHistoryDate(item.lastRecordedAt),
+      ]) {
+        appendHistoryCell(documentObject, row, value);
+      }
+      elements.historyItems.append(row);
+    }
+  }
+
   async function pollRunStatus(options) {
     const {
       fetchFunction,
@@ -858,6 +1091,38 @@
       productsPrevious:
         documentObject.getElementById('products-previous'),
       productsNext: documentObject.getElementById('products-next'),
+      historyForm: documentObject.getElementById('history-filters'),
+      historySupplier: documentObject.getElementById('history-supplier'),
+      historyBrand: documentObject.getElementById('history-brand'),
+      historyDecision: documentObject.getElementById('history-decision'),
+      historyReason: documentObject.getElementById('history-reason'),
+      historyDateFrom: documentObject.getElementById('history-date-from'),
+      historyDateTo: documentObject.getElementById('history-date-to'),
+      historyLoading: documentObject.getElementById('history-loading'),
+      historyEmpty: documentObject.getElementById('history-empty'),
+      historyNoResults:
+        documentObject.getElementById('history-no-results'),
+      historyUnavailable:
+        documentObject.getElementById('history-unavailable'),
+      historyInvalid: documentObject.getElementById('history-invalid'),
+      historyContent: documentObject.getElementById('history-content'),
+      historyDecisionDistribution:
+        documentObject.getElementById('history-decision-distribution'),
+      historyReasons: documentObject.getElementById('history-reasons'),
+      historyPatterns: documentObject.getElementById('history-patterns'),
+      historyItems:
+        documentObject.getElementById('history-item-analytics'),
+      historySummary: {
+        total: documentObject.getElementById('history-total'),
+        items: documentObject.getElementById('history-items'),
+        brands: documentObject.getElementById('history-brands'),
+        suppliers: documentObject.getElementById('history-suppliers'),
+        agreements: documentObject.getElementById('history-agreements'),
+        disagreements:
+          documentObject.getElementById('history-disagreements'),
+        agreementRate:
+          documentObject.getElementById('history-agreement-rate'),
+      },
       decisionCounters: {
         all: documentObject.getElementById('decision-all'),
         needsDecision: documentObject.getElementById('decision-needs'),
@@ -890,6 +1155,7 @@
     let active = false;
     let availableArtifacts = {};
     let itemRequestSequence = 0;
+    let historyRequestSequence = 0;
     let searchTimer = null;
     const itemState = {
       baseUrl: null,
@@ -903,6 +1169,43 @@
       totalItems: null,
       defaultFilterResolved: false,
     };
+
+    function historyFilters() {
+      return {
+        supplier: elements.historySupplier.value,
+        brand: elements.historyBrand.value,
+        ownerDecision: elements.historyDecision.value,
+        reasonCode: elements.historyReason.value,
+        dateFrom: elements.historyDateFrom.value,
+        dateTo: elements.historyDateTo.value,
+      };
+    }
+
+    async function loadDecisionHistory() {
+      const sequence = ++historyRequestSequence;
+      setHistoryPanelState(elements, 'loading');
+      try {
+        const result = await requestJson(
+          fetchFunction,
+          buildAnalyticsUrl(historyFilters())
+        );
+        if (sequence !== historyRequestSequence) return;
+        const state = analyticsViewState(result);
+        if (state === 'ready') {
+          renderAnalytics(documentObject, elements, result.data);
+        }
+        setHistoryPanelState(elements, state);
+      } catch (error) {
+        if (sequence !== historyRequestSequence) return;
+        setHistoryPanelState(
+          elements,
+          error instanceof FrontendError &&
+            error.code === 'OWNER_DECISION_ANALYTICS_INVALID_INPUT'
+            ? 'invalid'
+            : 'unavailable'
+        );
+      }
+    }
 
     function setExportOpen(open) {
       const shouldOpen = open && !elements.exportButton.disabled;
@@ -1297,6 +1600,10 @@
 
     elements.fileInput.addEventListener('change', updateFileSelection);
     elements.form.addEventListener('submit', submitRun);
+    elements.historyForm.addEventListener('submit', event => {
+      event.preventDefault();
+      loadDecisionHistory();
+    });
     elements.exportButton.addEventListener('click', () => {
       setExportOpen(elements.exportMenu.hidden);
     });
@@ -1354,8 +1661,10 @@
     });
     resetExports();
     resetItems();
+    loadDecisionHistory();
     return {
       activateItems,
+      loadDecisionHistory,
       loadItems,
       submitRun,
       updateFileSelection,
@@ -1366,12 +1675,16 @@
     FrontendError,
     buildDecisionUrl,
     buildItemsUrl,
+    buildAnalyticsUrl,
     createItemRow,
     createItemRows,
     createApplication,
     decisionCounterView,
+    decisionLabel,
     defaultDecisionFilter,
     formatDuration,
+    formatHistoryDate,
+    formatPercent,
     formatQuantity,
     formatRub,
     itemMatchesDecisionFilter,
@@ -1380,6 +1693,7 @@
     needsOwnerDecisionView,
     ownerDecisionView,
     paginationLabel,
+    patternLabel,
     plainReason,
     pollRunStatus,
     recommendedLineValue,
@@ -1390,8 +1704,12 @@
     safeArtifactDownloadUrl,
     safeRunLink,
     selectArtifacts,
+    setHistoryPanelState,
     setProductsPanelState,
     summaryView,
+    analyticsViewState,
+    reasonLabel,
+    renderAnalytics,
     technicalExplanation,
   };
 

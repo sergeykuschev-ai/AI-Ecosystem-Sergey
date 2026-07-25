@@ -10,25 +10,33 @@ const {
 } = require('../server');
 const {
   FrontendError,
+  analyticsViewState,
+  buildAnalyticsUrl,
   buildItemsUrl,
   buildDecisionUrl,
   createItemRow,
   createItemRows,
   decisionCounterView,
+  decisionLabel,
   defaultDecisionFilter,
   formatRub,
+  formatPercent,
   itemMatchesDecisionFilter,
   needsOwnerDecisionView,
   paginationLabel,
   plainReason,
+  patternLabel,
   pollRunStatus,
   renderItemRows,
+  renderAnalytics,
   requestNeedsDecisionItems,
   requestJson,
   selectArtifacts,
+  setHistoryPanelState,
   setProductsPanelState,
   summaryView,
   technicalExplanation,
+  reasonLabel,
 } = require('../public/app');
 
 const PUBLIC_ROOT = path.resolve(__dirname, '../public');
@@ -105,6 +113,37 @@ function panelElements() {
   };
 }
 
+function historyElements() {
+  return {
+    historyLoading: fakeElement(),
+    historyEmpty: fakeElement(),
+    historyNoResults: fakeElement(),
+    historyUnavailable: fakeElement(),
+    historyInvalid: fakeElement(),
+    historyContent: fakeElement(),
+    historyDecisionDistribution: fakeElement('dl'),
+    historyReasons: fakeElement('tbody'),
+    historyPatterns: fakeElement('tbody'),
+    historyItems: fakeElement('tbody'),
+    historySummary: {
+      total: fakeElement('strong'),
+      items: fakeElement('strong'),
+      brands: fakeElement('strong'),
+      suppliers: fakeElement('strong'),
+      agreements: fakeElement('strong'),
+      disagreements: fakeElement('strong'),
+      agreementRate: fakeElement('strong'),
+    },
+  };
+}
+
+function descendantText(element) {
+  return [
+    element.textContent,
+    ...(element.children || []).map(descendantText),
+  ].join(' ');
+}
+
 before(async () => {
   server = createPurchasingWebServer();
   server.listen(0, '127.0.0.1');
@@ -131,6 +170,9 @@ test('GET / serves the Russian frontend with secure headers', async () => {
   assert.match(body, /AI-агент закупщик «Миска»/);
   assert.match(body, /id="products"[\s\S]*hidden/);
   assert.match(body, /Товары к закупке/);
+  const productsBody = body.match(
+    /<section\s+class="products card"[\s\S]*?<\/section>/
+  )?.[0] || '';
   assert.doesNotMatch(body, /Скачать результаты/);
   assert.match(body, />\s*Экспорт\s*</);
   for (const label of [
@@ -149,12 +191,12 @@ test('GET / serves the Russian frontend with secure headers', async () => {
     'Сумма',
     'Решение',
   ]) {
-    assert.match(body, new RegExp(`>\\s*${heading}`));
+    assert.match(productsBody, new RegExp(`>\\s*${heading}`));
   }
-  assert.doesNotMatch(body, /<th>Бренд<\/th>/);
-  assert.doesNotMatch(body, /<th[^>]*>Цена<\/th>/);
-  assert.doesNotMatch(body, /<th[^>]*>Owner Review<\/th>/);
-  assert.doesNotMatch(body, /<th[^>]*>Причина<\/th>/);
+  assert.doesNotMatch(productsBody, /<th>Бренд<\/th>/);
+  assert.doesNotMatch(productsBody, /<th[^>]*>Цена<\/th>/);
+  assert.doesNotMatch(productsBody, /<th[^>]*>Owner Review<\/th>/);
+  assert.doesNotMatch(productsBody, /<th[^>]*>Причина<\/th>/);
   for (const label of [
     'Все товары',
     'Нужно решить',
@@ -829,4 +871,163 @@ test('API error and empty item list have explicit UI states', async () => {
   assert.equal(body.children.length, 0);
   setProductsPanelState(errorElements, 'empty');
   assert.equal(errorElements.productsEmpty.hidden, false);
+});
+
+test('decision history block and all safe UI states are present', async () => {
+  const response = await fetch(`${baseUrl}/`);
+  const body = await response.text();
+
+  assert.match(body, /id="decision-history"/);
+  assert.match(body, />История решений</);
+  assert.match(body, /id="history-loading"/);
+  assert.match(body, /id="history-empty"/);
+  assert.match(body, /id="history-unavailable"/);
+  assert.match(body, /id="history-invalid"/);
+  assert.match(body, /id="history-no-results"/);
+  assert.match(
+    body,
+    /История решений временно недоступна\. Работа закупщика не затронута\./
+  );
+});
+
+test('analytics labels use neutral Russian owner language', () => {
+  assert.equal(decisionLabel('BUY'), 'Купить');
+  assert.equal(decisionLabel('SKIP'), 'Пропустить');
+  assert.equal(decisionLabel('DEFER'), 'Отложить');
+  assert.equal(decisionLabel('REVIEW'), 'Проверить');
+  assert.equal(reasonLabel('LOW_SALES'), 'Низкие продажи');
+  assert.equal(
+    patternLabel('AGENT_DISAGREEMENT_REPEAT'),
+    'Повторные расхождения с агентом'
+  );
+  assert.equal(formatPercent(null), '—');
+  assert.match(formatPercent(0.75), /75/);
+});
+
+test('analytics filters build a new backend request', () => {
+  const url = new URL(buildAnalyticsUrl({
+    supplier: 'Валта & Ко',
+    brand: 'Alpha',
+    ownerDecision: 'SKIP',
+    reasonCode: 'LOW_SALES',
+    dateFrom: '2026-07-01',
+    dateTo: '2026-07-25',
+  }), 'http://local');
+
+  assert.equal(
+    url.pathname,
+    '/api/v1/owner-learning/decision-history/analytics'
+  );
+  assert.equal(url.searchParams.get('supplier'), 'Валта & Ко');
+  assert.equal(url.searchParams.get('brand'), 'Alpha');
+  assert.equal(url.searchParams.get('ownerDecision'), 'SKIP');
+  assert.equal(url.searchParams.get('reasonCode'), 'LOW_SALES');
+  assert.equal(url.searchParams.get('dateFrom'), '2026-07-01');
+  assert.equal(url.searchParams.get('dateTo'), '2026-07-25');
+  assert.equal(url.searchParams.get('maxItems'), '100');
+});
+
+test('analytics state distinguishes empty, unavailable and no results', () => {
+  assert.equal(analyticsViewState({ status: 'UNAVAILABLE' }), 'unavailable');
+  assert.equal(analyticsViewState({
+    status: 'AVAILABLE',
+    data: { population: { totalEntries: 0, filteredEntries: 0 } },
+  }), 'empty');
+  assert.equal(analyticsViewState({
+    status: 'AVAILABLE',
+    data: { population: { totalEntries: 4, filteredEntries: 0 } },
+  }), 'no-results');
+
+  const elements = historyElements();
+  setHistoryPanelState(elements, 'loading');
+  assert.equal(elements.historyLoading.hidden, false);
+  setHistoryPanelState(elements, 'unavailable');
+  assert.equal(elements.historyUnavailable.hidden, false);
+  setHistoryPanelState(elements, 'invalid');
+  assert.equal(elements.historyInvalid.hidden, false);
+});
+
+test('analytics renderer shows summary, labels, patterns and item table safely', () => {
+  const elements = historyElements();
+  const maliciousName = '<img src=x onerror=alert(1)>';
+  renderAnalytics(fakeDocument(), elements, {
+    population: {
+      totalEntries: 3,
+      filteredEntries: 3,
+      uniqueItems: 1,
+      uniqueBrands: 1,
+      uniqueSuppliers: 1,
+    },
+    agreementAnalysis: {
+      agreements: 2,
+      disagreements: 1,
+      agreementRate: 2 / 3,
+    },
+    ownerDecisionDistribution: {
+      BUY: 2,
+      SKIP: 1,
+      DEFER: 0,
+      REVIEW: 0,
+    },
+    reasonDistribution: [{
+      reasonCode: 'LOW_SALES',
+      count: 1,
+      share: 1 / 3,
+      ownerComment: 'private',
+    }],
+    itemAnalytics: [{
+      stableItemKey: 'technical:key:must-not-render',
+      sku: 'SKU-1',
+      productName: maliciousName,
+      brand: 'Alpha',
+      supplier: 'Валта',
+      totalEntries: 3,
+      dominantOwnerDecision: 'BUY',
+      agreements: 2,
+      disagreements: 1,
+      agreementRate: null,
+      averageOwnerQuantity: null,
+      ownerQuantityDeltaAverage: null,
+      lastRecordedAt: null,
+      metadata: { private: true },
+      decisionId: 'private-id',
+      ownerComment: 'private',
+    }],
+    repeatedDecisionPatterns: [{
+      patternType: 'SAME_ITEM_SAME_DECISION',
+      scopeType: 'ITEM',
+      scopeKey: 'technical:key:must-not-render',
+      occurrences: 3,
+      dominantValue: 'BUY',
+      share: 1,
+      firstRecordedAt: '2026-07-01T00:00:00.000Z',
+      lastRecordedAt: '2026-07-03T00:00:00.000Z',
+      evidenceDecisionIds: ['private-id'],
+    }],
+  });
+
+  assert.equal(elements.historySummary.total.textContent, '3');
+  assert.equal(elements.historySummary.agreements.textContent, '2');
+  const visible = descendantText({
+    children: [
+      elements.historyDecisionDistribution,
+      elements.historyReasons,
+      elements.historyPatterns,
+      elements.historyItems,
+    ],
+    textContent: '',
+  });
+  assert.match(visible, /Купить/);
+  assert.match(visible, /Низкие продажи/);
+  assert.match(visible, /Повторяется одно решение по товару/);
+  assert.match(visible, /<img src=x onerror=alert\(1\)>/);
+  assert.match(visible, /—/);
+  for (const forbidden of [
+    'technical:key:must-not-render',
+    'private-id',
+    'ownerComment',
+    'metadata',
+  ]) {
+    assert.equal(visible.includes(forbidden), false);
+  }
 });

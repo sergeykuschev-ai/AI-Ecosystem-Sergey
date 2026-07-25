@@ -18,6 +18,9 @@ const {
   OwnerDecisionService,
 } = require('./application/owner_decision_service');
 const {
+  OwnerDecisionAnalyticsService,
+} = require('./application/owner_decision_analytics_service');
+const {
   FileRunRegistry,
 } = require('./storage/file_run_registry');
 const { createRouter } = require('./http/router');
@@ -99,6 +102,14 @@ function createPurchasingWebServer(options = {}) {
     });
   const queryService = options.queryService ||
     new RunQueryService(registry, { ownerDecisionService });
+  const ownerDecisionAnalyticsService =
+    options.ownerDecisionAnalyticsService ||
+    new OwnerDecisionAnalyticsService({
+      historyFilePath: options.ownerDecisionHistoryFilePath ||
+        serverPaths.ownerDecisionHistoryPath,
+      logger: options.logger,
+      now: options.now,
+    });
   const handlers = options.handlers || createRunHandlers({
     registry,
     queryService,
@@ -109,6 +120,7 @@ function createPurchasingWebServer(options = {}) {
     runLock: options.runLock,
     approvedRuleMode: options.approvedRuleMode ??
       resolveApprovedRuleMode(),
+    ownerDecisionAnalyticsService,
   });
   const staticHandler = options.staticHandler || createStaticHandler({
     publicRoot: options.publicRoot,

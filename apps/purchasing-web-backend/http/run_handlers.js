@@ -24,8 +24,181 @@ const {
 } = require('./upload_handler');
 const { streamArtifact } = require('./artifact_handler');
 const { HttpError } = require('./responses');
+const {
+  mapOwnerDecisionAnalytics,
+} = require('../dto/owner_decision_analytics_mapper');
+const {
+  OWNER_DECISIONS,
+  REASON_CODES,
+  SOURCES,
+} = require(
+  '../../../agents/purchasing/owner_learning/owner_decision_history'
+);
 
 const MAX_DECISION_BODY_BYTES = 4096;
+const MAX_ANALYTICS_ITEMS = 100;
+const ANALYTICS_FILTER_NAMES = Object.freeze([
+  'source',
+  'supplier',
+  'brand',
+  'category',
+  'stableItemKey',
+  'ownerDecision',
+  'reasonCode',
+  'dateFrom',
+  'dateTo',
+]);
+const ANALYTICS_OPTION_NAMES = Object.freeze([
+  'minOccurrences',
+  'dominantShareThreshold',
+  'maxItems',
+]);
+const ANALYTICS_QUERY_NAMES = new Set([
+  ...ANALYTICS_FILTER_NAMES,
+  ...ANALYTICS_OPTION_NAMES,
+]);
+
+function analyticsInputError(message) {
+  return new HttpError(
+    'OWNER_DECISION_ANALYTICS_INVALID_INPUT',
+    message
+  );
+}
+
+function queryText(value, name) {
+  if (
+    typeof value !== 'string' ||
+    value.trim() === '' ||
+    value.length > 512 ||
+    value.includes('\0')
+  ) {
+    throw analyticsInputError(`Параметр ${name} имеет неверное значение.`);
+  }
+  return value.trim();
+}
+
+function queryEnum(value, name, values) {
+  const normalized = queryText(value, name).toUpperCase();
+  if (!values.includes(normalized)) {
+    throw analyticsInputError(`Параметр ${name} не поддерживается.`);
+  }
+  return normalized;
+}
+
+function queryDate(value, name) {
+  const normalized = queryText(value, name);
+  const timestamp = Date.parse(
+    /^\d{4}-\d{2}-\d{2}$/.test(normalized)
+      ? `${normalized}T00:00:00.000Z`
+      : normalized
+  );
+  if (
+    !Number.isFinite(timestamp) ||
+    (/^\d{4}-\d{2}-\d{2}$/.test(normalized) &&
+      new Date(timestamp).toISOString().slice(0, 10) !== normalized)
+  ) {
+    throw analyticsInputError(`Параметр ${name} должен быть датой.`);
+  }
+  return normalized;
+}
+
+function queryInteger(value, name, maximum = null) {
+  const normalized = queryText(value, name);
+  if (!/^\d+$/.test(normalized)) {
+    throw analyticsInputError(
+      `Параметр ${name} должен быть положительным целым числом.`
+    );
+  }
+  const number = Number(normalized);
+  if (
+    !Number.isSafeInteger(number) ||
+    number < 1 ||
+    (maximum !== null && number > maximum)
+  ) {
+    throw analyticsInputError(`Параметр ${name} вне допустимого диапазона.`);
+  }
+  return number;
+}
+
+function parseOwnerDecisionAnalyticsQuery(query = {}) {
+  for (const name of Object.keys(query)) {
+    if (!ANALYTICS_QUERY_NAMES.has(name)) {
+      throw analyticsInputError(`Параметр ${name} не поддерживается.`);
+    }
+  }
+  const filters = {};
+  const options = {};
+  for (const name of ['supplier', 'brand', 'category', 'stableItemKey']) {
+    if (query[name] !== undefined) {
+      filters[name] = queryText(query[name], name);
+    }
+  }
+  if (query.source !== undefined) {
+    filters.source = queryEnum(query.source, 'source', SOURCES);
+  }
+  if (query.ownerDecision !== undefined) {
+    filters.ownerDecision = queryEnum(
+      query.ownerDecision,
+      'ownerDecision',
+      OWNER_DECISIONS
+    );
+  }
+  if (query.reasonCode !== undefined) {
+    filters.reasonCode = queryEnum(
+      query.reasonCode,
+      'reasonCode',
+      REASON_CODES
+    );
+  }
+  for (const name of ['dateFrom', 'dateTo']) {
+    if (query[name] !== undefined) {
+      filters[name] = queryDate(query[name], name);
+    }
+  }
+  if (
+    filters.dateFrom &&
+    filters.dateTo &&
+    Date.parse(filters.dateFrom) > Date.parse(filters.dateTo)
+  ) {
+    throw analyticsInputError('dateFrom не может быть позже dateTo.');
+  }
+  if (query.minOccurrences !== undefined) {
+    options.minOccurrences = queryInteger(
+      query.minOccurrences,
+      'minOccurrences'
+    );
+  }
+  if (query.maxItems !== undefined) {
+    options.maxItems = queryInteger(
+      query.maxItems,
+      'maxItems',
+      MAX_ANALYTICS_ITEMS
+    );
+  }
+  if (query.dominantShareThreshold !== undefined) {
+    const normalized = queryText(
+      query.dominantShareThreshold,
+      'dominantShareThreshold'
+    );
+    if (!/^(?:0(?:\.\d+)?|1(?:\.0+)?)$/.test(normalized)) {
+      throw analyticsInputError(
+        'dominantShareThreshold должен быть числом от 0 до 1.'
+      );
+    }
+    const threshold = Number(normalized);
+    if (
+      !Number.isFinite(threshold) ||
+      threshold < 0 ||
+      threshold > 1
+    ) {
+      throw analyticsInputError(
+        'dominantShareThreshold должен быть числом от 0 до 1.'
+      );
+    }
+    options.dominantShareThreshold = threshold;
+  }
+  return { filters, options };
+}
 
 async function readDecisionBody(request) {
   const contentType = String(request.headers['content-type'] || '')
@@ -112,10 +285,13 @@ function createRunHandlers(options) {
     uploadOptions = {},
     runLock = DEFAULT_RUN_EXECUTION_LOCK,
     approvedRuleMode,
+    ownerDecisionAnalyticsService,
   } = options;
 
-  if (!registry || !queryService) {
-    throw new TypeError('Registry и query service обязательны.');
+  if (!registry || !queryService || !ownerDecisionAnalyticsService) {
+    throw new TypeError(
+      'Registry, query service и analytics service обязательны.'
+    );
   }
 
   return {
@@ -244,6 +420,15 @@ function createRunHandlers(options) {
       };
     },
 
+    getOwnerDecisionAnalytics(query) {
+      const input = parseOwnerDecisionAnalyticsQuery(query);
+      const result = ownerDecisionAnalyticsService.getAnalytics(input);
+      return {
+        statusCode: 200,
+        data: mapOwnerDecisionAnalytics(result),
+      };
+    },
+
     listArtifacts(runId) {
       return {
         statusCode: 200,
@@ -269,9 +454,11 @@ function createRunHandlers(options) {
 }
 
 module.exports = {
+  MAX_ANALYTICS_ITEMS,
   MAX_DECISION_BODY_BYTES,
   createRunHandlers,
   orchestrationHttpError,
   readDecisionBody,
+  parseOwnerDecisionAnalyticsQuery,
   reportDateDependencies,
 };

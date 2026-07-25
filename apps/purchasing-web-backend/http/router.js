@@ -9,6 +9,8 @@ const ITEM_DECISION_ROUTE =
   /^\/api\/v1\/runs\/([^/]+)\/items\/([^/]+)\/decision$/;
 const OWNER_REVIEW_ROUTE =
   /^\/api\/v1\/runs\/([^/]+)\/owner-review$/;
+const OWNER_DECISION_ANALYTICS_ROUTE =
+  '/api/v1/owner-learning/decision-history/analytics';
 const ARTIFACTS_ROUTE =
   /^\/api\/v1\/runs\/([^/]+)\/artifacts$/;
 const ARTIFACT_ROUTE =
@@ -76,6 +78,13 @@ function createRouter(handlers, options = {}) {
         url.pathname === '/api/v1/runs'
       ) {
         result = await handlers.createRun(request, { requestId });
+      } else if (
+        request.method === 'GET' &&
+        url.pathname === OWNER_DECISION_ANALYTICS_ROUTE
+      ) {
+        result = handlers.getOwnerDecisionAnalytics(
+          queryObject(url.searchParams)
+        );
       } else {
         const statusMatch = request.method === 'GET' &&
           url.pathname.match(RUN_ROUTE);
@@ -160,6 +169,7 @@ module.exports = {
   ITEM_DECISION_ROUTE,
   ITEMS_ROUTE,
   OWNER_REVIEW_ROUTE,
+  OWNER_DECISION_ANALYTICS_ROUTE,
   RUN_ROUTE,
   SUMMARY_ROUTE,
   createRouter,

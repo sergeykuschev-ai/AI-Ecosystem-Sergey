@@ -101,6 +101,171 @@
         </article>
       </section>
 
+      <section
+        class="decision-history card"
+        id="decision-history"
+        aria-labelledby="decision-history-title"
+      >
+        <div class="section-heading">
+          <div>
+            <p class="step-label">Owner Learning</p>
+            <h2 id="decision-history-title">История решений</h2>
+          </div>
+          <span class="format-badge">Только чтение</span>
+        </div>
+
+        <form
+          class="history-filters"
+          id="history-filters"
+          aria-label="Фильтры истории решений"
+        >
+          <label>
+            Поставщик
+            <input id="history-supplier" name="supplier" type="search">
+          </label>
+          <label>
+            Бренд
+            <input id="history-brand" name="brand" type="search">
+          </label>
+          <label>
+            Решение владельца
+            <select id="history-decision" name="ownerDecision">
+              <option value="">Все решения</option>
+              <option value="BUY">Купить</option>
+              <option value="SKIP">Пропустить</option>
+              <option value="DEFER">Отложить</option>
+              <option value="REVIEW">Проверить</option>
+            </select>
+          </label>
+          <label>
+            Причина
+            <select id="history-reason" name="reasonCode">
+              <option value="">Все причины</option>
+              <option value="TOO_MUCH_STOCK">Слишком большой остаток</option>
+              <option value="LOW_SALES">Низкие продажи</option>
+              <option value="STRATEGIC_ITEM">Стратегический товар</option>
+              <option value="REQUIRED_ASSORTMENT">Обязательный ассортимент</option>
+              <option value="SEASONAL">Сезонность</option>
+              <option value="SUPPLIER_CONSTRAINT">Ограничение поставщика</option>
+              <option value="PRICE_TOO_HIGH">Высокая цена</option>
+              <option value="OWNER_EXPERIENCE">Опыт владельца</option>
+              <option value="OTHER">Другое</option>
+              <option value="NOT_SPECIFIED">Причина не указана</option>
+            </select>
+          </label>
+          <label>
+            С даты
+            <input id="history-date-from" name="dateFrom" type="date">
+          </label>
+          <label>
+            По дату
+            <input id="history-date-to" name="dateTo" type="date">
+          </label>
+          <button class="secondary-button" type="submit">Показать</button>
+        </form>
+
+        <div class="history-state" id="history-loading" role="status">
+          <span class="loading-dot" aria-hidden="true"></span>
+          Загружаем историю решений…
+        </div>
+        <div class="history-state" id="history-empty" hidden>
+          Подтверждённых решений пока нет. Аналитика появится после работы
+          с Owner Review.
+        </div>
+        <div class="history-state" id="history-no-results" hidden>
+          По выбранным фильтрам решений не найдено.
+        </div>
+        <div class="history-state history-warning" id="history-unavailable" hidden>
+          История решений временно недоступна. Работа закупщика не затронута.
+        </div>
+        <div
+          class="history-state history-warning"
+          id="history-invalid"
+          role="alert"
+          hidden
+        >
+          Проверьте выбранные фильтры и повторите запрос.
+        </div>
+
+        <div id="history-content" hidden>
+          <div class="history-summary" aria-label="Сводка истории решений">
+            <article><span>Всего решений</span><strong id="history-total">—</strong></article>
+            <article><span>Уникальных товаров</span><strong id="history-items">—</strong></article>
+            <article><span>Брендов</span><strong id="history-brands">—</strong></article>
+            <article><span>Поставщиков</span><strong id="history-suppliers">—</strong></article>
+            <article><span>Совпадения</span><strong id="history-agreements">—</strong></article>
+            <article><span>Расхождения</span><strong id="history-disagreements">—</strong></article>
+            <article><span>Доля совпадений</span><strong id="history-agreement-rate">—</strong></article>
+          </div>
+
+          <div class="history-grid">
+            <article class="history-panel">
+              <h3>Распределение решений</h3>
+              <dl id="history-decision-distribution"></dl>
+            </article>
+            <article class="history-panel">
+              <h3>Основные причины</h3>
+              <div class="history-table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th scope="col">Причина</th>
+                      <th>Количество</th>
+                      <th>Доля</th>
+                    </tr>
+                  </thead>
+                  <tbody id="history-reasons"></tbody>
+                </table>
+              </div>
+            </article>
+          </div>
+
+          <article class="history-panel">
+            <h3>Повторяющиеся паттерны</h3>
+            <div class="history-table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Тип</th>
+                    <th>Объект</th>
+                    <th>Повторений</th>
+                    <th>Основное значение</th>
+                    <th>Доля</th>
+                    <th>Период</th>
+                  </tr>
+                </thead>
+                <tbody id="history-patterns"></tbody>
+              </table>
+            </div>
+          </article>
+
+          <article class="history-panel">
+            <h3>Товары</h3>
+            <div class="history-table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Товар</th>
+                    <th>SKU</th>
+                    <th scope="col">Бренд</th>
+                    <th>Поставщик</th>
+                    <th>Решений</th>
+                    <th>Основное решение</th>
+                    <th>Совпадений</th>
+                    <th>Расхождений</th>
+                    <th>Доля совпадений</th>
+                    <th>Среднее количество владельца</th>
+                    <th>Средняя разница количества</th>
+                    <th>Последнее решение</th>
+                  </tr>
+                </thead>
+                <tbody id="history-item-analytics"></tbody>
+              </table>
+            </div>
+          </article>
+        </div>
+      </section>
+
       <section class="results" id="results" aria-labelledby="results-title" hidden>
         <div class="results-heading">
           <div>
