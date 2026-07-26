@@ -35,6 +35,12 @@ const OWNER_MATERIALIZED_RULE_STATUS_ROUTE =
   /^\/api\/v1\/owner-learning\/materialized-rules\/([A-Za-z0-9_-]{1,128})\/status$/;
 const OWNER_MATERIALIZED_RULE_STATUS_HISTORY_ROUTE =
   /^\/api\/v1\/owner-learning\/materialized-rules\/([A-Za-z0-9_-]{1,128})\/status-history$/;
+const OWNER_RULE_EFFECTIVENESS_ROUTE =
+  '/api/v1/owner-learning/rule-effectiveness';
+const OWNER_RULE_EFFECTIVENESS_EVENTS_ROUTE =
+  /^\/api\/v1\/owner-learning\/rule-effectiveness\/([A-Za-z0-9_-]{1,128})\/events$/;
+const OWNER_RULE_EFFECTIVENESS_DETAIL_ROUTE =
+  /^\/api\/v1\/owner-learning\/rule-effectiveness\/([A-Za-z0-9_-]{1,128})$/;
 const ARTIFACTS_ROUTE =
   /^\/api\/v1\/runs\/([^/]+)\/artifacts$/;
 const ARTIFACT_ROUTE =
@@ -102,6 +108,35 @@ function createRouter(handlers, options = {}) {
         url.pathname === '/api/v1/runs'
       ) {
         result = await handlers.createRun(request, { requestId });
+      } else if (
+        request.method === 'GET' &&
+        url.pathname === OWNER_RULE_EFFECTIVENESS_ROUTE
+      ) {
+        result = handlers.listOwnerRuleEffectiveness(
+          queryObject(url.searchParams)
+        );
+      } else if (
+        request.method === 'GET' &&
+        url.pathname.match(OWNER_RULE_EFFECTIVENESS_EVENTS_ROUTE)
+      ) {
+        const match = url.pathname.match(
+          OWNER_RULE_EFFECTIVENESS_EVENTS_ROUTE
+        );
+        result = handlers.getOwnerRuleEffectivenessEvents(
+          match[1],
+          queryObject(url.searchParams)
+        );
+      } else if (
+        request.method === 'GET' &&
+        url.pathname.match(OWNER_RULE_EFFECTIVENESS_DETAIL_ROUTE)
+      ) {
+        const match = url.pathname.match(
+          OWNER_RULE_EFFECTIVENESS_DETAIL_ROUTE
+        );
+        result = handlers.getOwnerRuleEffectiveness(
+          match[1],
+          queryObject(url.searchParams)
+        );
       } else if (
         request.method === 'GET' &&
         url.pathname === OWNER_DECISION_ANALYTICS_ROUTE
@@ -312,6 +347,9 @@ module.exports = {
   OWNER_RULE_MATERIALIZATIONS_ROUTE,
   OWNER_RULE_MATERIALIZATION_DETAIL_ROUTE,
   OWNER_RULE_MATERIALIZE_ROUTE,
+  OWNER_RULE_EFFECTIVENESS_ROUTE,
+  OWNER_RULE_EFFECTIVENESS_DETAIL_ROUTE,
+  OWNER_RULE_EFFECTIVENESS_EVENTS_ROUTE,
   RUN_ROUTE,
   SUMMARY_ROUTE,
   createRouter,

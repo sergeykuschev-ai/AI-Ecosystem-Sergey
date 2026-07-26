@@ -15,6 +15,12 @@ const {
 } = require(
   '../../../agents/purchasing/owner_learning/owner_learning_candidate_lifecycle'
 );
+const {
+  createRuleEffectivenessEvent,
+} = require(
+  '../../../agents/purchasing/owner_learning/owner_rule_effectiveness'
+);
+const crypto = require('node:crypto');
 
 const GENERATED_AT = '2026-07-25T08:00:00.000Z';
 const CANDIDATE_A = 'a'.repeat(64);
@@ -175,6 +181,8 @@ function service({
   loadMaterializations,
   loadLifecycle,
   loadStatusEvents,
+  loadEffectiveness,
+  effectivenessFilePath = null,
   statusEventsFilePath = null,
   candidatesService,
 } = {}) {
@@ -183,6 +191,7 @@ function service({
     materializationsFilePath: '/tmp/test-materializations.json',
     candidateLifecycleFilePath: '/tmp/test-lifecycle.json',
     ...(statusEventsFilePath ? { statusEventsFilePath } : {}),
+    ...(effectivenessFilePath ? { effectivenessFilePath } : {}),
     now: () => GENERATED_AT,
     logger: { warn() {} },
     loadRegistry: loadRegistry || (() => ({
@@ -196,11 +205,54 @@ function service({
       )),
     loadLifecycle: loadLifecycle || (() => lifecycleValue),
     ...(loadStatusEvents ? { loadStatusEvents } : {}),
+    ...(loadEffectiveness ? { loadEffectiveness } : {}),
     candidatesService: candidatesService || {
       getCandidates() {
         return { status: 'AVAILABLE', candidates };
       },
     },
+  });
+}
+
+function effectivenessEvent(inputRule = rule()) {
+  const digest = value => crypto.createHash('sha256')
+    .update(value)
+    .digest('hex');
+  return createRuleEffectivenessEvent({
+    recordedAt: '2026-07-24T00:00:00.000Z',
+    runId: 'run-effectiveness',
+    supplier: 'Валта',
+    ruleId: inputRule.ruleId,
+    candidateId: inputRule.provenance.candidateId,
+    ruleStatus: 'ACTIVE',
+    ruleType: 'ITEM_DECISION_OVERRIDE',
+    decision: inputRule.approvedDecision,
+    evaluationStatus: 'EVALUATED',
+    effectStatus: 'APPLIED_EFFECT',
+    scopeSnapshot: {
+      displayPrimary: inputRule.name,
+      displaySecondary: 'SKU 7177004',
+      stableItemKeyHash: digest(inputRule.stableItemKey),
+    },
+    impact: {
+      affectedRows: 1,
+      decisionChanges: 1,
+      quantityChanges: 1,
+      quantityBefore: 10,
+      quantityAfter: 0,
+      quantityDelta: -10,
+      orderAmountBefore: 1000,
+      orderAmountAfter: 0,
+      orderAmountDelta: -1000,
+      financialStatusBefore: 'APPROVED',
+      financialStatusAfter: 'APPROVED',
+      financiallyPermitted: true,
+    },
+    fallback: { occurred: false, reasonCode: null },
+    applicationMode: 'APPLY_SAFE',
+    registryFingerprint: digest('registry'),
+    runFingerprint: digest('run-effectiveness'),
+    metadata: {},
   });
 }
 
@@ -325,6 +377,54 @@ test('status journal unavailable keeps rules and actions available', () => {
     lastStatusAction: null,
     previewRequired: true,
   });
+});
+
+test('effectiveness overlay supports AVAILABLE, NO_DATA and UNAVAILABLE', () => {
+  const sourceRule = rule({ status: 'ACTIVE' });
+  const available = service({
+    rules: [sourceRule],
+    effectivenessFilePath: '/tmp/effectiveness.json',
+    loadEffectiveness() {
+      return { events: [effectivenessEvent(sourceRule)] };
+    },
+  }).listRules();
+  assert.deepEqual(available.rules[0].effectiveness, {
+    status: 'AVAILABLE',
+    classification: 'INSUFFICIENT_DATA',
+    evaluatedRuns: 1,
+    appliedEffectRuns: 1,
+    effectRate: 1,
+    totalOrderAmountDelta: -1000,
+    lastAppliedAt: '2026-07-24T00:00:00.000Z',
+    daysSinceLastApplied: 1,
+  });
+
+  const noData = service({
+    rules: [sourceRule],
+    effectivenessFilePath: '/tmp/effectiveness.json',
+    loadEffectiveness() {
+      return { events: [] };
+    },
+  }).listRules();
+  assert.equal(noData.rules[0].effectiveness.status, 'NO_DATA');
+
+  const unavailable = service({
+    rules: [sourceRule],
+    effectivenessFilePath: '/tmp/effectiveness.json',
+    loadEffectiveness() {
+      throw new Error('corrupted');
+    },
+  }).listRules();
+  assert.equal(unavailable.status, 'AVAILABLE');
+  assert.equal(
+    unavailable.rules[0].effectiveness.status,
+    'UNAVAILABLE'
+  );
+  assert.equal(
+    unavailable.warning,
+    'OWNER_RULE_EFFECTIVENESS_UNAVAILABLE'
+  );
+  assert.equal(unavailable.rules[0].management.manageable, true);
 });
 
 test('legacy-shaped materialized source is not manageable', () => {

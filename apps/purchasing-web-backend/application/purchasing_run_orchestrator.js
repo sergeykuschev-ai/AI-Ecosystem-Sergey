@@ -44,6 +44,16 @@ const {
   '../../../agents/purchasing/owner_learning/approved_rule_application'
 );
 const {
+  recordRuleEffectivenessForRun,
+} = require(
+  '../../../agents/purchasing/owner_learning/owner_rule_effectiveness_recorder'
+);
+const {
+  DEFAULT_RULE_EFFECTIVENESS_PATH,
+} = require(
+  '../../../agents/purchasing/owner_learning/owner_rule_effectiveness'
+);
+const {
   PurchasingWebApplicationError,
 } = require('./application_error');
 
@@ -60,6 +70,7 @@ const DEFAULT_DEPENDENCIES = Object.freeze({
   buildOwnerLearningMarkdown,
   loadApprovedRules,
   processApprovedRules,
+  recordRuleEffectiveness: recordRuleEffectivenessForRun,
 });
 
 function assertNonEmptyString(value, field) {
@@ -106,6 +117,18 @@ function validateRequest(request) {
     throw new PurchasingWebApplicationError(
       'INVALID_RUN_REQUEST',
       'Поле recommendationConfigPath должно быть непустой строкой.'
+    );
+  }
+  if (
+    request.ownerLearningRuleEffectivenessFilePath !== undefined &&
+    (
+      typeof request.ownerLearningRuleEffectivenessFilePath !== 'string' ||
+      request.ownerLearningRuleEffectivenessFilePath.trim() === ''
+    )
+  ) {
+    throw new PurchasingWebApplicationError(
+      'INVALID_RUN_REQUEST',
+      'Путь effectiveness journal должен быть непустой строкой.'
     );
   }
 }
@@ -299,6 +322,7 @@ async function runPurchasingWebOrchestrator(
     );
   }
 
+  let approvedRulesRegistry = null;
   const approvedRuleProcessing = dependencies.processApprovedRules({
     agentResult,
     approvedRuleMode: request.approvedRuleMode,
@@ -306,6 +330,9 @@ async function runPurchasingWebOrchestrator(
       DEFAULT_APPROVED_RULES_PATH,
     loadApprovedRules: dependencies.loadApprovedRules,
     generatedAt: request.generatedAt,
+    onApprovedRulesLoaded(value) {
+      approvedRulesRegistry = value;
+    },
   }, dependencyOverrides.approvedRuleApplicationDependencies || {});
   agentResult = approvedRuleProcessing.agentResult;
 
@@ -417,6 +444,60 @@ async function runPurchasingWebOrchestrator(
     explanations,
   });
 
+  let ruleEffectiveness = {
+    status: 'SKIPPED',
+    recorded: 0,
+    duplicates: 0,
+    failed: 0,
+    warnings: [],
+  };
+  try {
+    ruleEffectiveness = dependencies.recordRuleEffectiveness({
+      effectivenessFilePath:
+        request.ownerLearningRuleEffectivenessFilePath ||
+        DEFAULT_RULE_EFFECTIVENESS_PATH,
+      runContext: {
+        runId: request.runId,
+        recordedAt: request.generatedAt,
+        supplier:
+          agentJsonFromResult(agentResult).supplier || null,
+        applicationMode: approvedRuleProcessing.mode,
+      },
+      registry: approvedRulesRegistry || { rules: [] },
+      applicationResult:
+        approvedRuleProcessing.approvedRuleApplications,
+      financialContext: {
+        workingOrderProducts:
+          agentJsonFromResult(agentResult).workingOrderProducts || [],
+        financialStatusBefore:
+          approvedRuleProcessing.approvedRuleApplications
+            ?.financialStatusBefore ?? null,
+        financialStatusAfter:
+          approvedRuleProcessing.approvedRuleApplications
+            ?.financialStatusAfter ?? null,
+        financiallyPermitted:
+          approvedRuleProcessing.approvedRuleApplications
+            ?.appliedWorkingOrderFinancialAssessment
+            ?.financiallyPermitted ?? null,
+      },
+      logger: dependencyOverrides.logger || console,
+    });
+  } catch {
+    try {
+      (dependencyOverrides.logger || console).warn(
+        '[OWNER_RULE_EFFECTIVENESS_UNAVAILABLE] ' +
+        'Аналитика эффективности недоступна; run продолжен.'
+      );
+    } catch {}
+    ruleEffectiveness = {
+      status: 'UNAVAILABLE',
+      recorded: 0,
+      duplicates: 0,
+      failed: 1,
+      warnings: ['OWNER_RULE_EFFECTIVENESS_UNAVAILABLE'],
+    };
+  }
+
   return {
     run_id: request.runId,
     generated_at: request.generatedAt,
@@ -442,6 +523,7 @@ async function runPurchasingWebOrchestrator(
       approvedRuleProcessing.approvedRulePreviewError,
     approvedRuleApplications:
       approvedRuleProcessing.approvedRuleApplications,
+    ruleEffectiveness,
   };
 }
 

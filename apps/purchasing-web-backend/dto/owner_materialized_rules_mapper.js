@@ -94,6 +94,24 @@ function mapMaterializedRule(rule = {}) {
         safeText(rule.management?.lastStatusAction),
       previewRequired: true,
     },
+    effectiveness: {
+      status: ['AVAILABLE', 'UNAVAILABLE', 'NO_DATA'].includes(
+        rule.effectiveness?.status
+      ) ? rule.effectiveness.status : 'UNAVAILABLE',
+      classification:
+        safeText(rule.effectiveness?.classification),
+      evaluatedRuns:
+        count(rule.effectiveness?.evaluatedRuns),
+      appliedEffectRuns:
+        count(rule.effectiveness?.appliedEffectRuns),
+      effectRate: safeNumber(rule.effectiveness?.effectRate),
+      totalOrderAmountDelta:
+        safeNumber(rule.effectiveness?.totalOrderAmountDelta),
+      lastAppliedAt:
+        safeText(rule.effectiveness?.lastAppliedAt),
+      daysSinceLastApplied:
+        safeNumber(rule.effectiveness?.daysSinceLastApplied),
+    },
   };
 }
 

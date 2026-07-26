@@ -666,6 +666,271 @@
         </div>
       </section>
 
+      <section
+        class="rule-effectiveness card"
+        id="rule-effectiveness"
+        aria-labelledby="rule-effectiveness-title"
+      >
+        <div class="section-heading">
+          <div>
+            <p class="step-label">Owner Learning · read-only</p>
+            <h2 id="rule-effectiveness-title">Эффективность правил</h2>
+          </div>
+          <span class="format-badge">Исторические факты</span>
+        </div>
+
+        <p class="rule-effectiveness-safety">
+          Эффективность показывает историческое влияние правил на рассчитанные
+          заказы. Эти данные не являются оценкой прибыли и не отключают правила
+          автоматически.
+        </p>
+        <p class="rule-effectiveness-delta-note">
+          Общая разница суммы заказа — исторический накопленный delta.
+        </p>
+
+        <form
+          class="rule-effectiveness-filters"
+          id="rule-effectiveness-filters"
+          aria-label="Фильтры эффективности правил"
+        >
+          <label>
+            Статус
+            <select id="rule-effectiveness-status" name="ruleStatus">
+              <option value="">Все статусы</option>
+              <option value="ACTIVE">Активно</option>
+              <option value="DISABLED">Неактивно</option>
+            </select>
+          </label>
+          <label>
+            Решение
+            <select id="rule-effectiveness-decision" name="decision">
+              <option value="">Все решения</option>
+              <option value="BUY">Купить</option>
+              <option value="SKIP">Пропустить</option>
+              <option value="DEFER">Отложить</option>
+            </select>
+          </label>
+          <label>
+            Классификация
+            <select
+              id="rule-effectiveness-classification"
+              name="classification"
+            >
+              <option value="">Все классы</option>
+              <option value="EFFECTIVE">Работает стабильно</option>
+              <option value="OCCASIONAL">Срабатывает периодически</option>
+              <option value="NO_EFFECT_YET">Пока без эффекта</option>
+              <option value="STALE">Давно не срабатывало</option>
+              <option value="REVIEW_RECOMMENDED">Требует ручной проверки</option>
+              <option value="INSUFFICIENT_DATA">Недостаточно данных</option>
+            </select>
+          </label>
+          <label>
+            Confidence
+            <select
+              id="rule-effectiveness-confidence"
+              name="confidenceLevel"
+            >
+              <option value="">Все уровни</option>
+              <option value="LOW">Низкая</option>
+              <option value="MEDIUM">Средняя</option>
+              <option value="HIGH">Высокая</option>
+              <option value="VERY_HIGH">Очень высокая</option>
+            </select>
+          </label>
+          <label>
+            Priority
+            <select
+              id="rule-effectiveness-priority"
+              name="priorityLevel"
+            >
+              <option value="">Все уровни</option>
+              <option value="LOW">Низкий</option>
+              <option value="MEDIUM">Средний</option>
+              <option value="HIGH">Высокий</option>
+              <option value="CRITICAL">Критический</option>
+            </select>
+          </label>
+          <label>
+            С даты
+            <input id="rule-effectiveness-date-from" name="dateFrom" type="date">
+          </label>
+          <label>
+            По дату
+            <input id="rule-effectiveness-date-to" name="dateTo" type="date">
+          </label>
+          <label class="rule-effectiveness-search">
+            Поиск
+            <input
+              id="rule-effectiveness-search"
+              name="search"
+              type="search"
+              maxlength="512"
+              placeholder="Товар или SKU"
+            >
+          </label>
+          <div class="rule-effectiveness-filter-actions">
+            <button class="secondary-button" type="submit">Обновить</button>
+            <button
+              class="secondary-button"
+              id="rule-effectiveness-reset"
+              type="button"
+            >Сбросить фильтры</button>
+          </div>
+        </form>
+
+        <div
+          class="rule-effectiveness-state"
+          id="rule-effectiveness-loading"
+          role="status"
+        >
+          <span class="loading-dot" aria-hidden="true"></span>
+          Загружаем эффективность правил…
+        </div>
+        <div
+          class="rule-effectiveness-state"
+          id="rule-effectiveness-empty"
+          hidden
+        >
+          Материализованных правил пока нет.
+        </div>
+        <div
+          class="rule-effectiveness-state"
+          id="rule-effectiveness-no-data"
+          hidden
+        >
+          Данных об эффективности пока нет. Они появятся после будущих запусков
+          APPLY_SAFE с активными правилами.
+        </div>
+        <div
+          class="rule-effectiveness-state"
+          id="rule-effectiveness-no-results"
+          hidden
+        >
+          По выбранным фильтрам данных не найдено.
+        </div>
+        <div
+          class="rule-effectiveness-state rule-effectiveness-warning"
+          id="rule-effectiveness-unavailable"
+          hidden
+        >
+          Аналитика эффективности временно недоступна. Работа закупщика не
+          затронута.
+        </div>
+        <div
+          class="rule-effectiveness-state rule-effectiveness-warning"
+          id="rule-effectiveness-invalid"
+          role="alert"
+          hidden
+        >
+          Проверьте выбранные фильтры и повторите запрос.
+        </div>
+        <div
+          class="rule-effectiveness-state rule-effectiveness-warning"
+          id="rule-effectiveness-network"
+          role="alert"
+          hidden
+        >
+          Не удалось загрузить аналитику. Проверьте соединение и повторите
+          запрос.
+        </div>
+
+        <div id="rule-effectiveness-content" hidden>
+          <div
+            class="rule-effectiveness-summary"
+            aria-label="Сводка эффективности правил"
+          >
+            <article><span>Всего правил</span><strong id="rule-effectiveness-total">—</strong></article>
+            <article><span>Срабатывали</span><strong id="rule-effectiveness-applied">—</strong></article>
+            <article><span>Без эффекта</span><strong id="rule-effectiveness-no-effect">—</strong></article>
+            <article><span>Устаревшие</span><strong id="rule-effectiveness-stale">—</strong></article>
+            <article><span>Требуют проверки</span><strong id="rule-effectiveness-review">—</strong></article>
+            <article><span>Общая разница суммы заказа</span><strong id="rule-effectiveness-amount-delta">—</strong></article>
+          </div>
+          <div class="table-scroll rule-effectiveness-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Товар / SKU</th>
+                  <th>Статус</th>
+                  <th>Решение</th>
+                  <th>Классификация</th>
+                  <th>Запусков</th>
+                  <th>С эффектом</th>
+                  <th>Effect rate</th>
+                  <th>Match rate</th>
+                  <th>Строк</th>
+                  <th>Δ количества</th>
+                  <th>Δ суммы</th>
+                  <th>Последний эффект</th>
+                  <th>Дней</th>
+                  <th>Без эффекта подряд</th>
+                  <th>Проверка</th>
+                </tr>
+              </thead>
+              <tbody id="rule-effectiveness-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <div
+        class="candidate-modal"
+        id="rule-effectiveness-detail-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="rule-effectiveness-detail-title"
+        hidden
+      >
+        <section class="candidate-modal-panel rule-effectiveness-detail-panel">
+          <div class="section-heading">
+            <div>
+              <p class="step-label">Историческая read-only аналитика</p>
+              <h2 id="rule-effectiveness-detail-title">Подробнее об эффективности</h2>
+            </div>
+            <button
+              class="candidate-modal-close"
+              id="rule-effectiveness-detail-close"
+              type="button"
+              aria-label="Закрыть"
+            >×</button>
+          </div>
+          <p id="rule-effectiveness-detail-state" role="status"></p>
+          <div id="rule-effectiveness-detail-content" hidden>
+            <dl
+              class="candidate-modal-summary"
+              id="rule-effectiveness-detail-summary"
+            ></dl>
+            <h3>Коды объяснения</h3>
+            <ul id="rule-effectiveness-detail-codes"></ul>
+            <h3>Последние события</h3>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Дата</th>
+                    <th>Run</th>
+                    <th>Статус эффекта</th>
+                    <th>Строк</th>
+                    <th>Δ количества</th>
+                    <th>Δ суммы</th>
+                    <th>Fallback</th>
+                  </tr>
+                </thead>
+                <tbody id="rule-effectiveness-detail-events"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="candidate-modal-actions">
+            <button
+              class="secondary-button"
+              id="rule-effectiveness-detail-done"
+              type="button"
+            >Закрыть</button>
+          </div>
+        </section>
+      </div>
+
       <div
         class="candidate-modal"
         id="materialized-rule-detail-modal"

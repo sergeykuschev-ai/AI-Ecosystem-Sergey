@@ -241,6 +241,46 @@ Short-lived preview records are stored in
 `owner-learning-rule-activation-previews.json` without a full order, full
 result, stable item key, owner comment, or evidence data.
 
+### Rule effectiveness analytics
+
+v0.9.3 records the observed effect of each materialized owner rule after a
+purchasing run. Events are appended to
+`owner-learning-rule-effectiveness-events.json`. The committed production
+journal starts empty; runtime events are operational data and must not contain
+raw order rows, stable item keys, owner comments, evidence payloads, secrets,
+credentials, stack traces, or local paths.
+
+The recorder distinguishes an applied order change, a matched rule without a
+change, no match, fallback to the baseline order, an inactive rule, and an
+unavailable evaluation. Aggregate analytics expose evaluated-run counts,
+effect and match rates, quantity and order-amount deltas, last activity,
+consecutive no-effect runs, data-quality diagnostics, and one of these
+classifications:
+
+- `EFFECTIVE`
+- `OCCASIONAL`
+- `NO_EFFECT_YET`
+- `STALE`
+- `REVIEW_RECOMMENDED`
+- `INSUFFICIENT_DATA`
+
+The HTTP API is read-only:
+
+- `GET /api/v1/owner-learning/rule-effectiveness`
+- `GET /api/v1/owner-learning/rule-effectiveness/:ruleId`
+- `GET /api/v1/owner-learning/rule-effectiveness/:ruleId/events`
+
+The list endpoint supports rule status, decision, classification, confidence,
+priority, UTC date-range, and text-search filters. Sorting is available by
+last application time, effect rate, total order-amount delta, evaluated runs,
+classification, or rule update time. The limit is from 1 through 100.
+
+Effectiveness analytics are observational only. Recording or reading them
+never activates, disables, or rewrites a rule, never changes a completed run,
+and never participates in deterministic order calculations. If the journal is
+unavailable, the service returns an allowlisted warning and the purchasing
+pipeline remains usable.
+
 ### Download an artifact
 
 `GET /api/v1/runs/:runId/artifacts/:artifactName`

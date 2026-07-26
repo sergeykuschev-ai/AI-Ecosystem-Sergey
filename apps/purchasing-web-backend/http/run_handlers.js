@@ -49,6 +49,11 @@ const {
   mapStatusPreview,
 } = require('../dto/owner_rule_status_mapper');
 const {
+  mapDetail: mapRuleEffectivenessDetail,
+  mapEvents: mapRuleEffectivenessEvents,
+  mapList: mapRuleEffectivenessList,
+} = require('../dto/owner_rule_effectiveness_mapper');
+const {
   ACTIONS: LIFECYCLE_ACTIONS,
   MAX_OWNER_COMMENT_LENGTH,
   REASON_CODES: LIFECYCLE_REASON_CODES,
@@ -148,6 +153,29 @@ const MATERIALIZED_RULE_OPTION_NAMES = Object.freeze([
 const MATERIALIZED_RULE_QUERY_NAMES = new Set([
   ...MATERIALIZED_RULE_FILTER_NAMES,
   ...MATERIALIZED_RULE_OPTION_NAMES,
+]);
+const RULE_EFFECTIVENESS_FILTER_NAMES = Object.freeze([
+  'ruleStatus',
+  'decision',
+  'classification',
+  'confidenceLevel',
+  'priorityLevel',
+  'dateFrom',
+  'dateTo',
+  'search',
+]);
+const RULE_EFFECTIVENESS_OPTION_NAMES = Object.freeze([
+  'asOf',
+  'staleAfterDays',
+  'reviewAfterConsecutiveNoEffect',
+  'minEvaluatedRuns',
+  'sortBy',
+  'sortDirection',
+  'limit',
+]);
+const RULE_EFFECTIVENESS_QUERY_NAMES = new Set([
+  ...RULE_EFFECTIVENESS_FILTER_NAMES,
+  ...RULE_EFFECTIVENESS_OPTION_NAMES,
 ]);
 
 function analyticsInputError(message) {
@@ -660,6 +688,144 @@ function parseOwnerMaterializedRulesQuery(query = {}) {
   return { filters, options };
 }
 
+function ruleEffectivenessInputError(message) {
+  return new HttpError(
+    'OWNER_RULE_EFFECTIVENESS_INVALID_INPUT',
+    message
+  );
+}
+
+function ruleEffectivenessText(value, name) {
+  if (
+    typeof value !== 'string' ||
+    value.trim() === '' ||
+    value.length > 512 ||
+    value.includes('\0')
+  ) {
+    throw ruleEffectivenessInputError(
+      `Параметр ${name} имеет неверное значение.`
+    );
+  }
+  return value.trim();
+}
+
+function parseOwnerRuleEffectivenessQuery(query = {}) {
+  for (const name of Object.keys(query)) {
+    if (!RULE_EFFECTIVENESS_QUERY_NAMES.has(name)) {
+      throw ruleEffectivenessInputError(
+        `Параметр ${name} не поддерживается.`
+      );
+    }
+  }
+  const filters = {};
+  const options = {};
+  const enums = {
+    ruleStatus: ['ACTIVE', 'DISABLED'],
+    decision: ['BUY', 'SKIP', 'DEFER'],
+    classification: [
+      'EFFECTIVE',
+      'OCCASIONAL',
+      'NO_EFFECT_YET',
+      'STALE',
+      'REVIEW_RECOMMENDED',
+      'INSUFFICIENT_DATA',
+    ],
+    confidenceLevel: ['LOW', 'MEDIUM', 'HIGH', 'VERY_HIGH'],
+    priorityLevel: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'],
+  };
+  for (const [name, values] of Object.entries(enums)) {
+    if (query[name] !== undefined) {
+      const normalized = ruleEffectivenessText(
+        query[name],
+        name
+      ).toUpperCase();
+      if (!values.includes(normalized)) {
+        throw ruleEffectivenessInputError(
+          `Параметр ${name} не поддерживается.`
+        );
+      }
+      filters[name] = normalized;
+    }
+  }
+  for (const name of ['dateFrom', 'dateTo']) {
+    if (query[name] !== undefined) {
+      filters[name] = materializedRulesDate(query[name], name);
+    }
+  }
+  if (
+    filters.dateFrom &&
+    filters.dateTo &&
+    Date.parse(filters.dateFrom) > Date.parse(filters.dateTo)
+  ) {
+    throw ruleEffectivenessInputError(
+      'dateFrom не может быть позже dateTo.'
+    );
+  }
+  if (query.search !== undefined) {
+    filters.search = ruleEffectivenessText(query.search, 'search');
+  }
+  if (query.asOf !== undefined) {
+    const asOf = ruleEffectivenessText(query.asOf, 'asOf');
+    if (!asOf.endsWith('Z') || !Number.isFinite(Date.parse(asOf))) {
+      throw ruleEffectivenessInputError(
+        'Параметр asOf должен быть ISO UTC datetime.'
+      );
+    }
+    options.asOf = new Date(Date.parse(asOf)).toISOString();
+  }
+  for (const name of [
+    'staleAfterDays',
+    'reviewAfterConsecutiveNoEffect',
+    'minEvaluatedRuns',
+    'limit',
+  ]) {
+    if (query[name] !== undefined) {
+      const normalized = ruleEffectivenessText(query[name], name);
+      const value = Number(normalized);
+      if (
+        !/^\d+$/.test(normalized) ||
+        !Number.isSafeInteger(value) ||
+        value < 1 ||
+        (name === 'limit' && value > 100)
+      ) {
+        throw ruleEffectivenessInputError(
+          `Параметр ${name} имеет неверное значение.`
+        );
+      }
+      options[name] = value;
+    }
+  }
+  if (query.sortBy !== undefined) {
+    const sortBy = ruleEffectivenessText(query.sortBy, 'sortBy');
+    if (![
+      'lastAppliedAt',
+      'effectRate',
+      'totalOrderAmountDelta',
+      'evaluatedRuns',
+      'classification',
+      'updatedAt',
+    ].includes(sortBy)) {
+      throw ruleEffectivenessInputError(
+        'Параметр sortBy не поддерживается.'
+      );
+    }
+    options.sortBy = sortBy;
+  }
+  if (query.sortDirection !== undefined) {
+    const direction = ruleEffectivenessText(
+      query.sortDirection,
+      'sortDirection'
+    ).toLowerCase();
+    if (!['asc', 'desc'].includes(direction)) {
+      throw ruleEffectivenessInputError(
+        'Параметр sortDirection не поддерживается.'
+      );
+    }
+    options.sortDirection = direction;
+  }
+  return { filters, options };
+}
+
 async function readDecisionBody(request) {
   const contentType = String(request.headers['content-type'] || '')
     .split(';')[0]
@@ -953,6 +1119,7 @@ function createRunHandlers(options) {
     ownerLearningCandidateLifecycleService,
     ownerRuleMaterializationService,
     ownerMaterializedRulesService,
+    ownerRuleEffectivenessService,
     ownerRuleStatusService,
   } = options;
 
@@ -1009,6 +1176,8 @@ function createRunHandlers(options) {
           matrixPath: serverPaths.matrixPath,
           ownerDecisionsPath: serverPaths.ownerDecisionsPath,
           approvedRulesPath: serverPaths.approvedRulesPath,
+          ownerLearningRuleEffectivenessFilePath:
+            serverPaths.ownerLearningRuleEffectivenessFilePath,
           approvedRuleMode,
           recommendationConfigPath:
             serverPaths.recommendationConfigPath,
@@ -1197,6 +1366,45 @@ function createRunHandlers(options) {
       };
     },
 
+    listOwnerRuleEffectiveness(query) {
+      const input = parseOwnerRuleEffectivenessQuery(query);
+      return {
+        statusCode: 200,
+        data: mapRuleEffectivenessList(
+          ownerRuleEffectivenessService
+            .listRuleEffectiveness(input)
+        ),
+      };
+    },
+
+    getOwnerRuleEffectiveness(ruleId, query) {
+      const input = parseOwnerRuleEffectivenessQuery(query);
+      return {
+        statusCode: 200,
+        data: mapRuleEffectivenessDetail(
+          ownerRuleEffectivenessService.getRuleEffectiveness({
+            ruleId,
+            options: input.options,
+          })
+        ),
+      };
+    },
+
+    getOwnerRuleEffectivenessEvents(ruleId, query) {
+      const input = parseOwnerRuleEffectivenessQuery(query);
+      return {
+        statusCode: 200,
+        data: mapRuleEffectivenessEvents(
+          ownerRuleEffectivenessService
+            .getRuleEffectivenessEvents({
+              ruleId,
+              filters: input.filters,
+              options: input.options,
+            })
+        ),
+      };
+    },
+
     async previewOwnerRuleStatus(ruleId, request) {
       const input = await readRuleStatusPreviewBody(request);
       return {
@@ -1272,5 +1480,6 @@ module.exports = {
   parseOwnerDecisionAnalyticsQuery,
   parseOwnerLearningCandidatesQuery,
   parseOwnerMaterializedRulesQuery,
+  parseOwnerRuleEffectivenessQuery,
   reportDateDependencies,
 };

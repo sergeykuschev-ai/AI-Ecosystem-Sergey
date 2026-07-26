@@ -22,6 +22,12 @@ const {
 } = require(
   '../../../agents/purchasing/owner_learning/owner_rule_status_manager'
 );
+const {
+  loadRuleEffectivenessEvents,
+  summarizeRuleEffectiveness,
+} = require(
+  '../../../agents/purchasing/owner_learning/owner_rule_effectiveness'
+);
 
 const UNAVAILABLE_WARNING = 'OWNER_MATERIALIZED_RULES_UNAVAILABLE';
 const MATERIALIZATION_HISTORY_WARNING =
@@ -32,6 +38,8 @@ const LIFECYCLE_CONTEXT_WARNING =
   'OWNER_MATERIALIZED_RULES_LIFECYCLE_CONTEXT_UNAVAILABLE';
 const STATUS_HISTORY_WARNING =
   'OWNER_RULE_STATUS_HISTORY_UNAVAILABLE';
+const EFFECTIVENESS_WARNING =
+  'OWNER_RULE_EFFECTIVENESS_UNAVAILABLE';
 const FILTER_VALUES = Object.freeze({
   status: Object.freeze(['ACTIVE', 'DISABLED']),
   decision: Object.freeze(['BUY', 'SKIP', 'DEFER']),
@@ -278,6 +286,7 @@ function buildRuleView({
   lifecycleAvailable,
   statusEvent,
   statusHistoryAvailable = false,
+  effectiveness,
 }) {
   const provenance = rule.provenance || {};
   const snapshot = event?.snapshot || {};
@@ -366,6 +375,7 @@ function buildRuleView({
       statusEvent,
       statusHistoryAvailable,
     }),
+    effectiveness,
   };
 }
 
@@ -517,6 +527,8 @@ class OwnerMaterializedRulesService {
       options.candidateLifecycleFilePath;
     this.statusEventsFilePath =
       options.statusEventsFilePath || null;
+    this.effectivenessFilePath =
+      options.effectivenessFilePath || null;
     this.candidatesService = options.candidatesService;
     this.logger = options.logger || console;
     this.now = options.now || (() => new Date());
@@ -527,6 +539,8 @@ class OwnerMaterializedRulesService {
       options.loadLifecycle || loadCandidateLifecycle;
     this.loadStatusEvents =
       options.loadStatusEvents || loadRuleStatusEvents;
+    this.loadEffectiveness =
+      options.loadEffectiveness || loadRuleEffectivenessEvents;
   }
 
   warn(code, message) {
@@ -611,13 +625,31 @@ class OwnerMaterializedRulesService {
       }
     }
 
+    let effectiveness = null;
+    let effectivenessWarning = null;
+    if (this.effectivenessFilePath) {
+      try {
+        effectiveness = this.loadEffectiveness({
+          filePath: this.effectivenessFilePath,
+        });
+      } catch {
+        effectivenessWarning = EFFECTIVENESS_WARNING;
+        this.warn(
+          effectivenessWarning,
+          'Effectiveness journal materialized rules недоступен.'
+        );
+      }
+    }
+
     return {
       registry,
       journal,
       candidates,
       lifecycle,
       statusEvents,
+      effectiveness,
       warning:
+        effectivenessWarning ||
         statusHistoryWarning ||
         journalWarning ||
         candidateWarning ||
@@ -656,6 +688,45 @@ class OwnerMaterializedRulesService {
           })
           : [];
         const statusEvent = statusHistory.at(-1) || null;
+        const effectivenessSummary = sources.effectiveness
+          ? summarizeRuleEffectiveness({
+            events: sources.effectiveness.events,
+            ruleId: rule.ruleId,
+            options: {
+              asOf: nowIso(this.now),
+            },
+          })
+          : null;
+        const effectiveness = sources.effectiveness
+          ? {
+            status:
+              effectivenessSummary.population.totalEvents > 0
+                ? 'AVAILABLE'
+                : 'NO_DATA',
+            classification:
+              effectivenessSummary.classification,
+            evaluatedRuns:
+              effectivenessSummary.population.evaluatedRuns,
+            appliedEffectRuns:
+              effectivenessSummary.effects.appliedEffectRuns,
+            effectRate: effectivenessSummary.effects.effectRate,
+            totalOrderAmountDelta:
+              effectivenessSummary.impact.totalOrderAmountDelta,
+            lastAppliedAt:
+              effectivenessSummary.activity.lastAppliedAt,
+            daysSinceLastApplied:
+              effectivenessSummary.activity.daysSinceLastApplied,
+          }
+          : {
+            status: 'UNAVAILABLE',
+            classification: null,
+            evaluatedRuns: 0,
+            appliedEffectRuns: 0,
+            effectRate: null,
+            totalOrderAmountDelta: null,
+            lastAppliedAt: null,
+            daysSinceLastApplied: null,
+          };
         return buildRuleView({
           rule,
           event,
@@ -664,6 +735,7 @@ class OwnerMaterializedRulesService {
           lifecycleAvailable: Boolean(sources.lifecycle),
           statusEvent,
           statusHistoryAvailable: Boolean(sources.statusEvents),
+          effectiveness,
         });
       });
   }
@@ -739,6 +811,7 @@ module.exports = {
   LIFECYCLE_CONTEXT_WARNING,
   MATERIALIZATION_HISTORY_WARNING,
   STATUS_HISTORY_WARNING,
+  EFFECTIVENESS_WARNING,
   SORT_FIELDS,
   UNAVAILABLE_WARNING,
   OwnerMaterializedRulesService,

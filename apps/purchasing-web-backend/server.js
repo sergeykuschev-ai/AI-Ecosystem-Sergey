@@ -41,6 +41,9 @@ const {
   OwnerRuleStatusService,
 } = require('./application/owner_rule_status_service');
 const {
+  OwnerRuleEffectivenessService,
+} = require('./application/owner_rule_effectiveness_service');
+const {
   FileRunRegistry,
 } = require('./storage/file_run_registry');
 const { createRouter } = require('./http/router');
@@ -117,6 +120,10 @@ function createPurchasingWebServer(options = {}) {
     options.ownerLearningRuleActivationPreviewsFilePath ||
     serverPaths.ownerLearningRuleActivationPreviewsFilePath ||
     DEFAULT_SERVER_PATHS.ownerLearningRuleActivationPreviewsFilePath;
+  const effectivenessFilePath =
+    options.ownerLearningRuleEffectivenessFilePath ||
+    serverPaths.ownerLearningRuleEffectivenessFilePath ||
+    DEFAULT_SERVER_PATHS.ownerLearningRuleEffectivenessFilePath;
   const runsRoot = options.runsRoot || DEFAULT_RUNS_ROOT;
   const registry = options.registry || new FileRunRegistry({
     runsRoot,
@@ -184,7 +191,16 @@ function createPurchasingWebServer(options = {}) {
       materializationsFilePath,
       candidateLifecycleFilePath: lifecycleFilePath,
       statusEventsFilePath,
+      effectivenessFilePath,
       candidatesService: ownerLearningCandidatesService,
+      logger: options.logger,
+      now: options.now,
+    });
+  const ownerRuleEffectivenessService =
+    options.ownerRuleEffectivenessService ||
+    new OwnerRuleEffectivenessService({
+      effectivenessFilePath,
+      approvedRulesFilePath: approvedRulesPath,
       logger: options.logger,
       now: options.now,
     });
@@ -222,6 +238,7 @@ function createPurchasingWebServer(options = {}) {
     ownerLearningCandidateLifecycleService,
     ownerRuleMaterializationService,
     ownerMaterializedRulesService,
+    ownerRuleEffectivenessService,
     ownerRuleStatusService,
   });
   const staticHandler = options.staticHandler || createStaticHandler({

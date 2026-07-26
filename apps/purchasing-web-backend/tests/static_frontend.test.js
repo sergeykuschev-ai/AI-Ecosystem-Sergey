@@ -16,6 +16,9 @@ const {
   buildLifecyclePayload,
   buildLifecycleStatusUrl,
   buildMaterializedRulesUrl,
+  buildRuleEffectivenessDetailUrl,
+  buildRuleEffectivenessEventsUrl,
+  buildRuleEffectivenessUrl,
   buildMaterializationPayload,
   buildMaterializationUrl,
   buildRuleStatusPayload,
@@ -29,6 +32,7 @@ const {
   confidenceLabel,
   createCandidateCard,
   createMaterializedRuleCard,
+  createRuleEffectivenessRow,
   createItemRow,
   createItemRows,
   decisionCounterView,
@@ -38,6 +42,7 @@ const {
   filterCandidates,
   formatSignedQuantity,
   formatRub,
+  formatSignedRub,
   formatPercent,
   itemMatchesDecisionFilter,
   lifecycleErrorMessage,
@@ -59,21 +64,30 @@ const {
   renderMaterializedRuleCards,
   renderMaterializedRuleDetail,
   renderMaterializedRulesSummary,
+  renderRuleEffectivenessDetail,
+  renderRuleEffectivenessRows,
+  renderRuleEffectivenessSummary,
   renderRuleStatusPreview,
   resetCandidateFilters,
   resetMaterializedRulesFilters,
+  resetRuleEffectivenessFilters,
   requestNeedsDecisionItems,
   requestJson,
   selectArtifacts,
   setHistoryPanelState,
   setCandidatePanelState,
   setMaterializedRulesPanelState,
+  setRuleEffectivenessPanelState,
   setProductsPanelState,
   shouldShowMaterialize,
   summaryView,
   technicalExplanation,
   reasonLabel,
   ruleStatusErrorMessage,
+  ruleEffectStatusLabel,
+  ruleEffectivenessClassificationLabel,
+  ruleEffectivenessCodeLabel,
+  ruleEffectivenessViewState,
 } = require('../public/app');
 
 const PUBLIC_ROOT = path.resolve(__dirname, '../public');
@@ -201,6 +215,90 @@ function candidateElements() {
       highPriority: fakeElement('strong'),
       criticalPriority: fakeElement('strong'),
     },
+  };
+}
+
+function ruleEffectivenessElements() {
+  return {
+    ruleEffectivenessLoading: fakeElement(),
+    ruleEffectivenessEmpty: fakeElement(),
+    ruleEffectivenessNoData: fakeElement(),
+    ruleEffectivenessNoResults: fakeElement(),
+    ruleEffectivenessUnavailable: fakeElement(),
+    ruleEffectivenessInvalid: fakeElement(),
+    ruleEffectivenessNetwork: fakeElement(),
+    ruleEffectivenessContent: fakeElement(),
+    ruleEffectivenessStatus: { value: 'ACTIVE' },
+    ruleEffectivenessDecision: { value: 'SKIP' },
+    ruleEffectivenessClassification: { value: 'EFFECTIVE' },
+    ruleEffectivenessConfidence: { value: 'HIGH' },
+    ruleEffectivenessPriority: { value: 'CRITICAL' },
+    ruleEffectivenessDateFrom: { value: '2026-01-01' },
+    ruleEffectivenessDateTo: { value: '2026-02-01' },
+    ruleEffectivenessSearch: { value: 'Товар' },
+    ruleEffectivenessSummary: {
+      total: fakeElement(),
+      applied: fakeElement(),
+      noEffect: fakeElement(),
+      stale: fakeElement(),
+      review: fakeElement(),
+      amountDelta: fakeElement(),
+    },
+    ruleEffectivenessDetailSummary: fakeElement('dl'),
+    ruleEffectivenessDetailCodes: fakeElement('ul'),
+    ruleEffectivenessDetailEvents: fakeElement('tbody'),
+  };
+}
+
+function effectivenessFixture(overrides = {}) {
+  return {
+    ruleId: 'rule-1',
+    displayScope: {
+      primary: '<img src=x onerror=alert(1)>',
+      secondary: 'SKU 100',
+    },
+    status: 'ACTIVE',
+    decision: 'SKIP',
+    confidence: { score: 90, level: 'VERY_HIGH' },
+    priority: { score: 80, level: 'CRITICAL' },
+    effectiveness: {
+      population: {
+        totalEvents: 3,
+        evaluatedRuns: 3,
+        unavailableRuns: 0,
+        fallbackRuns: 0,
+      },
+      effects: {
+        appliedEffectRuns: 2,
+        matchedNoChangeRuns: 1,
+        noMatchRuns: 0,
+        effectRate: 0.6667,
+        matchRate: 1,
+      },
+      impact: {
+        totalAffectedRows: 2,
+        totalDecisionChanges: 2,
+        totalQuantityChanges: 2,
+        totalQuantityDelta: -10,
+        totalOrderAmountDelta: -1000,
+      },
+      activity: {
+        lastAppliedAt: '2026-01-20T00:00:00.000Z',
+        daysSinceLastApplied: 5,
+        consecutiveNoEffectRuns: 1,
+      },
+      quality: { warnings: [] },
+      classification: 'EFFECTIVE',
+      explanationCodes: [
+        'RULE_CHANGED_ORDER',
+        'EFFECTIVENESS_IS_OBSERVATIONAL_ONLY',
+      ],
+    },
+    safety: {
+      observationalOnly: true,
+      changesRuleStatus: false,
+    },
+    ...overrides,
   };
 }
 
@@ -2213,4 +2311,244 @@ test('status UI has explicit stale, blocked and network messages', () => {
     /финансовой проверкой/
   );
   assert.match(ruleStatusErrorMessage('NETWORK_ERROR'), /соединение/);
+});
+
+test('effectiveness section has safety copy, summary, states and no write actions', () => {
+  const html = fs.readFileSync(
+    path.join(PUBLIC_ROOT, 'index.html'),
+    'utf8'
+  );
+  const start = html.indexOf('id="rule-effectiveness"');
+  const end = html.indexOf(
+    'id="rule-effectiveness-detail-modal"',
+    start
+  );
+  const section = html.slice(start, end);
+  assert.match(section, /Эффективность правил/);
+  assert.match(
+    section,
+    /Эффективность показывает историческое влияние правил/
+  );
+  for (const id of [
+    'rule-effectiveness-total',
+    'rule-effectiveness-applied',
+    'rule-effectiveness-no-effect',
+    'rule-effectiveness-stale',
+    'rule-effectiveness-review',
+    'rule-effectiveness-amount-delta',
+    'rule-effectiveness-loading',
+    'rule-effectiveness-empty',
+    'rule-effectiveness-no-data',
+    'rule-effectiveness-no-results',
+    'rule-effectiveness-unavailable',
+    'rule-effectiveness-invalid',
+    'rule-effectiveness-network',
+  ]) {
+    assert.match(section, new RegExp(`id="${id}"`));
+  }
+  assert.doesNotMatch(
+    section,
+    /status-preview|Активировать|Деактивировать/
+  );
+  assert.doesNotMatch(section, /экономи/i);
+});
+
+test('effectiveness URLs include filters and validate rule ids', () => {
+  const url = buildRuleEffectivenessUrl({
+    ruleStatus: 'ACTIVE',
+    decision: 'SKIP',
+    classification: 'EFFECTIVE',
+    confidenceLevel: 'HIGH',
+    priorityLevel: 'CRITICAL',
+    dateFrom: '2026-01-01',
+    dateTo: '2026-02-01',
+    search: 'Товар',
+  });
+  for (const value of [
+    'ruleStatus=ACTIVE',
+    'decision=SKIP',
+    'classification=EFFECTIVE',
+    'confidenceLevel=HIGH',
+    'priorityLevel=CRITICAL',
+    'limit=100',
+  ]) {
+    assert.match(url, new RegExp(value));
+  }
+  assert.equal(
+    buildRuleEffectivenessDetailUrl('rule-1'),
+    '/api/v1/owner-learning/rule-effectiveness/rule-1'
+  );
+  assert.equal(
+    buildRuleEffectivenessEventsUrl('rule-1'),
+    '/api/v1/owner-learning/rule-effectiveness/rule-1/events?limit=20'
+  );
+  assert.throws(
+    () => buildRuleEffectivenessDetailUrl('../private'),
+    error =>
+      error.code === 'OWNER_RULE_EFFECTIVENESS_INVALID_INPUT'
+  );
+});
+
+test('effectiveness view states cover empty, no data, unavailable and no results', () => {
+  assert.equal(
+    ruleEffectivenessViewState({ status: 'UNAVAILABLE' }),
+    'unavailable'
+  );
+  assert.equal(
+    ruleEffectivenessViewState({
+      status: 'AVAILABLE',
+      summary: {},
+      rules: [],
+    }),
+    'empty'
+  );
+  assert.equal(
+    ruleEffectivenessViewState({
+      status: 'AVAILABLE',
+      summary: {},
+      rules: [],
+    }, { search: 'missing' }),
+    'no-results'
+  );
+  assert.equal(
+    ruleEffectivenessViewState({
+      status: 'AVAILABLE',
+      summary: {},
+      rules: [effectivenessFixture({
+        effectiveness: {
+          ...effectivenessFixture().effectiveness,
+          population: { totalEvents: 0 },
+        },
+      })],
+    }),
+    'no-data'
+  );
+  assert.equal(
+    ruleEffectivenessViewState({
+      status: 'AVAILABLE',
+      summary: {},
+      rules: [effectivenessFixture()],
+    }),
+    'ready'
+  );
+  const elements = ruleEffectivenessElements();
+  for (const state of [
+    'loading',
+    'empty',
+    'no-data',
+    'no-results',
+    'unavailable',
+    'invalid',
+    'network',
+    'ready',
+  ]) {
+    setRuleEffectivenessPanelState(elements, state);
+  }
+  assert.equal(elements.ruleEffectivenessContent.hidden, false);
+});
+
+test('effectiveness reset, labels and signed formats are safe', () => {
+  const elements = ruleEffectivenessElements();
+  resetRuleEffectivenessFilters(elements);
+  for (const key of [
+    'ruleEffectivenessStatus',
+    'ruleEffectivenessDecision',
+    'ruleEffectivenessClassification',
+    'ruleEffectivenessConfidence',
+    'ruleEffectivenessPriority',
+    'ruleEffectivenessDateFrom',
+    'ruleEffectivenessDateTo',
+    'ruleEffectivenessSearch',
+  ]) {
+    assert.equal(elements[key].value, '');
+  }
+  assert.equal(
+    ruleEffectivenessClassificationLabel('EFFECTIVE'),
+    'Работает стабильно'
+  );
+  assert.equal(
+    ruleEffectivenessClassificationLabel('REVIEW_RECOMMENDED'),
+    'Требует ручной проверки'
+  );
+  assert.equal(
+    ruleEffectStatusLabel('APPLIED_EFFECT'),
+    'Изменило заказ'
+  );
+  assert.equal(
+    ruleEffectivenessCodeLabel('RULE_CHANGED_ORDER'),
+    'Правило изменяло рассчитанный заказ'
+  );
+  assert.match(formatSignedRub(100), /^\+/);
+  assert.match(formatSignedRub(-100), /^−/);
+  assert.equal(formatSignedRub(null), '—');
+});
+
+test('effectiveness summary and row render through textContent only', () => {
+  const documentObject = fakeDocument();
+  const elements = ruleEffectivenessElements();
+  renderRuleEffectivenessSummary(elements, {
+    totalRules: 3,
+    appliedRules: 1,
+    noEffectRules: 1,
+    staleRules: 0,
+    reviewRecommendedRules: 1,
+    totalOrderAmountDelta: -1000,
+  });
+  assert.equal(elements.ruleEffectivenessSummary.total.textContent, '3');
+  assert.match(
+    elements.ruleEffectivenessSummary.amountDelta.textContent,
+    /^−/
+  );
+  const row = createRuleEffectivenessRow(
+    documentObject,
+    effectivenessFixture()
+  );
+  assert.equal(
+    row.children[0].children[0].textContent,
+    '<img src=x onerror=alert(1)>'
+  );
+  const body = fakeElement('tbody');
+  renderRuleEffectivenessRows(
+    documentObject,
+    body,
+    [effectivenessFixture()]
+  );
+  assert.equal(body.children.length, 1);
+});
+
+test('effectiveness detail renders quality, codes and at most 20 safe events', () => {
+  const documentObject = fakeDocument();
+  const elements = ruleEffectivenessElements();
+  const events = Array.from({ length: 25 }, (_, index) => ({
+    recordedAt: '2026-01-20T00:00:00.000Z',
+    runId: `run-${index}`,
+    effectStatus: 'APPLIED_EFFECT',
+    impact: {
+      affectedRows: 1,
+      quantityDelta: -1,
+      orderAmountDelta: -100,
+    },
+    fallback: { occurred: false },
+    eventId: 'must-not-render',
+    registryFingerprint: 'must-not-render',
+  }));
+  renderRuleEffectivenessDetail(
+    documentObject,
+    elements,
+    {
+      rule: effectivenessFixture(),
+      effectiveness: effectivenessFixture().effectiveness,
+    },
+    { events }
+  );
+  assert.equal(
+    elements.ruleEffectivenessDetailEvents.children.length,
+    20
+  );
+  assert.equal(elements.ruleEffectivenessDetailCodes.children.length, 2);
+  const serialized = JSON.stringify(elements);
+  assert.doesNotMatch(
+    serialized,
+    /must-not-render|fingerprint|eventId/i
+  );
 });

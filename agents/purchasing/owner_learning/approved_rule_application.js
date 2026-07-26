@@ -450,6 +450,11 @@ function processApprovedRules(input = {}, dependencyOverrides = {}) {
         logger: { error() {} },
         ...(input.approvedRulesLoadOptions || {}),
       });
+    try {
+      if (typeof input.onApprovedRulesLoaded === 'function') {
+        input.onApprovedRulesLoaded(approvedRules);
+      }
+    } catch {}
     preview = dependencies.buildPreview({
       agentResult: input.agentResult,
       approvedRules,
