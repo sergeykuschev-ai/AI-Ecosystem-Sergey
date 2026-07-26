@@ -448,6 +448,10 @@ class OwnerRuleEffectivenessService {
   listRuleEffectiveness(input = {}) {
     const normalized = normalizeInput(input, this.now);
     const sources = this.readSources();
+    return this.listFromSources(normalized, sources);
+  }
+
+  listFromSources(normalized, sources) {
     if (!sources) {
       return {
         status: 'UNAVAILABLE',
@@ -469,6 +473,23 @@ class OwnerRuleEffectivenessService {
         normalized.options.limit
       ),
       warning: null,
+    };
+  }
+
+  getCenterSnapshot(input = {}) {
+    const normalized = normalizeInput(input, this.now);
+    const sources = this.readSources();
+    const result = this.listFromSources(normalized, sources);
+    if (result.status !== 'AVAILABLE') return result;
+    const ruleIds = new Set(result.rules.map(rule => rule.ruleId));
+    return {
+      ...result,
+      centerSnapshot: {
+        events: filteredEvents(
+          sources.journal.events,
+          normalized.filters
+        ).filter(event => ruleIds.has(event.ruleId)),
+      },
     };
   }
 

@@ -31,6 +31,9 @@ const {
   mapOwnerLearningCandidates,
 } = require('../dto/owner_learning_candidates_mapper');
 const {
+  mapOwnerLearningCenter,
+} = require('../dto/owner_learning_center_mapper');
+const {
   mapLifecycleList,
   mapLifecycleState,
 } = require('../dto/owner_learning_candidate_lifecycle_mapper');
@@ -177,6 +180,98 @@ const RULE_EFFECTIVENESS_QUERY_NAMES = new Set([
   ...RULE_EFFECTIVENESS_FILTER_NAMES,
   ...RULE_EFFECTIVENESS_OPTION_NAMES,
 ]);
+const OWNER_LEARNING_CENTER_QUERY_NAMES = new Set([
+  'supplier',
+  'brand',
+  'category',
+  'dateFrom',
+  'dateTo',
+  'attentionLimit',
+  'activityLimit',
+  'asOf',
+]);
+
+function centerInputError(message) {
+  return new HttpError(
+    'OWNER_LEARNING_CENTER_INVALID_INPUT',
+    message
+  );
+}
+
+function centerText(value, name) {
+  if (
+    typeof value !== 'string' ||
+    value.trim() === '' ||
+    value.length > 512 ||
+    value.includes('\0')
+  ) {
+    throw centerInputError(
+      `Параметр ${name} имеет неверное значение.`
+    );
+  }
+  return value.trim();
+}
+
+function parseOwnerLearningCenterQuery(query = {}) {
+  for (const name of Object.keys(query)) {
+    if (!OWNER_LEARNING_CENTER_QUERY_NAMES.has(name)) {
+      throw centerInputError(`Параметр ${name} не поддерживается.`);
+    }
+  }
+  const filters = {};
+  const options = {};
+  for (const name of ['supplier', 'brand', 'category']) {
+    if (query[name] !== undefined) {
+      filters[name] = centerText(query[name], name);
+    }
+  }
+  for (const name of ['dateFrom', 'dateTo']) {
+    if (query[name] !== undefined) {
+      filters[name] = centerText(query[name], name);
+    }
+  }
+  if (
+    filters.dateFrom &&
+    filters.dateTo &&
+    Date.parse(filters.dateFrom) > Date.parse(filters.dateTo)
+  ) {
+    throw centerInputError('dateFrom не может быть позже dateTo.');
+  }
+  for (const name of ['attentionLimit', 'activityLimit']) {
+    if (query[name] === undefined) continue;
+    const normalized = centerText(query[name], name);
+    const value = Number(normalized);
+    if (
+      !/^\d+$/.test(normalized) ||
+      !Number.isSafeInteger(value) ||
+      value < 1 ||
+      value > 100
+    ) {
+      throw centerInputError(
+        `Параметр ${name} должен быть от 1 до 100.`
+      );
+    }
+    options[name] = value;
+  }
+  if (query.asOf !== undefined) {
+    const normalized = centerText(query.asOf, 'asOf');
+    const timestamp = Date.parse(normalized);
+    if (
+      !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(
+        normalized
+      ) ||
+      !Number.isFinite(timestamp) ||
+      new Date(timestamp).toISOString().slice(0, 19) !==
+        normalized.slice(0, 19)
+    ) {
+      throw centerInputError(
+        'Параметр asOf должен быть ISO UTC datetime.'
+      );
+    }
+    options.asOf = new Date(timestamp).toISOString();
+  }
+  return { filters, options };
+}
 
 function analyticsInputError(message) {
   return new HttpError(
@@ -1121,6 +1216,7 @@ function createRunHandlers(options) {
     ownerMaterializedRulesService,
     ownerRuleEffectivenessService,
     ownerRuleStatusService,
+    ownerLearningCenterService,
   } = options;
 
   if (
@@ -1268,6 +1364,16 @@ function createRunHandlers(options) {
       return {
         statusCode: 200,
         data: mapOwnerDecisionAnalytics(result),
+      };
+    },
+
+    getOwnerLearningCenter(query) {
+      const input = parseOwnerLearningCenterQuery(query);
+      return {
+        statusCode: 200,
+        data: mapOwnerLearningCenter(
+          ownerLearningCenterService.getOverview(input)
+        ),
       };
     },
 
@@ -1478,6 +1584,7 @@ module.exports = {
   readRuleStatusBody,
   readRuleStatusPreviewBody,
   parseOwnerDecisionAnalyticsQuery,
+  parseOwnerLearningCenterQuery,
   parseOwnerLearningCandidatesQuery,
   parseOwnerMaterializedRulesQuery,
   parseOwnerRuleEffectivenessQuery,

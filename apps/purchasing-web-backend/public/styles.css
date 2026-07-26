@@ -113,6 +113,291 @@ h2 {
   gap: 22px;
 }
 
+.primary-navigation {
+  margin-top: 22px;
+}
+
+.primary-navigation a {
+  display: inline-flex;
+  border: 1px solid var(--green);
+  border-radius: 999px;
+  padding: 9px 15px;
+  color: var(--green-dark);
+  font-size: 0.88rem;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.owner-learning-center {
+  margin-top: 22px;
+}
+
+.owner-learning-subtitle {
+  max-width: 760px;
+  margin: 18px 0 8px;
+  color: var(--muted);
+}
+
+.owner-learning-safety {
+  margin-bottom: 18px;
+  border-left: 4px solid var(--green);
+  border-radius: 8px;
+  background: var(--green-soft);
+  padding: 12px 14px;
+  color: var(--green-dark);
+  font-size: 0.9rem;
+}
+
+.owner-learning-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 22px;
+  overflow-x: auto;
+  padding: 2px 2px 8px;
+  scrollbar-width: thin;
+}
+
+.owner-learning-tab {
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  padding: 9px 14px;
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 750;
+}
+
+.owner-learning-tab[aria-selected="true"] {
+  border-color: var(--green);
+  background: var(--green);
+  color: #fff;
+}
+
+.owner-learning-state {
+  border-radius: 14px;
+  background: var(--green-soft);
+  padding: 16px;
+  color: var(--green-dark);
+}
+
+.owner-learning-warning {
+  background: var(--orange-soft);
+  color: #874614;
+}
+
+.owner-learning-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.owner-learning-summary article,
+.owner-learning-panel,
+.owner-learning-section-card {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fbfdfb;
+  padding: 16px;
+}
+
+.owner-learning-summary span,
+.owner-learning-summary small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.owner-learning-summary strong {
+  display: block;
+  margin: 6px 0;
+  overflow-wrap: anywhere;
+  font-size: 1.4rem;
+}
+
+.owner-learning-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.owner-learning-panel h3 {
+  margin: 0 0 14px;
+  font-size: 1rem;
+}
+
+.owner-learning-panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.owner-learning-panel-heading > span {
+  border-radius: 999px;
+  background: var(--orange-soft);
+  padding: 4px 9px;
+  color: #874614;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.owner-learning-list {
+  display: grid;
+  gap: 10px;
+}
+
+.owner-learning-list-item {
+  min-width: 0;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.owner-learning-list-item:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.owner-learning-list-item header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.owner-learning-list-item h4 {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.92rem;
+}
+
+.owner-learning-list-item p {
+  margin: 6px 0;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.owner-learning-list-item small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+.owner-learning-list-item button,
+.owner-learning-section-card button {
+  margin-top: 10px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--green-dark);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.owner-learning-priority {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: var(--green-soft);
+  color: var(--green-dark);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.owner-learning-priority[data-priority="HIGH"],
+.owner-learning-priority[data-priority="CRITICAL"] {
+  background: var(--red-soft);
+  color: var(--red);
+}
+
+.owner-learning-priority[data-priority="MEDIUM"] {
+  background: var(--orange-soft);
+  color: #874614;
+}
+
+.owner-learning-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.owner-learning-health {
+  margin-top: 16px;
+}
+
+.owner-learning-health dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 16px;
+  margin: 14px 0;
+}
+
+.owner-learning-health dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 6px;
+  font-size: 0.82rem;
+}
+
+.owner-learning-health dt {
+  overflow-wrap: anywhere;
+  color: var(--muted);
+}
+
+.owner-learning-health dd {
+  margin: 0;
+  font-weight: 750;
+}
+
+.owner-learning-health ul {
+  margin: 10px 0;
+  padding-left: 20px;
+  color: #874614;
+  font-size: 0.82rem;
+}
+
+.owner-learning-health-dates {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.owner-learning-health-dates p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.owner-learning-health-dates strong {
+  display: block;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+  color: var(--text);
+}
+
+.owner-learning-sections {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.owner-learning-section-card h3 {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+}
+
+.owner-learning-section-card p {
+  margin: 4px 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
 .decision-history {
   margin-top: 22px;
 }
@@ -2053,8 +2338,14 @@ h2 {
   .history-summary,
   .candidate-summary,
   .materialized-rules-summary,
-  .rule-effectiveness-summary {
+  .rule-effectiveness-summary,
+  .owner-learning-summary,
+  .owner-learning-sections {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .owner-learning-grid {
+    grid-template-columns: 1fr;
   }
 
   .candidate-filters,
@@ -2134,7 +2425,14 @@ h2 {
   .materialized-rules-summary,
   .materialized-rule-facts,
   .rule-effectiveness-filters,
-  .rule-effectiveness-summary {
+    .rule-effectiveness-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .owner-learning-summary,
+  .owner-learning-sections,
+  .owner-learning-health dl,
+  .owner-learning-health-dates {
     grid-template-columns: 1fr;
   }
 

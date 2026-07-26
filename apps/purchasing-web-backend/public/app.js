@@ -51,6 +51,8 @@
   ]);
   const OWNER_DECISION_ANALYTICS_URL =
     '/api/v1/owner-learning/decision-history/analytics';
+  const OWNER_LEARNING_CENTER_URL =
+    '/api/v1/owner-learning/center';
   const OWNER_LEARNING_CANDIDATES_URL =
     '/api/v1/owner-learning/candidates';
   const OWNER_LEARNING_LIFECYCLE_URL =
@@ -108,6 +110,40 @@
     MEDIUM: 'Средний',
     HIGH: 'Высокий',
     CRITICAL: 'Критический для проверки',
+  });
+  const CENTER_PRIORITY_LABELS = Object.freeze({
+    LOW: 'Низкий',
+    MEDIUM: 'Средний',
+    HIGH: 'Высокий',
+    CRITICAL: 'Критический',
+  });
+  const CENTER_HEALTH_LABELS = Object.freeze({
+    HEALTHY: 'Всё работает',
+    DEGRADED: 'Часть данных временно недоступна',
+    UNAVAILABLE: 'Центр временно недоступен',
+  });
+  const CENTER_COMPONENT_LABELS = Object.freeze({
+    decision_history: 'История решений',
+    candidates: 'Кандидаты',
+    candidate_lifecycle: 'Lifecycle кандидатов',
+    materializations: 'История материализации',
+    approved_rules_registry: 'Реестр правил',
+    rule_status_events: 'История статусов правил',
+    rule_activation_previews: 'Проверки активации',
+    rule_effectiveness: 'Эффективность правил',
+  });
+  const CENTER_COMPONENT_STATUS_LABELS = Object.freeze({
+    AVAILABLE: 'Доступно',
+    EMPTY: 'Пока пусто',
+    UNAVAILABLE: 'Недоступно',
+  });
+  const CENTER_ACTIVITY_LABELS = Object.freeze({
+    CANDIDATE_STATUS_CHANGED: 'Статус кандидата изменён',
+    RULE_MATERIALIZED: 'Правило материализовано',
+    RULE_ACTIVATED: 'Правило активировано',
+    RULE_DEACTIVATED: 'Правило отключено',
+    RULE_APPLIED_EFFECT: 'Правило изменило заказ',
+    RULE_FALLBACK_RECORDED: 'Зафиксирован fallback',
   });
   const RULE_EFFECTIVENESS_CLASSIFICATION_LABELS = Object.freeze({
     EFFECTIVE: 'Работает стабильно',
@@ -2419,6 +2455,380 @@
           'расчётах. Текущий сохранённый заказ автоматически не изменится.';
   }
 
+  function buildOwnerLearningCenterUrl(filters = {}, options = {}) {
+    const parameters = new URLSearchParams();
+    for (const name of [
+      'supplier',
+      'brand',
+      'category',
+      'dateFrom',
+      'dateTo',
+    ]) {
+      const value = typeof filters[name] === 'string'
+        ? filters[name].trim()
+        : '';
+      if (value) parameters.set(name, value);
+    }
+    for (const name of [
+      'attentionLimit',
+      'activityLimit',
+      'asOf',
+    ]) {
+      if (
+        typeof options[name] === 'string' ||
+        Number.isInteger(options[name])
+      ) {
+        parameters.set(name, String(options[name]));
+      }
+    }
+    const query = parameters.toString();
+    return query
+      ? `${OWNER_LEARNING_CENTER_URL}?${query}`
+      : OWNER_LEARNING_CENTER_URL;
+  }
+
+  function ownerLearningViewState(result) {
+    if (result?.status === 'UNAVAILABLE') return 'unavailable';
+    if (result?.status === 'PARTIAL') return 'partial';
+    if (
+      result?.status !== 'AVAILABLE' ||
+      !result.summary ||
+      !result.attention ||
+      !Array.isArray(result.recent_activity) ||
+      !result.system_health ||
+      !result.sections
+    ) {
+      return 'invalid';
+    }
+    return 'ready';
+  }
+
+  function setOwnerLearningState(elements, state) {
+    elements.ownerLearningLoading.hidden = state !== 'loading';
+    elements.ownerLearningPartial.hidden = state !== 'partial';
+    elements.ownerLearningUnavailable.hidden =
+      state !== 'unavailable';
+    elements.ownerLearningInvalid.hidden = state !== 'invalid';
+    elements.ownerLearningNetwork.hidden = state !== 'network';
+    elements.ownerLearningContent.hidden =
+      !['ready', 'partial'].includes(state);
+  }
+
+  function formatHistoryDateTime(value) {
+    if (typeof value !== 'string') return '—';
+    const timestamp = Date.parse(value);
+    if (!Number.isFinite(timestamp)) return '—';
+    return new Intl.DateTimeFormat('ru-RU', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(timestamp));
+  }
+
+  function renderOwnerLearningSummary(elements, data = {}) {
+    const summary = data.summary || {};
+    const values = {
+      decisions: displayCount(summary.decisions?.total),
+      candidates: displayCount(summary.candidates?.total),
+      approved: displayCount(summary.candidates?.approved),
+      rules: displayCount(summary.rules?.total),
+      activeRules: displayCount(summary.rules?.active),
+      disabledRules: displayCount(summary.rules?.disabled),
+      effectiveRules: displayCount(summary.effectiveness?.effective),
+      attentionTotal: displayCount(data.attention?.total),
+      amountDelta: formatSignedRub(
+        summary.effectiveness?.total_order_amount_delta
+      ),
+    };
+    for (const [name, value] of Object.entries(values)) {
+      elements.ownerLearningSummary[name].textContent = value;
+    }
+    elements.ownerLearningAttentionBadge.textContent =
+      displayCount(data.attention?.total);
+  }
+
+  function createOwnerLearningButton(
+    documentObject,
+    target,
+    onNavigate,
+    label = 'Открыть раздел'
+  ) {
+    const button = documentObject.createElement('button');
+    button.type = 'button';
+    button.textContent = label;
+    button.dataset.navigationTarget = target || '';
+    if (typeof onNavigate === 'function') {
+      button.addEventListener('click', () => onNavigate(target));
+    }
+    return button;
+  }
+
+  function createAttentionCard(
+    documentObject,
+    item = {},
+    onNavigate
+  ) {
+    const card = documentObject.createElement('article');
+    const header = documentObject.createElement('header');
+    const title = documentObject.createElement('h4');
+    const priority = documentObject.createElement('span');
+    const description = documentObject.createElement('p');
+    const scope = documentObject.createElement('small');
+    const date = documentObject.createElement('small');
+    card.className = 'owner-learning-list-item';
+    title.textContent = item.title || 'Требуется ручная проверка';
+    priority.className = 'owner-learning-priority';
+    priority.dataset.priority = item.priority || 'LOW';
+    priority.textContent =
+      CENTER_PRIORITY_LABELS[item.priority] || 'Низкий';
+    header.append(title, priority);
+    description.textContent = item.description || '—';
+    scope.textContent = [
+      item.display_scope?.primary,
+      item.display_scope?.secondary,
+    ].filter(Boolean).join(' · ') || '—';
+    date.textContent = formatHistoryDateTime(item.created_at);
+    card.append(
+      header,
+      description,
+      scope,
+      date,
+      createOwnerLearningButton(
+        documentObject,
+        item.navigation_target,
+        onNavigate
+      )
+    );
+    return card;
+  }
+
+  function renderOwnerLearningAttention(
+    documentObject,
+    elements,
+    attention = {},
+    onNavigate
+  ) {
+    const items = Array.isArray(attention.items)
+      ? attention.items
+      : [];
+    elements.ownerLearningAttentionList.replaceChildren();
+    for (const item of items) {
+      elements.ownerLearningAttentionList.append(
+        createAttentionCard(documentObject, item, onNavigate)
+      );
+    }
+    elements.ownerLearningAttentionEmpty.hidden = items.length !== 0;
+  }
+
+  function createActivityCard(
+    documentObject,
+    item = {},
+    onNavigate
+  ) {
+    const card = documentObject.createElement('article');
+    const title = documentObject.createElement('h4');
+    const scope = documentObject.createElement('small');
+    const description = documentObject.createElement('p');
+    const facts = documentObject.createElement('p');
+    const date = documentObject.createElement('small');
+    card.className = 'owner-learning-list-item';
+    title.textContent =
+      CENTER_ACTIVITY_LABELS[item.activity_type] ||
+      'Изменение базы знаний';
+    scope.textContent = [
+      item.display_scope?.primary,
+      item.display_scope?.secondary,
+    ].filter(Boolean).join(' · ') || '—';
+    description.textContent = item.description || '—';
+    const values = [];
+    if (item.decision) {
+      values.push(`Решение: ${decisionLabel(item.decision)}`);
+    }
+    if (item.status) values.push(`Статус: ${item.status}`);
+    if (typeof item.amount_delta === 'number') {
+      values.push(`Δ суммы: ${formatSignedRub(item.amount_delta)}`);
+    }
+    if (typeof item.quantity_delta === 'number') {
+      values.push(
+        `Δ количества: ${formatSignedQuantity(item.quantity_delta)}`
+      );
+    }
+    facts.textContent = values.join(' · ') || '—';
+    date.textContent = formatHistoryDateTime(item.recorded_at);
+    card.append(
+      title,
+      scope,
+      description,
+      facts,
+      date,
+      createOwnerLearningButton(
+        documentObject,
+        item.navigation_target,
+        onNavigate
+      )
+    );
+    return card;
+  }
+
+  function renderOwnerLearningActivity(
+    documentObject,
+    elements,
+    activity,
+    onNavigate
+  ) {
+    const items = Array.isArray(activity) ? activity : [];
+    elements.ownerLearningActivityList.replaceChildren();
+    for (const item of items) {
+      elements.ownerLearningActivityList.append(
+        createActivityCard(documentObject, item, onNavigate)
+      );
+    }
+    elements.ownerLearningActivityEmpty.hidden = items.length !== 0;
+  }
+
+  function renderOwnerLearningHealth(
+    documentObject,
+    elements,
+    health = {}
+  ) {
+    elements.ownerLearningHealthStatus.textContent =
+      CENTER_HEALTH_LABELS[health.overall_status] ||
+      CENTER_HEALTH_LABELS.UNAVAILABLE;
+    elements.ownerLearningHealthComponents.replaceChildren();
+    for (const [name, value] of Object.entries(
+      health.components || {}
+    )) {
+      const row = documentObject.createElement('div');
+      const label = documentObject.createElement('dt');
+      const status = documentObject.createElement('dd');
+      label.textContent = CENTER_COMPONENT_LABELS[name] || name;
+      status.textContent =
+        CENTER_COMPONENT_STATUS_LABELS[value?.status] || 'Недоступно';
+      row.append(label, status);
+      elements.ownerLearningHealthComponents.append(row);
+    }
+    elements.ownerLearningHealthWarnings.replaceChildren();
+    for (const warning of (
+      Array.isArray(health.data_quality_warnings)
+        ? health.data_quality_warnings
+        : []
+    )) {
+      const item = documentObject.createElement('li');
+      item.textContent = warning;
+      elements.ownerLearningHealthWarnings.append(item);
+    }
+    elements.ownerLearningLastKnowledge.textContent =
+      formatHistoryDateTime(health.last_knowledge_change_at);
+    elements.ownerLearningLastStatus.textContent =
+      formatHistoryDateTime(health.last_rule_status_change_at);
+    elements.ownerLearningLastEffect.textContent =
+      formatHistoryDateTime(health.last_rule_effect_at);
+  }
+
+  function renderOwnerLearningSections(
+    documentObject,
+    elements,
+    sections = {},
+    onNavigate
+  ) {
+    const definitions = [
+      ['decision_history', 'История решений'],
+      ['candidates', 'Кандидаты'],
+      ['materialized_rules', 'Материализованные правила'],
+      ['effectiveness', 'Эффективность правил'],
+    ];
+    elements.ownerLearningSections.replaceChildren();
+    for (const [name, label] of definitions) {
+      const value = sections[name] || {};
+      const card = documentObject.createElement('article');
+      const title = documentObject.createElement('h3');
+      const total = documentObject.createElement('p');
+      const status = documentObject.createElement('p');
+      const attention = documentObject.createElement('p');
+      card.className = 'owner-learning-section-card';
+      title.textContent = label;
+      total.textContent = `Количество: ${displayCount(value.count)}`;
+      status.textContent =
+        `Статус: ${
+          CENTER_COMPONENT_STATUS_LABELS[value.status] || 'Недоступно'
+        }`;
+      card.append(title, total, status);
+      if (Number.isInteger(value.attention_count)) {
+        attention.textContent =
+          `Требуют внимания: ${displayCount(value.attention_count)}`;
+        card.append(attention);
+      }
+      if (Number.isInteger(value.active_count)) {
+        attention.textContent =
+          `Активных: ${displayCount(value.active_count)}`;
+        card.append(attention);
+      }
+      card.append(createOwnerLearningButton(
+        documentObject,
+        value.navigation_target,
+        onNavigate,
+        'Открыть'
+      ));
+      elements.ownerLearningSections.append(card);
+    }
+  }
+
+  function renderOwnerLearningCenter(
+    documentObject,
+    elements,
+    data,
+    onNavigate
+  ) {
+    renderOwnerLearningSummary(elements, data);
+    renderOwnerLearningAttention(
+      documentObject,
+      elements,
+      data.attention,
+      onNavigate
+    );
+    renderOwnerLearningActivity(
+      documentObject,
+      elements,
+      data.recent_activity,
+      onNavigate
+    );
+    renderOwnerLearningHealth(
+      documentObject,
+      elements,
+      data.system_health
+    );
+    renderOwnerLearningSections(
+      documentObject,
+      elements,
+      data.sections,
+      onNavigate
+    );
+  }
+
+  function switchOwnerLearningTab(elements, target) {
+    const safeTarget = [
+      'OVERVIEW',
+      'DECISION_HISTORY',
+      'CANDIDATES',
+      'MATERIALIZED_RULES',
+      'RULE_EFFECTIVENESS',
+    ].includes(target)
+      ? target
+      : 'OVERVIEW';
+    for (const tab of elements.ownerLearningTabs) {
+      const selected =
+        tab.dataset.ownerLearningTarget === safeTarget;
+      tab.setAttribute('aria-selected', selected ? 'true' : 'false');
+    }
+    for (const panel of elements.ownerLearningPanels) {
+      panel.hidden =
+        panel.dataset.ownerLearningPanel !== safeTarget;
+    }
+    return safeTarget;
+  }
+
   async function pollRunStatus(options) {
     const {
       fetchFunction,
@@ -2453,6 +2863,79 @@
       runButton: documentObject.getElementById('run-button'),
       statusPill: documentObject.getElementById('status-pill'),
       statusMessage: documentObject.getElementById('status-message'),
+      ownerLearningTabs: Array.from(
+        documentObject.querySelectorAll('[data-owner-learning-target]')
+      ),
+      ownerLearningPanels: Array.from(
+        documentObject.querySelectorAll('[data-owner-learning-panel]')
+      ),
+      ownerLearningLoading:
+        documentObject.getElementById('owner-learning-loading'),
+      ownerLearningPartial:
+        documentObject.getElementById('owner-learning-partial'),
+      ownerLearningUnavailable:
+        documentObject.getElementById('owner-learning-unavailable'),
+      ownerLearningInvalid:
+        documentObject.getElementById('owner-learning-invalid'),
+      ownerLearningNetwork:
+        documentObject.getElementById('owner-learning-network'),
+      ownerLearningContent:
+        documentObject.getElementById('owner-learning-content'),
+      ownerLearningAttentionBadge:
+        documentObject.getElementById('owner-learning-attention-badge'),
+      ownerLearningAttentionEmpty:
+        documentObject.getElementById('owner-learning-attention-empty'),
+      ownerLearningAttentionList:
+        documentObject.getElementById('owner-learning-attention-list'),
+      ownerLearningActivityEmpty:
+        documentObject.getElementById('owner-learning-activity-empty'),
+      ownerLearningActivityList:
+        documentObject.getElementById('owner-learning-activity-list'),
+      ownerLearningHealthStatus:
+        documentObject.getElementById('owner-learning-health-status'),
+      ownerLearningHealthComponents:
+        documentObject.getElementById(
+          'owner-learning-health-components'
+        ),
+      ownerLearningHealthWarnings:
+        documentObject.getElementById('owner-learning-health-warnings'),
+      ownerLearningLastKnowledge:
+        documentObject.getElementById('owner-learning-last-knowledge'),
+      ownerLearningLastStatus:
+        documentObject.getElementById('owner-learning-last-status'),
+      ownerLearningLastEffect:
+        documentObject.getElementById('owner-learning-last-effect'),
+      ownerLearningSections:
+        documentObject.getElementById('owner-learning-sections'),
+      ownerLearningSummary: {
+        decisions:
+          documentObject.getElementById('owner-learning-decisions'),
+        candidates:
+          documentObject.getElementById('owner-learning-candidates'),
+        approved:
+          documentObject.getElementById('owner-learning-approved'),
+        rules: documentObject.getElementById('owner-learning-rules'),
+        activeRules:
+          documentObject.getElementById(
+            'owner-learning-active-rules'
+          ),
+        disabledRules:
+          documentObject.getElementById(
+            'owner-learning-disabled-rules'
+          ),
+        effectiveRules:
+          documentObject.getElementById(
+            'owner-learning-effective-rules'
+          ),
+        attentionTotal:
+          documentObject.getElementById(
+            'owner-learning-attention-total'
+          ),
+        amountDelta:
+          documentObject.getElementById(
+            'owner-learning-amount-delta'
+          ),
+      },
       statusSteps: Array.from(
         documentObject.querySelectorAll('#status-list li')
       ),
@@ -2933,6 +3416,7 @@
     let active = false;
     let availableArtifacts = {};
     let itemRequestSequence = 0;
+    let ownerLearningRequestSequence = 0;
     let historyRequestSequence = 0;
     let candidateRequestSequence = 0;
     let materializedRulesRequestSequence = 0;
@@ -2943,6 +3427,12 @@
     let pendingLifecycleChange = null;
     let pendingMaterializationCandidate = null;
     let searchTimer = null;
+    const ownerLearningLoaded = {
+      DECISION_HISTORY: false,
+      CANDIDATES: false,
+      MATERIALIZED_RULES: false,
+      RULE_EFFECTIVENESS: false,
+    };
     const itemState = {
       baseUrl: null,
       page: 1,
@@ -2955,6 +3445,54 @@
       totalItems: null,
       defaultFilterResolved: false,
     };
+
+    function navigateOwnerLearning(target) {
+      const selected = switchOwnerLearningTab(elements, target);
+      if (
+        Object.hasOwn(ownerLearningLoaded, selected) &&
+        ownerLearningLoaded[selected] === false
+      ) {
+        ownerLearningLoaded[selected] = true;
+        ({
+          DECISION_HISTORY: loadDecisionHistory,
+          CANDIDATES: loadCandidates,
+          MATERIALIZED_RULES: loadMaterializedRules,
+          RULE_EFFECTIVENESS: loadRuleEffectiveness,
+        })[selected]();
+      }
+      return selected;
+    }
+
+    async function loadOwnerLearningCenter() {
+      const sequence = ++ownerLearningRequestSequence;
+      setOwnerLearningState(elements, 'loading');
+      try {
+        const result = await requestJson(
+          fetchFunction,
+          buildOwnerLearningCenterUrl()
+        );
+        if (sequence !== ownerLearningRequestSequence) return;
+        const state = ownerLearningViewState(result);
+        if (['ready', 'partial'].includes(state)) {
+          renderOwnerLearningCenter(
+            documentObject,
+            elements,
+            result,
+            navigateOwnerLearning
+          );
+        }
+        setOwnerLearningState(elements, state);
+      } catch (error) {
+        if (sequence !== ownerLearningRequestSequence) return;
+        setOwnerLearningState(
+          elements,
+          error instanceof FrontendError &&
+            error.code === 'OWNER_LEARNING_CENTER_INVALID_INPUT'
+            ? 'invalid'
+            : 'network'
+        );
+      }
+    }
 
     function historyFilters() {
       return {
@@ -3973,6 +4511,11 @@
 
     elements.fileInput.addEventListener('change', updateFileSelection);
     elements.form.addEventListener('submit', submitRun);
+    for (const tab of elements.ownerLearningTabs) {
+      tab.addEventListener('click', () => {
+        navigateOwnerLearning(tab.dataset.ownerLearningTarget);
+      });
+    }
     elements.historyForm.addEventListener('submit', event => {
       event.preventDefault();
       loadDecisionHistory();
@@ -4115,14 +4658,13 @@
     });
     resetExports();
     resetItems();
-    loadDecisionHistory();
-    loadCandidates();
-    loadMaterializedRules();
-    loadRuleEffectiveness();
+    navigateOwnerLearning('OVERVIEW');
+    loadOwnerLearningCenter();
     return {
       activateItems,
       loadCandidates,
       loadDecisionHistory,
+      loadOwnerLearningCenter,
       loadMaterializedRules,
       loadRuleEffectiveness,
       loadItems,
@@ -4131,6 +4673,7 @@
       openRuleEffectivenessDetail,
       openRuleStatusPreview,
       openRuleMaterializationModal,
+      navigateOwnerLearning,
       submitRuleMaterialization,
       submitCandidateLifecycle,
       submitRun,
@@ -4144,6 +4687,7 @@
     analyticsViewState,
     buildAnalyticsUrl,
     buildCandidatesUrl,
+    buildOwnerLearningCenterUrl,
     buildDecisionUrl,
     buildItemsUrl,
     buildLifecyclePayload,
@@ -4162,6 +4706,8 @@
     candidateViewState,
     confidenceLabel,
     createCandidateCard,
+    createActivityCard,
+    createAttentionCard,
     createMaterializedRuleCard,
     createRuleEffectivenessRow,
     createItemRow,
@@ -4174,6 +4720,7 @@
     filterCandidates,
     formatDuration,
     formatHistoryDate,
+    formatHistoryDateTime,
     formatPercent,
     formatQuantity,
     formatRub,
@@ -4190,6 +4737,7 @@
     materializedRulesViewState,
     needsOwnerDecisionView,
     ownerActionLabel,
+    ownerLearningViewState,
     ownerDecisionView,
     paginationLabel,
     patternLabel,
@@ -4204,6 +4752,12 @@
     renderMaterializedRuleCards,
     renderMaterializedRuleDetail,
     renderMaterializedRulesSummary,
+    renderOwnerLearningActivity,
+    renderOwnerLearningAttention,
+    renderOwnerLearningCenter,
+    renderOwnerLearningHealth,
+    renderOwnerLearningSections,
+    renderOwnerLearningSummary,
     renderRuleEffectivenessDetail,
     renderRuleEffectivenessRows,
     renderRuleEffectivenessSummary,
@@ -4220,9 +4774,11 @@
     setCandidatePanelState,
     setHistoryPanelState,
     setMaterializedRulesPanelState,
+    setOwnerLearningState,
     setRuleEffectivenessPanelState,
     setProductsPanelState,
     summaryView,
+    switchOwnerLearningTab,
     shouldShowMaterialize,
     reasonLabel,
     ruleStatusErrorMessage,

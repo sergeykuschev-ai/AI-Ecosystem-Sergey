@@ -20,6 +20,9 @@
           Загрузите актуальный отчёт SmartZapas и получите проверенный расчёт
           закупки с финансовой оценкой.
         </p>
+        <nav class="primary-navigation" aria-label="Основная навигация">
+          <a href="#owner-learning-center">Центр обучения закупщика</a>
+        </nav>
       </header>
 
       <section class="workspace" aria-label="Запуск расчёта закупки">
@@ -102,9 +105,247 @@
       </section>
 
       <section
+        class="owner-learning-center card"
+        id="owner-learning-center"
+        aria-labelledby="owner-learning-center-title"
+      >
+        <div class="section-heading">
+          <div>
+            <p class="step-label">Owner Learning Center</p>
+            <h2 id="owner-learning-center-title">
+              Центр обучения закупщика
+            </h2>
+          </div>
+          <span class="format-badge">Ручное управление</span>
+        </div>
+        <p class="owner-learning-subtitle">
+          История решений, кандидаты, правила и их фактическое влияние
+          собраны в одном месте.
+        </p>
+        <p class="owner-learning-safety">
+          Все изменения правил выполняются только вручную.
+          Центр не создаёт, не активирует и не отключает правила автоматически.
+        </p>
+
+        <nav
+          class="owner-learning-tabs"
+          aria-label="Разделы Центра обучения закупщика"
+          role="tablist"
+        >
+          <button
+            class="owner-learning-tab"
+            type="button"
+            role="tab"
+            aria-selected="true"
+            data-owner-learning-target="OVERVIEW"
+          >
+            Обзор
+          </button>
+          <button
+            class="owner-learning-tab"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            data-owner-learning-target="DECISION_HISTORY"
+          >
+            История решений
+          </button>
+          <button
+            class="owner-learning-tab"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            data-owner-learning-target="CANDIDATES"
+          >
+            Кандидаты
+          </button>
+          <button
+            class="owner-learning-tab"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            data-owner-learning-target="MATERIALIZED_RULES"
+          >
+            Правила
+          </button>
+          <button
+            class="owner-learning-tab"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            data-owner-learning-target="RULE_EFFECTIVENESS"
+          >
+            Эффективность
+          </button>
+        </nav>
+
+        <div
+          class="owner-learning-overview"
+          id="owner-learning-overview"
+          role="tabpanel"
+          data-owner-learning-panel="OVERVIEW"
+        >
+          <div
+            class="owner-learning-state"
+            id="owner-learning-loading"
+            role="status"
+          >
+            <span class="loading-dot" aria-hidden="true"></span>
+            Загружаем Центр обучения…
+          </div>
+          <div
+            class="owner-learning-state owner-learning-warning"
+            id="owner-learning-partial"
+            hidden
+          >
+            Часть данных временно недоступна. Доступные разделы продолжают
+            работать.
+          </div>
+          <div
+            class="owner-learning-state owner-learning-warning"
+            id="owner-learning-unavailable"
+            hidden
+          >
+            Центр обучения временно недоступен. Работа закупщика не затронута.
+          </div>
+          <div
+            class="owner-learning-state owner-learning-warning"
+            id="owner-learning-invalid"
+            role="alert"
+            hidden
+          >
+            Проверьте параметры Центра обучения и повторите запрос.
+          </div>
+          <div
+            class="owner-learning-state owner-learning-warning"
+            id="owner-learning-network"
+            role="alert"
+            hidden
+          >
+            Не удалось загрузить Центр обучения. Проверьте соединение и
+            повторите попытку.
+          </div>
+
+          <div id="owner-learning-content" hidden>
+            <div
+              class="owner-learning-summary"
+              aria-label="Сводка Центра обучения закупщика"
+            >
+              <article>
+                <span>Всего решений</span>
+                <strong id="owner-learning-decisions">—</strong>
+              </article>
+              <article>
+                <span>Кандидатов</span>
+                <strong id="owner-learning-candidates">—</strong>
+              </article>
+              <article>
+                <span>Одобренных кандидатов</span>
+                <strong id="owner-learning-approved">—</strong>
+              </article>
+              <article>
+                <span>Всего правил</span>
+                <strong id="owner-learning-rules">—</strong>
+              </article>
+              <article>
+                <span>Активных правил</span>
+                <strong id="owner-learning-active-rules">—</strong>
+              </article>
+              <article>
+                <span>Неактивных правил</span>
+                <strong id="owner-learning-disabled-rules">—</strong>
+              </article>
+              <article>
+                <span>Эффективных правил</span>
+                <strong id="owner-learning-effective-rules">—</strong>
+              </article>
+              <article>
+                <span>Требуют проверки</span>
+                <strong id="owner-learning-attention-total">—</strong>
+              </article>
+              <article>
+                <span>Общая историческая разница суммы заказа</span>
+                <strong id="owner-learning-amount-delta">—</strong>
+                <small>
+                  Это изменение рассчитанных заказов, а не прибыль или
+                  экономия.
+                </small>
+              </article>
+            </div>
+
+            <div class="owner-learning-grid">
+              <article class="owner-learning-panel">
+                <div class="owner-learning-panel-heading">
+                  <h3>Требуют внимания</h3>
+                  <span id="owner-learning-attention-badge">0</span>
+                </div>
+                <p
+                  class="owner-learning-empty"
+                  id="owner-learning-attention-empty"
+                  hidden
+                >
+                  Сейчас нет элементов, требующих ручной проверки.
+                </p>
+                <div
+                  class="owner-learning-list"
+                  id="owner-learning-attention-list"
+                ></div>
+              </article>
+
+              <article class="owner-learning-panel">
+                <h3>Последние изменения</h3>
+                <p
+                  class="owner-learning-empty"
+                  id="owner-learning-activity-empty"
+                  hidden
+                >
+                  Изменений пока нет.
+                </p>
+                <div
+                  class="owner-learning-list"
+                  id="owner-learning-activity-list"
+                ></div>
+              </article>
+            </div>
+
+            <article class="owner-learning-panel owner-learning-health">
+              <div class="owner-learning-panel-heading">
+                <h3>Состояние базы знаний</h3>
+                <strong id="owner-learning-health-status">—</strong>
+              </div>
+              <dl id="owner-learning-health-components"></dl>
+              <ul id="owner-learning-health-warnings"></ul>
+              <div class="owner-learning-health-dates">
+                <p>
+                  Последнее изменение базы знаний
+                  <strong id="owner-learning-last-knowledge">—</strong>
+                </p>
+                <p>
+                  Последнее изменение статуса правила
+                  <strong id="owner-learning-last-status">—</strong>
+                </p>
+                <p>
+                  Последнее фактическое срабатывание
+                  <strong id="owner-learning-last-effect">—</strong>
+                </p>
+              </div>
+            </article>
+
+            <div
+              class="owner-learning-sections"
+              id="owner-learning-sections"
+              aria-label="Разделы базы знаний"
+            ></div>
+          </div>
+        </div>
+      </section>
+
+      <section
         class="decision-history card"
         id="decision-history"
         aria-labelledby="decision-history-title"
+        data-owner-learning-panel="DECISION_HISTORY"
+        hidden
       >
         <div class="section-heading">
           <div>
@@ -270,6 +511,8 @@
         class="learning-candidates card"
         id="learning-candidates"
         aria-labelledby="learning-candidates-title"
+        data-owner-learning-panel="CANDIDATES"
+        hidden
       >
         <div class="section-heading">
           <div>
@@ -450,6 +693,8 @@
         class="materialized-rules card"
         id="materialized-rules"
         aria-labelledby="materialized-rules-title"
+        data-owner-learning-panel="MATERIALIZED_RULES"
+        hidden
       >
         <div class="section-heading">
           <div>
@@ -670,6 +915,8 @@
         class="rule-effectiveness card"
         id="rule-effectiveness"
         aria-labelledby="rule-effectiveness-title"
+        data-owner-learning-panel="RULE_EFFECTIVENESS"
+        hidden
       >
         <div class="section-heading">
           <div>

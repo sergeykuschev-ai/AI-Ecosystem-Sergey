@@ -743,6 +743,10 @@ class OwnerMaterializedRulesService {
   listRules(input = {}) {
     const normalized = normalizeInput(input);
     const sources = this.readSources();
+    return this.listRulesFromSources(normalized, sources);
+  }
+
+  listRulesFromSources(normalized, sources) {
     if (sources.unavailable) {
       return {
         status: 'UNAVAILABLE',
@@ -764,6 +768,26 @@ class OwnerMaterializedRulesService {
         normalized.options.limit
       ),
       warning: sources.warning,
+    };
+  }
+
+  getCenterSnapshot(input = {}) {
+    const normalized = normalizeInput(input);
+    const sources = this.readSources();
+    const result = this.listRulesFromSources(normalized, sources);
+    if (result.status !== 'AVAILABLE') return result;
+    const ruleIds = new Set(result.rules.map(rule => rule.ruleId));
+    return {
+      ...result,
+      centerSnapshot: {
+        materializationEvents: (sources.journal?.events || [])
+          .filter(event => ruleIds.has(event.ruleId)),
+        statusEvents: (sources.statusEvents?.events || [])
+          .filter(event => ruleIds.has(event.ruleId)),
+        warnings: [
+          sources.warning,
+        ].filter(Boolean),
+      },
     };
   }
 

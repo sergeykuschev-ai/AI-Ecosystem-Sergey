@@ -281,6 +281,38 @@ and never participates in deterministic order calculations. If the journal is
 unavailable, the service returns an allowlisted warning and the purchasing
 pipeline remains usable.
 
+### Owner Learning Center
+
+`GET /api/v1/owner-learning/center` returns one read-only overview assembled
+from the existing decision-history, candidate, lifecycle, materialized-rule,
+and effectiveness services. It does not read storage files directly and does
+not recalculate purchasing decisions.
+
+Optional filters are `supplier`, `brand`, `category`, `date_from`, and
+`date_to`. Optional `attention_limit` and `activity_limit` values are integers
+from 1 through 100. Dates must be valid ISO 8601 UTC timestamps; invalid input
+returns `400 OWNER_LEARNING_CENTER_INVALID_INPUT`.
+
+The response contains:
+
+- decision, candidate, materialized-rule, and effectiveness summaries;
+- deterministic attention items and an allowlisted recent-activity feed;
+- component health and one top-level state: `AVAILABLE`, `PARTIAL`, or
+  `UNAVAILABLE`;
+- the effective filters, generation time, and API schema version.
+
+Order-amount deltas are differences between calculated order totals. They are
+not presented as profit or savings. Partial component failures are isolated:
+available summaries remain visible with warnings. The center becomes
+`UNAVAILABLE` only when both decision history and the materialized-rule
+registry cannot be read.
+
+The web interface opens this center on the Overview tab and keeps the existing
+History, Candidates, Rules, and Effectiveness views as lazily loaded tabs.
+Overview navigation never changes candidate or rule state. Status previews,
+confirmations, and other management actions remain on their existing explicit
+endpoints.
+
 ### Download an artifact
 
 `GET /api/v1/runs/:runId/artifacts/:artifactName`

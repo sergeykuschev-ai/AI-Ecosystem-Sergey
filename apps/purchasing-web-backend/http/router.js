@@ -11,6 +11,8 @@ const OWNER_REVIEW_ROUTE =
   /^\/api\/v1\/runs\/([^/]+)\/owner-review$/;
 const OWNER_DECISION_ANALYTICS_ROUTE =
   '/api/v1/owner-learning/decision-history/analytics';
+const OWNER_LEARNING_CENTER_ROUTE =
+  '/api/v1/owner-learning/center';
 const OWNER_LEARNING_CANDIDATES_ROUTE =
   '/api/v1/owner-learning/candidates';
 const OWNER_LEARNING_LIFECYCLE_ROUTE =
@@ -108,6 +110,13 @@ function createRouter(handlers, options = {}) {
         url.pathname === '/api/v1/runs'
       ) {
         result = await handlers.createRun(request, { requestId });
+      } else if (
+        request.method === 'GET' &&
+        url.pathname === OWNER_LEARNING_CENTER_ROUTE
+      ) {
+        result = handlers.getOwnerLearningCenter(
+          queryObject(url.searchParams)
+        );
       } else if (
         request.method === 'GET' &&
         url.pathname === OWNER_RULE_EFFECTIVENESS_ROUTE
@@ -335,6 +344,7 @@ module.exports = {
   ITEMS_ROUTE,
   OWNER_REVIEW_ROUTE,
   OWNER_DECISION_ANALYTICS_ROUTE,
+  OWNER_LEARNING_CENTER_ROUTE,
   OWNER_LEARNING_CANDIDATES_ROUTE,
   OWNER_LEARNING_LIFECYCLE_DETAIL_ROUTE,
   OWNER_LEARNING_LIFECYCLE_ROUTE,

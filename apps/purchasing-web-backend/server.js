@@ -44,6 +44,9 @@ const {
   OwnerRuleEffectivenessService,
 } = require('./application/owner_rule_effectiveness_service');
 const {
+  OwnerLearningCenterService,
+} = require('./application/owner_learning_center_service');
+const {
   FileRunRegistry,
 } = require('./storage/file_run_registry');
 const { createRouter } = require('./http/router');
@@ -204,6 +207,18 @@ function createPurchasingWebServer(options = {}) {
       logger: options.logger,
       now: options.now,
     });
+  const ownerLearningCenterService =
+    options.ownerLearningCenterService ||
+    new OwnerLearningCenterService({
+      decisionAnalyticsService: ownerDecisionAnalyticsService,
+      candidatesService: ownerLearningCandidatesService,
+      candidateLifecycleService:
+        ownerLearningCandidateLifecycleService,
+      materializedRulesService: ownerMaterializedRulesService,
+      ruleEffectivenessService: ownerRuleEffectivenessService,
+      logger: options.logger,
+      now: options.now,
+    });
   const ownerRuleActivationPreviewService =
     options.ownerRuleActivationPreviewService ||
     new OwnerRuleActivationPreviewService({
@@ -240,6 +255,7 @@ function createPurchasingWebServer(options = {}) {
     ownerMaterializedRulesService,
     ownerRuleEffectivenessService,
     ownerRuleStatusService,
+    ownerLearningCenterService,
   });
   const staticHandler = options.staticHandler || createStaticHandler({
     publicRoot: options.publicRoot,
