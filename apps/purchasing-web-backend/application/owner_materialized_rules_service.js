@@ -15,6 +15,13 @@ const {
 } = require(
   '../../../agents/purchasing/owner_learning/owner_learning_candidate_lifecycle'
 );
+const {
+  getCurrentRuleStatusHistory,
+  loadRuleStatusEvents,
+  validateRuleStatusTransition,
+} = require(
+  '../../../agents/purchasing/owner_learning/owner_rule_status_manager'
+);
 
 const UNAVAILABLE_WARNING = 'OWNER_MATERIALIZED_RULES_UNAVAILABLE';
 const MATERIALIZATION_HISTORY_WARNING =
@@ -23,6 +30,8 @@ const CANDIDATE_CONTEXT_WARNING =
   'OWNER_MATERIALIZED_RULES_CANDIDATE_CONTEXT_UNAVAILABLE';
 const LIFECYCLE_CONTEXT_WARNING =
   'OWNER_MATERIALIZED_RULES_LIFECYCLE_CONTEXT_UNAVAILABLE';
+const STATUS_HISTORY_WARNING =
+  'OWNER_RULE_STATUS_HISTORY_UNAVAILABLE';
 const FILTER_VALUES = Object.freeze({
   status: Object.freeze(['ACTIVE', 'DISABLED']),
   decision: Object.freeze(['BUY', 'SKIP', 'DEFER']),
@@ -267,6 +276,8 @@ function buildRuleView({
   candidate,
   lifecycleState,
   lifecycleAvailable,
+  statusEvent,
+  statusHistoryAvailable = false,
 }) {
   const provenance = rule.provenance || {};
   const snapshot = event?.snapshot || {};
@@ -350,6 +361,41 @@ function buildRuleView({
         ? 'Правило активно и может влиять на закупку.'
         : 'Правило неактивно и не влияет на закупку.',
     },
+    management: managementView({
+      rule,
+      statusEvent,
+      statusHistoryAvailable,
+    }),
+  };
+}
+
+function managementView({
+  rule,
+  statusEvent,
+  statusHistoryAvailable,
+}) {
+  let manageable = false;
+  try {
+    validateRuleStatusTransition({
+      rule,
+      targetStatus: rule.status === 'ACTIVE'
+        ? 'DISABLED'
+        : 'ACTIVE',
+    });
+    manageable = true;
+  } catch {}
+  return {
+    manageable,
+    availableActions: manageable
+      ? [rule.status === 'ACTIVE' ? 'DEACTIVATE' : 'ACTIVATE']
+      : [],
+    lastStatusChangeAt: statusHistoryAvailable
+      ? safeText(statusEvent?.recordedAt)
+      : null,
+    lastStatusAction: statusHistoryAvailable
+      ? safeText(statusEvent?.action)
+      : null,
+    previewRequired: true,
   };
 }
 
@@ -469,6 +515,8 @@ class OwnerMaterializedRulesService {
     this.materializationsFilePath = options.materializationsFilePath;
     this.candidateLifecycleFilePath =
       options.candidateLifecycleFilePath;
+    this.statusEventsFilePath =
+      options.statusEventsFilePath || null;
     this.candidatesService = options.candidatesService;
     this.logger = options.logger || console;
     this.now = options.now || (() => new Date());
@@ -477,6 +525,8 @@ class OwnerMaterializedRulesService {
       options.loadMaterializations || loadMaterializationJournal;
     this.loadLifecycle =
       options.loadLifecycle || loadCandidateLifecycle;
+    this.loadStatusEvents =
+      options.loadStatusEvents || loadRuleStatusEvents;
   }
 
   warn(code, message) {
@@ -545,12 +595,30 @@ class OwnerMaterializedRulesService {
       );
     }
 
+    let statusEvents = null;
+    let statusHistoryWarning = null;
+    if (this.statusEventsFilePath) {
+      try {
+        statusEvents = this.loadStatusEvents({
+          filePath: this.statusEventsFilePath,
+        });
+      } catch {
+        statusHistoryWarning = STATUS_HISTORY_WARNING;
+        this.warn(
+          statusHistoryWarning,
+          'История изменения статусов правил недоступна.'
+        );
+      }
+    }
+
     return {
       registry,
       journal,
       candidates,
       lifecycle,
+      statusEvents,
       warning:
+        statusHistoryWarning ||
         journalWarning ||
         candidateWarning ||
         lifecycleWarning ||
@@ -581,12 +649,21 @@ class OwnerMaterializedRulesService {
             candidateId,
           })
           : null;
+        const statusHistory = sources.statusEvents
+          ? getCurrentRuleStatusHistory({
+            events: sources.statusEvents.events,
+            ruleId: rule.ruleId,
+          })
+          : [];
+        const statusEvent = statusHistory.at(-1) || null;
         return buildRuleView({
           rule,
           event,
           candidate,
           lifecycleState,
           lifecycleAvailable: Boolean(sources.lifecycle),
+          statusEvent,
+          statusHistoryAvailable: Boolean(sources.statusEvents),
         });
       });
   }
@@ -661,6 +738,7 @@ module.exports = {
   FILTER_VALUES,
   LIFECYCLE_CONTEXT_WARNING,
   MATERIALIZATION_HISTORY_WARNING,
+  STATUS_HISTORY_WARNING,
   SORT_FIELDS,
   UNAVAILABLE_WARNING,
   OwnerMaterializedRulesService,
@@ -668,6 +746,7 @@ module.exports = {
   buildRuleView,
   displayScope,
   matchesFilters,
+  managementView,
   normalizeInput,
   sortRules,
   summarize,

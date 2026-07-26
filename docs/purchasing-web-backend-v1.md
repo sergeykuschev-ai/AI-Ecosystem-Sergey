@@ -68,6 +68,12 @@ quantity between `SKIP` and `DEFER`; it never creates a positive quantity.
 Registry, preview, rule-application, or financial-recalculation failures fall
 back to the complete baseline order.
 
+Materialized `ITEM_DECISION_OVERRIDE` rules remain `DISABLED` when created.
+An owner may change one such rule between `DISABLED` and `ACTIVE` only through
+the status-preview and confirmed status endpoints described below. Changing a
+status never rewrites an existing run or saved order. The new status is read
+only by a later explicit `APPLY_SAFE` calculation.
+
 ## API v1
 
 Successful JSON responses use:
@@ -206,6 +212,35 @@ curl 'http://127.0.0.1:3210/api/v1/runs/REPLACE_WITH_RUN_ID/owner-review?section
 A red Owner Review status means that a commercial owner decision is required.
 It is a business status, not an HTTP failure or technical backend error.
 
+### Materialized rule status
+
+The management flow always targets one rule and has two steps:
+
+1. `POST /api/v1/owner-learning/materialized-rules/:ruleId/status-preview`
+   with `targetStatus` and an existing `runId`.
+2. `POST /api/v1/owner-learning/materialized-rules/:ruleId/status` with the
+   returned `previewId`, `confirmation: true`, `reasonCode`, and an optional
+   owner comment of at most 1000 characters.
+
+The preview expires after 15 minutes. Its identity binds the rule, target
+status, run, registry fingerprint, exact `result.json` fingerprint, and
+preview timestamps. Confirmation is rejected when the registry or run has
+changed, financial recalculation is not permitted, or a critical warning is
+present.
+
+`GET /api/v1/owner-learning/materialized-rules/:ruleId/status-history`
+returns the allowlisted audit history for one rule.
+
+Current state is stored in `owner-approved-rules.json`. Status changes update
+only the selected rule's `status` and `updatedAt`, then atomically save the
+registry. Audit events are appended separately to
+`owner-learning-rule-status-events.json`. If the registry write succeeds but
+the event append fails, the registry remains authoritative; an identical
+retry returns `ALREADY_CHANGED` and repairs the missing journal event.
+Short-lived preview records are stored in
+`owner-learning-rule-activation-previews.json` without a full order, full
+result, stable item key, owner comment, or evidence data.
+
 ### Download an artifact
 
 `GET /api/v1/runs/:runId/artifacts/:artifactName`
@@ -309,13 +344,25 @@ termination. Shutdown does not delete a `processing` run.
 | `500` | `RUN_FAILED`, `ARTIFACT_STREAM_ERROR` |
 | `507` | `STORAGE_ERROR` |
 
+Rule-status endpoints additionally use:
+
+- `400`: `OWNER_RULE_STATUS_INVALID_INPUT`,
+  `OWNER_RULE_STATUS_CONFIRMATION_REQUIRED`;
+- `404`: `OWNER_MATERIALIZED_RULE_NOT_FOUND`, `RUN_NOT_FOUND`;
+- `409`: `OWNER_RULE_STATUS_TRANSITION_INVALID`, `PREVIEW_REQUIRED`,
+  `PREVIEW_EXPIRED`, `PREVIEW_STALE`, `PREVIEW_TARGET_MISMATCH`,
+  `RULE_NOT_MATERIALIZED`, `RULE_NOT_MANAGEABLE`;
+- `422`: `RULE_ACTIVATION_NOT_FINANCIALLY_PERMITTED`;
+- `503`: `RULE_REGISTRY_UNAVAILABLE`,
+  `RULE_STATUS_STORAGE_UNAVAILABLE`,
+  `RULE_ACTIVATION_PREVIEW_UNAVAILABLE`.
+
 ## Local v1 limitations
 
 - localhost only;
 - no authentication or multi-user authorization;
 - synchronous processing;
 - no database or durable job queue;
-- no frontend;
 - no artifact range requests;
 - no CORS;
 - no remote deployment contract;

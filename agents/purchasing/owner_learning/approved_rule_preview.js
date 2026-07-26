@@ -12,6 +12,10 @@ const PREVIEW_WARNING =
   'Это только предварительный просмотр. Утверждённые правила ещё не ' +
   'изменяют заказ, количество или рекомендацию агента.';
 const SUPPORTED_DECISIONS = new Set(['BUY', 'SKIP', 'DEFER']);
+const SUPPORTED_RULE_TYPES = new Set([
+  'ITEM_DECISION',
+  'ITEM_DECISION_OVERRIDE',
+]);
 const DECISION_LABELS = Object.freeze({
   BUY: 'Заказать',
   SKIP: 'Не заказывать',
@@ -118,7 +122,7 @@ function validActiveRule(rule) {
     optionalString(rule.proposalId) &&
     optionalString(rule.stableItemKey) &&
     optionalString(rule.name) &&
-    upperString(rule.ruleType) === 'ITEM_DECISION' &&
+    SUPPORTED_RULE_TYPES.has(upperString(rule.ruleType)) &&
     SUPPORTED_DECISIONS.has(upperString(rule.approvedDecision))
   );
 }
@@ -154,7 +158,7 @@ function groupActiveRules(approvedRules) {
       stableItemKey,
       name: rule.name.trim(),
       brand: optionalString(rule.brand),
-      ruleType: 'ITEM_DECISION',
+      ruleType: rule.ruleType.trim().toUpperCase(),
       approvedDecision: rule.approvedDecision.trim().toUpperCase(),
     });
   }

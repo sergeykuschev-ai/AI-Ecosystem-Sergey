@@ -18,6 +18,10 @@ const {
   buildMaterializedRulesUrl,
   buildMaterializationPayload,
   buildMaterializationUrl,
+  buildRuleStatusPayload,
+  buildRuleStatusPreviewPayload,
+  buildRuleStatusPreviewUrl,
+  buildRuleStatusUrl,
   buildItemsUrl,
   buildDecisionUrl,
   candidateViewState,
@@ -39,6 +43,7 @@ const {
   lifecycleErrorMessage,
   lifecycleStatusLabel,
   materializedRuleSafetyLabel,
+  materializedRuleStatusPreviewLabel,
   materializedRuleStatusLabel,
   materializedRulesViewState,
   needsOwnerDecisionView,
@@ -54,6 +59,7 @@ const {
   renderMaterializedRuleCards,
   renderMaterializedRuleDetail,
   renderMaterializedRulesSummary,
+  renderRuleStatusPreview,
   resetCandidateFilters,
   resetMaterializedRulesFilters,
   requestNeedsDecisionItems,
@@ -67,6 +73,7 @@ const {
   summaryView,
   technicalExplanation,
   reasonLabel,
+  ruleStatusErrorMessage,
 } = require('../public/app');
 
 const PUBLIC_ROOT = path.resolve(__dirname, '../public');
@@ -341,6 +348,13 @@ function materializedRuleFixture(overrides = {}) {
     safety: {
       affectsPurchasing: false,
       message: 'Правило неактивно и не влияет на закупку.',
+    },
+    management: {
+      manageable: true,
+      availableActions: ['ACTIVATE'],
+      lastStatusChangeAt: null,
+      lastStatusAction: null,
+      previewRequired: true,
     },
     ...overrides,
   };
@@ -1724,7 +1738,7 @@ test('materialization unavailable and API failures have retry-safe text', () => 
   );
 });
 
-test('materialized rules section is read-only and contains safety text',
+test('materialized rules section contains the confirmed status safety flow',
   async () => {
     const response = await fetch(`${baseUrl}/`);
     const body = await response.text();
@@ -1732,7 +1746,7 @@ test('materialized rules section is read-only and contains safety text',
     assert.match(body, /Материализованные правила/);
     assert.match(
       body,
-      /Этот раздел показывает созданные правила\. Управление активацией\s+будет добавлено отдельно\. Неактивные правила не влияют на закупку\./
+      /Статус одного правила меняется только после отдельной проверки\s+последствий и явного подтверждения владельца\. Текущий сохранённый\s+заказ автоматически не изменяется\./
     );
     const section = body.match(
       /<section\s+class="materialized-rules card"[\s\S]*?<\/section>/
@@ -1747,10 +1761,7 @@ test('materialized rules section is read-only and contains safety text',
     ]) {
       assert.match(section, new RegExp(label));
     }
-    assert.doesNotMatch(
-      section,
-      />\s*(Активировать|Выключить|Удалить|Изменить|Применить)\s*</
-    );
+    assert.doesNotMatch(section, /массов|bulk/i);
   }
 );
 
@@ -1862,6 +1873,72 @@ test('materialized rule labels distinguish statuses and safety', () => {
   assert.equal(decisionLabel('BUY'), 'Купить');
   assert.equal(decisionLabel('SKIP'), 'Пропустить');
   assert.equal(decisionLabel('DEFER'), 'Отложить');
+  assert.equal(
+    materializedRuleStatusPreviewLabel({ status: 'DISABLED' }),
+    'Проверить последствия активации'
+  );
+  assert.equal(
+    materializedRuleStatusPreviewLabel({ status: 'ACTIVE' }),
+    'Проверить последствия отключения'
+  );
+});
+
+test('manageable rules expose preview buttons without direct switch', () => {
+  const documentObject = fakeDocument();
+  let selected = null;
+  const disabled = createMaterializedRuleCard(
+    documentObject,
+    materializedRuleFixture(),
+    null,
+    rule => {
+      selected = rule;
+    }
+  );
+  const disabledText = descendantText(disabled);
+  assert.match(disabledText, /Проверить последствия активации/);
+  assert.doesNotMatch(
+    disabledText,
+    /(^|\s)(Активировать|Включить)(\s|$)/
+  );
+  const previewButton = disabled.children.find(child =>
+    child.className?.includes('rule-status-preview-button')
+  );
+  previewButton.listeners.click[0]();
+  assert.equal(selected.ruleId, 'approved-rule-private-id');
+
+  const active = createMaterializedRuleCard(
+    documentObject,
+    materializedRuleFixture({
+      status: 'ACTIVE',
+      management: {
+        manageable: true,
+        availableActions: ['DEACTIVATE'],
+        previewRequired: true,
+      },
+    }),
+    null,
+    () => {}
+  );
+  assert.match(
+    descendantText(active),
+    /Проверить последствия отключения/
+  );
+});
+
+test('legacy or damaged rule has no management action', () => {
+  const card = createMaterializedRuleCard(
+    fakeDocument(),
+    materializedRuleFixture({
+      management: {
+        manageable: false,
+        availableActions: [],
+        previewRequired: true,
+      },
+    }),
+    null,
+    () => {}
+  );
+  assert.doesNotMatch(descendantText(card), /Проверить последствия/);
 });
 
 test('materialized rule card uses text nodes and hides ruleId', () => {
@@ -1970,7 +2047,7 @@ test('reset clears every materialized rules filter', () => {
   }
 });
 
-test('materialized rules UI has no write endpoint or action labels', () => {
+test('materialized rules UI has no bulk or direct-switch action', () => {
   const script = fs.readFileSync(
     path.join(PUBLIC_ROOT, 'app.js'),
     'utf8'
@@ -1979,15 +2056,161 @@ test('materialized rules UI has no write endpoint or action labels', () => {
     path.join(PUBLIC_ROOT, 'index.html'),
     'utf8'
   );
-  assert.doesNotMatch(
-    script,
-    /materialized-rules[^'"]*\/(?:activate|disable|delete|edit|apply)/i
-  );
+  assert.match(script, /\/status-preview/);
+  assert.match(script, /\/status/);
+  assert.doesNotMatch(script, /bulk|activate-all|disable-all/i);
   const section = html.match(
     /<section\s+class="materialized-rules card"[\s\S]*?<\/section>/
   )?.[0] || '';
-  assert.doesNotMatch(
-    section,
-    />\s*(Активировать|Выключить|Удалить|Изменить|Применить)\s*</
+  assert.doesNotMatch(section, /bulk|массов/i);
+});
+
+test('status preview modal has safety, reason, comment and checkbox', async () => {
+  const response = await fetch(`${baseUrl}/`);
+  const body = await response.text();
+  for (const id of [
+    'rule-status-modal',
+    'rule-status-form',
+    'rule-status-reason',
+    'rule-status-comment',
+    'rule-status-confirmation',
+    'rule-status-submit',
+    'rule-status-error',
+    'rule-status-changed-items',
+    'rule-status-warnings',
+  ]) {
+    assert.match(body, new RegExp(`id="${id}"`));
+  }
+  assert.match(body, /maxlength="1000"/);
+  assert.match(
+    body,
+    /Я проверил последствия и подтверждаю изменение статуса\s+правила\./
   );
+});
+
+test('status URLs and payloads contain only allowed fields', () => {
+  const ruleId = 'rule_safe-1';
+  assert.equal(
+    buildRuleStatusPreviewUrl(ruleId),
+    `/api/v1/owner-learning/materialized-rules/${ruleId}/status-preview`
+  );
+  assert.equal(
+    buildRuleStatusUrl(ruleId),
+    `/api/v1/owner-learning/materialized-rules/${ruleId}/status`
+  );
+  assert.deepEqual(
+    buildRuleStatusPreviewPayload(
+      'ACTIVE',
+      '11111111-1111-4111-8111-111111111111'
+    ),
+    {
+      targetStatus: 'ACTIVE',
+      runId: '11111111-1111-4111-8111-111111111111',
+    }
+  );
+  const payload = buildRuleStatusPayload({
+    targetStatus: 'ACTIVE',
+    previewId: 'preview-1',
+    confirmation: true,
+    reasonCode: 'READY_TO_APPLY',
+    ownerComment: '<img src=x onerror=alert(1)>',
+    registryFingerprint: 'private',
+    rule: { status: 'DISABLED' },
+  });
+  assert.deepEqual(payload, {
+    targetStatus: 'ACTIVE',
+    previewId: 'preview-1',
+    confirmation: true,
+    reasonCode: 'READY_TO_APPLY',
+    ownerComment: '<img src=x onerror=alert(1)>',
+  });
+  assert.equal(Object.hasOwn(payload, 'registryFingerprint'), false);
+  assert.equal(Object.hasOwn(payload, 'rule'), false);
+  assert.throws(() => buildRuleStatusUrl('../private'));
+});
+
+test('status preview renderer uses text nodes for all API data', () => {
+  const elements = {
+    ruleStatusPreview: Object.fromEntries([
+      'item',
+      'currentStatus',
+      'targetStatus',
+      'decision',
+      'affectedItems',
+      'decisionChanges',
+      'quantityChanges',
+      'amountBefore',
+      'amountAfter',
+      'amountDelta',
+      'unitsBefore',
+      'unitsAfter',
+      'financialBefore',
+      'financialAfter',
+      'expiresAt',
+    ].map(name => [name, fakeElement()])),
+    ruleStatusWarnings: fakeElement('ul'),
+    ruleStatusChangedItems: fakeElement('ul'),
+    ruleStatusSafetyText: fakeElement('p'),
+  };
+  const malicious = '<img src=x onerror=alert(1)>';
+  renderRuleStatusPreview(fakeDocument(), elements, {
+    expires_at: '2026-07-26T04:16:00.000Z',
+    rule: {
+      current_status: 'DISABLED',
+      target_status: 'ACTIVE',
+      decision: 'SKIP',
+      display_scope: { primary: malicious },
+    },
+    impact: {
+      affected_items: 1,
+      decision_changes: 1,
+      quantity_changes: 1,
+      order_amount_before: 50,
+      order_amount_after: 0,
+      order_amount_delta: -50,
+      units_before: 5,
+      units_after: 0,
+      financial_status_before: 'APPROVED',
+      financial_status_after: 'APPROVED',
+    },
+    changed_items: [{
+      product_name: malicious,
+      decision_before: 'BUY',
+      decision_after: 'SKIP',
+      quantity_before: 5,
+      quantity_after: 0,
+    }],
+    warnings: [malicious],
+  });
+  assert.equal(elements.ruleStatusPreview.item.textContent, malicious);
+  assert.match(
+    elements.ruleStatusChangedItems.children[0].textContent,
+    /<img src=x onerror=alert\(1\)>/
+  );
+  assert.equal(
+    elements.ruleStatusWarnings.children[0].textContent,
+    malicious
+  );
+  assert.match(
+    elements.ruleStatusSafetyText.textContent,
+    /Текущий сохранённый заказ автоматически не изменится/
+  );
+});
+
+test('status UI has explicit stale, blocked and network messages', () => {
+  assert.equal(
+    ruleStatusErrorMessage('PREVIEW_EXPIRED'),
+    'Данные изменились. Выполните проверку последствий заново.'
+  );
+  assert.equal(
+    ruleStatusErrorMessage('PREVIEW_STALE'),
+    'Данные изменились. Выполните проверку последствий заново.'
+  );
+  assert.match(
+    ruleStatusErrorMessage(
+      'RULE_ACTIVATION_NOT_FINANCIALLY_PERMITTED'
+    ),
+    /финансовой проверкой/
+  );
+  assert.match(ruleStatusErrorMessage('NETWORK_ERROR'), /соединение/);
 });

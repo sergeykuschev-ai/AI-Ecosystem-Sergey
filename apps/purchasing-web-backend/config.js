@@ -73,6 +73,14 @@ const DEFAULT_SERVER_PATHS = Object.freeze({
     REPOSITORY_ROOT,
     'data/purchasing/owner-learning-rule-materializations.json'
   ),
+  ownerLearningRuleStatusEventsFilePath: path.join(
+    REPOSITORY_ROOT,
+    'data/purchasing/owner-learning-rule-status-events.json'
+  ),
+  ownerLearningRuleActivationPreviewsFilePath: path.join(
+    REPOSITORY_ROOT,
+    'data/purchasing/owner-learning-rule-activation-previews.json'
+  ),
   approvedRulesPath: path.join(
     REPOSITORY_ROOT,
     'data/purchasing/owner-approved-rules.json'

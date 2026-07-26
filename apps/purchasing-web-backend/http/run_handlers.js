@@ -44,6 +44,11 @@ const {
   mapOwnerMaterializedRules,
 } = require('../dto/owner_materialized_rules_mapper');
 const {
+  mapStatusChange,
+  mapStatusHistory,
+  mapStatusPreview,
+} = require('../dto/owner_rule_status_mapper');
+const {
   ACTIONS: LIFECYCLE_ACTIONS,
   MAX_OWNER_COMMENT_LENGTH,
   REASON_CODES: LIFECYCLE_REASON_CODES,
@@ -61,6 +66,18 @@ const {
 const MAX_DECISION_BODY_BYTES = 4096;
 const MAX_LIFECYCLE_BODY_BYTES = 4096;
 const MAX_MATERIALIZATION_BODY_BYTES = 1024;
+const MAX_RULE_STATUS_BODY_BYTES = 4096;
+const RULE_STATUS_PREVIEW_BODY_FIELDS = new Set([
+  'targetStatus',
+  'runId',
+]);
+const RULE_STATUS_BODY_FIELDS = new Set([
+  'targetStatus',
+  'previewId',
+  'confirmation',
+  'reasonCode',
+  'ownerComment',
+]);
 const LIFECYCLE_TARGET_STATUSES = Object.freeze([
   'UNDER_REVIEW',
   'APPROVED',
@@ -822,6 +839,64 @@ async function readMaterializationBody(request) {
   return { confirmation: true };
 }
 
+async function readRuleStatusJson(request, allowedFields) {
+  const contentType = String(request.headers['content-type'] || '')
+    .split(';')[0]
+    .trim()
+    .toLowerCase();
+  if (contentType !== 'application/json') {
+    throw new HttpError(
+      'OWNER_RULE_STATUS_INVALID_INPUT',
+      'Запрос статуса правила должен быть application/json.'
+    );
+  }
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of request) {
+    size += chunk.length;
+    if (size > MAX_RULE_STATUS_BODY_BYTES) {
+      throw new HttpError(
+        'OWNER_RULE_STATUS_INVALID_INPUT',
+        'Тело запроса статуса правила превышает допустимый размер.'
+      );
+    }
+    chunks.push(chunk);
+  }
+  let input;
+  try {
+    input = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  } catch (cause) {
+    throw new HttpError(
+      'OWNER_RULE_STATUS_INVALID_INPUT',
+      'Запрос статуса правила содержит некорректный JSON.',
+      { cause }
+    );
+  }
+  if (
+    !input ||
+    typeof input !== 'object' ||
+    Array.isArray(input) ||
+    Object.keys(input).some(name => !allowedFields.has(name))
+  ) {
+    throw new HttpError(
+      'OWNER_RULE_STATUS_INVALID_INPUT',
+      'Запрос статуса правила содержит неподдерживаемые поля.'
+    );
+  }
+  return input;
+}
+
+async function readRuleStatusPreviewBody(request) {
+  return readRuleStatusJson(
+    request,
+    RULE_STATUS_PREVIEW_BODY_FIELDS
+  );
+}
+
+async function readRuleStatusBody(request) {
+  return readRuleStatusJson(request, RULE_STATUS_BODY_FIELDS);
+}
+
 function reportDateDependencies(reportDate) {
   if (!reportDate) return {};
   return {
@@ -878,6 +953,7 @@ function createRunHandlers(options) {
     ownerLearningCandidateLifecycleService,
     ownerRuleMaterializationService,
     ownerMaterializedRulesService,
+    ownerRuleStatusService,
   } = options;
 
   if (
@@ -1121,6 +1197,41 @@ function createRunHandlers(options) {
       };
     },
 
+    async previewOwnerRuleStatus(ruleId, request) {
+      const input = await readRuleStatusPreviewBody(request);
+      return {
+        statusCode: 200,
+        data: mapStatusPreview(
+          ownerRuleStatusService.previewStatusChange({
+            ruleId,
+            ...input,
+          })
+        ),
+      };
+    },
+
+    async changeOwnerRuleStatus(ruleId, request) {
+      const input = await readRuleStatusBody(request);
+      return {
+        statusCode: 200,
+        data: mapStatusChange(
+          ownerRuleStatusService.changeStatus({
+            ruleId,
+            ...input,
+          })
+        ),
+      };
+    },
+
+    getOwnerRuleStatusHistory(ruleId) {
+      return {
+        statusCode: 200,
+        data: mapStatusHistory(
+          ownerRuleStatusService.getRuleStatusHistory({ ruleId })
+        ),
+      };
+    },
+
     listArtifacts(runId) {
       return {
         statusCode: 200,
@@ -1150,11 +1261,14 @@ module.exports = {
   MAX_DECISION_BODY_BYTES,
   MAX_LIFECYCLE_BODY_BYTES,
   MAX_MATERIALIZATION_BODY_BYTES,
+  MAX_RULE_STATUS_BODY_BYTES,
   createRunHandlers,
   orchestrationHttpError,
   readDecisionBody,
   readLifecycleBody,
   readMaterializationBody,
+  readRuleStatusBody,
+  readRuleStatusPreviewBody,
   parseOwnerDecisionAnalyticsQuery,
   parseOwnerLearningCandidatesQuery,
   parseOwnerMaterializedRulesQuery,

@@ -29,6 +29,12 @@ const OWNER_MATERIALIZED_RULES_ROUTE =
   '/api/v1/owner-learning/materialized-rules';
 const OWNER_MATERIALIZED_RULE_DETAIL_ROUTE =
   /^\/api\/v1\/owner-learning\/materialized-rules\/([A-Za-z0-9_-]{1,128})$/;
+const OWNER_MATERIALIZED_RULE_STATUS_PREVIEW_ROUTE =
+  /^\/api\/v1\/owner-learning\/materialized-rules\/([A-Za-z0-9_-]{1,128})\/status-preview$/;
+const OWNER_MATERIALIZED_RULE_STATUS_ROUTE =
+  /^\/api\/v1\/owner-learning\/materialized-rules\/([A-Za-z0-9_-]{1,128})\/status$/;
+const OWNER_MATERIALIZED_RULE_STATUS_HISTORY_ROUTE =
+  /^\/api\/v1\/owner-learning\/materialized-rules\/([A-Za-z0-9_-]{1,128})\/status-history$/;
 const ARTIFACTS_ROUTE =
   /^\/api\/v1\/runs\/([^/]+)\/artifacts$/;
 const ARTIFACT_ROUTE =
@@ -161,6 +167,40 @@ function createRouter(handlers, options = {}) {
           request
         );
       } else if (
+        request.method === 'POST' &&
+        url.pathname.match(
+          OWNER_MATERIALIZED_RULE_STATUS_PREVIEW_ROUTE
+        )
+      ) {
+        const match = url.pathname.match(
+          OWNER_MATERIALIZED_RULE_STATUS_PREVIEW_ROUTE
+        );
+        result = await handlers.previewOwnerRuleStatus(
+          match[1],
+          request
+        );
+      } else if (
+        request.method === 'POST' &&
+        url.pathname.match(OWNER_MATERIALIZED_RULE_STATUS_ROUTE)
+      ) {
+        const match = url.pathname.match(
+          OWNER_MATERIALIZED_RULE_STATUS_ROUTE
+        );
+        result = await handlers.changeOwnerRuleStatus(
+          match[1],
+          request
+        );
+      } else if (
+        request.method === 'GET' &&
+        url.pathname.match(
+          OWNER_MATERIALIZED_RULE_STATUS_HISTORY_ROUTE
+        )
+      ) {
+        const match = url.pathname.match(
+          OWNER_MATERIALIZED_RULE_STATUS_HISTORY_ROUTE
+        );
+        result = handlers.getOwnerRuleStatusHistory(match[1]);
+      } else if (
         request.method === 'GET' &&
         url.pathname === OWNER_MATERIALIZED_RULES_ROUTE
       ) {
@@ -266,6 +306,9 @@ module.exports = {
   OWNER_LEARNING_LIFECYCLE_STATUS_ROUTE,
   OWNER_MATERIALIZED_RULES_ROUTE,
   OWNER_MATERIALIZED_RULE_DETAIL_ROUTE,
+  OWNER_MATERIALIZED_RULE_STATUS_HISTORY_ROUTE,
+  OWNER_MATERIALIZED_RULE_STATUS_PREVIEW_ROUTE,
+  OWNER_MATERIALIZED_RULE_STATUS_ROUTE,
   OWNER_RULE_MATERIALIZATIONS_ROUTE,
   OWNER_RULE_MATERIALIZATION_DETAIL_ROUTE,
   OWNER_RULE_MATERIALIZE_ROUTE,

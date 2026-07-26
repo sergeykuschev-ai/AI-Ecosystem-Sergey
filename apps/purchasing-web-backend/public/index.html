@@ -459,10 +459,11 @@
           <span class="format-badge">Только чтение</span>
         </div>
 
-        <p class="materialized-rules-safety">
-          Этот раздел показывает созданные правила. Управление активацией
-          будет добавлено отдельно. Неактивные правила не влияют на закупку.
-        </p>
+          <p class="materialized-rules-safety">
+            Статус одного правила меняется только после отдельной проверки
+            последствий и явного подтверждения владельца. Текущий сохранённый
+            заказ автоматически не изменяется.
+          </p>
 
         <form
           class="materialized-rules-filters"
@@ -712,6 +713,104 @@
             >Закрыть</button>
           </div>
         </section>
+      </div>
+
+      <div
+        class="candidate-modal"
+        id="rule-status-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="rule-status-title"
+        hidden
+      >
+        <form class="candidate-modal-panel rule-status-panel" id="rule-status-form">
+          <div class="section-heading">
+            <div>
+              <p class="step-label">Безопасное изменение статуса</p>
+              <h2 id="rule-status-title">Последствия изменения правила</h2>
+            </div>
+            <button
+              class="candidate-modal-close"
+              id="rule-status-close"
+              type="button"
+              aria-label="Закрыть"
+            >×</button>
+          </div>
+          <p id="rule-status-progress" role="status" hidden></p>
+          <div id="rule-status-content" hidden>
+            <dl class="candidate-modal-summary rule-status-summary">
+              <div><dt>Товар</dt><dd id="rule-status-item">—</dd></div>
+              <div><dt>Текущий статус</dt><dd id="rule-status-current">—</dd></div>
+              <div><dt>Новый статус</dt><dd id="rule-status-target">—</dd></div>
+              <div><dt>Решение правила</dt><dd id="rule-status-decision">—</dd></div>
+              <div><dt>Затронутые позиции</dt><dd id="rule-status-affected">—</dd></div>
+              <div><dt>Изменения решений</dt><dd id="rule-status-decision-changes">—</dd></div>
+              <div><dt>Изменения количества</dt><dd id="rule-status-quantity-changes">—</dd></div>
+              <div><dt>Сумма до</dt><dd id="rule-status-amount-before">—</dd></div>
+              <div><dt>Сумма после</dt><dd id="rule-status-amount-after">—</dd></div>
+              <div><dt>Изменение суммы</dt><dd id="rule-status-amount-delta">—</dd></div>
+              <div><dt>Единиц до</dt><dd id="rule-status-units-before">—</dd></div>
+              <div><dt>Единиц после</dt><dd id="rule-status-units-after">—</dd></div>
+              <div><dt>Финансовый статус до</dt><dd id="rule-status-financial-before">—</dd></div>
+              <div><dt>Финансовый статус после</dt><dd id="rule-status-financial-after">—</dd></div>
+              <div><dt>Preview действует до</dt><dd id="rule-status-expires-at">—</dd></div>
+            </dl>
+            <p
+              class="candidate-approval-warning"
+              id="rule-status-safety-text"
+            ></p>
+            <h3>Затронутые товары</h3>
+            <ul id="rule-status-changed-items"></ul>
+            <h3>Предупреждения</h3>
+            <ul id="rule-status-warnings"></ul>
+            <label>
+              Причина
+              <select id="rule-status-reason">
+                <option value="READY_TO_APPLY">Готово к применению</option>
+                <option value="TEMPORARILY_DISABLE">Временно отключить</option>
+                <option value="RESULT_NOT_EXPECTED">Результат не соответствует ожиданию</option>
+                <option value="NEEDS_MORE_REVIEW">Нужна дополнительная проверка</option>
+                <option value="SEASONAL_PAUSE">Сезонная пауза</option>
+                <option value="DATA_CHANGED">Данные изменились</option>
+                <option value="OWNER_EXPERIENCE">Опыт владельца</option>
+                <option value="OTHER">Другое</option>
+                <option value="NOT_SPECIFIED">Причина не указана</option>
+              </select>
+            </label>
+            <label>
+              Комментарий владельца
+              <textarea
+                id="rule-status-comment"
+                maxlength="1000"
+                rows="4"
+              ></textarea>
+            </label>
+            <label class="candidate-approve-confirmation">
+              <input id="rule-status-confirmation" type="checkbox">
+              Я проверил последствия и подтверждаю изменение статуса
+              правила.
+            </label>
+          </div>
+          <p
+            class="inline-error"
+            id="rule-status-error"
+            role="alert"
+            hidden
+          ></p>
+          <div class="candidate-modal-actions">
+            <button
+              class="secondary-button"
+              id="rule-status-cancel"
+              type="button"
+            >Отмена</button>
+            <button
+              class="primary-button"
+              id="rule-status-submit"
+              type="submit"
+              disabled
+            >Подтвердить изменение статуса</button>
+          </div>
+        </form>
       </div>
 
       <div

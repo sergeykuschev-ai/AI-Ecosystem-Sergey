@@ -59,6 +59,7 @@
     '/api/v1/owner-learning/candidates';
   const OWNER_MATERIALIZED_RULES_URL =
     '/api/v1/owner-learning/materialized-rules';
+  const RULE_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
   const DECISION_LABELS = Object.freeze({
     BUY: 'Купить',
     SKIP: 'Пропустить',
@@ -1759,6 +1760,77 @@
       : 'Не влияет на закупку';
   }
 
+  function materializedRuleStatusPreviewLabel(rule = {}) {
+    return rule.status === 'ACTIVE'
+      ? 'Проверить последствия отключения'
+      : 'Проверить последствия активации';
+  }
+
+  function buildRuleStatusPreviewUrl(ruleId) {
+    if (!RULE_ID_PATTERN.test(String(ruleId || ''))) {
+      throw new FrontendError('OWNER_RULE_STATUS_INVALID_INPUT');
+    }
+    return `${OWNER_MATERIALIZED_RULES_URL}/${ruleId}/status-preview`;
+  }
+
+  function buildRuleStatusUrl(ruleId) {
+    if (!RULE_ID_PATTERN.test(String(ruleId || ''))) {
+      throw new FrontendError('OWNER_RULE_STATUS_INVALID_INPUT');
+    }
+    return `${OWNER_MATERIALIZED_RULES_URL}/${ruleId}/status`;
+  }
+
+  function buildRuleStatusPreviewPayload(targetStatus, runId) {
+    return { targetStatus, runId };
+  }
+
+  function buildRuleStatusPayload({
+    targetStatus,
+    previewId,
+    confirmation,
+    reasonCode,
+    ownerComment,
+  } = {}) {
+    return {
+      targetStatus,
+      previewId,
+      confirmation: confirmation === true,
+      reasonCode,
+      ownerComment,
+    };
+  }
+
+  function ruleStatusErrorMessage(code) {
+    if (code === 'PREVIEW_EXPIRED' || code === 'PREVIEW_STALE') {
+      return 'Данные изменились. Выполните проверку последствий заново.';
+    }
+    const messages = {
+      OWNER_RULE_STATUS_CONFIRMATION_REQUIRED:
+        'Подтвердите изменение статуса правила.',
+      OWNER_RULE_STATUS_TRANSITION_INVALID:
+        'Статус правила уже изменился. Обновите список.',
+      PREVIEW_REQUIRED:
+        'Сначала выполните проверку последствий.',
+      PREVIEW_TARGET_MISMATCH:
+        'Preview относится к другому изменению. Выполните проверку заново.',
+      RULE_ACTIVATION_NOT_FINANCIALLY_PERMITTED:
+        'Изменение заблокировано финансовой проверкой.',
+      RULE_STATUS_STORAGE_UNAVAILABLE:
+        'Статус изменён, но журнал временно недоступен. Повторите запрос.',
+      RULE_REGISTRY_UNAVAILABLE:
+        'Реестр правил временно недоступен.',
+      RULE_ACTIVATION_PREVIEW_UNAVAILABLE:
+        'Проверка последствий временно недоступна.',
+      OWNER_MATERIALIZED_RULE_NOT_FOUND:
+        'Правило не найдено. Обновите список.',
+      NETWORK_ERROR:
+        'Не удалось выполнить запрос. Проверьте соединение.',
+      RUN_REQUIRED:
+        'Сначала выполните расчёт закупки для проверочного preview.',
+    };
+    return messages[code] || 'Не удалось изменить статус правила.';
+  }
+
   function candidateAvailabilityLabel(status) {
     return status === 'AVAILABLE' ? 'Доступен' :
       status === 'UNAVAILABLE' ? 'Недоступен' : '—';
@@ -1782,7 +1854,8 @@
   function createMaterializedRuleCard(
     documentObject,
     rule = {},
-    onDetail = null
+    onDetail = null,
+    onStatusPreview = null
   ) {
     const card = documentObject.createElement('article');
     card.className = 'materialized-rule-card';
@@ -1862,6 +1935,22 @@
     safety.textContent = materializedRuleSafetyLabel(rule);
     card.append(heading, badges, facts, safety);
 
+    if (
+      rule.management?.manageable === true &&
+      typeof onStatusPreview === 'function'
+    ) {
+      const previewButton = documentObject.createElement('button');
+      previewButton.type = 'button';
+      previewButton.className = 'primary-button rule-status-preview-button';
+      previewButton.textContent =
+        materializedRuleStatusPreviewLabel(rule);
+      previewButton.addEventListener(
+        'click',
+        () => onStatusPreview(rule)
+      );
+      card.append(previewButton);
+    }
+
     if (rule.candidateAvailability?.status === 'UNAVAILABLE') {
       const unavailable = documentObject.createElement('p');
       unavailable.className =
@@ -1878,14 +1967,16 @@
     documentObject,
     parent,
     rules,
-    onDetail = null
+    onDetail = null,
+    onStatusPreview = null
   ) {
     parent.replaceChildren();
     for (const rule of Array.isArray(rules) ? rules : []) {
       parent.append(createMaterializedRuleCard(
         documentObject,
         rule,
-        onDetail
+        onDetail,
+        onStatusPreview
       ));
     }
   }
@@ -1917,6 +2008,73 @@
     }
     elements.materializedRuleDetail.safety.textContent =
       rule.safety?.message || '—';
+  }
+
+  function renderRuleStatusPreview(
+    documentObject,
+    elements,
+    preview = {}
+  ) {
+    const rule = preview.rule || {};
+    const impact = preview.impact || {};
+    const values = {
+      item: rule.display_scope?.primary,
+      currentStatus: materializedRuleStatusLabel(rule.current_status),
+      targetStatus: materializedRuleStatusLabel(rule.target_status),
+      decision: decisionLabel(rule.decision),
+      affectedItems: displayCount(impact.affected_items),
+      decisionChanges: displayCount(impact.decision_changes),
+      quantityChanges: displayCount(impact.quantity_changes),
+      amountBefore: formatRub(impact.order_amount_before),
+      amountAfter: formatRub(impact.order_amount_after),
+      amountDelta: formatRub(impact.order_amount_delta),
+      unitsBefore: formatQuantity(impact.units_before),
+      unitsAfter: formatQuantity(impact.units_after),
+      financialBefore: impact.financial_status_before,
+      financialAfter: impact.financial_status_after,
+      expiresAt: formatHistoryDate(preview.expires_at),
+    };
+    for (const [name, value] of Object.entries(values)) {
+      elements.ruleStatusPreview[name].textContent = value || '—';
+    }
+    elements.ruleStatusWarnings.replaceChildren();
+    for (const warning of (
+      Array.isArray(preview.warnings) ? preview.warnings : []
+    )) {
+      const item = documentObject.createElement('li');
+      item.textContent = warning;
+      elements.ruleStatusWarnings.append(item);
+    }
+    if (elements.ruleStatusWarnings.children.length === 0) {
+      const item = documentObject.createElement('li');
+      item.textContent = 'Критических предупреждений нет.';
+      elements.ruleStatusWarnings.append(item);
+    }
+    elements.ruleStatusChangedItems.replaceChildren();
+    for (const item of (
+      Array.isArray(preview.changed_items)
+        ? preview.changed_items
+        : []
+    )) {
+      const row = documentObject.createElement('li');
+      row.textContent =
+        `${item.product_name || 'Товар'}: ` +
+        `${item.decision_before || '—'} → ${item.decision_after || '—'}, ` +
+        `${formatQuantity(item.quantity_before)} → ` +
+        `${formatQuantity(item.quantity_after)}`;
+      elements.ruleStatusChangedItems.append(row);
+    }
+    if (elements.ruleStatusChangedItems.children.length === 0) {
+      const item = documentObject.createElement('li');
+      item.textContent = 'Изменений решения или количества нет.';
+      elements.ruleStatusChangedItems.append(item);
+    }
+    elements.ruleStatusSafetyText.textContent =
+      rule.target_status === 'ACTIVE'
+        ? 'После активации правило сможет влиять на будущие расчёты ' +
+          'закупки. Текущий сохранённый заказ автоматически не изменится.'
+        : 'После отключения правило перестанет учитываться в будущих ' +
+          'расчётах. Текущий сохранённый заказ автоматически не изменится.';
   }
 
   async function pollRunStatus(options) {
@@ -2250,6 +2408,69 @@
             'materialized-rule-detail-safety'
           ),
       },
+      ruleStatusModal:
+        documentObject.getElementById('rule-status-modal'),
+      ruleStatusForm:
+        documentObject.getElementById('rule-status-form'),
+      ruleStatusClose:
+        documentObject.getElementById('rule-status-close'),
+      ruleStatusCancel:
+        documentObject.getElementById('rule-status-cancel'),
+      ruleStatusSubmit:
+        documentObject.getElementById('rule-status-submit'),
+      ruleStatusReason:
+        documentObject.getElementById('rule-status-reason'),
+      ruleStatusComment:
+        documentObject.getElementById('rule-status-comment'),
+      ruleStatusConfirmation:
+        documentObject.getElementById('rule-status-confirmation'),
+      ruleStatusError:
+        documentObject.getElementById('rule-status-error'),
+      ruleStatusProgress:
+        documentObject.getElementById('rule-status-progress'),
+      ruleStatusContent:
+        documentObject.getElementById('rule-status-content'),
+      ruleStatusSafetyText:
+        documentObject.getElementById('rule-status-safety-text'),
+      ruleStatusWarnings:
+        documentObject.getElementById('rule-status-warnings'),
+      ruleStatusChangedItems:
+        documentObject.getElementById('rule-status-changed-items'),
+      ruleStatusPreview: {
+        item: documentObject.getElementById('rule-status-item'),
+        currentStatus:
+          documentObject.getElementById('rule-status-current'),
+        targetStatus:
+          documentObject.getElementById('rule-status-target'),
+        decision:
+          documentObject.getElementById('rule-status-decision'),
+        affectedItems:
+          documentObject.getElementById('rule-status-affected'),
+        decisionChanges:
+          documentObject.getElementById(
+            'rule-status-decision-changes'
+          ),
+        quantityChanges:
+          documentObject.getElementById(
+            'rule-status-quantity-changes'
+          ),
+        amountBefore:
+          documentObject.getElementById('rule-status-amount-before'),
+        amountAfter:
+          documentObject.getElementById('rule-status-amount-after'),
+        amountDelta:
+          documentObject.getElementById('rule-status-amount-delta'),
+        unitsBefore:
+          documentObject.getElementById('rule-status-units-before'),
+        unitsAfter:
+          documentObject.getElementById('rule-status-units-after'),
+        financialBefore:
+          documentObject.getElementById('rule-status-financial-before'),
+        financialAfter:
+          documentObject.getElementById('rule-status-financial-after'),
+        expiresAt:
+          documentObject.getElementById('rule-status-expires-at'),
+      },
       decisionCounters: {
         all: documentObject.getElementById('decision-all'),
         needsDecision: documentObject.getElementById('decision-needs'),
@@ -2285,6 +2506,8 @@
     let historyRequestSequence = 0;
     let candidateRequestSequence = 0;
     let materializedRulesRequestSequence = 0;
+    let currentRunId = null;
+    let pendingRuleStatusChange = null;
     let currentCandidates = [];
     let pendingLifecycleChange = null;
     let pendingMaterializationCandidate = null;
@@ -2626,6 +2849,138 @@
       elements.materializedRuleDetailModal.hidden = false;
     }
 
+    function closeRuleStatusModal() {
+      pendingRuleStatusChange = null;
+      elements.ruleStatusModal.hidden = true;
+      elements.ruleStatusError.hidden = true;
+      elements.ruleStatusError.textContent = '';
+      elements.ruleStatusProgress.hidden = true;
+      elements.ruleStatusContent.hidden = true;
+      elements.ruleStatusSubmit.disabled = false;
+    }
+
+    async function openRuleStatusPreview(rule) {
+      const targetStatus = rule.status === 'ACTIVE'
+        ? 'DISABLED'
+        : 'ACTIVE';
+      pendingRuleStatusChange = { rule, targetStatus, preview: null };
+      elements.ruleStatusModal.hidden = false;
+      elements.ruleStatusProgress.hidden = false;
+      elements.ruleStatusProgress.textContent =
+        'Выполняем проверочный расчёт последствий…';
+      elements.ruleStatusContent.hidden = true;
+      elements.ruleStatusError.hidden = true;
+      elements.ruleStatusError.textContent = '';
+      elements.ruleStatusSubmit.disabled = true;
+      elements.ruleStatusConfirmation.checked = false;
+      elements.ruleStatusComment.value = '';
+      elements.ruleStatusReason.value = targetStatus === 'ACTIVE'
+        ? 'READY_TO_APPLY'
+        : 'TEMPORARILY_DISABLE';
+      if (!currentRunId) {
+        elements.ruleStatusProgress.hidden = true;
+        elements.ruleStatusError.textContent =
+          ruleStatusErrorMessage('RUN_REQUIRED');
+        elements.ruleStatusError.hidden = false;
+        return;
+      }
+      try {
+        const result = await requestJson(
+          fetchFunction,
+          buildRuleStatusPreviewUrl(rule.ruleId),
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(buildRuleStatusPreviewPayload(
+              targetStatus,
+              currentRunId
+            )),
+          }
+        );
+        if (
+          !pendingRuleStatusChange ||
+          pendingRuleStatusChange.rule.ruleId !== rule.ruleId
+        ) {
+          return;
+        }
+        pendingRuleStatusChange.preview = result.preview;
+        renderRuleStatusPreview(
+          documentObject,
+          elements,
+          result.preview
+        );
+        elements.ruleStatusProgress.hidden = true;
+        elements.ruleStatusContent.hidden = false;
+        if (result.preview?.impact?.financially_permitted !== true) {
+          elements.ruleStatusError.textContent =
+            ruleStatusErrorMessage(
+              'RULE_ACTIVATION_NOT_FINANCIALLY_PERMITTED'
+            );
+          elements.ruleStatusError.hidden = false;
+          elements.ruleStatusSubmit.disabled = true;
+        } else {
+          elements.ruleStatusSubmit.disabled = false;
+        }
+      } catch (error) {
+        const code = error instanceof FrontendError
+          ? error.code
+          : 'NETWORK_ERROR';
+        elements.ruleStatusProgress.hidden = true;
+        elements.ruleStatusError.textContent =
+          ruleStatusErrorMessage(code);
+        elements.ruleStatusError.hidden = false;
+      }
+    }
+
+    async function submitRuleStatusChange(event) {
+      event.preventDefault();
+      const pending = pendingRuleStatusChange;
+      if (!pending?.preview) return;
+      if (elements.ruleStatusConfirmation.checked !== true) {
+        elements.ruleStatusError.textContent =
+          ruleStatusErrorMessage(
+            'OWNER_RULE_STATUS_CONFIRMATION_REQUIRED'
+          );
+        elements.ruleStatusError.hidden = false;
+        return;
+      }
+      elements.ruleStatusError.hidden = true;
+      elements.ruleStatusSubmit.disabled = true;
+      try {
+        const payload = buildRuleStatusPayload({
+          targetStatus: pending.targetStatus,
+          previewId: pending.preview.preview_id,
+          confirmation: true,
+          reasonCode: elements.ruleStatusReason.value,
+          ownerComment: elements.ruleStatusComment.value,
+        });
+        const result = await requestJson(
+          fetchFunction,
+          buildRuleStatusUrl(pending.rule.ruleId),
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          }
+        );
+        elements.ruleStatusProgress.textContent =
+          result.status === 'ALREADY_CHANGED'
+            ? 'Статус уже был изменён; повторное переключение не выполнено.'
+            : result.message;
+        elements.ruleStatusProgress.hidden = false;
+        elements.ruleStatusContent.hidden = true;
+        await loadMaterializedRules();
+      } catch (error) {
+        const code = error instanceof FrontendError
+          ? error.code
+          : 'NETWORK_ERROR';
+        elements.ruleStatusError.textContent =
+          ruleStatusErrorMessage(code);
+        elements.ruleStatusError.hidden = false;
+        elements.ruleStatusSubmit.disabled = false;
+      }
+    }
+
     function materializedRulesWarningText(result) {
       if (
         result?.warning ===
@@ -2633,6 +2988,12 @@
       ) {
         return 'История создания правил временно недоступна. ' +
           'Текущее состояние правил показано из реестра.';
+      }
+      if (
+        result?.warning === 'OWNER_RULE_STATUS_HISTORY_UNAVAILABLE'
+      ) {
+        return 'Журнал статусов временно недоступен. Текущий статус ' +
+          'показан из реестра правил.';
       }
       if (
         result?.warning ===
@@ -2671,7 +3032,8 @@
           documentObject,
           elements.materializedRulesList,
           result.rules,
-          openMaterializedRuleDetail
+          openMaterializedRuleDetail,
+          openRuleStatusPreview
         );
         const warning = materializedRulesWarningText(result);
         elements.materializedRulesContextWarning.textContent = warning;
@@ -3014,6 +3376,10 @@
           });
         }
 
+        currentRunId = typeof status?.run_id === 'string'
+          ? status.run_id
+          : null;
+
         const summaryUrl = safeRunLink(status?.links?.summary);
         const artifactsUrl = safeRunLink(status?.links?.artifacts);
         const itemsUrl = safeRunLink(status?.links?.items);
@@ -3111,6 +3477,18 @@
       'click',
       closeMaterializedRuleDetail
     );
+    elements.ruleStatusForm.addEventListener(
+      'submit',
+      submitRuleStatusChange
+    );
+    elements.ruleStatusClose.addEventListener(
+      'click',
+      closeRuleStatusModal
+    );
+    elements.ruleStatusCancel.addEventListener(
+      'click',
+      closeRuleStatusModal
+    );
     elements.candidateLifecycleForm.addEventListener(
       'submit',
       submitCandidateLifecycle
@@ -3153,6 +3531,7 @@
         closeCandidateLifecycleModal();
         closeRuleMaterializationModal();
         closeMaterializedRuleDetail();
+        closeRuleStatusModal();
       }
     });
     for (const button of documentObject.querySelectorAll(
@@ -3206,10 +3585,12 @@
       loadItems,
       openCandidateLifecycleModal,
       openMaterializedRuleDetail,
+      openRuleStatusPreview,
       openRuleMaterializationModal,
       submitRuleMaterialization,
       submitCandidateLifecycle,
       submitRun,
+      submitRuleStatusChange,
       updateFileSelection,
     };
   }
@@ -3226,6 +3607,10 @@
     buildMaterializedRulesUrl,
     buildMaterializationPayload,
     buildMaterializationUrl,
+    buildRuleStatusPayload,
+    buildRuleStatusPreviewPayload,
+    buildRuleStatusPreviewUrl,
+    buildRuleStatusUrl,
     candidateLifecycleActions,
     candidateViewState,
     confidenceLabel,
@@ -3251,6 +3636,7 @@
     lifecycleErrorMessage,
     matrixRoleLabel,
     materializedRuleSafetyLabel,
+    materializedRuleStatusPreviewLabel,
     materializedRuleStatusLabel,
     materializedRulesViewState,
     needsOwnerDecisionView,
@@ -3269,6 +3655,7 @@
     renderMaterializedRuleCards,
     renderMaterializedRuleDetail,
     renderMaterializedRulesSummary,
+    renderRuleStatusPreview,
     renderItemRows,
     resetCandidateFilters,
     resetMaterializedRulesFilters,
@@ -3284,6 +3671,7 @@
     summaryView,
     shouldShowMaterialize,
     reasonLabel,
+    ruleStatusErrorMessage,
     technicalExplanation,
   };
 

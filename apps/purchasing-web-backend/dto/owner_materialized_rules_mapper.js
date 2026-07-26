@@ -81,6 +81,19 @@ function mapMaterializedRule(rule = {}) {
         rule.safety?.affectsPurchasing === true,
       message: safeText(rule.safety?.message),
     },
+    management: {
+      manageable: rule.management?.manageable === true,
+      availableActions: Array.isArray(
+        rule.management?.availableActions
+      ) ? rule.management.availableActions
+        .filter(action => ['ACTIVATE', 'DEACTIVATE'].includes(action))
+        .slice(0, 1) : [],
+      lastStatusChangeAt:
+        safeText(rule.management?.lastStatusChangeAt),
+      lastStatusAction:
+        safeText(rule.management?.lastStatusAction),
+      previewRequired: true,
+    },
   };
 }
 

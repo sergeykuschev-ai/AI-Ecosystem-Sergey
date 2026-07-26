@@ -35,6 +35,12 @@ const {
   OwnerMaterializedRulesService,
 } = require('./application/owner_materialized_rules_service');
 const {
+  OwnerRuleActivationPreviewService,
+} = require('./application/owner_rule_activation_preview_service');
+const {
+  OwnerRuleStatusService,
+} = require('./application/owner_rule_status_service');
+const {
   FileRunRegistry,
 } = require('./storage/file_run_registry');
 const { createRouter } = require('./http/router');
@@ -103,8 +109,17 @@ function createPurchasingWebServer(options = {}) {
   const approvedRulesPath = options.approvedRulesPath ||
     serverPaths.approvedRulesPath ||
     DEFAULT_SERVER_PATHS.approvedRulesPath;
+  const statusEventsFilePath =
+    options.ownerLearningRuleStatusEventsFilePath ||
+    serverPaths.ownerLearningRuleStatusEventsFilePath ||
+    DEFAULT_SERVER_PATHS.ownerLearningRuleStatusEventsFilePath;
+  const activationPreviewsFilePath =
+    options.ownerLearningRuleActivationPreviewsFilePath ||
+    serverPaths.ownerLearningRuleActivationPreviewsFilePath ||
+    DEFAULT_SERVER_PATHS.ownerLearningRuleActivationPreviewsFilePath;
+  const runsRoot = options.runsRoot || DEFAULT_RUNS_ROOT;
   const registry = options.registry || new FileRunRegistry({
-    runsRoot: options.runsRoot || DEFAULT_RUNS_ROOT,
+    runsRoot,
     ownerLearningHistoryPath: options.ownerLearningHistoryPath || (
       options.runsRoot
         ? undefined
@@ -168,7 +183,27 @@ function createPurchasingWebServer(options = {}) {
       approvedRulesFilePath: approvedRulesPath,
       materializationsFilePath,
       candidateLifecycleFilePath: lifecycleFilePath,
+      statusEventsFilePath,
       candidatesService: ownerLearningCandidatesService,
+      logger: options.logger,
+      now: options.now,
+    });
+  const ownerRuleActivationPreviewService =
+    options.ownerRuleActivationPreviewService ||
+    new OwnerRuleActivationPreviewService({
+      approvedRulesFilePath: approvedRulesPath,
+      previewStorageFilePath: activationPreviewsFilePath,
+      runsRoot,
+      logger: options.logger,
+      now: options.now,
+    });
+  const ownerRuleStatusService =
+    options.ownerRuleStatusService ||
+    new OwnerRuleStatusService({
+      approvedRulesFilePath: approvedRulesPath,
+      statusEventsFilePath,
+      previewStorageFilePath: activationPreviewsFilePath,
+      previewService: ownerRuleActivationPreviewService,
       logger: options.logger,
       now: options.now,
     });
@@ -187,6 +222,7 @@ function createPurchasingWebServer(options = {}) {
     ownerLearningCandidateLifecycleService,
     ownerRuleMaterializationService,
     ownerMaterializedRulesService,
+    ownerRuleStatusService,
   });
   const staticHandler = options.staticHandler || createStaticHandler({
     publicRoot: options.publicRoot,

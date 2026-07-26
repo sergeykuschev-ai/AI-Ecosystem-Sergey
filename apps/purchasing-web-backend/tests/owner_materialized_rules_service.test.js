@@ -4,6 +4,7 @@ const { test } = require('node:test');
 const {
   OwnerMaterializedRulesService,
   MATERIALIZATION_HISTORY_WARNING,
+  STATUS_HISTORY_WARNING,
 } = require('../application/owner_materialized_rules_service');
 const {
   mapOwnerMaterializedRules,
@@ -173,12 +174,15 @@ function service({
   loadRegistry,
   loadMaterializations,
   loadLifecycle,
+  loadStatusEvents,
+  statusEventsFilePath = null,
   candidatesService,
 } = {}) {
   return new OwnerMaterializedRulesService({
     approvedRulesFilePath: '/tmp/test-approved-rules.json',
     materializationsFilePath: '/tmp/test-materializations.json',
     candidateLifecycleFilePath: '/tmp/test-lifecycle.json',
+    ...(statusEventsFilePath ? { statusEventsFilePath } : {}),
     now: () => GENERATED_AT,
     logger: { warn() {} },
     loadRegistry: loadRegistry || (() => ({
@@ -191,6 +195,7 @@ function service({
         rules.filter(value => value.provenance)
       )),
     loadLifecycle: loadLifecycle || (() => lifecycleValue),
+    ...(loadStatusEvents ? { loadStatusEvents } : {}),
     candidatesService: candidatesService || {
       getCandidates() {
         return { status: 'AVAILABLE', candidates };
@@ -258,6 +263,80 @@ test('materialized disabled and active rules are listed; legacy is excluded', ()
       message: 'Правило неактивно и не влияет на закупку.',
     },
   ]);
+  assert.deepEqual(result.rules.map(value => value.management), [
+    {
+      manageable: true,
+      availableActions: ['DEACTIVATE'],
+      lastStatusChangeAt: null,
+      lastStatusAction: null,
+      previewRequired: true,
+    },
+    {
+      manageable: true,
+      availableActions: ['ACTIVATE'],
+      lastStatusChangeAt: null,
+      lastStatusAction: null,
+      previewRequired: true,
+    },
+  ]);
+});
+
+test('status journal enriches management overlay', () => {
+  const statusRule = rule({ status: 'ACTIVE' });
+  const result = service({
+    rules: [statusRule],
+    statusEventsFilePath: '/tmp/test-status-events.json',
+    loadStatusEvents() {
+      return {
+        schemaVersion: 'owner-learning-rule-status-events-v0.9.2',
+        updatedAt: '2026-07-25T07:00:00.000Z',
+        events: [{
+          eventId: 'event-1',
+          recordedAt: '2026-07-25T07:00:00.000Z',
+          ruleId: statusRule.ruleId,
+          action: 'ACTIVATE',
+        }],
+      };
+    },
+  }).listRules();
+  assert.deepEqual(result.rules[0].management, {
+    manageable: true,
+    availableActions: ['DEACTIVATE'],
+    lastStatusChangeAt: '2026-07-25T07:00:00.000Z',
+    lastStatusAction: 'ACTIVATE',
+    previewRequired: true,
+  });
+});
+
+test('status journal unavailable keeps rules and actions available', () => {
+  const result = service({
+    rules: [rule()],
+    statusEventsFilePath: '/tmp/test-status-events.json',
+    loadStatusEvents() {
+      throw new Error('corrupted');
+    },
+  }).listRules();
+  assert.equal(result.status, 'AVAILABLE');
+  assert.equal(result.warning, STATUS_HISTORY_WARNING);
+  assert.deepEqual(result.rules[0].management, {
+    manageable: true,
+    availableActions: ['ACTIVATE'],
+    lastStatusChangeAt: null,
+    lastStatusAction: null,
+    previewRequired: true,
+  });
+});
+
+test('legacy-shaped materialized source is not manageable', () => {
+  const damaged = rule({ ruleType: 'ITEM_DECISION' });
+  const result = service({ rules: [damaged] }).listRules();
+  assert.deepEqual(result.rules[0].management, {
+    manageable: false,
+    availableActions: [],
+    lastStatusChangeAt: null,
+    lastStatusAction: null,
+    previewRequired: true,
+  });
 });
 
 test('registry unavailable is fail-safe HTTP-200-ready result', () => {
