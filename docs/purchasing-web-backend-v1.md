@@ -5,7 +5,8 @@
 Purchasing Web Backend v1 is a local HTTP and application layer over the
 existing Purchasing Agent. It accepts a SmartZapas Excel export, starts one
 complete calculation under a shared `run_id`, stores compact browser DTOs and
-full artifacts, and exposes them to a future frontend.
+full artifacts, and exposes them through the included local owner-facing
+frontend.
 
 The backend does not duplicate purchasing formulas. Purchasing Agent, Demand
 Engine, Matrix Builder, Financial Controller, Recommendation Explainer, and
@@ -30,8 +31,9 @@ file run registry -> compact DTOs + whitelisted artifacts
 query service / secure artifact stream
 ```
 
-Runs are filesystem-backed. There is no database, asynchronous queue,
-authentication layer, or frontend in local v1.
+Runs are filesystem-backed. There is no database, asynchronous queue, or
+authentication layer in local v1. The included frontend is served by the same
+localhost-only process.
 
 ## Start
 
@@ -56,10 +58,23 @@ The bind address is intentionally not configurable in v1.
 |---|---:|---|
 | `PURCHASING_WEB_PORT` | `3210` | Local HTTP port, from `0` through `65535` |
 | `PURCHASING_WEB_RETENTION_TTL_MS` | `86400000` | Completed-run retention period in milliseconds |
+| `PURCHASING_APPROVED_RULE_MODE` | `PREVIEW` | Approved Rules mode: `OFF`, `PREVIEW`, or explicitly enabled `APPLY_SAFE` |
 
 Server-side financial, Matrix Builder, assortment-matrix, Owner Decisions, and
 Recommendation Explainer paths come from backend configuration. An HTTP client
 cannot provide or override local server paths.
+
+Approved Rules are preview-only by default. `OFF` skips their processing.
+`APPLY_SAFE` may only remove an existing positive quantity or move a zero
+quantity between `SKIP` and `DEFER`; it never creates a positive quantity.
+Registry, preview, rule-application, or financial-recalculation failures fall
+back to the complete baseline order.
+
+Materialized `ITEM_DECISION_OVERRIDE` rules remain `DISABLED` when created.
+An owner may change one such rule between `DISABLED` and `ACTIVE` only through
+the status-preview and confirmed status endpoints described below. Changing a
+status never rewrites an existing run or saved order. The new status is read
+only by a later explicit `APPLY_SAFE` calculation.
 
 ## API v1
 
@@ -150,9 +165,16 @@ The summary deliberately separates five monetary meanings:
 | `auto_approved_sum` | Sum automatically approved by decision rules |
 | `pending_review_sum` | Sum still awaiting manual review |
 | `working_maximum_sum` | Maximum working-order exposure, including pending lines |
-| `financially_assessed_sum` | Sum assessed by Financial Controller |
+| `financially_assessed_sum` | Legacy Analyzer-order sum assessed by Financial Controller |
 
 There is no ambiguous `total_order_sum` browser field.
+
+When `APPLY_SAFE` changes at least one working-order line, the summary also
+contains `applied_working_order_financial`. This separate object reports the
+working-order amounts, SKU, units, reserve, and financial status before and
+after the approved rule. It does not replace `financially_assessed_sum` or the
+legacy `financial_assessment` in `result.json`. If no rule is applied, the
+object is `null` and the complete baseline result remains unchanged.
 
 ### Purchasing items
 
@@ -192,6 +214,127 @@ curl 'http://127.0.0.1:3210/api/v1/runs/REPLACE_WITH_RUN_ID/owner-review?section
 A red Owner Review status means that a commercial owner decision is required.
 It is a business status, not an HTTP failure or technical backend error.
 
+### Materialized rule status
+
+The management flow always targets one rule and has two steps:
+
+1. `POST /api/v1/owner-learning/materialized-rules/:ruleId/status-preview`
+   with `targetStatus` and an existing `runId`.
+2. `POST /api/v1/owner-learning/materialized-rules/:ruleId/status` with the
+   returned `previewId`, `confirmation: true`, `reasonCode`, and an optional
+   owner comment of at most 1000 characters.
+
+The preview expires after 15 minutes. Its identity binds the rule, target
+status, run, registry fingerprint, exact `result.json` fingerprint, and
+preview timestamps. Confirmation is rejected when the registry or run has
+changed, financial recalculation is not permitted, or a critical warning is
+present.
+
+`GET /api/v1/owner-learning/materialized-rules/:ruleId/status-history`
+returns the allowlisted audit history for one rule.
+
+Current state is stored in `owner-approved-rules.json`. Status changes update
+only the selected rule's `status` and `updatedAt`, then atomically save the
+registry. Audit events are appended separately to
+`owner-learning-rule-status-events.json`. If the registry write succeeds but
+the event append fails, the registry remains authoritative; an identical
+retry returns `ALREADY_CHANGED` and repairs the missing journal event.
+Short-lived preview records are stored in
+`owner-learning-rule-activation-previews.json` without a full order, full
+result, stable item key, owner comment, or evidence data.
+
+### Rule effectiveness analytics
+
+v0.9.3 records the observed effect of each materialized owner rule after a
+purchasing run. Events are appended to
+`owner-learning-rule-effectiveness-events.json`. The committed production
+journal starts empty; runtime events are operational data and must not contain
+raw order rows, stable item keys, owner comments, evidence payloads, secrets,
+credentials, stack traces, or local paths.
+
+The recorder distinguishes an applied order change, a matched rule without a
+change, no match, fallback to the baseline order, an inactive rule, and an
+unavailable evaluation. Aggregate analytics expose evaluated-run counts,
+effect and match rates, quantity and order-amount deltas, last activity,
+consecutive no-effect runs, data-quality diagnostics, and one of these
+classifications:
+
+- `EFFECTIVE`
+- `OCCASIONAL`
+- `NO_EFFECT_YET`
+- `STALE`
+- `REVIEW_RECOMMENDED`
+- `INSUFFICIENT_DATA`
+
+These effectiveness analytics endpoints are read-only:
+
+- `GET /api/v1/owner-learning/rule-effectiveness`
+- `GET /api/v1/owner-learning/rule-effectiveness/:ruleId`
+- `GET /api/v1/owner-learning/rule-effectiveness/:ruleId/events`
+
+The list endpoint supports rule status, decision, classification, confidence,
+priority, UTC date-range, and text-search filters. Sorting is available by
+last application time, effect rate, total order-amount delta, evaluated runs,
+classification, or rule update time. The limit is from 1 through 100.
+
+Effectiveness analytics are observational only. Recording or reading them
+never activates, disables, or rewrites a rule, never changes a completed run,
+and never participates in deterministic order calculations. If the journal is
+unavailable, the service returns an allowlisted warning and the purchasing
+pipeline remains usable.
+
+### Owner Learning Center
+
+`GET /api/v1/owner-learning/center` returns one read-only overview assembled
+from the existing decision-history, candidate, lifecycle, materialized-rule,
+and effectiveness services. It does not read storage files directly and does
+not recalculate purchasing decisions.
+
+Optional filters are `supplier`, `brand`, `category`, `date_from`, and
+`date_to`. Optional `attention_limit` and `activity_limit` values are integers
+from 1 through 100. Dates must be valid ISO 8601 UTC timestamps; invalid input
+returns `400 OWNER_LEARNING_CENTER_INVALID_INPUT`.
+
+The response contains:
+
+- decision, candidate, materialized-rule, and effectiveness summaries;
+- deterministic attention items and an allowlisted recent-activity feed;
+- component health and one top-level state: `AVAILABLE`, `PARTIAL`, or
+  `UNAVAILABLE`;
+- the effective filters, generation time, and API schema version.
+
+Order-amount deltas are differences between calculated order totals. They are
+not presented as profit or savings. Partial component failures are isolated:
+available summaries remain visible with warnings. The center becomes
+`UNAVAILABLE` only when both decision history and the materialized-rule
+registry cannot be read.
+
+The web interface opens this center on the Overview tab and keeps the existing
+History, Candidates, Rules, and Effectiveness views as lazily loaded tabs.
+Overview navigation never changes candidate or rule state. Status previews,
+confirmations, and other management actions remain on their existing explicit
+endpoints.
+
+### Knowledge Health
+
+The `Здоровье базы знаний` tab uses these read-only endpoints:
+
+- `GET /api/v1/owner-learning/knowledge-health`
+- `GET /api/v1/owner-learning/knowledge-health/findings`
+- `GET /api/v1/owner-learning/knowledge-health/rules/:ruleId`
+
+Knowledge Health reports an observational score, dimensions, findings, rule
+health, and allowlisted data-quality diagnostics. It may return `PARTIAL`
+while retaining valid neighboring rules when an individual registry entry or
+an optional analytics component is unavailable. It never repairs storage,
+changes a rule, or writes effectiveness data.
+
+The product also has explicit manual write flows for candidate lifecycle,
+candidate-to-rule materialization, and confirmed rule activation or
+deactivation after a preview. These flows are not part of Knowledge Health.
+No endpoint automatically creates, activates, disables, or otherwise mutates
+a rule based on analytics.
+
 ### Download an artifact
 
 `GET /api/v1/runs/:runId/artifacts/:artifactName`
@@ -218,6 +361,15 @@ Allowed artifact names are fixed:
 - `manual-review.json`
 - `owner-review.json`
 - `owner-review-report.md`
+- `owner-learning-report.json`
+- `owner-learning-report.md`
+- `owner-learning-patterns.json`
+- `owner-learning-patterns.md`
+- `owner-rule-proposals.json`
+- `owner-rule-proposals.md`
+- `approved-rule-preview.json`
+- `approved-rule-preview.md`
+- `approved-rule-applications.json` (published only in `APPLY_SAFE`)
 - `run-metadata.json`
 
 The client name is never used directly as a filesystem path. Resolution
@@ -286,16 +438,29 @@ termination. Shutdown does not delete a `processing` run.
 | `500` | `RUN_FAILED`, `ARTIFACT_STREAM_ERROR` |
 | `507` | `STORAGE_ERROR` |
 
+Rule-status endpoints additionally use:
+
+- `400`: `OWNER_RULE_STATUS_INVALID_INPUT`,
+  `OWNER_RULE_STATUS_CONFIRMATION_REQUIRED`;
+- `404`: `OWNER_MATERIALIZED_RULE_NOT_FOUND`, `RUN_NOT_FOUND`;
+- `409`: `OWNER_RULE_STATUS_TRANSITION_INVALID`, `PREVIEW_REQUIRED`,
+  `PREVIEW_EXPIRED`, `PREVIEW_STALE`, `PREVIEW_TARGET_MISMATCH`,
+  `RULE_NOT_MATERIALIZED`, `RULE_NOT_MANAGEABLE`;
+- `422`: `RULE_ACTIVATION_NOT_FINANCIALLY_PERMITTED`;
+- `503`: `RULE_REGISTRY_UNAVAILABLE`,
+  `RULE_STATUS_STORAGE_UNAVAILABLE`,
+  `RULE_ACTIVATION_PREVIEW_UNAVAILABLE`.
+
 ## Local v1 limitations
 
 - localhost only;
 - no authentication or multi-user authorization;
 - synchronous processing;
 - no database or durable job queue;
-- no frontend;
 - no artifact range requests;
 - no CORS;
 - no remote deployment contract;
+- the owner-facing frontend and storage are local to this process;
 - no automated purchase-order creation or sending.
 
 These constraints are deliberate. Local v1 provides a small, auditable

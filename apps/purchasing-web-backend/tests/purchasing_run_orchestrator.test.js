@@ -72,6 +72,14 @@ test('full fixture pipeline returns one consistent in-memory bundle', async () =
   assert.equal(bundle.explanations.explained_sku_count, 6);
   assert.equal(bundle.explanations.items.length, 6);
   assert.equal(typeof bundle.ownerReviewReport, 'string');
+  assert.equal(bundle.ownerLearning.totalItems, 6);
+  assert.equal(typeof bundle.ownerLearningReport, 'string');
+  assert.match(bundle.ownerLearningReport, /Отчёт обучения закупщика/);
+  assert.equal(bundle.ownerLearningHistoryEntry.runId, RUN_ID);
+  assert.equal(
+    bundle.ownerLearningHistoryEntry.ownerDecisionsTotal,
+    bundle.ownerLearning.ownerDecisionsTotal
+  );
   assert.equal(typeof bundle.explanationsReport, 'string');
   assert.equal(typeof bundle.matrixReportText, 'string');
   assert.deepEqual(
@@ -187,4 +195,42 @@ test('orchestrator does not mutate source domain objects', async () => {
 
   assert.deepEqual(sourceAgentResult, agentSnapshot);
   assert.deepEqual(sourceMatrixResult, matrixSnapshot);
+});
+
+test('effectiveness recording runs last and its failure does not break bundle', async () => {
+  let explanationsFinished = false;
+  let recorderCalls = 0;
+  const bundle = await runPurchasingWebOrchestrator(runRequest(), {
+    logger: { warn() {} },
+    buildExplanations(agentResult, options) {
+      const {
+        buildRecommendationExplanations,
+      } = require(
+        '../../../agents/purchasing/explanations/recommendation_explainer'
+      );
+      const value = buildRecommendationExplanations(
+        agentResult,
+        options
+      );
+      explanationsFinished = true;
+      return value;
+    },
+    recordRuleEffectiveness() {
+      recorderCalls += 1;
+      assert.equal(explanationsFinished, true);
+      throw new Error('/private/path stack secret');
+    },
+  });
+  assert.equal(bundle.status, 'completed');
+  assert.equal(bundle.agentResult[0].json.product_rows_count, 6);
+  assert.equal(bundle.matrixDraft.items.length, 6);
+  assert.ok(bundle.agentResult[0].json.financial_assessment);
+  assert.equal(recorderCalls, 1);
+  assert.deepEqual(bundle.ruleEffectiveness, {
+    status: 'UNAVAILABLE',
+    recorded: 0,
+    duplicates: 0,
+    failed: 1,
+    warnings: ['OWNER_RULE_EFFECTIVENESS_UNAVAILABLE'],
+  });
 });

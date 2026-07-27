@@ -36,17 +36,48 @@ function diagnosticCount(value) {
   return Array.isArray(value) ? value.length : 0;
 }
 
-function collectWarnings(agent) {
+function collectWarnings(agent, applicationWarnings = []) {
   const assessment = agent.financial_assessment || {};
   const values = [
     ...(agent.reportWarnings || []),
     ...(assessment.financial_data_warnings || []),
     ...(assessment.financial_data_errors || []),
+    ...(Array.isArray(applicationWarnings)
+      ? applicationWarnings.map(warning => warning?.code || warning)
+      : []),
   ];
   return Array.from(new Set(values.map(value => safePublicText(
     value,
     'Диагностическое предупреждение скрыто.'
   ))));
+}
+
+function appliedWorkingOrderFinancial(bundle) {
+  const applications = bundle.approvedRuleApplications;
+  const assessment =
+    applications?.appliedWorkingOrderFinancialAssessment;
+  if (
+    !assessment ||
+    typeof assessment !== 'object' ||
+    (applications.applied ?? 0) <= 0
+  ) return null;
+  return {
+    amount_before: roundCurrency(assessment.amountBefore),
+    amount_after: roundCurrency(assessment.amountAfter),
+    sku_before: assessment.skuBefore ?? null,
+    sku_after: assessment.skuAfter ?? null,
+    units_before: assessment.unitsBefore ?? null,
+    units_after: assessment.unitsAfter ?? null,
+    available_after_order:
+      roundCurrency(assessment.availableAfterOrder),
+    reserve_surplus: roundCurrency(assessment.reserveSurplus),
+    maximum_safe_order_amount:
+      roundCurrency(assessment.maximumSafeOrderAmount),
+    financial_status: assessment.financialStatus || null,
+    financially_permitted:
+      assessment.financiallyPermitted ?? null,
+    recalculation_status: assessment.recalculationStatus || null,
+  };
 }
 
 function mapRunSummary(bundle) {
@@ -87,6 +118,8 @@ function mapRunSummary(bundle) {
       recommendation: assessment.recommendation || null,
       advisory_only: assessment.advisory_only === true,
     },
+    applied_working_order_financial:
+      appliedWorkingOrderFinancial(bundle),
     phase1: decisionSummary(agent.phase1DecisionSummary),
     phase2: decisionSummary({
       mustBuyCount: agent.mustBuyCount,
@@ -123,7 +156,7 @@ function mapRunSummary(bundle) {
         diagnostics.reportDateWarnings
       ),
     },
-    warnings: collectWarnings(agent),
+    warnings: collectWarnings(agent, bundle.approvedRuleWarnings),
   };
 }
 

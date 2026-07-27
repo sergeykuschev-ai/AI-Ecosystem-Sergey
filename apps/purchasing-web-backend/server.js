@@ -7,6 +7,7 @@ const {
   DEFAULT_SERVER_PATHS,
   DEFAULT_SHUTDOWN_TIMEOUT_MS,
   DEFAULT_UPLOAD_ROOT,
+  resolveApprovedRuleMode,
   resolveHttpPort,
   resolveRetentionTtlMs,
 } = require('./config');
@@ -14,10 +15,46 @@ const {
   RunQueryService,
 } = require('./application/run_query_service');
 const {
+  OwnerDecisionService,
+} = require('./application/owner_decision_service');
+const {
+  OwnerDecisionAnalyticsService,
+} = require('./application/owner_decision_analytics_service');
+const {
+  OwnerLearningCandidatesService,
+} = require('./application/owner_learning_candidates_service');
+const {
+  OwnerLearningCandidateLifecycleService,
+} = require(
+  './application/owner_learning_candidate_lifecycle_service'
+);
+const {
+  OwnerRuleMaterializationService,
+} = require('./application/owner_rule_materialization_service');
+const {
+  OwnerMaterializedRulesService,
+} = require('./application/owner_materialized_rules_service');
+const {
+  OwnerRuleActivationPreviewService,
+} = require('./application/owner_rule_activation_preview_service');
+const {
+  OwnerRuleStatusService,
+} = require('./application/owner_rule_status_service');
+const {
+  OwnerRuleEffectivenessService,
+} = require('./application/owner_rule_effectiveness_service');
+const {
+  OwnerLearningCenterService,
+} = require('./application/owner_learning_center_service');
+const {
+  OwnerKnowledgeHealthService,
+} = require('./application/owner_knowledge_health_service');
+const {
   FileRunRegistry,
 } = require('./storage/file_run_registry');
 const { createRouter } = require('./http/router');
 const { createRunHandlers } = require('./http/run_handlers');
+const { createStaticHandler } = require('./http/static_handler');
 const {
   cleanupExpiredRuns,
   cleanupStaleUploads,
@@ -69,21 +106,187 @@ function runStartupCleanup(options = {}) {
 }
 
 function createPurchasingWebServer(options = {}) {
+  const serverPaths = options.serverPaths || DEFAULT_SERVER_PATHS;
+  const lifecycleFilePath =
+    options.ownerLearningCandidateLifecycleFilePath ||
+    serverPaths.ownerLearningCandidateLifecycleFilePath ||
+    DEFAULT_SERVER_PATHS.ownerLearningCandidateLifecycleFilePath;
+  const materializationsFilePath =
+    options.ownerLearningRuleMaterializationsFilePath ||
+    serverPaths.ownerLearningRuleMaterializationsFilePath ||
+    DEFAULT_SERVER_PATHS.ownerLearningRuleMaterializationsFilePath;
+  const approvedRulesPath = options.approvedRulesPath ||
+    serverPaths.approvedRulesPath ||
+    DEFAULT_SERVER_PATHS.approvedRulesPath;
+  const statusEventsFilePath =
+    options.ownerLearningRuleStatusEventsFilePath ||
+    serverPaths.ownerLearningRuleStatusEventsFilePath ||
+    DEFAULT_SERVER_PATHS.ownerLearningRuleStatusEventsFilePath;
+  const activationPreviewsFilePath =
+    options.ownerLearningRuleActivationPreviewsFilePath ||
+    serverPaths.ownerLearningRuleActivationPreviewsFilePath ||
+    DEFAULT_SERVER_PATHS.ownerLearningRuleActivationPreviewsFilePath;
+  const effectivenessFilePath =
+    options.ownerLearningRuleEffectivenessFilePath ||
+    serverPaths.ownerLearningRuleEffectivenessFilePath ||
+    DEFAULT_SERVER_PATHS.ownerLearningRuleEffectivenessFilePath;
+  const runsRoot = options.runsRoot || DEFAULT_RUNS_ROOT;
   const registry = options.registry || new FileRunRegistry({
-    runsRoot: options.runsRoot || DEFAULT_RUNS_ROOT,
+    runsRoot,
+    ownerLearningHistoryPath: options.ownerLearningHistoryPath || (
+      options.runsRoot
+        ? undefined
+        : serverPaths.ownerLearningHistoryPath
+    ),
+    approvedRulesPath,
+    logger: options.logger,
   });
+  const ownerDecisionService = options.ownerDecisionService ||
+    new OwnerDecisionService({
+      registry,
+      ownerDecisionsPath: serverPaths.ownerDecisionsPath,
+      ownerDecisionHistoryPath:
+        serverPaths.ownerDecisionHistoryPath,
+      applicationMode: options.approvedRuleMode ??
+        resolveApprovedRuleMode(),
+      logger: options.logger,
+      now: options.now,
+    });
   const queryService = options.queryService ||
-    new RunQueryService(registry);
+    new RunQueryService(registry, { ownerDecisionService });
+  const ownerDecisionAnalyticsService =
+    options.ownerDecisionAnalyticsService ||
+    new OwnerDecisionAnalyticsService({
+      historyFilePath: options.ownerDecisionHistoryFilePath ||
+        serverPaths.ownerDecisionHistoryPath,
+      logger: options.logger,
+      now: options.now,
+    });
+  const ownerLearningCandidatesService =
+    options.ownerLearningCandidatesService ||
+    new OwnerLearningCandidatesService({
+      historyFilePath: options.ownerDecisionHistoryFilePath ||
+        serverPaths.ownerDecisionHistoryPath,
+      lifecycleFilePath,
+      materializationsFilePath,
+      logger: options.logger,
+      now: options.now,
+    });
+  const ownerLearningCandidateLifecycleService =
+    options.ownerLearningCandidateLifecycleService ||
+    new OwnerLearningCandidateLifecycleService({
+      lifecycleFilePath,
+      candidatesService: ownerLearningCandidatesService,
+      logger: options.logger,
+      now: options.now,
+    });
+  const ownerRuleMaterializationService =
+    options.ownerRuleMaterializationService ||
+    new OwnerRuleMaterializationService({
+      candidatesService: ownerLearningCandidatesService,
+      lifecycleService: ownerLearningCandidateLifecycleService,
+      materializationsFilePath,
+      registryPath: approvedRulesPath,
+      logger: options.logger,
+      now: options.now,
+    });
+  const ownerMaterializedRulesService =
+    options.ownerMaterializedRulesService ||
+    new OwnerMaterializedRulesService({
+      approvedRulesFilePath: approvedRulesPath,
+      materializationsFilePath,
+      candidateLifecycleFilePath: lifecycleFilePath,
+      statusEventsFilePath,
+      effectivenessFilePath,
+      candidatesService: ownerLearningCandidatesService,
+      logger: options.logger,
+      now: options.now,
+    });
+  const ownerRuleEffectivenessService =
+    options.ownerRuleEffectivenessService ||
+    new OwnerRuleEffectivenessService({
+      effectivenessFilePath,
+      approvedRulesFilePath: approvedRulesPath,
+      logger: options.logger,
+      now: options.now,
+    });
+  const ownerKnowledgeHealthService =
+    options.ownerKnowledgeHealthService ||
+    new OwnerKnowledgeHealthService({
+      materializedRulesService:
+        typeof ownerMaterializedRulesService
+          .getKnowledgeHealthSnapshot === 'function'
+          ? ownerMaterializedRulesService
+          : {
+            getKnowledgeHealthSnapshot() {
+              return {
+                status: 'UNAVAILABLE',
+                warnings: ['OWNER_KNOWLEDGE_HEALTH_UNAVAILABLE'],
+              };
+            },
+          },
+      logger: options.logger,
+      now: options.now,
+    });
+  const ownerLearningCenterService =
+    options.ownerLearningCenterService ||
+    new OwnerLearningCenterService({
+      decisionAnalyticsService: ownerDecisionAnalyticsService,
+      candidatesService: ownerLearningCandidatesService,
+      candidateLifecycleService:
+        ownerLearningCandidateLifecycleService,
+      materializedRulesService: ownerMaterializedRulesService,
+      ruleEffectivenessService: ownerRuleEffectivenessService,
+      knowledgeHealthService: ownerKnowledgeHealthService,
+      logger: options.logger,
+      now: options.now,
+    });
+  const ownerRuleActivationPreviewService =
+    options.ownerRuleActivationPreviewService ||
+    new OwnerRuleActivationPreviewService({
+      approvedRulesFilePath: approvedRulesPath,
+      previewStorageFilePath: activationPreviewsFilePath,
+      runsRoot,
+      logger: options.logger,
+      now: options.now,
+    });
+  const ownerRuleStatusService =
+    options.ownerRuleStatusService ||
+    new OwnerRuleStatusService({
+      approvedRulesFilePath: approvedRulesPath,
+      statusEventsFilePath,
+      previewStorageFilePath: activationPreviewsFilePath,
+      previewService: ownerRuleActivationPreviewService,
+      logger: options.logger,
+      now: options.now,
+    });
   const handlers = options.handlers || createRunHandlers({
     registry,
     queryService,
     orchestrator: options.orchestrator,
     uploadRoot: options.uploadRoot || DEFAULT_UPLOAD_ROOT,
-    serverPaths: options.serverPaths || DEFAULT_SERVER_PATHS,
+    serverPaths,
     uploadOptions: options.uploadOptions,
     runLock: options.runLock,
+    approvedRuleMode: options.approvedRuleMode ??
+      resolveApprovedRuleMode(),
+    ownerDecisionAnalyticsService,
+    ownerLearningCandidatesService,
+    ownerLearningCandidateLifecycleService,
+    ownerRuleMaterializationService,
+    ownerMaterializedRulesService,
+    ownerRuleEffectivenessService,
+    ownerKnowledgeHealthService,
+    ownerRuleStatusService,
+    ownerLearningCenterService,
   });
-  const router = createRouter(handlers, options.routerOptions);
+  const staticHandler = options.staticHandler || createStaticHandler({
+    publicRoot: options.publicRoot,
+  });
+  const router = createRouter(handlers, {
+    ...options.routerOptions,
+    staticHandler,
+  });
   const server = http.createServer((request, response) => {
     router(request, response);
   });

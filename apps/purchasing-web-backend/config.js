@@ -19,6 +19,7 @@ const DEFAULT_SHUTDOWN_TIMEOUT_MS = 10 * 1000;
 const DEFAULT_RETENTION_TTL_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 100;
+const DEFAULT_APPROVED_RULE_MODE = 'PREVIEW';
 const RUN_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const ARTIFACT_NAMES = Object.freeze([
@@ -31,6 +32,15 @@ const ARTIFACT_NAMES = Object.freeze([
   'manual-review.json',
   'owner-review.json',
   'owner-review-report.md',
+  'owner-learning-report.json',
+  'owner-learning-report.md',
+  'owner-learning-patterns.json',
+  'owner-learning-patterns.md',
+  'owner-rule-proposals.json',
+  'owner-rule-proposals.md',
+  'approved-rule-preview.json',
+  'approved-rule-preview.md',
+  'approved-rule-applications.json',
   'run-metadata.json',
 ]);
 
@@ -51,9 +61,41 @@ const DEFAULT_SERVER_PATHS = Object.freeze({
     REPOSITORY_ROOT,
     'data/purchasing/miska-owner-decisions.json'
   ),
+  ownerDecisionHistoryPath: path.join(
+    REPOSITORY_ROOT,
+    'data/purchasing/owner-decision-history.json'
+  ),
+  ownerLearningCandidateLifecycleFilePath: path.join(
+    REPOSITORY_ROOT,
+    'data/purchasing/owner-learning-candidate-lifecycle.json'
+  ),
+  ownerLearningRuleMaterializationsFilePath: path.join(
+    REPOSITORY_ROOT,
+    'data/purchasing/owner-learning-rule-materializations.json'
+  ),
+  ownerLearningRuleStatusEventsFilePath: path.join(
+    REPOSITORY_ROOT,
+    'data/purchasing/owner-learning-rule-status-events.json'
+  ),
+  ownerLearningRuleActivationPreviewsFilePath: path.join(
+    REPOSITORY_ROOT,
+    'data/purchasing/owner-learning-rule-activation-previews.json'
+  ),
+  ownerLearningRuleEffectivenessFilePath: path.join(
+    REPOSITORY_ROOT,
+    'data/purchasing/owner-learning-rule-effectiveness-events.json'
+  ),
+  approvedRulesPath: path.join(
+    REPOSITORY_ROOT,
+    'data/purchasing/owner-approved-rules.json'
+  ),
   recommendationConfigPath: path.join(
     REPOSITORY_ROOT,
     'data/purchasing/miska-recommendation-explainer-config.json'
+  ),
+  ownerLearningHistoryPath: path.join(
+    REPOSITORY_ROOT,
+    'output/purchasing/owner-learning-history.json'
   ),
 });
 
@@ -83,8 +125,17 @@ function resolveRetentionTtlMs(
   return ttlMs;
 }
 
+function resolveApprovedRuleMode(
+  value = process.env.PURCHASING_APPROVED_RULE_MODE
+) {
+  return value === undefined || value === ''
+    ? DEFAULT_APPROVED_RULE_MODE
+    : value;
+}
+
 module.exports = {
   ARTIFACT_NAMES,
+  DEFAULT_APPROVED_RULE_MODE,
   DEFAULT_HTTP_HOST,
   DEFAULT_HTTP_PORT,
   DEFAULT_PAGE_SIZE,
@@ -101,6 +152,7 @@ module.exports = {
   REPOSITORY_ROOT,
   RUN_ID_PATTERN,
   isValidRunId,
+  resolveApprovedRuleMode,
   resolveHttpPort,
   resolveRetentionTtlMs,
 };

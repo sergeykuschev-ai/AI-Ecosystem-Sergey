@@ -129,7 +129,10 @@ before(async () => {
     artifactStore,
   });
   bundle = await runPurchasingWebOrchestrator(
-    requestFor(COMPLETED_RUN_ID)
+    {
+      ...requestFor(COMPLETED_RUN_ID),
+      approvedRuleMode: 'APPLY_SAFE',
+    }
   );
   [
     COMPLETED_RUN_ID,

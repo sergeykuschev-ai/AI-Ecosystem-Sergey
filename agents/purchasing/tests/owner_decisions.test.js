@@ -174,6 +174,26 @@ test('DEFER remains in Owner Action Required', () => {
   assert.deepEqual(model.sections.owner_action_required, ['row-1']);
 });
 
+test('web order decisions preserve matrix calculations and quantity history', () => {
+  const source = draft();
+  const buy = applyOwnerDecisions(source, store([
+    decision('BUY', { owner_order_quantity: 7 }),
+  ]));
+  const skip = applyOwnerDecisions(source, store([
+    decision('SKIP', { owner_order_quantity: 0 }),
+  ]));
+  for (const result of [buy.draft.items[0], skip.draft.items[0]]) {
+    assert.equal(result.suggested_role, 'OPTIONAL');
+    assert.equal(result.suggested_target_stock, 3);
+    assert.equal(result.owner_decision_applied, true);
+    assert.equal(result.owner_decision_excluded_from_review, true);
+  }
+  assert.equal(buy.draft.items[0].owner_order_decision, 'BUY');
+  assert.equal(buy.draft.items[0].owner_order_quantity, 7);
+  assert.equal(skip.draft.items[0].owner_order_decision, 'SKIP');
+  assert.equal(skip.draft.items[0].owner_order_quantity, 0);
+});
+
 test('APPROVE_EXIT removes confirmed SKU from EXIT Approval', () => {
   const exit = item({
     suggested_role: 'EXIT',

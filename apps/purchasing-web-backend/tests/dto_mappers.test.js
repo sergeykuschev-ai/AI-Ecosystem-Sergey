@@ -69,13 +69,68 @@ test('RunSummaryDTO separates all five monetary amounts', () => {
   });
 });
 
+test('RunSummaryDTO keeps legacy financial amount separate from applied working order', () => {
+  const source = structuredClone(bundle);
+  const legacyAmount =
+    source.agentResult[0].json.financial_assessment
+      .proposed_order_amount;
+  source.approvedRuleApplications = {
+    applied: 1,
+    appliedWorkingOrderFinancialAssessment: {
+      amountBefore: 89742.05,
+      amountAfter: 87280.8,
+      skuBefore: 82,
+      skuAfter: 81,
+      unitsBefore: 476,
+      unitsAfter: 421,
+      availableAfterOrder: 100000,
+      reserveSurplus: 50000,
+      maximumSafeOrderAmount: 137280.8,
+      financialStatus: 'APPROVED',
+      financiallyPermitted: true,
+      recalculationStatus: 'COMPLETE',
+    },
+  };
+
+  const summary = mapRunSummary(source);
+
+  assert.equal(
+    summary.amounts.financially_assessed_sum,
+    legacyAmount
+  );
+  assert.deepEqual(summary.applied_working_order_financial, {
+    amount_before: 89742.05,
+    amount_after: 87280.8,
+    sku_before: 82,
+    sku_after: 81,
+    units_before: 476,
+    units_after: 421,
+    available_after_order: 100000,
+    reserve_surplus: 50000,
+    maximum_safe_order_amount: 137280.8,
+    financial_status: 'APPROVED',
+    financially_permitted: true,
+    recalculation_status: 'COMPLETE',
+  });
+});
+
 test('PurchasingItemDTO preserves unknown numeric values as null', () => {
   const items = mapPurchasingItems(bundle);
   const unknownStock = items.find(item => item.stock.stock_known === false);
   assert.ok(unknownStock);
   assert.equal(unknownStock.stock.free_stock, null);
+  assert.equal(unknownStock.sales.last_28_days, null);
   assert.equal(unknownStock.quantities.approved_quantity, null);
   assert.equal(unknownStock.amounts.approved_line_value, null);
+});
+
+test('PurchasingItemDTO exposes the existing 28-day sales metric', () => {
+  const modifiedBundle = structuredClone(bundle);
+  const source =
+    modifiedBundle.agentResult[0].json.workingOrderProducts[0];
+  source.sales28 = 12;
+  const [item] = mapPurchasingItems(modifiedBundle);
+  assert.equal(item.sales.last_28_days, 12);
 });
 
 test('all SKU are mapped without loss', () => {

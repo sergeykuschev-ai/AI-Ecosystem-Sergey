@@ -42,7 +42,7 @@ for classification limits, policy provenance, and the manual-review workflow.
 
 ## Purchasing Web Backend v1
 
-Start the local HTTP backend for a future owner-facing web interface:
+Start the local owner-facing web interface and its HTTP backend:
 
 ```bash
 npm run purchasing:web
@@ -50,8 +50,12 @@ npm run purchasing:web
 
 The server listens only on `127.0.0.1:3210`, accepts a SmartZapas Excel
 workbook, runs the existing Purchasing Agent orchestration, exposes compact
-browser DTOs, and streams whitelisted run artifacts. It does not send or
-change purchase orders and does not provide a frontend.
+browser DTOs, serves the frontend, and streams whitelisted run artifacts.
+The Owner Learning Center includes read-only decision, candidate, rule
+effectiveness, and Knowledge Health analytics. Candidate lifecycle,
+materialization, and rule activation/deactivation remain separate manual
+flows with explicit owner actions. There are no automatic rule mutations,
+and the server does not send or change purchase orders.
 
 See [the Purchasing Web Backend v1 guide](docs/purchasing-web-backend-v1.md)
 for API contracts, upload limits, artifact security, retention, errors, and

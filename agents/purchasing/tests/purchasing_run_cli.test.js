@@ -106,6 +106,7 @@ test('creates a separate timestamp folder for each distinct run time', async () 
   assert.deepEqual(filesIn(root), [
     '2026-07-19_12-34-56',
     '2026-07-19_12-34-57',
+    'owner-learning-history.json',
   ]);
 });
 
@@ -164,6 +165,152 @@ test('creates deterministic Recommendation Explanation artifacts', async () => {
   assert.ok(report.includes('Manual Review Required'));
 });
 
+test('creates Owner Learning JSON and Markdown artifacts', async () => {
+  const result = await runPurchasingCli(
+    baseArguments('owner-learning'),
+    dependencies()
+  );
+  const learning = readJson(path.join(
+    result.runDirectory,
+    'owner-learning-report.json'
+  ));
+  const report = fs.readFileSync(path.join(
+    result.runDirectory,
+    'owner-learning-report.md'
+  ), 'utf8');
+
+  assert.equal(learning.reportVersion, 'owner-learning-v0.1');
+  assert.equal(learning.totalItems, 6);
+  assert.equal(
+    learning.automaticItems + learning.reviewRequiredItems,
+    learning.totalItems
+  );
+  assert.match(report, /^# Отчёт обучения закупщика/m);
+  assert.match(report, /## Решения владельца/);
+  assert.match(report, /## Сравнение с агентом/);
+});
+
+test('persists Owner Learning history and current-run pattern artifacts', async () => {
+  const root = outputDirectory('owner-learning-history');
+  const result = await runPurchasingCli([
+    '--input', XLSX_FIXTURE_PATH,
+    '--financial-data', FINANCIAL_DATA_PATH,
+    '--output-dir', root,
+  ], dependencies());
+  const history = readJson(path.join(
+    root,
+    'owner-learning-history.json'
+  ));
+  const patterns = readJson(path.join(
+    result.runDirectory,
+    'owner-learning-patterns.json'
+  ));
+  const report = fs.readFileSync(path.join(
+    result.runDirectory,
+    'owner-learning-patterns.md'
+  ), 'utf8');
+  const proposals = readJson(path.join(
+    result.runDirectory,
+    'owner-rule-proposals.json'
+  ));
+  const proposalsReport = fs.readFileSync(path.join(
+    result.runDirectory,
+    'owner-rule-proposals.md'
+  ), 'utf8');
+  const preview = readJson(path.join(
+    result.runDirectory,
+    'approved-rule-preview.json'
+  ));
+  const previewReport = fs.readFileSync(path.join(
+    result.runDirectory,
+    'approved-rule-preview.md'
+  ), 'utf8');
+
+  assert.equal(history.schemaVersion, 'owner-learning-history-v0.2');
+  assert.equal(history.runs.length, 1);
+  assert.equal(history.runs[0].runId, result.metadata.run_id);
+  assert.equal(patterns.reportVersion, 'owner-learning-patterns-v0.2');
+  assert.equal(patterns.historyRunsCount, 1);
+  assert.match(report, /^# Повторяющиеся решения владельца/m);
+  assert.equal(proposals.reportVersion, 'owner-rule-proposals-v0.3');
+  assert.equal(proposals.proposalsCount, 0);
+  assert.deepEqual(proposals.proposals, []);
+  assert.match(proposalsReport, /^# Предложения правил владельца/m);
+  assert.match(proposalsReport, /Ни одно предложение не применяется/);
+  assert.equal(preview.reportVersion, 'approved-rule-preview-v0.5');
+  assert.equal(preview.activeRulesCount, 0);
+  assert.deepEqual(preview.matches, []);
+  assert.match(
+    previewReport,
+    /^# Предварительный просмотр утверждённых правил/m
+  );
+  assert.match(previewReport, /Это только предварительный просмотр/);
+});
+
+test('history failure is logged without failing the purchasing run', async () => {
+  const root = outputDirectory('damaged-owner-learning-history');
+  fs.mkdirSync(root, { recursive: true });
+  fs.writeFileSync(
+    path.join(root, 'owner-learning-history.json'),
+    '{ damaged',
+    'utf8'
+  );
+  const messages = [];
+  const result = await runPurchasingCli([
+    '--input', XLSX_FIXTURE_PATH,
+    '--financial-data', FINANCIAL_DATA_PATH,
+    '--output-dir', root,
+  ], dependencies({ output: message => messages.push(message) }));
+
+  assert.equal(result.status, 'success_with_warnings');
+  assert.equal(result.ownerLearningHistoryError, 'HISTORY_INVALID');
+  assert.equal(result.ownerLearningPatterns.status, 'unavailable');
+  assert.ok(messages.some(message =>
+    message.includes('Owner Learning History: HISTORY_INVALID')
+  ));
+  assert.equal(
+    fs.readFileSync(
+      path.join(root, 'owner-learning-history.json'),
+      'utf8'
+    ),
+    '{ damaged'
+  );
+});
+
+test('damaged approved rules do not fail or overwrite the purchasing run', async () => {
+  const root = outputDirectory('damaged-approved-rules');
+  fs.mkdirSync(root, { recursive: true });
+  const approvedRulesPath = path.join(root, 'owner-approved-rules.json');
+  fs.writeFileSync(approvedRulesPath, '{ damaged', 'utf8');
+  const messages = [];
+  const result = await runPurchasingCli([
+    '--input', XLSX_FIXTURE_PATH,
+    '--financial-data', FINANCIAL_DATA_PATH,
+    '--output-dir', root,
+  ], dependencies({
+    approvedRulesPath,
+    output: message => messages.push(message),
+  }));
+
+  assert.equal(result.status, 'success_with_warnings');
+  assert.equal(
+    result.approvedRulePreviewError,
+    'RULE_REGISTRY_CORRUPTED'
+  );
+  assert.equal(result.approvedRulePreview.status, 'unavailable');
+  assert.equal(fs.readFileSync(approvedRulesPath, 'utf8'), '{ damaged');
+  assert.equal(
+    readJson(path.join(
+      result.runDirectory,
+      'approved-rule-preview.json'
+    )).status,
+    'unavailable'
+  );
+  assert.ok(messages.some(message =>
+    message.includes('Approved Rule Preview: RULE_REGISTRY_CORRUPTED')
+  ));
+});
+
 test('creates run-metadata.json for every normal run', async () => {
   const result = await runPurchasingCli(
     baseArguments('metadata-file'),
@@ -208,6 +355,14 @@ test('--format json creates JSON result, explanations, and metadata', async () =
   );
 
   assert.deepEqual(filesIn(result.runDirectory), [
+    'approved-rule-preview.json',
+    'approved-rule-preview.md',
+    'owner-learning-patterns.json',
+    'owner-learning-patterns.md',
+    'owner-learning-report.json',
+    'owner-learning-report.md',
+    'owner-rule-proposals.json',
+    'owner-rule-proposals.md',
     'recommendation-explanations.json',
     'result.json',
     'run-metadata.json',
@@ -215,6 +370,14 @@ test('--format json creates JSON result, explanations, and metadata', async () =
   assert.deepEqual(result.metadata.generated_files, [
     'result.json',
     'recommendation-explanations.json',
+    'owner-learning-report.json',
+    'owner-learning-report.md',
+    'owner-learning-patterns.json',
+    'owner-learning-patterns.md',
+    'owner-rule-proposals.json',
+    'owner-rule-proposals.md',
+    'approved-rule-preview.json',
+    'approved-rule-preview.md',
     'run-metadata.json',
   ]);
 });
@@ -226,6 +389,14 @@ test('--format text creates text report, explanations, and metadata', async () =
   );
 
   assert.deepEqual(filesIn(result.runDirectory), [
+    'approved-rule-preview.json',
+    'approved-rule-preview.md',
+    'owner-learning-patterns.json',
+    'owner-learning-patterns.md',
+    'owner-learning-report.json',
+    'owner-learning-report.md',
+    'owner-rule-proposals.json',
+    'owner-rule-proposals.md',
     'recommendation-explanations-report.md',
     'report.txt',
     'run-metadata.json',
@@ -233,8 +404,58 @@ test('--format text creates text report, explanations, and metadata', async () =
   assert.deepEqual(result.metadata.generated_files, [
     'report.txt',
     'recommendation-explanations-report.md',
+    'owner-learning-report.json',
+    'owner-learning-report.md',
+    'owner-learning-patterns.json',
+    'owner-learning-patterns.md',
+    'owner-rule-proposals.json',
+    'owner-rule-proposals.md',
+    'approved-rule-preview.json',
+    'approved-rule-preview.md',
     'run-metadata.json',
   ]);
+});
+
+test('OFF skips Approved Rule artifacts and preserves the agent result', async () => {
+  const preview = await runPurchasingCli(
+    baseArguments('mode-preview'),
+    dependencies({ approvedRuleMode: 'PREVIEW' })
+  );
+  const off = await runPurchasingCli(
+    baseArguments('mode-off'),
+    dependencies({ approvedRuleMode: 'OFF' })
+  );
+
+  assert.deepEqual(off.agentResult, preview.agentResult);
+  assert.equal(off.approvedRulePreview, null);
+  assert.equal(
+    fs.existsSync(path.join(
+      off.runDirectory,
+      'approved-rule-preview.json'
+    )),
+    false
+  );
+  assert.equal(off.metadata.approved_rule_preview.mode, 'OFF');
+});
+
+test('APPLY_SAFE publishes its separate application artifact', async () => {
+  const result = await runPurchasingCli(
+    baseArguments('mode-apply-safe'),
+    dependencies({ approvedRuleMode: 'APPLY_SAFE' })
+  );
+  const applications = readJson(path.join(
+    result.runDirectory,
+    'approved-rule-applications.json'
+  ));
+
+  assert.equal(applications.mode, 'APPLY_SAFE');
+  assert.equal(applications.status, 'APPLIED');
+  assert.equal(applications.activeRules, 0);
+  assert.deepEqual(applications.applications, []);
+  assert.equal(
+    result.metadata.approved_rule_application.json_file,
+    'approved-rule-applications.json'
+  );
 });
 
 test('--dry-run creates no output directory or files', async () => {
@@ -440,6 +661,14 @@ test('metadata records status, normalized paths, warnings, and generated files',
     'recommendation-explanations.json',
     'report.txt',
     'recommendation-explanations-report.md',
+    'owner-learning-report.json',
+    'owner-learning-report.md',
+    'owner-learning-patterns.json',
+    'owner-learning-patterns.md',
+    'owner-rule-proposals.json',
+    'owner-rule-proposals.md',
+    'approved-rule-preview.json',
+    'approved-rule-preview.md',
     'run-metadata.json',
   ]);
   assert.ok(Array.isArray(metadata.warnings));

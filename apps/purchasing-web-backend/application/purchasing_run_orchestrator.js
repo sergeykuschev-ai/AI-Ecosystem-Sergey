@@ -21,6 +21,39 @@ const {
   '../../../agents/purchasing/explanations/recommendation_explainer'
 );
 const {
+  buildOwnerLearningInput,
+  buildOwnerLearningMarkdown,
+  buildOwnerLearningReport,
+} = require(
+  '../../../agents/purchasing/owner_learning/owner_learning_report'
+);
+const {
+  buildHistoryRunEntry,
+} = require(
+  '../../../agents/purchasing/owner_learning/owner_learning_history'
+);
+const {
+  DEFAULT_REGISTRY_PATH: DEFAULT_APPROVED_RULES_PATH,
+  loadApprovedRules,
+} = require(
+  '../../../agents/purchasing/owner_learning/owner_rule_registry'
+);
+const {
+  processApprovedRules,
+} = require(
+  '../../../agents/purchasing/owner_learning/approved_rule_application'
+);
+const {
+  recordRuleEffectivenessForRun,
+} = require(
+  '../../../agents/purchasing/owner_learning/owner_rule_effectiveness_recorder'
+);
+const {
+  DEFAULT_RULE_EFFECTIVENESS_PATH,
+} = require(
+  '../../../agents/purchasing/owner_learning/owner_rule_effectiveness'
+);
+const {
   PurchasingWebApplicationError,
 } = require('./application_error');
 
@@ -33,6 +66,11 @@ const DEFAULT_DEPENDENCIES = Object.freeze({
   buildOwnerReviewReport,
   buildExplanations: buildRecommendationExplanations,
   buildExplanationsReport: buildRecommendationExplanationsReport,
+  buildOwnerLearning: buildOwnerLearningReport,
+  buildOwnerLearningMarkdown,
+  loadApprovedRules,
+  processApprovedRules,
+  recordRuleEffectiveness: recordRuleEffectivenessForRun,
 });
 
 function assertNonEmptyString(value, field) {
@@ -79,6 +117,18 @@ function validateRequest(request) {
     throw new PurchasingWebApplicationError(
       'INVALID_RUN_REQUEST',
       'Поле recommendationConfigPath должно быть непустой строкой.'
+    );
+  }
+  if (
+    request.ownerLearningRuleEffectivenessFilePath !== undefined &&
+    (
+      typeof request.ownerLearningRuleEffectivenessFilePath !== 'string' ||
+      request.ownerLearningRuleEffectivenessFilePath.trim() === ''
+    )
+  ) {
+    throw new PurchasingWebApplicationError(
+      'INVALID_RUN_REQUEST',
+      'Путь effectiveness journal должен быть непустой строкой.'
     );
   }
 }
@@ -272,6 +322,20 @@ async function runPurchasingWebOrchestrator(
     );
   }
 
+  let approvedRulesRegistry = null;
+  const approvedRuleProcessing = dependencies.processApprovedRules({
+    agentResult,
+    approvedRuleMode: request.approvedRuleMode,
+    approvedRulesPath: request.approvedRulesPath ||
+      DEFAULT_APPROVED_RULES_PATH,
+    loadApprovedRules: dependencies.loadApprovedRules,
+    generatedAt: request.generatedAt,
+    onApprovedRulesLoaded(value) {
+      approvedRulesRegistry = value;
+    },
+  }, dependencyOverrides.approvedRuleApplicationDependencies || {});
+  agentResult = approvedRuleProcessing.agentResult;
+
   let matrixResult;
   try {
     matrixResult = await dependencies.buildMatrix(request.inputPath, {
@@ -289,8 +353,15 @@ async function runPurchasingWebOrchestrator(
 
   let ownerApplication;
   let ownerReview;
+  let ownerLearningReview;
   let ownerReviewReport;
   try {
+    ownerLearningReview = dependencies.buildOwnerReview(
+      matrixResult.draft,
+      matrixResult.manualReview,
+      matrixResult.config,
+      null
+    );
     const ownerDecisions = dependencies.loadOwnerDecisions(
       request.ownerDecisionsPath,
       { allowMissing: true }
@@ -319,6 +390,36 @@ async function runPurchasingWebOrchestrator(
     );
   }
 
+  let ownerLearning;
+  let ownerLearningHistoryEntry;
+  let ownerLearningReport;
+  try {
+    const ownerLearningInput = buildOwnerLearningInput(
+      agentJsonFromResult(agentResult),
+      ownerLearningReview,
+      ownerApplication.draft
+    );
+    ownerLearning = dependencies.buildOwnerLearning({
+      ...ownerLearningInput,
+      generatedAt: request.generatedAt,
+    });
+    ownerLearningHistoryEntry = buildHistoryRunEntry({
+      runId: request.runId,
+      generatedAt: request.generatedAt,
+      report: ownerLearning,
+      learningInput: ownerLearningInput,
+    });
+    ownerLearningReport = dependencies.buildOwnerLearningMarkdown(
+      ownerLearning
+    );
+  } catch (error) {
+    throw stageError(
+      'OWNER_LEARNING_FAILED',
+      'Не удалось сформировать Owner Learning Report.',
+      error
+    );
+  }
+
   let explanations;
   let explanationsReport;
   try {
@@ -343,6 +444,60 @@ async function runPurchasingWebOrchestrator(
     explanations,
   });
 
+  let ruleEffectiveness = {
+    status: 'SKIPPED',
+    recorded: 0,
+    duplicates: 0,
+    failed: 0,
+    warnings: [],
+  };
+  try {
+    ruleEffectiveness = dependencies.recordRuleEffectiveness({
+      effectivenessFilePath:
+        request.ownerLearningRuleEffectivenessFilePath ||
+        DEFAULT_RULE_EFFECTIVENESS_PATH,
+      runContext: {
+        runId: request.runId,
+        recordedAt: request.generatedAt,
+        supplier:
+          agentJsonFromResult(agentResult).supplier || null,
+        applicationMode: approvedRuleProcessing.mode,
+      },
+      registry: approvedRulesRegistry || { rules: [] },
+      applicationResult:
+        approvedRuleProcessing.approvedRuleApplications,
+      financialContext: {
+        workingOrderProducts:
+          agentJsonFromResult(agentResult).workingOrderProducts || [],
+        financialStatusBefore:
+          approvedRuleProcessing.approvedRuleApplications
+            ?.financialStatusBefore ?? null,
+        financialStatusAfter:
+          approvedRuleProcessing.approvedRuleApplications
+            ?.financialStatusAfter ?? null,
+        financiallyPermitted:
+          approvedRuleProcessing.approvedRuleApplications
+            ?.appliedWorkingOrderFinancialAssessment
+            ?.financiallyPermitted ?? null,
+      },
+      logger: dependencyOverrides.logger || console,
+    });
+  } catch {
+    try {
+      (dependencyOverrides.logger || console).warn(
+        '[OWNER_RULE_EFFECTIVENESS_UNAVAILABLE] ' +
+        'Аналитика эффективности недоступна; run продолжен.'
+      );
+    } catch {}
+    ruleEffectiveness = {
+      status: 'UNAVAILABLE',
+      recorded: 0,
+      duplicates: 0,
+      failed: 1,
+      warnings: ['OWNER_RULE_EFFECTIVENESS_UNAVAILABLE'],
+    };
+  }
+
   return {
     run_id: request.runId,
     generated_at: request.generatedAt,
@@ -352,10 +507,23 @@ async function runPurchasingWebOrchestrator(
     manualReview: matrixResult.manualReview,
     ownerReview,
     ownerReviewReport,
+    ownerLearning,
+    ownerLearningHistoryEntry,
+    ownerLearningReport,
     explanations,
     explanationsReport,
     matrixReportText: matrixResult.reportText,
     ownerDecisionSummary: ownerApplication.summary,
+    approvedRuleMode: approvedRuleProcessing.mode,
+    approvedRuleWarnings: approvedRuleProcessing.warnings,
+    approvedRulePreview: approvedRuleProcessing.approvedRulePreview,
+    approvedRulePreviewReport:
+      approvedRuleProcessing.approvedRulePreviewReport,
+    approvedRulePreviewError:
+      approvedRuleProcessing.approvedRulePreviewError,
+    approvedRuleApplications:
+      approvedRuleProcessing.approvedRuleApplications,
+    ruleEffectiveness,
   };
 }
 

@@ -82,7 +82,7 @@ test('status, summary, and artifact manifest are queryable', () => {
   assert.equal(service.getRunStatus(RUN_ID).status, 'completed');
   assert.equal(service.getRunSummary(RUN_ID).sku_count, 6);
   const artifacts = service.listArtifacts(RUN_ID);
-  assert.equal(artifacts.length, 10);
+  assert.equal(artifacts.length, 18);
   assert.ok(artifacts.every(item =>
     item.download_url.startsWith(`/api/v1/runs/${RUN_ID}/artifacts/`)
   ));
@@ -132,6 +132,38 @@ test('all supported filters use compact DTO fields', () => {
     (item.quantities.approved_quantity ?? 0) > 0 ||
     (item.quantities.provisional_quantity ?? 0) > 0
   ));
+});
+
+test('item search includes supplier and extended sorts are stable', () => {
+  const all = service.listItems(RUN_ID, { page_size: 100 });
+  const supplierItem = all.items.find(item => item.supplier);
+  assert.ok(supplierItem);
+  const supplierSearch = service.listItems(RUN_ID, {
+    q: supplierItem.supplier,
+    page_size: 100,
+  });
+  assert.ok(supplierSearch.items.some(
+    item => item.row_id === supplierItem.row_id
+  ));
+
+  for (const sort of [
+    'recommended_quantity',
+    'recommended_line_value',
+    'free_stock',
+    'sales_28_days',
+  ]) {
+    const first = service.listItems(RUN_ID, {
+      sort,
+      order: 'desc',
+      page_size: 100,
+    }).items;
+    const second = service.listItems(RUN_ID, {
+      sort,
+      order: 'desc',
+      page_size: 100,
+    }).items;
+    assert.deepEqual(first, second, sort);
+  }
 });
 
 test('default sorting is source_row asc and then row_id asc', () => {

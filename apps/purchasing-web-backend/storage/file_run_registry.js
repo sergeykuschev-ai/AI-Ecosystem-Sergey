@@ -5,6 +5,37 @@ const {
   DEFAULT_RUNS_ROOT,
   isValidRunId,
 } = require('../config');
+const {
+  buildOwnerLearningPatterns,
+  buildOwnerLearningPatternsMarkdown,
+  unavailablePatterns,
+  unavailablePatternsMarkdown,
+  updateOwnerLearningHistory,
+} = require(
+  '../../../agents/purchasing/owner_learning/owner_learning_history'
+);
+const {
+  buildOwnerRuleProposals,
+  buildOwnerRuleProposalsMarkdown,
+  unavailableOwnerRuleProposals,
+  unavailableOwnerRuleProposalsMarkdown,
+} = require(
+  '../../../agents/purchasing/owner_learning/owner_rule_proposals'
+);
+const {
+  DEFAULT_REGISTRY_PATH: DEFAULT_APPROVED_RULES_PATH,
+  loadApprovedRules,
+} = require(
+  '../../../agents/purchasing/owner_learning/owner_rule_registry'
+);
+const {
+  buildApprovedRulePreview,
+  buildApprovedRulePreviewMarkdown,
+  unavailableApprovedRulePreview,
+  unavailableApprovedRulePreviewMarkdown,
+} = require(
+  '../../../agents/purchasing/owner_learning/approved_rule_preview'
+);
 const { mapOwnerReview } = require('../dto/owner_review_mapper');
 const {
   mapPurchasingItems,
@@ -58,6 +89,16 @@ class FileRunRegistry {
   constructor(options = {}) {
     this.runsRoot = path.resolve(options.runsRoot || DEFAULT_RUNS_ROOT);
     this.fs = options.fsModule || fs;
+    this.ownerLearningHistoryPath = path.resolve(
+      options.ownerLearningHistoryPath ||
+      path.join(this.runsRoot, 'owner-learning-history.json')
+    );
+    this.approvedRulesPath = path.resolve(
+      options.approvedRulesPath || DEFAULT_APPROVED_RULES_PATH
+    );
+    this.approvedRulesLoader = options.approvedRulesLoader ||
+      loadApprovedRules;
+    this.logger = options.logger || console;
     this.artifactStore = options.artifactStore || new FileArtifactStore({
       runsRoot: this.runsRoot,
       fsModule: this.fs,
@@ -124,7 +165,117 @@ class FileRunRegistry {
       const summary = mapRunSummary(bundle);
       const items = mapPurchasingItems(bundle);
       const ownerReview = mapOwnerReview(bundle);
-      const manifest = this.artifactStore.saveBundleArtifacts(bundle);
+      let bundleWithPatterns;
+      try {
+        const historyResult = updateOwnerLearningHistory(
+          this.ownerLearningHistoryPath,
+          bundle.ownerLearningHistoryEntry,
+          { fsModule: this.fs }
+        );
+        const patterns = buildOwnerLearningPatterns(
+          historyResult.history,
+          bundle.generated_at
+        );
+        bundleWithPatterns = {
+          ...bundle,
+          ownerLearningPatterns: patterns,
+          ownerLearningPatternsReport:
+            buildOwnerLearningPatternsMarkdown(patterns),
+        };
+      } catch (historyError) {
+        const historyErrorCode = historyError.code || 'HISTORY_UNAVAILABLE';
+        try {
+          this.logger.error(
+            `Owner Learning History: ${historyErrorCode}.`
+          );
+        } catch {}
+        bundleWithPatterns = {
+          ...bundle,
+          ownerLearningPatterns: unavailablePatterns(
+            bundle.generated_at,
+            historyErrorCode
+          ),
+          ownerLearningPatternsReport: unavailablePatternsMarkdown(),
+        };
+      }
+      let bundleWithProposals;
+      try {
+        const proposals = buildOwnerRuleProposals(
+          bundleWithPatterns.ownerLearningPatterns,
+          { generatedAt: bundle.generated_at }
+        );
+        bundleWithProposals = {
+          ...bundleWithPatterns,
+          ownerRuleProposals: proposals,
+          ownerRuleProposalsReport:
+            buildOwnerRuleProposalsMarkdown(proposals),
+        };
+      } catch (proposalError) {
+        const proposalErrorCode = proposalError.code ||
+          'PROPOSALS_UNAVAILABLE';
+        try {
+          this.logger.error(
+            `Owner Rule Proposals: ${proposalErrorCode}.`
+          );
+        } catch {}
+        bundleWithProposals = {
+          ...bundleWithPatterns,
+          ownerRuleProposals: unavailableOwnerRuleProposals(
+            bundle.generated_at,
+            bundleWithPatterns.ownerLearningPatterns?.reportVersion,
+            proposalErrorCode
+          ),
+          ownerRuleProposalsReport:
+            unavailableOwnerRuleProposalsMarkdown(),
+        };
+      }
+      let bundleWithPreview;
+      if (Object.hasOwn(bundle, 'approvedRulePreview')) {
+        bundleWithPreview = {
+          ...bundleWithProposals,
+          approvedRulePreview: bundle.approvedRulePreview,
+          approvedRulePreviewReport: bundle.approvedRulePreviewReport,
+        };
+      } else {
+        try {
+          const approvedRules = this.approvedRulesLoader({
+            registryPath: this.approvedRulesPath,
+            fsModule: this.fs,
+            logger: { error() {} },
+          });
+          const preview = buildApprovedRulePreview({
+            agentResult: bundle.agentResult,
+            approvedRules,
+            generatedAt: bundle.generated_at,
+          });
+          bundleWithPreview = {
+            ...bundleWithProposals,
+            approvedRulePreview: preview,
+            approvedRulePreviewReport:
+              buildApprovedRulePreviewMarkdown(preview),
+          };
+        } catch (previewError) {
+          const previewErrorCode = previewError.code ||
+            'APPROVED_RULE_PREVIEW_UNAVAILABLE';
+          try {
+            this.logger.error(
+              `Approved Rule Preview: ${previewErrorCode}.`
+            );
+          } catch {}
+          bundleWithPreview = {
+            ...bundleWithProposals,
+            approvedRulePreview: unavailableApprovedRulePreview(
+              bundle.generated_at,
+              previewErrorCode
+            ),
+            approvedRulePreviewReport:
+              unavailableApprovedRulePreviewMarkdown(),
+          };
+        }
+      }
+      const manifest = this.artifactStore.saveBundleArtifacts(
+        bundleWithPreview
+      );
 
       this.writeJson(bundle.run_id, 'summary.json', summary);
       this.writeJson(bundle.run_id, 'items.json', items);

@@ -17,10 +17,57 @@ const {
   loadOwnerDecisions,
 } = require('../agents/purchasing/matrix_builder/owner_decisions');
 const {
+  buildOwnerReviewModel,
+} = require(
+  '../agents/purchasing/matrix_builder/owner_review_dashboard'
+);
+const {
   DEFAULT_RECOMMENDATION_EXPLAINER_CONFIG_PATH,
   buildRecommendationExplanations,
   buildRecommendationExplanationsReport,
 } = require('../agents/purchasing/explanations/recommendation_explainer');
+const {
+  buildOwnerLearningInput,
+  buildOwnerLearningMarkdown,
+  buildOwnerLearningReport,
+} = require(
+  '../agents/purchasing/owner_learning/owner_learning_report'
+);
+const {
+  buildHistoryRunEntry,
+  buildOwnerLearningPatterns,
+  buildOwnerLearningPatternsMarkdown,
+  readHistory,
+  unavailablePatterns,
+  unavailablePatternsMarkdown,
+  updateOwnerLearningHistory,
+} = require(
+  '../agents/purchasing/owner_learning/owner_learning_history'
+);
+const {
+  buildOwnerRuleProposals,
+  buildOwnerRuleProposalsMarkdown,
+  unavailableOwnerRuleProposals,
+  unavailableOwnerRuleProposalsMarkdown,
+} = require(
+  '../agents/purchasing/owner_learning/owner_rule_proposals'
+);
+const {
+  DEFAULT_REGISTRY_PATH: DEFAULT_APPROVED_RULES_PATH,
+  loadApprovedRules,
+} = require(
+  '../agents/purchasing/owner_learning/owner_rule_registry'
+);
+const {
+  buildApprovedRulePreview,
+} = require(
+  '../agents/purchasing/owner_learning/approved_rule_preview'
+);
+const {
+  processApprovedRules,
+} = require(
+  '../agents/purchasing/owner_learning/approved_rule_application'
+);
 
 const REPOSITORY_ROOT = path.resolve(__dirname, '..');
 const DEFAULT_FINANCIAL_DATA_PATH = path.join(
@@ -38,6 +85,10 @@ const DEFAULT_OUTPUT_DIRECTORY = path.join(
 const DEFAULT_OWNER_DECISIONS_PATH = path.join(
   REPOSITORY_ROOT,
   'data/purchasing/miska-owner-decisions.json'
+);
+const DEFAULT_OWNER_LEARNING_HISTORY_PATH = path.join(
+  DEFAULT_OUTPUT_DIRECTORY,
+  'owner-learning-history.json'
 );
 const ALLOWED_FORMATS = Object.freeze(['all', 'json', 'text']);
 const ALLOWED_EXCEL_EXTENSIONS = Object.freeze(['.xlsx', '.xls']);
@@ -233,13 +284,22 @@ function randomSuffix() {
   return crypto.randomBytes(3).toString('hex');
 }
 
-function generatedFileNames(format) {
+function generatedFileNames(format, approvedRuleMode = 'PREVIEW') {
   const names = [];
   if (format === 'all' || format === 'json') {
     names.push('result.json', 'recommendation-explanations.json');
   }
   if (format === 'all' || format === 'text') {
     names.push('report.txt', 'recommendation-explanations-report.md');
+  }
+  names.push('owner-learning-report.json', 'owner-learning-report.md');
+  names.push('owner-learning-patterns.json', 'owner-learning-patterns.md');
+  names.push('owner-rule-proposals.json', 'owner-rule-proposals.md');
+  if (approvedRuleMode !== 'OFF') {
+    names.push('approved-rule-preview.json', 'approved-rule-preview.md');
+  }
+  if (approvedRuleMode === 'APPLY_SAFE') {
+    names.push('approved-rule-applications.json');
   }
   names.push('run-metadata.json');
   return names;
@@ -607,12 +667,26 @@ async function defaultExplanationContextBuilder(
   const ownerDecisions = loadOwnerDecisions(DEFAULT_OWNER_DECISIONS_PATH, {
     allowMissing: true,
   });
+  const ownerLearningReview = buildOwnerReviewModel(
+    matrixResult.draft,
+    matrixResult.manualReview,
+    matrixResult.config,
+    null
+  );
   const ownerApplication = applyOwnerDecisions(
     matrixResult.draft,
     ownerDecisions.store
   );
+  const ownerReview = buildOwnerReviewModel(
+    ownerApplication.draft,
+    matrixResult.manualReview,
+    matrixResult.config,
+    ownerApplication.summary
+  );
   return {
     matrixDraft: ownerApplication.draft,
+    ownerReview,
+    ownerLearningReview,
     ownerDecisionSummary: ownerApplication.summary,
     matrixBuilderVersion: matrixResult.draft.builder_version,
     ownerDecisionsPath: ownerDecisions.sourcePath,
@@ -666,9 +740,36 @@ async function runPurchasingCli(argv, dependencies = {}) {
     );
   }
 
-  const agentJson = agentResult[0].json;
+  const approvedRuleProcessor = dependencies.approvedRuleProcessor ||
+    processApprovedRules;
+  const approvedRuleProcessing = approvedRuleProcessor({
+    agentResult,
+    approvedRuleMode: dependencies.approvedRuleMode ??
+      process.env.PURCHASING_APPROVED_RULE_MODE,
+    approvedRulesPath: dependencies.approvedRulesPath ||
+      DEFAULT_APPROVED_RULES_PATH,
+    approvedRulesLoadOptions: dependencies.approvedRulesLoadOptions,
+    loadApprovedRules: dependencies.approvedRulesLoader ||
+      loadApprovedRules,
+    generatedAt: startedTimestamp,
+  }, {
+    buildPreview: dependencies.approvedRulePreviewBuilder ||
+      buildApprovedRulePreview,
+    ...(dependencies.approvedRuleApplicationDependencies || {}),
+  });
+  agentResult = approvedRuleProcessing.agentResult;
+  let agentJson = agentResult[0].json;
+  approvedRuleProcessing.warnings.forEach(warning => {
+    const label = warning.code ===
+      approvedRuleProcessing.approvedRulePreviewError
+      ? 'Approved Rule Preview'
+      : 'Approved Rules';
+    output(`Предупреждение ${label}: ${warning.code}.`);
+  });
   let explanationContext = {
     matrixDraft: null,
+    ownerReview: null,
+    ownerLearningReview: null,
     ownerDecisionSummary: null,
     matrixBuilderVersion: null,
     ownerDecisionsPath: DEFAULT_OWNER_DECISIONS_PATH,
@@ -692,9 +793,109 @@ async function runPurchasingCli(argv, dependencies = {}) {
     matrixDraft: explanationContext.matrixDraft,
   });
   const explanationsReport = buildRecommendationExplanationsReport(explanations);
+  const ownerLearningInput = buildOwnerLearningInput(
+    agentJson,
+    explanationContext.ownerLearningReview,
+    explanationContext.matrixDraft
+  );
+  const ownerLearning = buildOwnerLearningReport({
+    ...ownerLearningInput,
+    generatedAt: startedTimestamp,
+  });
+  const ownerLearningReport = buildOwnerLearningMarkdown(ownerLearning);
+  const ownerLearningHistoryPath = dependencies.ownerLearningHistoryPath ||
+    path.join(args.outputDirectory, 'owner-learning-history.json');
+  const ownerLearningHistoryEntry = buildHistoryRunEntry({
+    runId,
+    generatedAt: startedTimestamp,
+    report: ownerLearning,
+    learningInput: ownerLearningInput,
+  });
+  let ownerLearningHistory;
+  let ownerLearningHistoryAdded = false;
+  let ownerLearningHistoryError = null;
+  let ownerLearningPatterns;
+  let ownerLearningPatternsReport;
+  try {
+    const historyResult = args.dryRun
+      ? { history: readHistory(
+        ownerLearningHistoryPath,
+        dependencies.ownerLearningHistoryOptions
+      ), added: false }
+      : updateOwnerLearningHistory(
+        ownerLearningHistoryPath,
+        ownerLearningHistoryEntry,
+        dependencies.ownerLearningHistoryOptions
+      );
+    ownerLearningHistory = historyResult.history;
+    ownerLearningHistoryAdded = historyResult.added;
+    ownerLearningPatterns = buildOwnerLearningPatterns(
+      ownerLearningHistory,
+      startedTimestamp
+    );
+    ownerLearningPatternsReport = buildOwnerLearningPatternsMarkdown(
+      ownerLearningPatterns
+    );
+  } catch (error) {
+    ownerLearningHistoryError = error.code || 'HISTORY_UNAVAILABLE';
+    output(
+      `Предупреждение Owner Learning History: ${ownerLearningHistoryError}.`
+    );
+    ownerLearningPatterns = unavailablePatterns(
+      startedTimestamp,
+      ownerLearningHistoryError
+    );
+    ownerLearningPatternsReport = unavailablePatternsMarkdown();
+  }
+  const historyWarnings = ownerLearningHistoryError
+    ? [`Owner Learning History: ${ownerLearningHistoryError}`]
+    : [];
+  let ownerRuleProposals;
+  let ownerRuleProposalsReport;
+  let ownerRuleProposalsError = null;
+  try {
+    ownerRuleProposals = buildOwnerRuleProposals(ownerLearningPatterns, {
+      generatedAt: startedTimestamp,
+    });
+    ownerRuleProposalsReport = buildOwnerRuleProposalsMarkdown(
+      ownerRuleProposals
+    );
+  } catch (error) {
+    ownerRuleProposalsError = error.code || 'PROPOSALS_UNAVAILABLE';
+    output(
+      `Предупреждение Owner Rule Proposals: ${
+        ownerRuleProposalsError
+      }.`
+    );
+    ownerRuleProposals = unavailableOwnerRuleProposals(
+      startedTimestamp,
+      ownerLearningPatterns?.reportVersion,
+      ownerRuleProposalsError
+    );
+    ownerRuleProposalsReport =
+      unavailableOwnerRuleProposalsMarkdown();
+  }
+  const proposalWarnings = ownerRuleProposalsError
+    ? [`Owner Rule Proposals: ${ownerRuleProposalsError}`]
+    : [];
+  const approvedRulePreview =
+    approvedRuleProcessing.approvedRulePreview;
+  const approvedRulePreviewReport =
+    approvedRuleProcessing.approvedRulePreviewReport;
+  const approvedRulePreviewError =
+    approvedRuleProcessing.approvedRulePreviewError;
+  const approvedRuleApplications =
+    approvedRuleProcessing.approvedRuleApplications;
+  const approvedRulePreviewWarnings =
+    approvedRuleProcessing.warnings.map(
+      warning => `Approved Rules: ${warning.code}`
+    );
   const warnings = Array.from(new Set([
     ...collectRunWarnings(agentJson),
     ...explanationWarnings,
+    ...historyWarnings,
+    ...proposalWarnings,
+    ...approvedRulePreviewWarnings,
   ]));
   const status = warnings.length > 0 ? 'success_with_warnings' : 'success';
   const reportText = buildOwnerReport({
@@ -705,7 +906,10 @@ async function runPurchasingCli(argv, dependencies = {}) {
     warnings,
   });
   const completedDate = new Date(dependencies.completedDate || new Date());
-  const generatedFiles = generatedFileNames(args.format);
+  const generatedFiles = generatedFileNames(
+    args.format,
+    approvedRuleProcessing.mode
+  );
   const metadata = {
     run_id: runId,
     started_at: startedTimestamp,
@@ -755,6 +959,55 @@ async function runPurchasingCli(argv, dependencies = {}) {
       owner_decisions_missing: explanationContext.ownerDecisionsMissing,
       owner_decisions_summary: explanationContext.ownerDecisionSummary,
     },
+    owner_learning: {
+      report_version: ownerLearning.reportVersion,
+      json_file: 'owner-learning-report.json',
+      markdown_file: 'owner-learning-report.md',
+      history_file: path.normalize(ownerLearningHistoryPath),
+      history_run_added: ownerLearningHistoryAdded,
+      history_error: ownerLearningHistoryError,
+      patterns_version: ownerLearningPatterns.reportVersion,
+      patterns_json_file: 'owner-learning-patterns.json',
+      patterns_markdown_file: 'owner-learning-patterns.md',
+    },
+    owner_rule_proposals: {
+      report_version: ownerRuleProposals.reportVersion,
+      source_patterns_version: ownerRuleProposals.sourcePatternsVersion,
+      proposals_count: ownerRuleProposals.proposalsCount,
+      skipped_invalid_candidates:
+        ownerRuleProposals.skippedInvalidCandidates,
+      error: ownerRuleProposalsError,
+      json_file: 'owner-rule-proposals.json',
+      markdown_file: 'owner-rule-proposals.md',
+    },
+    approved_rule_preview: {
+      mode: approvedRuleProcessing.mode,
+      requested_mode: approvedRuleProcessing.requestedMode,
+      report_version: approvedRulePreview?.reportVersion || null,
+      approved_rules_schema_version:
+        approvedRulePreview?.approvedRulesSchemaVersion || null,
+      active_rules_count: approvedRulePreview?.activeRulesCount ?? null,
+      matched_rules_count: approvedRulePreview?.matchedRulesCount ?? null,
+      conflicting_rules_count:
+        approvedRulePreview?.conflictingRulesCount ?? null,
+      would_change_decision_count:
+        approvedRulePreview?.wouldChangeDecisionCount ?? null,
+      error: approvedRulePreviewError,
+      json_file: approvedRuleProcessing.mode === 'OFF'
+        ? null
+        : 'approved-rule-preview.json',
+      markdown_file: approvedRuleProcessing.mode === 'OFF'
+        ? null
+        : 'approved-rule-preview.md',
+    },
+    approved_rule_application: {
+      mode: approvedRuleProcessing.mode,
+      status: approvedRuleApplications?.status || 'NOT_RUN',
+      error: approvedRuleApplications?.errorCode || null,
+      json_file: approvedRuleProcessing.mode === 'APPLY_SAFE'
+        ? 'approved-rule-applications.json'
+        : null,
+    },
   };
 
   if (!args.dryRun) {
@@ -771,6 +1024,46 @@ async function runPurchasingCli(argv, dependencies = {}) {
       files.push({
         name: 'recommendation-explanations-report.md',
         content: explanationsReport,
+      });
+    }
+    files.push({
+      name: 'owner-learning-report.json',
+      content: serializeJson(ownerLearning),
+    });
+    files.push({
+      name: 'owner-learning-report.md',
+      content: ownerLearningReport,
+    });
+    files.push({
+      name: 'owner-learning-patterns.json',
+      content: serializeJson(ownerLearningPatterns),
+    });
+    files.push({
+      name: 'owner-learning-patterns.md',
+      content: ownerLearningPatternsReport,
+    });
+    files.push({
+      name: 'owner-rule-proposals.json',
+      content: serializeJson(ownerRuleProposals),
+    });
+    files.push({
+      name: 'owner-rule-proposals.md',
+      content: ownerRuleProposalsReport,
+    });
+    if (approvedRuleProcessing.mode !== 'OFF') {
+      files.push({
+        name: 'approved-rule-preview.json',
+        content: serializeJson(approvedRulePreview),
+      });
+      files.push({
+        name: 'approved-rule-preview.md',
+        content: approvedRulePreviewReport,
+      });
+    }
+    if (approvedRuleApplications) {
+      files.push({
+        name: 'approved-rule-applications.json',
+        content: serializeJson(approvedRuleApplications),
       });
     }
     files.push({
@@ -800,6 +1093,22 @@ async function runPurchasingCli(argv, dependencies = {}) {
     reportText,
     explanations,
     explanationsReport,
+    ownerLearning,
+    ownerLearningReport,
+    ownerLearningHistory,
+    ownerLearningHistoryEntry,
+    ownerLearningHistoryAdded,
+    ownerLearningHistoryError,
+    ownerLearningPatterns,
+    ownerLearningPatternsReport,
+    ownerRuleProposals,
+    ownerRuleProposalsReport,
+    ownerRuleProposalsError,
+    approvedRulePreview,
+    approvedRulePreviewReport,
+    approvedRulePreviewError,
+    approvedRuleApplications,
+    approvedRuleProcessing,
     explanationContext,
     agentResult,
   };
@@ -819,6 +1128,8 @@ module.exports = {
   DEFAULT_ASSORTMENT_MATRIX_PATH,
   DEFAULT_OUTPUT_DIRECTORY,
   DEFAULT_OWNER_DECISIONS_PATH,
+  DEFAULT_OWNER_LEARNING_HISTORY_PATH,
+  DEFAULT_APPROVED_RULES_PATH,
   ALLOWED_FORMATS,
   ALLOWED_EXCEL_EXTENSIONS,
   PurchasingRunError,

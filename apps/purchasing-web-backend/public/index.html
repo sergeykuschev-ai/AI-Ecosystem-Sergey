@@ -1,0 +1,1989 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta
+      name="description"
+      content="Локальный интерфейс запуска AI-агента закупщика магазина «Миска»"
+    >
+    <title>AI-агент закупщик «Миска»</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <main class="page-shell">
+      <header class="hero">
+        <p class="eyebrow">Purchasing Agent</p>
+        <h1>AI-агент закупщик «Миска»</h1>
+        <p class="hero-copy">
+          Загрузите актуальный отчёт SmartZapas и получите проверенный расчёт
+          закупки с финансовой оценкой.
+        </p>
+        <nav class="primary-navigation" aria-label="Основная навигация">
+          <a href="#owner-learning-center">Центр обучения закупщика</a>
+        </nav>
+      </header>
+
+      <section class="workspace" aria-label="Запуск расчёта закупки">
+        <article class="card upload-card">
+          <div class="section-heading">
+            <div>
+              <p class="step-label">Шаг 1</p>
+              <h2>Загрузите отчёт</h2>
+            </div>
+            <span class="format-badge">XLSX · XLS</span>
+          </div>
+
+          <form id="run-form" novalidate>
+            <label class="file-picker" for="file-input">
+              <span class="file-picker-icon" aria-hidden="true">↑</span>
+              <span>
+                <strong>Выбрать Excel-файл</strong>
+                <small>До 20 МБ, формат .xlsx или .xls</small>
+              </span>
+            </label>
+            <input
+              id="file-input"
+              name="file"
+              type="file"
+              accept=".xlsx,.xls"
+              aria-describedby="file-help file-error"
+            >
+
+            <div class="selected-file" id="selected-file" hidden>
+              <span class="file-status-dot" aria-hidden="true"></span>
+              <span id="selected-file-name"></span>
+            </div>
+            <p class="field-help" id="file-help">
+              Исходный файл используется только для текущего локального
+              расчёта.
+            </p>
+            <p class="inline-error" id="file-error" role="alert" hidden></p>
+
+            <button class="primary-button" id="run-button" type="submit" disabled>
+              Запустить расчёт
+            </button>
+          </form>
+        </article>
+
+        <article class="card status-card" aria-labelledby="status-title">
+          <div class="section-heading">
+            <div>
+              <p class="step-label">Шаг 2</p>
+              <h2 id="status-title">Статус расчёта</h2>
+            </div>
+            <span class="status-pill" id="status-pill">Ожидание</span>
+          </div>
+
+          <ol class="status-list" id="status-list">
+            <li data-state="selected">
+              <span class="status-marker" aria-hidden="true"></span>
+              <span>Файл выбран</span>
+            </li>
+            <li data-state="uploading">
+              <span class="status-marker" aria-hidden="true"></span>
+              <span>Загрузка</span>
+            </li>
+            <li data-state="processing">
+              <span class="status-marker" aria-hidden="true"></span>
+              <span>Расчёт выполняется</span>
+            </li>
+            <li data-state="completed">
+              <span class="status-marker" aria-hidden="true"></span>
+              <span>Готово</span>
+            </li>
+            <li data-state="failed">
+              <span class="status-marker" aria-hidden="true"></span>
+              <span>Ошибка</span>
+            </li>
+          </ol>
+          <p class="status-message" id="status-message" aria-live="polite">
+            Выберите Excel-файл, чтобы начать.
+          </p>
+        </article>
+      </section>
+
+      <section
+        class="owner-learning-center card"
+        id="owner-learning-center"
+        aria-labelledby="owner-learning-center-title"
+      >
+        <div class="section-heading">
+          <div>
+            <p class="step-label">Owner Learning Center</p>
+            <h2 id="owner-learning-center-title">
+              Центр обучения закупщика
+            </h2>
+          </div>
+          <span class="format-badge">Ручное управление</span>
+        </div>
+        <p class="owner-learning-subtitle">
+          История решений, кандидаты, правила и их фактическое влияние
+          собраны в одном месте.
+        </p>
+        <p class="owner-learning-safety">
+          Все изменения правил выполняются только вручную.
+          Центр не создаёт, не активирует и не отключает правила автоматически.
+        </p>
+
+        <nav
+          class="owner-learning-tabs"
+          aria-label="Разделы Центра обучения закупщика"
+          role="tablist"
+        >
+          <button
+            class="owner-learning-tab"
+            type="button"
+            role="tab"
+            aria-selected="true"
+            data-owner-learning-target="OVERVIEW"
+          >
+            Обзор
+          </button>
+          <button
+            class="owner-learning-tab"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            data-owner-learning-target="DECISION_HISTORY"
+          >
+            История решений
+          </button>
+          <button
+            class="owner-learning-tab"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            data-owner-learning-target="CANDIDATES"
+          >
+            Кандидаты
+          </button>
+          <button
+            class="owner-learning-tab"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            data-owner-learning-target="MATERIALIZED_RULES"
+          >
+            Правила
+          </button>
+          <button
+            class="owner-learning-tab"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            data-owner-learning-target="RULE_EFFECTIVENESS"
+          >
+            Эффективность
+          </button>
+          <button
+            class="owner-learning-tab"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            data-owner-learning-target="KNOWLEDGE_HEALTH"
+          >
+            Здоровье базы знаний
+          </button>
+        </nav>
+
+        <div
+          class="owner-learning-overview"
+          id="owner-learning-overview"
+          role="tabpanel"
+          data-owner-learning-panel="OVERVIEW"
+        >
+          <div
+            class="owner-learning-state"
+            id="owner-learning-loading"
+            role="status"
+          >
+            <span class="loading-dot" aria-hidden="true"></span>
+            Загружаем Центр обучения…
+          </div>
+          <div
+            class="owner-learning-state owner-learning-warning"
+            id="owner-learning-partial"
+            hidden
+          >
+            Часть данных временно недоступна. Доступные разделы продолжают
+            работать.
+          </div>
+          <div
+            class="owner-learning-state owner-learning-warning"
+            id="owner-learning-unavailable"
+            hidden
+          >
+            Центр обучения временно недоступен. Работа закупщика не затронута.
+          </div>
+          <div
+            class="owner-learning-state owner-learning-warning"
+            id="owner-learning-invalid"
+            role="alert"
+            hidden
+          >
+            Проверьте параметры Центра обучения и повторите запрос.
+          </div>
+          <div
+            class="owner-learning-state owner-learning-warning"
+            id="owner-learning-network"
+            role="alert"
+            hidden
+          >
+            Не удалось загрузить Центр обучения. Проверьте соединение и
+            повторите попытку.
+          </div>
+
+          <div id="owner-learning-content" hidden>
+            <div
+              class="owner-learning-summary"
+              aria-label="Сводка Центра обучения закупщика"
+            >
+              <article>
+                <span>Всего решений</span>
+                <strong id="owner-learning-decisions">—</strong>
+              </article>
+              <article>
+                <span>Кандидатов</span>
+                <strong id="owner-learning-candidates">—</strong>
+              </article>
+              <article>
+                <span>Одобренных кандидатов</span>
+                <strong id="owner-learning-approved">—</strong>
+              </article>
+              <article>
+                <span>Всего правил</span>
+                <strong id="owner-learning-rules">—</strong>
+              </article>
+              <article>
+                <span>Активных правил</span>
+                <strong id="owner-learning-active-rules">—</strong>
+              </article>
+              <article>
+                <span>Неактивных правил</span>
+                <strong id="owner-learning-disabled-rules">—</strong>
+              </article>
+              <article>
+                <span>Эффективных правил</span>
+                <strong id="owner-learning-effective-rules">—</strong>
+              </article>
+              <article>
+                <span>Требуют проверки</span>
+                <strong id="owner-learning-attention-total">—</strong>
+              </article>
+              <article>
+                <span>Оценка базы знаний</span>
+                <strong id="owner-learning-knowledge-score">—</strong>
+              </article>
+              <article>
+                <span>Класс качества</span>
+                <strong id="owner-learning-knowledge-grade">—</strong>
+              </article>
+              <article>
+                <span>Конфликтов</span>
+                <strong id="owner-learning-knowledge-conflicts">—</strong>
+              </article>
+              <article>
+                <span>Дубликатов</span>
+                <strong id="owner-learning-knowledge-duplicates">—</strong>
+              </article>
+              <article>
+                <span>Устаревших правил</span>
+                <strong id="owner-learning-knowledge-stale">—</strong>
+              </article>
+              <article>
+                <span>Требуют проверки</span>
+                <strong id="owner-learning-knowledge-attention">—</strong>
+              </article>
+              <article>
+                <span>Общая историческая разница суммы заказа</span>
+                <strong id="owner-learning-amount-delta">—</strong>
+                <small>
+                  Это изменение рассчитанных заказов, а не прибыль или
+                  экономия.
+                </small>
+              </article>
+            </div>
+
+            <div class="owner-learning-grid">
+              <article class="owner-learning-panel">
+                <div class="owner-learning-panel-heading">
+                  <h3>Требуют внимания</h3>
+                  <span id="owner-learning-attention-badge">0</span>
+                </div>
+                <p
+                  class="owner-learning-empty"
+                  id="owner-learning-attention-empty"
+                  hidden
+                >
+                  Сейчас нет элементов, требующих ручной проверки.
+                </p>
+                <div
+                  class="owner-learning-list"
+                  id="owner-learning-attention-list"
+                ></div>
+              </article>
+
+              <article class="owner-learning-panel">
+                <h3>Последние изменения</h3>
+                <p
+                  class="owner-learning-empty"
+                  id="owner-learning-activity-empty"
+                  hidden
+                >
+                  Изменений пока нет.
+                </p>
+                <div
+                  class="owner-learning-list"
+                  id="owner-learning-activity-list"
+                ></div>
+              </article>
+            </div>
+
+            <article class="owner-learning-panel owner-learning-health">
+              <div class="owner-learning-panel-heading">
+                <h3>Состояние базы знаний</h3>
+                <strong id="owner-learning-health-status">—</strong>
+              </div>
+              <dl id="owner-learning-health-components"></dl>
+              <ul id="owner-learning-health-warnings"></ul>
+              <div class="owner-learning-health-dates">
+                <p>
+                  Последнее изменение базы знаний
+                  <strong id="owner-learning-last-knowledge">—</strong>
+                </p>
+                <p>
+                  Последнее изменение статуса правила
+                  <strong id="owner-learning-last-status">—</strong>
+                </p>
+                <p>
+                  Последнее фактическое срабатывание
+                  <strong id="owner-learning-last-effect">—</strong>
+                </p>
+              </div>
+            </article>
+
+            <div
+              class="owner-learning-sections"
+              id="owner-learning-sections"
+              aria-label="Разделы базы знаний"
+            ></div>
+          </div>
+        </div>
+      </section>
+
+      <section
+        class="decision-history card"
+        id="decision-history"
+        aria-labelledby="decision-history-title"
+        data-owner-learning-panel="DECISION_HISTORY"
+        hidden
+      >
+        <div class="section-heading">
+          <div>
+            <p class="step-label">Owner Learning</p>
+            <h2 id="decision-history-title">История решений</h2>
+          </div>
+          <span class="format-badge">Решение владельца</span>
+        </div>
+
+        <form
+          class="history-filters"
+          id="history-filters"
+          aria-label="Фильтры истории решений"
+        >
+          <label>
+            Поставщик
+            <input id="history-supplier" name="supplier" type="search">
+          </label>
+          <label>
+            Бренд
+            <input id="history-brand" name="brand" type="search">
+          </label>
+          <label>
+            Решение владельца
+            <select id="history-decision" name="ownerDecision">
+              <option value="">Все решения</option>
+              <option value="BUY">Купить</option>
+              <option value="SKIP">Пропустить</option>
+              <option value="DEFER">Отложить</option>
+              <option value="REVIEW">Проверить</option>
+            </select>
+          </label>
+          <label>
+            Причина
+            <select id="history-reason" name="reasonCode">
+              <option value="">Все причины</option>
+              <option value="TOO_MUCH_STOCK">Слишком большой остаток</option>
+              <option value="LOW_SALES">Низкие продажи</option>
+              <option value="STRATEGIC_ITEM">Стратегический товар</option>
+              <option value="REQUIRED_ASSORTMENT">Обязательный ассортимент</option>
+              <option value="SEASONAL">Сезонность</option>
+              <option value="SUPPLIER_CONSTRAINT">Ограничение поставщика</option>
+              <option value="PRICE_TOO_HIGH">Высокая цена</option>
+              <option value="OWNER_EXPERIENCE">Опыт владельца</option>
+              <option value="OTHER">Другое</option>
+              <option value="NOT_SPECIFIED">Причина не указана</option>
+            </select>
+          </label>
+          <label>
+            С даты
+            <input id="history-date-from" name="dateFrom" type="date">
+          </label>
+          <label>
+            По дату
+            <input id="history-date-to" name="dateTo" type="date">
+          </label>
+          <button class="secondary-button" type="submit">Показать</button>
+        </form>
+
+        <div class="history-state" id="history-loading" role="status">
+          <span class="loading-dot" aria-hidden="true"></span>
+          Загружаем историю решений…
+        </div>
+        <div class="history-state" id="history-empty" hidden>
+          Подтверждённых решений пока нет. Аналитика появится после работы
+          с Owner Review.
+        </div>
+        <div class="history-state" id="history-no-results" hidden>
+          По выбранным фильтрам решений не найдено.
+        </div>
+        <div class="history-state history-warning" id="history-unavailable" hidden>
+          История решений временно недоступна. Работа закупщика не затронута.
+        </div>
+        <div
+          class="history-state history-warning"
+          id="history-invalid"
+          role="alert"
+          hidden
+        >
+          Проверьте выбранные фильтры и повторите запрос.
+        </div>
+
+        <div id="history-content" hidden>
+          <div class="history-summary" aria-label="Сводка истории решений">
+            <article><span>Всего решений</span><strong id="history-total">—</strong></article>
+            <article><span>Уникальных товаров</span><strong id="history-items">—</strong></article>
+            <article><span>Брендов</span><strong id="history-brands">—</strong></article>
+            <article><span>Поставщиков</span><strong id="history-suppliers">—</strong></article>
+            <article><span>Совпадения</span><strong id="history-agreements">—</strong></article>
+            <article><span>Расхождения</span><strong id="history-disagreements">—</strong></article>
+            <article><span>Доля совпадений</span><strong id="history-agreement-rate">—</strong></article>
+          </div>
+
+          <div class="history-grid">
+            <article class="history-panel">
+              <h3>Распределение решений</h3>
+              <dl id="history-decision-distribution"></dl>
+            </article>
+            <article class="history-panel">
+              <h3>Основные причины</h3>
+              <div class="history-table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th scope="col">Причина</th>
+                      <th>Количество</th>
+                      <th>Доля</th>
+                    </tr>
+                  </thead>
+                  <tbody id="history-reasons"></tbody>
+                </table>
+              </div>
+            </article>
+          </div>
+
+          <article class="history-panel">
+            <h3>Повторяющиеся паттерны</h3>
+            <div class="history-table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Тип</th>
+                    <th>Объект</th>
+                    <th>Повторений</th>
+                    <th>Основное значение</th>
+                    <th>Доля</th>
+                    <th>Период</th>
+                  </tr>
+                </thead>
+                <tbody id="history-patterns"></tbody>
+              </table>
+            </div>
+          </article>
+
+          <article class="history-panel">
+            <h3>Товары</h3>
+            <div class="history-table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Товар</th>
+                    <th>SKU</th>
+                    <th scope="col">Бренд</th>
+                    <th>Поставщик</th>
+                    <th>Решений</th>
+                    <th>Основное решение</th>
+                    <th>Совпадений</th>
+                    <th>Расхождений</th>
+                    <th>Доля совпадений</th>
+                    <th>Среднее количество владельца</th>
+                    <th>Средняя разница количества</th>
+                    <th>Последнее решение</th>
+                  </tr>
+                </thead>
+                <tbody id="history-item-analytics"></tbody>
+              </table>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section
+        class="learning-candidates card"
+        id="learning-candidates"
+        aria-labelledby="learning-candidates-title"
+        data-owner-learning-panel="CANDIDATES"
+        hidden
+      >
+        <div class="section-heading">
+          <div>
+            <p class="step-label">Owner Learning</p>
+            <h2 id="learning-candidates-title">Кандидаты для обучения</h2>
+          </div>
+          <span class="format-badge">Только чтение</span>
+        </div>
+
+        <p class="candidate-safety" id="candidate-safety">
+          Кандидаты сформированы по истории решений и предназначены только
+          для ручной проверки. Никакие правила автоматически не создаются
+          и не применяются.
+        </p>
+
+        <form
+          class="candidate-filters"
+          id="candidate-filters"
+          aria-label="Фильтры кандидатов для обучения"
+        >
+          <label>
+            Поставщик
+            <input id="candidate-supplier" name="supplier" type="search">
+          </label>
+          <label>
+            Бренд
+            <input id="candidate-brand" name="brand" type="search">
+          </label>
+          <label>
+            Решение
+            <select id="candidate-decision" name="ownerDecision">
+              <option value="">Все решения</option>
+              <option value="BUY">Купить</option>
+              <option value="SKIP">Пропустить</option>
+              <option value="DEFER">Отложить</option>
+              <option value="REVIEW">Проверить</option>
+            </select>
+          </label>
+          <label>
+            Причина
+            <select id="candidate-reason" name="reasonCode">
+              <option value="">Все причины</option>
+              <option value="TOO_MUCH_STOCK">Слишком большой остаток</option>
+              <option value="LOW_SALES">Низкие продажи</option>
+              <option value="STRATEGIC_ITEM">Стратегический товар</option>
+              <option value="REQUIRED_ASSORTMENT">Обязательный ассортимент</option>
+              <option value="SEASONAL">Сезонность</option>
+              <option value="SUPPLIER_CONSTRAINT">Ограничение поставщика</option>
+              <option value="PRICE_TOO_HIGH">Высокая цена</option>
+              <option value="OWNER_EXPERIENCE">Опыт владельца</option>
+              <option value="OTHER">Другое</option>
+              <option value="NOT_SPECIFIED">Причина не указана</option>
+            </select>
+          </label>
+          <label>
+            С даты
+            <input id="candidate-date-from" name="dateFrom" type="date">
+          </label>
+          <label>
+            По дату
+            <input id="candidate-date-to" name="dateTo" type="date">
+          </label>
+          <label>
+            Статус кандидата
+            <select id="candidate-eligibility" name="eligibility">
+              <option value="">Все статусы</option>
+              <option value="ELIGIBLE">Можно рассмотреть</option>
+              <option value="REVIEW_ONLY">Только ручной анализ</option>
+              <option value="INELIGIBLE">Недостаточно безопасно</option>
+            </select>
+          </label>
+          <label>
+            Уровень confidence
+            <select id="candidate-confidence" name="confidence">
+              <option value="">Все уровни</option>
+              <option value="LOW">Низкая</option>
+              <option value="MEDIUM">Средняя</option>
+              <option value="HIGH">Высокая</option>
+              <option value="VERY_HIGH">Очень высокая</option>
+            </select>
+          </label>
+          <label>
+            Уровень приоритета
+            <select id="candidate-priority" name="priority">
+              <option value="">Все уровни</option>
+              <option value="LOW">Низкий</option>
+              <option value="MEDIUM">Средний</option>
+              <option value="HIGH">Высокий</option>
+              <option value="CRITICAL">Критический для проверки</option>
+            </select>
+          </label>
+          <div class="candidate-filter-actions">
+            <button class="secondary-button" type="submit">Обновить</button>
+            <button
+              class="secondary-button"
+              id="candidate-reset"
+              type="button"
+            >
+              Сбросить фильтры
+            </button>
+          </div>
+        </form>
+
+        <div class="candidate-state" id="candidate-loading" role="status">
+          <span class="loading-dot" aria-hidden="true"></span>
+          Загружаем кандидатов…
+        </div>
+        <div class="candidate-state" id="candidate-empty" hidden>
+          История решений пока пуста. Кандидаты появятся после накопления
+          подтверждённых решений.
+        </div>
+        <div class="candidate-state" id="candidate-no-patterns" hidden>
+          Устойчивые паттерны пока не найдены.
+        </div>
+        <div class="candidate-state" id="candidate-no-results" hidden>
+          По выбранным фильтрам кандидаты не найдены.
+        </div>
+        <div
+          class="candidate-state candidate-warning"
+          id="candidate-unavailable"
+          hidden
+        >
+          Кандидаты временно недоступны. Работа закупщика не затронута.
+        </div>
+        <div
+          class="candidate-state candidate-warning"
+          id="candidate-invalid"
+          role="alert"
+          hidden
+        >
+          Проверьте выбранные фильтры и повторите запрос.
+        </div>
+
+        <div id="candidate-content" hidden>
+          <div
+            class="candidate-summary"
+            aria-label="Сводка кандидатов для обучения"
+          >
+            <article>
+              <span>Всего кандидатов</span>
+              <strong id="candidate-total">—</strong>
+            </article>
+            <article>
+              <span>Можно рассмотреть</span>
+              <strong id="candidate-eligible">—</strong>
+            </article>
+            <article>
+              <span>Только наблюдение</span>
+              <strong id="candidate-review-only">—</strong>
+            </article>
+            <article>
+              <span>Нельзя использовать</span>
+              <strong id="candidate-ineligible">—</strong>
+            </article>
+            <article>
+              <span>Высокий приоритет</span>
+              <strong id="candidate-high-priority">—</strong>
+            </article>
+            <article>
+              <span>Критический приоритет</span>
+              <strong id="candidate-critical-priority">—</strong>
+            </article>
+          </div>
+          <div
+            class="candidate-list"
+            id="candidate-list"
+            aria-live="polite"
+          ></div>
+          <p
+            class="candidate-action-status"
+            id="candidate-action-status"
+            aria-live="polite"
+          ></p>
+        </div>
+      </section>
+
+      <section
+        class="materialized-rules card"
+        id="materialized-rules"
+        aria-labelledby="materialized-rules-title"
+        data-owner-learning-panel="MATERIALIZED_RULES"
+        hidden
+      >
+        <div class="section-heading">
+          <div>
+            <p class="step-label">Owner Learning</p>
+            <h2 id="materialized-rules-title">Материализованные правила</h2>
+          </div>
+          <span class="format-badge">Только чтение</span>
+        </div>
+
+          <p class="materialized-rules-safety">
+            Статус одного правила меняется только после отдельной проверки
+            последствий и явного подтверждения владельца. Текущий сохранённый
+            заказ автоматически не изменяется.
+          </p>
+
+        <form
+          class="materialized-rules-filters"
+          id="materialized-rules-filters"
+          aria-label="Фильтры материализованных правил"
+        >
+          <label>
+            Статус
+            <select id="materialized-rules-status" name="status">
+              <option value="">Все статусы</option>
+              <option value="ACTIVE">Активно</option>
+              <option value="DISABLED">Неактивно</option>
+            </select>
+          </label>
+          <label>
+            Решение
+            <select id="materialized-rules-decision" name="decision">
+              <option value="">Все решения</option>
+              <option value="BUY">Купить</option>
+              <option value="SKIP">Пропустить</option>
+              <option value="DEFER">Отложить</option>
+            </select>
+          </label>
+          <label>
+            Confidence
+            <select
+              id="materialized-rules-confidence"
+              name="confidenceLevel"
+            >
+              <option value="">Все уровни</option>
+              <option value="LOW">Низкая</option>
+              <option value="MEDIUM">Средняя</option>
+              <option value="HIGH">Высокая</option>
+              <option value="VERY_HIGH">Очень высокая</option>
+            </select>
+          </label>
+          <label>
+            Priority
+            <select
+              id="materialized-rules-priority"
+              name="priorityLevel"
+            >
+              <option value="">Все уровни</option>
+              <option value="LOW">Низкий</option>
+              <option value="MEDIUM">Средний</option>
+              <option value="HIGH">Высокий</option>
+              <option value="CRITICAL">Критический</option>
+            </select>
+          </label>
+          <label>
+            Lifecycle кандидата
+            <select
+              id="materialized-rules-lifecycle"
+              name="lifecycleStatus"
+            >
+              <option value="">Все статусы</option>
+              <option value="NEW">Новый</option>
+              <option value="UNDER_REVIEW">На проверке</option>
+              <option value="APPROVED">Одобрен</option>
+              <option value="REJECTED">Отклонён</option>
+              <option value="POSTPONED">Отложен</option>
+            </select>
+          </label>
+          <label>
+            Текущий кандидат
+            <select
+              id="materialized-rules-availability"
+              name="candidateAvailability"
+            >
+              <option value="">Любая доступность</option>
+              <option value="AVAILABLE">Доступен</option>
+              <option value="UNAVAILABLE">Недоступен</option>
+            </select>
+          </label>
+          <label>
+            С даты
+            <input
+              id="materialized-rules-date-from"
+              name="dateFrom"
+              type="date"
+            >
+          </label>
+          <label>
+            По дату
+            <input
+              id="materialized-rules-date-to"
+              name="dateTo"
+              type="date"
+            >
+          </label>
+          <label class="materialized-rules-search">
+            Поиск
+            <input
+              id="materialized-rules-search"
+              name="search"
+              type="search"
+              maxlength="512"
+              placeholder="Товар или SKU"
+            >
+          </label>
+          <div class="materialized-rules-filter-actions">
+            <button class="secondary-button" type="submit">Обновить</button>
+            <button
+              class="secondary-button"
+              id="materialized-rules-reset"
+              type="button"
+            >
+              Сбросить фильтры
+            </button>
+          </div>
+        </form>
+
+        <div
+          class="materialized-rules-state"
+          id="materialized-rules-loading"
+          role="status"
+        >
+          <span class="loading-dot" aria-hidden="true"></span>
+          Загружаем материализованные правила…
+        </div>
+        <div
+          class="materialized-rules-state"
+          id="materialized-rules-empty"
+          hidden
+        >
+          Материализованных правил пока нет.
+        </div>
+        <div
+          class="materialized-rules-state"
+          id="materialized-rules-no-results"
+          hidden
+        >
+          По выбранным фильтрам правила не найдены.
+        </div>
+        <div
+          class="materialized-rules-state materialized-rules-warning"
+          id="materialized-rules-unavailable"
+          hidden
+        >
+          Реестр правил временно недоступен. Работа закупщика не затронута.
+        </div>
+        <div
+          class="materialized-rules-state materialized-rules-warning"
+          id="materialized-rules-invalid"
+          role="alert"
+          hidden
+        >
+          Проверьте выбранные фильтры и повторите запрос.
+        </div>
+        <div
+          class="materialized-rules-state materialized-rules-warning"
+          id="materialized-rules-network"
+          role="alert"
+          hidden
+        >
+          Не удалось загрузить правила. Проверьте соединение и повторите
+          запрос.
+        </div>
+
+        <div id="materialized-rules-content" hidden>
+          <p
+            class="materialized-rules-context-warning"
+            id="materialized-rules-context-warning"
+            hidden
+          ></p>
+          <div
+            class="materialized-rules-summary"
+            aria-label="Сводка материализованных правил"
+          >
+            <article>
+              <span>Всего правил</span>
+              <strong id="materialized-rules-total">—</strong>
+            </article>
+            <article>
+              <span>Активных</span>
+              <strong id="materialized-rules-active">—</strong>
+            </article>
+            <article>
+              <span>Неактивных</span>
+              <strong id="materialized-rules-disabled">—</strong>
+            </article>
+            <article>
+              <span>BUY</span>
+              <strong id="materialized-rules-buy">—</strong>
+            </article>
+            <article>
+              <span>SKIP</span>
+              <strong id="materialized-rules-skip">—</strong>
+            </article>
+            <article>
+              <span>DEFER</span>
+              <strong id="materialized-rules-defer">—</strong>
+            </article>
+          </div>
+          <div
+            class="materialized-rules-list"
+            id="materialized-rules-list"
+            aria-live="polite"
+          ></div>
+        </div>
+      </section>
+
+      <section
+        class="rule-effectiveness card"
+        id="rule-effectiveness"
+        aria-labelledby="rule-effectiveness-title"
+        data-owner-learning-panel="RULE_EFFECTIVENESS"
+        hidden
+      >
+        <div class="section-heading">
+          <div>
+            <p class="step-label">Owner Learning · read-only</p>
+            <h2 id="rule-effectiveness-title">Эффективность правил</h2>
+          </div>
+          <span class="format-badge">Исторические факты</span>
+        </div>
+
+        <p class="rule-effectiveness-safety">
+          Эффективность показывает историческое влияние правил на рассчитанные
+          заказы. Эти данные не являются оценкой прибыли и не отключают правила
+          автоматически.
+        </p>
+        <p class="rule-effectiveness-delta-note">
+          Общая разница суммы заказа — исторический накопленный delta.
+        </p>
+
+        <form
+          class="rule-effectiveness-filters"
+          id="rule-effectiveness-filters"
+          aria-label="Фильтры эффективности правил"
+        >
+          <label>
+            Статус
+            <select id="rule-effectiveness-status" name="ruleStatus">
+              <option value="">Все статусы</option>
+              <option value="ACTIVE">Активно</option>
+              <option value="DISABLED">Неактивно</option>
+            </select>
+          </label>
+          <label>
+            Решение
+            <select id="rule-effectiveness-decision" name="decision">
+              <option value="">Все решения</option>
+              <option value="BUY">Купить</option>
+              <option value="SKIP">Пропустить</option>
+              <option value="DEFER">Отложить</option>
+            </select>
+          </label>
+          <label>
+            Классификация
+            <select
+              id="rule-effectiveness-classification"
+              name="classification"
+            >
+              <option value="">Все классы</option>
+              <option value="EFFECTIVE">Работает стабильно</option>
+              <option value="OCCASIONAL">Срабатывает периодически</option>
+              <option value="NO_EFFECT_YET">Пока без эффекта</option>
+              <option value="STALE">Давно не срабатывало</option>
+              <option value="REVIEW_RECOMMENDED">Требует ручной проверки</option>
+              <option value="INSUFFICIENT_DATA">Недостаточно данных</option>
+            </select>
+          </label>
+          <label>
+            Confidence
+            <select
+              id="rule-effectiveness-confidence"
+              name="confidenceLevel"
+            >
+              <option value="">Все уровни</option>
+              <option value="LOW">Низкая</option>
+              <option value="MEDIUM">Средняя</option>
+              <option value="HIGH">Высокая</option>
+              <option value="VERY_HIGH">Очень высокая</option>
+            </select>
+          </label>
+          <label>
+            Priority
+            <select
+              id="rule-effectiveness-priority"
+              name="priorityLevel"
+            >
+              <option value="">Все уровни</option>
+              <option value="LOW">Низкий</option>
+              <option value="MEDIUM">Средний</option>
+              <option value="HIGH">Высокий</option>
+              <option value="CRITICAL">Критический</option>
+            </select>
+          </label>
+          <label>
+            С даты
+            <input id="rule-effectiveness-date-from" name="dateFrom" type="date">
+          </label>
+          <label>
+            По дату
+            <input id="rule-effectiveness-date-to" name="dateTo" type="date">
+          </label>
+          <label class="rule-effectiveness-search">
+            Поиск
+            <input
+              id="rule-effectiveness-search"
+              name="search"
+              type="search"
+              maxlength="512"
+              placeholder="Товар или SKU"
+            >
+          </label>
+          <div class="rule-effectiveness-filter-actions">
+            <button class="secondary-button" type="submit">Обновить</button>
+            <button
+              class="secondary-button"
+              id="rule-effectiveness-reset"
+              type="button"
+            >Сбросить фильтры</button>
+          </div>
+        </form>
+
+        <div
+          class="rule-effectiveness-state"
+          id="rule-effectiveness-loading"
+          role="status"
+        >
+          <span class="loading-dot" aria-hidden="true"></span>
+          Загружаем эффективность правил…
+        </div>
+        <div
+          class="rule-effectiveness-state"
+          id="rule-effectiveness-empty"
+          hidden
+        >
+          Материализованных правил пока нет.
+        </div>
+        <div
+          class="rule-effectiveness-state"
+          id="rule-effectiveness-no-data"
+          hidden
+        >
+          Данных об эффективности пока нет. Они появятся после будущих запусков
+          APPLY_SAFE с активными правилами.
+        </div>
+        <div
+          class="rule-effectiveness-state"
+          id="rule-effectiveness-no-results"
+          hidden
+        >
+          По выбранным фильтрам данных не найдено.
+        </div>
+        <div
+          class="rule-effectiveness-state rule-effectiveness-warning"
+          id="rule-effectiveness-unavailable"
+          hidden
+        >
+          Аналитика эффективности временно недоступна. Работа закупщика не
+          затронута.
+        </div>
+        <div
+          class="rule-effectiveness-state rule-effectiveness-warning"
+          id="rule-effectiveness-invalid"
+          role="alert"
+          hidden
+        >
+          Проверьте выбранные фильтры и повторите запрос.
+        </div>
+        <div
+          class="rule-effectiveness-state rule-effectiveness-warning"
+          id="rule-effectiveness-network"
+          role="alert"
+          hidden
+        >
+          Не удалось загрузить аналитику. Проверьте соединение и повторите
+          запрос.
+        </div>
+
+        <div id="rule-effectiveness-content" hidden>
+          <div
+            class="rule-effectiveness-summary"
+            aria-label="Сводка эффективности правил"
+          >
+            <article><span>Всего правил</span><strong id="rule-effectiveness-total">—</strong></article>
+            <article><span>Срабатывали</span><strong id="rule-effectiveness-applied">—</strong></article>
+            <article><span>Без эффекта</span><strong id="rule-effectiveness-no-effect">—</strong></article>
+            <article><span>Устаревшие</span><strong id="rule-effectiveness-stale">—</strong></article>
+            <article><span>Требуют проверки</span><strong id="rule-effectiveness-review">—</strong></article>
+            <article><span>Общая разница суммы заказа</span><strong id="rule-effectiveness-amount-delta">—</strong></article>
+          </div>
+          <div class="table-scroll rule-effectiveness-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Товар / SKU</th>
+                  <th>Статус</th>
+                  <th>Решение</th>
+                  <th>Классификация</th>
+                  <th>Запусков</th>
+                  <th>С эффектом</th>
+                  <th>Effect rate</th>
+                  <th>Match rate</th>
+                  <th>Строк</th>
+                  <th>Δ количества</th>
+                  <th>Δ суммы</th>
+                  <th>Последний эффект</th>
+                  <th>Дней</th>
+                  <th>Без эффекта подряд</th>
+                  <th>Проверка</th>
+                </tr>
+              </thead>
+              <tbody id="rule-effectiveness-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section
+        class="knowledge-health card"
+        id="knowledge-health"
+        aria-labelledby="knowledge-health-title"
+        data-owner-learning-panel="KNOWLEDGE_HEALTH"
+        hidden
+      >
+        <div class="section-heading">
+          <div>
+            <p class="step-label">Owner Learning · read-only</p>
+            <h2 id="knowledge-health-title">Здоровье базы знаний</h2>
+          </div>
+          <span class="format-badge">Наблюдение</span>
+        </div>
+        <p class="knowledge-health-safety">
+          Оценка показывает качество и согласованность базы правил.
+          Она не изменяет и не отключает правила автоматически.
+        </p>
+
+        <form
+          class="knowledge-health-filters"
+          id="knowledge-health-filters"
+          aria-label="Фильтры здоровья базы знаний"
+        >
+          <label>
+            Статус
+            <select id="knowledge-health-status" name="status">
+              <option value="">Все статусы</option>
+              <option value="ACTIVE">Активно</option>
+              <option value="DISABLED">Неактивно</option>
+            </select>
+          </label>
+          <label>
+            Решение
+            <select id="knowledge-health-decision" name="decision">
+              <option value="">Все решения</option>
+              <option value="BUY">Купить</option>
+              <option value="SKIP">Пропустить</option>
+              <option value="DEFER">Отложить</option>
+            </select>
+          </label>
+          <label>
+            Класс качества
+            <select id="knowledge-health-grade" name="grade">
+              <option value="">Все классы</option>
+              <option value="EXCELLENT">Отлично</option>
+              <option value="GOOD">Хорошо</option>
+              <option value="FAIR">Удовлетворительно</option>
+              <option value="POOR">Плохо</option>
+              <option value="CRITICAL">Критично</option>
+            </select>
+          </label>
+          <label>
+            Классификация
+            <select
+              id="knowledge-health-classification"
+              name="classification"
+            >
+              <option value="">Все классификации</option>
+              <option value="HEALTHY">В норме</option>
+              <option value="MONITOR">Наблюдать</option>
+              <option value="REVIEW">Проверить</option>
+              <option value="CRITICAL">Критично</option>
+              <option value="INSUFFICIENT_DATA">Недостаточно данных</option>
+            </select>
+          </label>
+          <label>
+            Важность проблемы
+            <select id="knowledge-health-severity" name="severity">
+              <option value="">Любая</option>
+              <option value="INFO">Информация</option>
+              <option value="LOW">Низкая</option>
+              <option value="MEDIUM">Средняя</option>
+              <option value="HIGH">Высокая</option>
+              <option value="CRITICAL">Критическая</option>
+            </select>
+          </label>
+          <label>
+            Тип проблемы
+            <select
+              id="knowledge-health-finding-type"
+              name="findingType"
+            >
+              <option value="">Все типы</option>
+              <option value="RULE_CONFLICT">Конфликт правил</option>
+              <option value="RULE_DUPLICATE">Дубликаты</option>
+              <option value="RULE_STALE">Устаревшее правило</option>
+              <option value="RULE_NO_EFFECT">Нет эффекта</option>
+              <option value="RULE_REVIEW_RECOMMENDED">Рекомендуется проверка</option>
+              <option value="RULE_LOW_CONFIDENCE">Низкая уверенность</option>
+              <option value="RULE_LOW_PRIORITY">Низкий приоритет</option>
+              <option value="RULE_MISSING_PROVENANCE">Нет источника</option>
+              <option value="RULE_MATERIALIZATION_MISSING">Нет материализации</option>
+              <option value="RULE_LIFECYCLE_INCONSISTENT">Lifecycle не согласован</option>
+              <option value="RULE_STATUS_HISTORY_INCONSISTENT">История статуса не согласована</option>
+              <option value="RULE_EFFECTIVENESS_UNAVAILABLE">Эффективность недоступна</option>
+              <option value="RULE_SCOPE_TOO_BROAD">Слишком широкая область</option>
+              <option value="RULE_UNSUPPORTED_TYPE">Тип не поддерживается</option>
+              <option value="RULE_DATA_QUALITY_ISSUE">Качество данных</option>
+              <option value="ACTIVE_RULE_WITHOUT_EFFECT_DATA">Нет данных эффекта</option>
+              <option value="DISABLED_RULE_WITH_EFFECT_EVENTS">Эффект неактивного правила</option>
+              <option value="ACTIVE_RULE_NEVER_APPLIED">Ни разу не применялось</option>
+              <option value="RULE_LAST_UPDATED_TOO_OLD">Давно не обновлялось</option>
+            </select>
+          </label>
+          <label>
+            Confidence
+            <select
+              id="knowledge-health-confidence"
+              name="confidenceLevel"
+            >
+              <option value="">Все уровни</option>
+              <option value="LOW">Низкая</option>
+              <option value="MEDIUM">Средняя</option>
+              <option value="HIGH">Высокая</option>
+              <option value="VERY_HIGH">Очень высокая</option>
+            </select>
+          </label>
+          <label>
+            Priority
+            <select
+              id="knowledge-health-priority"
+              name="priorityLevel"
+            >
+              <option value="">Все уровни</option>
+              <option value="LOW">Низкий</option>
+              <option value="MEDIUM">Средний</option>
+              <option value="HIGH">Высокий</option>
+              <option value="CRITICAL">Критический</option>
+            </select>
+          </label>
+          <label class="knowledge-health-search">
+            Поиск
+            <input
+              id="knowledge-health-search"
+              name="search"
+              type="search"
+              maxlength="512"
+              placeholder="Товар или SKU"
+            >
+          </label>
+          <div class="knowledge-health-filter-actions">
+            <button class="secondary-button" type="submit">Обновить</button>
+            <button
+              class="secondary-button"
+              id="knowledge-health-reset"
+              type="button"
+            >Сбросить фильтры</button>
+          </div>
+        </form>
+
+        <div class="knowledge-health-state" id="knowledge-health-loading">
+          <span class="loading-dot" aria-hidden="true"></span>
+          Загружаем оценку базы знаний…
+        </div>
+        <div class="knowledge-health-state" id="knowledge-health-partial" hidden>
+          Часть источников недоступна. Оценка построена по доступным данным.
+        </div>
+        <div class="knowledge-health-state" id="knowledge-health-empty" hidden>
+          Материализованных правил пока нет. Оценка появится после создания
+          правил.
+        </div>
+        <div class="knowledge-health-state" id="knowledge-health-no-findings" hidden>
+          Критичных проблем в базе знаний не найдено.
+        </div>
+        <div class="knowledge-health-state" id="knowledge-health-no-results" hidden>
+          По выбранным фильтрам результатов нет.
+        </div>
+        <div
+          class="knowledge-health-state knowledge-health-warning"
+          id="knowledge-health-unavailable"
+          hidden
+        >
+          Оценка базы знаний временно недоступна. Работа закупщика не затронута.
+        </div>
+        <div
+          class="knowledge-health-state knowledge-health-warning"
+          id="knowledge-health-invalid"
+          hidden
+        >
+          Проверьте выбранные фильтры и повторите запрос.
+        </div>
+        <div
+          class="knowledge-health-state knowledge-health-warning"
+          id="knowledge-health-network"
+          hidden
+        >
+          Не удалось загрузить оценку. Проверьте соединение.
+        </div>
+
+        <div id="knowledge-health-content" hidden>
+          <div class="knowledge-health-summary">
+            <article><span>Оценка</span><strong id="knowledge-health-score">—</strong></article>
+            <article><span>Класс</span><strong id="knowledge-health-grade-value">—</strong></article>
+            <article><span>Статус</span><strong id="knowledge-health-api-status">—</strong></article>
+            <article><span>Конфликтов</span><strong id="knowledge-health-conflicts">—</strong></article>
+            <article><span>Дубликатов</span><strong id="knowledge-health-duplicates">—</strong></article>
+            <article><span>Устаревших</span><strong id="knowledge-health-stale">—</strong></article>
+            <article><span>Требуют проверки</span><strong id="knowledge-health-attention">—</strong></article>
+          </div>
+          <div
+            class="knowledge-health-dimensions"
+            id="knowledge-health-dimensions"
+          ></div>
+          <article class="knowledge-health-panel">
+            <h3>Проблемы для ручной проверки</h3>
+            <div
+              class="knowledge-health-findings"
+              id="knowledge-health-findings"
+            ></div>
+          </article>
+          <article class="knowledge-health-panel">
+            <h3>Здоровье правил</h3>
+            <div class="table-scroll knowledge-health-table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Товар</th>
+                    <th>Статус</th>
+                    <th>Решение</th>
+                    <th>Оценка</th>
+                    <th>Класс</th>
+                    <th>Классификация</th>
+                    <th>Конфликт</th>
+                    <th>Дубликат</th>
+                    <th>Устарело</th>
+                    <th>Эффективность</th>
+                    <th>Confidence</th>
+                    <th>Priority</th>
+                  </tr>
+                </thead>
+                <tbody id="knowledge-health-rules"></tbody>
+              </table>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <div
+        class="candidate-modal"
+        id="rule-effectiveness-detail-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="rule-effectiveness-detail-title"
+        hidden
+      >
+        <section class="candidate-modal-panel rule-effectiveness-detail-panel">
+          <div class="section-heading">
+            <div>
+              <p class="step-label">Историческая read-only аналитика</p>
+              <h2 id="rule-effectiveness-detail-title">Подробнее об эффективности</h2>
+            </div>
+            <button
+              class="candidate-modal-close"
+              id="rule-effectiveness-detail-close"
+              type="button"
+              aria-label="Закрыть"
+            >×</button>
+          </div>
+          <p id="rule-effectiveness-detail-state" role="status"></p>
+          <div id="rule-effectiveness-detail-content" hidden>
+            <dl
+              class="candidate-modal-summary"
+              id="rule-effectiveness-detail-summary"
+            ></dl>
+            <h3>Коды объяснения</h3>
+            <ul id="rule-effectiveness-detail-codes"></ul>
+            <h3>Последние события</h3>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Дата</th>
+                    <th>Run</th>
+                    <th>Статус эффекта</th>
+                    <th>Строк</th>
+                    <th>Δ количества</th>
+                    <th>Δ суммы</th>
+                    <th>Fallback</th>
+                  </tr>
+                </thead>
+                <tbody id="rule-effectiveness-detail-events"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="candidate-modal-actions">
+            <button
+              class="secondary-button"
+              id="rule-effectiveness-detail-done"
+              type="button"
+            >Закрыть</button>
+          </div>
+        </section>
+      </div>
+
+      <div
+        class="candidate-modal"
+        id="materialized-rule-detail-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="materialized-rule-detail-title"
+        hidden
+      >
+        <section class="candidate-modal-panel">
+          <div class="section-heading">
+            <div>
+              <p class="step-label">Только чтение</p>
+              <h2 id="materialized-rule-detail-title">Подробнее о правиле</h2>
+            </div>
+            <button
+              class="candidate-modal-close"
+              id="materialized-rule-detail-close"
+              type="button"
+              aria-label="Закрыть"
+            >×</button>
+          </div>
+          <dl class="candidate-modal-summary">
+            <div><dt>Товар</dt><dd id="materialized-rule-detail-name">—</dd></div>
+            <div><dt>SKU</dt><dd id="materialized-rule-detail-sku">—</dd></div>
+            <div><dt>Решение</dt><dd id="materialized-rule-detail-decision">—</dd></div>
+            <div><dt>Quantity strategy</dt><dd id="materialized-rule-detail-quantity">—</dd></div>
+            <div><dt>Статус</dt><dd id="materialized-rule-detail-status">—</dd></div>
+            <div><dt>Источник</dt><dd id="materialized-rule-detail-source">—</dd></div>
+            <div><dt>Confidence</dt><dd id="materialized-rule-detail-confidence">—</dd></div>
+            <div><dt>Priority</dt><dd id="materialized-rule-detail-priority">—</dd></div>
+            <div><dt>Eligibility</dt><dd id="materialized-rule-detail-eligibility">—</dd></div>
+            <div><dt>Lifecycle</dt><dd id="materialized-rule-detail-lifecycle">—</dd></div>
+            <div><dt>Создано</dt><dd id="materialized-rule-detail-created">—</dd></div>
+            <div><dt>Обновлено</dt><dd id="materialized-rule-detail-updated">—</dd></div>
+          </dl>
+          <p
+            class="materialized-rule-detail-safety"
+            id="materialized-rule-detail-safety"
+          >—</p>
+          <div class="candidate-modal-actions">
+            <button
+              class="secondary-button"
+              id="materialized-rule-detail-done"
+              type="button"
+            >Закрыть</button>
+          </div>
+        </section>
+      </div>
+
+      <div
+        class="candidate-modal"
+        id="rule-status-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="rule-status-title"
+        hidden
+      >
+        <form class="candidate-modal-panel rule-status-panel" id="rule-status-form">
+          <div class="section-heading">
+            <div>
+              <p class="step-label">Безопасное изменение статуса</p>
+              <h2 id="rule-status-title">Последствия изменения правила</h2>
+            </div>
+            <button
+              class="candidate-modal-close"
+              id="rule-status-close"
+              type="button"
+              aria-label="Закрыть"
+            >×</button>
+          </div>
+          <p id="rule-status-progress" role="status" hidden></p>
+          <div id="rule-status-content" hidden>
+            <dl class="candidate-modal-summary rule-status-summary">
+              <div><dt>Товар</dt><dd id="rule-status-item">—</dd></div>
+              <div><dt>Текущий статус</dt><dd id="rule-status-current">—</dd></div>
+              <div><dt>Новый статус</dt><dd id="rule-status-target">—</dd></div>
+              <div><dt>Решение правила</dt><dd id="rule-status-decision">—</dd></div>
+              <div><dt>Затронутые позиции</dt><dd id="rule-status-affected">—</dd></div>
+              <div><dt>Изменения решений</dt><dd id="rule-status-decision-changes">—</dd></div>
+              <div><dt>Изменения количества</dt><dd id="rule-status-quantity-changes">—</dd></div>
+              <div><dt>Сумма до</dt><dd id="rule-status-amount-before">—</dd></div>
+              <div><dt>Сумма после</dt><dd id="rule-status-amount-after">—</dd></div>
+              <div><dt>Изменение суммы</dt><dd id="rule-status-amount-delta">—</dd></div>
+              <div><dt>Единиц до</dt><dd id="rule-status-units-before">—</dd></div>
+              <div><dt>Единиц после</dt><dd id="rule-status-units-after">—</dd></div>
+              <div><dt>Финансовый статус до</dt><dd id="rule-status-financial-before">—</dd></div>
+              <div><dt>Финансовый статус после</dt><dd id="rule-status-financial-after">—</dd></div>
+              <div><dt>Preview действует до</dt><dd id="rule-status-expires-at">—</dd></div>
+            </dl>
+            <p
+              class="candidate-approval-warning"
+              id="rule-status-safety-text"
+            ></p>
+            <h3>Затронутые товары</h3>
+            <ul id="rule-status-changed-items"></ul>
+            <h3>Предупреждения</h3>
+            <ul id="rule-status-warnings"></ul>
+            <label>
+              Причина
+              <select id="rule-status-reason">
+                <option value="READY_TO_APPLY">Готово к применению</option>
+                <option value="TEMPORARILY_DISABLE">Временно отключить</option>
+                <option value="RESULT_NOT_EXPECTED">Результат не соответствует ожиданию</option>
+                <option value="NEEDS_MORE_REVIEW">Нужна дополнительная проверка</option>
+                <option value="SEASONAL_PAUSE">Сезонная пауза</option>
+                <option value="DATA_CHANGED">Данные изменились</option>
+                <option value="OWNER_EXPERIENCE">Опыт владельца</option>
+                <option value="OTHER">Другое</option>
+                <option value="NOT_SPECIFIED">Причина не указана</option>
+              </select>
+            </label>
+            <label>
+              Комментарий владельца
+              <textarea
+                id="rule-status-comment"
+                maxlength="1000"
+                rows="4"
+              ></textarea>
+            </label>
+            <label class="candidate-approve-confirmation">
+              <input id="rule-status-confirmation" type="checkbox">
+              Я проверил последствия и подтверждаю изменение статуса
+              правила.
+            </label>
+          </div>
+          <p
+            class="inline-error"
+            id="rule-status-error"
+            role="alert"
+            hidden
+          ></p>
+          <div class="candidate-modal-actions">
+            <button
+              class="secondary-button"
+              id="rule-status-cancel"
+              type="button"
+            >Отмена</button>
+            <button
+              class="primary-button"
+              id="rule-status-submit"
+              type="submit"
+              disabled
+            >Подтвердить изменение статуса</button>
+          </div>
+        </form>
+      </div>
+
+      <div
+        class="candidate-modal"
+        id="candidate-lifecycle-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="candidate-modal-title"
+        hidden
+      >
+        <form class="candidate-modal-panel" id="candidate-lifecycle-form">
+          <div class="section-heading">
+            <div>
+              <p class="step-label">Решение владельца</p>
+              <h2 id="candidate-modal-title">Изменить статус кандидата</h2>
+            </div>
+            <button
+              class="candidate-modal-close"
+              id="candidate-modal-close"
+              type="button"
+              aria-label="Закрыть"
+            >×</button>
+          </div>
+          <dl class="candidate-modal-summary">
+            <div>
+              <dt>Кандидат</dt>
+              <dd id="candidate-modal-candidate">—</dd>
+            </div>
+            <div>
+              <dt>Новый статус</dt>
+              <dd id="candidate-modal-status">—</dd>
+            </div>
+            <div>
+              <dt>Confidence</dt>
+              <dd id="candidate-modal-confidence">—</dd>
+            </div>
+            <div>
+              <dt>Priority</dt>
+              <dd id="candidate-modal-priority">—</dd>
+            </div>
+            <div>
+              <dt>Eligibility</dt>
+              <dd id="candidate-modal-eligibility">—</dd>
+            </div>
+          </dl>
+          <label>
+            Причина
+            <select id="candidate-modal-reason">
+              <option value="NOT_SPECIFIED">Причина не указана</option>
+              <option value="READY_FOR_RULE">Готово для будущего правила</option>
+              <option value="NEEDS_MORE_HISTORY">Нужно больше истории</option>
+              <option value="INSUFFICIENT_EVIDENCE">Недостаточно подтверждений</option>
+              <option value="TOO_BROAD">Слишком широкая область</option>
+              <option value="CONTRADICTORY_HISTORY">Противоречивая история</option>
+              <option value="NOT_RELEVANT">Неактуально</option>
+              <option value="OWNER_EXPERIENCE">Опыт владельца</option>
+              <option value="OTHER">Другое</option>
+            </select>
+          </label>
+          <label>
+            Комментарий владельца
+            <textarea
+              id="candidate-modal-comment"
+              maxlength="1000"
+              rows="4"
+            ></textarea>
+          </label>
+          <label
+            class="candidate-approve-confirmation"
+            id="candidate-approve-confirmation"
+            hidden
+          >
+            <input id="candidate-approve-checkbox" type="checkbox">
+            Я понимаю, что на этом этапе правило ещё не создаётся и не
+            применяется.
+          </label>
+          <p
+            class="inline-error"
+            id="candidate-modal-error"
+            role="alert"
+            hidden
+          ></p>
+          <div class="candidate-modal-actions">
+            <button
+              class="secondary-button"
+              id="candidate-modal-cancel"
+              type="button"
+            >Отмена</button>
+            <button
+              class="primary-button"
+              id="candidate-modal-submit"
+              type="submit"
+            >Подтвердить изменение</button>
+          </div>
+        </form>
+      </div>
+
+      <div
+        class="candidate-modal"
+        id="rule-materialization-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="rule-materialization-title"
+        hidden
+      >
+        <form class="candidate-modal-panel" id="rule-materialization-form">
+          <div class="section-heading">
+            <div>
+              <p class="step-label">Owner Learning</p>
+              <h2 id="rule-materialization-title">
+                Создать неактивное правило
+              </h2>
+            </div>
+            <button
+              class="candidate-modal-close"
+              id="rule-materialization-close"
+              type="button"
+              aria-label="Закрыть"
+            >×</button>
+          </div>
+          <dl class="candidate-modal-summary">
+            <div>
+              <dt>Товар</dt>
+              <dd id="rule-materialization-candidate">—</dd>
+            </div>
+            <div>
+              <dt>Решение</dt>
+              <dd id="rule-materialization-decision">—</dd>
+            </div>
+            <div>
+              <dt>Confidence</dt>
+              <dd id="rule-materialization-confidence">—</dd>
+            </div>
+            <div>
+              <dt>Priority</dt>
+              <dd id="rule-materialization-priority">—</dd>
+            </div>
+            <div>
+              <dt>Eligibility</dt>
+              <dd id="rule-materialization-eligibility">—</dd>
+            </div>
+          </dl>
+          <p class="candidate-approval-warning">
+            Будет создано неактивное правило. Оно не изменит текущий или
+            будущий заказ, пока не будет отдельно включено владельцем.
+          </p>
+          <label class="candidate-approve-confirmation">
+            <input id="rule-materialization-checkbox" type="checkbox">
+            Я понимаю, что правило создаётся неактивным и пока не
+            применяется.
+          </label>
+          <p
+            class="inline-error"
+            id="rule-materialization-error"
+            role="alert"
+            hidden
+          ></p>
+          <div class="candidate-modal-actions">
+            <button
+              class="secondary-button"
+              id="rule-materialization-cancel"
+              type="button"
+            >Отмена</button>
+            <button
+              class="primary-button"
+              id="rule-materialization-submit"
+              type="submit"
+            >Создать неактивное правило</button>
+          </div>
+        </form>
+      </div>
+
+      <section class="results" id="results" aria-labelledby="results-title" hidden>
+        <div class="results-heading">
+          <div>
+            <p class="step-label">Результат</p>
+            <h2 id="results-title">Итоги расчёта</h2>
+          </div>
+          <div class="results-actions">
+            <div class="export-control">
+              <button
+                class="export-button"
+                id="export-button"
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded="false"
+                aria-controls="export-menu"
+                disabled
+              >
+                Экспорт
+                <span aria-hidden="true">⌄</span>
+              </button>
+              <div
+                class="export-menu"
+                id="export-menu"
+                role="menu"
+                aria-label="Экспорт результатов"
+                hidden
+              >
+                <button type="button" role="menuitem" data-artifact-key="report">
+                  Полный отчёт
+                </button>
+                <button type="button" role="menuitem" data-artifact-key="result">
+                  Result JSON
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  data-artifact-key="owner-review"
+                >
+                  Решения владельца
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  data-artifact-key="explanations"
+                >
+                  Объяснения рекомендаций
+                </button>
+              </div>
+            </div>
+            <p id="calculation-time">Время расчёта: —</p>
+          </div>
+        </div>
+
+        <div class="metric-grid">
+          <article class="metric metric-primary">
+            <span>SKU в отчёте</span>
+            <strong id="sku-count">—</strong>
+          </article>
+          <article class="metric">
+            <span>Сумма анализатора</span>
+            <strong id="analyzer-order-sum">—</strong>
+          </article>
+          <article class="metric">
+            <span>Автоматически одобрено</span>
+            <strong id="auto-approved-sum">—</strong>
+          </article>
+          <article class="metric metric-attention">
+            <span>Ожидает проверки</span>
+            <strong id="pending-review-sum">—</strong>
+          </article>
+          <article class="metric">
+            <span>Рабочий максимум</span>
+            <strong id="working-maximum-sum">—</strong>
+          </article>
+          <article class="metric">
+            <span>Финансово оценено</span>
+            <strong id="financially-assessed-sum">—</strong>
+          </article>
+        </div>
+
+        <div class="result-details">
+          <article>
+            <span>Финансовый статус</span>
+            <strong id="financial-status">—</strong>
+          </article>
+          <article>
+            <span>Позиций для решения</span>
+            <strong id="owner-review-count">—</strong>
+          </article>
+        </div>
+      </section>
+
+      <section
+        class="products card"
+        id="products"
+        aria-labelledby="products-title"
+        hidden
+      >
+        <div class="products-heading">
+          <div>
+            <p class="step-label">Детализация</p>
+            <h2 id="products-title">Товары к закупке</h2>
+          </div>
+          <label class="products-search" for="products-search">
+            <span class="visually-hidden">Поиск товаров</span>
+            <input
+              id="products-search"
+              type="search"
+              maxlength="100"
+              placeholder="Название, бренд или артикул"
+              autocomplete="off"
+            >
+          </label>
+        </div>
+
+        <div
+          class="product-filters"
+          id="product-filters"
+          role="group"
+          aria-label="Фильтры товаров"
+        >
+          <button type="button" data-filter="all" aria-pressed="true">
+            <span>Все товары</span>
+            <strong id="decision-all">—</strong>
+          </button>
+          <button type="button" data-filter="needs" aria-pressed="false">
+            <span>Нужно решить</span>
+            <strong id="decision-needs">—</strong>
+          </button>
+          <button type="button" data-filter="confirmed" aria-pressed="false">
+            <span>Подтверждены</span>
+            <strong id="decision-buy">—</strong>
+          </button>
+          <button type="button" data-filter="skip" aria-pressed="false">
+            <span>Не заказывать</span>
+            <strong id="decision-skip">—</strong>
+          </button>
+        </div>
+
+        <div class="products-state" id="products-loading" role="status" hidden>
+          <span class="loading-dot" aria-hidden="true"></span>
+          Загружаем товары…
+        </div>
+        <div
+          class="products-state products-error"
+          id="products-error"
+          role="alert"
+          hidden
+        >
+          Не удалось загрузить товары. Попробуйте ещё раз.
+        </div>
+        <div class="products-state" id="products-empty" hidden>
+          По выбранным условиям товары не найдены.
+        </div>
+
+        <div id="products-content" hidden>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th class="product-name-column" aria-sort="none">
+                    <button type="button" data-sort="name">
+                      Товар
+                      <span aria-hidden="true"></span>
+                    </button>
+                  </th>
+                  <th class="numeric-column" aria-sort="none">
+                    <button type="button" data-sort="free_stock">
+                      Остаток
+                      <span aria-hidden="true"></span>
+                    </button>
+                  </th>
+                  <th class="numeric-column" aria-sort="none">
+                    <button type="button" data-sort="sales_28_days">
+                      Продажи 28 дней
+                      <span aria-hidden="true"></span>
+                    </button>
+                  </th>
+                  <th class="numeric-column" aria-sort="none">
+                    <button type="button" data-sort="recommended_quantity">
+                      Рекомендовано
+                      <span aria-hidden="true"></span>
+                    </button>
+                  </th>
+                  <th class="numeric-column" aria-sort="none">
+                    <button type="button" data-sort="recommended_line_value">
+                      Сумма
+                      <span aria-hidden="true"></span>
+                    </button>
+                  </th>
+                  <th class="decision-column">Решение</th>
+                </tr>
+              </thead>
+              <tbody id="products-body"></tbody>
+            </table>
+          </div>
+
+          <div class="pagination">
+            <label for="products-page-size">
+              Строк на странице
+              <select id="products-page-size">
+                <option value="25" selected>25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+              </select>
+            </label>
+            <p id="products-range">Показано 0 из 0</p>
+            <div class="pagination-buttons">
+              <button id="products-previous" type="button" disabled>
+                Назад
+              </button>
+              <button id="products-next" type="button" disabled>
+                Вперёд
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
