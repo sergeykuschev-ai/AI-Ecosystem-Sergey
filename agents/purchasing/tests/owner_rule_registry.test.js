@@ -13,6 +13,8 @@ const {
   findRuleByProposalId,
   findRuleByStableItemKey,
   loadApprovedRules,
+  loadApprovedRulesTolerant,
+  registryFingerprint,
   saveApprovedRules,
 } = require('../owner_learning/owner_rule_registry');
 const {
@@ -196,6 +198,176 @@ test('publication uses temporary files, fsync and atomic rename', () => {
     fs.readdirSync(path.dirname(options.registryPath)).sort(),
     ['owner-approved-rules.json', 'owner-approved-rules.md']
   );
+});
+
+test('tolerant read keeps valid neighbors while strict read rejects entries', () => {
+  for (const invalidRule of [null, 'bad', []]) {
+    const options = temporaryRegistryOptions({
+      approvedAt: '2026-07-24T10:00:00.000Z',
+    });
+    const validRule = approveProposal(proposal(), options);
+    const source = {
+      schemaVersion: REGISTRY_SCHEMA_VERSION,
+      updatedAt: '2026-07-24T10:00:00.000Z',
+      rules: [invalidRule, validRule],
+    };
+    const serialized = `${JSON.stringify(source, null, 2)}\n`;
+    fs.writeFileSync(options.registryPath, serialized, 'utf8');
+
+    const tolerant = loadApprovedRulesTolerant(options);
+
+    assert.equal(tolerant.rules.length, 2);
+    assert.deepEqual(tolerant.rules[0], invalidRule);
+    assert.equal(tolerant.rules[1].ruleId, validRule.ruleId);
+    assert.throws(
+      () => loadApprovedRules(options),
+      error =>
+        error instanceof OwnerRuleRegistryError &&
+        error.code === 'RULE_REGISTRY_INVALID'
+    );
+    assert.equal(fs.readFileSync(options.registryPath, 'utf8'), serialized);
+  }
+});
+
+test('tolerant read still rejects an invalid registry envelope', () => {
+  for (const source of [
+    {
+      schemaVersion: 'unsupported',
+      updatedAt: null,
+      rules: [],
+    },
+    {
+      schemaVersion: REGISTRY_SCHEMA_VERSION,
+      updatedAt: null,
+      rules: {},
+    },
+  ]) {
+    const options = temporaryRegistryOptions();
+    fs.writeFileSync(
+      options.registryPath,
+      `${JSON.stringify(source, null, 2)}\n`,
+      'utf8'
+    );
+    assert.throws(
+      () => loadApprovedRulesTolerant(options),
+      error =>
+        error instanceof OwnerRuleRegistryError &&
+        error.code === 'RULE_REGISTRY_INVALID'
+    );
+  }
+});
+
+test('JSON commit succeeds when derived Markdown publication fails', () => {
+  const warnings = [];
+  const options = temporaryRegistryOptions({
+    approvedAt: '2026-07-24T10:00:00.000Z',
+  });
+  approveProposal(proposal(), options);
+  const current = loadApprovedRules(options);
+  const markdownBefore = fs.readFileSync(options.markdownPath, 'utf8');
+  const fsModule = {
+    ...fs,
+    renameSync(sourcePath, destinationPath) {
+      if (destinationPath === options.markdownPath) {
+        const failure = new Error('simulated Markdown failure');
+        failure.code = 'EIO';
+        throw failure;
+      }
+      return fs.renameSync(sourcePath, destinationPath);
+    },
+  };
+  const saved = saveApprovedRules({
+    ...current,
+    updatedAt: '2026-07-25T10:00:00.000Z',
+    rules: current.rules.map(rule => ({
+      ...rule,
+      status: 'DISABLED',
+    })),
+  }, {
+    ...options,
+    fsModule,
+    expectedFingerprint: registryFingerprint(current),
+    logger: {
+      error() {},
+      warn(message) { warnings.push(message); },
+    },
+  });
+
+  assert.equal(loadApprovedRules(options).rules[0].status, 'DISABLED');
+  assert.deepEqual(saved.publicationWarnings, [
+    'RULE_REGISTRY_MARKDOWN_PUBLICATION_FAILED',
+  ]);
+  assert.equal(fs.readFileSync(options.markdownPath, 'utf8'), markdownBefore);
+  assert.match(warnings[0], /RULE_REGISTRY_MARKDOWN_PUBLICATION_FAILED/);
+  assert.doesNotMatch(warnings[0], new RegExp(options.registryPath));
+
+  saveApprovedRules(saved, {
+    ...options,
+    randomSuffix: 'restore',
+    expectedFingerprint: registryFingerprint(saved),
+  });
+  assert.match(
+    fs.readFileSync(options.markdownPath, 'utf8'),
+    /Отключено/
+  );
+});
+
+test('expected fingerprint prevents a stale writer from overwriting JSON', () => {
+  const options = temporaryRegistryOptions();
+  saveApprovedRules(emptyApprovedRulesRegistry(), options);
+  const writerA = loadApprovedRules(options);
+  const writerB = loadApprovedRules(options);
+  const expected = registryFingerprint(writerA);
+  saveApprovedRules({
+    ...writerA,
+    updatedAt: '2026-07-24T10:00:00.000Z',
+  }, {
+    ...options,
+    randomSuffix: 'writer-a',
+    expectedFingerprint: expected,
+  });
+  const afterWriterA = fs.readFileSync(options.registryPath, 'utf8');
+
+  assert.throws(
+    () => saveApprovedRules({
+      ...writerB,
+      updatedAt: '2026-07-25T10:00:00.000Z',
+    }, {
+      ...options,
+      randomSuffix: 'writer-b',
+      expectedFingerprint: expected,
+    }),
+    error =>
+      error instanceof OwnerRuleRegistryError &&
+      error.code === 'RULE_REGISTRY_CONCURRENT_MODIFICATION'
+  );
+  assert.equal(
+    fs.readFileSync(options.registryPath, 'utf8'),
+    afterWriterA
+  );
+});
+
+test('legacy direct save may only repeat an existing registry unchanged', () => {
+  const options = temporaryRegistryOptions();
+  const initial = saveApprovedRules(emptyApprovedRulesRegistry(), options);
+  assert.deepEqual(saveApprovedRules(initial, {
+    ...options,
+    randomSuffix: 'same',
+  }), initial);
+
+  assert.throws(
+    () => saveApprovedRules({
+      ...initial,
+      updatedAt: '2026-07-24T10:00:00.000Z',
+    }, {
+      ...options,
+      randomSuffix: 'unsafe-overwrite',
+    }),
+    error =>
+      error instanceof OwnerRuleRegistryError &&
+      error.code === 'RULE_REGISTRY_CONCURRENT_MODIFICATION'
+  );
+  assert.deepEqual(loadApprovedRules(options), initial);
 });
 
 test('Markdown without rules has counts and the empty-state text', () => {

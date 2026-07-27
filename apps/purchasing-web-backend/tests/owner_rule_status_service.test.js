@@ -13,6 +13,7 @@ const {
 const {
   emptyApprovedRulesRegistry,
   loadApprovedRules,
+  registryFingerprint,
   saveApprovedRules,
 } = require(
   '../../../agents/purchasing/owner_learning/owner_rule_registry'
@@ -393,6 +394,7 @@ test('registry or run change makes preview stale', () => {
   }, {
     registryPath: context.registryPath,
     markdownPath: context.markdownPath,
+    expectedFingerprint: registryFingerprint(registry),
     logger: { error() {} },
   });
   assert.throws(
@@ -466,6 +468,27 @@ test('registry write failure leaves status unchanged', () => {
   );
 });
 
+test('status write carries an expected registry fingerprint', () => {
+  const context = fixture();
+  const preview = context.previewService.previewRuleStatusChange({
+    ruleId: context.rule.ruleId,
+    targetStatus: 'ACTIVE',
+    runId: RUN_ID,
+  });
+  let expectedFingerprint = null;
+  context.statusService.saveRegistry = (registry, options) => {
+    expectedFingerprint = options.expectedFingerprint;
+    return registry;
+  };
+
+  const result = context.statusService.changeStatus(
+    changeInput(context.rule, preview)
+  );
+
+  assert.equal(result.status, 'CHANGED');
+  assert.match(expectedFingerprint, /^[a-f0-9]{64}$/);
+});
+
 test('retry repairs journal after registry write succeeds', () => {
   const context = fixture();
   const preview = context.previewService.previewRuleStatusChange({
@@ -520,6 +543,51 @@ test('duplicate POST is idempotent and does not duplicate event', () => {
     }).events.length,
     1
   );
+});
+
+test('another preview cannot create a second event for one transition', () => {
+  const context = fixture();
+  const previewA = context.previewService.previewRuleStatusChange({
+    ruleId: context.rule.ruleId,
+    targetStatus: 'ACTIVE',
+    runId: RUN_ID,
+  });
+  context.previewService.now =
+    () => new Date('2026-07-26T04:01:30.000Z');
+  const previewB = context.previewService.previewRuleStatusChange({
+    ruleId: context.rule.ruleId,
+    targetStatus: 'ACTIVE',
+    runId: RUN_ID,
+  });
+  assert.notEqual(previewA.previewId, previewB.previewId);
+
+  context.statusService.changeStatus(changeInput(
+    context.rule,
+    previewA,
+    {
+      reasonCode: 'READY_TO_APPLY',
+      ownerComment: 'Комментарий A',
+    }
+  ));
+  const duplicate = context.statusService.changeStatus(changeInput(
+    context.rule,
+    previewB,
+    {
+      reasonCode: 'NEEDS_MORE_REVIEW',
+      ownerComment: 'Комментарий B',
+    }
+  ));
+  const events = loadRuleStatusEvents({
+    filePath: context.eventsPath,
+  }).events;
+
+  assert.equal(duplicate.status, 'ALREADY_CHANGED');
+  assert.equal(duplicate.repair.repaired, false);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].previewId, previewA.previewId);
+  assert.equal(events[0].reasonCode, 'READY_TO_APPLY');
+  assert.equal(events[0].ownerComment, 'Комментарий A');
+  assert.notEqual(events[0].ownerComment, 'Комментарий B');
 });
 
 test('status history is scoped to one rule', () => {

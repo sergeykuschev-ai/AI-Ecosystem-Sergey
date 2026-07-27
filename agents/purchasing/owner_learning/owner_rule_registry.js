@@ -341,6 +341,54 @@ function loadApprovedRules(options = {}) {
   }
 }
 
+function loadApprovedRulesTolerant(options = {}) {
+  const fsModule = options.fsModule || fs;
+  const { registryPath } = registryPaths(options);
+  try {
+    const source = JSON.parse(fsModule.readFileSync(registryPath, 'utf8'));
+    if (!source || typeof source !== 'object' || Array.isArray(source)) {
+      return validateRegistry(source);
+    }
+    if (!Array.isArray(source.rules)) {
+      return validateRegistry(source);
+    }
+    const envelope = validateRegistry({
+      ...source,
+      rules: [],
+    });
+    return {
+      ...envelope,
+      rules: source.rules.map(rule => {
+        if (!rule || typeof rule !== 'object' || Array.isArray(rule)) {
+          return rule;
+        }
+        try {
+          return validateRule(rule);
+        } catch {
+          return null;
+        }
+      }),
+    };
+  } catch (error) {
+    if (error.code === 'ENOENT') return emptyApprovedRulesRegistry();
+    const registryError = error instanceof OwnerRuleRegistryError
+      ? error
+      : new OwnerRuleRegistryError(
+        'RULE_REGISTRY_CORRUPTED',
+        'Реестр утверждённых правил повреждён и не был перезаписан.',
+        { cause: error }
+      );
+    logRegistryError(registryError, options);
+    throw registryError;
+  }
+}
+
+function registryFingerprint(registry) {
+  return crypto.createHash('sha256')
+    .update(JSON.stringify(validateRegistry(registry)), 'utf8')
+    .digest('hex');
+}
+
 function markdownCell(value) {
   return String(value ?? '').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
 }
@@ -424,53 +472,57 @@ function saveApprovedRules(registry, options = {}) {
   const fsModule = options.fsModule || fs;
   const paths = registryPaths(options);
   const validated = validateRegistry(registry);
-  if (fsModule.existsSync(paths.registryPath)) {
-    loadApprovedRules({ ...options, fsModule });
+  const registryExists = fsModule.existsSync(paths.registryPath);
+  const current = registryExists
+    ? loadApprovedRules({ ...options, fsModule })
+    : emptyApprovedRulesRegistry();
+  const currentFingerprint = registryFingerprint(current);
+  if (options.expectedFingerprint !== undefined) {
+    if (
+      typeof options.expectedFingerprint !== 'string' ||
+      !/^[a-f0-9]{64}$/.test(options.expectedFingerprint)
+    ) {
+      throw new OwnerRuleRegistryError(
+        'RULE_REGISTRY_INVALID',
+        'Expected fingerprint реестра имеет неверный формат.'
+      );
+    }
+    if (currentFingerprint !== options.expectedFingerprint) {
+      throw new OwnerRuleRegistryError(
+        'RULE_REGISTRY_CONCURRENT_MODIFICATION',
+        'Реестр правил был изменён другим запросом.'
+      );
+    }
+  } else if (
+    registryExists &&
+    registryFingerprint(validated) !== currentFingerprint
+  ) {
+    throw new OwnerRuleRegistryError(
+      'RULE_REGISTRY_CONCURRENT_MODIFICATION',
+      'Для изменения существующего реестра нужен expected fingerprint.'
+    );
   }
   const suffix = options.randomSuffix ||
     crypto.randomBytes(6).toString('hex');
-  const contents = [
-    {
-      finalPath: paths.registryPath,
-      content: `${JSON.stringify(validated, null, 2)}\n`,
-      suffix: `${suffix}-json`,
-    },
-    {
-      finalPath: paths.markdownPath,
-      content: buildApprovedRulesMarkdown(validated),
-      suffix: `${suffix}-md`,
-    },
-  ];
-  const temporaryFiles = [];
+  let registryTemporaryPath = null;
   try {
-    for (const file of contents) {
-      temporaryFiles.push({
-        ...file,
-        temporaryPath: writeTemporaryFile(
-          file.finalPath,
-          file.content,
-          file.suffix,
-          fsModule
-        ),
-      });
-    }
-    for (const file of temporaryFiles) {
-      fsModule.renameSync(file.temporaryPath, file.finalPath);
-    }
-    for (const directoryPath of new Set(
-      temporaryFiles.map(file => path.dirname(file.finalPath))
-    )) {
-      fsyncDirectory(directoryPath, fsModule);
-    }
-    return validated;
+    registryTemporaryPath = writeTemporaryFile(
+      paths.registryPath,
+      `${JSON.stringify(validated, null, 2)}\n`,
+      `${suffix}-json`,
+      fsModule
+    );
+    fsModule.renameSync(registryTemporaryPath, paths.registryPath);
+    registryTemporaryPath = null;
   } catch (error) {
-    for (const file of temporaryFiles) {
-      try {
-        if (fsModule.existsSync(file.temporaryPath)) {
-          fsModule.unlinkSync(file.temporaryPath);
-        }
-      } catch {}
-    }
+    try {
+      if (
+        registryTemporaryPath &&
+        fsModule.existsSync(registryTemporaryPath)
+      ) {
+        fsModule.unlinkSync(registryTemporaryPath);
+      }
+    } catch {}
     const registryError = new OwnerRuleRegistryError(
       'RULE_REGISTRY_WRITE_FAILED',
       'Не удалось атомарно сохранить реестр утверждённых правил.',
@@ -479,6 +531,56 @@ function saveApprovedRules(registry, options = {}) {
     logRegistryError(registryError, options);
     throw registryError;
   }
+  const publicationWarnings = [];
+  try {
+    fsyncDirectory(path.dirname(paths.registryPath), fsModule);
+  } catch {
+    publicationWarnings.push(
+      'RULE_REGISTRY_JSON_DIRECTORY_SYNC_FAILED'
+    );
+  }
+  let markdownTemporaryPath = null;
+  try {
+    markdownTemporaryPath = writeTemporaryFile(
+      paths.markdownPath,
+      buildApprovedRulesMarkdown(validated),
+      `${suffix}-md`,
+      fsModule
+    );
+    fsModule.renameSync(markdownTemporaryPath, paths.markdownPath);
+    markdownTemporaryPath = null;
+    fsyncDirectory(path.dirname(paths.markdownPath), fsModule);
+  } catch {
+    try {
+      if (
+        markdownTemporaryPath &&
+        fsModule.existsSync(markdownTemporaryPath)
+      ) {
+        fsModule.unlinkSync(markdownTemporaryPath);
+      }
+    } catch {}
+    publicationWarnings.push(
+      'RULE_REGISTRY_MARKDOWN_PUBLICATION_FAILED'
+    );
+  }
+  if (publicationWarnings.length > 0) {
+    Object.defineProperty(validated, 'publicationWarnings', {
+      configurable: false,
+      enumerable: false,
+      value: Object.freeze([...publicationWarnings]),
+      writable: false,
+    });
+    if (typeof options.logger?.warn === 'function') {
+      try {
+        for (const code of publicationWarnings) {
+          options.logger.warn(
+            `[${code}] Производный registry artifact не опубликован.`
+          );
+        }
+      } catch {}
+    }
+  }
+  return validated;
 }
 
 function ruleList(registryOrRules) {
@@ -706,7 +808,10 @@ function approveProposal(proposal, options = {}) {
     ...registry,
     updatedAt: approvedAt,
     rules: [...registry.rules, rule],
-  }, options);
+  }, {
+    ...options,
+    expectedFingerprint: registryFingerprint(registry),
+  });
   recordApprovedRuleHistory(proposal, rule, options);
   return rule;
 }
@@ -724,7 +829,9 @@ module.exports = {
   findRuleByStableItemKey,
   findRuleByMaterialization,
   loadApprovedRules,
+  loadApprovedRulesTolerant,
   recordApprovedRuleHistory,
+  registryFingerprint,
   saveApprovedRules,
   validateRegistry,
 };

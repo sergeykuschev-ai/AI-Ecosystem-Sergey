@@ -235,6 +235,20 @@ test('registry failure writes no journal event', () => {
   );
 });
 
+test('materialization write carries an expected registry fingerprint', () => {
+  const storage = paths();
+  let expectedFingerprint = null;
+  const result = service(storage, {
+    saveRegistry(registry, options) {
+      expectedFingerprint = options.expectedFingerprint;
+      return registry;
+    },
+  }).materializeCandidateRule({ candidateId: CANDIDATE_ID });
+
+  assert.equal(result.status, 'CREATED');
+  assert.match(expectedFingerprint, /^[a-f0-9]{64}$/);
+});
+
 test('retry repairs journal after registry-only partial success', () => {
   const storage = paths();
   assert.throws(

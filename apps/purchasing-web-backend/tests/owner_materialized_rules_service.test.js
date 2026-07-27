@@ -1,4 +1,7 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const { test } = require('node:test');
 
 const {
@@ -6,6 +9,9 @@ const {
   MATERIALIZATION_HISTORY_WARNING,
   STATUS_HISTORY_WARNING,
 } = require('../application/owner_materialized_rules_service');
+const {
+  OwnerKnowledgeHealthService,
+} = require('../application/owner_knowledge_health_service');
 const {
   mapOwnerMaterializedRules,
 } = require('../dto/owner_materialized_rules_mapper');
@@ -21,6 +27,11 @@ const {
   '../../../agents/purchasing/owner_learning/owner_rule_effectiveness'
 );
 const crypto = require('node:crypto');
+const {
+  loadApprovedRules,
+} = require(
+  '../../../agents/purchasing/owner_learning/owner_rule_registry'
+);
 
 const GENERATED_AT = '2026-07-25T08:00:00.000Z';
 const CANDIDATE_A = 'a'.repeat(64);
@@ -340,6 +351,73 @@ test('knowledge health snapshot is PARTIAL when effectiveness is damaged', () =>
   assert.equal(result.status, 'PARTIAL');
   assert.equal(result.components.effectiveness, 'UNAVAILABLE');
   assert.deepEqual(result.effectivenessSummaries, []);
+});
+
+test('knowledge health tolerates damaged entries without weakening strict read', () => {
+  const directory = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'health-tolerant-registry-')
+  );
+  try {
+    const registryPath = path.join(directory, 'rules.json');
+    const validRule = rule();
+    const source = {
+      schemaVersion: 'owner-approved-rules-v0.4',
+      updatedAt: GENERATED_AT,
+      rules: [null, 'bad', [], validRule],
+    };
+    const serialized = `${JSON.stringify(source, null, 2)}\n`;
+    fs.writeFileSync(registryPath, serialized, 'utf8');
+    const materializedRulesService = new OwnerMaterializedRulesService({
+      approvedRulesFilePath: registryPath,
+      materializationsFilePath: path.join(directory, 'materializations.json'),
+      candidateLifecycleFilePath: path.join(directory, 'lifecycle.json'),
+      candidatesService: {
+        getCandidates() {
+          return {
+            status: 'AVAILABLE',
+            candidates: [candidate()],
+          };
+        },
+      },
+      loadMaterializations() {
+        return journal([validRule]);
+      },
+      loadLifecycle() {
+        return lifecycle();
+      },
+      now: () => GENERATED_AT,
+      logger: { warn() {} },
+    });
+
+    const snapshot = materializedRulesService.getKnowledgeHealthSnapshot({
+      asOf: GENERATED_AT,
+    });
+    const health = new OwnerKnowledgeHealthService({
+      materializedRulesService,
+      now: () => GENERATED_AT,
+      logger: { warn() {} },
+    }).getKnowledgeHealth();
+
+    assert.equal(snapshot.status, 'PARTIAL');
+    assert.equal(snapshot.components.registry, 'PARTIAL');
+    assert.ok(snapshot.warnings.includes(
+      'OWNER_MATERIALIZED_RULES_INVALID_RULE_ENTRIES'
+    ));
+    assert.equal(snapshot.rules.length, 4);
+    assert.equal(health.status, 'PARTIAL');
+    assert.equal(health.dataQuality.invalidRules, 3);
+    assert.equal(
+      health.rules.some(value => value.ruleId === validRule.ruleId),
+      true
+    );
+    assert.throws(
+      () => loadApprovedRules({ registryPath, logger: { error() {} } }),
+      { code: 'RULE_REGISTRY_INVALID' }
+    );
+    assert.equal(fs.readFileSync(registryPath, 'utf8'), serialized);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
 });
 
 test('materialized disabled and active rules are listed; legacy is excluded', () => {

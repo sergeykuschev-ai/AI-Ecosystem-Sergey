@@ -5,7 +5,8 @@
 Purchasing Web Backend v1 is a local HTTP and application layer over the
 existing Purchasing Agent. It accepts a SmartZapas Excel export, starts one
 complete calculation under a shared `run_id`, stores compact browser DTOs and
-full artifacts, and exposes them to a future frontend.
+full artifacts, and exposes them through the included local owner-facing
+frontend.
 
 The backend does not duplicate purchasing formulas. Purchasing Agent, Demand
 Engine, Matrix Builder, Financial Controller, Recommendation Explainer, and
@@ -30,8 +31,9 @@ file run registry -> compact DTOs + whitelisted artifacts
 query service / secure artifact stream
 ```
 
-Runs are filesystem-backed. There is no database, asynchronous queue,
-authentication layer, or frontend in local v1.
+Runs are filesystem-backed. There is no database, asynchronous queue, or
+authentication layer in local v1. The included frontend is served by the same
+localhost-only process.
 
 ## Start
 
@@ -264,7 +266,7 @@ classifications:
 - `REVIEW_RECOMMENDED`
 - `INSUFFICIENT_DATA`
 
-The HTTP API is read-only:
+These effectiveness analytics endpoints are read-only:
 
 - `GET /api/v1/owner-learning/rule-effectiveness`
 - `GET /api/v1/owner-learning/rule-effectiveness/:ruleId`
@@ -312,6 +314,26 @@ History, Candidates, Rules, and Effectiveness views as lazily loaded tabs.
 Overview navigation never changes candidate or rule state. Status previews,
 confirmations, and other management actions remain on their existing explicit
 endpoints.
+
+### Knowledge Health
+
+The `Здоровье базы знаний` tab uses these read-only endpoints:
+
+- `GET /api/v1/owner-learning/knowledge-health`
+- `GET /api/v1/owner-learning/knowledge-health/findings`
+- `GET /api/v1/owner-learning/knowledge-health/rules/:ruleId`
+
+Knowledge Health reports an observational score, dimensions, findings, rule
+health, and allowlisted data-quality diagnostics. It may return `PARTIAL`
+while retaining valid neighboring rules when an individual registry entry or
+an optional analytics component is unavailable. It never repairs storage,
+changes a rule, or writes effectiveness data.
+
+The product also has explicit manual write flows for candidate lifecycle,
+candidate-to-rule materialization, and confirmed rule activation or
+deactivation after a preview. These flows are not part of Knowledge Health.
+No endpoint automatically creates, activates, disables, or otherwise mutates
+a rule based on analytics.
 
 ### Download an artifact
 
@@ -438,6 +460,7 @@ Rule-status endpoints additionally use:
 - no artifact range requests;
 - no CORS;
 - no remote deployment contract;
+- the owner-facing frontend and storage are local to this process;
 - no automated purchase-order creation or sending.
 
 These constraints are deliberate. Local v1 provides a small, auditable

@@ -270,10 +270,16 @@ class OwnerRuleStatusService {
         cause
       );
     }
+    const expectedFromStatus = oppositeStatus(targetStatus);
+    const expectedAction = targetStatus === 'ACTIVE'
+      ? 'ACTIVATE'
+      : 'DEACTIVATE';
     const existing = events.find(event =>
       event.ruleId === rule.ruleId &&
-      event.previewId === preview.previewId &&
-      event.toStatus === targetStatus
+      event.fromStatus === expectedFromStatus &&
+      event.toStatus === targetStatus &&
+      event.action === expectedAction &&
+      event.recordedAt === rule.updatedAt
     );
     if (existing) {
       return { repaired: false, event: existing };
@@ -405,13 +411,18 @@ class OwnerRuleStatusService {
       this.saveRegistry(nextRegistry, {
         registryPath: this.approvedRulesFilePath,
         markdownPath: this.approvedRulesMarkdownPath,
+        expectedFingerprint: registryFingerprint(registry),
         ...(this.fs ? { fsModule: this.fs } : {}),
         logger: { error() {} },
       });
     } catch (cause) {
       error(
-        'RULE_REGISTRY_UNAVAILABLE',
-        'Не удалось атомарно изменить статус правила.',
+        cause?.code === 'RULE_REGISTRY_CONCURRENT_MODIFICATION'
+          ? cause.code
+          : 'RULE_REGISTRY_UNAVAILABLE',
+        cause?.code === 'RULE_REGISTRY_CONCURRENT_MODIFICATION'
+          ? 'Реестр правил изменился во время смены статуса.'
+          : 'Не удалось атомарно изменить статус правила.',
         cause
       );
     }

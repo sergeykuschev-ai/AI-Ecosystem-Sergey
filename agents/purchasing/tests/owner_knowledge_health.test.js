@@ -129,12 +129,21 @@ for (const [name, invalidRule] of [
     assert.ok(result.dataQuality.warnings.includes(
       'DATA_QUALITY_INVALID_RULES'
     ));
+    assert.equal(result.score, 89);
+    assert.equal(result.grade, 'GOOD');
+    assert.equal(result.dimensions.dataQuality.score, 90);
+    assert.equal(result.findings.filter(value =>
+      value.type === 'RULE_DATA_QUALITY_ISSUE'
+    ).length, 1);
+    assert.ok(result.explanationCodes.includes(
+      'KNOWLEDGE_BASE_DEGRADED'
+    ));
     assert.deepEqual(result.ruleHealth, []);
   });
 }
 
 test('mixed valid and invalid rules preserve valid rule analysis', () => {
-  const valid = rule('valid');
+  const valid = rule('valid', { confidenceLevel: 'LOW' });
   const result = analyzeKnowledgeHealth(input([
     null,
     valid,
@@ -145,7 +154,26 @@ test('mixed valid and invalid rules preserve valid rule analysis', () => {
   assert.equal(result.dataQuality.invalidRules, 3);
   assert.equal(result.ruleHealth.length, 1);
   assert.equal(result.ruleHealth[0].ruleId, 'valid');
-  assert.equal(result.ruleHealth[0].classification, 'HEALTHY');
+  assert.equal(result.ruleHealth[0].findings.some(value =>
+    value.type === 'RULE_LOW_CONFIDENCE'
+  ), true);
+  assert.equal(result.score, 89);
+  assert.notEqual(result.grade, 'EXCELLENT');
+});
+
+test('multiple invalid rules receive one predictable aggregate penalty', () => {
+  const single = analyzeKnowledgeHealth(input([null]));
+  const multiple = analyzeKnowledgeHealth(input([null, 'bad', []]));
+
+  assert.equal(multiple.dataQuality.invalidRules, 3);
+  assert.equal(multiple.score, single.score);
+  assert.equal(multiple.findings.filter(value =>
+    value.type === 'RULE_DATA_QUALITY_ISSUE'
+  ).length, 1);
+  assert.deepEqual(
+    multiple.findings[0].explanationCodes,
+    ['DATA_QUALITY_INVALID_RULES']
+  );
 });
 
 test('invalid rules cannot create conflicts or duplicates', () => {

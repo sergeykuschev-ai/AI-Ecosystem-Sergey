@@ -1,5 +1,6 @@
 const {
   loadApprovedRules,
+  loadApprovedRulesTolerant,
 } = require(
   '../../../agents/purchasing/owner_learning/owner_rule_registry'
 );
@@ -31,6 +32,8 @@ const {
 );
 
 const UNAVAILABLE_WARNING = 'OWNER_MATERIALIZED_RULES_UNAVAILABLE';
+const REGISTRY_DATA_QUALITY_WARNING =
+  'OWNER_MATERIALIZED_RULES_INVALID_RULE_ENTRIES';
 const MATERIALIZATION_HISTORY_WARNING =
   'OWNER_RULE_MATERIALIZATION_HISTORY_UNAVAILABLE';
 const CANDIDATE_CONTEXT_WARNING =
@@ -534,6 +537,10 @@ class OwnerMaterializedRulesService {
     this.logger = options.logger || console;
     this.now = options.now || (() => new Date());
     this.loadRegistry = options.loadRegistry || loadApprovedRules;
+    this.loadHealthRegistry =
+      options.loadHealthRegistry ||
+      options.loadRegistry ||
+      loadApprovedRulesTolerant;
     this.loadMaterializations =
       options.loadMaterializations || loadMaterializationJournal;
     this.loadLifecycle =
@@ -550,10 +557,13 @@ class OwnerMaterializedRulesService {
     }
   }
 
-  readSources() {
+  readSources({ tolerantRegistry = false } = {}) {
     let registry;
     try {
-      registry = this.loadRegistry({
+      const registryLoader = tolerantRegistry
+        ? this.loadHealthRegistry
+        : this.loadRegistry;
+      registry = registryLoader({
         registryPath: this.approvedRulesFilePath,
         logger: { error() {} },
       });
@@ -563,6 +573,18 @@ class OwnerMaterializedRulesService {
         'Реестр materialized rules недоступен.'
       );
       return { unavailable: true };
+    }
+    const registryWarning = tolerantRegistry &&
+      registry.rules.some(rule =>
+        !rule || typeof rule !== 'object' || Array.isArray(rule)
+      )
+      ? REGISTRY_DATA_QUALITY_WARNING
+      : null;
+    if (registryWarning) {
+      this.warn(
+        registryWarning,
+        'Registry содержит повреждённые rule entries.'
+      );
     }
 
     let journal = null;
@@ -649,7 +671,9 @@ class OwnerMaterializedRulesService {
       lifecycle,
       statusEvents,
       effectiveness,
+      registryWarning,
       warning:
+        registryWarning ||
         effectivenessWarning ||
         statusHistoryWarning ||
         journalWarning ||
@@ -801,7 +825,7 @@ class OwnerMaterializedRulesService {
     ) {
       invalidInput('asOf должен быть ISO UTC datetime.');
     }
-    const sources = this.readSources();
+    const sources = this.readSources({ tolerantRegistry: true });
     if (sources.unavailable) {
       return {
         status: 'UNAVAILABLE',
@@ -822,7 +846,12 @@ class OwnerMaterializedRulesService {
       };
     }
     const effectivenessSummaries = sources.effectiveness
-      ? sources.registry.rules.map(rule => ({
+      ? sources.registry.rules.filter(rule =>
+        rule &&
+        typeof rule === 'object' &&
+        !Array.isArray(rule) &&
+        optionalText(rule.ruleId)
+      ).map(rule => ({
         ruleId: rule.ruleId,
         effectiveness: summarizeRuleEffectiveness({
           events: sources.effectiveness.events,
@@ -832,6 +861,7 @@ class OwnerMaterializedRulesService {
       }))
       : [];
     const warnings = [
+      sources.registryWarning,
       sources.warning,
       !sources.journal ? MATERIALIZATION_HISTORY_WARNING : null,
       !sources.lifecycle ? LIFECYCLE_CONTEXT_WARNING : null,
@@ -851,7 +881,7 @@ class OwnerMaterializedRulesService {
       effectivenessSummaries,
       statusEvents: sources.statusEvents?.events || [],
       components: {
-        registry: 'AVAILABLE',
+        registry: sources.registryWarning ? 'PARTIAL' : 'AVAILABLE',
         materializations: sources.journal
           ? 'AVAILABLE'
           : 'UNAVAILABLE',
@@ -910,6 +940,7 @@ module.exports = {
   FILTER_VALUES,
   LIFECYCLE_CONTEXT_WARNING,
   MATERIALIZATION_HISTORY_WARNING,
+  REGISTRY_DATA_QUALITY_WARNING,
   STATUS_HISTORY_WARNING,
   EFFECTIVENESS_WARNING,
   SORT_FIELDS,

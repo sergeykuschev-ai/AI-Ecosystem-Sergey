@@ -76,6 +76,7 @@ const EXPLANATION_CODES = Object.freeze([
   'RULE_LIFECYCLE_INCONSISTENT',
   'RULE_STATUS_HISTORY_INCONSISTENT',
   'RULE_REQUIRES_MANUAL_REVIEW',
+  'DATA_QUALITY_INVALID_RULES',
   'KNOWLEDGE_BASE_HEALTHY',
   'KNOWLEDGE_BASE_DEGRADED',
   'KNOWLEDGE_BASE_CRITICAL',
@@ -1095,9 +1096,21 @@ function analyzeKnowledgeHealth(input = {}) {
   const individualFindings = context.rules.flatMap((rule, index) =>
     perRuleFindings(rule, context, index)
   );
+  const invalidRuleFindings = context.invalidRules > 0
+    ? [finding({
+      type: 'RULE_DATA_QUALITY_ISSUE',
+      severity: 'MEDIUM',
+      rules: [],
+      evidence: { invalidRules: context.invalidRules },
+      recommendedReviewAction: 'REVIEW_RULE',
+      navigationTarget: 'MATERIALIZED_RULES',
+      explanationCodes: ['DATA_QUALITY_INVALID_RULES'],
+    })]
+    : [];
   const findings = sortFindings([
     ...groupFindings,
     ...individualFindings,
+    ...invalidRuleFindings,
   ]);
   const ruleHealth = context.rules.map(rule =>
     analyzeRuleHealth({
@@ -1109,13 +1122,16 @@ function analyzeKnowledgeHealth(input = {}) {
     left.ruleId.localeCompare(right.ruleId, 'en')
   );
   const dimensions = dimensionsFromFindings(findings);
-  const score = Math.max(0, Math.min(100, Math.round(
+  const weightedScore = Math.max(0, Math.min(100, Math.round(
     Object.values(dimensions).reduce(
       (total, dimension) =>
         total + dimension.score * dimension.weight,
       0
     ) / 100
   )));
+  const score = context.invalidRules > 0
+    ? Math.min(89, weightedScore)
+    : weightedScore;
   const grade = getKnowledgeHealthGrade(score);
   const criticalRuleIds = new Set(
     findings.filter(item =>
@@ -1156,7 +1172,9 @@ function analyzeKnowledgeHealth(input = {}) {
       ].includes(item.type))
     ).length,
   };
-  const healthCode = score >= 75
+  const healthCode = context.invalidRules > 0
+    ? 'KNOWLEDGE_BASE_DEGRADED'
+    : score >= 75
     ? 'KNOWLEDGE_BASE_HEALTHY'
     : (score >= 25
       ? 'KNOWLEDGE_BASE_DEGRADED'

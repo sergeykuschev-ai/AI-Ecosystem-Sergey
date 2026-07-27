@@ -19,6 +19,7 @@ const {
 const {
   findRuleByMaterialization,
   loadApprovedRules,
+  registryFingerprint,
   saveApprovedRules,
 } = require(
   '../../../agents/purchasing/owner_learning/owner_rule_registry'
@@ -241,11 +242,18 @@ class OwnerRuleMaterializationService {
         ...registry,
         updatedAt: materializedAt,
         rules: [...registry.rules, materialization.ruleDraft],
-      }, this.registryOptions());
+      }, {
+        ...this.registryOptions(),
+        expectedFingerprint: registryFingerprint(registry),
+      });
     } catch (error) {
       throw serviceError(
-        'RULE_REGISTRY_UNAVAILABLE',
-        'Не удалось сохранить неактивное правило.',
+        error?.code === 'RULE_REGISTRY_CONCURRENT_MODIFICATION'
+          ? error.code
+          : 'RULE_REGISTRY_UNAVAILABLE',
+        error?.code === 'RULE_REGISTRY_CONCURRENT_MODIFICATION'
+          ? 'Реестр правил изменился во время materialization.'
+          : 'Не удалось сохранить неактивное правило.',
         error
       );
     }
