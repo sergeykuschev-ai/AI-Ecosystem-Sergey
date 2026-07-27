@@ -274,7 +274,9 @@ function saveStatusTransitionIntent({
         ruleId: validated.ruleId,
         fsModule,
       });
-      if (existing?.intentId === validated.intentId) return existing;
+      if (existing?.intentId === validated.intentId) {
+        return existing;
+      }
       fail(
         'RULE_STATUS_TRANSITION_IN_PROGRESS',
         'Для правила уже выполняется status transition.',
@@ -292,21 +294,102 @@ function saveStatusTransitionIntent({
 
 function deleteStatusTransitionIntent({
   directoryPath,
-  ruleId,
+  expectedIntent,
   fsModule = fs,
 } = {}) {
-  const filePath = intentFilePath(directoryPath, ruleId);
+  const expected = validateStatusTransitionIntent(expectedIntent);
+  const filePath = intentFilePath(directoryPath, expected.ruleId);
+  const cleanupPath = `${filePath}.cleanup-${expected.intentId}`;
+  const cleanupId = crypto.randomBytes(16).toString('hex');
+  let descriptor;
   try {
+    descriptor = fsModule.openSync(cleanupPath, 'wx', 0o600);
+    fsModule.writeFileSync(
+      descriptor,
+      `${JSON.stringify({
+        cleanupId,
+        intentId: expected.intentId,
+        pid: process.pid,
+        createdAt: new Date().toISOString(),
+      })}\n`,
+      'utf8'
+    );
+    fsModule.fsyncSync(descriptor);
+    fsModule.closeSync(descriptor);
+    descriptor = undefined;
+  } catch (error) {
+    if (descriptor !== undefined) {
+      try {
+        fsModule.closeSync(descriptor);
+      } catch {}
+    }
+    if (error.code === 'EEXIST') {
+      return {
+        deleted: false,
+        diagnostic: 'RULE_STATUS_TRANSITION_CLEANUP_IN_PROGRESS',
+      };
+    }
+    fail(
+      'RULE_STATUS_TRANSITION_STORAGE_UNAVAILABLE',
+      'Не удалось получить cleanup claim status transition intent.',
+      error
+    );
+  }
+  try {
+    const current = loadStatusTransitionIntent({
+      directoryPath,
+      ruleId: expected.ruleId,
+      fsModule,
+    });
+    if (!current) {
+      return {
+        deleted: false,
+        diagnostic: 'RULE_STATUS_TRANSITION_INTENT_NOT_FOUND',
+      };
+    }
+    if (
+      current.intentId !== expected.intentId ||
+      current.ruleId !== expected.ruleId ||
+      current.fromStatus !== expected.fromStatus ||
+      current.toStatus !== expected.toStatus ||
+      current.action !== expected.action ||
+      current.targetUpdatedAt !== expected.targetUpdatedAt
+    ) {
+      return {
+        deleted: false,
+        diagnostic: 'RULE_STATUS_TRANSITION_INTENT_MISMATCH',
+      };
+    }
     fsModule.unlinkSync(filePath);
     fsyncDirectory(path.dirname(filePath), fsModule);
-    return true;
+    return {
+      deleted: true,
+      diagnostic: null,
+    };
   } catch (error) {
-    if (error.code === 'ENOENT') return false;
+    if (error instanceof OwnerRuleStatusTransitionIntentError) throw error;
     fail(
       'RULE_STATUS_TRANSITION_STORAGE_UNAVAILABLE',
       'Не удалось завершить status transition intent.',
       error
     );
+  } finally {
+    try {
+      const cleanup = JSON.parse(
+        fsModule.readFileSync(cleanupPath, 'utf8')
+      );
+      if (cleanup.cleanupId === cleanupId) {
+        fsModule.unlinkSync(cleanupPath);
+      }
+    } catch (error) {
+      if (error.code !== 'ENOENT') {
+        fail(
+          'RULE_STATUS_TRANSITION_STORAGE_UNAVAILABLE',
+          'Не удалось освободить cleanup claim status transition intent.',
+          error
+        );
+      }
+    }
   }
 }
 

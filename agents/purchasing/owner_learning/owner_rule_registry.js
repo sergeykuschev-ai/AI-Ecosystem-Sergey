@@ -538,16 +538,121 @@ function acquireRegistryWriteLock(paths, options, fsModule) {
         } catch {}
       }
       if (error.code !== 'EEXIST') throw error;
+      let observedLock = null;
+      let observedAgeMs = -1;
       try {
-        const ageMs = Date.now() -
+        observedLock = JSON.parse(
+          fsModule.readFileSync(lockPath, 'utf8')
+        );
+        observedAgeMs = Date.now() -
           fsModule.statSync(lockPath).mtimeMs;
-        if (ageMs >= staleMs) {
-          fsModule.unlinkSync(lockPath);
-          continue;
-        }
       } catch (inspectionError) {
         if (inspectionError.code === 'ENOENT') continue;
-        throw inspectionError;
+      }
+      if (
+        observedAgeMs >= staleMs &&
+        typeof observedLock?.lockId === 'string' &&
+        observedLock.lockId.length > 0 &&
+        observedLock.lockId.length <= 128
+      ) {
+        let ownerIsAlive = false;
+        if (
+          Number.isInteger(observedLock.pid) &&
+          observedLock.pid > 0
+        ) {
+          try {
+            process.kill(observedLock.pid, 0);
+            ownerIsAlive = true;
+          } catch (ownerError) {
+            ownerIsAlive = ownerError.code !== 'ESRCH';
+          }
+        }
+        if (!ownerIsAlive) {
+          const reclaimPath = `${lockPath}.reclaim-${
+            crypto.createHash('sha256')
+              .update(observedLock.lockId, 'utf8')
+              .digest('hex')
+          }`;
+          const reclaimId = crypto.randomBytes(16).toString('hex');
+          let reclaimDescriptor;
+          let ownsReclaim = false;
+          try {
+            reclaimDescriptor = fsModule.openSync(
+              reclaimPath,
+              'wx',
+              0o600
+            );
+            fsModule.writeFileSync(
+              reclaimDescriptor,
+              `${JSON.stringify({
+                reclaimId,
+                staleLockId: observedLock.lockId,
+                pid: process.pid,
+                createdAt: new Date().toISOString(),
+              })}\n`,
+              'utf8'
+            );
+            fsModule.fsyncSync(reclaimDescriptor);
+            fsModule.closeSync(reclaimDescriptor);
+            reclaimDescriptor = undefined;
+            ownsReclaim = true;
+          } catch (reclaimError) {
+            if (reclaimDescriptor !== undefined) {
+              try {
+                fsModule.closeSync(reclaimDescriptor);
+              } catch {}
+            }
+            if (reclaimError.code !== 'EEXIST') throw reclaimError;
+          }
+          if (ownsReclaim) {
+            try {
+              let currentLock = null;
+              let currentAgeMs = -1;
+              try {
+                currentLock = JSON.parse(
+                  fsModule.readFileSync(lockPath, 'utf8')
+                );
+                currentAgeMs = Date.now() -
+                  fsModule.statSync(lockPath).mtimeMs;
+              } catch (verificationError) {
+                if (verificationError.code !== 'ENOENT') {
+                  currentLock = null;
+                }
+              }
+              let currentOwnerIsAlive = false;
+              if (
+                Number.isInteger(currentLock?.pid) &&
+                currentLock.pid > 0
+              ) {
+                try {
+                  process.kill(currentLock.pid, 0);
+                  currentOwnerIsAlive = true;
+                } catch (ownerError) {
+                  currentOwnerIsAlive = ownerError.code !== 'ESRCH';
+                }
+              }
+              if (
+                currentLock?.lockId === observedLock.lockId &&
+                currentAgeMs >= staleMs &&
+                !currentOwnerIsAlive
+              ) {
+                fsModule.unlinkSync(lockPath);
+              }
+            } finally {
+              try {
+                const reclaim = JSON.parse(
+                  fsModule.readFileSync(reclaimPath, 'utf8')
+                );
+                if (reclaim.reclaimId === reclaimId) {
+                  fsModule.unlinkSync(reclaimPath);
+                }
+              } catch (cleanupError) {
+                if (cleanupError.code !== 'ENOENT') throw cleanupError;
+              }
+            }
+            continue;
+          }
+        }
       }
       const elapsedMs = Date.now() - startedAt;
       if (elapsedMs >= timeoutMs) {

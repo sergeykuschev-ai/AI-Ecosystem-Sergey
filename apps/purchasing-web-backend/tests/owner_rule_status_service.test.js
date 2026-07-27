@@ -24,8 +24,11 @@ const {
   '../../../agents/purchasing/owner_learning/owner_rule_status_manager'
 );
 const {
+  createStatusTransitionIntent,
+  deleteStatusTransitionIntent,
   intentFilePath,
   loadStatusTransitionIntent,
+  saveStatusTransitionIntent,
 } = require(
   '../../../agents/purchasing/owner_learning/owner_rule_status_transition_intent'
 );
@@ -478,7 +481,7 @@ test('registry write failure leaves status unchanged', () => {
   )), false);
 });
 
-test('registry write lock is controlled and cleans transition intent', () => {
+test('registry write lock preserves transition intent for the winner', () => {
   const context = fixture();
   const preview = context.previewService.previewRuleStatusChange({
     ruleId: context.rule.ruleId,
@@ -500,7 +503,14 @@ test('registry write lock is controlled and cleans transition intent', () => {
   assert.equal(fs.existsSync(intentFilePath(
     `${context.eventsPath}.transition-intents`,
     context.rule.ruleId
-  )), false);
+  )), true);
+  const intent = loadStatusTransitionIntent({
+    directoryPath: `${context.eventsPath}.transition-intents`,
+    ruleId: context.rule.ruleId,
+  });
+  assert.equal(intent.previewId, preview.previewId);
+  assert.equal(intent.fromStatus, 'DISABLED');
+  assert.equal(intent.toStatus, 'ACTIVE');
   assert.equal(
     loadApprovedRules({
       registryPath: context.registryPath,
@@ -729,6 +739,227 @@ test('repair after append failure uses preview A and ignores preview B', () => {
     1
   );
   assert.equal(fs.existsSync(transitionIntentPath), false);
+});
+
+test('intent cleanup deletes only the exact expected correlation', () => {
+  const context = fixture();
+  const previewA = context.previewService.previewRuleStatusChange({
+    ruleId: context.rule.ruleId,
+    targetStatus: 'ACTIVE',
+    runId: RUN_ID,
+  });
+  const originalAppend = context.statusService.appendEvent;
+  context.statusService.appendEvent = () => {
+    throw new Error('simulated audit failure');
+  };
+  assert.throws(
+    () => context.statusService.changeStatus(
+      changeInput(context.rule, previewA)
+    ),
+    { code: 'RULE_STATUS_STORAGE_UNAVAILABLE' }
+  );
+  const directoryPath = `${context.eventsPath}.transition-intents`;
+  const intentA = loadStatusTransitionIntent({
+    directoryPath,
+    ruleId: context.rule.ruleId,
+  });
+  assert.equal(deleteStatusTransitionIntent({
+    directoryPath,
+    expectedIntent: intentA,
+  }).deleted, true);
+
+  const activeRule = loadApprovedRules({
+    registryPath: context.registryPath,
+  }).rules[0];
+  context.previewService.now =
+    () => new Date('2026-07-26T04:03:00.000Z');
+  const previewB = context.previewService.previewRuleStatusChange({
+    ruleId: activeRule.ruleId,
+    targetStatus: 'DISABLED',
+    runId: RUN_ID,
+  });
+  const eventB = context.statusService.statusEvent({
+    rule: activeRule,
+    targetStatus: 'DISABLED',
+    preview: context.statusService.currentPreview(previewB.previewId),
+    recordedAt: '2026-07-26T04:04:00.000Z',
+    reasonCode: 'TEMPORARILY_DISABLE',
+    ownerComment: 'Переход B',
+  });
+  const intentB = createStatusTransitionIntent({ event: eventB });
+  assert.equal(saveStatusTransitionIntent({
+    directoryPath,
+    intent: intentB,
+  }).intentId, intentB.intentId);
+
+  const staleCleanup = deleteStatusTransitionIntent({
+    directoryPath,
+    expectedIntent: intentA,
+  });
+  assert.deepEqual(staleCleanup, {
+    deleted: false,
+    diagnostic: 'RULE_STATUS_TRANSITION_INTENT_MISMATCH',
+  });
+  assert.equal(
+    loadStatusTransitionIntent({
+      directoryPath,
+      ruleId: activeRule.ruleId,
+    }).intentId,
+    intentB.intentId
+  );
+  assert.deepEqual(deleteStatusTransitionIntent({
+    directoryPath,
+    expectedIntent: intentB,
+  }), {
+    deleted: true,
+    diagnostic: null,
+  });
+  assert.deepEqual(deleteStatusTransitionIntent({
+    directoryPath,
+    expectedIntent: intentB,
+  }), {
+    deleted: false,
+    diagnostic: 'RULE_STATUS_TRANSITION_INTENT_NOT_FOUND',
+  });
+  context.statusService.appendEvent = originalAppend;
+});
+
+test('duplicate completed event does not delete the next transition intent', () => {
+  const context = fixture();
+  const previewA = context.previewService.previewRuleStatusChange({
+    ruleId: context.rule.ruleId,
+    targetStatus: 'ACTIVE',
+    runId: RUN_ID,
+  });
+  const inputA = changeInput(context.rule, previewA);
+  context.statusService.changeStatus(inputA);
+  const activeRule = loadApprovedRules({
+    registryPath: context.registryPath,
+  }).rules[0];
+  context.previewService.now =
+    () => new Date('2026-07-26T04:03:00.000Z');
+  const previewB = context.previewService.previewRuleStatusChange({
+    ruleId: activeRule.ruleId,
+    targetStatus: 'DISABLED',
+    runId: RUN_ID,
+  });
+  const intentB = createStatusTransitionIntent({
+    event: context.statusService.statusEvent({
+      rule: activeRule,
+      targetStatus: 'DISABLED',
+      preview: context.statusService.currentPreview(previewB.previewId),
+      recordedAt: '2026-07-26T04:04:00.000Z',
+      reasonCode: 'TEMPORARILY_DISABLE',
+      ownerComment: 'Переход B',
+    }),
+  });
+  const directoryPath = `${context.eventsPath}.transition-intents`;
+  saveStatusTransitionIntent({ directoryPath, intent: intentB });
+
+  const duplicateA = context.statusService.changeStatus(inputA);
+
+  assert.equal(duplicateA.status, 'ALREADY_CHANGED');
+  assert.equal(duplicateA.repair.repaired, false);
+  assert.equal(
+    duplicateA.repair.cleanup.diagnostic,
+    'RULE_STATUS_TRANSITION_INTENT_MISMATCH'
+  );
+  assert.equal(
+    loadStatusTransitionIntent({
+      directoryPath,
+      ruleId: activeRule.ruleId,
+    }).intentId,
+    intentB.intentId
+  );
+  assert.equal(
+    loadRuleStatusEvents({ filePath: context.eventsPath }).events.length,
+    1
+  );
+});
+
+test('loser CAS keeps winner intent and retry repairs winner audit', () => {
+  const context = fixture();
+  const previewA = context.previewService.previewRuleStatusChange({
+    ruleId: context.rule.ruleId,
+    targetStatus: 'ACTIVE',
+    runId: RUN_ID,
+  });
+  const inputA = changeInput(context.rule, previewA, {
+    reasonCode: 'READY_TO_APPLY',
+    ownerComment: 'Correlation A',
+  });
+  const serviceB = new OwnerRuleStatusService({
+    approvedRulesFilePath: context.registryPath,
+    approvedRulesMarkdownPath: context.markdownPath,
+    statusEventsFilePath: context.eventsPath,
+    previewStorageFilePath: context.previewsPath,
+    previewService: context.previewService,
+    now: () => new Date(CHANGE_AT),
+  });
+  serviceB.saveRegistry = () => {
+    throw Object.assign(new Error('loser CAS'), {
+      code: 'RULE_REGISTRY_CONCURRENT_MODIFICATION',
+    });
+  };
+  const originalAppend = context.statusService.appendEvent;
+  context.statusService.saveRegistry = (registry, options) => {
+    assert.throws(
+      () => serviceB.changeStatus(inputA),
+      { code: 'RULE_REGISTRY_CONCURRENT_MODIFICATION' }
+    );
+    const winnerIntent = loadStatusTransitionIntent({
+      directoryPath: `${context.eventsPath}.transition-intents`,
+      ruleId: context.rule.ruleId,
+    });
+    assert.equal(winnerIntent.previewId, previewA.previewId);
+    assert.equal(winnerIntent.ownerComment, 'Correlation A');
+    return saveApprovedRules(registry, options);
+  };
+  context.statusService.appendEvent = () => {
+    throw new Error('winner audit failure');
+  };
+
+  assert.throws(
+    () => context.statusService.changeStatus(inputA),
+    { code: 'RULE_STATUS_STORAGE_UNAVAILABLE' }
+  );
+  assert.equal(
+    loadApprovedRules({
+      registryPath: context.registryPath,
+    }).rules[0].status,
+    'ACTIVE'
+  );
+  const winnerIntent = loadStatusTransitionIntent({
+    directoryPath: `${context.eventsPath}.transition-intents`,
+    ruleId: context.rule.ruleId,
+  });
+  assert.equal(winnerIntent.previewId, previewA.previewId);
+  assert.equal(winnerIntent.reasonCode, 'READY_TO_APPLY');
+  assert.equal(winnerIntent.ownerComment, 'Correlation A');
+  assert.equal(fs.existsSync(context.eventsPath), false);
+
+  context.statusService.appendEvent = originalAppend;
+  const repaired = context.statusService.changeStatus(inputA);
+  const events = loadRuleStatusEvents({
+    filePath: context.eventsPath,
+  }).events;
+
+  assert.equal(repaired.status, 'ALREADY_CHANGED');
+  assert.equal(repaired.repair.repaired, true);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].previewId, previewA.previewId);
+  assert.equal(events[0].reasonCode, 'READY_TO_APPLY');
+  assert.equal(events[0].ownerComment, 'Correlation A');
+  assert.equal(loadStatusTransitionIntent({
+    directoryPath: `${context.eventsPath}.transition-intents`,
+    ruleId: context.rule.ruleId,
+  }), null);
+  const duplicate = context.statusService.changeStatus(inputA);
+  assert.equal(duplicate.repair.repaired, false);
+  assert.equal(
+    loadRuleStatusEvents({ filePath: context.eventsPath }).events.length,
+    1
+  );
 });
 
 test('missing transition correlation never creates a guessed audit event', () => {

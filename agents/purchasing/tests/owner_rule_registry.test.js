@@ -450,6 +450,137 @@ test('parallel processes cannot both commit one expected fingerprint', async () 
   assert.equal(fs.existsSync(`${options.registryPath}.lock`), false);
 });
 
+test('two stale reclaimers preserve the fresh winner lock and one JSON', async () => {
+  const options = temporaryRegistryOptions();
+  saveApprovedRules(emptyApprovedRulesRegistry(), options);
+  const expectedFingerprint = registryFingerprint(
+    loadApprovedRules(options)
+  );
+  const lockPath = `${options.registryPath}.lock`;
+  const staleLockId = '11111111111111111111111111111111';
+  fs.writeFileSync(lockPath, `${JSON.stringify({
+    lockId: staleLockId,
+    pid: 2_147_483_647,
+    createdAt: '2026-07-24T00:00:00.000Z',
+  })}\n`, 'utf8');
+  const staleTime = new Date(Date.now() - 60_000);
+  fs.utimesSync(lockPath, staleTime, staleTime);
+  const modulePath = path.resolve(
+    __dirname,
+    '../owner_learning/owner_rule_registry.js'
+  );
+  const goPath = path.join(path.dirname(lockPath), 'reclaim-go');
+  const childSource = [
+    'const fs = require("node:fs");',
+    'const api = require(process.env.REGISTRY_MODULE);',
+    'let synchronized = false;',
+    'const fsModule = { ...fs,',
+    'readFileSync(filePath, ...args) {',
+    'const value = fs.readFileSync(filePath, ...args);',
+    'if (!synchronized && filePath === process.env.LOCK_PATH &&',
+    'String(value).includes(process.env.STALE_LOCK_ID)) {',
+    'synchronized = true;',
+    'fs.writeFileSync(process.env.READY_PATH, "ready");',
+    'while (!fs.existsSync(process.env.GO_PATH)) {',
+    'Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5);',
+    '}',
+    '}',
+    'return value;',
+    '},',
+    'renameSync(source, destination) {',
+    'if (destination === process.env.REGISTRY_PATH) {',
+    'Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 200);',
+    '}',
+    'return fs.renameSync(source, destination);',
+    '}',
+    '};',
+    'try {',
+    'api.saveApprovedRules({',
+    'schemaVersion: api.REGISTRY_SCHEMA_VERSION,',
+    'updatedAt: process.env.UPDATED_AT,',
+    'rules: []',
+    '}, {',
+    'registryPath: process.env.REGISTRY_PATH,',
+    'markdownPath: process.env.MARKDOWN_PATH,',
+    'expectedFingerprint: process.env.EXPECTED_FINGERPRINT,',
+    'lockStaleMs: 10,',
+    'lockTimeoutMs: 1500,',
+    'lockRetryMs: 5,',
+    'fsModule,',
+    'logger: { error() {} }',
+    '});',
+    'process.stdout.write("SUCCESS");',
+    '} catch (error) {',
+    'process.stdout.write(error.code || "UNKNOWN");',
+    '}',
+  ].join('');
+  const children = [
+    ['2026-07-24T10:00:00.000Z', 'reclaimer-a-ready'],
+    ['2026-07-25T10:00:00.000Z', 'reclaimer-b-ready'],
+  ].map(([updatedAt, markerName]) => {
+    const readyPath = path.join(path.dirname(lockPath), markerName);
+    const child = spawn(process.execPath, ['-e', childSource], {
+      env: {
+        ...process.env,
+        EXPECTED_FINGERPRINT: expectedFingerprint,
+        GO_PATH: goPath,
+        LOCK_PATH: lockPath,
+        MARKDOWN_PATH: options.markdownPath,
+        READY_PATH: readyPath,
+        REGISTRY_MODULE: modulePath,
+        REGISTRY_PATH: options.registryPath,
+        STALE_LOCK_ID: staleLockId,
+        UPDATED_AT: updatedAt,
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', chunk => { stdout += chunk; });
+    child.stderr.on('data', chunk => { stderr += chunk; });
+    return {
+      readyPath,
+      result: new Promise((resolve, reject) => {
+        child.once('error', reject);
+        child.once('close', code => resolve({ code, stdout, stderr }));
+      }),
+    };
+  });
+  const readyDeadline = Date.now() + 3000;
+  while (
+    children.some(child => !fs.existsSync(child.readyPath)) &&
+    Date.now() < readyDeadline
+  ) {
+    await new Promise(resolve => setTimeout(resolve, 5));
+  }
+  assert.equal(
+    children.every(child => fs.existsSync(child.readyPath)),
+    true
+  );
+  fs.writeFileSync(goPath, 'go', 'utf8');
+  const results = await Promise.all(
+    children.map(child => child.result)
+  );
+
+  assert.deepEqual(
+    results.map(result => result.stdout).sort(),
+    ['RULE_REGISTRY_CONCURRENT_MODIFICATION', 'SUCCESS']
+  );
+  for (const result of results) {
+    assert.equal(result.code, 0, result.stderr);
+  }
+  assert.ok([
+    '2026-07-24T10:00:00.000Z',
+    '2026-07-25T10:00:00.000Z',
+  ].includes(loadApprovedRules(options).updatedAt));
+  assert.equal(fs.existsSync(lockPath), false);
+  assert.equal(
+    fs.readdirSync(path.dirname(lockPath))
+      .some(name => name.includes('.lock.reclaim-')),
+    false
+  );
+});
+
 test('stale registry lock is removed before a protected write', () => {
   const options = temporaryRegistryOptions();
   const initial = saveApprovedRules(emptyApprovedRulesRegistry(), options);
@@ -498,6 +629,53 @@ test('fresh registry lock times out without blocking strict reads', () => {
   );
   assert.deepEqual(loadApprovedRules(options), initial);
   assert.equal(fs.existsSync(lockPath), true);
+});
+
+test('release removes only its own lockId and preserves a foreign lock', () => {
+  const options = temporaryRegistryOptions();
+  const initial = saveApprovedRules(emptyApprovedRulesRegistry(), options);
+  const lockPath = `${options.registryPath}.lock`;
+  const foreignLock = {
+    lockId: '22222222222222222222222222222222',
+    pid: process.pid,
+    createdAt: new Date().toISOString(),
+  };
+  const fsModule = {
+    ...fs,
+    renameSync(sourcePath, destinationPath) {
+      const result = fs.renameSync(sourcePath, destinationPath);
+      if (destinationPath === options.registryPath) {
+        fs.writeFileSync(
+          lockPath,
+          `${JSON.stringify(foreignLock)}\n`,
+          'utf8'
+        );
+      }
+      return result;
+    },
+  };
+
+  assert.throws(
+    () => saveApprovedRules({
+      ...initial,
+      updatedAt: '2026-07-24T10:00:00.000Z',
+    }, {
+      ...options,
+      fsModule,
+      expectedFingerprint: registryFingerprint(initial),
+    }),
+    error =>
+      error instanceof OwnerRuleRegistryError &&
+      error.code === 'RULE_REGISTRY_WRITE_LOCKED'
+  );
+  assert.deepEqual(
+    JSON.parse(fs.readFileSync(lockPath, 'utf8')),
+    foreignLock
+  );
+  assert.equal(
+    loadApprovedRules(options).updatedAt,
+    '2026-07-24T10:00:00.000Z'
+  );
 });
 
 test('registry lock is cleaned after authoritative JSON write failure', () => {

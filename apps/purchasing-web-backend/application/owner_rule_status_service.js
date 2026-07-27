@@ -299,11 +299,11 @@ class OwnerRuleStatusService {
     }
   }
 
-  completeTransitionIntent(ruleId) {
+  completeTransitionIntent(expectedIntent) {
     try {
       return this.deleteIntent({
         directoryPath: this.transitionIntentsDirectoryPath,
-        ruleId,
+        expectedIntent,
         ...(this.fs ? { fsModule: this.fs } : {}),
       });
     } catch (cause) {
@@ -336,6 +336,7 @@ class OwnerRuleStatusService {
     const expectedAction = targetStatus === 'ACTIVE'
       ? 'ACTIVATE'
       : 'DEACTIVATE';
+    const intent = this.currentTransitionIntent(rule.ruleId);
     const existing = events.find(event =>
       event.ruleId === rule.ruleId &&
       event.fromStatus === expectedFromStatus &&
@@ -344,10 +345,24 @@ class OwnerRuleStatusService {
       event.recordedAt === rule.updatedAt
     );
     if (existing) {
-      this.completeTransitionIntent(rule.ruleId);
-      return { repaired: false, event: existing };
+      const cleanup = (
+        intent &&
+        intent.event.eventId === existing.eventId &&
+        intent.ruleId === existing.ruleId &&
+        intent.fromStatus === existing.fromStatus &&
+        intent.toStatus === existing.toStatus &&
+        intent.action === existing.action &&
+        intent.targetUpdatedAt === existing.recordedAt
+      )
+        ? this.completeTransitionIntent(intent)
+        : {
+            deleted: false,
+            diagnostic: intent
+              ? 'RULE_STATUS_TRANSITION_INTENT_MISMATCH'
+              : 'RULE_STATUS_TRANSITION_INTENT_NOT_FOUND',
+          };
+      return { repaired: false, event: existing, cleanup };
     }
-    const intent = this.currentTransitionIntent(rule.ruleId);
     if (
       !intent ||
       intent.ruleId !== rule.ruleId ||
@@ -369,8 +384,8 @@ class OwnerRuleStatusService {
       },
     };
     this.appendStatusEvent(repairedEvent);
-    this.completeTransitionIntent(rule.ruleId);
-    return { repaired: true, event: repairedEvent };
+    const cleanup = this.completeTransitionIntent(intent);
+    return { repaired: true, event: repairedEvent, cleanup };
   }
 
   changeStatus({
@@ -476,7 +491,7 @@ class OwnerRuleStatusService {
       reasonCode: normalizedReason,
       ownerComment,
     });
-    this.persistTransitionIntent(event);
+    const transitionIntent = this.persistTransitionIntent(event);
     try {
       this.saveRegistry(nextRegistry, {
         registryPath: this.approvedRulesFilePath,
@@ -486,11 +501,13 @@ class OwnerRuleStatusService {
         logger: { error() {} },
       });
     } catch (cause) {
-      this.completeTransitionIntent(normalizedRuleId);
       const registryConflict = [
         'RULE_REGISTRY_CONCURRENT_MODIFICATION',
         'RULE_REGISTRY_WRITE_LOCKED',
       ].includes(cause?.code);
+      if (!registryConflict) {
+        this.completeTransitionIntent(transitionIntent);
+      }
       error(
         registryConflict
           ? cause.code
@@ -502,14 +519,14 @@ class OwnerRuleStatusService {
       );
     }
     this.appendStatusEvent(event);
-    this.completeTransitionIntent(normalizedRuleId);
+    const cleanup = this.completeTransitionIntent(transitionIntent);
     return {
       status: 'CHANGED',
       rule: publicRuleResult(
         nextRegistry.rules[index],
         rule.status
       ),
-      repair: { repaired: false, event },
+      repair: { repaired: false, event, cleanup },
     };
   }
 
