@@ -247,11 +247,15 @@ class OwnerRuleMaterializationService {
         expectedFingerprint: registryFingerprint(registry),
       });
     } catch (error) {
+      const registryConflict = [
+        'RULE_REGISTRY_CONCURRENT_MODIFICATION',
+        'RULE_REGISTRY_WRITE_LOCKED',
+      ].includes(error?.code);
       throw serviceError(
-        error?.code === 'RULE_REGISTRY_CONCURRENT_MODIFICATION'
+        registryConflict
           ? error.code
           : 'RULE_REGISTRY_UNAVAILABLE',
-        error?.code === 'RULE_REGISTRY_CONCURRENT_MODIFICATION'
+        registryConflict
           ? 'Реестр правил изменился во время materialization.'
           : 'Не удалось сохранить неактивное правило.',
         error

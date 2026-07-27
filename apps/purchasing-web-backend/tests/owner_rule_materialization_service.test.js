@@ -235,6 +235,26 @@ test('registry failure writes no journal event', () => {
   );
 });
 
+test('registry write lock is preserved as a controlled conflict', () => {
+  const storage = paths();
+  assert.throws(
+    () => service(storage, {
+      saveRegistry() {
+        throw Object.assign(new Error('locked'), {
+          code: 'RULE_REGISTRY_WRITE_LOCKED',
+        });
+      },
+    }).materializeCandidateRule({ candidateId: CANDIDATE_ID }),
+    { code: 'RULE_REGISTRY_WRITE_LOCKED' }
+  );
+  assert.equal(
+    loadMaterializationJournal({
+      filePath: storage.materializationsFilePath,
+    }).events.length,
+    0
+  );
+});
+
 test('materialization write carries an expected registry fingerprint', () => {
   const storage = paths();
   let expectedFingerprint = null;

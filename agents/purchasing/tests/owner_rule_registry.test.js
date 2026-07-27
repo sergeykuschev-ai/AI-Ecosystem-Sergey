@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -345,6 +346,186 @@ test('expected fingerprint prevents a stale writer from overwriting JSON', () =>
     fs.readFileSync(options.registryPath, 'utf8'),
     afterWriterA
   );
+});
+
+test('parallel processes cannot both commit one expected fingerprint', async () => {
+  const options = temporaryRegistryOptions();
+  saveApprovedRules(emptyApprovedRulesRegistry(), options);
+  const expectedFingerprint = registryFingerprint(
+    loadApprovedRules(options)
+  );
+  const modulePath = path.resolve(
+    __dirname,
+    '../owner_learning/owner_rule_registry.js'
+  );
+  const markerPath = path.join(
+    path.dirname(options.registryPath),
+    'writer-a-holds-lock'
+  );
+  const childSource = [
+    'const fs = require("node:fs");',
+    'const api = require(process.env.REGISTRY_MODULE);',
+    'const registry = {',
+    'schemaVersion: api.REGISTRY_SCHEMA_VERSION,',
+    'updatedAt: process.env.UPDATED_AT,',
+    'rules: []',
+    '};',
+    'const fsModule = { ...fs, renameSync(source, destination) {',
+    'if (process.env.HOLD_LOCK === "1" &&',
+    'destination === process.env.REGISTRY_PATH) {',
+    'fs.writeFileSync(process.env.MARKER_PATH, "held");',
+    'Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 250);',
+    '}',
+    'return fs.renameSync(source, destination);',
+    '} };',
+    'try {',
+    'api.saveApprovedRules(registry, {',
+    'registryPath: process.env.REGISTRY_PATH,',
+    'markdownPath: process.env.MARKDOWN_PATH,',
+    'expectedFingerprint: process.env.EXPECTED_FINGERPRINT,',
+    'lockTimeoutMs: 1000,',
+    'lockRetryMs: 5,',
+    'fsModule,',
+    'logger: { error() {} }',
+    '});',
+    'process.stdout.write("SUCCESS");',
+    '} catch (error) {',
+    'process.stdout.write(error.code || "UNKNOWN");',
+    '}',
+  ].join('');
+  const writer = ({ updatedAt, holdLock }) => {
+    const child = spawn(process.execPath, ['-e', childSource], {
+      env: {
+        ...process.env,
+        EXPECTED_FINGERPRINT: expectedFingerprint,
+        HOLD_LOCK: holdLock ? '1' : '0',
+        MARKDOWN_PATH: options.markdownPath,
+        MARKER_PATH: markerPath,
+        REGISTRY_MODULE: modulePath,
+        REGISTRY_PATH: options.registryPath,
+        UPDATED_AT: updatedAt,
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', chunk => { stdout += chunk; });
+    child.stderr.on('data', chunk => { stderr += chunk; });
+    return {
+      child,
+      result: new Promise((resolve, reject) => {
+        child.once('error', reject);
+        child.once('close', code => resolve({ code, stdout, stderr }));
+      }),
+    };
+  };
+  const writerA = writer({
+    updatedAt: '2026-07-24T10:00:00.000Z',
+    holdLock: true,
+  });
+  const markerDeadline = Date.now() + 2000;
+  while (!fs.existsSync(markerPath) && Date.now() < markerDeadline) {
+    await new Promise(resolve => setTimeout(resolve, 5));
+  }
+  assert.equal(fs.existsSync(markerPath), true);
+  const writerB = writer({
+    updatedAt: '2026-07-25T10:00:00.000Z',
+    holdLock: false,
+  });
+  const [resultA, resultB] = await Promise.all([
+    writerA.result,
+    writerB.result,
+  ]);
+
+  assert.deepEqual(
+    [resultA.stdout, resultB.stdout].sort(),
+    ['RULE_REGISTRY_CONCURRENT_MODIFICATION', 'SUCCESS']
+  );
+  assert.equal(resultA.code, 0, resultA.stderr);
+  assert.equal(resultB.code, 0, resultB.stderr);
+  assert.equal(
+    loadApprovedRules(options).updatedAt,
+    '2026-07-24T10:00:00.000Z'
+  );
+  assert.equal(fs.existsSync(`${options.registryPath}.lock`), false);
+});
+
+test('stale registry lock is removed before a protected write', () => {
+  const options = temporaryRegistryOptions();
+  const initial = saveApprovedRules(emptyApprovedRulesRegistry(), options);
+  const lockPath = `${options.registryPath}.lock`;
+  fs.writeFileSync(lockPath, '{"lockId":"stale"}\n', 'utf8');
+  const staleTime = new Date(Date.now() - 60_000);
+  fs.utimesSync(lockPath, staleTime, staleTime);
+
+  saveApprovedRules({
+    ...initial,
+    updatedAt: '2026-07-24T10:00:00.000Z',
+  }, {
+    ...options,
+    expectedFingerprint: registryFingerprint(initial),
+    lockStaleMs: 10,
+  });
+
+  assert.equal(
+    loadApprovedRules(options).updatedAt,
+    '2026-07-24T10:00:00.000Z'
+  );
+  assert.equal(fs.existsSync(lockPath), false);
+});
+
+test('fresh registry lock times out without blocking strict reads', () => {
+  const options = temporaryRegistryOptions();
+  const initial = saveApprovedRules(emptyApprovedRulesRegistry(), options);
+  const lockPath = `${options.registryPath}.lock`;
+  fs.writeFileSync(lockPath, '{"lockId":"active"}\n', 'utf8');
+
+  assert.deepEqual(loadApprovedRules(options), initial);
+  assert.throws(
+    () => saveApprovedRules({
+      ...initial,
+      updatedAt: '2026-07-24T10:00:00.000Z',
+    }, {
+      ...options,
+      expectedFingerprint: registryFingerprint(initial),
+      lockTimeoutMs: 20,
+      lockRetryMs: 5,
+      lockStaleMs: 10_000,
+    }),
+    error =>
+      error instanceof OwnerRuleRegistryError &&
+      error.code === 'RULE_REGISTRY_WRITE_LOCKED'
+  );
+  assert.deepEqual(loadApprovedRules(options), initial);
+  assert.equal(fs.existsSync(lockPath), true);
+});
+
+test('registry lock is cleaned after authoritative JSON write failure', () => {
+  const options = temporaryRegistryOptions();
+  const initial = saveApprovedRules(emptyApprovedRulesRegistry(), options);
+  const fsModule = {
+    ...fs,
+    renameSync(sourcePath, destinationPath) {
+      if (destinationPath === options.registryPath) {
+        throw Object.assign(new Error('simulated'), { code: 'EIO' });
+      }
+      return fs.renameSync(sourcePath, destinationPath);
+    },
+  };
+
+  assert.throws(
+    () => saveApprovedRules({
+      ...initial,
+      updatedAt: '2026-07-24T10:00:00.000Z',
+    }, {
+      ...options,
+      fsModule,
+      expectedFingerprint: registryFingerprint(initial),
+    }),
+    { code: 'RULE_REGISTRY_WRITE_FAILED' }
+  );
+  assert.equal(fs.existsSync(`${options.registryPath}.lock`), false);
+  assert.deepEqual(loadApprovedRules(options), initial);
 });
 
 test('legacy direct save may only repeat an existing registry unchanged', () => {

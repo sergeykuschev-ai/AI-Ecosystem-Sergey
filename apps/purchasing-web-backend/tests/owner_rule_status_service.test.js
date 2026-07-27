@@ -24,6 +24,12 @@ const {
   '../../../agents/purchasing/owner_learning/owner_rule_status_manager'
 );
 const {
+  intentFilePath,
+  loadStatusTransitionIntent,
+} = require(
+  '../../../agents/purchasing/owner_learning/owner_rule_status_transition_intent'
+);
+const {
   processApprovedRules,
 } = require(
   '../../../agents/purchasing/owner_learning/approved_rule_application'
@@ -466,6 +472,41 @@ test('registry write failure leaves status unchanged', () => {
     }).rules[0].status,
     'DISABLED'
   );
+  assert.equal(fs.existsSync(intentFilePath(
+    `${context.eventsPath}.transition-intents`,
+    context.rule.ruleId
+  )), false);
+});
+
+test('registry write lock is controlled and cleans transition intent', () => {
+  const context = fixture();
+  const preview = context.previewService.previewRuleStatusChange({
+    ruleId: context.rule.ruleId,
+    targetStatus: 'ACTIVE',
+    runId: RUN_ID,
+  });
+  context.statusService.saveRegistry = () => {
+    throw Object.assign(new Error('locked'), {
+      code: 'RULE_REGISTRY_WRITE_LOCKED',
+    });
+  };
+
+  assert.throws(
+    () => context.statusService.changeStatus(
+      changeInput(context.rule, preview)
+    ),
+    { code: 'RULE_REGISTRY_WRITE_LOCKED' }
+  );
+  assert.equal(fs.existsSync(intentFilePath(
+    `${context.eventsPath}.transition-intents`,
+    context.rule.ruleId
+  )), false);
+  assert.equal(
+    loadApprovedRules({
+      registryPath: context.registryPath,
+    }).rules[0].status,
+    'DISABLED'
+  );
 });
 
 test('status write carries an expected registry fingerprint', () => {
@@ -478,6 +519,14 @@ test('status write carries an expected registry fingerprint', () => {
   let expectedFingerprint = null;
   context.statusService.saveRegistry = (registry, options) => {
     expectedFingerprint = options.expectedFingerprint;
+    const intent = loadStatusTransitionIntent({
+      directoryPath: `${context.eventsPath}.transition-intents`,
+      ruleId: context.rule.ruleId,
+    });
+    assert.equal(intent.previewId, preview.previewId);
+    assert.equal(intent.reasonCode, 'READY_TO_APPLY');
+    assert.equal(intent.ownerComment, 'Проверено');
+    assert.equal(intent.targetUpdatedAt, CHANGE_AT);
     return registry;
   };
 
@@ -523,6 +572,13 @@ test('retry repairs journal after registry write succeeds', () => {
   });
   assert.equal(journal.events.length, 1);
   assert.equal(journal.events[0].metadata.repair, true);
+  assert.equal(journal.events[0].previewId, preview.previewId);
+  assert.equal(journal.events[0].reasonCode, 'READY_TO_APPLY');
+  assert.equal(journal.events[0].ownerComment, 'Проверено');
+  assert.equal(fs.existsSync(intentFilePath(
+    `${context.eventsPath}.transition-intents`,
+    context.rule.ruleId
+  )), false);
 });
 
 test('duplicate POST is idempotent and does not duplicate event', () => {
@@ -588,6 +644,129 @@ test('another preview cannot create a second event for one transition', () => {
   assert.equal(events[0].reasonCode, 'READY_TO_APPLY');
   assert.equal(events[0].ownerComment, 'Комментарий A');
   assert.notEqual(events[0].ownerComment, 'Комментарий B');
+});
+
+test('repair after append failure uses preview A and ignores preview B', () => {
+  const context = fixture();
+  const previewA = context.previewService.previewRuleStatusChange({
+    ruleId: context.rule.ruleId,
+    targetStatus: 'ACTIVE',
+    runId: RUN_ID,
+  });
+  context.previewService.now =
+    () => new Date('2026-07-26T04:01:30.000Z');
+  const previewB = context.previewService.previewRuleStatusChange({
+    ruleId: context.rule.ruleId,
+    targetStatus: 'ACTIVE',
+    runId: RUN_ID,
+  });
+  const originalAppend = context.statusService.appendEvent;
+  context.statusService.appendEvent = () => {
+    throw new Error('simulated audit failure');
+  };
+  assert.throws(
+    () => context.statusService.changeStatus(changeInput(
+      context.rule,
+      previewA,
+      {
+        reasonCode: 'READY_TO_APPLY',
+        ownerComment: 'Комментарий A',
+      }
+    )),
+    { code: 'RULE_STATUS_STORAGE_UNAVAILABLE' }
+  );
+  const transitionIntentPath = intentFilePath(
+    `${context.eventsPath}.transition-intents`,
+    context.rule.ruleId
+  );
+  assert.equal(fs.existsSync(transitionIntentPath), true);
+  const transitionIntentSource = fs.readFileSync(
+    transitionIntentPath,
+    'utf8'
+  );
+  assert.doesNotMatch(
+    transitionIntentSource,
+    /workingOrderProducts|changedItems|result\.json/
+  );
+
+  context.statusService.appendEvent = originalAppend;
+  context.statusService.getPreview = () => {
+    throw new Error('preview B must not be read during repair');
+  };
+  const repaired = context.statusService.changeStatus(changeInput(
+    context.rule,
+    previewB,
+    {
+      reasonCode: 'NEEDS_MORE_REVIEW',
+      ownerComment: 'Комментарий B',
+    }
+  ));
+  const events = loadRuleStatusEvents({
+    filePath: context.eventsPath,
+  }).events;
+
+  assert.equal(repaired.status, 'ALREADY_CHANGED');
+  assert.equal(repaired.repair.repaired, true);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].previewId, previewA.previewId);
+  assert.equal(events[0].reasonCode, 'READY_TO_APPLY');
+  assert.equal(events[0].ownerComment, 'Комментарий A');
+  assert.notEqual(events[0].previewId, previewB.previewId);
+  assert.notEqual(events[0].ownerComment, 'Комментарий B');
+  assert.equal(fs.existsSync(transitionIntentPath), false);
+
+  const duplicate = context.statusService.changeStatus(changeInput(
+    context.rule,
+    previewB,
+    {
+      reasonCode: 'NEEDS_MORE_REVIEW',
+      ownerComment: 'Комментарий B',
+    }
+  ));
+  assert.equal(duplicate.repair.repaired, false);
+  assert.equal(
+    loadRuleStatusEvents({ filePath: context.eventsPath }).events.length,
+    1
+  );
+  assert.equal(fs.existsSync(transitionIntentPath), false);
+});
+
+test('missing transition correlation never creates a guessed audit event', () => {
+  const context = fixture();
+  const preview = context.previewService.previewRuleStatusChange({
+    ruleId: context.rule.ruleId,
+    targetStatus: 'ACTIVE',
+    runId: RUN_ID,
+  });
+  const registry = loadApprovedRules({
+    registryPath: context.registryPath,
+  });
+  saveApprovedRules({
+    ...registry,
+    updatedAt: CHANGE_AT,
+    rules: registry.rules.map(rule => ({
+      ...rule,
+      status: 'ACTIVE',
+      updatedAt: CHANGE_AT,
+    })),
+  }, {
+    registryPath: context.registryPath,
+    markdownPath: context.markdownPath,
+    expectedFingerprint: registryFingerprint(registry),
+    logger: { error() {} },
+  });
+
+  assert.throws(
+    () => context.statusService.changeStatus(
+      changeInput(context.rule, preview)
+    ),
+    { code: 'RULE_STATUS_AUDIT_UNRESOLVED' }
+  );
+  assert.equal(fs.existsSync(context.eventsPath), false);
+  assert.equal(fs.existsSync(intentFilePath(
+    `${context.eventsPath}.transition-intents`,
+    context.rule.ruleId
+  )), false);
 });
 
 test('status history is scoped to one rule', () => {

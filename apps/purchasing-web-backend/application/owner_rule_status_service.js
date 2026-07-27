@@ -16,6 +16,14 @@ const {
   '../../../agents/purchasing/owner_learning/owner_rule_status_manager'
 );
 const {
+  createStatusTransitionIntent,
+  deleteStatusTransitionIntent,
+  loadStatusTransitionIntent,
+  saveStatusTransitionIntent,
+} = require(
+  '../../../agents/purchasing/owner_learning/owner_rule_status_transition_intent'
+);
+const {
   PurchasingWebApplicationError,
 } = require('./application_error');
 const {
@@ -89,6 +97,10 @@ class OwnerRuleStatusService {
     this.statusEventsFilePath = path.resolve(
       options.statusEventsFilePath
     );
+    this.transitionIntentsDirectoryPath = path.resolve(
+      options.transitionIntentsDirectoryPath ||
+      `${this.statusEventsFilePath}.transition-intents`
+    );
     this.previewStorageFilePath = path.resolve(
       options.previewStorageFilePath
     );
@@ -100,6 +112,14 @@ class OwnerRuleStatusService {
     this.loadEvents = options.loadEvents || loadRuleStatusEvents;
     this.appendEvent = options.appendEvent || appendRuleStatusEvent;
     this.getPreview = options.getPreview || getActivationPreview;
+    this.createIntent =
+      options.createIntent || createStatusTransitionIntent;
+    this.loadIntent =
+      options.loadIntent || loadStatusTransitionIntent;
+    this.saveIntent =
+      options.saveIntent || saveStatusTransitionIntent;
+    this.deleteIntent =
+      options.deleteIntent || deleteStatusTransitionIntent;
   }
 
   previewStatusChange(input) {
@@ -244,19 +264,61 @@ class OwnerRuleStatusService {
     }
   }
 
+  currentTransitionIntent(ruleId) {
+    try {
+      return this.loadIntent({
+        directoryPath: this.transitionIntentsDirectoryPath,
+        ruleId,
+        ...(this.fs ? { fsModule: this.fs } : {}),
+      });
+    } catch (cause) {
+      error(
+        cause?.code || 'RULE_STATUS_TRANSITION_STORAGE_UNAVAILABLE',
+        'Status transition correlation временно недоступна.',
+        cause
+      );
+    }
+  }
+
+  persistTransitionIntent(event) {
+    try {
+      const intent = this.createIntent({ event });
+      return this.saveIntent({
+        directoryPath: this.transitionIntentsDirectoryPath,
+        intent,
+        ...(this.fs ? { fsModule: this.fs } : {}),
+      });
+    } catch (cause) {
+      error(
+        cause?.code || 'RULE_STATUS_TRANSITION_STORAGE_UNAVAILABLE',
+        cause?.code === 'RULE_STATUS_TRANSITION_IN_PROGRESS'
+          ? 'Для правила уже выполняется изменение статуса.'
+          : 'Не удалось сохранить status transition correlation.',
+        cause
+      );
+    }
+  }
+
+  completeTransitionIntent(ruleId) {
+    try {
+      return this.deleteIntent({
+        directoryPath: this.transitionIntentsDirectoryPath,
+        ruleId,
+        ...(this.fs ? { fsModule: this.fs } : {}),
+      });
+    } catch (cause) {
+      error(
+        cause?.code || 'RULE_STATUS_TRANSITION_STORAGE_UNAVAILABLE',
+        'Не удалось завершить status transition correlation.',
+        cause
+      );
+    }
+  }
+
   repairAlreadyChanged({
     rule,
     targetStatus,
-    preview,
-    reasonCode,
-    ownerComment,
   }) {
-    this.validatePreview(preview, {
-      ruleId: rule.ruleId,
-      targetStatus,
-      registry: null,
-      allowChangedRegistry: true,
-    });
     let events;
     try {
       events = this.loadEvents({
@@ -282,23 +344,33 @@ class OwnerRuleStatusService {
       event.recordedAt === rule.updatedAt
     );
     if (existing) {
+      this.completeTransitionIntent(rule.ruleId);
       return { repaired: false, event: existing };
     }
-    const previousRule = {
-      ...structuredClone(rule),
-      status: oppositeStatus(targetStatus),
+    const intent = this.currentTransitionIntent(rule.ruleId);
+    if (
+      !intent ||
+      intent.ruleId !== rule.ruleId ||
+      intent.fromStatus !== expectedFromStatus ||
+      intent.toStatus !== targetStatus ||
+      intent.action !== expectedAction ||
+      intent.targetUpdatedAt !== rule.updatedAt
+    ) {
+      error(
+        'RULE_STATUS_AUDIT_UNRESOLVED',
+        'Статус уже изменён, но источник audit transition не подтверждён.'
+      );
+    }
+    const repairedEvent = {
+      ...intent.event,
+      metadata: {
+        ...intent.event.metadata,
+        repair: true,
+      },
     };
-    const event = this.statusEvent({
-      rule: previousRule,
-      targetStatus,
-      preview,
-      recordedAt: rule.updatedAt,
-      reasonCode,
-      ownerComment,
-      repair: true,
-    });
-    this.appendStatusEvent(event);
-    return { repaired: true, event };
+    this.appendStatusEvent(repairedEvent);
+    this.completeTransitionIntent(rule.ruleId);
+    return { repaired: true, event: repairedEvent };
   }
 
   changeStatus({
@@ -354,14 +426,10 @@ class OwnerRuleStatusService {
       );
     }
     const rule = registry.rules[index];
-    const preview = this.currentPreview(normalizedPreviewId);
     if (rule.status === target) {
       const repair = this.repairAlreadyChanged({
         rule,
         targetStatus: target,
-        preview,
-        reasonCode: normalizedReason,
-        ownerComment,
       });
       return {
         status: 'ALREADY_CHANGED',
@@ -369,6 +437,7 @@ class OwnerRuleStatusService {
         repair,
       };
     }
+    const preview = this.currentPreview(normalizedPreviewId);
     try {
       validateRuleStatusTransition({ rule, targetStatus: target });
     } catch (cause) {
@@ -407,6 +476,7 @@ class OwnerRuleStatusService {
       reasonCode: normalizedReason,
       ownerComment,
     });
+    this.persistTransitionIntent(event);
     try {
       this.saveRegistry(nextRegistry, {
         registryPath: this.approvedRulesFilePath,
@@ -416,17 +486,23 @@ class OwnerRuleStatusService {
         logger: { error() {} },
       });
     } catch (cause) {
+      this.completeTransitionIntent(normalizedRuleId);
+      const registryConflict = [
+        'RULE_REGISTRY_CONCURRENT_MODIFICATION',
+        'RULE_REGISTRY_WRITE_LOCKED',
+      ].includes(cause?.code);
       error(
-        cause?.code === 'RULE_REGISTRY_CONCURRENT_MODIFICATION'
+        registryConflict
           ? cause.code
           : 'RULE_REGISTRY_UNAVAILABLE',
-        cause?.code === 'RULE_REGISTRY_CONCURRENT_MODIFICATION'
+        registryConflict
           ? 'Реестр правил изменился во время смены статуса.'
           : 'Не удалось атомарно изменить статус правила.',
         cause
       );
     }
     this.appendStatusEvent(event);
+    this.completeTransitionIntent(normalizedRuleId);
     return {
       status: 'CHANGED',
       rule: publicRuleResult(

@@ -34,6 +34,9 @@ const STATUS_LABELS = Object.freeze({
   ACTIVE: 'Активно',
   DISABLED: 'Отключено',
 });
+const DEFAULT_WRITE_LOCK_TIMEOUT_MS = 1000;
+const DEFAULT_WRITE_LOCK_STALE_MS = 30_000;
+const DEFAULT_WRITE_LOCK_RETRY_MS = 10;
 
 class OwnerRuleRegistryError extends Error {
   constructor(code, message, options = {}) {
@@ -468,76 +471,204 @@ function writeTemporaryFile(filePath, content, suffix, fsModule) {
   }
 }
 
+function writeLockOption(value, fallback, name, minimum) {
+  const normalized = value === undefined ? fallback : value;
+  if (
+    !Number.isInteger(normalized) ||
+    normalized < minimum ||
+    normalized > 60_000
+  ) {
+    throw new OwnerRuleRegistryError(
+      'RULE_REGISTRY_INVALID',
+      `${name} имеет неверное значение.`
+    );
+  }
+  return normalized;
+}
+
+function acquireRegistryWriteLock(paths, options, fsModule) {
+  const lockPath = path.resolve(
+    options.lockPath || `${paths.registryPath}.lock`
+  );
+  const timeoutMs = writeLockOption(
+    options.lockTimeoutMs,
+    DEFAULT_WRITE_LOCK_TIMEOUT_MS,
+    'lockTimeoutMs',
+    0
+  );
+  const staleMs = writeLockOption(
+    options.lockStaleMs,
+    DEFAULT_WRITE_LOCK_STALE_MS,
+    'lockStaleMs',
+    1
+  );
+  const retryMs = writeLockOption(
+    options.lockRetryMs,
+    DEFAULT_WRITE_LOCK_RETRY_MS,
+    'lockRetryMs',
+    1
+  );
+  const startedAt = Date.now();
+  const lockId = crypto.randomBytes(16).toString('hex');
+  fsModule.mkdirSync(path.dirname(lockPath), { recursive: true });
+  while (true) {
+    let descriptor;
+    try {
+      descriptor = fsModule.openSync(lockPath, 'wx', 0o600);
+      fsModule.writeFileSync(
+        descriptor,
+        `${JSON.stringify({
+          lockId,
+          pid: process.pid,
+          createdAt: new Date().toISOString(),
+        })}\n`,
+        'utf8'
+      );
+      fsModule.fsyncSync(descriptor);
+      fsModule.closeSync(descriptor);
+      descriptor = undefined;
+      return { lockId, lockPath };
+    } catch (error) {
+      if (descriptor !== undefined) {
+        try {
+          fsModule.closeSync(descriptor);
+        } catch {}
+        try {
+          fsModule.unlinkSync(lockPath);
+        } catch {}
+      }
+      if (error.code !== 'EEXIST') throw error;
+      try {
+        const ageMs = Date.now() -
+          fsModule.statSync(lockPath).mtimeMs;
+        if (ageMs >= staleMs) {
+          fsModule.unlinkSync(lockPath);
+          continue;
+        }
+      } catch (inspectionError) {
+        if (inspectionError.code === 'ENOENT') continue;
+        throw inspectionError;
+      }
+      const elapsedMs = Date.now() - startedAt;
+      if (elapsedMs >= timeoutMs) {
+        throw new OwnerRuleRegistryError(
+          'RULE_REGISTRY_WRITE_LOCKED',
+          'Реестр правил временно занят другим процессом.'
+        );
+      }
+      const waitMs = Math.min(retryMs, timeoutMs - elapsedMs);
+      Atomics.wait(
+        new Int32Array(new SharedArrayBuffer(4)),
+        0,
+        0,
+        waitMs
+      );
+    }
+  }
+}
+
+function releaseRegistryWriteLock(lock, fsModule) {
+  try {
+    const value = JSON.parse(fsModule.readFileSync(lock.lockPath, 'utf8'));
+    if (value.lockId !== lock.lockId) {
+      throw new OwnerRuleRegistryError(
+        'RULE_REGISTRY_WRITE_LOCKED',
+        'Registry write lock был заменён другим процессом.'
+      );
+    }
+    fsModule.unlinkSync(lock.lockPath);
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+}
+
 function saveApprovedRules(registry, options = {}) {
   const fsModule = options.fsModule || fs;
   const paths = registryPaths(options);
   const validated = validateRegistry(registry);
-  const registryExists = fsModule.existsSync(paths.registryPath);
-  const current = registryExists
-    ? loadApprovedRules({ ...options, fsModule })
-    : emptyApprovedRulesRegistry();
-  const currentFingerprint = registryFingerprint(current);
-  if (options.expectedFingerprint !== undefined) {
-    if (
-      typeof options.expectedFingerprint !== 'string' ||
-      !/^[a-f0-9]{64}$/.test(options.expectedFingerprint)
-    ) {
-      throw new OwnerRuleRegistryError(
-        'RULE_REGISTRY_INVALID',
-        'Expected fingerprint реестра имеет неверный формат.'
-      );
-    }
-    if (currentFingerprint !== options.expectedFingerprint) {
-      throw new OwnerRuleRegistryError(
-        'RULE_REGISTRY_CONCURRENT_MODIFICATION',
-        'Реестр правил был изменён другим запросом.'
-      );
-    }
-  } else if (
-    registryExists &&
-    registryFingerprint(validated) !== currentFingerprint
-  ) {
-    throw new OwnerRuleRegistryError(
-      'RULE_REGISTRY_CONCURRENT_MODIFICATION',
-      'Для изменения существующего реестра нужен expected fingerprint.'
-    );
-  }
   const suffix = options.randomSuffix ||
     crypto.randomBytes(6).toString('hex');
-  let registryTemporaryPath = null;
+  const publicationWarnings = [];
+  let writeLock;
   try {
-    registryTemporaryPath = writeTemporaryFile(
-      paths.registryPath,
-      `${JSON.stringify(validated, null, 2)}\n`,
-      `${suffix}-json`,
-      fsModule
-    );
-    fsModule.renameSync(registryTemporaryPath, paths.registryPath);
-    registryTemporaryPath = null;
+    writeLock = acquireRegistryWriteLock(paths, options, fsModule);
   } catch (error) {
-    try {
-      if (
-        registryTemporaryPath &&
-        fsModule.existsSync(registryTemporaryPath)
-      ) {
-        fsModule.unlinkSync(registryTemporaryPath);
-      }
-    } catch {}
-    const registryError = new OwnerRuleRegistryError(
-      'RULE_REGISTRY_WRITE_FAILED',
-      'Не удалось атомарно сохранить реестр утверждённых правил.',
+    if (error instanceof OwnerRuleRegistryError) throw error;
+    const lockError = new OwnerRuleRegistryError(
+      'RULE_REGISTRY_WRITE_LOCKED',
+      'Не удалось получить registry write lock.',
       { cause: error }
     );
-    logRegistryError(registryError, options);
-    throw registryError;
+    logRegistryError(lockError, options);
+    throw lockError;
   }
-  const publicationWarnings = [];
   try {
-    fsyncDirectory(path.dirname(paths.registryPath), fsModule);
-  } catch {
-    publicationWarnings.push(
-      'RULE_REGISTRY_JSON_DIRECTORY_SYNC_FAILED'
-    );
+    const registryExists = fsModule.existsSync(paths.registryPath);
+    const current = registryExists
+      ? loadApprovedRules({ ...options, fsModule })
+      : emptyApprovedRulesRegistry();
+    const currentFingerprint = registryFingerprint(current);
+    if (options.expectedFingerprint !== undefined) {
+      if (
+        typeof options.expectedFingerprint !== 'string' ||
+        !/^[a-f0-9]{64}$/.test(options.expectedFingerprint)
+      ) {
+        throw new OwnerRuleRegistryError(
+          'RULE_REGISTRY_INVALID',
+          'Expected fingerprint реестра имеет неверный формат.'
+        );
+      }
+      if (currentFingerprint !== options.expectedFingerprint) {
+        throw new OwnerRuleRegistryError(
+          'RULE_REGISTRY_CONCURRENT_MODIFICATION',
+          'Реестр правил был изменён другим запросом.'
+        );
+      }
+    } else if (
+      registryExists &&
+      registryFingerprint(validated) !== currentFingerprint
+    ) {
+      throw new OwnerRuleRegistryError(
+        'RULE_REGISTRY_CONCURRENT_MODIFICATION',
+        'Для изменения существующего реестра нужен expected fingerprint.'
+      );
+    }
+    let registryTemporaryPath = null;
+    try {
+      registryTemporaryPath = writeTemporaryFile(
+        paths.registryPath,
+        `${JSON.stringify(validated, null, 2)}\n`,
+        `${suffix}-json`,
+        fsModule
+      );
+      fsModule.renameSync(registryTemporaryPath, paths.registryPath);
+      registryTemporaryPath = null;
+    } catch (error) {
+      try {
+        if (
+          registryTemporaryPath &&
+          fsModule.existsSync(registryTemporaryPath)
+        ) {
+          fsModule.unlinkSync(registryTemporaryPath);
+        }
+      } catch {}
+      const registryError = new OwnerRuleRegistryError(
+        'RULE_REGISTRY_WRITE_FAILED',
+        'Не удалось атомарно сохранить реестр утверждённых правил.',
+        { cause: error }
+      );
+      logRegistryError(registryError, options);
+      throw registryError;
+    }
+    try {
+      fsyncDirectory(path.dirname(paths.registryPath), fsModule);
+    } catch {
+      publicationWarnings.push(
+        'RULE_REGISTRY_JSON_DIRECTORY_SYNC_FAILED'
+      );
+    }
+  } finally {
+    releaseRegistryWriteLock(writeLock, fsModule);
   }
   let markdownTemporaryPath = null;
   try {
