@@ -85,6 +85,19 @@ function mapSummary(value) {
     candidates: mapCandidates(value.candidates),
     rules: mapRules(value.rules),
     effectiveness: mapEffectiveness(value.effectiveness),
+    knowledge_health: value.knowledgeHealth
+      ? {
+        score: safeNumber(value.knowledgeHealth.score),
+        grade: safeText(value.knowledgeHealth.grade),
+        critical_findings:
+          count(value.knowledgeHealth.criticalFindings),
+        attention_findings:
+          count(value.knowledgeHealth.attentionFindings),
+        conflict_groups: count(value.knowledgeHealth.conflictGroups),
+        duplicate_groups: count(value.knowledgeHealth.duplicateGroups),
+        stale_rules: count(value.knowledgeHealth.staleRules),
+      }
+      : null,
   };
 }
 
@@ -151,6 +164,7 @@ function mapHealth(value = {}) {
       rule_activation_previews:
         mapComponent(components.ruleActivationPreviews),
       rule_effectiveness: mapComponent(components.ruleEffectiveness),
+      knowledge_health: mapComponent(components.knowledgeHealth),
     },
     data_quality_warnings:
       Array.isArray(value.dataQualityWarnings)
@@ -190,6 +204,11 @@ function mapSections(value = {}) {
       value.effectiveness,
       { attention: true }
     ),
+    knowledge_health: {
+      ...mapSection(value.knowledgeHealth, { attention: true }),
+      score: safeNumber(value.knowledgeHealth?.score),
+      grade: safeText(value.knowledgeHealth?.grade),
+    },
   };
 }
 

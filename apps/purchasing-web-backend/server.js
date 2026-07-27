@@ -47,6 +47,9 @@ const {
   OwnerLearningCenterService,
 } = require('./application/owner_learning_center_service');
 const {
+  OwnerKnowledgeHealthService,
+} = require('./application/owner_knowledge_health_service');
+const {
   FileRunRegistry,
 } = require('./storage/file_run_registry');
 const { createRouter } = require('./http/router');
@@ -207,6 +210,24 @@ function createPurchasingWebServer(options = {}) {
       logger: options.logger,
       now: options.now,
     });
+  const ownerKnowledgeHealthService =
+    options.ownerKnowledgeHealthService ||
+    new OwnerKnowledgeHealthService({
+      materializedRulesService:
+        typeof ownerMaterializedRulesService
+          .getKnowledgeHealthSnapshot === 'function'
+          ? ownerMaterializedRulesService
+          : {
+            getKnowledgeHealthSnapshot() {
+              return {
+                status: 'UNAVAILABLE',
+                warnings: ['OWNER_KNOWLEDGE_HEALTH_UNAVAILABLE'],
+              };
+            },
+          },
+      logger: options.logger,
+      now: options.now,
+    });
   const ownerLearningCenterService =
     options.ownerLearningCenterService ||
     new OwnerLearningCenterService({
@@ -216,6 +237,7 @@ function createPurchasingWebServer(options = {}) {
         ownerLearningCandidateLifecycleService,
       materializedRulesService: ownerMaterializedRulesService,
       ruleEffectivenessService: ownerRuleEffectivenessService,
+      knowledgeHealthService: ownerKnowledgeHealthService,
       logger: options.logger,
       now: options.now,
     });
@@ -254,6 +276,7 @@ function createPurchasingWebServer(options = {}) {
     ownerRuleMaterializationService,
     ownerMaterializedRulesService,
     ownerRuleEffectivenessService,
+    ownerKnowledgeHealthService,
     ownerRuleStatusService,
     ownerLearningCenterService,
   });

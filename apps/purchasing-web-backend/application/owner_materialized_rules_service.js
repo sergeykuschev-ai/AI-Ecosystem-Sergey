@@ -11,6 +11,7 @@ const {
 );
 const {
   getCandidateLifecycleState,
+  getCandidateLifecycleStates,
   loadCandidateLifecycle,
 } = require(
   '../../../agents/purchasing/owner_learning/owner_learning_candidate_lifecycle'
@@ -788,6 +789,81 @@ class OwnerMaterializedRulesService {
           sources.warning,
         ].filter(Boolean),
       },
+    };
+  }
+
+  getKnowledgeHealthSnapshot({ asOf } = {}) {
+    const generatedAt = asOf || nowIso(this.now);
+    if (
+      !optionalText(generatedAt) ||
+      !generatedAt.endsWith('Z') ||
+      !Number.isFinite(Date.parse(generatedAt))
+    ) {
+      invalidInput('asOf должен быть ISO UTC datetime.');
+    }
+    const sources = this.readSources();
+    if (sources.unavailable) {
+      return {
+        status: 'UNAVAILABLE',
+        generatedAt: null,
+        rules: [],
+        materializations: [],
+        lifecycleStates: [],
+        effectivenessSummaries: [],
+        statusEvents: [],
+        components: {
+          registry: 'UNAVAILABLE',
+          materializations: 'UNAVAILABLE',
+          lifecycle: 'UNAVAILABLE',
+          effectiveness: 'UNAVAILABLE',
+          statusEvents: 'UNAVAILABLE',
+        },
+        warnings: [UNAVAILABLE_WARNING],
+      };
+    }
+    const effectivenessSummaries = sources.effectiveness
+      ? sources.registry.rules.map(rule => ({
+        ruleId: rule.ruleId,
+        effectiveness: summarizeRuleEffectiveness({
+          events: sources.effectiveness.events,
+          ruleId: rule.ruleId,
+          options: { asOf: generatedAt },
+        }),
+      }))
+      : [];
+    const warnings = [
+      sources.warning,
+      !sources.journal ? MATERIALIZATION_HISTORY_WARNING : null,
+      !sources.lifecycle ? LIFECYCLE_CONTEXT_WARNING : null,
+      !sources.statusEvents ? STATUS_HISTORY_WARNING : null,
+      !sources.effectiveness ? EFFECTIVENESS_WARNING : null,
+    ].filter((value, index, values) =>
+      value && values.indexOf(value) === index
+    );
+    return {
+      status: warnings.length > 0 ? 'PARTIAL' : 'AVAILABLE',
+      generatedAt,
+      rules: sources.registry.rules,
+      materializations: sources.journal?.events || [],
+      lifecycleStates: sources.lifecycle
+        ? getCandidateLifecycleStates({ lifecycle: sources.lifecycle })
+        : [],
+      effectivenessSummaries,
+      statusEvents: sources.statusEvents?.events || [],
+      components: {
+        registry: 'AVAILABLE',
+        materializations: sources.journal
+          ? 'AVAILABLE'
+          : 'UNAVAILABLE',
+        lifecycle: sources.lifecycle ? 'AVAILABLE' : 'UNAVAILABLE',
+        effectiveness: sources.effectiveness
+          ? 'AVAILABLE'
+          : 'UNAVAILABLE',
+        statusEvents: sources.statusEvents
+          ? 'AVAILABLE'
+          : 'UNAVAILABLE',
+      },
+      warnings,
     };
   }
 

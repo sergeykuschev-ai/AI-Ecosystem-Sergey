@@ -560,6 +560,109 @@ h2 {
   line-height: 1.55;
 }
 
+.knowledge-health-safety {
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border: 1px solid #b8d4c4;
+  border-radius: 12px;
+  background: #f1faf4;
+  color: #28553b;
+}
+
+.knowledge-health-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.knowledge-health-filters label {
+  display: grid;
+  gap: 6px;
+}
+
+.knowledge-health-filter-actions {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.knowledge-health-state {
+  padding: 16px;
+  border-radius: 12px;
+  background: #f5f7f8;
+}
+
+.knowledge-health-warning {
+  background: #fff5e6;
+  color: #7a4a00;
+}
+
+.knowledge-health-summary,
+.knowledge-health-dimensions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.knowledge-health-summary article,
+.knowledge-health-dimension,
+.knowledge-health-finding {
+  padding: 14px;
+  border: 1px solid var(--border-color, #dfe4e7);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.knowledge-health-summary span,
+.knowledge-health-dimension span {
+  display: block;
+  color: #5c6870;
+  font-size: 0.86rem;
+}
+
+.knowledge-health-summary strong,
+.knowledge-health-dimension strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 1.25rem;
+}
+
+.knowledge-health-panel {
+  min-width: 0;
+  margin-top: 18px;
+}
+
+.knowledge-health-findings {
+  display: grid;
+  gap: 10px;
+}
+
+.knowledge-health-finding h4 {
+  margin: 0 0 6px;
+}
+
+.knowledge-health-finding p {
+  margin: 4px 0;
+}
+
+.knowledge-health-finding-severity {
+  font-weight: 700;
+}
+
+@media (max-width: 720px) {
+  .knowledge-health-filter-actions {
+    grid-column: 1 / -1;
+  }
+
+  .knowledge-health-summary,
+  .knowledge-health-dimensions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .rule-effectiveness-safety {
   margin: -6px 0 10px;
   border-left: 4px solid var(--green);
@@ -2316,6 +2419,28 @@ h2 {
 
   .product-details {
     border-top: 0;
+  }
+
+  .table-scroll.knowledge-health-table-scroll {
+    max-width: 100%;
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+  }
+
+  .table-scroll.knowledge-health-table-scroll table {
+    display: table;
+    width: 100%;
+    min-width: 760px;
+  }
+
+  .table-scroll.knowledge-health-table-scroll thead {
+    display: table-header-group;
+  }
+
+  .table-scroll.knowledge-health-table-scroll tbody {
+    display: table-row-group;
+    width: auto;
   }
 }
 

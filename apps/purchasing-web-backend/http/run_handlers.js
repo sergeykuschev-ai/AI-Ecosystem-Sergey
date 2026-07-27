@@ -34,6 +34,11 @@ const {
   mapOwnerLearningCenter,
 } = require('../dto/owner_learning_center_mapper');
 const {
+  mapFindings: mapKnowledgeHealthFindings,
+  mapKnowledgeHealth,
+  mapRuleHealth: mapKnowledgeRuleHealth,
+} = require('../dto/owner_knowledge_health_mapper');
+const {
   mapLifecycleList,
   mapLifecycleState,
 } = require('../dto/owner_learning_candidate_lifecycle_mapper');
@@ -190,6 +195,82 @@ const OWNER_LEARNING_CENTER_QUERY_NAMES = new Set([
   'activityLimit',
   'asOf',
 ]);
+const KNOWLEDGE_HEALTH_FILTER_NAMES = Object.freeze([
+  'status',
+  'decision',
+  'grade',
+  'classification',
+  'findingType',
+  'severity',
+  'confidenceLevel',
+  'priorityLevel',
+  'search',
+]);
+const KNOWLEDGE_HEALTH_OPTION_NAMES = Object.freeze([
+  'asOf',
+  'staleRuleAfterDays',
+  'oldRuleAfterDays',
+  'noEffectRunThreshold',
+  'minEffectivenessRuns',
+  'sortBy',
+  'sortDirection',
+  'limit',
+]);
+const KNOWLEDGE_HEALTH_QUERY_NAMES = new Set([
+  ...KNOWLEDGE_HEALTH_FILTER_NAMES,
+  ...KNOWLEDGE_HEALTH_OPTION_NAMES,
+]);
+
+function parseOwnerKnowledgeHealthQuery(query = {}) {
+  for (const name of Object.keys(query)) {
+    if (!KNOWLEDGE_HEALTH_QUERY_NAMES.has(name)) {
+      throw new HttpError(
+        'OWNER_KNOWLEDGE_HEALTH_INVALID_INPUT',
+        `Параметр ${name} не поддерживается.`
+      );
+    }
+  }
+  const filters = {};
+  const options = {};
+  for (const name of KNOWLEDGE_HEALTH_FILTER_NAMES) {
+    if (query[name] !== undefined) filters[name] = query[name];
+  }
+  for (const name of [
+    'asOf',
+    'sortBy',
+    'sortDirection',
+  ]) {
+    if (query[name] !== undefined) options[name] = query[name];
+  }
+  for (const name of [
+    'staleRuleAfterDays',
+    'oldRuleAfterDays',
+    'noEffectRunThreshold',
+    'minEffectivenessRuns',
+    'limit',
+  ]) {
+    if (query[name] === undefined) continue;
+    if (!/^\d+$/.test(query[name])) {
+      throw new HttpError(
+        'OWNER_KNOWLEDGE_HEALTH_INVALID_INPUT',
+        `Параметр ${name} должен быть положительным целым числом.`
+      );
+    }
+    const value = Number(query[name]);
+    if (
+      !Number.isSafeInteger(value) ||
+      value < 1 ||
+      (name === 'limit' && value > 100)
+    ) {
+      throw new HttpError(
+        'OWNER_KNOWLEDGE_HEALTH_INVALID_INPUT',
+        `Параметр ${name} вне допустимого диапазона.`
+      );
+    }
+    options[name] = value;
+  }
+  return { filters, options };
+}
 
 function centerInputError(message) {
   return new HttpError(
@@ -1215,6 +1296,7 @@ function createRunHandlers(options) {
     ownerRuleMaterializationService,
     ownerMaterializedRulesService,
     ownerRuleEffectivenessService,
+    ownerKnowledgeHealthService,
     ownerRuleStatusService,
     ownerLearningCenterService,
   } = options;
@@ -1373,6 +1455,39 @@ function createRunHandlers(options) {
         statusCode: 200,
         data: mapOwnerLearningCenter(
           ownerLearningCenterService.getOverview(input)
+        ),
+      };
+    },
+
+    getOwnerKnowledgeHealth(query) {
+      const input = parseOwnerKnowledgeHealthQuery(query);
+      return {
+        statusCode: 200,
+        data: mapKnowledgeHealth(
+          ownerKnowledgeHealthService.getKnowledgeHealth(input)
+        ),
+      };
+    },
+
+    getOwnerKnowledgeRuleHealth(ruleId, query) {
+      const input = parseOwnerKnowledgeHealthQuery(query);
+      return {
+        statusCode: 200,
+        data: mapKnowledgeRuleHealth(
+          ownerKnowledgeHealthService.getRuleHealth({
+            ruleId,
+            options: input.options,
+          })
+        ),
+      };
+    },
+
+    getOwnerKnowledgeHealthFindings(query) {
+      const input = parseOwnerKnowledgeHealthQuery(query);
+      return {
+        statusCode: 200,
+        data: mapKnowledgeHealthFindings(
+          ownerKnowledgeHealthService.getFindings(input)
         ),
       };
     },
@@ -1585,6 +1700,7 @@ module.exports = {
   readRuleStatusPreviewBody,
   parseOwnerDecisionAnalyticsQuery,
   parseOwnerLearningCenterQuery,
+  parseOwnerKnowledgeHealthQuery,
   parseOwnerLearningCandidatesQuery,
   parseOwnerMaterializedRulesQuery,
   parseOwnerRuleEffectivenessQuery,

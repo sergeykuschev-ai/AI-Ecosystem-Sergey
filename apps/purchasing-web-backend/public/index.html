@@ -177,6 +177,15 @@
           >
             Эффективность
           </button>
+          <button
+            class="owner-learning-tab"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            data-owner-learning-target="KNOWLEDGE_HEALTH"
+          >
+            Здоровье базы знаний
+          </button>
         </nav>
 
         <div
@@ -262,6 +271,30 @@
               <article>
                 <span>Требуют проверки</span>
                 <strong id="owner-learning-attention-total">—</strong>
+              </article>
+              <article>
+                <span>Оценка базы знаний</span>
+                <strong id="owner-learning-knowledge-score">—</strong>
+              </article>
+              <article>
+                <span>Класс качества</span>
+                <strong id="owner-learning-knowledge-grade">—</strong>
+              </article>
+              <article>
+                <span>Конфликтов</span>
+                <strong id="owner-learning-knowledge-conflicts">—</strong>
+              </article>
+              <article>
+                <span>Дубликатов</span>
+                <strong id="owner-learning-knowledge-duplicates">—</strong>
+              </article>
+              <article>
+                <span>Устаревших правил</span>
+                <strong id="owner-learning-knowledge-stale">—</strong>
+              </article>
+              <article>
+                <span>Требуют проверки</span>
+                <strong id="owner-learning-knowledge-attention">—</strong>
               </article>
               <article>
                 <span>Общая историческая разница суммы заказа</span>
@@ -1118,6 +1151,244 @@
               <tbody id="rule-effectiveness-body"></tbody>
             </table>
           </div>
+        </div>
+      </section>
+
+      <section
+        class="knowledge-health card"
+        id="knowledge-health"
+        aria-labelledby="knowledge-health-title"
+        data-owner-learning-panel="KNOWLEDGE_HEALTH"
+        hidden
+      >
+        <div class="section-heading">
+          <div>
+            <p class="step-label">Owner Learning · read-only</p>
+            <h2 id="knowledge-health-title">Здоровье базы знаний</h2>
+          </div>
+          <span class="format-badge">Наблюдение</span>
+        </div>
+        <p class="knowledge-health-safety">
+          Оценка показывает качество и согласованность базы правил.
+          Она не изменяет и не отключает правила автоматически.
+        </p>
+
+        <form
+          class="knowledge-health-filters"
+          id="knowledge-health-filters"
+          aria-label="Фильтры здоровья базы знаний"
+        >
+          <label>
+            Статус
+            <select id="knowledge-health-status" name="status">
+              <option value="">Все статусы</option>
+              <option value="ACTIVE">Активно</option>
+              <option value="DISABLED">Неактивно</option>
+            </select>
+          </label>
+          <label>
+            Решение
+            <select id="knowledge-health-decision" name="decision">
+              <option value="">Все решения</option>
+              <option value="BUY">Купить</option>
+              <option value="SKIP">Пропустить</option>
+              <option value="DEFER">Отложить</option>
+            </select>
+          </label>
+          <label>
+            Класс качества
+            <select id="knowledge-health-grade" name="grade">
+              <option value="">Все классы</option>
+              <option value="EXCELLENT">Отлично</option>
+              <option value="GOOD">Хорошо</option>
+              <option value="FAIR">Удовлетворительно</option>
+              <option value="POOR">Плохо</option>
+              <option value="CRITICAL">Критично</option>
+            </select>
+          </label>
+          <label>
+            Классификация
+            <select
+              id="knowledge-health-classification"
+              name="classification"
+            >
+              <option value="">Все классификации</option>
+              <option value="HEALTHY">В норме</option>
+              <option value="MONITOR">Наблюдать</option>
+              <option value="REVIEW">Проверить</option>
+              <option value="CRITICAL">Критично</option>
+              <option value="INSUFFICIENT_DATA">Недостаточно данных</option>
+            </select>
+          </label>
+          <label>
+            Важность проблемы
+            <select id="knowledge-health-severity" name="severity">
+              <option value="">Любая</option>
+              <option value="INFO">Информация</option>
+              <option value="LOW">Низкая</option>
+              <option value="MEDIUM">Средняя</option>
+              <option value="HIGH">Высокая</option>
+              <option value="CRITICAL">Критическая</option>
+            </select>
+          </label>
+          <label>
+            Тип проблемы
+            <select
+              id="knowledge-health-finding-type"
+              name="findingType"
+            >
+              <option value="">Все типы</option>
+              <option value="RULE_CONFLICT">Конфликт правил</option>
+              <option value="RULE_DUPLICATE">Дубликаты</option>
+              <option value="RULE_STALE">Устаревшее правило</option>
+              <option value="RULE_NO_EFFECT">Нет эффекта</option>
+              <option value="RULE_REVIEW_RECOMMENDED">Рекомендуется проверка</option>
+              <option value="RULE_LOW_CONFIDENCE">Низкая уверенность</option>
+              <option value="RULE_LOW_PRIORITY">Низкий приоритет</option>
+              <option value="RULE_MISSING_PROVENANCE">Нет источника</option>
+              <option value="RULE_MATERIALIZATION_MISSING">Нет материализации</option>
+              <option value="RULE_LIFECYCLE_INCONSISTENT">Lifecycle не согласован</option>
+              <option value="RULE_STATUS_HISTORY_INCONSISTENT">История статуса не согласована</option>
+              <option value="RULE_EFFECTIVENESS_UNAVAILABLE">Эффективность недоступна</option>
+              <option value="RULE_SCOPE_TOO_BROAD">Слишком широкая область</option>
+              <option value="RULE_UNSUPPORTED_TYPE">Тип не поддерживается</option>
+              <option value="RULE_DATA_QUALITY_ISSUE">Качество данных</option>
+              <option value="ACTIVE_RULE_WITHOUT_EFFECT_DATA">Нет данных эффекта</option>
+              <option value="DISABLED_RULE_WITH_EFFECT_EVENTS">Эффект неактивного правила</option>
+              <option value="ACTIVE_RULE_NEVER_APPLIED">Ни разу не применялось</option>
+              <option value="RULE_LAST_UPDATED_TOO_OLD">Давно не обновлялось</option>
+            </select>
+          </label>
+          <label>
+            Confidence
+            <select
+              id="knowledge-health-confidence"
+              name="confidenceLevel"
+            >
+              <option value="">Все уровни</option>
+              <option value="LOW">Низкая</option>
+              <option value="MEDIUM">Средняя</option>
+              <option value="HIGH">Высокая</option>
+              <option value="VERY_HIGH">Очень высокая</option>
+            </select>
+          </label>
+          <label>
+            Priority
+            <select
+              id="knowledge-health-priority"
+              name="priorityLevel"
+            >
+              <option value="">Все уровни</option>
+              <option value="LOW">Низкий</option>
+              <option value="MEDIUM">Средний</option>
+              <option value="HIGH">Высокий</option>
+              <option value="CRITICAL">Критический</option>
+            </select>
+          </label>
+          <label class="knowledge-health-search">
+            Поиск
+            <input
+              id="knowledge-health-search"
+              name="search"
+              type="search"
+              maxlength="512"
+              placeholder="Товар или SKU"
+            >
+          </label>
+          <div class="knowledge-health-filter-actions">
+            <button class="secondary-button" type="submit">Обновить</button>
+            <button
+              class="secondary-button"
+              id="knowledge-health-reset"
+              type="button"
+            >Сбросить фильтры</button>
+          </div>
+        </form>
+
+        <div class="knowledge-health-state" id="knowledge-health-loading">
+          <span class="loading-dot" aria-hidden="true"></span>
+          Загружаем оценку базы знаний…
+        </div>
+        <div class="knowledge-health-state" id="knowledge-health-partial" hidden>
+          Часть источников недоступна. Оценка построена по доступным данным.
+        </div>
+        <div class="knowledge-health-state" id="knowledge-health-empty" hidden>
+          Материализованных правил пока нет. Оценка появится после создания
+          правил.
+        </div>
+        <div class="knowledge-health-state" id="knowledge-health-no-findings" hidden>
+          Критичных проблем в базе знаний не найдено.
+        </div>
+        <div class="knowledge-health-state" id="knowledge-health-no-results" hidden>
+          По выбранным фильтрам результатов нет.
+        </div>
+        <div
+          class="knowledge-health-state knowledge-health-warning"
+          id="knowledge-health-unavailable"
+          hidden
+        >
+          Оценка базы знаний временно недоступна. Работа закупщика не затронута.
+        </div>
+        <div
+          class="knowledge-health-state knowledge-health-warning"
+          id="knowledge-health-invalid"
+          hidden
+        >
+          Проверьте выбранные фильтры и повторите запрос.
+        </div>
+        <div
+          class="knowledge-health-state knowledge-health-warning"
+          id="knowledge-health-network"
+          hidden
+        >
+          Не удалось загрузить оценку. Проверьте соединение.
+        </div>
+
+        <div id="knowledge-health-content" hidden>
+          <div class="knowledge-health-summary">
+            <article><span>Оценка</span><strong id="knowledge-health-score">—</strong></article>
+            <article><span>Класс</span><strong id="knowledge-health-grade-value">—</strong></article>
+            <article><span>Статус</span><strong id="knowledge-health-api-status">—</strong></article>
+            <article><span>Конфликтов</span><strong id="knowledge-health-conflicts">—</strong></article>
+            <article><span>Дубликатов</span><strong id="knowledge-health-duplicates">—</strong></article>
+            <article><span>Устаревших</span><strong id="knowledge-health-stale">—</strong></article>
+            <article><span>Требуют проверки</span><strong id="knowledge-health-attention">—</strong></article>
+          </div>
+          <div
+            class="knowledge-health-dimensions"
+            id="knowledge-health-dimensions"
+          ></div>
+          <article class="knowledge-health-panel">
+            <h3>Проблемы для ручной проверки</h3>
+            <div
+              class="knowledge-health-findings"
+              id="knowledge-health-findings"
+            ></div>
+          </article>
+          <article class="knowledge-health-panel">
+            <h3>Здоровье правил</h3>
+            <div class="table-scroll knowledge-health-table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Товар</th>
+                    <th>Статус</th>
+                    <th>Решение</th>
+                    <th>Оценка</th>
+                    <th>Класс</th>
+                    <th>Классификация</th>
+                    <th>Конфликт</th>
+                    <th>Дубликат</th>
+                    <th>Устарело</th>
+                    <th>Эффективность</th>
+                    <th>Confidence</th>
+                    <th>Priority</th>
+                  </tr>
+                </thead>
+                <tbody id="knowledge-health-rules"></tbody>
+              </table>
+            </div>
+          </article>
         </div>
       </section>
 

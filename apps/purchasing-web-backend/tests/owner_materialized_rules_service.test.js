@@ -272,6 +272,76 @@ test('empty registry is available with zero summary', () => {
   assert.deepEqual(result.rules, []);
 });
 
+test('knowledge health snapshot reuses all loaded sources once', () => {
+  const materialized = rule();
+  const legacy = legacyRule();
+  const calls = {
+    registry: 0,
+    materializations: 0,
+    lifecycle: 0,
+    statuses: 0,
+    effectiveness: 0,
+  };
+  const instance = service({
+    rules: [materialized, legacy],
+    lifecycleValue: lifecycle(),
+    statusEventsFilePath: '/tmp/statuses.json',
+    effectivenessFilePath: '/tmp/effectiveness.json',
+    loadRegistry() {
+      calls.registry += 1;
+      return {
+        schemaVersion: 'owner-approved-rules-v0.4',
+        updatedAt: null,
+        rules: [materialized, legacy],
+      };
+    },
+    loadMaterializations() {
+      calls.materializations += 1;
+      return journal([materialized]);
+    },
+    loadLifecycle() {
+      calls.lifecycle += 1;
+      return lifecycle();
+    },
+    loadStatusEvents() {
+      calls.statuses += 1;
+      return { events: [] };
+    },
+    loadEffectiveness() {
+      calls.effectiveness += 1;
+      return { events: [effectivenessEvent(materialized)] };
+    },
+  });
+  const result = instance.getKnowledgeHealthSnapshot({
+    asOf: GENERATED_AT,
+  });
+  assert.equal(result.status, 'AVAILABLE');
+  assert.equal(result.rules.length, 2);
+  assert.equal(result.materializations.length, 1);
+  assert.equal(result.lifecycleStates.length, 1);
+  assert.equal(result.effectivenessSummaries.length, 2);
+  assert.deepEqual(calls, {
+    registry: 1,
+    materializations: 1,
+    lifecycle: 1,
+    statuses: 1,
+    effectiveness: 1,
+  });
+});
+
+test('knowledge health snapshot is PARTIAL when effectiveness is damaged', () => {
+  const result = service({
+    rules: [rule()],
+    effectivenessFilePath: '/tmp/effectiveness.json',
+    loadEffectiveness() {
+      throw new Error('corrupted');
+    },
+  }).getKnowledgeHealthSnapshot({ asOf: GENERATED_AT });
+  assert.equal(result.status, 'PARTIAL');
+  assert.equal(result.components.effectiveness, 'UNAVAILABLE');
+  assert.deepEqual(result.effectivenessSummaries, []);
+});
+
 test('materialized disabled and active rules are listed; legacy is excluded', () => {
   const disabled = rule();
   const active = rule({

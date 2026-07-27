@@ -13,6 +13,12 @@ const OWNER_DECISION_ANALYTICS_ROUTE =
   '/api/v1/owner-learning/decision-history/analytics';
 const OWNER_LEARNING_CENTER_ROUTE =
   '/api/v1/owner-learning/center';
+const OWNER_KNOWLEDGE_HEALTH_ROUTE =
+  '/api/v1/owner-learning/knowledge-health';
+const OWNER_KNOWLEDGE_HEALTH_FINDINGS_ROUTE =
+  '/api/v1/owner-learning/knowledge-health/findings';
+const OWNER_KNOWLEDGE_HEALTH_DETAIL_ROUTE =
+  /^\/api\/v1\/owner-learning\/knowledge-health\/rules\/([A-Za-z0-9_-]{1,128})$/;
 const OWNER_LEARNING_CANDIDATES_ROUTE =
   '/api/v1/owner-learning/candidates';
 const OWNER_LEARNING_LIFECYCLE_ROUTE =
@@ -115,6 +121,31 @@ function createRouter(handlers, options = {}) {
         url.pathname === OWNER_LEARNING_CENTER_ROUTE
       ) {
         result = handlers.getOwnerLearningCenter(
+          queryObject(url.searchParams)
+        );
+      } else if (
+        request.method === 'GET' &&
+        url.pathname === OWNER_KNOWLEDGE_HEALTH_FINDINGS_ROUTE
+      ) {
+        result = handlers.getOwnerKnowledgeHealthFindings(
+          queryObject(url.searchParams)
+        );
+      } else if (
+        request.method === 'GET' &&
+        url.pathname.match(OWNER_KNOWLEDGE_HEALTH_DETAIL_ROUTE)
+      ) {
+        const match = url.pathname.match(
+          OWNER_KNOWLEDGE_HEALTH_DETAIL_ROUTE
+        );
+        result = handlers.getOwnerKnowledgeRuleHealth(
+          match[1],
+          queryObject(url.searchParams)
+        );
+      } else if (
+        request.method === 'GET' &&
+        url.pathname === OWNER_KNOWLEDGE_HEALTH_ROUTE
+      ) {
+        result = handlers.getOwnerKnowledgeHealth(
           queryObject(url.searchParams)
         );
       } else if (
@@ -345,6 +376,9 @@ module.exports = {
   OWNER_REVIEW_ROUTE,
   OWNER_DECISION_ANALYTICS_ROUTE,
   OWNER_LEARNING_CENTER_ROUTE,
+  OWNER_KNOWLEDGE_HEALTH_DETAIL_ROUTE,
+  OWNER_KNOWLEDGE_HEALTH_FINDINGS_ROUTE,
+  OWNER_KNOWLEDGE_HEALTH_ROUTE,
   OWNER_LEARNING_CANDIDATES_ROUTE,
   OWNER_LEARNING_LIFECYCLE_DETAIL_ROUTE,
   OWNER_LEARNING_LIFECYCLE_ROUTE,

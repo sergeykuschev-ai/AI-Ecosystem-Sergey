@@ -193,6 +193,7 @@ function createService(overrides = {}) {
     lifecycle: [],
     rules: [],
     effectiveness: [],
+    knowledgeHealth: [],
   };
   const values = {
     decisions: decisions(),
@@ -242,6 +243,19 @@ function createService(overrides = {}) {
           return values.effectiveness;
         },
       },
+      ...(Object.hasOwn(overrides, 'knowledgeHealth')
+        ? {
+          knowledgeHealthService: {
+            getKnowledgeHealth(input) {
+              calls.knowledgeHealth.push(input);
+              if (values.knowledgeHealth instanceof Error) {
+                throw values.knowledgeHealth;
+              }
+              return values.knowledgeHealth;
+            },
+          },
+        }
+        : {}),
       logger: { warn() {} },
       now: () => AS_OF,
     }),
@@ -268,6 +282,53 @@ test('empty system returns an AVAILABLE healthy overview', () => {
   assert.equal(result.systemHealth.overallStatus, 'HEALTHY');
   assert.equal(result.attention.total, 0);
   assert.deepEqual(result.recentActivity, []);
+});
+
+test('knowledge health overlays summary, section and attention', () => {
+  const { service } = createService({
+    knowledgeHealth: {
+      status: 'AVAILABLE',
+      generatedAt: AS_OF,
+      score: 42,
+      grade: 'POOR',
+      summary: { totalRules: 2 },
+      findings: [{
+        findingId: 'finding-1',
+        type: 'RULE_CONFLICT',
+        severity: 'CRITICAL',
+        titleCode: 'RULE_CONFLICT',
+        descriptionCode: 'RULE_CONFLICT',
+        displayScopes: [{ primary: 'Товар' }],
+        evidence: {},
+        explanationCodes: ['CONFLICTING_ACTIVE_RULES'],
+      }],
+      warnings: [],
+    },
+  });
+  const result = service.getOverview();
+  assert.equal(result.summary.knowledgeHealth.score, 42);
+  assert.equal(result.summary.knowledgeHealth.grade, 'POOR');
+  assert.equal(result.sections.knowledgeHealth.attentionCount, 1);
+  assert.equal(
+    result.sections.knowledgeHealth.navigationTarget,
+    'KNOWLEDGE_HEALTH'
+  );
+  assert.ok(result.attention.items.some(item =>
+    item.type === 'RULE_CONFLICT'
+  ));
+});
+
+test('knowledge health unavailable keeps center PARTIAL', () => {
+  const { service } = createService({
+    knowledgeHealth: {
+      status: 'UNAVAILABLE',
+      warnings: ['OWNER_KNOWLEDGE_HEALTH_UNAVAILABLE'],
+      findings: [],
+    },
+  });
+  const result = service.getOverview();
+  assert.equal(result.status, 'PARTIAL');
+  assert.equal(result.sections.knowledgeHealth.status, 'UNAVAILABLE');
 });
 
 test('all component summaries are aggregated without recalculation', () => {

@@ -63,6 +63,8 @@
     '/api/v1/owner-learning/materialized-rules';
   const OWNER_RULE_EFFECTIVENESS_URL =
     '/api/v1/owner-learning/rule-effectiveness';
+  const OWNER_KNOWLEDGE_HEALTH_URL =
+    '/api/v1/owner-learning/knowledge-health';
   const RULE_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
   const DECISION_LABELS = Object.freeze({
     BUY: 'Купить',
@@ -131,6 +133,7 @@
     rule_status_events: 'История статусов правил',
     rule_activation_previews: 'Проверки активации',
     rule_effectiveness: 'Эффективность правил',
+    knowledge_health: 'Здоровье базы знаний',
   });
   const CENTER_COMPONENT_STATUS_LABELS = Object.freeze({
     AVAILABLE: 'Доступно',
@@ -160,6 +163,60 @@
     FALLBACK_TO_BASELINE: 'Возврат к baseline',
     NOT_ACTIVE: 'Неактивно',
     UNAVAILABLE: 'Недоступно',
+  });
+  const KNOWLEDGE_HEALTH_GRADE_LABELS = Object.freeze({
+    EXCELLENT: 'Отлично',
+    GOOD: 'Хорошо',
+    FAIR: 'Удовлетворительно',
+    POOR: 'Плохо',
+    CRITICAL: 'Критично',
+  });
+  const KNOWLEDGE_HEALTH_CLASSIFICATION_LABELS = Object.freeze({
+    HEALTHY: 'В норме',
+    MONITOR: 'Наблюдать',
+    REVIEW: 'Проверить',
+    CRITICAL: 'Критично',
+    INSUFFICIENT_DATA: 'Недостаточно данных',
+  });
+  const KNOWLEDGE_HEALTH_SEVERITY_LABELS = Object.freeze({
+    INFO: 'Информация',
+    LOW: 'Низкая',
+    MEDIUM: 'Средняя',
+    HIGH: 'Высокая',
+    CRITICAL: 'Критическая',
+  });
+  const KNOWLEDGE_HEALTH_FINDING_LABELS = Object.freeze({
+    RULE_CONFLICT: 'Конфликт активных правил',
+    RULE_DUPLICATE: 'Дублирующиеся правила',
+    RULE_STALE: 'Правило давно не срабатывало',
+    RULE_NO_EFFECT: 'Правило пока не даёт эффекта',
+    RULE_REVIEW_RECOMMENDED: 'Рекомендуется ручная проверка',
+    RULE_LOW_CONFIDENCE: 'Низкая уверенность',
+    RULE_LOW_PRIORITY: 'Низкий приоритет',
+    RULE_MISSING_PROVENANCE: 'Не указан источник правила',
+    RULE_MATERIALIZATION_MISSING: 'Нет записи о материализации',
+    RULE_LIFECYCLE_INCONSISTENT: 'Lifecycle не согласован',
+    RULE_STATUS_HISTORY_INCONSISTENT: 'История статуса не согласована',
+    RULE_EFFECTIVENESS_UNAVAILABLE: 'Эффективность недоступна',
+    RULE_SCOPE_TOO_BROAD: 'Область действия слишком широка',
+    RULE_UNSUPPORTED_TYPE: 'Тип правила не поддерживается',
+    RULE_DATA_QUALITY_ISSUE: 'Проблема качества данных',
+    ACTIVE_RULE_WITHOUT_EFFECT_DATA:
+      'У активного правила нет данных об эффекте',
+    DISABLED_RULE_WITH_EFFECT_EVENTS:
+      'У неактивного правила есть события эффекта',
+    ACTIVE_RULE_NEVER_APPLIED:
+      'Активное правило ни разу не применялось',
+    RULE_LAST_UPDATED_TOO_OLD: 'Правило давно не обновлялось',
+  });
+  const KNOWLEDGE_HEALTH_ACTION_LABELS = Object.freeze({
+    REVIEW_RULE: 'Проверить правило',
+    REVIEW_CONFLICT: 'Сопоставить конфликтующие правила',
+    REVIEW_DUPLICATE: 'Проверить дубликаты',
+    REVIEW_EFFECTIVENESS: 'Проверить эффективность',
+    REVIEW_PROVENANCE: 'Проверить источник',
+    COLLECT_MORE_DATA: 'Накопить больше данных',
+    NO_ACTION_REQUIRED: 'Действие не требуется',
   });
   const RULE_EFFECTIVENESS_CODE_LABELS = Object.freeze({
     RULE_CHANGED_ORDER: 'Правило изменяло рассчитанный заказ',
@@ -315,6 +372,8 @@
     OWNER_RULE_MATERIALIZATION_INVALID_INPUT:
       'Запрос создания правила некорректен.',
     OWNER_MATERIALIZED_RULES_INVALID_INPUT:
+      'Проверьте выбранные фильтры и повторите запрос.',
+    OWNER_KNOWLEDGE_HEALTH_INVALID_INPUT:
       'Проверьте выбранные фильтры и повторите запрос.',
     CANDIDATE_NOT_APPROVED:
       'Кандидат больше не находится в статусе «Одобрен».',
@@ -2198,6 +2257,232 @@
     return RULE_EFFECTIVENESS_CODE_LABELS[value] || '—';
   }
 
+  function buildKnowledgeHealthUrl(filters = {}) {
+    const parameters = new URLSearchParams();
+    for (const name of [
+      'status',
+      'decision',
+      'grade',
+      'classification',
+      'findingType',
+      'severity',
+      'confidenceLevel',
+      'priorityLevel',
+      'search',
+    ]) {
+      const value = typeof filters[name] === 'string'
+        ? filters[name].trim()
+        : '';
+      if (value) parameters.set(name, value);
+    }
+    parameters.set('limit', '100');
+    return `${OWNER_KNOWLEDGE_HEALTH_URL}?${parameters.toString()}`;
+  }
+
+  function hasKnowledgeHealthFilters(filters = {}) {
+    return Object.values(filters).some(value =>
+      typeof value === 'string' && value.trim() !== ''
+    );
+  }
+
+  function knowledgeHealthViewState(result, filters = {}) {
+    if (result?.status === 'UNAVAILABLE') return 'unavailable';
+    if (
+      !['AVAILABLE', 'PARTIAL'].includes(result?.status) ||
+      !result.summary ||
+      !result.dimensions ||
+      !Array.isArray(result.findings) ||
+      !Array.isArray(result.rules)
+    ) {
+      return 'invalid';
+    }
+    if (result.summary.total_rules === 0) return 'empty';
+    if (result.rules.length === 0 && hasKnowledgeHealthFilters(filters)) {
+      return 'no-results';
+    }
+    return result.status === 'PARTIAL' ? 'partial' : 'ready';
+  }
+
+  function setKnowledgeHealthPanelState(elements, state) {
+    elements.knowledgeHealthLoading.hidden = state !== 'loading';
+    elements.knowledgeHealthPartial.hidden = state !== 'partial';
+    elements.knowledgeHealthEmpty.hidden = state !== 'empty';
+    elements.knowledgeHealthNoFindings.hidden =
+      !['ready', 'partial'].includes(state) ||
+      elements.knowledgeHealthFindings.children.length > 0;
+    elements.knowledgeHealthNoResults.hidden =
+      state !== 'no-results';
+    elements.knowledgeHealthUnavailable.hidden =
+      state !== 'unavailable';
+    elements.knowledgeHealthInvalid.hidden = state !== 'invalid';
+    elements.knowledgeHealthNetwork.hidden = state !== 'network';
+    elements.knowledgeHealthContent.hidden =
+      !['ready', 'partial'].includes(state);
+  }
+
+  function resetKnowledgeHealthFilters(elements) {
+    for (const element of [
+      elements.knowledgeHealthStatus,
+      elements.knowledgeHealthDecision,
+      elements.knowledgeHealthGrade,
+      elements.knowledgeHealthClassification,
+      elements.knowledgeHealthSeverity,
+      elements.knowledgeHealthFindingType,
+      elements.knowledgeHealthConfidence,
+      elements.knowledgeHealthPriority,
+      elements.knowledgeHealthSearch,
+    ]) {
+      element.value = '';
+    }
+  }
+
+  function knowledgeHealthGradeLabel(value) {
+    return KNOWLEDGE_HEALTH_GRADE_LABELS[value] || '—';
+  }
+
+  function knowledgeHealthClassificationLabel(value) {
+    return KNOWLEDGE_HEALTH_CLASSIFICATION_LABELS[value] || '—';
+  }
+
+  function knowledgeHealthSeverityLabel(value) {
+    return KNOWLEDGE_HEALTH_SEVERITY_LABELS[value] || '—';
+  }
+
+  function createKnowledgeHealthFinding(
+    documentObject,
+    item = {},
+    onNavigate
+  ) {
+    const card = documentObject.createElement('article');
+    const title = documentObject.createElement('h4');
+    const severity = documentObject.createElement('p');
+    const scope = documentObject.createElement('p');
+    const action = documentObject.createElement('p');
+    card.className = 'knowledge-health-finding';
+    title.textContent =
+      KNOWLEDGE_HEALTH_FINDING_LABELS[item.type] ||
+      'Требуется ручная проверка';
+    severity.className = 'knowledge-health-finding-severity';
+    severity.textContent =
+      `Важность: ${knowledgeHealthSeverityLabel(item.severity)}`;
+    scope.textContent =
+      item.display_scopes?.[0]?.primary ||
+      'Область правила не указана';
+    action.textContent =
+      `Рекомендация: ${
+        KNOWLEDGE_HEALTH_ACTION_LABELS[
+          item.recommended_review_action
+        ] || 'Проверить вручную'
+      }`;
+    card.append(
+      title,
+      severity,
+      scope,
+      action,
+      createOwnerLearningButton(
+        documentObject,
+        item.navigation_target,
+        onNavigate,
+        'Открыть раздел'
+      )
+    );
+    return card;
+  }
+
+  function createKnowledgeHealthRuleRow(documentObject, rule = {}) {
+    const row = documentObject.createElement('tr');
+    const signals = rule.signals || {};
+    const values = [
+      rule.display_scope?.primary || '—',
+      materializedRuleStatusLabel(rule.status),
+      decisionLabel(rule.decision),
+      Number.isInteger(rule.score) ? String(rule.score) : '—',
+      knowledgeHealthGradeLabel(rule.grade),
+      knowledgeHealthClassificationLabel(rule.classification),
+      signals.has_conflict ? 'Да' : 'Нет',
+      signals.has_duplicate ? 'Да' : 'Нет',
+      signals.is_stale ? 'Да' : 'Нет',
+      ruleEffectivenessClassificationLabel(
+        signals.effectiveness_classification
+      ),
+      confidenceLabel(signals.confidence_level),
+      priorityLabel(signals.priority_level),
+    ];
+    for (const value of values) {
+      appendTextCell(documentObject, row, value || '—');
+    }
+    return row;
+  }
+
+  function renderKnowledgeHealth(
+    documentObject,
+    elements,
+    data = {},
+    onNavigate
+  ) {
+    const summary = data.summary || {};
+    const summaryValues = {
+      score: Number.isInteger(data.score) ? String(data.score) : '—',
+      grade: knowledgeHealthGradeLabel(data.grade),
+      apiStatus: data.status === 'PARTIAL'
+        ? 'Частичные данные'
+        : 'Доступно',
+      conflicts: displayCount(summary.conflict_groups),
+      duplicates: displayCount(summary.duplicate_groups),
+      stale: displayCount(summary.stale_rules),
+      attention: displayCount(
+        (summary.attention_rules || 0) +
+        (summary.critical_rules || 0)
+      ),
+    };
+    for (const [name, value] of Object.entries(summaryValues)) {
+      elements.knowledgeHealthSummary[name].textContent = value;
+    }
+    elements.knowledgeHealthDimensions.replaceChildren();
+    const dimensionLabels = {
+      consistency: 'Согласованность',
+      effectiveness: 'Эффективность',
+      freshness: 'Актуальность',
+      data_quality: 'Качество данных',
+      safety: 'Безопасность',
+      maintainability: 'Поддерживаемость',
+    };
+    for (const [name, label] of Object.entries(dimensionLabels)) {
+      const card = documentObject.createElement('article');
+      const title = documentObject.createElement('span');
+      const score = documentObject.createElement('strong');
+      const detail = documentObject.createElement('small');
+      card.className = 'knowledge-health-dimension';
+      title.textContent = label;
+      score.textContent = Number.isInteger(data.dimensions?.[name]?.score)
+        ? String(data.dimensions[name].score)
+        : '—';
+      detail.textContent =
+        `Вес ${displayCount(data.dimensions?.[name]?.weight)}% · ` +
+        `проблем ${displayCount(
+          data.dimensions?.[name]?.findings_count
+        )}`;
+      card.append(title, score, detail);
+      elements.knowledgeHealthDimensions.append(card);
+    }
+    elements.knowledgeHealthFindings.replaceChildren();
+    for (const item of data.findings || []) {
+      elements.knowledgeHealthFindings.append(
+        createKnowledgeHealthFinding(
+          documentObject,
+          item,
+          onNavigate
+        )
+      );
+    }
+    elements.knowledgeHealthRules.replaceChildren();
+    for (const rule of data.rules || []) {
+      elements.knowledgeHealthRules.append(
+        createKnowledgeHealthRuleRow(documentObject, rule)
+      );
+    }
+  }
+
   function formatSignedRub(value) {
     if (typeof value !== 'number' || !Number.isFinite(value)) return '—';
     if (value > 0) return `+${formatRub(value)}`;
@@ -2541,6 +2826,25 @@
       amountDelta: formatSignedRub(
         summary.effectiveness?.total_order_amount_delta
       ),
+      knowledgeScore: Number.isInteger(summary.knowledge_health?.score)
+        ? String(summary.knowledge_health.score)
+        : '—',
+      knowledgeGrade: knowledgeHealthGradeLabel(
+        summary.knowledge_health?.grade
+      ),
+      knowledgeConflicts: displayCount(
+        summary.knowledge_health?.conflict_groups
+      ),
+      knowledgeDuplicates: displayCount(
+        summary.knowledge_health?.duplicate_groups
+      ),
+      knowledgeStale: displayCount(
+        summary.knowledge_health?.stale_rules
+      ),
+      knowledgeAttention: displayCount(
+        (summary.knowledge_health?.critical_findings || 0) +
+        (summary.knowledge_health?.attention_findings || 0)
+      ),
     };
     for (const [name, value] of Object.entries(values)) {
       elements.ownerLearningSummary[name].textContent = value;
@@ -2738,6 +3042,7 @@
       ['candidates', 'Кандидаты'],
       ['materialized_rules', 'Материализованные правила'],
       ['effectiveness', 'Эффективность правил'],
+      ['knowledge_health', 'Здоровье базы знаний'],
     ];
     elements.ownerLearningSections.replaceChildren();
     for (const [name, label] of definitions) {
@@ -2750,6 +3055,15 @@
       card.className = 'owner-learning-section-card';
       title.textContent = label;
       total.textContent = `Количество: ${displayCount(value.count)}`;
+      if (
+        name === 'knowledge_health' &&
+        Number.isInteger(value.score)
+      ) {
+        total.textContent =
+          `Оценка: ${value.score} · ${
+            knowledgeHealthGradeLabel(value.grade)
+          }`;
+      }
       status.textContent =
         `Статус: ${
           CENTER_COMPONENT_STATUS_LABELS[value.status] || 'Недоступно'
@@ -2814,6 +3128,7 @@
       'CANDIDATES',
       'MATERIALIZED_RULES',
       'RULE_EFFECTIVENESS',
+      'KNOWLEDGE_HEALTH',
     ].includes(target)
       ? target
       : 'OVERVIEW';
@@ -2934,6 +3249,30 @@
         amountDelta:
           documentObject.getElementById(
             'owner-learning-amount-delta'
+          ),
+        knowledgeScore:
+          documentObject.getElementById(
+            'owner-learning-knowledge-score'
+          ),
+        knowledgeGrade:
+          documentObject.getElementById(
+            'owner-learning-knowledge-grade'
+          ),
+        knowledgeConflicts:
+          documentObject.getElementById(
+            'owner-learning-knowledge-conflicts'
+          ),
+        knowledgeDuplicates:
+          documentObject.getElementById(
+            'owner-learning-knowledge-duplicates'
+          ),
+        knowledgeStale:
+          documentObject.getElementById(
+            'owner-learning-knowledge-stale'
+          ),
+        knowledgeAttention:
+          documentObject.getElementById(
+            'owner-learning-knowledge-attention'
           ),
       },
       statusSteps: Array.from(
@@ -3223,6 +3562,69 @@
             'rule-effectiveness-amount-delta'
           ),
       },
+      knowledgeHealthForm:
+        documentObject.getElementById('knowledge-health-filters'),
+      knowledgeHealthStatus:
+        documentObject.getElementById('knowledge-health-status'),
+      knowledgeHealthDecision:
+        documentObject.getElementById('knowledge-health-decision'),
+      knowledgeHealthGrade:
+        documentObject.getElementById('knowledge-health-grade'),
+      knowledgeHealthClassification:
+        documentObject.getElementById(
+          'knowledge-health-classification'
+        ),
+      knowledgeHealthSeverity:
+        documentObject.getElementById('knowledge-health-severity'),
+      knowledgeHealthFindingType:
+        documentObject.getElementById('knowledge-health-finding-type'),
+      knowledgeHealthConfidence:
+        documentObject.getElementById('knowledge-health-confidence'),
+      knowledgeHealthPriority:
+        documentObject.getElementById('knowledge-health-priority'),
+      knowledgeHealthSearch:
+        documentObject.getElementById('knowledge-health-search'),
+      knowledgeHealthReset:
+        documentObject.getElementById('knowledge-health-reset'),
+      knowledgeHealthLoading:
+        documentObject.getElementById('knowledge-health-loading'),
+      knowledgeHealthPartial:
+        documentObject.getElementById('knowledge-health-partial'),
+      knowledgeHealthEmpty:
+        documentObject.getElementById('knowledge-health-empty'),
+      knowledgeHealthNoFindings:
+        documentObject.getElementById('knowledge-health-no-findings'),
+      knowledgeHealthNoResults:
+        documentObject.getElementById('knowledge-health-no-results'),
+      knowledgeHealthUnavailable:
+        documentObject.getElementById('knowledge-health-unavailable'),
+      knowledgeHealthInvalid:
+        documentObject.getElementById('knowledge-health-invalid'),
+      knowledgeHealthNetwork:
+        documentObject.getElementById('knowledge-health-network'),
+      knowledgeHealthContent:
+        documentObject.getElementById('knowledge-health-content'),
+      knowledgeHealthDimensions:
+        documentObject.getElementById('knowledge-health-dimensions'),
+      knowledgeHealthFindings:
+        documentObject.getElementById('knowledge-health-findings'),
+      knowledgeHealthRules:
+        documentObject.getElementById('knowledge-health-rules'),
+      knowledgeHealthSummary: {
+        score: documentObject.getElementById('knowledge-health-score'),
+        grade:
+          documentObject.getElementById('knowledge-health-grade-value'),
+        apiStatus:
+          documentObject.getElementById('knowledge-health-api-status'),
+        conflicts:
+          documentObject.getElementById('knowledge-health-conflicts'),
+        duplicates:
+          documentObject.getElementById('knowledge-health-duplicates'),
+        stale:
+          documentObject.getElementById('knowledge-health-stale'),
+        attention:
+          documentObject.getElementById('knowledge-health-attention'),
+      },
       ruleEffectivenessDetailModal:
         documentObject.getElementById(
           'rule-effectiveness-detail-modal'
@@ -3421,6 +3823,7 @@
     let candidateRequestSequence = 0;
     let materializedRulesRequestSequence = 0;
     let ruleEffectivenessRequestSequence = 0;
+    let knowledgeHealthRequestSequence = 0;
     let currentRunId = null;
     let pendingRuleStatusChange = null;
     let currentCandidates = [];
@@ -3432,6 +3835,7 @@
       CANDIDATES: false,
       MATERIALIZED_RULES: false,
       RULE_EFFECTIVENESS: false,
+      KNOWLEDGE_HEALTH: false,
     };
     const itemState = {
       baseUrl: null,
@@ -3458,6 +3862,7 @@
           CANDIDATES: loadCandidates,
           MATERIALIZED_RULES: loadMaterializedRules,
           RULE_EFFECTIVENESS: loadRuleEffectiveness,
+          KNOWLEDGE_HEALTH: loadKnowledgeHealth,
         })[selected]();
       }
       return selected;
@@ -3825,6 +4230,21 @@
       };
     }
 
+    function knowledgeHealthFilters() {
+      return {
+        status: elements.knowledgeHealthStatus.value,
+        decision: elements.knowledgeHealthDecision.value,
+        grade: elements.knowledgeHealthGrade.value,
+        classification:
+          elements.knowledgeHealthClassification.value,
+        severity: elements.knowledgeHealthSeverity.value,
+        findingType: elements.knowledgeHealthFindingType.value,
+        confidenceLevel: elements.knowledgeHealthConfidence.value,
+        priorityLevel: elements.knowledgeHealthPriority.value,
+        search: elements.knowledgeHealthSearch.value,
+      };
+    }
+
     function closeRuleEffectivenessDetail() {
       elements.ruleEffectivenessDetailModal.hidden = true;
       elements.ruleEffectivenessDetailContent.hidden = true;
@@ -4108,6 +4528,41 @@
           error instanceof FrontendError &&
             error.code ===
               'OWNER_RULE_EFFECTIVENESS_INVALID_INPUT'
+            ? 'invalid'
+            : 'network'
+        );
+      }
+    }
+
+    async function loadKnowledgeHealth() {
+      const sequence = ++knowledgeHealthRequestSequence;
+      const filters = knowledgeHealthFilters();
+      setKnowledgeHealthPanelState(elements, 'loading');
+      try {
+        const result = await requestJson(
+          fetchFunction,
+          buildKnowledgeHealthUrl(filters)
+        );
+        if (sequence !== knowledgeHealthRequestSequence) return;
+        const state = knowledgeHealthViewState(result, filters);
+        if (['ready', 'partial'].includes(state)) {
+          renderKnowledgeHealth(
+            documentObject,
+            elements,
+            result,
+            navigateOwnerLearning
+          );
+        } else {
+          elements.knowledgeHealthFindings.replaceChildren();
+          elements.knowledgeHealthRules.replaceChildren();
+        }
+        setKnowledgeHealthPanelState(elements, state);
+      } catch (error) {
+        if (sequence !== knowledgeHealthRequestSequence) return;
+        setKnowledgeHealthPanelState(
+          elements,
+          error instanceof FrontendError &&
+            error.code === 'OWNER_KNOWLEDGE_HEALTH_INVALID_INPUT'
             ? 'invalid'
             : 'network'
         );
@@ -4544,6 +4999,14 @@
       resetRuleEffectivenessFilters(elements);
       loadRuleEffectiveness();
     });
+    elements.knowledgeHealthForm.addEventListener('submit', event => {
+      event.preventDefault();
+      loadKnowledgeHealth();
+    });
+    elements.knowledgeHealthReset.addEventListener('click', () => {
+      resetKnowledgeHealthFilters(elements);
+      loadKnowledgeHealth();
+    });
     elements.ruleEffectivenessDetailClose.addEventListener(
       'click',
       closeRuleEffectivenessDetail
@@ -4688,6 +5151,7 @@
     buildAnalyticsUrl,
     buildCandidatesUrl,
     buildOwnerLearningCenterUrl,
+    buildKnowledgeHealthUrl,
     buildDecisionUrl,
     buildItemsUrl,
     buildLifecyclePayload,
@@ -4709,6 +5173,8 @@
     createActivityCard,
     createAttentionCard,
     createMaterializedRuleCard,
+    createKnowledgeHealthFinding,
+    createKnowledgeHealthRuleRow,
     createRuleEffectivenessRow,
     createItemRow,
     createItemRows,
@@ -4735,6 +5201,10 @@
     materializedRuleStatusPreviewLabel,
     materializedRuleStatusLabel,
     materializedRulesViewState,
+    knowledgeHealthClassificationLabel,
+    knowledgeHealthGradeLabel,
+    knowledgeHealthSeverityLabel,
+    knowledgeHealthViewState,
     needsOwnerDecisionView,
     ownerActionLabel,
     ownerLearningViewState,
@@ -4751,6 +5221,7 @@
     renderCandidateSummary,
     renderMaterializedRuleCards,
     renderMaterializedRuleDetail,
+    renderKnowledgeHealth,
     renderMaterializedRulesSummary,
     renderOwnerLearningActivity,
     renderOwnerLearningAttention,
@@ -4765,6 +5236,7 @@
     renderItemRows,
     resetCandidateFilters,
     resetMaterializedRulesFilters,
+    resetKnowledgeHealthFilters,
     resetRuleEffectivenessFilters,
     requestNeedsDecisionItems,
     requestJson,
@@ -4774,6 +5246,7 @@
     setCandidatePanelState,
     setHistoryPanelState,
     setMaterializedRulesPanelState,
+    setKnowledgeHealthPanelState,
     setOwnerLearningState,
     setRuleEffectivenessPanelState,
     setProductsPanelState,

@@ -101,6 +101,12 @@ function overviewElements() {
       effectiveRules: element(),
       attentionTotal: element(),
       amountDelta: element(),
+      knowledgeScore: element(),
+      knowledgeGrade: element(),
+      knowledgeConflicts: element(),
+      knowledgeDuplicates: element(),
+      knowledgeStale: element(),
+      knowledgeAttention: element(),
     },
   };
 }
@@ -116,6 +122,15 @@ function overview() {
       effectiveness: {
         effective: 1,
         total_order_amount_delta: -125.5,
+      },
+      knowledge_health: {
+        score: 88,
+        grade: 'GOOD',
+        critical_findings: 0,
+        attention_findings: 1,
+        conflict_groups: 0,
+        duplicate_groups: 1,
+        stale_rules: 0,
       },
     },
     attention: { total: 0, items: [] },
@@ -146,13 +161,14 @@ test('overview is the selected default tab', () => {
   );
 });
 
-test('all five Owner Learning tabs are present', () => {
+test('all six Owner Learning tabs are present', () => {
   for (const label of [
     'Обзор',
     'История решений',
     'Кандидаты',
     'Правила',
     'Эффективность',
+    'Здоровье базы знаний',
   ]) {
     assert.ok(html.includes(label));
   }
@@ -388,8 +404,15 @@ test('section cards navigate to existing tabs', () => {
       attention_count: 0,
       navigation_target: 'RULE_EFFECTIVENESS',
     },
+    knowledge_health: {
+      status: 'AVAILABLE',
+      score: 82,
+      grade: 'GOOD',
+      attention_count: 0,
+      navigation_target: 'KNOWLEDGE_HEALTH',
+    },
   }, target => targets.push(target));
-  assert.equal(elements.ownerLearningSections.children.length, 4);
+  assert.equal(elements.ownerLearningSections.children.length, 5);
   const button = elements.ownerLearningSections.children[0].children.at(-1);
   button.listeners.click[0]();
   assert.deepEqual(targets, ['DECISION_HISTORY']);

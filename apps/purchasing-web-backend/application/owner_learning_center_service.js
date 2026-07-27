@@ -10,6 +10,7 @@ const NAVIGATION_TARGETS = Object.freeze({
   candidates: 'CANDIDATES',
   rules: 'MATERIALIZED_RULES',
   effectiveness: 'RULE_EFFECTIVENESS',
+  knowledgeHealth: 'KNOWLEDGE_HEALTH',
 });
 const PRIORITY_ORDER = Object.freeze({
   CRITICAL: 0,
@@ -372,7 +373,66 @@ function summary(results) {
         }
         : null,
     effectiveness: effectivenessSummary(results.effectiveness),
+    knowledgeHealth:
+      ['AVAILABLE', 'PARTIAL'].includes(results.knowledgeHealth?.status)
+        ? {
+          score: safeNumber(results.knowledgeHealth.score),
+          grade: safeText(results.knowledgeHealth.grade),
+          criticalFindings: (results.knowledgeHealth.findings || [])
+            .filter(item => item.severity === 'CRITICAL').length,
+          attentionFindings: (results.knowledgeHealth.findings || [])
+            .filter(item => [
+              'HIGH',
+              'MEDIUM',
+              'LOW',
+            ].includes(item.severity)).length,
+          conflictGroups:
+            count(results.knowledgeHealth.summary?.conflictGroups),
+          duplicateGroups:
+            count(results.knowledgeHealth.summary?.duplicateGroups),
+          staleRules:
+            count(results.knowledgeHealth.summary?.staleRules),
+        }
+        : null,
   };
+}
+
+function knowledgeHealthAttention(result) {
+  if (!['AVAILABLE', 'PARTIAL'].includes(result?.status)) return [];
+  const attentionTypes = new Set([
+    'RULE_CONFLICT',
+    'RULE_DUPLICATE',
+    'RULE_STALE',
+    'RULE_REVIEW_RECOMMENDED',
+    'RULE_MISSING_PROVENANCE',
+    'RULE_LIFECYCLE_INCONSISTENT',
+  ]);
+  return (result.findings || []).filter(item =>
+    attentionTypes.has(item.type) &&
+    (
+      item.type !== 'RULE_DUPLICATE' ||
+      item.evidence?.duplicateType === 'ACTIVE_DUPLICATE'
+    )
+  ).map(item => attentionItem({
+    type: item.type,
+    priority: item.severity === 'CRITICAL'
+      ? 'CRITICAL'
+      : (
+        item.severity === 'HIGH'
+          ? 'HIGH'
+          : (item.severity === 'MEDIUM' ? 'MEDIUM' : 'LOW')
+      ),
+    title: item.titleCode,
+    description: item.descriptionCode,
+    displayScope: item.displayScopes?.[0],
+    entityType: 'KNOWLEDGE_HEALTH_FINDING',
+    entityId: item.findingId,
+    navigationTarget: NAVIGATION_TARGETS.knowledgeHealth,
+    createdAt: result.generatedAt,
+    state: `${item.type}:${item.severity}`,
+    sourceVersion: item.findingId,
+    explanationCodes: item.explanationCodes,
+  }));
 }
 
 function candidateAttention(result) {
@@ -761,6 +821,18 @@ function buildHealth(results) {
       effectivenessCount,
       'OWNER_RULE_EFFECTIVENESS_UNAVAILABLE'
     ),
+    knowledgeHealth: results.knowledgeHealth === undefined
+      ? component('EMPTY')
+      : (
+        ['AVAILABLE', 'PARTIAL'].includes(
+          results.knowledgeHealth?.status
+        )
+          ? component('AVAILABLE')
+          : component(
+            'UNAVAILABLE',
+            'OWNER_KNOWLEDGE_HEALTH_UNAVAILABLE'
+          )
+      ),
   };
   const dataQualityWarnings = [
     ...(results.decisions?.analytics?.dataQuality?.warnings || []),
@@ -847,6 +919,27 @@ function sections(results, attention) {
       attentionCount: countByTarget(NAVIGATION_TARGETS.effectiveness),
       navigationTarget: NAVIGATION_TARGETS.effectiveness,
     },
+    knowledgeHealth: {
+      status: results.knowledgeHealth === undefined
+        ? 'EMPTY'
+        : (
+          ['AVAILABLE', 'PARTIAL'].includes(
+            results.knowledgeHealth?.status
+          )
+            ? (
+              count(results.knowledgeHealth?.summary?.totalRules) > 0
+                ? results.knowledgeHealth.status
+                : 'EMPTY'
+            )
+            : 'UNAVAILABLE'
+        ),
+      score: safeNumber(results.knowledgeHealth?.score),
+      grade: safeText(results.knowledgeHealth?.grade),
+      attentionCount: countByTarget(
+        NAVIGATION_TARGETS.knowledgeHealth
+      ),
+      navigationTarget: NAVIGATION_TARGETS.knowledgeHealth,
+    },
   };
 }
 
@@ -868,6 +961,7 @@ class OwnerLearningCenterService {
     this.candidateLifecycleService = options.candidateLifecycleService;
     this.materializedRulesService = options.materializedRulesService;
     this.ruleEffectivenessService = options.ruleEffectivenessService;
+    this.knowledgeHealthService = options.knowledgeHealthService || null;
     this.logger = options.logger || console;
     this.now = options.now || (() => new Date());
   }
@@ -949,6 +1043,17 @@ class OwnerLearningCenterService {
         }
       ),
     };
+    if (this.knowledgeHealthService) {
+      results.knowledgeHealth = this.read(
+        'OWNER_KNOWLEDGE_HEALTH_UNAVAILABLE',
+        () => this.knowledgeHealthService.getKnowledgeHealth({
+          options: {
+            asOf: normalized.options.asOf,
+            limit: 100,
+          },
+        })
+      );
+    }
     const health = buildHealth(results);
     const centerUnavailable =
       health.overallStatus === 'UNAVAILABLE';
@@ -967,6 +1072,7 @@ class OwnerLearningCenterService {
     const allAttention = [
       ...candidateAttention(results.candidates),
       ...ruleAttention(results.rules, results.effectiveness),
+      ...knowledgeHealthAttention(results.knowledgeHealth),
       ...dataQualityAttention(results),
       ...unavailableAttention(health),
     ].sort(compareAttention);
