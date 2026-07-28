@@ -11,7 +11,9 @@ const {
 const {
   FrontendError,
   analyticsViewState,
+  attentionItems,
   artifactNameList,
+  budgetDeviationView,
   buildAnalyticsUrl,
   buildCandidatesUrl,
   buildLifecyclePayload,
@@ -41,6 +43,7 @@ const {
   defaultDecisionFilter,
   eligibilityLabel,
   filterCandidates,
+  financialStatusView,
   formatSignedQuantity,
   formatRub,
   formatSignedRub,
@@ -497,16 +500,19 @@ test('GET / serves the Russian frontend with secure headers', async () => {
   const productsBody = body.match(
     /<section\s+class="products card"[\s\S]*?<\/section>/
   )?.[0] || '';
-  assert.doesNotMatch(body, /Скачать результаты/);
-  assert.match(body, />\s*Экспорт\s*</);
   for (const label of [
-    'Полный отчёт',
-    'Result JSON',
-    'Решения владельца',
-    'Объяснения рекомендаций',
+    'Скачать отчёт владельцу',
+    'Скачать result.json',
+    'Скачать объяснения',
   ]) {
     assert.match(body, new RegExp(label));
   }
+  assert.match(
+    body,
+    /class="download-button download-primary"[\s\S]*data-artifact-key="report"/
+  );
+  assert.doesNotMatch(body, />\s*Ожидает проверки\s*</);
+  assert.match(body, />\s*На ручную проверку\s*</);
   for (const heading of [
     'Товар',
     'Остаток',
@@ -519,10 +525,15 @@ test('GET / serves the Russian frontend with secure headers', async () => {
   }
   for (const id of [
     'result-file-name',
+    'financial-decision-card',
+    'financial-status-code',
+    'budget-deviation-card',
     'reserve-surplus',
     'run-status',
-    'run-warnings',
-    'run-critical-issues',
+    'run-status-card',
+    'run-status-code',
+    'run-attention',
+    'run-attention-empty',
     'run-artifacts',
   ]) {
     assert.match(body, new RegExp(`id="${id}"`));
@@ -669,6 +680,98 @@ test('narrow viewport uses cards without horizontal table scrolling', () => {
   );
 });
 
+test('owner result dashboard keeps brand colors and responsive grids', () => {
+  const css = fs.readFileSync(path.join(PUBLIC_ROOT, 'styles.css'), 'utf8');
+  const mobileStyles = css.match(
+    /@media \(max-width: 820px\) \{([\s\S]*?)\n\}\n\n@media \(max-width: 520px\)/
+  )?.[1] || '';
+
+  assert.match(css, /--green:\s*#4caf50/i);
+  assert.match(css, /--orange:\s*#f57c00/i);
+  assert.match(css, /\.owner-result-grid\s*\{[^}]*display:\s*grid/s);
+  assert.match(
+    mobileStyles,
+    /\.owner-result-grid,[\s\S]*grid-template-columns:\s*1fr/s
+  );
+  assert.match(
+    mobileStyles,
+    /\.decision-metric-grid,[\s\S]*grid-template-columns:\s*1fr/s
+  );
+});
+
+test('financial status uses owner-facing labels and decision colors', () => {
+  const css = fs.readFileSync(path.join(PUBLIC_ROOT, 'styles.css'), 'utf8');
+
+  assert.deepEqual(financialStatusView('APPROVED'), {
+    label: 'Заказ одобрен',
+    tone: 'success',
+    code: 'APPROVED',
+  });
+  assert.deepEqual(
+    financialStatusView('MANUAL_APPROVAL_REQUIRED'),
+    {
+      label: 'Требуется решение владельца',
+      tone: 'warning',
+      code: 'MANUAL_APPROVAL_REQUIRED',
+    }
+  );
+  assert.deepEqual(financialStatusView('REJECTED'), {
+    label: 'Заказ отклонён',
+    tone: 'critical',
+    code: 'REJECTED',
+  });
+  assert.match(
+    css,
+    /\.owner-result-card\[data-tone="success"\][^{]*\{[^}]*background:\s*var\(--green-soft\)/s
+  );
+  assert.match(
+    css,
+    /\.owner-result-card\[data-tone="warning"\][^{]*\{[^}]*background:\s*var\(--orange-soft\)/s
+  );
+});
+
+test('budget deviation explains negative and positive reserve surplus', () => {
+  const exceeded = budgetDeviationView(-29355.53);
+  assert.equal(exceeded.tone, 'warning');
+  assert.match(
+    exceeded.label,
+    /Превышение безопасного бюджета: 29[\s\u00a0]355,53/
+  );
+  assert.doesNotMatch(exceeded.label, /−|-/);
+
+  const available = budgetDeviationView(30000);
+  assert.equal(available.tone, 'success');
+  assert.match(
+    available.label,
+    /Запас бюджета после заказа: 30[\s\u00a0]000,00/
+  );
+});
+
+test('attention combines critical and warning messages without translation', () => {
+  const css = fs.readFileSync(path.join(PUBLIC_ROOT, 'styles.css'), 'utf8');
+
+  assert.deepEqual(attentionItems(
+    ['Verify SmartZapas receipts', 'Проверьте резерв.'],
+    []
+  ), [
+    {
+      text: 'Verify SmartZapas receipts',
+      tone: 'warning',
+      technical: true,
+    },
+    {
+      text: 'Проверьте резерв.',
+      tone: 'warning',
+      technical: false,
+    },
+  ]);
+  assert.deepEqual(attentionItems([], []), []);
+  assert.match(
+    css,
+    /\.attention-summary li\[data-technical="true"\][^{]*\{[^}]*border:\s*1px dashed/s
+  );
+});
+
 test('RUB and summary formatting preserve distinct monetary amounts', () => {
   const formatted = formatRub(1234567.8);
   assert.match(formatted, /1[\s\u00a0]234[\s\u00a0]567,80/);
@@ -678,9 +781,9 @@ test('RUB and summary formatting preserve distinct monetary amounts', () => {
   const view = summaryView({
     sku_count: 398,
     amounts: {
-      analyzer_order_sum: 1,
-      auto_approved_sum: 2,
-      pending_review_sum: 3,
+      analyzer_order_sum: 155458.05,
+      auto_approved_sum: 119949.24,
+      pending_review_sum: 89930.56,
       working_maximum_sum: 4,
       financially_assessed_sum: 5,
     },
@@ -690,7 +793,7 @@ test('RUB and summary formatting preserve distinct monetary amounts', () => {
     },
     warnings: ['Проверьте финансовый резерв.'],
     critical_issues: [],
-    owner_review: { action_required: 17 },
+    owner_review: { action_required: 206 },
   }, {
     status: 'completed',
     source: {
@@ -701,22 +804,30 @@ test('RUB and summary formatting preserve distinct monetary amounts', () => {
   });
 
   assert.equal(view.skuCount, '398');
-  assert.match(view.analyzerOrderSum, /1,00/);
-  assert.match(view.autoApprovedSum, /2,00/);
-  assert.match(view.pendingReviewSum, /3,00/);
+  assert.match(view.analyzerOrderSum, /155[\s\u00a0]458,05/);
+  assert.match(view.autoApprovedSum, /119[\s\u00a0]949,24/);
+  assert.match(view.pendingReviewSum, /89[\s\u00a0]930,56/);
   assert.match(view.workingMaximumSum, /4,00/);
   assert.match(view.financiallyAssessedSum, /5,00/);
-  assert.match(view.reserveSurplus, /29[\s\u00a0]355,53/);
-  assert.match(view.reserveSurplus, /−|-/);
-  assert.match(view.financialStatus, /MANUAL_APPROVAL_REQUIRED/);
-  assert.match(view.runStatus, /COMPLETED/);
+  assert.match(
+    view.reserveSurplus,
+    /Превышение безопасного бюджета: 29[\s\u00a0]355,53/
+  );
+  assert.equal(view.financialStatus, 'Требуется решение владельца');
+  assert.equal(view.financialStatusCode, 'Код: MANUAL_APPROVAL_REQUIRED');
+  assert.equal(view.financialTone, 'warning');
+  assert.equal(view.runStatus, 'Расчёт завершён');
+  assert.equal(view.runStatusCode, 'Код: completed');
   assert.equal(
     view.fileName,
     'Валта заказывать по нему 28.07.2026.xlsx'
   );
-  assert.deepEqual(view.warnings, ['Проверьте финансовый резерв.']);
-  assert.deepEqual(view.criticalIssues, ['- нет']);
-  assert.equal(view.ownerReviewCount, '17');
+  assert.deepEqual(view.attention, [{
+    text: 'Проверьте финансовый резерв.',
+    tone: 'warning',
+    technical: false,
+  }]);
+  assert.equal(view.ownerReviewCount, '206 позиций для решения');
   assert.equal(view.calculationTime, '5 сек');
 });
 
@@ -781,6 +892,12 @@ test('artifact buttons accept only whitelisted manifest download URLs', () => {
   const manifest = {
     artifacts: [
       {
+        name: 'report.txt',
+        download_url:
+          '/api/v1/runs/11111111-1111-4111-8111-111111111111' +
+          '/artifacts/report.txt',
+      },
+      {
         name: 'result.json',
         download_url:
           '/api/v1/runs/11111111-1111-4111-8111-111111111111' +
@@ -791,6 +908,12 @@ test('artifact buttons accept only whitelisted manifest download URLs', () => {
         download_url: '../../private/owner-review-report.md',
       },
       {
+        name: 'recommendation-explanations-report.md',
+        download_url:
+          '/api/v1/runs/11111111-1111-4111-8111-111111111111' +
+          '/artifacts/recommendation-explanations-report.md',
+      },
+      {
         name: 'user-input.xlsx',
         download_url:
           '/api/v1/runs/11111111-1111-4111-8111-111111111111' +
@@ -799,10 +922,26 @@ test('artifact buttons accept only whitelisted manifest download URLs', () => {
     ],
   };
   const selected = selectArtifacts(manifest);
-  assert.deepEqual(Object.keys(selected), ['result']);
+  assert.deepEqual(Object.keys(selected), [
+    'result',
+    'report',
+    'explanations',
+  ]);
   assert.equal(selected.result.name, 'result.json');
+  assert.equal(
+    selected.report.downloadUrl,
+    '/api/v1/runs/11111111-1111-4111-8111-111111111111' +
+      '/artifacts/report.txt'
+  );
+  assert.equal(
+    selected.explanations.downloadUrl,
+    '/api/v1/runs/11111111-1111-4111-8111-111111111111' +
+      '/artifacts/recommendation-explanations-report.md'
+  );
   assert.deepEqual(artifactNameList(manifest), [
+    'report.txt',
     'result.json',
+    'recommendation-explanations-report.md',
     'user-input.xlsx',
   ]);
   assert.deepEqual(artifactNameList({ artifacts: [] }), ['- нет']);

@@ -1777,122 +1777,109 @@
             <h2 id="results-title">Итоги расчёта</h2>
           </div>
           <div class="results-actions">
-            <div class="export-control">
-              <button
-                class="export-button"
-                id="export-button"
-                type="button"
-                aria-haspopup="menu"
-                aria-expanded="false"
-                aria-controls="export-menu"
-                disabled
-              >
-                Экспорт
-                <span aria-hidden="true">⌄</span>
-              </button>
-              <div
-                class="export-menu"
-                id="export-menu"
-                role="menu"
-                aria-label="Экспорт результатов"
-                hidden
-              >
-                <button type="button" role="menuitem" data-artifact-key="report">
-                  Полный отчёт
-                </button>
-                <button type="button" role="menuitem" data-artifact-key="result">
-                  Result JSON
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  data-artifact-key="owner-review"
-                >
-                  Решения владельца
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  data-artifact-key="explanations"
-                >
-                  Объяснения рекомендаций
-                </button>
-              </div>
-            </div>
             <p id="calculation-time">Время расчёта: —</p>
           </div>
         </div>
 
-        <div class="metric-grid">
-          <article class="metric metric-primary">
-            <span>SKU в отчёте</span>
-            <strong id="sku-count">—</strong>
+        <div class="owner-result-grid">
+          <article class="owner-result-card order-result-card">
+            <span class="result-card-label">Итоговый заказ</span>
+            <strong class="order-total" id="analyzer-order-sum">—</strong>
+            <p><span id="sku-count">—</span> SKU в заказе</p>
+            <small id="result-file-name">—</small>
           </article>
-          <article class="metric">
-            <span>Сумма анализатора</span>
-            <strong id="analyzer-order-sum">—</strong>
-          </article>
-          <article class="metric">
-            <span>Автоматически одобрено</span>
-            <strong id="auto-approved-sum">—</strong>
-          </article>
-          <article class="metric metric-attention">
-            <span>Ожидает проверки</span>
-            <strong id="pending-review-sum">—</strong>
-          </article>
-          <article class="metric">
-            <span>Рабочий максимум</span>
-            <strong id="working-maximum-sum">—</strong>
-          </article>
-          <article class="metric">
-            <span>Финансово оценено</span>
-            <strong id="financially-assessed-sum">—</strong>
-          </article>
-        </div>
 
-        <div class="result-details">
-          <article>
-            <span>Файл</span>
-            <strong id="result-file-name">—</strong>
-          </article>
-          <article>
-            <span>Финансовый статус</span>
+          <article
+            class="owner-result-card financial-result-card"
+            id="financial-decision-card"
+            data-tone="neutral"
+          >
+            <span class="result-card-label">Финансовое решение</span>
             <strong id="financial-status">—</strong>
+            <small id="financial-status-code">—</small>
           </article>
-          <article>
-            <span>Запас сверх резерва</span>
+
+          <article
+            class="owner-result-card budget-result-card"
+            id="budget-deviation-card"
+            data-tone="neutral"
+          >
+            <span class="result-card-label">Безопасный бюджет</span>
             <strong id="reserve-surplus">—</strong>
           </article>
-          <article>
+        </div>
+
+        <div class="decision-metric-grid">
+          <article class="decision-metric-card">
+            <span>Автоматически одобрено</span>
+            <strong id="auto-approved-sum">—</strong>
+            <small>Можно включить в заказ без дополнительного решения.</small>
+          </article>
+          <article class="decision-metric-card manual-review-card">
+            <span>На ручную проверку</span>
+            <strong id="pending-review-sum">—</strong>
+            <small id="owner-review-count">—</small>
+          </article>
+          <article
+            class="decision-metric-card run-status-card"
+            id="run-status-card"
+            data-tone="neutral"
+          >
             <span>Общий статус запуска</span>
             <strong id="run-status">—</strong>
-          </article>
-          <article>
-            <span>Позиций для решения</span>
-            <strong id="owner-review-count">—</strong>
+            <small id="run-status-code">—</small>
           </article>
         </div>
 
-        <div class="run-diagnostics">
-          <article>
-            <h3>Предупреждения</h3>
-            <ul id="run-warnings">
-              <li>- нет</li>
-            </ul>
-          </article>
-          <article>
-            <h3>Критические проблемы</h3>
-            <ul id="run-critical-issues">
-              <li>- нет</li>
-            </ul>
-          </article>
-          <article>
-            <h3>Созданные отчёты</h3>
-            <ul id="run-artifacts">
-              <li>- нет</li>
-            </ul>
-          </article>
+        <div class="result-downloads" aria-label="Скачать результаты">
+          <button
+            class="download-button download-primary"
+            type="button"
+            data-artifact-key="report"
+            disabled
+          >Скачать отчёт владельцу</button>
+          <button
+            class="download-button download-secondary"
+            type="button"
+            data-artifact-key="result"
+            disabled
+          >Скачать result.json</button>
+          <button
+            class="download-button download-secondary"
+            type="button"
+            data-artifact-key="explanations"
+            disabled
+          >Скачать объяснения</button>
         </div>
+
+        <section class="attention-summary" aria-labelledby="attention-title">
+          <div>
+            <p class="step-label">Проверка владельца</p>
+            <h3 id="attention-title">Что требует внимания</h3>
+          </div>
+          <p id="run-attention-empty">Предупреждений нет.</p>
+          <ul id="run-attention" hidden></ul>
+        </section>
+
+        <details class="technical-results">
+          <summary>Технические детали расчёта</summary>
+          <div class="technical-result-grid">
+            <article>
+              <span>Рабочий максимум</span>
+              <strong id="working-maximum-sum">—</strong>
+            </article>
+            <article>
+              <span>Финансово оценено</span>
+              <strong id="financially-assessed-sum">—</strong>
+            </article>
+            <article>
+              <span>Созданные файлы</span>
+              <ul id="run-artifacts">
+                <li>- нет</li>
+              </ul>
+            </article>
+          </div>
+        </details>
       </section>
 
       <section

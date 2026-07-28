@@ -1021,30 +1021,130 @@
     return `${minutes} мин ${seconds % 60} сек`;
   }
 
-  function financialStatusLabel(status) {
-    const labels = {
-      green: '🟢 Достаточный резерв',
-      yellow: '🟠 Требуется внимание',
-      red: '🔴 Требуется решение владельца',
-      approved: '🟢 Одобрено',
-      approved_with_warning:
-        'APPROVED_WITH_WARNING — одобрено с предупреждением',
-      manual_approval_required:
-        'MANUAL_APPROVAL_REQUIRED — требуется решение владельца',
-      rejected: 'REJECTED — заказ отклонён',
-      preliminary: 'PRELIMINARY — предварительная оценка',
-      review: '🟠 Требуется проверка',
+  function financialStatusView(status) {
+    const code = String(status || '').trim();
+    const normalized = code.toUpperCase();
+    const views = {
+      APPROVED: {
+        label: 'Заказ одобрен',
+        tone: 'success',
+      },
+      GREEN: {
+        label: 'Заказ одобрен',
+        tone: 'success',
+      },
+      APPROVED_WITH_WARNING: {
+        label: 'Заказ одобрен с предупреждением',
+        tone: 'warning',
+      },
+      MANUAL_APPROVAL_REQUIRED: {
+        label: 'Требуется решение владельца',
+        tone: 'warning',
+      },
+      YELLOW: {
+        label: 'Требуется решение владельца',
+        tone: 'warning',
+      },
+      PRELIMINARY: {
+        label: 'Финансовая оценка предварительная',
+        tone: 'warning',
+      },
+      REVIEW: {
+        label: 'Требуется ручная проверка',
+        tone: 'warning',
+      },
+      REJECTED: {
+        label: 'Заказ отклонён',
+        tone: 'critical',
+      },
+      RED: {
+        label: 'Заказ отклонён',
+        tone: 'critical',
+      },
     };
-    return labels[String(status || '').toLowerCase()] || 'Не указан';
+    const view = views[normalized] || (
+      /REJECT|CRITICAL|ERROR|BLOCKED/.test(normalized)
+        ? { label: 'Заказ требует критической проверки', tone: 'critical' }
+        : { label: 'Финансовый статус не определён', tone: 'neutral' }
+    );
+    return {
+      ...view,
+      code: code || null,
+    };
+  }
+
+  function financialStatusLabel(status) {
+    return financialStatusView(status).label;
+  }
+
+  function runStatusView(status) {
+    const code = String(status || '').trim();
+    const views = {
+      processing: {
+        label: 'Расчёт выполняется',
+        tone: 'active',
+      },
+      completed: {
+        label: 'Расчёт завершён',
+        tone: 'success',
+      },
+      failed: {
+        label: 'Расчёт завершился с ошибкой',
+        tone: 'critical',
+      },
+    };
+    return {
+      ...(views[code.toLowerCase()] || {
+        label: 'Статус запуска не определён',
+        tone: 'neutral',
+      }),
+      code: code || null,
+    };
   }
 
   function runStatusLabel(status) {
-    const labels = {
-      processing: 'PROCESSING — выполняется',
-      completed: 'COMPLETED — завершён',
-      failed: 'FAILED — ошибка',
+    return runStatusView(status).label;
+  }
+
+  function budgetDeviationView(value) {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      return {
+        label: 'Отклонение от безопасного бюджета не рассчитано',
+        tone: 'neutral',
+      };
+    }
+    if (value < 0) {
+      return {
+        label:
+          `Превышение безопасного бюджета: ${formatRub(Math.abs(value))}`,
+        tone: 'warning',
+      };
+    }
+    return {
+      label: `Запас бюджета после заказа: ${formatRub(value)}`,
+      tone: 'success',
     };
-    return labels[String(status || '').toLowerCase()] || 'Не указан';
+  }
+
+  function attentionItems(warnings, criticalIssues) {
+    const items = [];
+    const seen = new Set();
+    const append = (values, tone) => {
+      for (const value of Array.isArray(values) ? values : []) {
+        if (typeof value !== 'string' || value.trim() === '') continue;
+        if (seen.has(value)) continue;
+        seen.add(value);
+        items.push({
+          text: value,
+          tone,
+          technical:
+            /[A-Za-z]/.test(value) && !/[А-Яа-яЁё]/.test(value),
+        });
+      }
+    };
+    append(criticalIssues, 'critical');
+    append(warnings, 'warning');
+    return items;
   }
 
   function diagnosticMessages(values) {
@@ -1058,6 +1158,14 @@
 
   function summaryView(summary, status) {
     const amounts = summary?.amounts || {};
+    const financial = financialStatusView(summary?.financial?.status);
+    const budget = budgetDeviationView(
+      summary?.financial?.reserve_surplus
+    );
+    const run = runStatusView(status?.status);
+    const ownerReviewCount = displayCount(
+      summary?.owner_review?.action_required
+    );
     return {
       fileName: status?.source?.original_name || '—',
       skuCount: displayCount(summary?.sku_count),
@@ -1068,14 +1176,20 @@
       financiallyAssessedSum: formatRub(
         amounts.financially_assessed_sum
       ),
-      financialStatus: financialStatusLabel(summary?.financial?.status),
-      reserveSurplus: formatRub(summary?.financial?.reserve_surplus),
-      runStatus: runStatusLabel(status?.status),
-      ownerReviewCount: displayCount(
-        summary?.owner_review?.action_required
+      financialStatus: financial.label,
+      financialStatusCode:
+        financial.code ? `Код: ${financial.code}` : 'Код не указан',
+      financialTone: financial.tone,
+      reserveSurplus: budget.label,
+      budgetTone: budget.tone,
+      runStatus: run.label,
+      runStatusCode: run.code ? `Код: ${run.code}` : 'Код не указан',
+      runTone: run.tone,
+      ownerReviewCount: `${ownerReviewCount} позиций для решения`,
+      attention: attentionItems(
+        summary?.warnings,
+        summary?.critical_issues
       ),
-      warnings: diagnosticMessages(summary?.warnings),
-      criticalIssues: diagnosticMessages(summary?.critical_issues),
       calculationTime: formatDuration(
         status?.started_at,
         status?.completed_at
@@ -3328,8 +3442,6 @@
         documentObject.querySelectorAll('#status-list li')
       ),
       results: documentObject.getElementById('results'),
-      exportButton: documentObject.getElementById('export-button'),
-      exportMenu: documentObject.getElementById('export-menu'),
       calculationTime: documentObject.getElementById('calculation-time'),
       products: documentObject.getElementById('products'),
       productsSearch: documentObject.getElementById('products-search'),
@@ -3859,15 +3971,23 @@
           documentObject.getElementById('financially-assessed-sum'),
         financialStatus:
           documentObject.getElementById('financial-status'),
+        financialStatusCode:
+          documentObject.getElementById('financial-status-code'),
         reserveSurplus:
           documentObject.getElementById('reserve-surplus'),
         runStatus: documentObject.getElementById('run-status'),
+        runStatusCode: documentObject.getElementById('run-status-code'),
         ownerReviewCount:
           documentObject.getElementById('owner-review-count'),
       },
-      warningList: documentObject.getElementById('run-warnings'),
-      criticalIssueList:
-        documentObject.getElementById('run-critical-issues'),
+      financialDecisionCard:
+        documentObject.getElementById('financial-decision-card'),
+      budgetDeviationCard:
+        documentObject.getElementById('budget-deviation-card'),
+      runStatusCard: documentObject.getElementById('run-status-card'),
+      attentionList: documentObject.getElementById('run-attention'),
+      attentionEmpty:
+        documentObject.getElementById('run-attention-empty'),
       artifactList: documentObject.getElementById('run-artifacts'),
     };
 
@@ -4626,19 +4746,8 @@
       }
     }
 
-    function setExportOpen(open) {
-      const shouldOpen = open && !elements.exportButton.disabled;
-      elements.exportButton.setAttribute(
-        'aria-expanded',
-        String(shouldOpen)
-      );
-      elements.exportMenu.hidden = !shouldOpen;
-    }
-
     function resetExports() {
       availableArtifacts = {};
-      setExportOpen(false);
-      elements.exportButton.disabled = true;
       for (const button of documentObject.querySelectorAll(
         '[data-artifact-key]'
       )) {
@@ -4885,13 +4994,38 @@
       }
     }
 
+    function renderAttention(items) {
+      elements.attentionList.replaceChildren();
+      elements.attentionEmpty.hidden = items.length > 0;
+      elements.attentionList.hidden = items.length === 0;
+      for (const attention of items) {
+        const item = documentObject.createElement('li');
+        item.dataset.tone = attention.tone;
+        item.dataset.technical = String(attention.technical);
+        const badge = documentObject.createElement('span');
+        badge.className = 'attention-badge';
+        badge.textContent = attention.technical
+          ? 'Техническое'
+          : attention.tone === 'critical'
+            ? 'Критично'
+            : 'Обратите внимание';
+        const message = documentObject.createElement('span');
+        message.textContent = attention.text;
+        item.append(badge, message);
+        elements.attentionList.append(item);
+      }
+    }
+
     function renderSummary(summary, status) {
       const view = summaryView(summary, status);
       for (const [name, element] of Object.entries(elements.summary)) {
         element.textContent = view[name];
       }
-      renderTextList(elements.warningList, view.warnings);
-      renderTextList(elements.criticalIssueList, view.criticalIssues);
+      elements.financialDecisionCard.dataset.tone =
+        view.financialTone;
+      elements.budgetDeviationCard.dataset.tone = view.budgetTone;
+      elements.runStatusCard.dataset.tone = view.runTone;
+      renderAttention(view.attention);
       elements.calculationTime.textContent =
         `Время расчёта: ${view.calculationTime}`;
       elements.results.hidden = false;
@@ -4906,8 +5040,6 @@
       for (const button of buttons) {
         button.disabled = !availableArtifacts[button.dataset.artifactKey];
       }
-      elements.exportButton.disabled =
-        Object.keys(availableArtifacts).length === 0;
     }
 
     async function submitRun(event) {
@@ -5005,7 +5137,6 @@
       const key = event.currentTarget.dataset.artifactKey;
       const artifact = availableArtifacts[key];
       if (!artifact) return;
-      setExportOpen(false);
       const link = documentObject.createElement('a');
       link.href = artifact.downloadUrl;
       link.download = artifact.name;
@@ -5145,21 +5276,8 @@
       'click',
       closeRuleMaterializationModal
     );
-    elements.exportButton.addEventListener('click', () => {
-      setExportOpen(elements.exportMenu.hidden);
-    });
-    documentObject.addEventListener('click', event => {
-      if (
-        !elements.exportMenu.hidden &&
-        !event.target.closest('.export-control')
-      ) {
-        setExportOpen(false);
-      }
-    });
     documentObject.addEventListener('keydown', event => {
       if (event.key === 'Escape') {
-        setExportOpen(false);
-        elements.exportButton.focus();
         closeCandidateLifecycleModal();
         closeRuleMaterializationModal();
         closeMaterializedRuleDetail();
@@ -5234,6 +5352,8 @@
   const publicApi = {
     FrontendError,
     analyticsViewState,
+    attentionItems,
+    budgetDeviationView,
     buildAnalyticsUrl,
     buildCandidatesUrl,
     buildOwnerLearningCenterUrl,
@@ -5270,6 +5390,8 @@
     defaultDecisionFilter,
     eligibilityLabel,
     filterCandidates,
+    financialStatusLabel,
+    financialStatusView,
     formatDuration,
     formatHistoryDate,
     formatHistoryDateTime,
@@ -5326,6 +5448,8 @@
     resetRuleEffectivenessFilters,
     requestNeedsDecisionItems,
     requestJson,
+    runStatusLabel,
+    runStatusView,
     artifactNameList,
     diagnosticMessages,
     safeArtifactDownloadUrl,
