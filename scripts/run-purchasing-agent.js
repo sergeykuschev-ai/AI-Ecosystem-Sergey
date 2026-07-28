@@ -68,6 +68,10 @@ const {
 } = require(
   '../agents/purchasing/owner_learning/approved_rule_application'
 );
+const {
+  buildPurchasingOwnerReport,
+  formatMoney,
+} = require('../shared/reporting/purchasing_owner_report');
 
 const REPOSITORY_ROOT = path.resolve(__dirname, '..');
 const DEFAULT_FINANCIAL_DATA_PATH = path.join(
@@ -305,43 +309,6 @@ function generatedFileNames(format, approvedRuleMode = 'PREVIEW') {
   return names;
 }
 
-function decisionSummaryLines(title, summary) {
-  if (!summary) return [];
-  return [
-    title,
-    `- must_buy: ${summary.mustBuyCount ?? 0}`,
-    `- recommended: ${summary.recommendedCount ?? 0}`,
-    `- manual_review: ${summary.manualReviewCount ?? 0}`,
-    `- postpone: ${summary.postponeCount ?? 0}`,
-    `- do_not_buy: ${summary.doNotBuyCount ?? 0}`,
-  ];
-}
-
-function extractDecisionDistributions(agentJson) {
-  if (agentJson.phase1DecisionSummary) {
-    return {
-      phase1: agentJson.phase1DecisionSummary,
-      phase2: {
-        mustBuyCount: agentJson.mustBuyCount,
-        recommendedCount: agentJson.recommendedCount,
-        manualReviewCount: agentJson.manualReviewCount,
-        postponeCount: agentJson.postponeCount,
-        doNotBuyCount: agentJson.doNotBuyCount,
-      },
-    };
-  }
-  return {
-    phase1: {
-      mustBuyCount: agentJson.mustBuyCount,
-      recommendedCount: agentJson.recommendedCount,
-      manualReviewCount: agentJson.manualReviewCount,
-      postponeCount: agentJson.postponeCount,
-      doNotBuyCount: agentJson.doNotBuyCount,
-    },
-    phase2: null,
-  };
-}
-
 function collectRunWarnings(agentJson) {
   const warnings = [];
   const assessment = agentJson.financial_assessment || {};
@@ -377,77 +344,6 @@ function collectRunWarnings(agentJson) {
     return `Дата отчёта SmartZapas: ${item.warning}`;
   }));
   return Array.from(new Set(warnings.filter(Boolean)));
-}
-
-function collectCriticalProblems(agentJson) {
-  const problems = [];
-  const assessment = agentJson.financial_assessment || {};
-  problems.push(...(assessment.financial_data_errors || []));
-  if (assessment.status === 'PRELIMINARY' &&
-      (assessment.missing_fields || []).length > 0) {
-    problems.push(
-      `Финансовое решение не подтверждено; отсутствуют поля: ${assessment.missing_fields.join(', ')}`
-    );
-  }
-  const missingColumns = agentJson.adapter_diagnostics?.missingRequiredColumns || [];
-  if (missingColumns.length > 0) {
-    problems.push(`Отсутствуют обязательные столбцы: ${missingColumns.length}`);
-  }
-  return Array.from(new Set(problems));
-}
-
-function formatMoney(value) {
-  if (value === null || value === undefined) return 'нет данных';
-  return `${new Intl.NumberFormat('ru-RU', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value)} RUB`;
-}
-
-function buildOwnerReport({
-  agentJson,
-  store,
-  runDate,
-  inputPath,
-  warnings,
-}) {
-  const assessment = agentJson.financial_assessment || {};
-  const distributions = extractDecisionDistributions(agentJson);
-  const criticalProblems = collectCriticalProblems(agentJson);
-  const lines = [
-    `ОТЧЁТ ВЛАДЕЛЬЦУ — МАГАЗИН «${store}»`,
-    '',
-    `Дата запуска: ${runDate}`,
-    `Входной файл: ${path.basename(inputPath)}`,
-    `Итоговая сумма заказа: ${formatMoney(
-      assessment.proposed_order_amount ?? agentJson.preliminary_order_sum
-    )}`,
-    `Товарных строк: ${agentJson.product_rows_count}`,
-    `Статус финансовой оценки: ${assessment.status || 'нет данных'}`,
-    `Итоговое решение для владельца: ${assessment.recommendation || 'нет данных'}`,
-    '',
-    ...decisionSummaryLines('Распределение решений Phase 1:', distributions.phase1),
-  ];
-  if (distributions.phase2) {
-    lines.push(
-      '',
-      ...decisionSummaryLines(
-        'Распределение решений Phase 2:',
-        distributions.phase2
-      )
-    );
-  }
-
-  lines.push('', 'Предупреждения:');
-  if (warnings.length === 0) lines.push('- нет');
-  else warnings.forEach(warning => lines.push(`- ${warning}`));
-
-  lines.push('', 'Критические проблемы:');
-  if (criticalProblems.length === 0) lines.push('- нет');
-  else criticalProblems.forEach(problem => lines.push(`- ${problem}`));
-
-  lines.push('', agentJson.minmax_text.trimEnd(), '');
-  return lines.join('\n');
 }
 
 function validateGeneratedContent(name, content) {
@@ -898,11 +794,11 @@ async function runPurchasingCli(argv, dependencies = {}) {
     ...approvedRulePreviewWarnings,
   ]));
   const status = warnings.length > 0 ? 'success_with_warnings' : 'success';
-  const reportText = buildOwnerReport({
+  const reportText = buildPurchasingOwnerReport({
     agentJson,
     store: args.store,
     runDate,
-    inputPath: args.inputPath,
+    inputFileName: path.basename(args.inputPath),
     warnings,
   });
   const completedDate = new Date(dependencies.completedDate || new Date());
@@ -1140,10 +1036,7 @@ module.exports = {
   sha256File,
   optionalSha256File,
   generatedFileNames,
-  extractDecisionDistributions,
   collectRunWarnings,
-  collectCriticalProblems,
-  buildOwnerReport,
   safeWriteRunFiles,
   serializeJson,
   helpText,

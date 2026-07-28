@@ -10,6 +10,9 @@ const {
   runPurchasingCli,
   sha256File,
 } = require('../../../scripts/run-purchasing-agent');
+const {
+  buildPurchasingOwnerReport,
+} = require('../../../shared/reporting/purchasing_owner_report');
 
 const REPOSITORY_ROOT = path.resolve(__dirname, '../../..');
 const XLSX_FIXTURE_PATH = path.join(
@@ -134,7 +137,16 @@ test('creates report.txt with the owner summary and existing agent report', asyn
     path.join(result.runDirectory, 'report.txt'),
     'utf8'
   );
+  const expectedReport = buildPurchasingOwnerReport({
+    agentJson: result.agentResult[0].json,
+    store: 'Миска',
+    runDate: '2026-07-19',
+    inputFileName: path.basename(XLSX_FIXTURE_PATH),
+    warnings: result.metadata.warnings,
+  });
 
+  assert.equal(report, expectedReport);
+  assert.equal(result.reportText, expectedReport);
   assert.ok(report.includes('ОТЧЁТ ВЛАДЕЛЬЦУ — МАГАЗИН «Миска»'));
   assert.ok(report.includes('Распределение решений Phase 1:'));
   assert.ok(report.includes('Распределение решений Phase 2:'));
