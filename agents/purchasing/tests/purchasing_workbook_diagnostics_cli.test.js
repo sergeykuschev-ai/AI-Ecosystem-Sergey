@@ -29,6 +29,28 @@ function runCli(args, options = {}) {
   });
 }
 
+function writeProfile(fileName, content) {
+  const filePath = path.join(TEMP_DIRECTORY, fileName);
+  fs.writeFileSync(
+    filePath,
+    typeof content === 'string' ? content : JSON.stringify(content),
+    'utf8'
+  );
+  return filePath;
+}
+
+function compatibilityProfile(requiredColumns) {
+  return {
+    profileVersion: 1,
+    requiredWorksheets: [
+      {
+        name: 'SmartZapas Synthetic',
+        requiredColumns,
+      },
+    ],
+  };
+}
+
 test('--help works without --input', () => {
   const result = runCli(['--help']);
 
@@ -56,6 +78,15 @@ test('argument errors are rejected with a non-zero exit code', () => {
     {
       args: ['--input', path.join(TEMP_DIRECTORY, 'missing.xlsx')],
       message: 'Входной Excel-файл не найден',
+    },
+    {
+      args: [
+        '--input',
+        XLSX_FIXTURE_PATH,
+        '--profile',
+        path.join(TEMP_DIRECTORY, 'missing-profile.json'),
+      ],
+      message: 'файл не найден',
     },
   ];
 
@@ -89,6 +120,15 @@ test('text output contains file, worksheets, rows, and original headers', () => 
   assert.equal(result.stderr, '');
 });
 
+test('without --profile preserves Compatibility Report v1 text mode', () => {
+  const result = runCli(['--input', XLSX_FIXTURE_PATH]);
+
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /^COMPATIBILITY REPORT V1\n/);
+  assert.doesNotMatch(result.stdout, /Профиль:/);
+  assert.doesNotMatch(result.stdout, /Статус:/);
+});
+
 test('json output is valid and follows the public result shape', () => {
   const result = runCli([
     '--input', XLSX_FIXTURE_PATH,
@@ -111,14 +151,138 @@ test('json output is valid and follows the public result shape', () => {
   assert.ok(Array.isArray(parsed.worksheets[0].columns));
 });
 
+test('valid profile enables Compatibility Report v2 text mode', () => {
+  const profilePath = writeProfile(
+    'compatible-text.json',
+    compatibilityProfile(['Артикул', 'Наименование'])
+  );
+
+  const result = runCli([
+    '--input', XLSX_FIXTURE_PATH,
+    '--profile', profilePath,
+  ]);
+
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /^COMPATIBILITY REPORT V2\n/);
+  assert.match(result.stdout, /Профиль: compatible-text\.json/);
+  assert.match(result.stdout, /Статус: COMPATIBLE/);
+  assert.match(result.stdout, /Лист: SmartZapas Synthetic/);
+  assert.match(result.stdout, /Найден: да/);
+  assert.match(result.stdout, /Обязательные колонки:\n- Артикул/);
+  assert.match(result.stdout, /Фактические колонки:/);
+  assert.match(result.stdout, /Отсутствующие колонки:\n- нет/);
+  assert.equal(result.stderr, '');
+});
+
+test('incompatible profile is reported successfully with exit code zero', () => {
+  const profilePath = writeProfile(
+    'incompatible-text.json',
+    compatibilityProfile(['Несуществующая колонка'])
+  );
+
+  const result = runCli([
+    '--input', XLSX_FIXTURE_PATH,
+    '--profile', profilePath,
+  ]);
+
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /Статус: INCOMPATIBLE/);
+  assert.match(
+    result.stdout,
+    /Отсутствующие колонки:\n- Несуществующая колонка/
+  );
+  assert.equal(result.stderr, '');
+});
+
+test('json output with profile preserves diagnostics and adds compatibility', () => {
+  const profilePath = writeProfile(
+    'compatible-json.json',
+    compatibilityProfile(['Артикул'])
+  );
+
+  const result = runCli([
+    '--input', XLSX_FIXTURE_PATH,
+    '--profile', profilePath,
+    '--format', 'json',
+  ]);
+
+  assert.equal(result.status, 0);
+  const parsed = JSON.parse(result.stdout);
+  assert.deepEqual(Object.keys(parsed), [
+    'fileName',
+    'worksheetCount',
+    'worksheetNames',
+    'worksheets',
+    'profileFileName',
+    'compatibility',
+  ]);
+  assert.equal(parsed.fileName, 'SmartZapas_synthetic.xlsx');
+  assert.equal(parsed.worksheetCount, 1);
+  assert.deepEqual(parsed.worksheetNames, ['SmartZapas Synthetic']);
+  assert.equal(parsed.profileFileName, 'compatible-json.json');
+  assert.equal(parsed.compatibility.status, 'COMPATIBLE');
+  assert.equal(parsed.compatibility.profileVersion, 1);
+  assert.deepEqual(parsed.compatibility.missingWorksheets, []);
+  assert.equal(
+    parsed.compatibility.worksheets[0].name,
+    'SmartZapas Synthetic'
+  );
+});
+
+test('invalid profile JSON returns a non-zero exit code', () => {
+  const profilePath = writeProfile('invalid-json.json', '{"profileVersion":');
+
+  const result = runCli([
+    '--input', XLSX_FIXTURE_PATH,
+    '--profile', profilePath,
+  ]);
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Некорректный JSON/);
+});
+
+test('invalid profile structure returns a non-zero exit code', () => {
+  const profilePath = writeProfile('invalid-profile.json', {
+    profileVersion: 0,
+    requiredWorksheets: [],
+  });
+
+  const result = runCli([
+    '--input', XLSX_FIXTURE_PATH,
+    '--profile', profilePath,
+  ]);
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Некорректный профиль совместимости/);
+  assert.match(result.stderr, /profileVersion/);
+});
+
+test('missing --profile value returns a non-zero exit code', () => {
+  const result = runCli([
+    '--input', XLSX_FIXTURE_PATH,
+    '--profile',
+  ]);
+
+  assert.notEqual(result.status, 0);
+  assert.match(
+    result.stderr,
+    /Для аргумента --profile требуется значение/
+  );
+});
+
 test('does not create files or directories in the working directory', () => {
   const workingDirectory = path.join(TEMP_DIRECTORY, 'no-output');
   fs.mkdirSync(workingDirectory);
+  const profilePath = writeProfile(
+    'no-output-profile.json',
+    compatibilityProfile(['Артикул'])
+  );
   const before = fs.readdirSync(workingDirectory);
 
-  const result = runCli(['--input', XLSX_FIXTURE_PATH], {
-    cwd: workingDirectory,
-  });
+  const result = runCli([
+    '--input', XLSX_FIXTURE_PATH,
+    '--profile', profilePath,
+  ], { cwd: workingDirectory });
 
   assert.equal(result.status, 0);
   assert.deepEqual(fs.readdirSync(workingDirectory), before);

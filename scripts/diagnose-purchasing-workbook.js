@@ -8,6 +8,12 @@ const path = require('node:path');
 const {
   analyzeWorkbook,
 } = require('../shared/diagnostics/workbook_diagnostics');
+const {
+  analyzeWorkbookCompatibility,
+} = require('../shared/diagnostics/workbook_compatibility');
+const {
+  loadRequiredJson,
+} = require('../shared/config/json_config_loader');
 const { openWorkbook } = require('../shared/excel/excel_reader');
 const { createLogger } = require('../shared/logging/logger');
 
@@ -41,6 +47,7 @@ function requiredValue(argv, index, flag) {
 function parseArguments(argv) {
   const parsed = {
     inputPath: null,
+    profilePath: null,
     format: 'text',
     help: false,
   };
@@ -49,10 +56,17 @@ function parseArguments(argv) {
     const argument = argv[index];
     if (argument === '--help' || argument === '-h') {
       parsed.help = true;
-    } else if (argument === '--input' || argument === '--format') {
+    } else if (
+      argument === '--input' ||
+      argument === '--profile' ||
+      argument === '--format'
+    ) {
       const value = requiredValue(argv, index, argument);
       index += 1;
       if (argument === '--input') parsed.inputPath = path.resolve(value);
+      else if (argument === '--profile') {
+        parsed.profilePath = path.resolve(value);
+      }
       else parsed.format = value;
     } else {
       throw new PurchasingWorkbookDiagnosticsCliError(
@@ -122,6 +136,7 @@ function helpText() {
     '',
     'Параметры:',
     '  --input <путь>        Входной .xlsx или .xls (обязательно)',
+    '  --profile <путь>      JSON-профиль обязательных листов и колонок',
     '  --format <text|json>  Формат stdout (по умолчанию text)',
     '  --help, -h            Показать справку',
     '',
@@ -165,6 +180,49 @@ function formatText(result) {
   return `${lines.join('\n')}\n`;
 }
 
+function appendTextList(lines, values) {
+  if (values.length === 0) {
+    lines.push('- нет');
+    return;
+  }
+  values.forEach(value => {
+    lines.push(`- ${value === null ? '' : String(value)}`);
+  });
+}
+
+function formatCompatibilityText(result) {
+  const lines = [
+    'COMPATIBILITY REPORT V2',
+    `Файл: ${result.fileName}`,
+    `Профиль: ${result.profileFileName}`,
+    `Статус: ${result.compatibility.status}`,
+    '',
+    'Отсутствующие листы:',
+  ];
+  appendTextList(lines, result.compatibility.missingWorksheets);
+
+  result.compatibility.worksheets.forEach(worksheet => {
+    lines.push(
+      '',
+      `Лист: ${worksheet.name}`,
+      `Найден: ${worksheet.found ? 'да' : 'нет'}`,
+      '',
+      'Обязательные колонки:'
+    );
+    appendTextList(lines, worksheet.requiredColumns);
+    lines.push('', 'Фактические колонки:');
+    if (!worksheet.found) {
+      lines.push('- лист отсутствует');
+    } else {
+      appendTextList(lines, worksheet.actualColumns);
+    }
+    lines.push('', 'Отсутствующие колонки:');
+    appendTextList(lines, worksheet.missingColumns);
+  });
+
+  return `${lines.join('\n')}\n`;
+}
+
 async function runDiagnosticsCli(argv, dependencies = {}) {
   const output = dependencies.output ||
     (content => process.stdout.write(content));
@@ -176,6 +234,12 @@ async function runDiagnosticsCli(argv, dependencies = {}) {
   }
 
   validateInputFile(args.inputPath);
+  const profile = args.profilePath
+    ? (dependencies.loadRequiredJson || loadRequiredJson)(
+      args.profilePath,
+      { label: 'профиль совместимости workbook' }
+    )
+    : null;
   let workbook;
   try {
     workbook = await (dependencies.openWorkbook || openWorkbook)(args.inputPath);
@@ -190,10 +254,23 @@ async function runDiagnosticsCli(argv, dependencies = {}) {
   const diagnostics = (dependencies.analyzeWorkbook || analyzeWorkbook)(
     workbook
   );
-  const result = diagnosticsResult(args.inputPath, diagnostics);
+  let result = diagnosticsResult(args.inputPath, diagnostics);
+  if (args.profilePath) {
+    const compatibility = (
+      dependencies.analyzeWorkbookCompatibility ||
+      analyzeWorkbookCompatibility
+    )(diagnostics, profile);
+    result = {
+      ...result,
+      profileFileName: path.basename(args.profilePath),
+      compatibility,
+    };
+  }
   output(args.format === 'json'
     ? `${JSON.stringify(result, null, 2)}\n`
-    : formatText(result));
+    : args.profilePath
+      ? formatCompatibilityText(result)
+      : formatText(result));
   return { mode: 'diagnostics', status: 'success', result };
 }
 
@@ -215,6 +292,7 @@ module.exports = {
   helpText,
   diagnosticsResult,
   formatText,
+  formatCompatibilityText,
   runDiagnosticsCli,
   main,
 };
