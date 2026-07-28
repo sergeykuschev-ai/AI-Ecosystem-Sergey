@@ -8,6 +8,14 @@ const DEFAULT_CSV_EXPORTER_PATH = path.resolve(
   __dirname,
   '../../../shared/reporting/csv_exporter.js'
 );
+const DEFAULT_XLSX_EXPORTER_PATH = path.resolve(
+  __dirname,
+  '../../../shared/reporting/xlsx_exporter.js'
+);
+const DEFAULT_FFLATE_BROWSER_PATH = path.resolve(
+  __dirname,
+  '../../../node_modules/fflate/umd/index.js'
+);
 const STATIC_FILES = Object.freeze({
   '/': Object.freeze({
     name: 'index.html',
@@ -23,6 +31,17 @@ const STATIC_FILES = Object.freeze({
   }),
   '/csv_exporter.js': Object.freeze({
     name: null,
+    source: 'csvExporter',
+    contentType: 'text/javascript; charset=utf-8',
+  }),
+  '/xlsx_exporter.js': Object.freeze({
+    name: null,
+    source: 'xlsxExporter',
+    contentType: 'text/javascript; charset=utf-8',
+  }),
+  '/fflate.js': Object.freeze({
+    name: null,
+    source: 'fflate',
     contentType: 'text/javascript; charset=utf-8',
   }),
 });
@@ -60,6 +79,17 @@ function createStaticHandler(options = {}) {
   const csvExporterPath = path.resolve(
     options.csvExporterPath || DEFAULT_CSV_EXPORTER_PATH
   );
+  const xlsxExporterPath = path.resolve(
+    options.xlsxExporterPath || DEFAULT_XLSX_EXPORTER_PATH
+  );
+  const fflateBrowserPath = path.resolve(
+    options.fflateBrowserPath || DEFAULT_FFLATE_BROWSER_PATH
+  );
+  const externalPaths = Object.freeze({
+    csvExporter: csvExporterPath,
+    xlsxExporter: xlsxExporterPath,
+    fflate: fflateBrowserPath,
+  });
   const fsModule = options.fsModule || fs;
 
   return async function serveStatic(rawPath, response) {
@@ -80,7 +110,7 @@ function createStaticHandler(options = {}) {
 
     const filePath = entry.name
       ? path.join(publicRoot, entry.name)
-      : csvExporterPath;
+      : externalPaths[entry.source];
     let status;
     try {
       status = fsModule.lstatSync(filePath);
@@ -115,7 +145,9 @@ function createStaticHandler(options = {}) {
 
 module.exports = {
   DEFAULT_CSV_EXPORTER_PATH,
+  DEFAULT_FFLATE_BROWSER_PATH,
   DEFAULT_PUBLIC_ROOT,
+  DEFAULT_XLSX_EXPORTER_PATH,
   STATIC_FILES,
   createStaticHandler,
   unsafeStaticPath,

@@ -1913,6 +1913,12 @@ h2 {
   color: #102515;
 }
 
+.budget-download-csv {
+  border-color: #c8d5cd;
+  background: #fff;
+  color: var(--muted);
+}
+
 .report-center {
   margin-top: 22px;
   border-radius: 20px;

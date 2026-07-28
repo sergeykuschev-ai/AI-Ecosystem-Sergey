@@ -9,6 +9,8 @@
     >
     <title>AI-агент закупщик «Миска»</title>
     <link rel="stylesheet" href="/styles.css">
+    <script src="/fflate.js" defer></script>
+    <script src="/xlsx_exporter.js" defer></script>
     <script src="/csv_exporter.js" defer></script>
     <script src="/app.js" defer></script>
   </head>
@@ -1898,18 +1900,34 @@
               <button
                 type="button"
                 class="budget-download budget-download-primary"
-                id="budget-supplier-order-download"
+                id="budget-supplier-order-xlsx-download"
                 hidden
               >
-                Скачать заказ поставщику
+                Скачать заказ в Excel
               </button>
               <button
                 type="button"
                 class="budget-download"
+                id="budget-removed-items-xlsx-download"
+                hidden
+              >
+                Скачать исключённые позиции в Excel
+              </button>
+              <button
+                type="button"
+                class="budget-download budget-download-csv"
+                id="budget-supplier-order-download"
+                hidden
+              >
+                Скачать заказ поставщику CSV
+              </button>
+              <button
+                type="button"
+                class="budget-download budget-download-csv"
                 id="budget-removed-items-download"
                 hidden
               >
-                Скачать исключённые позиции
+                Скачать исключённые позиции CSV
               </button>
               <button
                 type="button"

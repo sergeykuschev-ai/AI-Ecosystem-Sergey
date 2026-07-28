@@ -4,6 +4,7 @@ const http = require('node:http');
 const path = require('node:path');
 const { after, before, test } = require('node:test');
 const { once } = require('node:events');
+const { strFromU8, unzipSync } = require('fflate');
 
 const {
   createPurchasingWebServer,
@@ -18,6 +19,7 @@ const {
   budgetOptimizationUrl,
   budgetOptimizationView,
   canDownloadOptimizedCsv,
+  canDownloadOptimizedXlsx,
   buildAnalyticsUrl,
   buildCandidatesUrl,
   buildLifecyclePayload,
@@ -63,6 +65,7 @@ const {
   materializedRulesViewState,
   needsOwnerDecisionView,
   optimizedCsvFiles,
+  optimizedXlsxFiles,
   paginationLabel,
   plainReason,
   priorityLabel,
@@ -102,6 +105,7 @@ const {
   ruleEffectivenessViewState,
 } = require('../public/app');
 const csvExporter = require('../../../shared/reporting/csv_exporter');
+const xlsxExporter = require('../../../shared/reporting/xlsx_exporter');
 
 const PUBLIC_ROOT = path.resolve(__dirname, '../public');
 let server;
@@ -554,11 +558,21 @@ test('GET / serves the Russian frontend with secure headers', async () => {
     'budget-optimizer-input',
     'budget-optimizer-result',
     'budget-optimizer-download',
+    'budget-supplier-order-xlsx-download',
+    'budget-removed-items-xlsx-download',
     'budget-supplier-order-download',
     'budget-removed-items-download',
   ]) {
     assert.match(body, new RegExp(`id="${id}"`));
   }
+  assert.match(
+    body,
+    /id="budget-supplier-order-xlsx-download"[\s\S]*?hidden/
+  );
+  assert.match(
+    body,
+    /id="budget-removed-items-xlsx-download"[\s\S]*?hidden/
+  );
   assert.match(
     body,
     /id="budget-supplier-order-download"[\s\S]*?hidden/
@@ -569,7 +583,7 @@ test('GET / serves the Russian frontend with secure headers', async () => {
   );
   assert.match(
     body,
-    /src="\/csv_exporter\.js"[\s\S]*src="\/app\.js"/
+    /src="\/fflate\.js"[\s\S]*src="\/xlsx_exporter\.js"[\s\S]*src="\/csv_exporter\.js"[\s\S]*src="\/app\.js"/
   );
   assert.doesNotMatch(productsBody, /<th>Бренд<\/th>/);
   assert.doesNotMatch(productsBody, /<th[^>]*>Цена<\/th>/);
@@ -600,14 +614,32 @@ test('products panel stays hidden before completed and opens when ready', () => 
 });
 
 test('whitelisted CSS and JavaScript have correct content types', async () => {
-  const [css, csvExporterScript, script] = await Promise.all([
+  const [
+    css,
+    fflateScript,
+    xlsxExporterScript,
+    csvExporterScript,
+    script,
+  ] = await Promise.all([
     fetch(`${baseUrl}/styles.css`),
+    fetch(`${baseUrl}/fflate.js`),
+    fetch(`${baseUrl}/xlsx_exporter.js`),
     fetch(`${baseUrl}/csv_exporter.js`),
     fetch(`${baseUrl}/app.js`),
   ]);
   assert.equal(css.status, 200);
   assert.equal(css.headers.get('content-type'), 'text/css; charset=utf-8');
   assert.equal(css.headers.get('x-content-type-options'), 'nosniff');
+  assert.equal(fflateScript.status, 200);
+  assert.equal(
+    fflateScript.headers.get('content-type'),
+    'text/javascript; charset=utf-8'
+  );
+  assert.equal(xlsxExporterScript.status, 200);
+  assert.equal(
+    xlsxExporterScript.headers.get('content-type'),
+    'text/javascript; charset=utf-8'
+  );
   assert.equal(csvExporterScript.status, 200);
   assert.equal(
     csvExporterScript.headers.get('content-type'),
@@ -813,6 +845,64 @@ test('supplier CSV buttons are available only after successful optimization',
   }
 );
 
+test('Excel buttons are available only after successful optimization', () => {
+  assert.equal(canDownloadOptimizedXlsx(null), false);
+  assert.equal(
+    canDownloadOptimizedXlsx({ status: 'BUDGET_TOO_LOW' }),
+    false
+  );
+  assert.equal(
+    canDownloadOptimizedXlsx({ status: 'OPTIMIZED' }),
+    true
+  );
+  assert.equal(
+    canDownloadOptimizedXlsx({ status: 'UNCHANGED' }),
+    true
+  );
+});
+
+test('repeated optimization builds fresh supplier XLSX content', () => {
+  const result = {
+    status: 'OPTIMIZED',
+    optimizedTotal: 100,
+    items: [{
+      sku: 'SKU-1',
+      name: 'Товар',
+      decision: 'manual_review',
+      price: 50,
+      originalQuantity: 3,
+      optimizedQuantity: 2,
+      optimizedAmount: 100,
+    }],
+    removedItems: [],
+  };
+  const first = optimizedXlsxFiles(result, xlsxExporter);
+  const second = optimizedXlsxFiles({
+    ...result,
+    optimizedTotal: 50,
+    items: [{
+      ...result.items[0],
+      optimizedQuantity: 1,
+      optimizedAmount: 50,
+    }],
+  }, xlsxExporter);
+  const firstSheet = strFromU8(
+    unzipSync(first.supplierOrder.content)['xl/worksheets/sheet1.xml']
+  );
+  const secondSheet = strFromU8(
+    unzipSync(second.supplierOrder.content)['xl/worksheets/sheet1.xml']
+  );
+
+  assert.equal(first.supplierOrder.name, 'optimized-supplier-order.xlsx');
+  assert.equal(first.removedItems.name, 'optimized-removed-items.xlsx');
+  assert.match(firstSheet, /<c r="E3" s="4"><v>100<\/v><\/c>/);
+  assert.match(secondSheet, /<c r="E3" s="4"><v>50<\/v><\/c>/);
+  assert.notDeepEqual(
+    first.supplierOrder.content,
+    second.supplierOrder.content
+  );
+});
+
 test('repeated optimization builds fresh supplier CSV content', () => {
   const result = {
     status: 'OPTIMIZED',
@@ -965,6 +1055,56 @@ test('generated CSV keeps its supplier filename during browser download', () => 
   assert.equal(link.clickCalled, true);
   assert.equal(link.removeCalled, true);
 });
+
+test('generated XLSX keeps its supplier filename during browser download',
+  () => {
+    const result = {
+      status: 'UNCHANGED',
+      optimizedTotal: 25,
+      items: [{
+        sku: 'SKU-1',
+        name: 'Товар',
+        decision: 'must_buy',
+        price: 25,
+        originalQuantity: 1,
+        optimizedQuantity: 1,
+        optimizedAmount: 25,
+      }],
+      removedItems: [],
+    };
+    const file = optimizedXlsxFiles(
+      result,
+      xlsxExporter
+    ).supplierOrder;
+    const link = {
+      click() {},
+      remove() {},
+    };
+    const browserObject = {
+      Blob: class TestBlob {},
+      URL: {
+        createObjectURL() {
+          return 'blob:supplier-xlsx';
+        },
+        revokeObjectURL() {},
+      },
+      setTimeout(callback) {
+        callback();
+      },
+    };
+    const documentObject = {
+      body: { append() {} },
+      createElement() {
+        return link;
+      },
+    };
+
+    downloadGeneratedFile(file, documentObject, browserObject);
+
+    assert.equal(link.download, 'optimized-supplier-order.xlsx');
+    assert.equal(link.href, 'blob:supplier-xlsx');
+  }
+);
 
 test('financial status uses owner-facing labels and decision colors', () => {
   const css = fs.readFileSync(path.join(PUBLIC_ROOT, 'styles.css'), 'utf8');

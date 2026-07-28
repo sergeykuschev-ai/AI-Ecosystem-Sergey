@@ -1303,6 +1303,10 @@
     return ['OPTIMIZED', 'UNCHANGED'].includes(result?.status);
   }
 
+  function canDownloadOptimizedXlsx(result) {
+    return ['OPTIMIZED', 'UNCHANGED'].includes(result?.status);
+  }
+
   function optimizedCsvFiles(result, csvExporter) {
     if (
       !csvExporter ||
@@ -1311,6 +1315,16 @@
       throw new TypeError('Purchasing CSV exporter is unavailable.');
     }
     return csvExporter.createOptimizedCsvFiles(result);
+  }
+
+  function optimizedXlsxFiles(result, xlsxExporter) {
+    if (
+      !xlsxExporter ||
+      typeof xlsxExporter.createOptimizedXlsxFiles !== 'function'
+    ) {
+      throw new TypeError('Purchasing XLSX exporter is unavailable.');
+    }
+    return xlsxExporter.createOptimizedXlsxFiles(result);
   }
 
   function safeRunLink(value) {
@@ -4140,6 +4154,14 @@
         documentObject.getElementById('budget-optimizer-warning'),
       budgetOptimizerDownload:
         documentObject.getElementById('budget-optimizer-download'),
+      budgetSupplierOrderXlsxDownload:
+        documentObject.getElementById(
+          'budget-supplier-order-xlsx-download'
+        ),
+      budgetRemovedItemsXlsxDownload:
+        documentObject.getElementById(
+          'budget-removed-items-xlsx-download'
+        ),
       budgetSupplierOrderDownload:
         documentObject.getElementById(
           'budget-supplier-order-download'
@@ -4938,6 +4960,8 @@
       elements.budgetOptimizerResult.hidden = true;
       elements.budgetOptimizerWarning.textContent = '';
       elements.budgetOptimizerWarning.hidden = true;
+      elements.budgetSupplierOrderXlsxDownload.hidden = true;
+      elements.budgetRemovedItemsXlsxDownload.hidden = true;
       elements.budgetSupplierOrderDownload.hidden = true;
       elements.budgetRemovedItemsDownload.hidden = true;
     }
@@ -4957,6 +4981,9 @@
       elements.budgetOptimizerWarning.textContent = view.warning;
       elements.budgetOptimizerWarning.hidden = !view.warning;
       const csvAvailable = canDownloadOptimizedCsv(result);
+      const xlsxAvailable = canDownloadOptimizedXlsx(result);
+      elements.budgetSupplierOrderXlsxDownload.hidden = !xlsxAvailable;
+      elements.budgetRemovedItemsXlsxDownload.hidden = !xlsxAvailable;
       elements.budgetSupplierOrderDownload.hidden = !csvAvailable;
       elements.budgetRemovedItemsDownload.hidden = !csvAvailable;
       elements.budgetOptimizerResult.hidden = false;
@@ -5030,6 +5057,25 @@
       } catch {
         setBudgetOptimizationError(
           'Не удалось подготовить CSV. Повторите оптимизацию.'
+        );
+      }
+    }
+
+    function downloadOptimizedXlsx(fileKey) {
+      if (!canDownloadOptimizedXlsx(latestBudgetOptimization)) return;
+      try {
+        const files = optimizedXlsxFiles(
+          latestBudgetOptimization,
+          globalObject.PurchasingXlsxExporter
+        );
+        downloadGeneratedFile(
+          files[fileKey],
+          documentObject,
+          globalObject
+        );
+      } catch {
+        setBudgetOptimizationError(
+          'Не удалось подготовить Excel. Повторите оптимизацию.'
         );
       }
     }
@@ -5552,6 +5598,14 @@
       'click',
       downloadBudgetOptimization
     );
+    elements.budgetSupplierOrderXlsxDownload.addEventListener(
+      'click',
+      () => downloadOptimizedXlsx('supplierOrder')
+    );
+    elements.budgetRemovedItemsXlsxDownload.addEventListener(
+      'click',
+      () => downloadOptimizedXlsx('removedItems')
+    );
     elements.budgetSupplierOrderDownload.addEventListener(
       'click',
       () => downloadOptimizedCsv('supplierOrder')
@@ -5738,6 +5792,7 @@
     budgetOptimizationUrl,
     budgetOptimizationView,
     canDownloadOptimizedCsv,
+    canDownloadOptimizedXlsx,
     buildAnalyticsUrl,
     buildCandidatesUrl,
     buildOwnerLearningCenterUrl,
@@ -5804,6 +5859,7 @@
     ownerLearningViewState,
     ownerDecisionView,
     optimizedCsvFiles,
+    optimizedXlsxFiles,
     paginationLabel,
     patternLabel,
     priorityLabel,
