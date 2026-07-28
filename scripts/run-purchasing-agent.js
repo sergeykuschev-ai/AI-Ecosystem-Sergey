@@ -72,8 +72,10 @@ const {
   buildPurchasingOwnerReport,
   formatMoney,
 } = require('../shared/reporting/purchasing_owner_report');
+const { createLogger } = require('../shared/logging/logger');
 
 const REPOSITORY_ROOT = path.resolve(__dirname, '..');
+const logger = createLogger('purchasing-agent-cli');
 const DEFAULT_FINANCIAL_DATA_PATH = path.join(
   REPOSITORY_ROOT,
   'data/purchasing/miska-financial-current.json'
@@ -1014,7 +1016,7 @@ async function main() {
   try {
     await runPurchasingCli(process.argv.slice(2));
   } catch (error) {
-    console.error(`Ошибка: ${error.message}`);
+    logger.error(`Ошибка: ${error.message}`);
     process.exitCode = 1;
   }
 }

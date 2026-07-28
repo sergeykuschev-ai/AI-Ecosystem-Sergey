@@ -11,11 +11,13 @@ const {
 const {
   evaluateFinancialPurchase,
 } = require('../agents/purchasing/services/financial_controller');
+const { createLogger } = require('../shared/logging/logger');
 
 const DEFAULT_CONFIG_PATH = path.resolve(
   __dirname,
   '../data/purchasing/miska-financial-current.json'
 );
+const logger = createLogger('financial-data-cli');
 
 const EDITABLE_FIELDS = Object.freeze([
   Object.freeze({
@@ -535,10 +537,10 @@ async function main() {
     await runCli(process.argv.slice(2), { ask });
   } catch (error) {
     if (error instanceof FinancialCliAbortError) {
-      console.error(`\n${error.message}`);
+      logger.error(`\n${error.message}`);
       process.exitCode = 130;
     } else {
-      console.error(`Ошибка: ${error.message}`);
+      logger.error(`Ошибка: ${error.message}`);
       process.exitCode = 1;
     }
   } finally {
