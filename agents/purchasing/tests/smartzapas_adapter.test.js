@@ -37,8 +37,138 @@ const XLSX_FIXTURE_PATH = path.join(
 );
 const REAL_FIXTURE_PATH = process.env.SMARTZAPAS_REAL_FIXTURE || null;
 const sanitizedFixture = JSON.parse(fs.readFileSync(JSON_FIXTURE_PATH, 'utf8'));
+const UNDEFINED_ERROR = '#ERROR_undefined';
 
 let adapterResult;
+
+function excelSerialAsDate(serial) {
+  return new Date((serial - 25569) * 86400000);
+}
+
+function createThreeRowSmartZapasMatrix() {
+  return [
+    [
+      UNDEFINED_ERROR,
+      'Артикул',
+      'Наименование',
+      'Доп. инфо',
+      'Цена',
+      'Текущие остатки',
+      UNDEFINED_ERROR,
+      'MIN',
+      UNDEFINED_ERROR,
+      'Потреб- ность 04.08.2026 - 18.08.2026',
+      'Заказать у поставщика',
+      UNDEFINED_ERROR,
+      UNDEFINED_ERROR,
+    ],
+    [
+      UNDEFINED_ERROR,
+      UNDEFINED_ERROR,
+      UNDEFINED_ERROR,
+      'Основной поставщик',
+      UNDEFINED_ERROR,
+      'Дней запаса',
+      'Свободный остаток',
+      'шт',
+      UNDEFINED_ERROR,
+      UNDEFINED_ERROR,
+      'Кол-во',
+      'Сумма',
+      'Кратность заказа',
+    ],
+    [
+      UNDEFINED_ERROR,
+      UNDEFINED_ERROR,
+      UNDEFINED_ERROR,
+      UNDEFINED_ERROR,
+      UNDEFINED_ERROR,
+      UNDEFINED_ERROR,
+      UNDEFINED_ERROR,
+      'Авто',
+      'Ручной',
+      UNDEFINED_ERROR,
+      UNDEFINED_ERROR,
+      UNDEFINED_ERROR,
+      UNDEFINED_ERROR,
+    ],
+    [
+      UNDEFINED_ERROR,
+      UNDEFINED_ERROR,
+      'МИСКА ЗООТОВАРЫ (2)',
+      UNDEFINED_ERROR,
+      150.5,
+      UNDEFINED_ERROR,
+      UNDEFINED_ERROR,
+      UNDEFINED_ERROR,
+      UNDEFINED_ERROR,
+      UNDEFINED_ERROR,
+      3,
+      250,
+      UNDEFINED_ERROR,
+    ],
+    [
+      UNDEFINED_ERROR,
+      UNDEFINED_ERROR,
+      'Категория (2)',
+      UNDEFINED_ERROR,
+      UNDEFINED_ERROR,
+      UNDEFINED_ERROR,
+      UNDEFINED_ERROR,
+      UNDEFINED_ERROR,
+      UNDEFINED_ERROR,
+      UNDEFINED_ERROR,
+      3,
+      250,
+      UNDEFINED_ERROR,
+    ],
+    [
+      UNDEFINED_ERROR,
+      'ART-1',
+      'Товар 1',
+      'Поставщик',
+      excelSerialAsDate(100.5),
+      5,
+      2,
+      3,
+      4,
+      1,
+      2,
+      201,
+      1,
+    ],
+    [
+      UNDEFINED_ERROR,
+      'ART-2',
+      'Товар 2',
+      'Поставщик',
+      50,
+      7,
+      0,
+      1,
+      2,
+      0,
+      1,
+      50,
+      1,
+    ],
+    [
+      UNDEFINED_ERROR,
+      UNDEFINED_ERROR,
+      'Итого различных товаров: 2',
+      UNDEFINED_ERROR,
+      150.5,
+      UNDEFINED_ERROR,
+      2,
+      4,
+      6,
+      1,
+      3,
+      251,
+      UNDEFINED_ERROR,
+    ],
+  ];
+}
 
 before(() => {
   adapterResult = adaptSmartZapasMatrix(sanitizedFixture.matrix, {
@@ -82,6 +212,178 @@ test('merges the three-row header and resolves canonical columns exactly', () =>
 
   assert.deepEqual(adapterResult.diagnostics.ambiguousColumns, []);
   assert.deepEqual(adapterResult.diagnostics.missingRequiredColumns, []);
+});
+
+test('recognizes the new three-row SmartZapas header without breaking v1 paths', () => {
+  const result = adaptSmartZapasMatrix(createThreeRowSmartZapasMatrix(), {
+    sheetName: 'New SmartZapas format',
+  });
+
+  assert.doesNotThrow(() => assertUsableAdapterResult(result));
+  assert.deepEqual(result.source.headerRowsUsed, [1, 2, 3]);
+  assert.deepEqual(result.diagnostics.headerRowsUsed, [1, 2, 3]);
+  assert.equal(result.columnMap.article.column, 'B');
+  assert.equal(result.columnMap.name.column, 'C');
+  assert.equal(result.columnMap.supplier.column, 'D');
+  assert.equal(result.columnMap.priceNum.column, 'E');
+  assert.equal(result.columnMap.stockDays.column, 'F');
+  assert.equal(result.columnMap.freeStock.column, 'G');
+  assert.equal(result.columnMap.needQty.column, 'J');
+  assert.deepEqual(result.columnMap.supplier.headerCoordinates, ['D1', 'D2']);
+  assert.deepEqual(result.diagnostics.missingRequiredColumns, []);
+  assert.deepEqual(result.diagnostics.ambiguousColumns, []);
+});
+
+test('ignores #ERROR_undefined in header paths and row classification', () => {
+  const result = adaptSmartZapasMatrix(createThreeRowSmartZapasMatrix());
+
+  assert.ok(result.headerPaths.every(
+    header => !header.includes('#error_undefined')
+  ));
+  assert.ok(result.rows.every(row =>
+    row.supplier !== UNDEFINED_ERROR &&
+    row.name !== UNDEFINED_ERROR
+  ));
+  assert.equal(result.rows.some(row => row.rowNumber === 4), false);
+});
+
+test('distinguishes automatic and manual MIN columns', () => {
+  const result = adaptSmartZapasMatrix(createThreeRowSmartZapasMatrix());
+
+  assert.equal(result.columnMap.autoMin.column, 'H');
+  assert.equal(result.columnMap.manualMin.column, 'I');
+  assert.deepEqual(
+    result.columnMap.autoMin.headerCoordinates,
+    ['H1', 'H2', 'H3']
+  );
+  assert.deepEqual(
+    result.columnMap.manualMin.headerCoordinates,
+    ['H1', 'H2', 'I3']
+  );
+  assert.equal(result.rows[0].autoMin, 3);
+  assert.equal(result.rows[0].manualMin, 4);
+});
+
+test('resolves supplier order quantity exactly once', () => {
+  const result = adaptSmartZapasMatrix(createThreeRowSmartZapasMatrix());
+
+  assert.equal(result.columnMap.supplierOrderQty.column, 'K');
+  assert.deepEqual(
+    result.columnMap.supplierOrderQty.headerCoordinates,
+    ['K1', 'K2']
+  );
+  assert.equal(
+    result.diagnostics.ambiguousColumns.some(
+      item => item.field === 'supplierOrderQty'
+    ),
+    false
+  );
+});
+
+test('does not classify store, group, or final total rows as products', () => {
+  const result = adaptSmartZapasMatrix(createThreeRowSmartZapasMatrix());
+
+  assert.deepEqual(result.rows.map(row => row.rowNumber), [6, 7]);
+  assert.deepEqual(
+    result.serviceRows.map(row => row.rowNumber),
+    [4, 5, 8]
+  );
+  assert.equal(
+    result.rows.some(row => row.name.startsWith('Итого различных товаров')),
+    false
+  );
+});
+
+test('extracts new-format product rows and restores numeric date-styled cells', () => {
+  const result = adaptSmartZapasMatrix(createThreeRowSmartZapasMatrix());
+
+  assert.equal(result.rows.length, 2);
+  assert.deepEqual(
+    result.rows.map(row => ({
+      article: row.article,
+      name: row.name,
+      supplier: row.supplier,
+      priceNum: row.priceNum,
+      freeStock: row.freeStock,
+      supplierOrderQty: row.supplierOrderQty,
+    })),
+    [
+      {
+        article: 'ART-1',
+        name: 'Товар 1',
+        supplier: 'Поставщик',
+        priceNum: 100.5,
+        freeStock: 2,
+        supplierOrderQty: 2,
+      },
+      {
+        article: 'ART-2',
+        name: 'Товар 2',
+        supplier: 'Поставщик',
+        priceNum: 50,
+        freeStock: 0,
+        supplierOrderQty: 1,
+      },
+    ]
+  );
+});
+
+test('reports exact missing-column diagnostics with header rows and coordinates', () => {
+  const matrix = createThreeRowSmartZapasMatrix();
+  matrix[1][3] = UNDEFINED_ERROR;
+  const result = adaptSmartZapasMatrix(matrix);
+
+  assert.deepEqual(result.diagnostics.missingRequiredColumns, [
+    {
+      field: 'supplier',
+      expectedHeader: 'доп. инфо > основной поставщик',
+    },
+  ]);
+  assert.deepEqual(result.diagnostics.headerRowsUsed, [1, 2, 3]);
+  assert.throws(
+    () => assertUsableAdapterResult(result),
+    error => {
+      assert.match(error.message, /Не найдены обязательные поля: supplier/);
+      assert.match(error.message, /Использованы строки заголовка: 1, 2, 3/);
+      assert.match(
+        error.message,
+        /Координаты распознанных заголовков:.*name=C \[C1\]/
+      );
+      assert.equal(error.diagnostics, result.diagnostics);
+      return true;
+    }
+  );
+});
+
+test('reports exact ambiguous-column diagnostics with every header coordinate', () => {
+  const matrix = createThreeRowSmartZapasMatrix();
+  matrix[1][12] = 'Кол-во';
+  const result = adaptSmartZapasMatrix(matrix);
+  const ambiguity = result.diagnostics.ambiguousColumns.find(
+    item => item.field === 'supplierOrderQty'
+  );
+
+  assert.deepEqual(
+    ambiguity.matches.map(match => ({
+      column: match.column,
+      headerCoordinates: match.headerCoordinates,
+    })),
+    [
+      { column: 'K', headerCoordinates: ['K1', 'K2'] },
+      { column: 'M', headerCoordinates: ['K1', 'M2'] },
+    ]
+  );
+  assert.throws(
+    () => assertUsableAdapterResult(result),
+    error => {
+      assert.match(
+        error.message,
+        /Неоднозначно распознаны поля: supplierOrderQty: K \[K1, K2\], M \[K1, M2\]/
+      );
+      assert.equal(error.diagnostics, result.diagnostics);
+      return true;
+    }
+  );
 });
 
 test('classifies products independently of article and skips structural rows', () => {

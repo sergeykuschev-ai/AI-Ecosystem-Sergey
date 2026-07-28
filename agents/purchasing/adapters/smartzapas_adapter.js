@@ -7,6 +7,9 @@ const { clean, normalize, toNumber } = require('../parsers/minmax_parser');
 const HEADER_ROW_COUNT = 3;
 const ADAPTER_SCHEMA = 'smartzapas-adapter-v1';
 const NORMALIZED_ROW_SCHEMA = 'smartzapas-row-v1';
+const EXCEL_UNIX_EPOCH_OFFSET_DAYS = 25569;
+const MILLISECONDS_PER_DAY = 86400000;
+const EXCEL_SERIAL_PRECISION = 1000000;
 
 const COLUMN_DEFINITIONS = [
   {
@@ -48,7 +51,11 @@ const COLUMN_DEFINITIONS = [
     headerPattern: /^история за период \d{2}\.\d{2}\.\d{4} - \d{2}\.\d{2}\.\d{4} > дней наличия$/,
     type: 'number',
   },
-  { field: 'speed', header: 'скорость > авто', type: 'number' },
+  {
+    field: 'speed',
+    headers: ['скорость > авто', 'скорость > авто (шт/мес)'],
+    type: 'number',
+  },
   {
     field: 'stockDays',
     header: 'текущие остатки > дней запаса',
@@ -112,11 +119,28 @@ const COLUMN_DEFINITIONS = [
 ];
 
 function normalizeHeaderPart(value) {
-  return clean(value)
+  const normalized = clean(value)
     .toLowerCase()
     .replace(/ё/g, 'е')
     .replace(/-\s+(?=[a-zа-я])/gi, '-')
     .replace(/\s+/g, ' ');
+  return normalized === '#error_undefined' ? '' : normalized;
+}
+
+function isUndefinedError(value) {
+  return typeof value === 'string' &&
+    value.trim().toLowerCase() === '#error_undefined';
+}
+
+function toSmartZapasNumber(value) {
+  if (value instanceof Date) {
+    if (!Number.isFinite(value.getTime())) return null;
+    const excelSerial =
+      value.getTime() / MILLISECONDS_PER_DAY + EXCEL_UNIX_EPOCH_OFFSET_DAYS;
+    return Math.round(excelSerial * EXCEL_SERIAL_PRECISION) /
+      EXCEL_SERIAL_PRECISION;
+  }
+  return toNumber(value);
 }
 
 function parseSmartZapasDate(value) {
@@ -299,8 +323,12 @@ function normalizeWeeklySalesHistory(
   const warnings = [];
   const history = weeklySalesColumns.map(column => {
     const rawValue = row[column.index] ?? null;
-    const isBlank = rawValue === null || rawValue === undefined || rawValue === '';
-    const parsedQuantity = isBlank ? null : toNumber(rawValue);
+    const isBlank =
+      rawValue === null ||
+      rawValue === undefined ||
+      rawValue === '' ||
+      isUndefinedError(rawValue);
+    const parsedQuantity = isBlank ? null : toSmartZapasNumber(rawValue);
     const validQuantity =
       parsedQuantity !== null && Number.isFinite(parsedQuantity) && parsedQuantity >= 0;
     const blankAsConfirmedZero =
@@ -363,12 +391,16 @@ function reconcileWeeklySalesToCumulative(
 
     for (const column of weeklySalesColumns) {
       const rawValue = productSourceRow.row[column.index] ?? null;
-      const isBlank = rawValue === null || rawValue === undefined || rawValue === '';
+      const isBlank =
+        rawValue === null ||
+        rawValue === undefined ||
+        rawValue === '' ||
+        isUndefinedError(rawValue);
       if (isBlank) {
         blankWeeklyCellCount += 1;
         continue;
       }
-      const quantity = toNumber(rawValue);
+      const quantity = toSmartZapasNumber(rawValue);
       if (quantity === null || !Number.isFinite(quantity) || quantity < 0) {
         invalidWeeklyCellCount += 1;
         rowHasInvalidWeeklyValue = true;
@@ -385,8 +417,11 @@ function reconcileWeeklySalesToCumulative(
     const cumulativeIsBlank =
       cumulativeRawValue === null ||
       cumulativeRawValue === undefined ||
-      cumulativeRawValue === '';
-    const cumulativeQuantity = cumulativeIsBlank ? 0 : toNumber(cumulativeRawValue);
+      cumulativeRawValue === '' ||
+      isUndefinedError(cumulativeRawValue);
+    const cumulativeQuantity = cumulativeIsBlank
+      ? 0
+      : toSmartZapasNumber(cumulativeRawValue);
     const cumulativeInvalid =
       cumulativeQuantity === null ||
       !Number.isFinite(cumulativeQuantity) ||
@@ -504,15 +539,21 @@ function deriveRollingWeeklySales(history) {
   };
 }
 
-function mergeHeaderLevels(headerRows) {
+function buildMergedHeaders(headerRows) {
   const columnCount = Math.max(0, ...headerRows.map(row => row.length));
   const expandedRows = headerRows.map(row =>
     Array.from({ length: columnCount }, (_, index) => normalizeHeaderPart(row[index]))
+  );
+  const coordinateRows = expandedRows.map((row, rowIndex) =>
+    row.map((part, columnIndex) =>
+      part ? `${toColumnName(columnIndex)}${rowIndex + 1}` : null
+    )
   );
 
   for (let columnIndex = 1; columnIndex < columnCount; columnIndex += 1) {
     if (!expandedRows[0][columnIndex]) {
       expandedRows[0][columnIndex] = expandedRows[0][columnIndex - 1];
+      coordinateRows[0][columnIndex] = coordinateRows[0][columnIndex - 1];
     }
 
     if (
@@ -521,19 +562,31 @@ function mergeHeaderLevels(headerRows) {
       expandedRows[0][columnIndex] === expandedRows[0][columnIndex - 1]
     ) {
       expandedRows[1][columnIndex] = expandedRows[1][columnIndex - 1];
+      coordinateRows[1][columnIndex] = coordinateRows[1][columnIndex - 1];
     }
   }
 
   return Array.from({ length: columnCount }, (_, columnIndex) => {
     const parts = [];
+    const headerCoordinates = [];
 
-    for (const row of expandedRows) {
-      const part = row[columnIndex];
-      if (part && parts[parts.length - 1] !== part) parts.push(part);
+    for (let rowIndex = 0; rowIndex < expandedRows.length; rowIndex += 1) {
+      const part = expandedRows[rowIndex][columnIndex];
+      if (part && parts[parts.length - 1] !== part) {
+        parts.push(part);
+        headerCoordinates.push(coordinateRows[rowIndex][columnIndex]);
+      }
     }
 
-    return parts.join(' > ');
+    return {
+      header: parts.join(' > '),
+      headerCoordinates,
+    };
   });
+}
+
+function mergeHeaderLevels(headerRows) {
+  return buildMergedHeaders(headerRows).map(column => column.header);
 }
 
 function toColumnName(index) {
@@ -554,14 +607,18 @@ function expectedHeader(definition) {
   return definition.header || String(definition.headerPattern);
 }
 
-function resolveColumns(headerPaths) {
+function resolveColumns(headerPaths, headerCoordinates = []) {
   const columnMap = {};
   const ambiguousColumns = [];
   const missingRequiredColumns = [];
 
   for (const definition of COLUMN_DEFINITIONS) {
     const matches = headerPaths
-      .map((header, index) => ({ header, index }))
+      .map((header, index) => ({
+        header,
+        index,
+        headerCoordinates: [...(headerCoordinates[index] || [])],
+      }))
       .filter(({ header }) => {
         if (definition.headerPattern) return definition.headerPattern.test(header);
         if (definition.headers) return definition.headers.includes(header);
@@ -574,6 +631,7 @@ function resolveColumns(headerPaths) {
         index: match.index,
         column: toColumnName(match.index),
         header: match.header,
+        headerCoordinates: match.headerCoordinates,
         type: definition.type,
       };
       continue;
@@ -587,6 +645,7 @@ function resolveColumns(headerPaths) {
           index: match.index,
           column: toColumnName(match.index),
           header: match.header,
+          headerCoordinates: match.headerCoordinates,
         })),
       });
     }
@@ -612,7 +671,10 @@ function decodeXmlEntities(value) {
 }
 
 function normalizeCell(value, type) {
-  return type === 'number' ? toNumber(value) : decodeXmlEntities(clean(value));
+  if (isUndefinedError(value)) return type === 'number' ? null : '';
+  return type === 'number'
+    ? toSmartZapasNumber(value)
+    : decodeXmlEntities(clean(value));
 }
 
 function fingerprintMatrix(matrix) {
@@ -927,12 +989,16 @@ function adaptSmartZapasMatrix(matrix, metadata = {}) {
   }
 
   const headerRows = matrix.slice(0, HEADER_ROW_COUNT);
-  const headerPaths = mergeHeaderLevels(headerRows);
+  const mergedHeaders = buildMergedHeaders(headerRows);
+  const headerPaths = mergedHeaders.map(column => column.header);
+  const headerCoordinates = mergedHeaders.map(
+    column => column.headerCoordinates
+  );
   const {
     columnMap,
     ambiguousColumns,
     missingRequiredColumns,
-  } = resolveColumns(headerPaths);
+  } = resolveColumns(headerPaths, headerCoordinates);
   const rows = [];
   const productSourceRows = [];
   const serviceRows = [];
@@ -943,6 +1009,10 @@ function adaptSmartZapasMatrix(matrix, metadata = {}) {
     sheetName: metadata.sheetName || 'Sheet1',
     reportFingerprint: metadata.reportFingerprint || fingerprintMatrix(matrix),
     headerRowCount: HEADER_ROW_COUNT,
+    headerRowsUsed: Array.from(
+      { length: HEADER_ROW_COUNT },
+      (_, index) => index + 1
+    ),
     sourceRowsCount: dataRows.length,
   };
   const reportedSalesPeriod = columnMap.sales
@@ -1077,6 +1147,12 @@ function adaptSmartZapasMatrix(matrix, metadata = {}) {
   }
 
   const duplicateIdentifiers = collectDuplicateIdentifiers(rows);
+  const recognizedColumns = Object.entries(columnMap).map(([field, column]) => ({
+    field,
+    column: column.column,
+    header: column.header,
+    headerCoordinates: [...column.headerCoordinates],
+  }));
   const identityFallbacks = rows
     .filter(row => row.identityBasis === 'source_row')
     .map(row => ({
@@ -1134,6 +1210,8 @@ function adaptSmartZapasMatrix(matrix, metadata = {}) {
       identityFallbacks,
       ambiguousRowClassifications,
       skippedServiceRows: serviceRows,
+      headerRowsUsed: [...source.headerRowsUsed],
+      recognizedColumns,
       ambiguousColumns,
       missingRequiredColumns,
       salesSemanticsWarnings,
@@ -1305,6 +1383,41 @@ function validateNormalizedRow(row, index, source = null) {
   }
 }
 
+function formatBlockingColumnDiagnostics(result) {
+  const diagnostics = result.diagnostics;
+  const missing = diagnostics.missingRequiredColumns.length > 0
+    ? diagnostics.missingRequiredColumns
+      .map(item => `${item.field} (ожидался «${item.expectedHeader}»)`)
+      .join(', ')
+    : 'нет';
+  const ambiguous = diagnostics.ambiguousColumns.length > 0
+    ? diagnostics.ambiguousColumns.map(item => {
+      const matches = item.matches.map(match => {
+        const coordinates = match.headerCoordinates.length > 0
+          ? match.headerCoordinates.join(', ')
+          : match.column;
+        return `${match.column} [${coordinates}]`;
+      }).join(', ');
+      return `${item.field}: ${matches}`;
+    }).join('; ')
+    : 'нет';
+  const recognized = diagnostics.recognizedColumns.length > 0
+    ? diagnostics.recognizedColumns.map(item => {
+      const coordinates = item.headerCoordinates.length > 0
+        ? item.headerCoordinates.join(', ')
+        : item.column;
+      return `${item.field}=${item.column} [${coordinates}]`;
+    }).join(', ')
+    : 'нет';
+
+  return [
+    `Не найдены обязательные поля: ${missing}.`,
+    `Неоднозначно распознаны поля: ${ambiguous}.`,
+    `Использованы строки заголовка: ${diagnostics.headerRowsUsed.join(', ')}.`,
+    `Координаты распознанных заголовков: ${recognized}.`,
+  ].join(' ');
+}
+
 function assertUsableAdapterResult(result) {
   if (!result || result.schemaVersion !== ADAPTER_SCHEMA || !Array.isArray(result.rows)) {
     throw new TypeError('Purchasing Agent requires a SmartZapas Adapter v1 result.');
@@ -1328,6 +1441,8 @@ function assertUsableAdapterResult(result) {
     'identityFallbacks',
     'ambiguousRowClassifications',
     'skippedServiceRows',
+    'headerRowsUsed',
+    'recognizedColumns',
     'ambiguousColumns',
     'missingRequiredColumns',
     'salesSemanticsWarnings',
@@ -1354,7 +1469,8 @@ function assertUsableAdapterResult(result) {
 
   if (blockingDiagnostics.length > 0) {
     const error = new TypeError(
-      'SmartZapas export has missing or ambiguous required columns.'
+      'SmartZapas export has missing or ambiguous required columns. ' +
+      formatBlockingColumnDiagnostics(result)
     );
     error.diagnostics = result.diagnostics;
     throw error;
