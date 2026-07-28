@@ -1832,6 +1832,78 @@
         </div>
 
         <section
+          class="budget-optimizer"
+          aria-labelledby="budget-optimizer-title"
+        >
+          <div class="budget-optimizer-heading">
+            <div>
+              <p class="step-label">Сценарий бюджета</p>
+              <h3 id="budget-optimizer-title">
+                Оптимизировать под бюджет
+              </h3>
+            </div>
+            <p>
+              Исходный заказ останется без изменений.
+            </p>
+          </div>
+          <form id="budget-optimizer-form">
+            <label for="budget-optimizer-input">
+              <span>Целевой бюджет, ₽</span>
+              <input
+                id="budget-optimizer-input"
+                name="targetBudget"
+                type="number"
+                min="0"
+                step="0.01"
+                inputmode="decimal"
+                required
+              >
+            </label>
+            <button type="submit" id="budget-optimizer-submit">
+              Оптимизировать под бюджет
+            </button>
+          </form>
+          <p
+            class="field-error"
+            id="budget-optimizer-error"
+            role="alert"
+            hidden
+          ></p>
+          <div id="budget-optimizer-result" hidden>
+            <div class="budget-optimizer-metrics">
+              <article>
+                <span>Исходная сумма</span>
+                <strong id="budget-original-total">—</strong>
+              </article>
+              <article>
+                <span>Оптимизированная сумма</span>
+                <strong id="budget-optimized-total">—</strong>
+              </article>
+              <article>
+                <span>Сокращение заказа</span>
+                <strong id="budget-removed-amount">—</strong>
+              </article>
+              <article>
+                <span>Изменено позиций</span>
+                <strong id="budget-changed-items">—</strong>
+              </article>
+            </div>
+            <p
+              class="budget-optimizer-warning"
+              id="budget-optimizer-warning"
+              hidden
+            ></p>
+            <button
+              type="button"
+              class="budget-download"
+              id="budget-optimizer-download"
+            >
+              Скачать optimized-order.json
+            </button>
+          </div>
+        </section>
+
+        <section
           class="report-center"
           aria-labelledby="report-center-title"
         >

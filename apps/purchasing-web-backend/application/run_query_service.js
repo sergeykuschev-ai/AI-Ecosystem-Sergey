@@ -5,6 +5,11 @@ const {
 const {
   ownerDecisionSummary,
 } = require('./owner_decision_service');
+const {
+  optimizePurchasingBudget,
+} = require(
+  '../../../agents/purchasing/budget_optimizer/budget_optimizer'
+);
 
 const ALLOWED_SORTS = Object.freeze([
   'source_row',
@@ -248,6 +253,14 @@ class RunQueryService {
   getOwnerDecisionSummary(runId) {
     ensureCompleted(this.getRunStatus(runId));
     return ownerDecisionSummary(this.getDecoratedItems(runId));
+  }
+
+  optimizeBudget(runId, targetBudget) {
+    ensureCompleted(this.getRunStatus(runId));
+    return optimizePurchasingBudget({
+      agentResult: this.registry.getAgentResult(runId),
+      targetBudget,
+    });
   }
 
   saveOwnerDecision(runId, itemId, input) {

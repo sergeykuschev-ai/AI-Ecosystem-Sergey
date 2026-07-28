@@ -1783,6 +1783,124 @@ h2 {
   background: var(--red-soft);
 }
 
+.budget-optimizer {
+  margin-top: 22px;
+  border: 1px solid rgba(245, 124, 0, 0.26);
+  border-radius: 20px;
+  padding: 22px;
+  background: #fffaf5;
+}
+
+.budget-optimizer-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.budget-optimizer-heading h3 {
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+.budget-optimizer-heading > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.budget-optimizer form {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.budget-optimizer form label {
+  display: grid;
+  flex: 1 1 260px;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.budget-optimizer input {
+  min-height: 46px;
+  border: 1px solid #c8d5cd;
+  border-radius: 13px;
+  padding: 10px 13px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+}
+
+.budget-optimizer input:focus {
+  border-color: var(--green);
+  outline: 3px solid rgba(76, 175, 80, 0.14);
+}
+
+#budget-optimizer-submit,
+.budget-download {
+  min-height: 46px;
+  border-radius: 13px;
+  padding: 11px 17px;
+  background: var(--green);
+  color: #102515;
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+#budget-optimizer-submit:disabled {
+  background: #dce4df;
+  color: #78827c;
+  cursor: wait;
+}
+
+.budget-optimizer-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.budget-optimizer-metrics article {
+  min-width: 0;
+  border-radius: 15px;
+  padding: 15px;
+  background: #fff;
+  box-shadow: 0 7px 20px rgba(24, 64, 42, 0.07);
+}
+
+.budget-optimizer-metrics span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.budget-optimizer-metrics strong {
+  display: block;
+  margin-top: 7px;
+  overflow-wrap: anywhere;
+  font-size: 1rem;
+}
+
+.budget-optimizer-warning {
+  border-radius: 13px;
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  background: var(--orange-soft);
+  color: #8d4100;
+  font-weight: 700;
+}
+
+.budget-download {
+  margin-top: 14px;
+  border: 1px solid rgba(245, 124, 0, 0.42);
+  background: var(--orange-soft);
+  color: #8d4100;
+}
+
 .report-center {
   margin-top: 22px;
   border-radius: 20px;
@@ -2709,6 +2827,7 @@ h2 {
   .workspace,
   .owner-result-grid,
   .decision-metric-grid,
+  .budget-optimizer-metrics,
   .report-center-grid,
   .technical-result-grid,
   .history-grid {
@@ -2793,6 +2912,20 @@ h2 {
 
   .report-center {
     padding: 18px;
+  }
+
+  .budget-optimizer-heading,
+  .budget-optimizer form {
+    display: grid;
+  }
+
+  .budget-optimizer form label {
+    width: 100%;
+  }
+
+  #budget-optimizer-submit,
+  .budget-download {
+    width: 100%;
   }
 
   .report-center-heading {

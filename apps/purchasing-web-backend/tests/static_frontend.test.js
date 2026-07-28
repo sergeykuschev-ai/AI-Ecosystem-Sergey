@@ -14,6 +14,9 @@ const {
   attentionItems,
   artifactNameList,
   budgetDeviationView,
+  budgetOptimizationFile,
+  budgetOptimizationUrl,
+  budgetOptimizationView,
   buildAnalyticsUrl,
   buildCandidatesUrl,
   buildLifecyclePayload,
@@ -41,6 +44,7 @@ const {
   decisionCounterView,
   decisionLabel,
   defaultDecisionFilter,
+  downloadBudgetOptimizationFile,
   eligibilityLabel,
   filterCandidates,
   financialStatusView,
@@ -505,6 +509,9 @@ test('GET / serves the Russian frontend with secure headers', async () => {
     'Отчёты',
     'Пока нет созданных отчётов.',
     'Откройте отчёт в браузере или сохраните его на устройство.',
+    'Оптимизировать под бюджет',
+    'Исходный заказ останется без изменений.',
+    'Скачать optimized-order.json',
   ]) {
     assert.match(body, new RegExp(label));
   }
@@ -537,6 +544,10 @@ test('GET / serves the Russian frontend with secure headers', async () => {
     'report-center-empty',
     'report-preview-title',
     'report-preview-content',
+    'budget-optimizer-form',
+    'budget-optimizer-input',
+    'budget-optimizer-result',
+    'budget-optimizer-download',
   ]) {
     assert.match(body, new RegExp(`id="${id}"`));
   }
@@ -707,6 +718,119 @@ test('owner result dashboard keeps brand colors and responsive grids', () => {
     mobileStyles,
     /\.report-center-grid,[\s\S]*grid-template-columns:\s*1fr/s
   );
+  assert.match(
+    css,
+    /\.budget-optimizer-metrics\s*\{[^}]*grid-template-columns:\s*repeat\(4,/s
+  );
+  assert.match(
+    mobileStyles,
+    /\.budget-optimizer-metrics,[\s\S]*grid-template-columns:\s*1fr/s
+  );
+});
+
+test('budget optimization uses a run-scoped URL and owner-facing summary', () => {
+  const runId = '11111111-1111-4111-8111-111111111111';
+  assert.equal(
+    budgetOptimizationUrl(runId),
+    `/api/v1/runs/${runId}/budget-optimization`
+  );
+  assert.equal(budgetOptimizationUrl('../result.json'), null);
+
+  const optimized = budgetOptimizationView({
+    status: 'OPTIMIZED',
+    originalTotal: 155458.05,
+    optimizedTotal: 126091.15,
+    removedAmount: 29366.9,
+    removedItemsCount: 19,
+    reducedItemsCount: 1,
+  });
+  assert.match(optimized.originalTotal, /155[\s\u00a0]458,05/);
+  assert.match(optimized.optimizedTotal, /126[\s\u00a0]091,15/);
+  assert.match(optimized.removedAmount, /29[\s\u00a0]366,90/);
+  assert.equal(optimized.changedItems, '19 удалено · 1 уменьшено');
+  assert.equal(optimized.warning, '');
+  assert.equal(optimized.tooLow, false);
+
+  const tooLow = budgetOptimizationView({
+    status: 'BUDGET_TOO_LOW',
+    originalTotal: 155458.05,
+    optimizedTotal: 70000,
+    minimumPossibleTotal: 70000,
+    removedAmount: 85458.05,
+    removedItemsCount: 70,
+    reducedItemsCount: 2,
+  });
+  assert.match(tooLow.warning, /Бюджет ниже обязательного минимума/);
+  assert.match(tooLow.warning, /70[\s\u00a0]000,00/);
+  assert.equal(tooLow.tooLow, true);
+});
+
+test('optimized order is downloaded separately in the browser', () => {
+  const result = {
+    targetBudget: 126102.52,
+    status: 'OPTIMIZED',
+    items: [{ sku: 'SKU-1', optimizedQuantity: 1 }],
+  };
+  const file = budgetOptimizationFile(result);
+  const createdLink = {
+    clicked: false,
+    removed: false,
+    click() {
+      this.clicked = true;
+    },
+    remove() {
+      this.removed = true;
+    },
+  };
+  const documentObject = {
+    body: {
+      appended: null,
+      append(link) {
+        this.appended = link;
+      },
+    },
+    createElement(name) {
+      assert.equal(name, 'a');
+      return createdLink;
+    },
+  };
+  const browserObject = {
+    Blob: class TestBlob {
+      constructor(parts, options) {
+        this.parts = parts;
+        this.type = options.type;
+      }
+    },
+    URL: {
+      revoked: null,
+      createObjectURL(blob) {
+        assert.equal(blob.parts[0], file.content);
+        assert.equal(blob.type, file.type);
+        return 'blob:optimized-order';
+      },
+      revokeObjectURL(url) {
+        this.revoked = url;
+      },
+    },
+    setTimeout(callback) {
+      callback();
+    },
+  };
+
+  assert.equal(file.name, 'optimized-order.json');
+  assert.equal(file.type, 'application/json;charset=utf-8');
+  assert.deepEqual(JSON.parse(file.content), result);
+  downloadBudgetOptimizationFile(
+    result,
+    documentObject,
+    browserObject
+  );
+  assert.equal(documentObject.body.appended, createdLink);
+  assert.equal(createdLink.href, 'blob:optimized-order');
+  assert.equal(createdLink.download, 'optimized-order.json');
+  assert.equal(createdLink.clicked, true);
+  assert.equal(createdLink.removed, true);
+  assert.equal(browserObject.URL.revoked, 'blob:optimized-order');
 });
 
 test('financial status uses owner-facing labels and decision colors', () => {

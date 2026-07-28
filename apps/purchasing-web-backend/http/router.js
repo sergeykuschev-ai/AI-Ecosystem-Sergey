@@ -9,6 +9,8 @@ const ITEM_DECISION_ROUTE =
   /^\/api\/v1\/runs\/([^/]+)\/items\/([^/]+)\/decision$/;
 const OWNER_REVIEW_ROUTE =
   /^\/api\/v1\/runs\/([^/]+)\/owner-review$/;
+const BUDGET_OPTIMIZATION_ROUTE =
+  /^\/api\/v1\/runs\/([^/]+)\/budget-optimization$/;
 const OWNER_DECISION_ANALYTICS_ROUTE =
   '/api/v1/owner-learning/decision-history/analytics';
 const OWNER_LEARNING_CENTER_ROUTE =
@@ -299,6 +301,8 @@ function createRouter(handlers, options = {}) {
           url.pathname.match(ITEMS_ROUTE);
         const itemDecisionMatch = request.method === 'PUT' &&
           rawPath.match(ITEM_DECISION_ROUTE);
+        const budgetOptimizationMatch = request.method === 'POST' &&
+          rawPath.match(BUDGET_OPTIMIZATION_ROUTE);
         const ownerReviewMatch = request.method === 'GET' &&
           url.pathname.match(OWNER_REVIEW_ROUTE);
         const artifactsMatch = request.method === 'GET' &&
@@ -306,7 +310,10 @@ function createRouter(handlers, options = {}) {
         const artifactMatch = request.method === 'GET' &&
           rawPath.match(ARTIFACT_ROUTE);
 
-        if (itemDecisionMatch) {
+        if (budgetOptimizationMatch) {
+          runId = budgetOptimizationMatch[1];
+          result = await handlers.optimizeBudget(runId, request);
+        } else if (itemDecisionMatch) {
           runId = itemDecisionMatch[1];
           result = await handlers.saveOwnerDecision(
             runId,
@@ -371,6 +378,7 @@ function createRouter(handlers, options = {}) {
 module.exports = {
   ARTIFACT_ROUTE,
   ARTIFACTS_ROUTE,
+  BUDGET_OPTIMIZATION_ROUTE,
   ITEM_DECISION_ROUTE,
   ITEMS_ROUTE,
   OWNER_REVIEW_ROUTE,

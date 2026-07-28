@@ -369,6 +369,14 @@ class FileRunRegistry {
     );
   }
 
+  getAgentResult(runId) {
+    return readJson(
+      this.fs,
+      this.runFile(runId, 'artifacts/result.json'),
+      'RUN_RESULT_NOT_FOUND'
+    );
+  }
+
   getItems(runId) {
     return readJson(
       this.fs,

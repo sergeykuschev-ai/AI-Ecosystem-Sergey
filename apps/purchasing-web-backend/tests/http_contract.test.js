@@ -150,6 +150,10 @@ test('GET summary, items, owner-review and artifacts expose compact DTOs', async
     assert.equal(result.body.api_version, 'v1');
   }
   assert.equal(summary.body.data.sku_count, 6);
+  assert.equal(
+    typeof summary.body.data.financial.maximum_safe_order_amount,
+    'number'
+  );
   assert.equal('total_order_sum' in summary.body.data, false);
   assert.ok(Array.isArray(summary.body.data.warnings));
   assert.ok(Array.isArray(summary.body.data.critical_issues));
@@ -164,6 +168,66 @@ test('GET summary, items, owner-review and artifacts expose compact DTOs', async
       `/api/v1/runs/${completedRunId}/artifacts/`
     )
   ));
+});
+
+test('POST budget optimization is repeatable and never changes result.json',
+  async () => {
+    const resultPath = path.join(
+      runsRoot,
+      completedRunId,
+      'artifacts',
+      'result.json'
+    );
+    const originalResult = fs.readFileSync(resultPath);
+    const endpoint =
+      `${baseUrl}/api/v1/runs/${completedRunId}/budget-optimization`;
+
+    const first = await jsonResponse(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targetBudget: 1000 }),
+    });
+    const second = await jsonResponse(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targetBudget: 2000 }),
+    });
+
+    assert.equal(first.response.status, 200);
+    assert.equal(first.body.api_version, 'v1');
+    assert.equal(first.body.data.targetBudget, 1000);
+    assert.equal(second.response.status, 200);
+    assert.equal(second.body.data.targetBudget, 2000);
+    assert.ok(Array.isArray(first.body.data.items));
+    assert.ok(Array.isArray(first.body.data.removedItems));
+    assert.deepEqual(fs.readFileSync(resultPath), originalResult);
+    assert.equal(
+      fs.existsSync(path.join(
+        runsRoot,
+        completedRunId,
+        'artifacts',
+        'optimized-order.json'
+      )),
+      false
+    );
+  }
+);
+
+test('POST budget optimization rejects invalid input', async () => {
+  const result = await jsonResponse(
+    `${baseUrl}/api/v1/runs/${completedRunId}/budget-optimization`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targetBudget: '1000' }),
+    }
+  );
+
+  assert.equal(result.response.status, 400);
+  assert.equal(
+    result.body.error.code,
+    'INVALID_BUDGET_OPTIMIZATION'
+  );
 });
 
 test('unknown run and invalid UUID return safe v1 errors', async () => {

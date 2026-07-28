@@ -5,6 +5,8 @@
   const POLL_INTERVAL_MS = 1000;
   const POLL_TIMEOUT_MS = 10 * 60 * 1000;
   const ALLOWED_FILE_PATTERN = /\.(xlsx|xls)$/i;
+  const RUN_ID_PATTERN =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   const RUN_LINK_PATTERN =
     /^\/api\/v1\/runs\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?:\/(?:summary|artifacts|items))?$/i;
   const ARTIFACT_LINK_PATTERN =
@@ -379,6 +381,8 @@
       'Нет связи с локальным сервером. Проверьте, что он запущен.',
     INVALID_OWNER_DECISION:
       'Проверьте количество и повторите сохранение решения.',
+    INVALID_BUDGET_OPTIMIZATION:
+      'Укажите корректный бюджет в рублях.',
     OWNER_DECISION_STORAGE_ERROR:
       'Не удалось сохранить решение. Попробуйте ещё раз.',
     ITEM_DECISION_UNAVAILABLE:
@@ -1226,6 +1230,62 @@
         status?.completed_at
       ),
     };
+  }
+
+  function budgetOptimizationUrl(runId) {
+    return typeof runId === 'string' && RUN_ID_PATTERN.test(runId)
+      ? `/api/v1/runs/${runId}/budget-optimization`
+      : null;
+  }
+
+  function budgetOptimizationView(result) {
+    const removedItems = displayCount(result?.removedItemsCount);
+    const reducedItems = displayCount(result?.reducedItemsCount);
+    const tooLow = result?.status === 'BUDGET_TOO_LOW';
+    return {
+      originalTotal: formatRub(result?.originalTotal),
+      optimizedTotal: formatRub(result?.optimizedTotal),
+      removedAmount: formatRub(result?.removedAmount),
+      changedItems:
+        `${removedItems} удалено · ${reducedItems} уменьшено`,
+      warning: tooLow
+        ? 'Бюджет ниже обязательного минимума. ' +
+          `Минимально возможная сумма: ${
+            formatRub(result?.minimumPossibleTotal)
+          }.`
+        : '',
+      tooLow,
+    };
+  }
+
+  function budgetOptimizationFile(result) {
+    return {
+      name: 'optimized-order.json',
+      content: `${JSON.stringify(result, null, 2)}\n`,
+      type: 'application/json;charset=utf-8',
+    };
+  }
+
+  function downloadBudgetOptimizationFile(
+    result,
+    documentObject,
+    browserObject
+  ) {
+    const file = budgetOptimizationFile(result);
+    const blob = new browserObject.Blob(
+      [file.content],
+      { type: file.type }
+    );
+    const objectUrl = browserObject.URL.createObjectURL(blob);
+    const link = documentObject.createElement('a');
+    link.href = objectUrl;
+    link.download = file.name;
+    documentObject.body.append(link);
+    link.click();
+    link.remove();
+    browserObject.setTimeout(() => {
+      browserObject.URL.revokeObjectURL(objectUrl);
+    }, 0);
   }
 
   function safeRunLink(value) {
@@ -4033,6 +4093,28 @@
       budgetDeviationCard:
         documentObject.getElementById('budget-deviation-card'),
       runStatusCard: documentObject.getElementById('run-status-card'),
+      budgetOptimizerForm:
+        documentObject.getElementById('budget-optimizer-form'),
+      budgetOptimizerInput:
+        documentObject.getElementById('budget-optimizer-input'),
+      budgetOptimizerSubmit:
+        documentObject.getElementById('budget-optimizer-submit'),
+      budgetOptimizerError:
+        documentObject.getElementById('budget-optimizer-error'),
+      budgetOptimizerResult:
+        documentObject.getElementById('budget-optimizer-result'),
+      budgetOriginalTotal:
+        documentObject.getElementById('budget-original-total'),
+      budgetOptimizedTotal:
+        documentObject.getElementById('budget-optimized-total'),
+      budgetRemovedAmount:
+        documentObject.getElementById('budget-removed-amount'),
+      budgetChangedItems:
+        documentObject.getElementById('budget-changed-items'),
+      budgetOptimizerWarning:
+        documentObject.getElementById('budget-optimizer-warning'),
+      budgetOptimizerDownload:
+        documentObject.getElementById('budget-optimizer-download'),
       attentionList: documentObject.getElementById('run-attention'),
       attentionEmpty:
         documentObject.getElementById('run-attention-empty'),
@@ -4061,6 +4143,7 @@
     let ruleEffectivenessRequestSequence = 0;
     let knowledgeHealthRequestSequence = 0;
     let currentRunId = null;
+    let latestBudgetOptimization = null;
     let pendingRuleStatusChange = null;
     let currentCandidates = [];
     let pendingLifecycleChange = null;
@@ -4813,6 +4896,87 @@
       elements.reportPreviewDialog.close();
     }
 
+    function resetBudgetOptimization() {
+      latestBudgetOptimization = null;
+      elements.budgetOptimizerInput.value = '';
+      elements.budgetOptimizerSubmit.disabled = false;
+      elements.budgetOptimizerError.textContent = '';
+      elements.budgetOptimizerError.hidden = true;
+      elements.budgetOptimizerResult.hidden = true;
+      elements.budgetOptimizerWarning.textContent = '';
+      elements.budgetOptimizerWarning.hidden = true;
+    }
+
+    function setBudgetOptimizationError(message) {
+      elements.budgetOptimizerError.textContent = message || '';
+      elements.budgetOptimizerError.hidden = !message;
+    }
+
+    function renderBudgetOptimization(result) {
+      const view = budgetOptimizationView(result);
+      latestBudgetOptimization = result;
+      elements.budgetOriginalTotal.textContent = view.originalTotal;
+      elements.budgetOptimizedTotal.textContent = view.optimizedTotal;
+      elements.budgetRemovedAmount.textContent = view.removedAmount;
+      elements.budgetChangedItems.textContent = view.changedItems;
+      elements.budgetOptimizerWarning.textContent = view.warning;
+      elements.budgetOptimizerWarning.hidden = !view.warning;
+      elements.budgetOptimizerResult.hidden = false;
+    }
+
+    async function submitBudgetOptimization(event) {
+      event.preventDefault();
+      const targetBudget = Number(elements.budgetOptimizerInput.value);
+      const optimizationUrl = budgetOptimizationUrl(currentRunId);
+      if (!Number.isFinite(targetBudget) || targetBudget < 0) {
+        setBudgetOptimizationError(
+          'Укажите бюджет не меньше нуля в рублях.'
+        );
+        return;
+      }
+      if (!optimizationUrl) {
+        setBudgetOptimizationError(
+          'Сначала выполните расчёт закупки.'
+        );
+        return;
+      }
+
+      elements.budgetOptimizerSubmit.disabled = true;
+      setBudgetOptimizationError('');
+      try {
+        const result = await requestJson(
+          fetchFunction,
+          optimizationUrl,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ targetBudget }),
+          }
+        );
+        renderBudgetOptimization(result);
+      } catch (error) {
+        const code = error instanceof FrontendError
+          ? error.code
+          : 'RUN_FAILED';
+        setBudgetOptimizationError(
+          ERROR_MESSAGES[code] || ERROR_MESSAGES.RUN_FAILED
+        );
+      } finally {
+        elements.budgetOptimizerSubmit.disabled = false;
+      }
+    }
+
+    function downloadBudgetOptimization() {
+      if (!latestBudgetOptimization) return;
+      downloadBudgetOptimizationFile(
+        latestBudgetOptimization,
+        documentObject,
+        globalObject
+      );
+    }
+
     function syncFilterControls() {
       for (const button of elements.productFilters) {
         button.setAttribute(
@@ -5023,6 +5187,7 @@
       const code = validateFile(file);
       selectedFile = code ? null : file;
       resetExports();
+      resetBudgetOptimization();
       resetItems();
       elements.results.hidden = true;
       elements.selectedFile.hidden = !file;
@@ -5086,6 +5251,14 @@
       renderAttention(view.attention);
       elements.calculationTime.textContent =
         `Время расчёта: ${view.calculationTime}`;
+      const safeBudget =
+        summary?.financial?.maximum_safe_order_amount;
+      elements.budgetOptimizerInput.value =
+        typeof safeBudget === 'number' &&
+        Number.isFinite(safeBudget) &&
+        safeBudget >= 0
+          ? safeBudget.toFixed(2)
+          : '';
       elements.results.hidden = false;
     }
 
@@ -5156,6 +5329,7 @@
       setFieldError('');
       elements.results.hidden = true;
       resetExports();
+      resetBudgetOptimization();
       resetItems();
       renderStatus('uploading', 'Отчёт загружается на локальный сервер.');
       const processingHint = setTimeout(() => {
@@ -5313,6 +5487,14 @@
       selectFile(event.dataTransfer?.files?.[0] || null);
     });
     elements.form.addEventListener('submit', submitRun);
+    elements.budgetOptimizerForm.addEventListener(
+      'submit',
+      submitBudgetOptimization
+    );
+    elements.budgetOptimizerDownload.addEventListener(
+      'click',
+      downloadBudgetOptimization
+    );
     for (const tab of elements.ownerLearningTabs) {
       tab.addEventListener('click', () => {
         navigateOwnerLearning(tab.dataset.ownerLearningTarget);
@@ -5455,6 +5637,7 @@
       loadItems();
     });
     resetExports();
+    resetBudgetOptimization();
     resetItems();
     navigateOwnerLearning('OVERVIEW');
     loadOwnerLearningCenter();
@@ -5474,6 +5657,7 @@
       navigateOwnerLearning,
       submitRuleMaterialization,
       submitCandidateLifecycle,
+      submitBudgetOptimization,
       submitRun,
       submitRuleStatusChange,
       updateFileSelection,
@@ -5485,6 +5669,9 @@
     analyticsViewState,
     attentionItems,
     budgetDeviationView,
+    budgetOptimizationFile,
+    budgetOptimizationUrl,
+    budgetOptimizationView,
     buildAnalyticsUrl,
     buildCandidatesUrl,
     buildOwnerLearningCenterUrl,
@@ -5519,6 +5706,7 @@
     decisionCounterView,
     decisionLabel,
     defaultDecisionFilter,
+    downloadBudgetOptimizationFile,
     eligibilityLabel,
     filterCandidates,
     financialStatusLabel,

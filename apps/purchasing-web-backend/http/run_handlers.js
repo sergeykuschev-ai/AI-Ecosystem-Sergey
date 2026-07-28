@@ -77,6 +77,7 @@ const {
 );
 
 const MAX_DECISION_BODY_BYTES = 4096;
+const MAX_BUDGET_OPTIMIZATION_BODY_BYTES = 1024;
 const MAX_LIFECYCLE_BODY_BYTES = 4096;
 const MAX_MATERIALIZATION_BODY_BYTES = 1024;
 const MAX_RULE_STATUS_BODY_BYTES = 4096;
@@ -1036,6 +1037,59 @@ async function readDecisionBody(request) {
   }
 }
 
+async function readBudgetOptimizationBody(request) {
+  const contentType = String(request.headers['content-type'] || '')
+    .split(';')[0]
+    .trim()
+    .toLowerCase();
+  if (contentType !== 'application/json') {
+    throw new HttpError(
+      'INVALID_BUDGET_OPTIMIZATION',
+      'Бюджет должен быть передан как application/json.'
+    );
+  }
+
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of request) {
+    size += chunk.length;
+    if (size > MAX_BUDGET_OPTIMIZATION_BODY_BYTES) {
+      throw new HttpError(
+        'INVALID_BUDGET_OPTIMIZATION',
+        'Тело запроса оптимизации превышает допустимый размер.'
+      );
+    }
+    chunks.push(chunk);
+  }
+
+  let input;
+  try {
+    input = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  } catch (error) {
+    throw new HttpError(
+      'INVALID_BUDGET_OPTIMIZATION',
+      'Запрос оптимизации содержит некорректный JSON.',
+      { cause: error }
+    );
+  }
+
+  if (
+    !input ||
+    typeof input !== 'object' ||
+    Array.isArray(input) ||
+    Object.keys(input).some(name => name !== 'targetBudget') ||
+    typeof input.targetBudget !== 'number' ||
+    !Number.isFinite(input.targetBudget) ||
+    input.targetBudget < 0
+  ) {
+    throw new HttpError(
+      'INVALID_BUDGET_OPTIMIZATION',
+      'targetBudget должен быть неотрицательным числом RUB.'
+    );
+  }
+  return input;
+}
+
 function lifecycleInputError(message) {
   return new HttpError(
     'OWNER_LEARNING_LIFECYCLE_INVALID_INPUT',
@@ -1672,6 +1726,18 @@ function createRunHandlers(options) {
       };
     },
 
+    async optimizeBudget(runId, request) {
+      const input = await readBudgetOptimizationBody(request);
+      return {
+        statusCode: 200,
+        data: queryService.optimizeBudget(
+          runId,
+          input.targetBudget
+        ),
+        runId,
+      };
+    },
+
     async downloadArtifact(runId, rawArtifactName, response) {
       await streamArtifact({
         artifactStore: registry.artifactStore,
@@ -1687,6 +1753,7 @@ function createRunHandlers(options) {
 
 module.exports = {
   MAX_ANALYTICS_ITEMS,
+  MAX_BUDGET_OPTIMIZATION_BODY_BYTES,
   MAX_DECISION_BODY_BYTES,
   MAX_LIFECYCLE_BODY_BYTES,
   MAX_MATERIALIZATION_BODY_BYTES,
@@ -1694,6 +1761,7 @@ module.exports = {
   createRunHandlers,
   orchestrationHttpError,
   readDecisionBody,
+  readBudgetOptimizationBody,
   readLifecycleBody,
   readMaterializationBody,
   readRuleStatusBody,

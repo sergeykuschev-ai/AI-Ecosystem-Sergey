@@ -150,6 +150,9 @@ function mapRunSummary(bundle) {
     financial: {
       status: assessment.status || null,
       reserve_surplus: roundCurrency(assessment.reserve_surplus),
+      maximum_safe_order_amount: roundCurrency(
+        assessment.maximum_safe_order_amount
+      ),
       recommendation: assessment.recommendation || null,
       advisory_only: assessment.advisory_only === true,
     },
