@@ -1,7 +1,9 @@
-const fs = require('node:fs');
 const path = require('node:path');
 
 const { normalize } = require('../parsers/minmax_parser');
+const {
+  loadRequiredJson,
+} = require('../../../shared/config/json_config_loader');
 
 const ALLOWED_PRIORITIES = Object.freeze([
   'critical',
@@ -165,26 +167,26 @@ function validateAssortmentMatrix(value) {
 
 function loadAssortmentMatrix(filePath) {
   const resolvedPath = path.resolve(filePath);
-  let source;
+  let parsed;
   try {
-    source = fs.readFileSync(resolvedPath, 'utf8');
+    parsed = loadRequiredJson(resolvedPath, {
+      label: 'ассортиментная матрица',
+    });
   } catch (error) {
-    const reason = error.code === 'ENOENT' ? 'файл не найден' : error.message;
+    if (error.code === 'JSON_CONFIG_INVALID_JSON') {
+      throw new AssortmentMatrixError(
+        `Файл ассортиментной матрицы «${resolvedPath}» содержит некорректный JSON: ${error.cause.message}.`,
+        'INVALID_JSON',
+        error.cause
+      );
+    }
+    const reason = error.cause?.code === 'ENOENT'
+      ? 'файл не найден'
+      : error.cause?.message || error.message;
     throw new AssortmentMatrixError(
       `Не удалось загрузить ассортиментную матрицу «${resolvedPath}»: ${reason}.`,
       'MATRIX_FILE_ERROR',
-      error
-    );
-  }
-
-  let parsed;
-  try {
-    parsed = JSON.parse(source);
-  } catch (error) {
-    throw new AssortmentMatrixError(
-      `Файл ассортиментной матрицы «${resolvedPath}» содержит некорректный JSON: ${error.message}.`,
-      'INVALID_JSON',
-      error
+      error.cause || error
     );
   }
 

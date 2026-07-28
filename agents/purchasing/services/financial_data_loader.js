@@ -1,5 +1,8 @@
-const fs = require('node:fs');
 const path = require('node:path');
+
+const {
+  loadRequiredJson,
+} = require('../../../shared/config/json_config_loader');
 
 const REQUIRED_METADATA_FIELDS = Object.freeze([
   'store',
@@ -147,28 +150,26 @@ function loadFinancialData(filePath, options = {}) {
   }
 
   const resolvedPath = path.resolve(filePath);
-  let sourceText;
+  let data;
   try {
-    sourceText = fs.readFileSync(resolvedPath, 'utf8');
+    data = loadRequiredJson(resolvedPath, {
+      label: 'финансовая конфигурация',
+    });
   } catch (error) {
-    const reason = error.code === 'ENOENT'
+    if (error.code === 'JSON_CONFIG_INVALID_JSON') {
+      throw new FinancialDataLoadError(
+        `Некорректный JSON в финансовой конфигурации «${filePath}»: ${error.cause.message}.`,
+        'INVALID_JSON',
+        error.cause
+      );
+    }
+    const reason = error.cause?.code === 'ENOENT'
       ? 'файл не найден'
-      : error.message;
+      : error.cause?.message || error.message;
     throw new FinancialDataLoadError(
       `Не удалось прочитать финансовую конфигурацию «${filePath}»: ${reason}.`,
       'FILE_READ_ERROR',
-      error
-    );
-  }
-
-  let data;
-  try {
-    data = JSON.parse(sourceText);
-  } catch (error) {
-    throw new FinancialDataLoadError(
-      `Некорректный JSON в финансовой конфигурации «${filePath}»: ${error.message}.`,
-      'INVALID_JSON',
-      error
+      error.cause || error
     );
   }
 
