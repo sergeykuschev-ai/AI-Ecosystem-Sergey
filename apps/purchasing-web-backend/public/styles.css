@@ -1895,10 +1895,22 @@ h2 {
 }
 
 .budget-download {
-  margin-top: 14px;
   border: 1px solid rgba(245, 124, 0, 0.42);
   background: var(--orange-soft);
   color: #8d4100;
+}
+
+.budget-download-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.budget-download-primary {
+  border-color: rgba(76, 175, 80, 0.5);
+  background: var(--green);
+  color: #102515;
 }
 
 .report-center {
@@ -2926,6 +2938,10 @@ h2 {
   #budget-optimizer-submit,
   .budget-download {
     width: 100%;
+  }
+
+  .budget-download-actions {
+    display: grid;
   }
 
   .report-center-heading {

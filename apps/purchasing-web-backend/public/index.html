@@ -9,6 +9,7 @@
     >
     <title>AI-агент закупщик «Миска»</title>
     <link rel="stylesheet" href="/styles.css">
+    <script src="/csv_exporter.js" defer></script>
     <script src="/app.js" defer></script>
   </head>
   <body>
@@ -1893,13 +1894,31 @@
               id="budget-optimizer-warning"
               hidden
             ></p>
-            <button
-              type="button"
-              class="budget-download"
-              id="budget-optimizer-download"
-            >
-              Скачать optimized-order.json
-            </button>
+            <div class="budget-download-actions">
+              <button
+                type="button"
+                class="budget-download budget-download-primary"
+                id="budget-supplier-order-download"
+                hidden
+              >
+                Скачать заказ поставщику
+              </button>
+              <button
+                type="button"
+                class="budget-download"
+                id="budget-removed-items-download"
+                hidden
+              >
+                Скачать исключённые позиции
+              </button>
+              <button
+                type="button"
+                class="budget-download"
+                id="budget-optimizer-download"
+              >
+                Скачать optimized-order.json
+              </button>
+            </div>
           </div>
         </section>
 

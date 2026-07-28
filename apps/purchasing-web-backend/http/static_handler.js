@@ -4,6 +4,10 @@ const path = require('node:path');
 const { HttpError } = require('./responses');
 
 const DEFAULT_PUBLIC_ROOT = path.resolve(__dirname, '../public');
+const DEFAULT_CSV_EXPORTER_PATH = path.resolve(
+  __dirname,
+  '../../../shared/reporting/csv_exporter.js'
+);
 const STATIC_FILES = Object.freeze({
   '/': Object.freeze({
     name: 'index.html',
@@ -15,6 +19,10 @@ const STATIC_FILES = Object.freeze({
   }),
   '/app.js': Object.freeze({
     name: 'app.js',
+    contentType: 'text/javascript; charset=utf-8',
+  }),
+  '/csv_exporter.js': Object.freeze({
+    name: null,
     contentType: 'text/javascript; charset=utf-8',
   }),
 });
@@ -49,6 +57,9 @@ function createStaticHandler(options = {}) {
   const publicRoot = path.resolve(
     options.publicRoot || DEFAULT_PUBLIC_ROOT
   );
+  const csvExporterPath = path.resolve(
+    options.csvExporterPath || DEFAULT_CSV_EXPORTER_PATH
+  );
   const fsModule = options.fsModule || fs;
 
   return async function serveStatic(rawPath, response) {
@@ -67,7 +78,9 @@ function createStaticHandler(options = {}) {
       );
     }
 
-    const filePath = path.join(publicRoot, entry.name);
+    const filePath = entry.name
+      ? path.join(publicRoot, entry.name)
+      : csvExporterPath;
     let status;
     try {
       status = fsModule.lstatSync(filePath);
@@ -101,6 +114,7 @@ function createStaticHandler(options = {}) {
 }
 
 module.exports = {
+  DEFAULT_CSV_EXPORTER_PATH,
   DEFAULT_PUBLIC_ROOT,
   STATIC_FILES,
   createStaticHandler,

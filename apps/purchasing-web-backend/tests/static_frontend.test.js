@@ -17,6 +17,7 @@ const {
   budgetOptimizationFile,
   budgetOptimizationUrl,
   budgetOptimizationView,
+  canDownloadOptimizedCsv,
   buildAnalyticsUrl,
   buildCandidatesUrl,
   buildLifecyclePayload,
@@ -45,6 +46,7 @@ const {
   decisionLabel,
   defaultDecisionFilter,
   downloadBudgetOptimizationFile,
+  downloadGeneratedFile,
   eligibilityLabel,
   filterCandidates,
   financialStatusView,
@@ -60,6 +62,7 @@ const {
   materializedRuleStatusLabel,
   materializedRulesViewState,
   needsOwnerDecisionView,
+  optimizedCsvFiles,
   paginationLabel,
   plainReason,
   priorityLabel,
@@ -98,6 +101,7 @@ const {
   ruleEffectivenessCodeLabel,
   ruleEffectivenessViewState,
 } = require('../public/app');
+const csvExporter = require('../../../shared/reporting/csv_exporter');
 
 const PUBLIC_ROOT = path.resolve(__dirname, '../public');
 let server;
@@ -511,6 +515,8 @@ test('GET / serves the Russian frontend with secure headers', async () => {
     'Откройте отчёт в браузере или сохраните его на устройство.',
     'Оптимизировать под бюджет',
     'Исходный заказ останется без изменений.',
+    'Скачать заказ поставщику',
+    'Скачать исключённые позиции',
     'Скачать optimized-order.json',
   ]) {
     assert.match(body, new RegExp(label));
@@ -548,9 +554,23 @@ test('GET / serves the Russian frontend with secure headers', async () => {
     'budget-optimizer-input',
     'budget-optimizer-result',
     'budget-optimizer-download',
+    'budget-supplier-order-download',
+    'budget-removed-items-download',
   ]) {
     assert.match(body, new RegExp(`id="${id}"`));
   }
+  assert.match(
+    body,
+    /id="budget-supplier-order-download"[\s\S]*?hidden/
+  );
+  assert.match(
+    body,
+    /id="budget-removed-items-download"[\s\S]*?hidden/
+  );
+  assert.match(
+    body,
+    /src="\/csv_exporter\.js"[\s\S]*src="\/app\.js"/
+  );
   assert.doesNotMatch(productsBody, /<th>Бренд<\/th>/);
   assert.doesNotMatch(productsBody, /<th[^>]*>Цена<\/th>/);
   assert.doesNotMatch(productsBody, /<th[^>]*>Owner Review<\/th>/);
@@ -580,13 +600,23 @@ test('products panel stays hidden before completed and opens when ready', () => 
 });
 
 test('whitelisted CSS and JavaScript have correct content types', async () => {
-  const [css, script] = await Promise.all([
+  const [css, csvExporterScript, script] = await Promise.all([
     fetch(`${baseUrl}/styles.css`),
+    fetch(`${baseUrl}/csv_exporter.js`),
     fetch(`${baseUrl}/app.js`),
   ]);
   assert.equal(css.status, 200);
   assert.equal(css.headers.get('content-type'), 'text/css; charset=utf-8');
   assert.equal(css.headers.get('x-content-type-options'), 'nosniff');
+  assert.equal(csvExporterScript.status, 200);
+  assert.equal(
+    csvExporterScript.headers.get('content-type'),
+    'text/javascript; charset=utf-8'
+  );
+  assert.equal(
+    csvExporterScript.headers.get('x-content-type-options'),
+    'nosniff'
+  );
   assert.equal(script.status, 200);
   assert.equal(
     script.headers.get('content-type'),
@@ -765,6 +795,57 @@ test('budget optimization uses a run-scoped URL and owner-facing summary', () =>
   assert.equal(tooLow.tooLow, true);
 });
 
+test('supplier CSV buttons are available only after successful optimization',
+  () => {
+    assert.equal(canDownloadOptimizedCsv(null), false);
+    assert.equal(
+      canDownloadOptimizedCsv({ status: 'BUDGET_TOO_LOW' }),
+      false
+    );
+    assert.equal(
+      canDownloadOptimizedCsv({ status: 'OPTIMIZED' }),
+      true
+    );
+    assert.equal(
+      canDownloadOptimizedCsv({ status: 'UNCHANGED' }),
+      true
+    );
+  }
+);
+
+test('repeated optimization builds fresh supplier CSV content', () => {
+  const result = {
+    status: 'OPTIMIZED',
+    optimizedTotal: 100,
+    items: [{
+      sku: 'SKU-1',
+      name: 'Товар',
+      decision: 'manual_review',
+      price: 50,
+      originalQuantity: 3,
+      optimizedQuantity: 2,
+      optimizedAmount: 100,
+    }],
+    removedItems: [],
+  };
+  const first = optimizedCsvFiles(result, csvExporter);
+  const second = optimizedCsvFiles({
+    ...result,
+    optimizedTotal: 50,
+    items: [{
+      ...result.items[0],
+      optimizedQuantity: 1,
+      optimizedAmount: 50,
+    }],
+  }, csvExporter);
+
+  assert.equal(first.supplierOrder.name, 'optimized-supplier-order.csv');
+  assert.equal(first.removedItems.name, 'optimized-removed-items.csv');
+  assert.match(first.supplierOrder.content, /ИТОГО;;;;100,00;;/);
+  assert.match(second.supplierOrder.content, /ИТОГО;;;;50,00;;/);
+  assert.notEqual(first.supplierOrder.content, second.supplierOrder.content);
+});
+
 test('optimized order is downloaded separately in the browser', () => {
   const result = {
     targetBudget: 126102.52,
@@ -831,6 +912,58 @@ test('optimized order is downloaded separately in the browser', () => {
   assert.equal(createdLink.clicked, true);
   assert.equal(createdLink.removed, true);
   assert.equal(browserObject.URL.revoked, 'blob:optimized-order');
+});
+
+test('generated CSV keeps its supplier filename during browser download', () => {
+  const result = {
+    status: 'UNCHANGED',
+    optimizedTotal: 25,
+    items: [{
+      sku: 'SKU-1',
+      name: 'Товар',
+      decision: 'must_buy',
+      price: 25,
+      originalQuantity: 1,
+      optimizedQuantity: 1,
+      optimizedAmount: 25,
+    }],
+    removedItems: [],
+  };
+  const file = optimizedCsvFiles(result, csvExporter).supplierOrder;
+  const link = {
+    clickCalled: false,
+    removeCalled: false,
+    click() {
+      this.clickCalled = true;
+    },
+    remove() {
+      this.removeCalled = true;
+    },
+  };
+  const browserObject = {
+    Blob: class TestBlob {},
+    URL: {
+      createObjectURL() {
+        return 'blob:supplier-csv';
+      },
+      revokeObjectURL() {},
+    },
+    setTimeout(callback) {
+      callback();
+    },
+  };
+  const documentObject = {
+    body: { append() {} },
+    createElement() {
+      return link;
+    },
+  };
+
+  downloadGeneratedFile(file, documentObject, browserObject);
+  assert.equal(link.download, 'optimized-supplier-order.csv');
+  assert.equal(link.href, 'blob:supplier-csv');
+  assert.equal(link.clickCalled, true);
+  assert.equal(link.removeCalled, true);
 });
 
 test('financial status uses owner-facing labels and decision colors', () => {

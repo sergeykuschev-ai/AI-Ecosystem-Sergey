@@ -1266,12 +1266,11 @@
     };
   }
 
-  function downloadBudgetOptimizationFile(
-    result,
+  function downloadGeneratedFile(
+    file,
     documentObject,
     browserObject
   ) {
-    const file = budgetOptimizationFile(result);
     const blob = new browserObject.Blob(
       [file.content],
       { type: file.type }
@@ -1286,6 +1285,32 @@
     browserObject.setTimeout(() => {
       browserObject.URL.revokeObjectURL(objectUrl);
     }, 0);
+  }
+
+  function downloadBudgetOptimizationFile(
+    result,
+    documentObject,
+    browserObject
+  ) {
+    downloadGeneratedFile(
+      budgetOptimizationFile(result),
+      documentObject,
+      browserObject
+    );
+  }
+
+  function canDownloadOptimizedCsv(result) {
+    return ['OPTIMIZED', 'UNCHANGED'].includes(result?.status);
+  }
+
+  function optimizedCsvFiles(result, csvExporter) {
+    if (
+      !csvExporter ||
+      typeof csvExporter.createOptimizedCsvFiles !== 'function'
+    ) {
+      throw new TypeError('Purchasing CSV exporter is unavailable.');
+    }
+    return csvExporter.createOptimizedCsvFiles(result);
   }
 
   function safeRunLink(value) {
@@ -4115,6 +4140,14 @@
         documentObject.getElementById('budget-optimizer-warning'),
       budgetOptimizerDownload:
         documentObject.getElementById('budget-optimizer-download'),
+      budgetSupplierOrderDownload:
+        documentObject.getElementById(
+          'budget-supplier-order-download'
+        ),
+      budgetRemovedItemsDownload:
+        documentObject.getElementById(
+          'budget-removed-items-download'
+        ),
       attentionList: documentObject.getElementById('run-attention'),
       attentionEmpty:
         documentObject.getElementById('run-attention-empty'),
@@ -4905,6 +4938,8 @@
       elements.budgetOptimizerResult.hidden = true;
       elements.budgetOptimizerWarning.textContent = '';
       elements.budgetOptimizerWarning.hidden = true;
+      elements.budgetSupplierOrderDownload.hidden = true;
+      elements.budgetRemovedItemsDownload.hidden = true;
     }
 
     function setBudgetOptimizationError(message) {
@@ -4921,6 +4956,9 @@
       elements.budgetChangedItems.textContent = view.changedItems;
       elements.budgetOptimizerWarning.textContent = view.warning;
       elements.budgetOptimizerWarning.hidden = !view.warning;
+      const csvAvailable = canDownloadOptimizedCsv(result);
+      elements.budgetSupplierOrderDownload.hidden = !csvAvailable;
+      elements.budgetRemovedItemsDownload.hidden = !csvAvailable;
       elements.budgetOptimizerResult.hidden = false;
     }
 
@@ -4975,6 +5013,25 @@
         documentObject,
         globalObject
       );
+    }
+
+    function downloadOptimizedCsv(fileKey) {
+      if (!canDownloadOptimizedCsv(latestBudgetOptimization)) return;
+      try {
+        const files = optimizedCsvFiles(
+          latestBudgetOptimization,
+          globalObject.PurchasingCsvExporter
+        );
+        downloadGeneratedFile(
+          files[fileKey],
+          documentObject,
+          globalObject
+        );
+      } catch {
+        setBudgetOptimizationError(
+          'Не удалось подготовить CSV. Повторите оптимизацию.'
+        );
+      }
     }
 
     function syncFilterControls() {
@@ -5495,6 +5552,14 @@
       'click',
       downloadBudgetOptimization
     );
+    elements.budgetSupplierOrderDownload.addEventListener(
+      'click',
+      () => downloadOptimizedCsv('supplierOrder')
+    );
+    elements.budgetRemovedItemsDownload.addEventListener(
+      'click',
+      () => downloadOptimizedCsv('removedItems')
+    );
     for (const tab of elements.ownerLearningTabs) {
       tab.addEventListener('click', () => {
         navigateOwnerLearning(tab.dataset.ownerLearningTarget);
@@ -5672,6 +5737,7 @@
     budgetOptimizationFile,
     budgetOptimizationUrl,
     budgetOptimizationView,
+    canDownloadOptimizedCsv,
     buildAnalyticsUrl,
     buildCandidatesUrl,
     buildOwnerLearningCenterUrl,
@@ -5707,6 +5773,7 @@
     decisionLabel,
     defaultDecisionFilter,
     downloadBudgetOptimizationFile,
+    downloadGeneratedFile,
     eligibilityLabel,
     filterCandidates,
     financialStatusLabel,
@@ -5736,6 +5803,7 @@
     ownerActionLabel,
     ownerLearningViewState,
     ownerDecisionView,
+    optimizedCsvFiles,
     paginationLabel,
     patternLabel,
     priorityLabel,
