@@ -36,11 +36,15 @@
           </div>
 
           <form id="run-form" novalidate>
-            <label class="file-picker" for="file-input">
+            <label
+              class="file-picker"
+              id="file-drop-zone"
+              for="file-input"
+            >
               <span class="file-picker-icon" aria-hidden="true">↑</span>
               <span>
-                <strong>Выбрать Excel-файл</strong>
-                <small>До 20 МБ, формат .xlsx или .xls</small>
+                <strong>Выбрать или перетащить Excel-файл</strong>
+                <small>Перетащите сюда · до 20 МБ · .xlsx или .xls</small>
               </span>
             </label>
             <input
@@ -62,7 +66,7 @@
             <p class="inline-error" id="file-error" role="alert" hidden></p>
 
             <button class="primary-button" id="run-button" type="submit" disabled>
-              Запустить расчёт
+              Рассчитать заказ
             </button>
           </form>
         </article>
@@ -1848,12 +1852,45 @@
 
         <div class="result-details">
           <article>
+            <span>Файл</span>
+            <strong id="result-file-name">—</strong>
+          </article>
+          <article>
             <span>Финансовый статус</span>
             <strong id="financial-status">—</strong>
           </article>
           <article>
+            <span>Запас сверх резерва</span>
+            <strong id="reserve-surplus">—</strong>
+          </article>
+          <article>
+            <span>Общий статус запуска</span>
+            <strong id="run-status">—</strong>
+          </article>
+          <article>
             <span>Позиций для решения</span>
             <strong id="owner-review-count">—</strong>
+          </article>
+        </div>
+
+        <div class="run-diagnostics">
+          <article>
+            <h3>Предупреждения</h3>
+            <ul id="run-warnings">
+              <li>- нет</li>
+            </ul>
+          </article>
+          <article>
+            <h3>Критические проблемы</h3>
+            <ul id="run-critical-issues">
+              <li>- нет</li>
+            </ul>
+          </article>
+          <article>
+            <h3>Созданные отчёты</h3>
+            <ul id="run-artifacts">
+              <li>- нет</li>
+            </ul>
           </article>
         </div>
       </section>

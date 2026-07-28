@@ -337,7 +337,8 @@
     INVALID_WORKBOOK:
       'Не удалось прочитать отчёт. Проверьте файл SmartZapas и повторите.',
     INPUT_CONTRACT_ERROR:
-      'В отчёте не хватает обязательных данных для расчёта.',
+      'Excel-файл несовместим: не найдены или неоднозначны обязательные ' +
+      'заголовки SmartZapas.',
     RUN_ALREADY_IN_PROGRESS:
       'Другой расчёт уже выполняется. Повторите запуск немного позже.',
     RUN_FAILED: 'Расчёт не завершён. Проверьте файл и попробуйте снова.',
@@ -1026,14 +1027,39 @@
       yellow: '🟠 Требуется внимание',
       red: '🔴 Требуется решение владельца',
       approved: '🟢 Одобрено',
+      approved_with_warning:
+        'APPROVED_WITH_WARNING — одобрено с предупреждением',
+      manual_approval_required:
+        'MANUAL_APPROVAL_REQUIRED — требуется решение владельца',
+      rejected: 'REJECTED — заказ отклонён',
+      preliminary: 'PRELIMINARY — предварительная оценка',
       review: '🟠 Требуется проверка',
     };
     return labels[String(status || '').toLowerCase()] || 'Не указан';
   }
 
+  function runStatusLabel(status) {
+    const labels = {
+      processing: 'PROCESSING — выполняется',
+      completed: 'COMPLETED — завершён',
+      failed: 'FAILED — ошибка',
+    };
+    return labels[String(status || '').toLowerCase()] || 'Не указан';
+  }
+
+  function diagnosticMessages(values) {
+    const messages = Array.isArray(values)
+      ? values.filter(value =>
+        typeof value === 'string' && value.trim() !== ''
+      )
+      : [];
+    return messages.length > 0 ? messages : ['- нет'];
+  }
+
   function summaryView(summary, status) {
     const amounts = summary?.amounts || {};
     return {
+      fileName: status?.source?.original_name || '—',
       skuCount: displayCount(summary?.sku_count),
       analyzerOrderSum: formatRub(amounts.analyzer_order_sum),
       autoApprovedSum: formatRub(amounts.auto_approved_sum),
@@ -1043,9 +1069,13 @@
         amounts.financially_assessed_sum
       ),
       financialStatus: financialStatusLabel(summary?.financial?.status),
+      reserveSurplus: formatRub(summary?.financial?.reserve_surplus),
+      runStatus: runStatusLabel(status?.status),
       ownerReviewCount: displayCount(
         summary?.owner_review?.action_required
       ),
+      warnings: diagnosticMessages(summary?.warnings),
+      criticalIssues: diagnosticMessages(summary?.critical_issues),
       calculationTime: formatDuration(
         status?.started_at,
         status?.completed_at
@@ -1093,6 +1123,24 @@
       }
     }
     return selected;
+  }
+
+  function artifactNameList(manifest) {
+    const entries = Array.isArray(manifest?.artifacts)
+      ? manifest.artifacts
+      : [];
+    const names = entries
+      .filter(item =>
+        typeof item?.name === 'string' &&
+        /^[a-z0-9.-]+$/i.test(item.name) &&
+        typeof item.download_url === 'string' &&
+        ARTIFACT_LINK_PATTERN.test(item.download_url) &&
+        !item.download_url.includes('..') &&
+        !item.download_url.includes('\\') &&
+        item.download_url.endsWith(`/artifacts/${item.name}`)
+      )
+      .map(item => item.name);
+    return diagnosticMessages(Array.from(new Set(names)));
   }
 
   async function requestJson(fetchFunction, url, options) {
@@ -3172,6 +3220,7 @@
     const elements = {
       form: documentObject.getElementById('run-form'),
       fileInput: documentObject.getElementById('file-input'),
+      fileDropZone: documentObject.getElementById('file-drop-zone'),
       fileError: documentObject.getElementById('file-error'),
       selectedFile: documentObject.getElementById('selected-file'),
       selectedFileName: documentObject.getElementById('selected-file-name'),
@@ -3796,6 +3845,7 @@
         documentObject.querySelectorAll('[data-sort]')
       ),
       summary: {
+        fileName: documentObject.getElementById('result-file-name'),
         skuCount: documentObject.getElementById('sku-count'),
         analyzerOrderSum:
           documentObject.getElementById('analyzer-order-sum'),
@@ -3809,9 +3859,16 @@
           documentObject.getElementById('financially-assessed-sum'),
         financialStatus:
           documentObject.getElementById('financial-status'),
+        reserveSurplus:
+          documentObject.getElementById('reserve-surplus'),
+        runStatus: documentObject.getElementById('run-status'),
         ownerReviewCount:
           documentObject.getElementById('owner-review-count'),
       },
+      warningList: documentObject.getElementById('run-warnings'),
+      criticalIssueList:
+        documentObject.getElementById('run-critical-issues'),
+      artifactList: documentObject.getElementById('run-artifacts'),
     };
 
     let selectedFile = null;
@@ -4795,8 +4852,7 @@
       return null;
     }
 
-    function updateFileSelection() {
-      const file = elements.fileInput.files?.[0] || null;
+    function selectFile(file) {
       const code = validateFile(file);
       selectedFile = code ? null : file;
       resetExports();
@@ -4816,11 +4872,26 @@
       }
     }
 
+    function updateFileSelection() {
+      selectFile(elements.fileInput.files?.[0] || null);
+    }
+
+    function renderTextList(list, values) {
+      list.replaceChildren();
+      for (const value of values) {
+        const item = documentObject.createElement('li');
+        item.textContent = value;
+        list.append(item);
+      }
+    }
+
     function renderSummary(summary, status) {
       const view = summaryView(summary, status);
       for (const [name, element] of Object.entries(elements.summary)) {
         element.textContent = view[name];
       }
+      renderTextList(elements.warningList, view.warnings);
+      renderTextList(elements.criticalIssueList, view.criticalIssues);
       elements.calculationTime.textContent =
         `Время расчёта: ${view.calculationTime}`;
       elements.results.hidden = false;
@@ -4828,6 +4899,7 @@
 
     function configureDownloads(manifest) {
       availableArtifacts = selectArtifacts(manifest);
+      renderTextList(elements.artifactList, artifactNameList(manifest));
       const buttons = documentObject.querySelectorAll(
         '[data-artifact-key]'
       );
@@ -4965,6 +5037,20 @@
     }
 
     elements.fileInput.addEventListener('change', updateFileSelection);
+    for (const eventName of ['dragenter', 'dragover']) {
+      elements.fileDropZone.addEventListener(eventName, event => {
+        event.preventDefault();
+        elements.fileDropZone.classList.add('is-dragover');
+      });
+    }
+    elements.fileDropZone.addEventListener('dragleave', () => {
+      elements.fileDropZone.classList.remove('is-dragover');
+    });
+    elements.fileDropZone.addEventListener('drop', event => {
+      event.preventDefault();
+      elements.fileDropZone.classList.remove('is-dragover');
+      selectFile(event.dataTransfer?.files?.[0] || null);
+    });
     elements.form.addEventListener('submit', submitRun);
     for (const tab of elements.ownerLearningTabs) {
       tab.addEventListener('click', () => {
@@ -5240,6 +5326,8 @@
     resetRuleEffectivenessFilters,
     requestNeedsDecisionItems,
     requestJson,
+    artifactNameList,
+    diagnosticMessages,
     safeArtifactDownloadUrl,
     safeRunLink,
     selectArtifacts,

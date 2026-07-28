@@ -11,6 +11,7 @@ const {
 const {
   FrontendError,
   analyticsViewState,
+  artifactNameList,
   buildAnalyticsUrl,
   buildCandidatesUrl,
   buildLifecyclePayload,
@@ -489,6 +490,8 @@ test('GET / serves the Russian frontend with secure headers', async () => {
   );
   assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
   assert.match(body, /AI-агент закупщик «Миска»/);
+  assert.match(body, /Выбрать или перетащить Excel-файл/);
+  assert.match(body, />\s*Рассчитать заказ\s*</);
   assert.match(body, /id="products"[\s\S]*hidden/);
   assert.match(body, /Товары к закупке/);
   const productsBody = body.match(
@@ -513,6 +516,16 @@ test('GET / serves the Russian frontend with secure headers', async () => {
     'Решение',
   ]) {
     assert.match(productsBody, new RegExp(`>\\s*${heading}`));
+  }
+  for (const id of [
+    'result-file-name',
+    'reserve-surplus',
+    'run-status',
+    'run-warnings',
+    'run-critical-issues',
+    'run-artifacts',
+  ]) {
+    assert.match(body, new RegExp(`id="${id}"`));
   }
   assert.doesNotMatch(productsBody, /<th>Бренд<\/th>/);
   assert.doesNotMatch(productsBody, /<th[^>]*>Цена<\/th>/);
@@ -590,6 +603,20 @@ test('frontend assets contain no external URL or remote dependency', () => {
   }
 });
 
+test('file picker supports drag-and-drop and shows a clear compatibility error', () => {
+  const script = fs.readFileSync(path.join(PUBLIC_ROOT, 'app.js'), 'utf8');
+
+  assert.match(
+    script,
+    /fileDropZone\.addEventListener\('drop'/
+  );
+  assert.match(script, /event\.dataTransfer\?\.files\?\.\[0\]/);
+  assert.match(
+    script,
+    /Excel-файл несовместим: не найдены или неоднозначны обязательные/
+  );
+});
+
 test('decision controls wrap as a whole and remain readable', () => {
   const css = fs.readFileSync(path.join(PUBLIC_ROOT, 'styles.css'), 'utf8');
   assert.match(
@@ -649,7 +676,7 @@ test('RUB and summary formatting preserve distinct monetary amounts', () => {
   assert.equal(formatRub(null), '—');
 
   const view = summaryView({
-    sku_count: 403,
+    sku_count: 398,
     amounts: {
       analyzer_order_sum: 1,
       auto_approved_sum: 2,
@@ -657,18 +684,38 @@ test('RUB and summary formatting preserve distinct monetary amounts', () => {
       working_maximum_sum: 4,
       financially_assessed_sum: 5,
     },
-    financial: { status: 'red' },
+    financial: {
+      status: 'MANUAL_APPROVAL_REQUIRED',
+      reserve_surplus: -29355.53,
+    },
+    warnings: ['Проверьте финансовый резерв.'],
+    critical_issues: [],
     owner_review: { action_required: 17 },
   }, {
+    status: 'completed',
+    source: {
+      original_name: 'Валта заказывать по нему 28.07.2026.xlsx',
+    },
     started_at: '2026-07-23T00:00:00.000Z',
     completed_at: '2026-07-23T00:00:05.000Z',
   });
 
+  assert.equal(view.skuCount, '398');
   assert.match(view.analyzerOrderSum, /1,00/);
   assert.match(view.autoApprovedSum, /2,00/);
   assert.match(view.pendingReviewSum, /3,00/);
   assert.match(view.workingMaximumSum, /4,00/);
   assert.match(view.financiallyAssessedSum, /5,00/);
+  assert.match(view.reserveSurplus, /29[\s\u00a0]355,53/);
+  assert.match(view.reserveSurplus, /−|-/);
+  assert.match(view.financialStatus, /MANUAL_APPROVAL_REQUIRED/);
+  assert.match(view.runStatus, /COMPLETED/);
+  assert.equal(
+    view.fileName,
+    'Валта заказывать по нему 28.07.2026.xlsx'
+  );
+  assert.deepEqual(view.warnings, ['Проверьте финансовый резерв.']);
+  assert.deepEqual(view.criticalIssues, ['- нет']);
   assert.equal(view.ownerReviewCount, '17');
   assert.equal(view.calculationTime, '5 сек');
 });
@@ -731,7 +778,7 @@ test('polling has a deterministic timeout', async () => {
 });
 
 test('artifact buttons accept only whitelisted manifest download URLs', () => {
-  const selected = selectArtifacts({
+  const manifest = {
     artifacts: [
       {
         name: 'result.json',
@@ -750,9 +797,15 @@ test('artifact buttons accept only whitelisted manifest download URLs', () => {
           '/artifacts/user-input.xlsx',
       },
     ],
-  });
+  };
+  const selected = selectArtifacts(manifest);
   assert.deepEqual(Object.keys(selected), ['result']);
   assert.equal(selected.result.name, 'result.json');
+  assert.deepEqual(artifactNameList(manifest), [
+    'result.json',
+    'user-input.xlsx',
+  ]);
+  assert.deepEqual(artifactNameList({ artifacts: [] }), ['- нет']);
 });
 
 test('item search and filters use server-side query parameters', () => {

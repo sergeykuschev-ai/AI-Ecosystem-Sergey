@@ -52,6 +52,41 @@ function collectWarnings(agent, applicationWarnings = []) {
   ))));
 }
 
+function collectCriticalIssues(agent) {
+  const assessment = agent.financial_assessment || {};
+  const diagnostics = agent.adapter_diagnostics || {};
+  const values = [
+    ...(assessment.financial_data_errors || []),
+  ];
+
+  if (
+    assessment.status === 'PRELIMINARY' &&
+    Array.isArray(assessment.missing_fields) &&
+    assessment.missing_fields.length > 0
+  ) {
+    values.push(
+      'Финансовое решение не подтверждено; отсутствуют поля: ' +
+      assessment.missing_fields.join(', ')
+    );
+  }
+
+  if (
+    Array.isArray(diagnostics.missingRequiredColumns) &&
+    diagnostics.missingRequiredColumns.length > 0
+  ) {
+    values.push(
+      `Отсутствуют обязательные столбцы: ${
+        diagnostics.missingRequiredColumns.length
+      }`
+    );
+  }
+
+  return Array.from(new Set(values.map(value => safePublicText(
+    value,
+    'Критическая проблема скрыта.'
+  ))));
+}
+
 function appliedWorkingOrderFinancial(bundle) {
   const applications = bundle.approvedRuleApplications;
   const assessment =
@@ -157,11 +192,13 @@ function mapRunSummary(bundle) {
       ),
     },
     warnings: collectWarnings(agent, bundle.approvedRuleWarnings),
+    critical_issues: collectCriticalIssues(agent),
   };
 }
 
 module.exports = {
   agentJson,
+  collectCriticalIssues,
   collectWarnings,
   decisionSummary,
   mapRunSummary,

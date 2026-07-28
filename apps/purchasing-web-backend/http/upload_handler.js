@@ -180,6 +180,7 @@ function parseExcelUpload(request, options = {}) {
   try {
     parser = Busboy({
       headers: request.headers,
+      defParamCharset: 'utf8',
       limits: {
         fileSize: maxFileBytes,
         files: 2,

@@ -109,6 +109,26 @@ test('valid xlsx and xls signatures are accepted with safe disk handling', async
   }
 });
 
+test('UTF-8 workbook filename is preserved for the browser summary', async () => {
+  const { server, uploadRoot, url } = await startUploadServer();
+  try {
+    const uploaded = await post(url, excelForm(
+      Buffer.from([0x50, 0x4b, 0x03, 0x04, 1, 2, 3, 4]),
+      'Валта заказывать по нему 28.07.2026.xlsx',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ));
+
+    assert.equal(uploaded.response.status, 200);
+    assert.equal(
+      uploaded.body.data.original_name,
+      'Валта заказывать по нему 28.07.2026.xlsx'
+    );
+    assert.deepEqual(stagedEntries(uploadRoot), []);
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test('missing file and multiple files are rejected', async () => {
   const { server, uploadRoot, url } = await startUploadServer();
   try {

@@ -67,6 +67,28 @@ test('RunSummaryDTO separates all five monetary amounts', () => {
   Object.values(summary.amounts).forEach(value => {
     assert.ok(value === null || Number.isFinite(value));
   });
+  assert.ok(Array.isArray(summary.warnings));
+  assert.ok(Array.isArray(summary.critical_issues));
+});
+
+test('RunSummaryDTO exposes critical purchasing issues without mutation', () => {
+  const source = structuredClone(bundle);
+  const agent = source.agentResult[0].json;
+  agent.financial_assessment.status = 'PRELIMINARY';
+  agent.financial_assessment.financial_data_errors = [
+    'Финансовые данные недоступны.',
+  ];
+  agent.financial_assessment.missing_fields = ['cash_balance'];
+  agent.adapter_diagnostics.missingRequiredColumns = ['price'];
+
+  const summary = mapRunSummary(source);
+
+  assert.deepEqual(summary.critical_issues, [
+    'Финансовые данные недоступны.',
+    'Финансовое решение не подтверждено; отсутствуют поля: cash_balance',
+    'Отсутствуют обязательные столбцы: 1',
+  ]);
+  assert.ok(summary.warnings.includes('Финансовые данные недоступны.'));
 });
 
 test('RunSummaryDTO keeps legacy financial amount separate from applied working order', () => {

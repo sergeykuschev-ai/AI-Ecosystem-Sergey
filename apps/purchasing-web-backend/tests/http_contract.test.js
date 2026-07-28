@@ -111,6 +111,25 @@ test('POST run returns 201, Location, v1 status and sanitized source', async () 
   assert.equal(fs.existsSync(path.join(runDirectory, 'run.json')), true);
 });
 
+test('POST accepts another workbook without restarting the server', async () => {
+  const workbook = fs.readFileSync(path.join(
+    REPOSITORY_ROOT,
+    'tests/fixtures/SmartZapas_synthetic.xlsx'
+  ));
+  const form = new FormData();
+  form.append('file', new Blob([workbook]), 'second-run.xlsx');
+
+  const created = await jsonResponse(`${baseUrl}/api/v1/runs`, {
+    method: 'POST',
+    body: form,
+  });
+
+  assert.equal(created.response.status, 201);
+  assert.equal(created.body.data.status, 'completed');
+  assert.notEqual(created.body.data.run_id, completedRunId);
+  assert.equal(created.body.data.source.original_name, 'second-run.xlsx');
+});
+
 test('GET summary, items, owner-review and artifacts expose compact DTOs', async () => {
   const [summary, items, ownerReview, artifacts] = await Promise.all([
     jsonResponse(`${baseUrl}/api/v1/runs/${completedRunId}/summary`),
@@ -132,6 +151,8 @@ test('GET summary, items, owner-review and artifacts expose compact DTOs', async
   }
   assert.equal(summary.body.data.sku_count, 6);
   assert.equal('total_order_sum' in summary.body.data, false);
+  assert.ok(Array.isArray(summary.body.data.warnings));
+  assert.ok(Array.isArray(summary.body.data.critical_issues));
   assert.equal(items.body.data.items.length, 2);
   assert.equal(items.body.data.pagination.page_size, 2);
   assert.equal(ownerReview.body.data.run_id, completedRunId);
