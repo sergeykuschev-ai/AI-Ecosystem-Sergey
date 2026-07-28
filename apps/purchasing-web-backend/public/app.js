@@ -27,6 +27,37 @@
       name: 'recommendation-explanations-report.md',
       pathSuffix: '/artifacts/recommendation-explanations-report.md',
     }),
+    'owner-learning': Object.freeze({
+      name: 'owner-learning-report.md',
+      pathSuffix: '/artifacts/owner-learning-report.md',
+    }),
+  });
+  const REPORT_CARDS = Object.freeze({
+    report: Object.freeze({
+      icon: '📄',
+      title: 'Отчёт владельцу',
+      description: 'Главный итог расчёта закупки.',
+      canOpen: true,
+    }),
+    explanations: Object.freeze({
+      icon: '🧠',
+      title: 'Обоснование AI',
+      description:
+        'Почему закупщик рекомендует именно этот заказ.',
+      canOpen: true,
+    }),
+    result: Object.freeze({
+      icon: '🔧',
+      title: 'JSON результата',
+      description: 'Полный машинный результат расчёта.',
+      canOpen: false,
+    }),
+    'owner-learning': Object.freeze({
+      icon: '🌱',
+      title: 'Owner Learning',
+      description: 'Новые знания владельца.',
+      canOpen: true,
+    }),
   });
   const ITEM_FILTERS = Object.freeze({
     all: Object.freeze({}),
@@ -1237,6 +1268,23 @@
       }
     }
     return selected;
+  }
+
+  function reportCenterItems(manifest) {
+    const selected = selectArtifacts(manifest);
+    return Object.entries(REPORT_CARDS).flatMap(
+      ([key, presentation]) => {
+        const artifact = selected[key];
+        return artifact
+          ? [{
+            key,
+            name: artifact.name,
+            downloadUrl: artifact.downloadUrl,
+            ...presentation,
+          }]
+          : [];
+      }
+    );
   }
 
   function artifactNameList(manifest) {
@@ -3988,7 +4036,18 @@
       attentionList: documentObject.getElementById('run-attention'),
       attentionEmpty:
         documentObject.getElementById('run-attention-empty'),
-      artifactList: documentObject.getElementById('run-artifacts'),
+      reportCenterGrid:
+        documentObject.getElementById('report-center-grid'),
+      reportCenterEmpty:
+        documentObject.getElementById('report-center-empty'),
+      reportPreviewDialog:
+        documentObject.getElementById('report-preview-dialog'),
+      reportPreviewTitle:
+        documentObject.getElementById('report-preview-title'),
+      reportPreviewContent:
+        documentObject.getElementById('report-preview-content'),
+      reportPreviewClose:
+        documentObject.getElementById('report-preview-close'),
     };
 
     let selectedFile = null;
@@ -4748,11 +4807,10 @@
 
     function resetExports() {
       availableArtifacts = {};
-      for (const button of documentObject.querySelectorAll(
-        '[data-artifact-key]'
-      )) {
-        button.disabled = true;
-      }
+      elements.reportCenterGrid.replaceChildren();
+      elements.reportCenterGrid.hidden = true;
+      elements.reportCenterEmpty.hidden = false;
+      elements.reportPreviewDialog.close();
     }
 
     function syncFilterControls() {
@@ -5033,12 +5091,54 @@
 
     function configureDownloads(manifest) {
       availableArtifacts = selectArtifacts(manifest);
-      renderTextList(elements.artifactList, artifactNameList(manifest));
-      const buttons = documentObject.querySelectorAll(
-        '[data-artifact-key]'
-      );
-      for (const button of buttons) {
-        button.disabled = !availableArtifacts[button.dataset.artifactKey];
+      const reports = reportCenterItems(manifest);
+      elements.reportCenterGrid.replaceChildren();
+      elements.reportCenterGrid.hidden = reports.length === 0;
+      elements.reportCenterEmpty.hidden = reports.length > 0;
+
+      for (const report of reports) {
+        const card = documentObject.createElement('article');
+        card.className = 'report-card';
+        card.dataset.artifactKey = report.key;
+
+        const heading = documentObject.createElement('div');
+        heading.className = 'report-card-heading';
+        const icon = documentObject.createElement('span');
+        icon.className = 'report-card-icon';
+        icon.setAttribute('aria-hidden', 'true');
+        icon.textContent = report.icon;
+        const title = documentObject.createElement('h4');
+        title.textContent = report.title;
+        heading.append(icon, title);
+
+        const description = documentObject.createElement('p');
+        description.textContent = report.description;
+
+        const actions = documentObject.createElement('div');
+        actions.className = 'report-card-actions';
+        if (report.canOpen) {
+          const openButton = documentObject.createElement('button');
+          openButton.className = 'report-action report-open';
+          openButton.type = 'button';
+          openButton.dataset.artifactKey = report.key;
+          openButton.dataset.reportAction = 'open';
+          openButton.textContent = 'Открыть';
+          actions.append(openButton);
+        }
+
+        const downloadButton = documentObject.createElement('button');
+        downloadButton.className =
+          report.key === 'report'
+            ? 'report-action report-download report-primary'
+            : 'report-action report-download';
+        downloadButton.type = 'button';
+        downloadButton.dataset.artifactKey = report.key;
+        downloadButton.dataset.reportAction = 'download';
+        downloadButton.textContent = 'Скачать';
+        actions.append(downloadButton);
+
+        card.append(heading, description, actions);
+        elements.reportCenterGrid.append(card);
       }
     }
 
@@ -5144,6 +5244,36 @@
       documentObject.body.append(link);
       link.click();
       link.remove();
+    }
+
+    async function openArtifact(event) {
+      const key = event.currentTarget.dataset.artifactKey;
+      const artifact = availableArtifacts[key];
+      const report = REPORT_CARDS[key];
+      if (!artifact || !report?.canOpen) return;
+
+      elements.reportPreviewTitle.textContent = report.title;
+      elements.reportPreviewContent.textContent = 'Загрузка отчёта…';
+      elements.reportPreviewDialog.showModal();
+
+      try {
+        const response = await fetchFunction(artifact.downloadUrl);
+        if (!response.ok) throw new Error('REPORT_PREVIEW_FAILED');
+        elements.reportPreviewContent.textContent = await response.text();
+      } catch {
+        elements.reportPreviewContent.textContent =
+          'Не удалось открыть отчёт. Скачайте файл и откройте его локально.';
+      }
+    }
+
+    function handleReportAction(event) {
+      const button = event.target.closest('[data-report-action]');
+      if (!button || !elements.reportCenterGrid.contains(button)) return;
+      if (button.dataset.reportAction === 'open') {
+        openArtifact({ currentTarget: button });
+      } else if (button.dataset.reportAction === 'download') {
+        downloadArtifact({ currentTarget: button });
+      }
     }
 
     function selectFilter(event) {
@@ -5285,12 +5415,13 @@
         closeRuleStatusModal();
       }
     });
-    for (const button of documentObject.querySelectorAll(
-      '[data-artifact-key]'
-    )) {
-      button.disabled = true;
-      button.addEventListener('click', downloadArtifact);
-    }
+    elements.reportCenterGrid.addEventListener(
+      'click',
+      handleReportAction
+    );
+    elements.reportPreviewClose.addEventListener('click', () => {
+      elements.reportPreviewDialog.close();
+    });
     elements.productsSearch.addEventListener('input', () => {
       if (searchTimer) clearTimeout(searchTimer);
       searchTimer = setTimeout(() => {
@@ -5448,6 +5579,7 @@
     resetRuleEffectivenessFilters,
     requestNeedsDecisionItems,
     requestJson,
+    reportCenterItems,
     runStatusLabel,
     runStatusView,
     artifactNameList,

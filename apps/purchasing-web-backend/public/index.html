@@ -1831,26 +1831,25 @@
           </article>
         </div>
 
-        <div class="result-downloads" aria-label="Скачать результаты">
-          <button
-            class="download-button download-primary"
-            type="button"
-            data-artifact-key="report"
-            disabled
-          >Скачать отчёт владельцу</button>
-          <button
-            class="download-button download-secondary"
-            type="button"
-            data-artifact-key="result"
-            disabled
-          >Скачать result.json</button>
-          <button
-            class="download-button download-secondary"
-            type="button"
-            data-artifact-key="explanations"
-            disabled
-          >Скачать объяснения</button>
-        </div>
+        <section
+          class="report-center"
+          aria-labelledby="report-center-title"
+        >
+          <div class="report-center-heading">
+            <div>
+              <p class="step-label">Файлы расчёта</p>
+              <h3 id="report-center-title">Отчёты</h3>
+            </div>
+            <p>Откройте отчёт в браузере или сохраните его на устройство.</p>
+          </div>
+          <p id="report-center-empty">Пока нет созданных отчётов.</p>
+          <div
+            class="report-center-grid"
+            id="report-center-grid"
+            aria-live="polite"
+            hidden
+          ></div>
+        </section>
 
         <section class="attention-summary" aria-labelledby="attention-title">
           <div>
@@ -1872,15 +1871,25 @@
               <span>Финансово оценено</span>
               <strong id="financially-assessed-sum">—</strong>
             </article>
-            <article>
-              <span>Созданные файлы</span>
-              <ul id="run-artifacts">
-                <li>- нет</li>
-              </ul>
-            </article>
           </div>
         </details>
       </section>
+
+      <dialog
+        class="report-preview-dialog"
+        id="report-preview-dialog"
+        aria-labelledby="report-preview-title"
+      >
+        <header>
+          <h3 id="report-preview-title">Отчёт</h3>
+          <button
+            type="button"
+            id="report-preview-close"
+            aria-label="Закрыть просмотр отчёта"
+          >×</button>
+        </header>
+        <pre id="report-preview-content"></pre>
+      </dialog>
 
       <section
         class="products card"

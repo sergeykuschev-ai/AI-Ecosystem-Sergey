@@ -77,6 +77,7 @@ const {
   resetRuleEffectivenessFilters,
   requestNeedsDecisionItems,
   requestJson,
+  reportCenterItems,
   selectArtifacts,
   setHistoryPanelState,
   setCandidatePanelState,
@@ -501,16 +502,14 @@ test('GET / serves the Russian frontend with secure headers', async () => {
     /<section\s+class="products card"[\s\S]*?<\/section>/
   )?.[0] || '';
   for (const label of [
-    'Скачать отчёт владельцу',
-    'Скачать result.json',
-    'Скачать объяснения',
+    'Отчёты',
+    'Пока нет созданных отчётов.',
+    'Откройте отчёт в браузере или сохраните его на устройство.',
   ]) {
     assert.match(body, new RegExp(label));
   }
-  assert.match(
-    body,
-    /class="download-button download-primary"[\s\S]*data-artifact-key="report"/
-  );
+  assert.match(body, /id="report-center-grid"[\s\S]*hidden/);
+  assert.match(body, /id="report-preview-dialog"/);
   assert.doesNotMatch(body, />\s*Ожидает проверки\s*</);
   assert.match(body, />\s*На ручную проверку\s*</);
   for (const heading of [
@@ -534,7 +533,10 @@ test('GET / serves the Russian frontend with secure headers', async () => {
     'run-status-code',
     'run-attention',
     'run-attention-empty',
-    'run-artifacts',
+    'report-center-grid',
+    'report-center-empty',
+    'report-preview-title',
+    'report-preview-content',
   ]) {
     assert.match(body, new RegExp(`id="${id}"`));
   }
@@ -696,6 +698,14 @@ test('owner result dashboard keeps brand colors and responsive grids', () => {
   assert.match(
     mobileStyles,
     /\.decision-metric-grid,[\s\S]*grid-template-columns:\s*1fr/s
+  );
+  assert.match(
+    css,
+    /\.report-center-grid\s*\{[^}]*grid-template-columns:\s*repeat\(2,/s
+  );
+  assert.match(
+    mobileStyles,
+    /\.report-center-grid,[\s\S]*grid-template-columns:\s*1fr/s
   );
 });
 
@@ -945,6 +955,72 @@ test('artifact buttons accept only whitelisted manifest download URLs', () => {
     'user-input.xlsx',
   ]);
   assert.deepEqual(artifactNameList({ artifacts: [] }), ['- нет']);
+});
+
+test('Report Center shows only available reports with existing URLs', () => {
+  const runBase =
+    '/api/v1/runs/11111111-1111-4111-8111-111111111111/artifacts/';
+  const manifest = {
+    artifacts: [
+      {
+        name: 'report.txt',
+        download_url: `${runBase}report.txt`,
+      },
+      {
+        name: 'result.json',
+        download_url: `${runBase}result.json`,
+      },
+      {
+        name: 'owner-learning-report.md',
+        download_url: `${runBase}owner-learning-report.md`,
+      },
+    ],
+  };
+
+  const reports = reportCenterItems(manifest);
+  assert.deepEqual(
+    reports.map(report => report.title),
+    ['Отчёт владельцу', 'JSON результата', 'Owner Learning']
+  );
+  assert.equal(
+    reports.find(report => report.key === 'report').description,
+    'Главный итог расчёта закупки.'
+  );
+  assert.equal(
+    reports.find(report => report.key === 'result').downloadUrl,
+    `${runBase}result.json`
+  );
+  assert.equal(
+    reports.find(report => report.key === 'result').canOpen,
+    false
+  );
+  assert.equal(
+    reports.find(report => report.key === 'owner-learning').canOpen,
+    true
+  );
+  assert.equal(
+    reports.some(report => report.key === 'explanations'),
+    false
+  );
+  assert.deepEqual(reportCenterItems({ artifacts: [] }), []);
+});
+
+test('Report Center uses the existing explanations download URL', () => {
+  const downloadUrl =
+    '/api/v1/runs/11111111-1111-4111-8111-111111111111' +
+    '/artifacts/recommendation-explanations-report.md';
+  const [report] = reportCenterItems({
+    artifacts: [{
+      name: 'recommendation-explanations-report.md',
+      download_url: downloadUrl,
+    }],
+  });
+
+  assert.equal(report.title, 'Обоснование AI');
+  assert.equal(report.description,
+    'Почему закупщик рекомендует именно этот заказ.');
+  assert.equal(report.downloadUrl, downloadUrl);
+  assert.equal(report.canOpen, true);
 });
 
 test('item search and filters use server-side query parameters', () => {
