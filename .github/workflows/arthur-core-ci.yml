@@ -74,7 +74,7 @@ jobs:
           ARTHUR_HTTP_PORT: 18787
           ARTHUR_SHUTDOWN_TIMEOUT_MS: 5000
         run: |
-          npm start --prefix agents/arthur-core > /tmp/arthur-core.log 2>&1 &
+          bash -c 'cd agents/arthur-core && exec node runtime/start-server.js' > /tmp/arthur-core.log 2>&1 &
           ARTHUR_PID=$!
           trap 'kill -TERM "$ARTHUR_PID" 2>/dev/null || true; wait "$ARTHUR_PID" 2>/dev/null || true' EXIT
           for attempt in {1..20}; do
