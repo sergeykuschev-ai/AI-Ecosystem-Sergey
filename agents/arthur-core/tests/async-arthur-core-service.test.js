@@ -8,7 +8,7 @@ class TransactionalMemoryStore {
   constructor(state) {
     this.state = state || {
       profiles: new Map(), memory: new Map(), tasks: new Map(), decisions: new Map(),
-      confirmations: new Map(), audit: []
+      confirmations: new Map(), audit: [], failAudit: false
     };
   }
 
@@ -19,7 +19,8 @@ class TransactionalMemoryStore {
       tasks: new Map(this.state.tasks),
       decisions: new Map(this.state.decisions),
       confirmations: new Map(this.state.confirmations),
-      audit: this.state.audit.slice()
+      audit: this.state.audit.slice(),
+      failAudit: this.state.failAudit
     };
   }
 
@@ -35,6 +36,7 @@ class TransactionalMemoryStore {
       this.state.decisions = snapshot.decisions;
       this.state.confirmations = snapshot.confirmations;
       this.state.audit = snapshot.audit;
+      this.state.failAudit = snapshot.failAudit;
       throw error;
     }
   }
@@ -66,7 +68,11 @@ class TransactionalMemoryStore {
   async getDecision(id) { return this.state.decisions.get(id) || null; }
   async putConfirmation(record) { this.state.confirmations.set(record.id, { ...record }); return record; }
   async getConfirmation(id) { return this.state.confirmations.get(id) || null; }
-  async appendAudit(record) { this.state.audit.push({ ...record }); return record; }
+  async appendAudit(record) {
+    if (this.state.failAudit) throw new Error('audit unavailable');
+    this.state.audit.push({ ...record });
+    return record;
+  }
   async listAudit({ entityId, correlationId } = {}) {
     return this.state.audit.filter(event =>
       (!entityId || event.entityId === entityId) &&
@@ -99,15 +105,14 @@ test('task and audit are committed atomically', async () => {
 
 test('failed audit rolls back entity write', async () => {
   const { service, store } = createService();
-  const original = store.appendAudit.bind(store);
-  store.appendAudit = async () => { throw new Error('audit unavailable'); };
+  store.state.failAudit = true;
 
   await assert.rejects(
     service.createTask({ ownerId: 'sergey', title: 'Не должна сохраниться', domain: 'business' }, actor),
     /audit unavailable/
   );
   assert.equal(store.state.tasks.size, 0);
-  store.appendAudit = original;
+  assert.equal(store.state.audit.length, 0);
 });
 
 test('task transition preserves external owner id and audit history', async () => {
