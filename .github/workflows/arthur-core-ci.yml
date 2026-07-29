@@ -66,6 +66,9 @@ jobs:
           if (!serialized.includes('$env.ARTHUR_API_TOKEN')) {
             throw new Error('n8n workflow must read token from environment');
           }
+          if (!serialized.includes('sourceType')) {
+            throw new Error('n8n workflow must send canonical sourceType');
+          }
           if (/change-this|ci-n8n-token/.test(serialized)) {
             throw new Error('n8n workflow contains a hard-coded token');
           }
@@ -181,7 +184,7 @@ jobs:
             if (profile.status !== 201) throw new Error(`Profile creation failed: ${profile.status} ${await profile.text()}`);
             const task = await fetch(`${base}/v1/tasks`, {
               method: 'POST', headers,
-              body: JSON.stringify({ ownerId: 'sergey', domain: 'business', title: 'CI: задача из n8n', source: 'n8n' })
+              body: JSON.stringify({ ownerId: 'sergey', domain: 'business', title: 'CI: задача из n8n', sourceType: 'n8n' })
             });
             const body = await task.json();
             if (task.status !== 201 || body.data?.title !== 'CI: задача из n8n') {
