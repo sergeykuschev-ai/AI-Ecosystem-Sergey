@@ -47,7 +47,7 @@ jobs:
         run: npm test
 
       - name: Apply Arthur Core migration
-        run: psql "$ARTHUR_DATABASE_URL" -v ON_ERROR_STOP=1 -f data/arthur/migrations/001_arthur_core_base.sql
+        run: psql "$ARTHUR_DATABASE_URL" -v ON_ERROR_STOP=1 -f data/arthur/migrations/001_core_profile_memory_audit.up.sql
 
       - name: Verify Arthur Core schema
         run: |
@@ -58,4 +58,4 @@ jobs:
           SQL
 
       - name: Roll back Arthur Core migration
-        run: psql "$ARTHUR_DATABASE_URL" -v ON_ERROR_STOP=1 -f data/arthur/migrations/001_arthur_core_base.down.sql
+        run: psql "$ARTHUR_DATABASE_URL" -v ON_ERROR_STOP=1 -f data/arthur/migrations/001_core_profile_memory_audit.down.sql
