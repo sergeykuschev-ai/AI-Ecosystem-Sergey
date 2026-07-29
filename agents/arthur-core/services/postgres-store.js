@@ -135,16 +135,18 @@ class PostgresArthurStore {
     const result = await this.client.query(
       `INSERT INTO arthur_tasks
        (id, owner_id, domain, title, description, status, priority, due_at, waiting_for,
-        next_check_at, completed_at, created_at, updated_at)
-       VALUES ($1,(SELECT id FROM arthur_profiles WHERE external_id=$2),$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+        next_check_at, completed_at, source_type, source_ref, created_at, updated_at)
+       VALUES ($1,(SELECT id FROM arthur_profiles WHERE external_id=$2),$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
        ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, description=EXCLUDED.description,
          status=EXCLUDED.status, priority=EXCLUDED.priority, due_at=EXCLUDED.due_at,
          waiting_for=EXCLUDED.waiting_for, next_check_at=EXCLUDED.next_check_at,
-         completed_at=EXCLUDED.completed_at, updated_at=EXCLUDED.updated_at
+         completed_at=EXCLUDED.completed_at, source_type=EXCLUDED.source_type,
+         source_ref=EXCLUDED.source_ref, updated_at=EXCLUDED.updated_at
        RETURNING *`,
       [record.id, record.ownerId, record.domain, record.title, record.description || null,
         record.status, record.priority, record.dueAt || null, record.waitingFor || null,
-        record.nextCheckAt || null, record.completedAt || null, record.createdAt, record.updatedAt]
+        record.nextCheckAt || null, record.completedAt || null, record.sourceType || 'api',
+        record.sourceRef || null, record.createdAt, record.updatedAt]
     );
     return mapCommon(first(result));
   }
