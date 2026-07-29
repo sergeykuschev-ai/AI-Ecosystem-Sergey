@@ -46,29 +46,30 @@ jobs:
       - name: Run all tests
         run: npm test
 
-      - name: Apply Arthur Core migration
-        run: psql "$ARTHUR_DATABASE_URL" -v ON_ERROR_STOP=1 -f data/arthur/migrations/001_core_profile_memory_audit.up.sql
+      - name: Apply Arthur Core migrations
+        run: |
+          psql "$ARTHUR_DATABASE_URL" -v ON_ERROR_STOP=1 -f data/arthur/migrations/001_core_profile_memory_audit.up.sql
+          psql "$ARTHUR_DATABASE_URL" -v ON_ERROR_STOP=1 -f data/arthur/migrations/002_tasks_decisions_confirmations.up.sql
 
       - name: Verify Arthur Core schema
         run: |
           psql "$ARTHUR_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
           DO $$
           BEGIN
-            IF to_regclass('public.arthur_profiles') IS NULL THEN
-              RAISE EXCEPTION 'arthur_profiles table is missing';
-            END IF;
-            IF to_regclass('public.arthur_memory') IS NULL THEN
-              RAISE EXCEPTION 'arthur_memory table is missing';
-            END IF;
-            IF to_regclass('public.arthur_audit_events') IS NULL THEN
-              RAISE EXCEPTION 'arthur_audit_events table is missing';
-            END IF;
+            IF to_regclass('public.arthur_profiles') IS NULL THEN RAISE EXCEPTION 'arthur_profiles table is missing'; END IF;
+            IF to_regclass('public.arthur_memory') IS NULL THEN RAISE EXCEPTION 'arthur_memory table is missing'; END IF;
+            IF to_regclass('public.arthur_audit_events') IS NULL THEN RAISE EXCEPTION 'arthur_audit_events table is missing'; END IF;
+            IF to_regclass('public.arthur_tasks') IS NULL THEN RAISE EXCEPTION 'arthur_tasks table is missing'; END IF;
+            IF to_regclass('public.arthur_decisions') IS NULL THEN RAISE EXCEPTION 'arthur_decisions table is missing'; END IF;
+            IF to_regclass('public.arthur_confirmations') IS NULL THEN RAISE EXCEPTION 'arthur_confirmations table is missing'; END IF;
           END
           $$;
           SQL
 
-      - name: Roll back Arthur Core migration
-        run: psql "$ARTHUR_DATABASE_URL" -v ON_ERROR_STOP=1 -f data/arthur/migrations/001_core_profile_memory_audit.down.sql
+      - name: Roll back Arthur Core migrations
+        run: |
+          psql "$ARTHUR_DATABASE_URL" -v ON_ERROR_STOP=1 -f data/arthur/migrations/002_tasks_decisions_confirmations.down.sql
+          psql "$ARTHUR_DATABASE_URL" -v ON_ERROR_STOP=1 -f data/arthur/migrations/001_core_profile_memory_audit.down.sql
 
       - name: Verify rollback
         run: |
@@ -77,7 +78,10 @@ jobs:
           BEGIN
             IF to_regclass('public.arthur_profiles') IS NOT NULL
               OR to_regclass('public.arthur_memory') IS NOT NULL
-              OR to_regclass('public.arthur_audit_events') IS NOT NULL THEN
+              OR to_regclass('public.arthur_audit_events') IS NOT NULL
+              OR to_regclass('public.arthur_tasks') IS NOT NULL
+              OR to_regclass('public.arthur_decisions') IS NOT NULL
+              OR to_regclass('public.arthur_confirmations') IS NOT NULL THEN
               RAISE EXCEPTION 'Arthur Core rollback left database objects behind';
             END IF;
           END
