@@ -168,7 +168,7 @@ jobs:
           $COMPOSE up --detach --wait
           docker network inspect arthur_n8n_ci >/dev/null
           test -z "$(docker inspect -f '{{range $p, $conf := .NetworkSettings.Ports}}{{if $conf}}{{$p}}{{end}}{{end}}' arthur-core-api-1)"
-          docker run --rm --network arthur_n8n_ci node:22-alpine node - <<'NODE'
+          docker run --rm -i --network arthur_n8n_ci node:22-alpine node - <<'NODE'
           const base = 'http://arthur-api:8787';
           const headers = { 'content-type': 'application/json', 'x-arthur-api-token': 'ci-n8n-token', 'x-arthur-actor-id': 'n8n' };
           (async () => {
