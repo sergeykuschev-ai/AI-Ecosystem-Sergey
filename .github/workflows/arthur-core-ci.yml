@@ -78,7 +78,7 @@ jobs:
             IF to_regclass('public.arthur_profiles') IS NOT NULL
               OR to_regclass('public.arthur_memory') IS NOT NULL
               OR to_regclass('public.arthur_audit_events') IS NOT NULL THEN
-              RAISE EXCEPTION 'Arthur Core rollback left database objects behind';
+              RAISE EXCEPTION 'Arthur Core rollback did not remove all tables';
             END IF;
           END
           $$;
