@@ -16,6 +16,11 @@ const TASK_STATUSES = Object.freeze([
   'needs_confirmation', 'done', 'cancelled'
 ]);
 const TASK_PRIORITIES = Object.freeze(['low', 'normal', 'high', 'critical']);
+const DECISION_STATUSES = Object.freeze(['active', 'superseded', 'reversed']);
+const CONFIRMATION_RISKS = Object.freeze(['low', 'medium', 'high']);
+const CONFIRMATION_STATUSES = Object.freeze([
+  'pending', 'approved', 'rejected', 'expired', 'executed', 'failed'
+]);
 const ACTOR_TYPES = Object.freeze(['user', 'system', 'skill', 'automation']);
 const AUDIT_RESULTS = Object.freeze(['success', 'failure']);
 
@@ -26,6 +31,9 @@ module.exports = {
   SENSITIVITY_LEVELS,
   TASK_STATUSES,
   TASK_PRIORITIES,
+  DECISION_STATUSES,
+  CONFIRMATION_RISKS,
+  CONFIRMATION_STATUSES,
   ACTOR_TYPES,
   AUDIT_RESULTS
 };
