@@ -4,7 +4,7 @@ const { createArthurRuntime } = require('./create-runtime');
 const { createArthurHttpServer } = require('../http/create-server');
 
 function parsePort(value) {
-  const port = Number(value || 8787);
+  const port = Number(value === undefined ? 8787 : value);
   if (!Number.isInteger(port) || port < 0 || port > 65535) {
     throw new RangeError('ARTHUR_HTTP_PORT must be an integer between 0 and 65535');
   }
@@ -12,11 +12,19 @@ function parsePort(value) {
 }
 
 function parseHost(value) {
-  const host = value || '127.0.0.1';
+  const host = value === undefined ? '127.0.0.1' : value;
   if (typeof host !== 'string' || host.trim() === '') {
     throw new TypeError('ARTHUR_HTTP_HOST must be a non-empty string');
   }
   return host.trim();
+}
+
+function parseShutdownTimeout(value) {
+  const timeout = Number(value === undefined ? 10000 : value);
+  if (!Number.isInteger(timeout) || timeout <= 0) {
+    throw new RangeError('ARTHUR_SHUTDOWN_TIMEOUT_MS must be a positive integer');
+  }
+  return timeout;
 }
 
 async function startArthurServer({
@@ -25,22 +33,17 @@ async function startArthurServer({
   serverFactory = createArthurHttpServer,
   logger = console
 } = {}) {
-  const runtime = runtimeFactory({ env });
-  const server = serverFactory({ runtime });
   const host = parseHost(env.ARTHUR_HTTP_HOST);
   const port = parsePort(env.ARTHUR_HTTP_PORT);
-  const shutdownTimeoutMs = Number(env.ARTHUR_SHUTDOWN_TIMEOUT_MS || 10000);
-
-  if (!Number.isInteger(shutdownTimeoutMs) || shutdownTimeoutMs <= 0) {
-    throw new RangeError('ARTHUR_SHUTDOWN_TIMEOUT_MS must be a positive integer');
-  }
+  const shutdownTimeoutMs = parseShutdownTimeout(env.ARTHUR_SHUTDOWN_TIMEOUT_MS);
+  const runtime = runtimeFactory({ env });
+  const server = serverFactory({ runtime });
 
   let stopping = false;
   let stopped = false;
 
   async function stop(signal = 'manual') {
-    if (stopped) return;
-    if (stopping) return;
+    if (stopped || stopping) return;
     stopping = true;
 
     const forceTimer = setTimeout(() => {
@@ -50,9 +53,11 @@ async function startArthurServer({
     forceTimer.unref?.();
 
     try {
-      await new Promise((resolve, reject) => {
-        server.close(error => error ? reject(error) : resolve());
-      });
+      if (server.listening) {
+        await new Promise((resolve, reject) => {
+          server.close(error => error ? reject(error) : resolve());
+        });
+      }
       await runtime.close();
       stopped = true;
       logger.info?.(`Arthur Core stopped (${signal})`);
@@ -62,13 +67,18 @@ async function startArthurServer({
     }
   }
 
-  await new Promise((resolve, reject) => {
-    server.once('error', reject);
-    server.listen(port, host, () => {
-      server.off('error', reject);
-      resolve();
+  try {
+    await new Promise((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(port, host, () => {
+        server.off('error', reject);
+        resolve();
+      });
     });
-  });
+  } catch (error) {
+    await runtime.close();
+    throw error;
+  }
 
   const address = server.address();
   logger.info?.(`Arthur Core listening on http://${address.address}:${address.port}`);
@@ -98,4 +108,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { parsePort, parseHost, startArthurServer, main };
+module.exports = { parsePort, parseHost, parseShutdownTimeout, startArthurServer, main };
