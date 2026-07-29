@@ -1,7 +1,7 @@
 'use strict';
 
 const http = require('node:http');
-const { randomUUID } = require('node:crypto');
+const { randomUUID, timingSafeEqual } = require('node:crypto');
 
 const DEFAULT_BODY_LIMIT = 1024 * 1024;
 
@@ -45,6 +45,23 @@ function actorContext(request) {
   };
 }
 
+function extractToken(request) {
+  const authorization = request.headers.authorization;
+  if (typeof authorization === 'string' && authorization.startsWith('Bearer ')) {
+    return authorization.slice(7).trim();
+  }
+  const headerToken = request.headers['x-arthur-api-token'];
+  return typeof headerToken === 'string' ? headerToken.trim() : '';
+}
+
+function tokensMatch(actual, expected) {
+  if (!actual || !expected) return false;
+  const actualBuffer = Buffer.from(actual);
+  const expectedBuffer = Buffer.from(expected);
+  if (actualBuffer.length !== expectedBuffer.length) return false;
+  return timingSafeEqual(actualBuffer, expectedBuffer);
+}
+
 function errorStatus(error) {
   if (error.statusCode) return error.statusCode;
   if (error instanceof TypeError || error instanceof RangeError) return 400;
@@ -53,7 +70,7 @@ function errorStatus(error) {
   return 500;
 }
 
-function createArthurHttpHandler({ runtime, bodyLimit = DEFAULT_BODY_LIMIT } = {}) {
+function createArthurHttpHandler({ runtime, bodyLimit = DEFAULT_BODY_LIMIT, apiToken = process.env.ARTHUR_API_TOKEN } = {}) {
   if (!runtime || !runtime.service || typeof runtime.healthcheck !== 'function') {
     throw new TypeError('Arthur runtime with service and healthcheck is required');
   }
@@ -66,6 +83,10 @@ function createArthurHttpHandler({ runtime, bodyLimit = DEFAULT_BODY_LIMIT } = {
       if (request.method === 'GET' && path === '/health') {
         const healthy = await runtime.healthcheck();
         return sendJson(response, healthy ? 200 : 503, { ok: healthy, service: 'arthur-core' });
+      }
+
+      if (path.startsWith('/v1/') && apiToken && !tokensMatch(extractToken(request), apiToken)) {
+        return sendJson(response, 401, { error: { code: 'unauthorized', message: 'Valid Arthur API token is required' } });
       }
 
       if (request.method === 'POST' && path === '/v1/profiles') {
@@ -124,4 +145,4 @@ function createArthurHttpServer(options) {
   return http.createServer(createArthurHttpHandler(options));
 }
 
-module.exports = { createArthurHttpHandler, createArthurHttpServer, readJson };
+module.exports = { createArthurHttpHandler, createArthurHttpServer, readJson, extractToken, tokensMatch };
