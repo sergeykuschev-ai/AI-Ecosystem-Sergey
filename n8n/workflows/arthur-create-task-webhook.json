@@ -1,0 +1,98 @@
+{
+  "name": "Arthur — Создать задачу",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "arthur-create-task",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "arthur-webhook",
+      "name": "Webhook — новая задача",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [260, 300],
+      "webhookId": "arthur-create-task"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body ?? $json;\nconst title = String(body.title ?? '').trim();\nif (!title) throw new Error('Поле title обязательно');\nreturn [{ json: { ownerId: 'sergey', domain: body.domain ?? 'personal', title, description: body.description ?? null, priority: body.priority ?? 'normal', dueAt: body.dueAt ?? null, source: 'n8n', correlationId: body.correlationId ?? `n8n-${Date.now()}` } }];"
+      },
+      "id": "normalize-task",
+      "name": "Проверить данные",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://arthur-api:8787/v1/tasks",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "X-Arthur-Api-Token", "value": "={{ $env.ARTHUR_API_TOKEN }}" },
+            { "name": "X-Arthur-Actor-Id", "value": "n8n" },
+            { "name": "X-Arthur-Actor-Type", "value": "system" },
+            { "name": "X-Correlation-Id", "value": "={{ $json.correlationId }}" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ ownerId: $json.ownerId, domain: $json.domain, title: $json.title, description: $json.description, priority: $json.priority, dueAt: $json.dueAt, source: $json.source }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": false,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "create-arthur-task",
+      "name": "Arthur Core — создать задачу",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [740, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, task: $json.data }) }}",
+        "options": {
+          "responseCode": 201
+        }
+      },
+      "id": "respond-created",
+      "name": "Ответить клиенту",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [980, 300]
+    }
+  ],
+  "connections": {
+    "Webhook — новая задача": {
+      "main": [[{ "node": "Проверить данные", "type": "main", "index": 0 }]]
+    },
+    "Проверить данные": {
+      "main": [[{ "node": "Arthur Core — создать задачу", "type": "main", "index": 0 }]]
+    },
+    "Arthur Core — создать задачу": {
+      "main": [[{ "node": "Ответить клиенту", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "active": false,
+  "versionId": "arthur-create-task-v1",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}
