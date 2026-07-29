@@ -11,4 +11,4 @@ COPY --from=dependencies /opt/arthur/agents/arthur-core/node_modules ./agents/ar
 COPY agents/arthur-core ./agents/arthur-core
 USER arthur
 EXPOSE 8787
-CMD ["node", "agents/arthur-core/runtime/server.js"]
+CMD ["node", "agents/arthur-core/runtime/start-server.js"]
