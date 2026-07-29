@@ -1,5 +1,27 @@
 # AI-Ecosystem-Sergey
-AI-экосистема Сергея Кущева
+
+AI-экосистема Сергея Кущева.
+
+## Arthur OS
+
+Arthur OS — единая AI-система для личных задач, бизнеса, памяти, автоматизаций и специализированных навыков.
+
+Главный принцип проекта: один Артур, один интерфейс, одна структурированная память, один список задач и единый журнал решений. Специализированные решения не создаются как изолированные конечные ассистенты — они подключаются к Arthur Core как навыки с ограниченными правами доступа.
+
+Текущий Purchasing Agent for Miska является первым зрелым бизнес-навыком Arthur OS. Он не переписывается ради новой архитектуры и в дальнейшем будет подключён через единый оркестратор.
+
+Каноническая документация проекта находится в [`docs/arthur/`](docs/arthur/):
+
+- [видение](docs/arthur/00_PROJECT_VISION.md);
+- [Master Plan](docs/arthur/01_MASTER_PLAN.md);
+- [Roadmap](docs/arthur/02_ROADMAP.md);
+- [архитектура](docs/arthur/03_ARCHITECTURE.md);
+- [модель памяти](docs/arthur/04_MEMORY_MODEL.md);
+- [принципы](docs/arthur/05_PRINCIPLES.md);
+- [безопасность](docs/arthur/06_SECURITY.md);
+- [правила разработки](docs/arthur/07_DEVELOPMENT_RULES.md);
+- [реестр модулей](docs/arthur/08_MODULES.md);
+- [backlog](docs/arthur/10_BACKLOG.md).
 
 ## Purchasing Agent for Miska
 
