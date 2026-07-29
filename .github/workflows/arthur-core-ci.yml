@@ -1,0 +1,85 @@
+name: Arthur Core CI
+
+on:
+  pull_request:
+    paths:
+      - 'agents/arthur-core/**'
+      - 'data/arthur/**'
+      - 'package.json'
+      - '.github/workflows/arthur-core-ci.yml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: arthur
+          POSTGRES_PASSWORD: arthur
+          POSTGRES_DB: arthur_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U arthur -d arthur_test"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      ARTHUR_DATABASE_URL: postgresql://arthur:arthur@localhost:5432/arthur_test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run all tests
+        run: npm test
+
+      - name: Apply Arthur Core migration
+        run: psql "$ARTHUR_DATABASE_URL" -v ON_ERROR_STOP=1 -f data/arthur/migrations/001_core_profile_memory_audit.up.sql
+
+      - name: Verify Arthur Core schema
+        run: |
+          psql "$ARTHUR_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          BEGIN
+            IF to_regclass('public.arthur_profiles') IS NULL THEN
+              RAISE EXCEPTION 'arthur_profiles table is missing';
+            END IF;
+            IF to_regclass('public.arthur_memory') IS NULL THEN
+              RAISE EXCEPTION 'arthur_memory table is missing';
+            END IF;
+            IF to_regclass('public.arthur_audit_events') IS NULL THEN
+              RAISE EXCEPTION 'arthur_audit_events table is missing';
+            END IF;
+          END
+          $$;
+          SQL
+
+      - name: Roll back Arthur Core migration
+        run: psql "$ARTHUR_DATABASE_URL" -v ON_ERROR_STOP=1 -f data/arthur/migrations/001_core_profile_memory_audit.down.sql
+
+      - name: Verify rollback
+        run: |
+          psql "$ARTHUR_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          BEGIN
+            IF to_regclass('public.arthur_profiles') IS NOT NULL
+              OR to_regclass('public.arthur_memory') IS NOT NULL
+              OR to_regclass('public.arthur_audit_events') IS NOT NULL THEN
+              RAISE EXCEPTION 'Arthur Core rollback left database objects behind';
+            END IF;
+          END
+          $$;
+          SQL
