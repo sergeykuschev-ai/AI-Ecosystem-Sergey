@@ -44,13 +44,14 @@ test('memory upsert versions active records instead of deleting history', () => 
 test('task transition enforces workflow rules and audits success', () => {
   const { service } = createService();
   const task = service.createTask({ ownerId: 'sergey', title: 'Ждать Min/Max', domain: 'business' }, actor);
-  assert.throws(() => service.transitionTask(task.id, 'waiting', {}, actor), /waitingFor/);
-  const waiting = service.transitionTask(task.id, 'waiting', {
+  const inProgress = service.transitionTask(task.id, 'in_progress', {}, actor);
+  assert.throws(() => service.transitionTask(inProgress.id, 'waiting', {}, actor), /waitingFor/);
+  const waiting = service.transitionTask(inProgress.id, 'waiting', {
     waitingFor: 'разработчики Min/Max',
     nextCheckAt: '2026-08-01T09:00:00+02:00'
   }, actor);
   assert.equal(waiting.status, 'waiting');
-  assert.equal(service.listAudit({ entityId: task.id }).length, 2);
+  assert.equal(service.listAudit({ entityId: task.id }).length, 3);
 });
 
 test('decision superseding preserves old decision and links replacement', () => {
