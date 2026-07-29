@@ -71,12 +71,13 @@ test('memory queries resolve owner by profile external id', async () => {
 
 test('task and confirmation writes use upsert without changing payload fingerprint', async () => {
   const client = new FakeClient();
-  client.rows.push({ id: 't1', status: 'new' });
+  client.rows.push({ id: 't1', status: 'new', source_type: 'n8n', source_ref: 'webhook-1' });
   client.rows.push({ id: 'c1', status: 'pending', payload_json: { amount: 13500 }, payload_fingerprint: 'x'.repeat(64) });
   const store = new PostgresArthurStore({ client });
-  await store.putTask({
+  const task = await store.putTask({
     id: 't1', ownerId: 'sergey', domain: 'business', title: 'Проверить Min/Max',
-    status: 'new', priority: 'normal', createdAt: 'c', updatedAt: 'u'
+    status: 'new', priority: 'normal', sourceType: 'n8n', sourceRef: 'webhook-1',
+    createdAt: 'c', updatedAt: 'u'
   });
   const confirmation = await store.putConfirmation({
     id: 'c1', ownerId: 'sergey', domain: 'finance', skillId: 'purchasing',
@@ -84,6 +85,10 @@ test('task and confirmation writes use upsert without changing payload fingerpri
     payload: { amount: 13500 }, payloadFingerprint: 'x'.repeat(64), createdAt: 'c', updatedAt: 'u'
   });
   assert.match(client.calls[0].text, /INSERT INTO arthur_tasks/);
+  assert.match(client.calls[0].text, /source_type/);
+  assert.equal(client.calls[0].values[11], 'n8n');
+  assert.equal(client.calls[0].values[12], 'webhook-1');
+  assert.equal(task.sourceType, 'n8n');
   assert.match(client.calls[1].text, /payload_fingerprint/);
   assert.equal(confirmation.payloadFingerprint, 'x'.repeat(64));
 });

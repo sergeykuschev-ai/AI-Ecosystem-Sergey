@@ -67,8 +67,10 @@ services:
       retries: 12
       start_period: 10s
     networks:
-      - arthur_internal
-      - arthur_n8n
+      arthur_internal: {}
+      arthur_n8n:
+        aliases:
+          - arthur-api
 
 networks:
   arthur_internal:
