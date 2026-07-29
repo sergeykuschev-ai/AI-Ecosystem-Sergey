@@ -74,12 +74,15 @@ jobs:
           ARTHUR_HTTP_HOST: 127.0.0.1
           ARTHUR_HTTP_PORT: 18787
           ARTHUR_SHUTDOWN_TIMEOUT_MS: 5000
+          ARTHUR_API_TOKEN: ci-api-token
         run: |
           bash -c 'cd agents/arthur-core && exec node runtime/start-server.js' > /tmp/arthur-core.log 2>&1 &
           ARTHUR_PID=$!
           trap 'kill -TERM "$ARTHUR_PID" 2>/dev/null || true; wait "$ARTHUR_PID" 2>/dev/null || true' EXIT
           for attempt in {1..20}; do
             if curl --fail --silent http://127.0.0.1:18787/health | grep -q '"ok":true'; then
+              test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:18787/v1/profiles/sergey)" = "401"
+              test "$(curl --silent --output /dev/null --write-out '%{http_code}' -H 'Authorization: Bearer ci-api-token' http://127.0.0.1:18787/v1/profiles/sergey)" = "404"
               kill -TERM "$ARTHUR_PID"
               wait "$ARTHUR_PID"
               trap - EXIT
@@ -130,6 +133,8 @@ jobs:
       - name: Docker Compose stack smoke check
         env:
           ARTHUR_POSTGRES_PASSWORD: ci-arthur-password
+          ARTHUR_API_TOKEN: ci-n8n-token
+          ARTHUR_N8N_NETWORK: arthur_n8n_ci
         run: |
           COMPOSE="docker compose -f docker/arthur/compose.yml"
           trap '$COMPOSE down --volumes --remove-orphans || true' EXIT
@@ -137,6 +142,9 @@ jobs:
           $COMPOSE build api
           $COMPOSE up --detach --wait
           $COMPOSE exec -T api node -e "fetch('http://127.0.0.1:8787/health').then(async r=>{const body=await r.json();if(!r.ok||body.ok!==true)process.exit(1)}).catch(()=>process.exit(1))"
+          $COMPOSE exec -T api node -e "fetch('http://127.0.0.1:8787/v1/profiles/sergey').then(r=>{if(r.status!==401)process.exit(1)}).catch(()=>process.exit(1))"
+          $COMPOSE exec -T api node -e "fetch('http://127.0.0.1:8787/v1/profiles/sergey',{headers:{'x-arthur-api-token':'ci-n8n-token'}}).then(r=>{if(r.status!==404)process.exit(1)}).catch(()=>process.exit(1))"
+          docker network inspect arthur_n8n_ci >/dev/null
           test -z "$(docker inspect -f '{{range $p, $conf := .NetworkSettings.Ports}}{{if $conf}}{{$p}}{{end}}{{end}}' arthur-core-api-1)"
           $COMPOSE down --volumes --remove-orphans
           trap - EXIT
