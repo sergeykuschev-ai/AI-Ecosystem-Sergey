@@ -17,7 +17,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const body = $json.body ?? $json;\nconst title = String(body.title ?? '').trim();\nif (!title) throw new Error('Поле title обязательно');\nreturn [{ json: { ownerId: 'sergey', domain: body.domain ?? 'personal', title, description: body.description ?? null, priority: body.priority ?? 'normal', dueAt: body.dueAt ?? null, source: 'n8n', correlationId: body.correlationId ?? `n8n-${Date.now()}` } }];"
+        "jsCode": "const body = $json.body ?? $json;\nconst title = String(body.title ?? '').trim();\nif (!title) throw new Error('Поле title обязательно');\nreturn [{ json: { ownerId: 'sergey', domain: body.domain ?? 'personal', title, description: body.description ?? null, priority: body.priority ?? 'normal', dueAt: body.dueAt ?? null, sourceType: 'n8n', sourceRef: body.sourceRef ?? null, correlationId: body.correlationId ?? `n8n-${Date.now()}` } }];"
       },
       "id": "normalize-task",
       "name": "Проверить данные",
@@ -42,7 +42,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ ownerId: $json.ownerId, domain: $json.domain, title: $json.title, description: $json.description, priority: $json.priority, dueAt: $json.dueAt, source: $json.source }) }}",
+        "body": "={{ JSON.stringify({ ownerId: $json.ownerId, domain: $json.domain, title: $json.title, description: $json.description, priority: $json.priority, dueAt: $json.dueAt, sourceType: $json.sourceType, sourceRef: $json.sourceRef }) }}",
         "options": {
           "response": {
             "response": {
