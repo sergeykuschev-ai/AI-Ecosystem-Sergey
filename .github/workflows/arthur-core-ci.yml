@@ -5,6 +5,7 @@ on:
     paths:
       - 'agents/arthur-core/**'
       - 'data/arthur/**'
+      - 'docker/arthur/**'
       - 'package.json'
       - '.github/workflows/arthur-core-ci.yml'
   workflow_dispatch:
@@ -125,3 +126,17 @@ jobs:
           END
           $$;
           SQL
+
+      - name: Docker Compose stack smoke check
+        env:
+          ARTHUR_POSTGRES_PASSWORD: ci-arthur-password
+        run: |
+          COMPOSE="docker compose -f docker/arthur/compose.yml"
+          trap '$COMPOSE down --volumes --remove-orphans || true' EXIT
+          $COMPOSE config --quiet
+          $COMPOSE build api
+          $COMPOSE up --detach --wait
+          $COMPOSE exec -T api node -e "fetch('http://127.0.0.1:8787/health').then(async r=>{const body=await r.json();if(!r.ok||body.ok!==true)process.exit(1)}).catch(()=>process.exit(1))"
+          test -z "$(docker inspect -f '{{range $p, $conf := .NetworkSettings.Ports}}{{if $conf}}{{$p}}{{end}}{{end}}' arthur-core-api-1)"
+          $COMPOSE down --volumes --remove-orphans
+          trap - EXIT
