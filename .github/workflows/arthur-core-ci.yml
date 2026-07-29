@@ -28,6 +28,7 @@ jobs:
           --health-retries=5
 
     env:
+      NODE_ENV: test
       ARTHUR_DATABASE_URL: postgresql://arthur:arthur@localhost:5432/arthur_test
 
     steps:
@@ -41,7 +42,9 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm ci
+          npm install --prefix agents/arthur-core --ignore-scripts --no-audit --no-fund
 
       - name: Run all tests
         run: npm test
@@ -50,6 +53,20 @@ jobs:
         run: |
           psql "$ARTHUR_DATABASE_URL" -v ON_ERROR_STOP=1 -f data/arthur/migrations/001_core_profile_memory_audit.up.sql
           psql "$ARTHUR_DATABASE_URL" -v ON_ERROR_STOP=1 -f data/arthur/migrations/002_tasks_decisions_confirmations.up.sql
+
+      - name: Runtime smoke check
+        run: |
+          node - <<'NODE'
+          const { createArthurRuntime } = require('./agents/arthur-core/runtime/create-runtime');
+          (async () => {
+            const runtime = createArthurRuntime();
+            try {
+              if (!(await runtime.healthcheck())) throw new Error('Arthur runtime healthcheck failed');
+            } finally {
+              await runtime.close();
+            }
+          })().catch(error => { console.error(error); process.exit(1); });
+          NODE
 
       - name: Verify Arthur Core schema
         run: |
