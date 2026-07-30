@@ -1,7 +1,7 @@
 'use strict';
 
 const { PostgresArthurStore } = require('../services/postgres-store');
-const { AsyncArthurCoreService } = require('../services/async-arthur-core-service');
+const { TaskBriefingService } = require('../services/task-briefing-service');
 
 function requireString(value, name) {
   if (typeof value !== 'string' || value.trim() === '') {
@@ -73,7 +73,7 @@ function createArthurRuntime({ env = process.env, PoolClass, clock, idFactory } 
   const RuntimePool = PoolClass || loadPoolClass();
   const pool = new RuntimePool(buildPoolConfig(env));
   const store = new PostgresArthurStore({ client: pool });
-  const service = new AsyncArthurCoreService({ store, clock, idFactory });
+  const service = new TaskBriefingService({ store, clock, idFactory });
 
   return {
     pool,
