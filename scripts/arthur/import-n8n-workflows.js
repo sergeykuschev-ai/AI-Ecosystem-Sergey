@@ -9,17 +9,38 @@ function required(name) {
   return value.trim();
 }
 
+const WORKFLOWS = Object.freeze({
+  'arthur-create-task-production': Object.freeze({
+    file: 'n8n/workflows/arthur-create-task-production.json',
+    requiresTelegram: false
+  }),
+  'arthur-morning-task-brief-production': Object.freeze({
+    file: 'n8n/workflows/arthur-morning-task-brief-production.json',
+    requiresTelegram: true
+  })
+});
+
+function selectedWorkflow() {
+  const name = required('ARTHUR_N8N_WORKFLOW');
+  const workflow = WORKFLOWS[name];
+  if (!workflow) {
+    throw new Error(
+      `Unknown ARTHUR_N8N_WORKFLOW "${name}". Supported values: ${Object.keys(WORKFLOWS).join(', ')}`
+    );
+  }
+  return { name, ...workflow };
+}
+
+const selectedWorkflowConfig = selectedWorkflow();
 const baseUrl = required('N8N_BASE_URL').replace(/\/$/, '');
 const apiKey = required('N8N_API_KEY');
 const arthurCredentialId = required('N8N_ARTHUR_CREDENTIAL_ID');
-const telegramCredentialId = required('N8N_TELEGRAM_CREDENTIAL_ID');
-const telegramChatId = required('N8N_TELEGRAM_CHAT_ID');
-const activate = process.env.N8N_ACTIVATE_WORKFLOWS !== 'false';
-
-const workflows = [
-  'n8n/workflows/arthur-create-task-production.json',
-  'n8n/workflows/arthur-morning-task-brief-production.json'
-];
+const telegramCredentialId = selectedWorkflowConfig.requiresTelegram
+  ? required('N8N_TELEGRAM_CREDENTIAL_ID')
+  : null;
+const telegramChatId = selectedWorkflowConfig.requiresTelegram
+  ? required('N8N_TELEGRAM_CHAT_ID')
+  : null;
 
 function sanitizeWorkflow(input) {
   const workflow = structuredClone(input);
@@ -74,14 +95,16 @@ async function upsertWorkflow(file) {
     : await request('POST', '/workflows', payload);
   const id = saved.id || saved.data?.id || existing?.id;
   if (!id) throw new Error(`n8n did not return workflow id for ${payload.name}`);
-  if (activate) await request('POST', `/workflows/${encodeURIComponent(id)}/activate`);
-  return { id, name: payload.name, action: existing ? 'updated' : 'created', active: activate };
+  const savedActive = saved.active ?? saved.data?.active ?? existing?.active;
+  if (savedActive !== false) {
+    await request('POST', `/workflows/${encodeURIComponent(id)}/deactivate`);
+  }
+  return { id, name: payload.name, action: existing ? 'updated' : 'created', active: false };
 }
 
 (async () => {
-  const results = [];
-  for (const file of workflows) results.push(await upsertWorkflow(file));
-  console.log(JSON.stringify({ ok: true, workflows: results }, null, 2));
+  const result = await upsertWorkflow(selectedWorkflowConfig.file);
+  console.log(JSON.stringify({ ok: true, workflow: result }, null, 2));
 })().catch(error => {
   console.error(error.message);
   process.exit(1);

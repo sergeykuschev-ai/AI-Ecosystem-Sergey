@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'n8n/workflows/**'
+      - 'scripts/arthur/import-n8n-workflows.js'
+      - 'scripts/arthur/n8n-import.env.example'
       - 'docs/arthur/**'
       - '.github/workflows/arthur-n8n-workflows-ci.yml'
   workflow_dispatch:
@@ -68,4 +70,131 @@ jobs:
           if (!telegram.credentials?.telegramApi || telegram.credentials.telegramApi.id !== 'REPLACE_IN_N8N') {
             throw new Error('Morning brief must use a Telegram credential placeholder');
           }
+          NODE
+
+      - name: Validate minimal create-task importer
+        run: |
+          node - <<'NODE'
+          const assert = require('node:assert/strict');
+          const http = require('node:http');
+          const { spawn } = require('node:child_process');
+          const { once } = require('node:events');
+
+          let savedWorkflow = null;
+          const calls = [];
+
+          async function readBody(request) {
+            const chunks = [];
+            for await (const chunk of request) chunks.push(chunk);
+            return chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : null;
+          }
+
+          function send(response, status, body) {
+            response.writeHead(status, { 'content-type': 'application/json' });
+            response.end(JSON.stringify(body));
+          }
+
+          const server = http.createServer(async (request, response) => {
+            try {
+              const url = new URL(request.url, 'http://127.0.0.1');
+              const body = await readBody(request);
+              calls.push({ method: request.method, path: url.pathname, body });
+
+              if (request.method === 'GET' && url.pathname === '/api/v1/workflows') {
+                return send(response, 200, { data: savedWorkflow ? [savedWorkflow] : [] });
+              }
+              if (request.method === 'POST' && url.pathname === '/api/v1/workflows') {
+                savedWorkflow = { ...body, id: 'workflow-1', active: false };
+                return send(response, 201, savedWorkflow);
+              }
+              if (request.method === 'PUT' && url.pathname === '/api/v1/workflows/workflow-1') {
+                savedWorkflow = { ...body, id: 'workflow-1', active: savedWorkflow.active };
+                return send(response, 200, savedWorkflow);
+              }
+              if (request.method === 'POST' && url.pathname === '/api/v1/workflows/workflow-1/deactivate') {
+                savedWorkflow.active = false;
+                return send(response, 200, savedWorkflow);
+              }
+              return send(response, 404, { message: 'not found' });
+            } catch (error) {
+              return send(response, 500, { message: error.message });
+            }
+          });
+
+          function runImporter(baseUrl, workflow, extraEnv = {}) {
+            const env = {
+              ...process.env,
+              N8N_BASE_URL: baseUrl,
+              N8N_API_KEY: 'ci-api-key',
+              N8N_ARTHUR_CREDENTIAL_ID: 'ci-arthur-credential',
+              ARTHUR_N8N_WORKFLOW: workflow
+            };
+            delete env.N8N_TELEGRAM_CREDENTIAL_ID;
+            delete env.N8N_TELEGRAM_CHAT_ID;
+            Object.assign(env, extraEnv);
+
+            return new Promise((resolve, reject) => {
+              const child = spawn(process.execPath, ['scripts/arthur/import-n8n-workflows.js'], { env });
+              let stdout = '';
+              let stderr = '';
+              child.stdout.on('data', chunk => { stdout += chunk; });
+              child.stderr.on('data', chunk => { stderr += chunk; });
+              child.on('error', reject);
+              child.on('close', code => resolve({ code, stdout, stderr }));
+            });
+          }
+
+          (async () => {
+            server.listen(0, '127.0.0.1');
+            await once(server, 'listening');
+            const baseUrl = `http://127.0.0.1:${server.address().port}`;
+
+            const created = await runImporter(baseUrl, 'arthur-create-task-production');
+            assert.equal(created.code, 0, created.stderr);
+            assert.deepEqual(JSON.parse(created.stdout).workflow, {
+              id: 'workflow-1',
+              name: 'Arthur — Создать задачу (production)',
+              action: 'created',
+              active: false
+            });
+            assert.equal(savedWorkflow.active, false);
+            assert.equal(
+              savedWorkflow.nodes.find(node => node.credentials?.httpHeaderAuth)
+                .credentials.httpHeaderAuth.id,
+              'ci-arthur-credential'
+            );
+
+            savedWorkflow.active = true;
+            const updated = await runImporter(baseUrl, 'arthur-create-task-production');
+            assert.equal(updated.code, 0, updated.stderr);
+            assert.equal(JSON.parse(updated.stdout).workflow.action, 'updated');
+            assert.equal(savedWorkflow.active, false);
+            assert.equal(calls.filter(call => call.method === 'POST' && call.path === '/api/v1/workflows').length, 1);
+            assert.equal(calls.filter(call => call.method === 'PUT' && call.path === '/api/v1/workflows/workflow-1').length, 1);
+            assert.equal(calls.filter(call => call.path.endsWith('/deactivate')).length, 1);
+
+            const callsBeforeErrors = calls.length;
+            const missingTelegram = await runImporter(baseUrl, 'arthur-morning-task-brief-production');
+            assert.notEqual(missingTelegram.code, 0);
+            assert.match(missingTelegram.stderr, /N8N_TELEGRAM_CREDENTIAL_ID is required/);
+
+            const missingChatId = await runImporter(baseUrl, 'arthur-morning-task-brief-production', {
+              N8N_TELEGRAM_CREDENTIAL_ID: 'ci-telegram-credential'
+            });
+            assert.notEqual(missingChatId.code, 0);
+            assert.match(missingChatId.stderr, /N8N_TELEGRAM_CHAT_ID is required/);
+
+            const unknown = await runImporter(baseUrl, 'unknown-workflow');
+            assert.notEqual(unknown.code, 0);
+            assert.match(unknown.stderr, /Unknown ARTHUR_N8N_WORKFLOW "unknown-workflow"/);
+            assert.match(unknown.stderr, /arthur-create-task-production/);
+            assert.equal(calls.length, callsBeforeErrors);
+
+            server.close();
+            await once(server, 'close');
+          })().catch(error => {
+            server.close();
+            console.error(error);
+            process.exitCode = 1;
+          });
           NODE
