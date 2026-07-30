@@ -2,12 +2,17 @@
 
 ## Назначение
 
-Скрипт `scripts/arthur/import-n8n-workflows.js` загружает или обновляет два production workflow:
+Скрипт `scripts/arthur/import-n8n-workflows.js` загружает или обновляет один явно выбранный production workflow.
+Выбор задаётся переменной `ARTHUR_N8N_WORKFLOW`.
 
-- `Arthur — Создать задачу (production)`;
-- `Arthur — Утренняя сводка задач`.
+Поддерживаются:
 
-После загрузки скрипт может сразу активировать их. Повторный запуск не создаёт дубликаты: workflow ищутся по точному имени и обновляются.
+- `arthur-create-task-production` — `Arthur — Создать задачу (production)`;
+- `arthur-morning-task-brief-production` — `Arthur — Утренняя сводка задач`.
+
+Неизвестное или пустое значение завершает скрипт с понятной ошибкой до обращения к n8n.
+После загрузки workflow всегда деактивируется. Повторный запуск не создаёт дубликат:
+workflow ищется по точному имени и обновляется.
 
 ## Что нужно один раз создать в n8n
 
@@ -15,12 +20,20 @@
 2. Header Auth credential `Arthur Core API Token`:
    - Header Name: `X-Arthur-Api-Token`;
    - Value: production-токен Arthur Core.
-3. Telegram credential с токеном бота.
-4. Узнать личный Telegram chat ID Сергея.
 
 Секреты не записываются в Git и не вставляются в workflow JSON.
 
-## Запуск
+Для `arthur-create-task-production` Telegram credential и Telegram chat ID не нужны.
+Они обязательны только для `arthur-morning-task-brief-production`.
+
+## Проверить профиль владельца
+
+До создания первой задачи защищённый запрос `GET /v1/profiles/sergey` должен вернуть профиль.
+Если Arthur Core возвращает `404`, импорт workflow можно выполнить, но активировать и вызывать его нельзя:
+сначала нужно отдельно согласовать данные профиля и создать `sergey` через `POST /v1/profiles`.
+Скрипт импорта не создаёт и не изменяет профиль.
+
+## Безопасный импорт create-task
 
 Скопировать пример окружения:
 
@@ -34,8 +47,11 @@ cp scripts/arthur/n8n-import.env.example .env.n8n-import
 set -a
 source .env.n8n-import
 set +a
-node scripts/arthur/import-n8n-workflows.js
+ARTHUR_N8N_WORKFLOW=arthur-create-task-production node scripts/arthur/import-n8n-workflows.js
 ```
+
+Скрипт создаст или обновит только `Arthur — Создать задачу (production)` и оставит его выключенным.
+После проверки настроек и профиля `sergey` workflow активируется отдельным контролируемым действием.
 
 PowerShell:
 
@@ -43,20 +59,22 @@ PowerShell:
 $env:N8N_BASE_URL="https://адрес-n8n"
 $env:N8N_API_KEY="секрет"
 $env:N8N_ARTHUR_CREDENTIAL_ID="id-credential"
-$env:N8N_TELEGRAM_CREDENTIAL_ID="id-credential"
-$env:N8N_TELEGRAM_CHAT_ID="личный-chat-id"
+$env:ARTHUR_N8N_WORKFLOW="arthur-create-task-production"
 node scripts/arthur/import-n8n-workflows.js
 ```
 
-## Безопасная первая проверка
+## Импорт morning brief
 
-Для загрузки без активации:
+Для утренней сводки выбрать другой workflow и дополнительно передать идентификаторы Telegram:
 
 ```bash
-N8N_ACTIVATE_WORKFLOWS=false node scripts/arthur/import-n8n-workflows.js
+ARTHUR_N8N_WORKFLOW=arthur-morning-task-brief-production \
+N8N_TELEGRAM_CREDENTIAL_ID=replace-with-credential-id \
+N8N_TELEGRAM_CHAT_ID=replace-with-chat-id \
+node scripts/arthur/import-n8n-workflows.js
 ```
 
-После проверки workflow в интерфейсе n8n можно повторить запуск с `N8N_ACTIVATE_WORKFLOWS=true`.
+Отсутствие любого Telegram-параметра для morning brief завершает импорт ошибкой до обращения к n8n.
 
 ## Ограничение
 

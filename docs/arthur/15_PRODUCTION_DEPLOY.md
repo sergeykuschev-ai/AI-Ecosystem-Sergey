@@ -56,17 +56,34 @@ sh scripts/arthur/deploy-production.sh
 
 Токен хранится в защищённом credential n8n, а не в workflow JSON и не требует пересоздания контейнера n8n.
 
-## 4. Импортировать workflow
+## 4. Проверить профиль владельца
 
-Импортировать файл:
+До активации workflow выполнить защищённый запрос:
 
 ```text
-n8n/workflows/arthur-create-task-production.json
+GET /v1/profiles/sergey
 ```
 
-В узле `Arthur Core — создать задачу` выбрать credential `Arthur Core API Token`, сохранить и активировать workflow.
+Ожидается HTTP `200`. Если получен `404`, остановиться и отдельно согласовать значения профиля.
+Создание `sergey` изменяет production storage и выполняется только контролируемым запросом
+`POST /v1/profiles`; deploy-скрипт и importer профиль не создают.
 
-## 5. Проверить
+## 5. Импортировать workflow автоматически
+
+Подготовить локальное окружение по примеру `scripts/arthur/n8n-import.env.example`, затем выполнить:
+
+```bash
+set -a
+source .env.n8n-import
+set +a
+ARTHUR_N8N_WORKFLOW=arthur-create-task-production node scripts/arthur/import-n8n-workflows.js
+```
+
+Скрипт создаёт или обновляет только `n8n/workflows/arthur-create-task-production.json`,
+назначает credential по его внутреннему ID и всегда оставляет workflow выключенным.
+Повторный запуск обновляет workflow с тем же именем и не создаёт дубликат.
+
+## 6. Проверить и активировать
 
 Отправить POST-запрос на production webhook n8n:
 
@@ -80,6 +97,8 @@ n8n/workflows/arthur-create-task-production.json
 ```
 
 Ожидаемый ответ: HTTP 201 и объект созданной задачи.
+До этого теста проверить настройки импортированного workflow и активировать его отдельным
+контролируемым действием в n8n.
 
 ## Откат
 
