@@ -171,6 +171,40 @@ test('building owner artifacts does not mutate Matrix Builder calculations', () 
   assert.deepEqual(draft, before);
 });
 
+test('order safety blockers are visible and actionable in existing Owner Review', () => {
+  const sourceItem = dashboardItem(1);
+  const draft = dashboardDraft([sourceItem]);
+  const before = structuredClone(draft);
+  const model = buildOwnerReviewModel(
+    draft,
+    null,
+    config(),
+    null,
+    {
+      items: [{
+        rowIdentity: sourceItem.rowIdentity,
+        reasons: [
+          'HIGH_STOCK_ORDER_WARNING',
+          'FREE_STOCK_NOT_BELOW_MIN',
+        ],
+      }],
+    }
+  );
+  const report = buildOwnerReviewReport(draft, null, config(), model);
+  const item = model.items[0];
+
+  assert.equal(item.owner_action_required, true);
+  assert.equal(item.owner_review_priority, 'P2');
+  assert.deepEqual(item.order_safety_reasons, [
+    'HIGH_STOCK_ORDER_WARNING',
+    'FREE_STOCK_NOT_BELOW_MIN',
+  ]);
+  assert.ok(item.owner_review_reasons.includes('HIGH_STOCK_ORDER_WARNING'));
+  assert.match(report, /HIGH_STOCK_ORDER_WARNING/);
+  assert.match(report, /подтвердить необходимость заказа/);
+  assert.deepEqual(draft, before);
+});
+
 test('Owner Action Required is limited by configured maximum of 30 SKU', () => {
   const items = Array.from({ length: 35 }, (_, index) => dashboardItem(index + 1, {
     review_queue_memberships: ['commercial_review'],

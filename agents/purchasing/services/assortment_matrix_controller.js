@@ -91,8 +91,17 @@ function buildInventoryProjection(
   };
 }
 
-function matrixAnnotation(match) {
-  if (!match) return { matched: false };
+function matrixAnnotation(match, reviewCandidate = null) {
+  if (!match) {
+    return reviewCandidate
+      ? {
+        matched: false,
+        review_candidate: true,
+        candidate_match_methods: reviewCandidate.matchMethods,
+        reason_codes: reviewCandidate.reasonCodes,
+      }
+      : { matched: false };
+  }
   const item = match.item;
   return {
     matched: true,
@@ -125,10 +134,23 @@ function withDecision(decision, changes) {
       ...decision.requiredData,
       ...(changes.requiredData || []),
     ])),
+    orderSafetyReasons: Array.from(new Set([
+      ...(decision.orderSafetyReasons || []),
+      ...(changes.orderSafetyReasons || []),
+    ])),
   };
 }
 
-function controlDecision(product, decision, match) {
+function controlDecision(product, decision, match, reviewCandidate = null) {
+  if (reviewCandidate?.reasonCodes?.length > 0) {
+    return withDecision(decision, {
+      decision: 'manual_review',
+      decisionBasis: 'order_safety_identification',
+      approvedOrderQuantity: null,
+      reasons: reviewCandidate.reasonCodes,
+      orderSafetyReasons: reviewCandidate.reasonCodes,
+    });
+  }
   if (!match || match.item.priority === 'standard') return decision;
 
   const item = match.item;
@@ -212,8 +234,8 @@ function missingMatrixItems(matrix, matchResult) {
         name: item.name,
         priority: item.priority,
         reason: result.status === 'ambiguous'
-          ? 'ambiguous_supplier_report_match'
-          : 'not_found_in_supplier_report',
+          ? result.reasonCode || 'ambiguous_supplier_report_match'
+          : result.reasonCode || 'not_found_in_supplier_report',
       };
     });
 }
@@ -235,10 +257,13 @@ function applyAssortmentMatrixControl({
   );
   const products = demandProducts.map(product => {
     const match = matchResult.matchesByRowIdentity.get(product.rowIdentity) || null;
+    const reviewCandidate =
+      matchResult.reviewCandidatesByRowIdentity?.get(product.rowIdentity) ||
+      null;
     const sourceRow = rowsByIdentity.get(product.rowIdentity) || null;
     return {
       ...product,
-      assortment_matrix: matrixAnnotation(match),
+      assortment_matrix: matrixAnnotation(match, reviewCandidate),
       inventory_projection: buildInventoryProjection(
         product,
         sourceRow,
@@ -253,7 +278,10 @@ function applyAssortmentMatrixControl({
       throw new TypeError(`Не найдено решение Phase 2 для ${product.rowIdentity}.`);
     }
     const match = matchResult.matchesByRowIdentity.get(product.rowIdentity) || null;
-    return controlDecision(product, decision, match);
+    const reviewCandidate =
+      matchResult.reviewCandidatesByRowIdentity?.get(product.rowIdentity) ||
+      null;
+    return controlDecision(product, decision, match, reviewCandidate);
   });
   const controlledByIdentity = new Map(
     controlledDecisions.map(decision => [decision.rowIdentity, decision])
@@ -265,11 +293,13 @@ function applyAssortmentMatrixControl({
     product.inventory_projection.below_matrix_minimum === true
   );
   const matrixManualReview = products.filter(product =>
-    product.assortment_matrix.matched &&
     controlledByIdentity.get(product.rowIdentity)?.decision === 'manual_review' &&
-    String(
-      controlledByIdentity.get(product.rowIdentity)?.decisionBasis || ''
-    ).startsWith('assortment_matrix_')
+    (
+      product.assortment_matrix.review_candidate === true ||
+      String(
+        controlledByIdentity.get(product.rowIdentity)?.decisionBasis || ''
+      ).startsWith('assortment_matrix_')
+    )
   );
   const warnings = missingItems.some(item => item.priority === 'critical')
     ? [CRITICAL_MISSING_WARNING]

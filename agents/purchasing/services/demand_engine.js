@@ -2,6 +2,10 @@ const { DEMAND_ENGINE_CONFIG } = require('../config');
 const { normalize } = require('../parsers/minmax_parser');
 const { normalizeClass } = require('../rules/abc_xyz_rules');
 const { matchProductInputs } = require('./product_input_matcher');
+const {
+  effectiveMin,
+  effectiveMax,
+} = require('./order_safety');
 
 const SALES_FIELDS = Object.freeze(['sales7', 'sales14', 'sales30']);
 const SMARTZAPAS_WEEKLY_SALES_FIELDS = Object.freeze(['sales7', 'sales14', 'sales28']);
@@ -469,6 +473,8 @@ function calculateDemandProduct(row, sources, matches, context, config) {
   }
 
   const freeStock = row.freeStock ?? null;
+  const minStock = effectiveMin(row);
+  const maxStock = effectiveMax(row);
   const resolvedStockStatus = stockStatus(freeStock);
   if (resolvedStockStatus === 'unknown') requiredData.push('free_stock');
   if (resolvedStockStatus === 'negative') {
@@ -584,10 +590,10 @@ function calculateDemandProduct(row, sources, matches, context, config) {
   } else if (
     mandatoryAssortment !== null &&
     minDisplayStock !== null &&
-    availableStock !== null
+    freeStock !== null
   ) {
     mandatoryMinimumGap = mandatoryAssortment
-      ? Math.max(0, minDisplayStock - availableStock)
+      ? Math.max(0, minDisplayStock - freeStock)
       : 0;
   }
 
@@ -694,6 +700,14 @@ function calculateDemandProduct(row, sources, matches, context, config) {
       ? [...row.reportedSalesWarnings]
       : [],
     freeStock,
+    autoMin: row.autoMin ?? null,
+    manualMin: row.manualMin ?? null,
+    effectiveMin: minStock.value,
+    effectiveMinSource: minStock.source,
+    autoMax: row.autoMax ?? null,
+    manualMax: row.manualMax ?? null,
+    effectiveMax: maxStock.value,
+    effectiveMaxSource: maxStock.source,
     stockStatus: resolvedStockStatus,
     inTransitQuantity,
     inTransitStatus,

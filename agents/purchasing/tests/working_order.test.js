@@ -19,6 +19,10 @@ function product(overrides = {}) {
     demandCalculatedQuantity: overrides.demandCalculatedQuantity ?? null,
     finalRecommendedQuantity: overrides.finalRecommendedQuantity ?? null,
     freeStock: overrides.freeStock ?? null,
+    effectiveMin: overrides.effectiveMin ?? null,
+    effectiveMinSource: overrides.effectiveMinSource ?? null,
+    effectiveMax: overrides.effectiveMax ?? null,
+    effectiveMaxSource: overrides.effectiveMaxSource ?? null,
     stockStatus: overrides.freeStock === null || overrides.freeStock === undefined
       ? 'unknown'
       : 'known',
@@ -44,6 +48,7 @@ function decision(rowIdentity, overrides = {}) {
     reasons: overrides.reasons || ['final_quantity_unavailable'],
     warnings: overrides.warnings || [],
     requiredData: overrides.requiredData || [],
+    orderSafetyReasons: overrides.orderSafetyReasons || [],
   };
 }
 
@@ -89,6 +94,44 @@ test('sales-spike review line uses the calculated Phase 2 quantity provisionally
   assert.equal(line.provisionalLineSum, 600);
   assert.equal(line.blockingReason, 'sales_spike_quantity_requires_review');
   assert.equal(line.approvedOrderQuantity, null);
+});
+
+test('stock safety blocker exposes MIN, MAX and formal reason in working order', () => {
+  const sourceProduct = product({
+    analyzerCalculatedQuantity: 3,
+    finalRecommendedQuantity: 3,
+    freeStock: 4,
+    effectiveMin: 2,
+    effectiveMinSource: 'manual',
+    effectiveMax: 8,
+    effectiveMaxSource: 'automatic',
+  });
+  const result = buildWorkingOrder(
+    [sourceProduct],
+    [decision(sourceProduct.rowIdentity, {
+      decisionBasis: 'order_safety_stock_review',
+      reasons: ['HIGH_STOCK_ORDER_WARNING'],
+      orderSafetyReasons: ['HIGH_STOCK_ORDER_WARNING'],
+    })]
+  );
+  const line = result.products[0];
+  const report = buildWorkingOrderReport({
+    agentJson: {
+      order_rows_count: 1,
+      preliminary_order_sum: 30,
+      workingOrderProducts: result.products,
+      phase1Reconciliation: result.phase1Reconciliation,
+      ...result.summary,
+    },
+  });
+
+  assert.equal(line.workflowStatus, 'pending_manual_review');
+  assert.equal(line.blockingReason, 'HIGH_STOCK_ORDER_WARNING');
+  assert.equal(line.effectiveMin, 2);
+  assert.equal(line.effectiveMax, 8);
+  assert.equal(line.orderSafetyReviewRequired, true);
+  assert.match(report, /HIGH_STOCK_ORDER_WARNING/);
+  assert.match(report, /Order safety checks/);
 });
 
 test('known weak-demand Phase 1 line is confidently excluded', () => {

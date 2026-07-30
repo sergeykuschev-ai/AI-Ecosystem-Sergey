@@ -21,6 +21,10 @@ const {
 const {
   buildAssortmentMatrixReport,
 } = require('./services/assortment_matrix_report');
+const {
+  buildOrderSafetyReview,
+} = require('./services/order_safety');
+const { ORDER_SAFETY_CONFIG } = require('./config');
 const { validateInput } = require('./services/validator');
 const { buildResult } = require('./services/result_assembly');
 const {
@@ -128,6 +132,10 @@ function runOrderAgentFromAdapterResultWithDemand(
     demandProducts,
     phase2DecisionResult.decisions
   );
+  const orderSafetyReview = buildOrderSafetyReview(
+    workingOrderResult.products,
+    ORDER_SAFETY_CONFIG
+  );
 
   return buildResult(rows, analysis, {
     sourceRowsCount: adapterResult.source.sourceRowsCount,
@@ -159,6 +167,7 @@ function runOrderAgentFromAdapterResultWithDemand(
       ...phase2DecisionResult.summary,
       workingOrderVersion: workingOrderResult.workflowVersion,
       workingOrderProducts: workingOrderResult.products,
+      orderSafetyReview,
       phase1Reconciliation: workingOrderResult.phase1Reconciliation,
       ...workingOrderResult.summary,
       ...(assortmentControl

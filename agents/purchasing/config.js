@@ -102,6 +102,10 @@ const DEMAND_ENGINE_CONFIG = Object.freeze({
   }),
 });
 
+const ORDER_SAFETY_CONFIG = Object.freeze({
+  highStockWarningThreshold: 4,
+});
+
 const MISKA_FINANCIAL_CONTROLLER_CONFIG = Object.freeze({
   version: 'financial-controller-v1',
   store_profile: 'miska',
@@ -139,5 +143,6 @@ module.exports = {
   EXPENSIVE_ROWS_LIMIT,
   DECISION_ENGINE_CONFIG,
   DEMAND_ENGINE_CONFIG,
+  ORDER_SAFETY_CONFIG,
   MISKA_FINANCIAL_CONTROLLER_CONFIG,
 };

@@ -170,6 +170,27 @@ function createThreeRowSmartZapasMatrix() {
   ];
 }
 
+function createThreeRowMatrixWithMax() {
+  return createThreeRowSmartZapasMatrix().map((row, rowIndex) => [
+    ...row.slice(0, 9),
+    rowIndex === 0 ? 'MAX' : rowIndex === 1 ? 'шт' : rowIndex === 2
+      ? 'Авто'
+      : rowIndex === 5
+        ? 8
+        : rowIndex === 6
+          ? 6
+          : UNDEFINED_ERROR,
+    rowIndex === 2
+      ? 'Ручной'
+      : rowIndex === 5
+        ? 9
+        : rowIndex === 6
+          ? 7
+          : UNDEFINED_ERROR,
+    ...row.slice(9),
+  ]);
+}
+
 before(() => {
   adapterResult = adaptSmartZapasMatrix(sanitizedFixture.matrix, {
     sheetName: sanitizedFixture.sheetName,
@@ -262,6 +283,18 @@ test('distinguishes automatic and manual MIN columns', () => {
   );
   assert.equal(result.rows[0].autoMin, 3);
   assert.equal(result.rows[0].manualMin, 4);
+});
+
+test('imports optional automatic and manual MAX only when columns exist', () => {
+  const withoutMax = adaptSmartZapasMatrix(createThreeRowSmartZapasMatrix());
+  const withMax = adaptSmartZapasMatrix(createThreeRowMatrixWithMax());
+
+  assert.equal(withoutMax.columnMap.autoMax, undefined);
+  assert.equal(withoutMax.rows[0].autoMax, undefined);
+  assert.equal(withMax.columnMap.autoMax.column, 'J');
+  assert.equal(withMax.columnMap.manualMax.column, 'K');
+  assert.equal(withMax.rows[0].autoMax, 8);
+  assert.equal(withMax.rows[0].manualMax, 9);
 });
 
 test('resolves supplier order quantity exactly once', () => {

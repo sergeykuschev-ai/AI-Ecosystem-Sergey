@@ -746,7 +746,7 @@ test('loads an existing matrix and preserves its exact matched item', async () =
   const first = await buildMatrixDraftFromSmartZapasXlsx(SYNTHETIC_XLSX, {
     generatedAt: '2026-07-20T00:00:00.000Z', reportDate: '2026-07-19',
   });
-  const sourceItem = first.draft.items[0];
+  const sourceItem = first.draft.items.find(item => item.article === 'AMB');
   const matrixPath = path.join(TEMP_DIRECTORY, 'existing-matrix.json');
   fs.writeFileSync(matrixPath, `${JSON.stringify({
     version: 1,

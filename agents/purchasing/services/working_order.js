@@ -11,6 +11,9 @@ const PROVISIONAL_QUANTITY_SOURCES = Object.freeze([
   'phase1_analyzer_fallback',
   'unavailable',
 ]);
+const {
+  BLOCKING_ORDER_SAFETY_CODES,
+} = require('./order_safety');
 
 function roundCurrency(value) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
@@ -82,6 +85,10 @@ function workflowStatus(product, decision) {
 
 function blockingReason(product, decision, status) {
   if (status !== 'pending_manual_review') return null;
+  const safetyReason = (decision.orderSafetyReasons || []).find(reason =>
+    BLOCKING_ORDER_SAFETY_CODES.includes(reason)
+  );
+  if (safetyReason) return safetyReason;
   if (decision.requiredData.includes('free_stock')) return 'free_stock_unknown';
   const explicitReason = decision.reasons.find(reason =>
     reason !== 'final_quantity_unavailable' && !reason.startsWith('quantity_reason:')
@@ -119,6 +126,7 @@ function buildWorkflowProduct(product, decision) {
     article: product.article,
     barcode: product.matchingHints?.barcode || null,
     internalProductId: product.matchingHints?.internalProductId || null,
+    packaging: product.matchingHints?.packageAttributes || null,
     supplier: product.supplier,
     abc: product.abc,
     xyz: product.xyz,
@@ -148,7 +156,19 @@ function buildWorkflowProduct(product, decision) {
     decisionReasons: [...decision.reasons],
     decisionWarnings: [...decision.warnings],
     requiredData: [...decision.requiredData],
+    orderSafetyReasons: [...(decision.orderSafetyReasons || [])],
+    orderSafetyReviewRequired: (decision.orderSafetyReasons || []).some(
+      reason => BLOCKING_ORDER_SAFETY_CODES.includes(reason)
+    ),
     freeStock: product.freeStock,
+    autoMin: product.autoMin ?? null,
+    manualMin: product.manualMin ?? null,
+    effectiveMin: product.effectiveMin ?? null,
+    effectiveMinSource: product.effectiveMinSource ?? null,
+    autoMax: product.autoMax ?? null,
+    manualMax: product.manualMax ?? null,
+    effectiveMax: product.effectiveMax ?? null,
+    effectiveMaxSource: product.effectiveMaxSource ?? null,
     stockStatus: product.stockStatus,
     salesDailyRate: product.salesDailyRate,
     sales7: product.sales7,

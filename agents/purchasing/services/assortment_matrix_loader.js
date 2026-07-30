@@ -4,6 +4,11 @@ const { normalize } = require('../parsers/minmax_parser');
 const {
   loadRequiredJson,
 } = require('../../../shared/config/json_config_loader');
+const {
+  ORDER_SAFETY_CODES,
+  normalizeArticle: normalizeSafetyArticle,
+  packagingMismatch,
+} = require('./order_safety');
 
 const ALLOWED_PRIORITIES = Object.freeze([
   'critical',
@@ -32,7 +37,7 @@ function normalizedName(value) {
 }
 
 function normalizedArticle(value) {
-  return normalize(value).replace(/\s+/g, '');
+  return normalizeSafetyArticle(value);
 }
 
 function requireNonEmptyString(value, fieldName) {
@@ -235,7 +240,11 @@ function matchAssortmentMatrix(matrix, rows) {
       ? itemsByArticle.get(item.normalized_article) || []
       : [];
 
-    if (articleRows.length === 1 && sameArticleItems.length === 1) {
+    if (
+      articleRows.length === 1 &&
+      sameArticleItems.length === 1 &&
+      !packagingMismatch(item.name, articleRows[0].value.name)
+    ) {
       return {
         itemIndex,
         status: 'matched',
@@ -246,56 +255,99 @@ function matchAssortmentMatrix(matrix, rows) {
     }
 
     const nameRows = rowsByName.get(item.normalized_name) || [];
+    if (articleRows.length > 1 || sameArticleItems.length > 1) {
+      return {
+        itemIndex,
+        status: 'ambiguous',
+        matchMethod: null,
+        row: null,
+        reasonCode: ORDER_SAFETY_CODES.AMBIGUOUS_ARTICLE_MATCH,
+        candidateRowIdentities: articleRows.map(
+          candidate => candidate.value.rowIdentity
+        ),
+      };
+    }
+
+    if (articleRows.length === 1) {
+      return {
+        itemIndex,
+        status: 'review_candidate',
+        matchMethod: 'article',
+        row: null,
+        reasonCode: ORDER_SAFETY_CODES.PACKAGING_MISMATCH,
+        candidateRowIdentities: [articleRows[0].value.rowIdentity],
+      };
+    }
+
     if (nameRows.length === 1) {
       return {
         itemIndex,
-        status: 'matched',
+        status: 'review_candidate',
         matchMethod: 'normalized_name',
-        row: nameRows[0].value,
+        row: null,
+        reasonCode: nameRows[0].value.article
+          ? ORDER_SAFETY_CODES.ARTICLE_NOT_FOUND
+          : ORDER_SAFETY_CODES.ARTICLE_REQUIRED,
         candidateRowIdentities: [nameRows[0].value.rowIdentity],
       };
     }
 
-    const candidates = articleRows.length > 1 ? articleRows : nameRows;
     return {
       itemIndex,
-      status: candidates.length > 1 ? 'ambiguous' : 'unmatched',
+      status: nameRows.length > 1 ? 'ambiguous' : 'unmatched',
       matchMethod: null,
       row: null,
-      candidateRowIdentities: candidates.map(candidate => candidate.value.rowIdentity),
+      reasonCode: nameRows.length > 1
+        ? ORDER_SAFETY_CODES.AMBIGUOUS_ARTICLE_MATCH
+        : item.normalized_article
+          ? ORDER_SAFETY_CODES.ARTICLE_NOT_FOUND
+          : ORDER_SAFETY_CODES.ARTICLE_REQUIRED,
+      candidateRowIdentities: nameRows.map(
+        candidate => candidate.value.rowIdentity
+      ),
     };
   });
 
-  const matchedByRow = valuesByKey(
-    proposedResults.filter(result => result.status === 'matched'),
-    result => result.row.rowIdentity
-  );
-  const itemResults = proposedResults.map(result => {
-    if (
-      result.status === 'matched' &&
-      (matchedByRow.get(result.row.rowIdentity) || []).length > 1
-    ) {
-      return {
-        ...result,
-        status: 'ambiguous',
-        matchMethod: null,
-        row: null,
-      };
-    }
-    return result;
-  });
+  const itemResults = proposedResults;
   const matchesByRowIdentity = new Map();
+  const reviewCandidatesByRowIdentity = new Map();
   for (const result of itemResults) {
-    if (result.status !== 'matched') continue;
-    matchesByRowIdentity.set(result.row.rowIdentity, {
-      itemIndex: result.itemIndex,
-      item: matrix.items[result.itemIndex],
-      row: result.row,
-      matchMethod: result.matchMethod,
-    });
+    if (result.status === 'matched') {
+      matchesByRowIdentity.set(result.row.rowIdentity, {
+        itemIndex: result.itemIndex,
+        item: matrix.items[result.itemIndex],
+        row: result.row,
+        matchMethod: result.matchMethod,
+      });
+      continue;
+    }
+    for (const rowIdentity of result.candidateRowIdentities) {
+      const current = reviewCandidatesByRowIdentity.get(rowIdentity) || {
+        reasonCodes: [],
+        itemIndexes: [],
+        matchMethods: [],
+      };
+      current.reasonCodes = Array.from(new Set([
+        ...current.reasonCodes,
+        result.reasonCode,
+      ].filter(Boolean)));
+      current.itemIndexes = Array.from(new Set([
+        ...current.itemIndexes,
+        result.itemIndex,
+      ]));
+      current.matchMethods = Array.from(new Set([
+        ...current.matchMethods,
+        result.matchMethod,
+      ].filter(Boolean)));
+      reviewCandidatesByRowIdentity.set(rowIdentity, current);
+    }
   }
 
-  return { itemResults, matchesByRowIdentity };
+  return {
+    itemResults,
+    matchesByRowIdentity,
+    reviewCandidatesByRowIdentity,
+  };
 }
 
 function uniqueValue(rows, keyFor, expected) {

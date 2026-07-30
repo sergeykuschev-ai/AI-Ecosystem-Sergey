@@ -79,6 +79,8 @@ function pendingTable(products) {
       'Price',
       'Provisional sum',
       'Free stock',
+      'Effective MIN',
+      'Effective MAX',
       'Sales7',
       'Sales14',
       'Sales28',
@@ -97,6 +99,8 @@ function pendingTable(products) {
       markdown(formatMoney(product.priceNum)),
       markdown(formatMoney(product.provisionalLineSum)),
       markdown(formatNumber(product.freeStock)),
+      markdown(formatNumber(product.effectiveMin)),
+      markdown(formatNumber(product.effectiveMax)),
       markdown(formatNumber(product.sales7)),
       markdown(formatNumber(product.sales14)),
       markdown(formatNumber(product.sales28)),
@@ -190,6 +194,39 @@ function increaseTable(products) {
   );
 }
 
+function safetyTable(products) {
+  return makeTable(
+    [
+      'Row',
+      'Product',
+      'Article',
+      'Free stock',
+      'MIN',
+      'MAX',
+      'Proposed qty',
+      'Workflow status',
+      'Safety reasons',
+      'Owner decision required',
+    ],
+    products.map(product => [
+      markdown(product.rowNumber),
+      markdown(product.name),
+      markdown(product.article),
+      markdown(formatNumber(product.freeStock)),
+      markdown(formatNumber(product.effectiveMin)),
+      markdown(formatNumber(product.effectiveMax)),
+      markdown(formatNumber(
+        product.approvedOrderQuantity ??
+        product.provisionalOrderQuantity ??
+        product.finalRecommendedQuantity
+      )),
+      markdown(product.workflowStatus),
+      markdown(product.orderSafetyReasons.join(', ')),
+      markdown(product.orderSafetyReviewRequired ? 'yes' : 'no'),
+    ])
+  );
+}
+
 function buildWorkingOrderReport({ agentJson, sourceName = null }) {
   if (
     !agentJson ||
@@ -211,6 +248,10 @@ function buildWorkingOrderReport({ agentJson, sourceName = null }) {
       (right.finalRecommendedQuantity - right.analyzerCalculatedQuantity) -
       (left.finalRecommendedQuantity - left.analyzerCalculatedQuantity)
     );
+  const safetyDiagnostics = products.filter(product =>
+    Array.isArray(product.orderSafetyReasons) &&
+    product.orderSafetyReasons.length > 0
+  );
   const lines = [
     '# Purchasing Working Order — Preliminary Phase 2 Result',
     '',
@@ -268,6 +309,10 @@ function buildWorkingOrderReport({ agentJson, sourceName = null }) {
     'Flag threshold: increase is at least the greater of 5 units or 50% of the Phase 1 quantity.',
     '',
     increaseTable(suspiciousIncreases),
+    '',
+    '## G. Order safety checks',
+    '',
+    safetyTable(safetyDiagnostics),
     '',
     'Automatically approved quantities exclude all pending-review and postponed quantities.',
     'No purchasing calculation, decision rule, or source quantity is changed by this report.',

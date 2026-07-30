@@ -44,6 +44,10 @@ function product(overrides = {}) {
     abc: value('abc', 'B'),
     xyz: value('xyz', 'X'),
     freeStock: value('freeStock', 0),
+    autoMin: value('autoMin', null),
+    manualMin: value('manualMin', null),
+    autoMax: value('autoMax', null),
+    manualMax: value('manualMax', null),
     inTransit: value('inTransit', null),
     orderQty: value('orderQty', 2),
     priceNum: value('priceNum', 10),
@@ -362,6 +366,70 @@ test('mandatory minimum display stock creates a quantity floor', () => {
   assert.equal(demand.demandCalculatedQuantity, 0);
   assert.equal(demand.mandatoryMinimumGap, 8);
   assert.equal(demand.finalRecommendedQuantity, 8);
+});
+
+test('critical zero-stock item absent from Min/Max order is raised to floor 4', () => {
+  const row = product({
+    freeStock: 0,
+    orderQty: 0,
+    manualMin: 0,
+  });
+  const demandResult = demandFor(row, {
+    sales: { sales7: 0, sales14: 0, sales30: 0 },
+    assortment: {
+      mandatory: true,
+      minDisplayStock: 4,
+      assortmentPriority: 'critical',
+    },
+  });
+  const demand = demandResult.products[0];
+  const decision = buildPhase2PurchasingDecisions(demandResult).decisions[0];
+
+  assert.equal(demand.mandatoryMinimumGap, 4);
+  assert.equal(demand.finalRecommendedQuantity, 4);
+  assert.equal(decision.decision, 'must_buy');
+  assert.equal(decision.approvedOrderQuantity, 4);
+  assert.ok(decision.reasons.includes('MANDATORY_ASSORTMENT_BELOW_FLOOR'));
+});
+
+test('mandatory floor is the explicit exception when free stock equals MIN', () => {
+  const row = product({
+    freeStock: 2,
+    orderQty: 0,
+    manualMin: 2,
+  });
+  const demandResult = demandFor(row, {
+    sales: { sales7: 0, sales14: 0, sales30: 0 },
+    assortment: {
+      mandatory: true,
+      minDisplayStock: 4,
+      assortmentPriority: 'critical',
+    },
+  });
+  const decision = buildPhase2PurchasingDecisions(demandResult).decisions[0];
+
+  assert.equal(demandResult.products[0].effectiveMin, 2);
+  assert.equal(demandResult.products[0].mandatoryMinimumGap, 2);
+  assert.equal(decision.decision, 'must_buy');
+  assert.equal(decision.approvedOrderQuantity, 2);
+  assert.deepEqual(decision.orderSafetyReasons, [
+    'MANDATORY_ASSORTMENT_BELOW_FLOOR',
+  ]);
+});
+
+test('high stock and free stock not below MIN require Owner Review', () => {
+  const row = product({
+    freeStock: 4,
+    orderQty: 3,
+    manualMin: 2,
+  });
+  const demandResult = demandFor(row);
+  const decision = buildPhase2PurchasingDecisions(demandResult).decisions[0];
+
+  assert.equal(decision.decision, 'manual_review');
+  assert.equal(decision.approvedOrderQuantity, null);
+  assert.ok(decision.orderSafetyReasons.includes('HIGH_STOCK_ORDER_WARNING'));
+  assert.ok(decision.orderSafetyReasons.includes('FREE_STOCK_NOT_BELOW_MIN'));
 });
 
 test('mandatory assortment never overrides unknown stock', () => {
@@ -700,6 +768,47 @@ test('supports exact normalized-name fallback without fuzzy matching', () => {
   assert.equal(result.matchesByRowIdentity.get(row.rowIdentity).method, 'normalized_name');
 });
 
+test('normalized-name fallback remains an Owner Review candidate and cannot auto-approve', () => {
+  const row = product({ freeStock: 0, abc: 'A', xyz: 'X' });
+  const nameMatch = {
+    matchType: 'normalized_name',
+    matchKey: {
+      supplier: row.supplier,
+      name: row.name,
+    },
+  };
+  const demandResult = buildDemandPlan(
+    { productRows: [row] },
+    {
+      supplierDeliveryCycleDays: {
+        'synthetic supplier': 14,
+      },
+      salesData: source('sales-test-v1', [{
+        ...nameMatch,
+        sales7: 7,
+        sales14: 14,
+        sales30: 30,
+      }]),
+      assortmentMatrix: source('assortment-test-v1', [{
+        ...nameMatch,
+        mandatory: false,
+        minDisplayStock: 0,
+        assortmentPriority: 'normal',
+      }]),
+      inTransitData: source('transit-test-v1', [{
+        ...nameMatch,
+        inTransitQuantity: 0,
+      }]),
+    }
+  );
+  const decision = buildPhase2PurchasingDecisions(demandResult).decisions[0];
+
+  assert.ok(demandResult.products[0].finalRecommendedQuantity > 0);
+  assert.equal(decision.decision, 'manual_review');
+  assert.equal(decision.approvedOrderQuantity, null);
+  assert.ok(decision.orderSafetyReasons.includes('ARTICLE_NOT_FOUND'));
+});
+
 test('flags a short-term sales spike and reviews large quantities', () => {
   const row = product({ freeStock: 0, abc: 'A', xyz: 'X', priceNum: 300 });
   const demandResult = demandFor(row, {
@@ -847,11 +956,17 @@ test('Phase 2 entry point preserves analyzer fields and report contract', async 
   assert.equal(json.phase1Decisions.length, 6);
   assert.equal(json.demandProducts.length, 6);
   assert.equal(json.decisions.length, 6);
+  assert.equal(json.orderSafetyReview.version, 'order-safety-v1');
+  assert.equal(json.orderSafetyReview.highStockWarningThreshold, 4);
+  assert.ok(json.orderSafetyReview.itemCount > 0);
+  assert.ok(json.orderSafetyReview.items.every(item =>
+    Array.isArray(item.reasons) && item.reasons.length > 0
+  ));
   assert.equal(json.decisionVersion, 'v2-phase-2');
   assert.equal(json.assortmentMatrixStatus, 'not_provided');
   assert.equal(json.inTransitSourceStatus, 'not_provided');
-  assert.equal(json.provisionalNoActionCount, json.demandProducts.filter(
-    product => product.analyzerCalculatedQuantity === 0
+  assert.equal(json.provisionalNoActionCount, json.decisions.filter(
+    decision => decision.decisionBasis === 'provisional_phase1_no_order'
   ).length);
   assert.equal(json.positiveAnalyzerLinesAwaitingData, json.demandProducts.filter(
     product => product.analyzerCalculatedQuantity > 0

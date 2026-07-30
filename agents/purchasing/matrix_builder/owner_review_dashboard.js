@@ -1,6 +1,9 @@
 const {
   REASON_EXPLANATIONS,
 } = require('./matrix_builder_validator');
+const {
+  BLOCKING_ORDER_SAFETY_CODES,
+} = require('../services/order_safety');
 
 const DEFAULT_OWNER_REVIEW_POLICY = Object.freeze({
   max_owner_action_items: 30,
@@ -36,6 +39,17 @@ const CATEGORY_PROFILE_LABELS = Object.freeze({
 const OWNER_REASON_EXPLANATIONS = Object.freeze({
   OWNER_DECISION_CONFLICT: 'новая рекомендация существенно конфликтует с решением владельца',
   OWNER_REJECTED_EXIT: 'владелец отклонил EXIT; товар оставлен на ручном контроле',
+  MANDATORY_ASSORTMENT_BELOW_FLOOR:
+    'обязательная позиция восполняется до неснижаемого остатка',
+  HIGH_STOCK_ORDER_WARNING:
+    'заказ предлагается при свободном остатке не ниже порога высокого остатка',
+  FREE_STOCK_NOT_BELOW_MIN:
+    'свободный остаток не ниже действующего MIN',
+  ARTICLE_REQUIRED: 'для автоматического решения обязателен артикул',
+  ARTICLE_NOT_FOUND: 'артикул матрицы не найден в исходной строке',
+  AMBIGUOUS_ARTICLE_MATCH: 'по артикулу найдено несколько возможных соответствий',
+  DUPLICATE_ARTICLE: 'нормализованный артикул повторяется у нескольких товаров',
+  PACKAGING_MISMATCH: 'фасовка товара не совпадает с фасовкой матрицы',
 });
 
 function display(value, fallback = 'нет данных') {
@@ -109,7 +123,12 @@ function approvedPolicy(item) {
 }
 
 function reasonTexts(item, preferredCodes = null) {
-  const codes = Array.isArray(item.reason_codes) ? item.reason_codes : [];
+  const codes = Array.from(new Set([
+    ...(Array.isArray(item.reason_codes) ? item.reason_codes : []),
+    ...(Array.isArray(item.order_safety_reasons)
+      ? item.order_safety_reasons
+      : []),
+  ]));
   const preferred = preferredCodes
     ? new Set(preferredCodes)
     : new Set(Array.isArray(item.manual_review_reasons)
@@ -125,12 +144,16 @@ function reasonTexts(item, preferredCodes = null) {
 
 function reasonSummary(item, limit = 3, preferredCodes = null) {
   const reasons = reasonTexts(item, preferredCodes);
-  return reasons.length > 0
+  const summary = reasons.length > 0
     ? `${reasons
       .slice(0, limit)
       .map(reason => reason.replace(/[.;:]+$/g, ''))
       .join('; ')}.`
     : 'Требуется решение владельца.';
+  const safetyCodes = item.order_safety_reasons || [];
+  return safetyCodes.length > 0
+    ? `${summary} Коды: ${safetyCodes.join(', ')}.`
+    : summary;
 }
 
 function strategicItem(item) {
@@ -153,7 +176,13 @@ function identityOnlyIssue(item) {
 
 function scoreOwnerReviewItem(item, ownerPolicy = DEFAULT_OWNER_REVIEW_POLICY) {
   let score = 0;
-  const reasons = [];
+  const orderSafetyReasons = Array.isArray(item.order_safety_reasons)
+    ? item.order_safety_reasons
+    : [];
+  const blockingSafetyReasons = orderSafetyReasons.filter(reason =>
+    BLOCKING_ORDER_SAFETY_CODES.includes(reason)
+  );
+  const reasons = [...orderSafetyReasons];
   const add = (condition, field, reason) => {
     if (!condition) return;
     score += ownerPolicy[field];
@@ -167,7 +196,8 @@ function scoreOwnerReviewItem(item, ownerPolicy = DEFAULT_OWNER_REVIEW_POLICY) {
   if (
     item.owner_decision_suppress_review &&
     !item.owner_decision_conflict &&
-    !item.owner_decision_force_review
+    !item.owner_decision_force_review &&
+    blockingSafetyReasons.length === 0
   ) {
     return {
       owner_review_score: 0,
@@ -190,6 +220,9 @@ function scoreOwnerReviewItem(item, ownerPolicy = DEFAULT_OWNER_REVIEW_POLICY) {
   add(missingPriceRisk, 'missing_price_risk_score', 'missing_price_risk');
   add(hasQueue(item, 'insufficient_data'), 'insufficient_data_score', 'insufficient_data');
   add(identityOnly, 'identity_only_score', 'identity_only_issue');
+  if (blockingSafetyReasons.length > 0) {
+    score += ownerPolicy.commercial_review_score;
+  }
 
   let priority = 'NONE';
   if (
@@ -200,6 +233,7 @@ function scoreOwnerReviewItem(item, ownerPolicy = DEFAULT_OWNER_REVIEW_POLICY) {
   ) {
     priority = 'P1';
   } else if (
+    blockingSafetyReasons.length > 0 ||
     item.suggested_role === 'EXIT' ||
     largeInventory ||
     hasQueue(item, 'commercial_review')
@@ -239,6 +273,17 @@ function compareOwnerItems(left, right) {
 }
 
 function recommendedAction(item) {
+  const safetyReasons = item.order_safety_reasons || [];
+  if (safetyReasons.includes('ARTICLE_REQUIRED')) return 'указать артикул и сопоставить вручную';
+  if (safetyReasons.includes('DUPLICATE_ARTICLE')) return 'разрешить дублирование артикула';
+  if (safetyReasons.includes('AMBIGUOUS_ARTICLE_MATCH')) {
+    return 'выбрать правильный товар вручную';
+  }
+  if (safetyReasons.includes('PACKAGING_MISMATCH')) return 'проверить фасовку товара';
+  if (
+    safetyReasons.includes('HIGH_STOCK_ORDER_WARNING') ||
+    safetyReasons.includes('FREE_STOCK_NOT_BELOW_MIN')
+  ) return 'подтвердить необходимость заказа';
   if (item.owner_decision_conflict) return 'пересмотреть решение владельца';
   if (item.approved_policy_conflict) return 'проверить minimum/target/maximum';
   if (strategicExitRisk(item)) return 'подтвердить стратегическую защиту';
@@ -422,9 +467,21 @@ function buildOwnerReviewModel(
   draft,
   manualReview = null,
   config = null,
-  ownerDecisionSummary = null
+  ownerDecisionSummary = null,
+  orderSafetyReview = null
 ) {
-  const items = draft.items || [];
+  const safetyByIdentity = new Map(
+    (orderSafetyReview?.items || []).map(item => [
+      item.rowIdentity,
+      Array.isArray(item.reasons) ? item.reasons : [],
+    ])
+  );
+  const items = (draft.items || []).map(item => ({
+    ...item,
+    order_safety_reasons: [
+      ...(safetyByIdentity.get(item.rowIdentity) || []),
+    ],
+  }));
   const ownerPolicy = config?.owner_review_policy || DEFAULT_OWNER_REVIEW_POLICY;
   const scoredEntries = items
     .map(item => ({ item, review: scoreOwnerReviewItem(item, ownerPolicy) }))
@@ -449,6 +506,10 @@ function buildOwnerReviewModel(
   const placeholderDifferences = items.filter(item => item.placeholder_difference);
   const requiresConfirmation = items.filter(item => item.policy_requires_confirmation);
   const commercialItems = commercialReviewItems(items);
+  const orderSafetyItems = items.filter(item =>
+    Array.isArray(item.order_safety_reasons) &&
+    item.order_safety_reasons.length > 0
+  );
   const qualityGroups = dataQualityGroups(items);
   const criticalLargeInventory = largeInventoryItems.filter(item =>
     item.inventory_value_review_level === 'critical'
@@ -505,6 +566,7 @@ function buildOwnerReviewModel(
       placeholder_differences: placeholderDifferences.length,
       requires_confirmation: requiresConfirmation.length,
       commercial_review: commercialItems.length,
+      order_safety: orderSafetyItems.length,
       owner_decision_sheet: decisionItems.length,
       data_quality: Object.fromEntries(
         Object.entries(qualityGroups).map(([name, groupItems]) => [name, groupItems.length])
@@ -519,6 +581,7 @@ function buildOwnerReviewModel(
       owner_review_score: review.owner_review_score,
       owner_review_priority: review.owner_review_priority,
       owner_review_reasons: review.owner_review_reasons,
+      order_safety_reasons: [...(item.order_safety_reasons || [])],
       owner_action_required: review.owner_action_required,
       recommended_action: recommendedAction(item),
       owner_decision_status: item.owner_decision_status || 'none',
@@ -536,6 +599,7 @@ function buildOwnerReviewModel(
       placeholder_differences: placeholderDifferences.map(item => item.rowIdentity),
       requires_confirmation: requiresConfirmation.map(item => item.rowIdentity),
       commercial_review: commercialItems.map(item => item.rowIdentity),
+      order_safety: orderSafetyItems.map(item => item.rowIdentity),
       data_quality: Object.fromEntries(
         Object.entries(qualityGroups).map(([name, groupItems]) => [
           name,
@@ -555,7 +619,16 @@ function buildOwnerReviewReport(
   suppliedModel = null
 ) {
   const model = suppliedModel || buildOwnerReviewModel(draft, manualReview, config);
-  const items = draft.items || [];
+  const safetyByIdentity = new Map((model.items || []).map(item => [
+    item.rowIdentity,
+    item.order_safety_reasons || [],
+  ]));
+  const items = (draft.items || []).map(item => ({
+    ...item,
+    order_safety_reasons: [
+      ...(safetyByIdentity.get(item.rowIdentity) || []),
+    ],
+  }));
   const byIdentity = new Map(items.map(item => [item.rowIdentity, item]));
   const sectionItems = section => (model.sections[section] || [])
     .map(identity => byIdentity.get(identity))
@@ -570,6 +643,7 @@ function buildOwnerReviewReport(
   const confirmationItems = sectionItems('requires_confirmation');
   const commercialItems = sectionItems('commercial_review');
   const decisionItems = sectionItems('owner_decision_sheet');
+  const orderSafetyItems = sectionItems('order_safety');
   const scoreByIdentity = new Map(model.items.map(item => [item.rowIdentity, item]));
   const qualityGroups = dataQualityGroups(items);
   const maxQualityExamples = model.owner_review_policy.max_data_quality_examples;
@@ -851,7 +925,26 @@ function buildOwnerReviewReport(
   lines.push(
     '---',
     '',
-    '## 10. ✅ OWNER DECISION SHEET',
+    '## 10. 🛡️ ORDER SAFETY',
+    '',
+    `Позиций с защитными причинами: **${orderSafetyItems.length}**.`,
+    '',
+    ...markdownTable(
+      ['Артикул', 'Товар', 'Коды', 'Требуется решение', 'Действие'],
+      orderSafetyItems.map(item => [
+        itemKey(item),
+        item.name,
+        (item.order_safety_reasons || []).join(', '),
+        scoreByIdentity.get(item.rowIdentity)?.owner_action_required
+          ? 'да'
+          : 'нет',
+        recommendedAction(item),
+      ])
+    ),
+    '',
+    '---',
+    '',
+    '## 11. ✅ OWNER DECISION SHEET',
     '',
     `Уникальных SKU: **${decisionItems.length}**. Дубли между секциями объединены.`,
     '',

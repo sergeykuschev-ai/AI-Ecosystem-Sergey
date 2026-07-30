@@ -237,16 +237,22 @@ test('matches a matrix item by a unique article', () => {
   assert.equal(result.itemResults[0].row.rowIdentity, sourceRow.rowIdentity);
 });
 
-test('matches by normalized exact name when article is absent', () => {
+test('keeps normalized-name fallback only as an Owner Review candidate', () => {
   const sourceRow = row({ article: null, name: 'Товар с Ёлкой, 100 г' });
   const value = matrix([matrixItem({ article: null, name: ' товар с елкой 100 г ' })]);
   const result = matchAssortmentMatrix(value, [sourceRow]);
 
-  assert.equal(result.itemResults[0].status, 'matched');
+  assert.equal(result.itemResults[0].status, 'review_candidate');
   assert.equal(result.itemResults[0].matchMethod, 'normalized_name');
+  assert.equal(result.itemResults[0].reasonCode, 'ARTICLE_REQUIRED');
+  assert.equal(result.matchesByRowIdentity.size, 0);
+  assert.deepEqual(
+    result.reviewCandidatesByRowIdentity.get(sourceRow.rowIdentity).reasonCodes,
+    ['ARTICLE_REQUIRED']
+  );
 });
 
-test('does not merge products with a repeated article', () => {
+test('does not disambiguate a repeated article by name for auto matching', () => {
   const first = row({ rowNumber: 4, article: 'DUP', name: 'Первый товар' });
   const second = row({ rowNumber: 5, article: 'DUP', name: 'Второй товар' });
   const value = matrix([
@@ -255,11 +261,11 @@ test('does not merge products with a repeated article', () => {
   ]);
   const result = matchAssortmentMatrix(value, [first, second]);
 
-  assert.deepEqual(
-    result.itemResults.map(item => item.matchMethod),
-    ['normalized_name', 'normalized_name']
-  );
-  assert.equal(result.matchesByRowIdentity.size, 2);
+  assert.ok(result.itemResults.every(item => item.status === 'ambiguous'));
+  assert.ok(result.itemResults.every(
+    item => item.reasonCode === 'AMBIGUOUS_ARTICLE_MATCH'
+  ));
+  assert.equal(result.matchesByRowIdentity.size, 0);
 });
 
 test('leaves a repeated article ambiguous when the name cannot disambiguate it', () => {
@@ -473,13 +479,48 @@ test('reports a critical matrix item missing from the supplier report', () => {
   });
 
   assert.equal(result.summary.missing_matrix_items_count, 1);
-  assert.equal(result.missingMatrixItems[0].reason, 'not_found_in_supplier_report');
+  assert.equal(result.missingMatrixItems[0].reason, 'ARTICLE_NOT_FOUND');
   assert.deepEqual(result.warnings, [CRITICAL_MISSING_WARNING]);
+});
+
+test('same article with a different packaging is review-only', () => {
+  const sourceRow = row({
+    article: 'PACK-1',
+    name: 'Сухой корм 400 г',
+  });
+  const value = matrix([matrixItem({
+    article: 'PACK-1',
+    name: 'Сухой корм 1,5 кг',
+  })]);
+  const matchResult = matchAssortmentMatrix(value, [sourceRow]);
+  const product = demandProduct(sourceRow, {
+    freeStock: 0,
+    finalQuantity: 4,
+  });
+  const controlled = applyAssortmentMatrixControl({
+    analysis: { productRows: [sourceRow] },
+    demandProducts: [product],
+    decisions: [decisionFor(product, {
+      decision: 'must_buy',
+      approvedOrderQuantity: 4,
+    })],
+    matrix: value,
+    matchResult,
+  });
+
+  assert.equal(matchResult.itemResults[0].status, 'review_candidate');
+  assert.equal(matchResult.itemResults[0].reasonCode, 'PACKAGING_MISMATCH');
+  assert.equal(controlled.decisions[0].decision, 'manual_review');
+  assert.equal(controlled.decisions[0].approvedOrderQuantity, null);
+  assert.deepEqual(
+    controlled.decisions[0].orderSafetyReasons,
+    ['PACKAGING_MISMATCH']
+  );
 });
 
 test('adds matrix blocks to result JSON and report text', async () => {
   const adapterResult = await readSmartZapasExport(XLSX_FIXTURE_PATH);
-  const fixtureRow = adapterResult.rows[0];
+  const fixtureRow = adapterResult.rows.find(row => row.article === 'AMB');
   const filePath = path.join(TEMP_DIRECTORY, 'integration-matrix.json');
   fs.writeFileSync(filePath, `${JSON.stringify({
     version: 1,
@@ -502,8 +543,11 @@ test('adds matrix blocks to result JSON and report text', async () => {
   assert.equal(json.assortment_matrix_summary.total_matrix_items, 1);
   assert.equal(json.assortment_matrix_summary.matched_matrix_items, 1);
   assert.equal(json.demandProducts.length, 6);
-  assert.equal(json.demandProducts[0].assortment_matrix.matched, true);
-  assert.ok(json.demandProducts[0].inventory_projection);
+  const matchedProduct = json.demandProducts.find(
+    product => product.rowIdentity === fixtureRow.rowIdentity
+  );
+  assert.equal(matchedProduct.assortment_matrix.matched, true);
+  assert.ok(matchedProduct.inventory_projection);
   assert.ok(json.minmax_text.includes(
     '## КОНТРОЛЬ ОБЯЗАТЕЛЬНОЙ АССОРТИМЕНТНОЙ МАТРИЦЫ'
   ));

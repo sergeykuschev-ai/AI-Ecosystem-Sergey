@@ -12,6 +12,9 @@ function mapOwnerReviewItem(item) {
     reasons: Array.isArray(item.owner_review_reasons)
       ? [...item.owner_review_reasons]
       : [],
+    order_safety_reasons: Array.isArray(item.order_safety_reasons)
+      ? [...item.order_safety_reasons]
+      : [],
     recommended_action: item.recommended_action || null,
   };
 }

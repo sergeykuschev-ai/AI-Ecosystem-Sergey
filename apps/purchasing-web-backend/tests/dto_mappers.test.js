@@ -163,6 +163,18 @@ test('all SKU are mapped without loss', () => {
   assert.ok(items.every(item => typeof item.row_id === 'string'));
 });
 
+test('Owner Review DTO exposes formal order-safety reasons', () => {
+  const ownerReview = mapOwnerReview(bundle);
+  const safetyItems = ownerReview.top_priority.filter(item =>
+    item.order_safety_reasons.length > 0
+  );
+
+  assert.ok(safetyItems.length > 0);
+  assert.ok(safetyItems.every(item =>
+    item.reasons.some(reason => item.order_safety_reasons.includes(reason))
+  ));
+});
+
 test('browser DTO remove absolute paths and unsafe error internals', () => {
   const status = mapRunStatus({
     runId: RUN_ID,

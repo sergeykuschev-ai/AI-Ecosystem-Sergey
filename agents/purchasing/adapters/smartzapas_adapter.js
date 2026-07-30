@@ -3,6 +3,7 @@ const fs = require('node:fs/promises');
 const { unzipSync } = require('fflate');
 const readExcelFile = require('read-excel-file/node').default;
 const { clean, normalize, toNumber } = require('../parsers/minmax_parser');
+const { normalizeArticle } = require('../services/order_safety');
 
 const HEADER_ROW_COUNT = 3;
 const ADAPTER_SCHEMA = 'smartzapas-adapter-v1';
@@ -93,6 +94,16 @@ const COLUMN_DEFINITIONS = [
     field: 'manualMin',
     header: 'min > шт > ручной',
     required: true,
+    type: 'number',
+  },
+  {
+    field: 'autoMax',
+    header: 'max > шт > авто',
+    type: 'number',
+  },
+  {
+    field: 'manualMax',
+    header: 'max > шт > ручной',
     type: 'number',
   },
   {
@@ -952,7 +963,11 @@ function collectDuplicateIdentifiers(rows) {
   const definitions = [
     { type: 'barcode', getValue: row => row.barcode },
     { type: 'internal_product_id', getValue: row => row.internalProductId },
-    { type: 'article', getValue: row => row.article },
+    {
+      type: 'article',
+      getValue: row => normalizeArticle(row.article),
+      normalized: true,
+    },
   ];
   const diagnostics = [];
 
@@ -962,7 +977,7 @@ function collectDuplicateIdentifiers(rows) {
     for (const row of rows) {
       const rawValue = definition.getValue(row);
       if (!rawValue) continue;
-      const value = normalize(rawValue);
+      const value = definition.normalized ? rawValue : normalize(rawValue);
       if (!groups.has(value)) groups.set(value, []);
       groups.get(value).push(row);
     }
@@ -1311,6 +1326,8 @@ function validateNormalizedRow(row, index, source = null) {
     'stockDays',
     'autoMin',
     'manualMin',
+    'autoMax',
+    'manualMax',
     'orderQty',
     'priceNum',
     'sumNum',

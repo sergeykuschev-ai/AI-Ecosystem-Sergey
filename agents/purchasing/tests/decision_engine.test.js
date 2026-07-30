@@ -15,7 +15,7 @@ function product(overrides = {}) {
     supplier: 'Synthetic Supplier',
     abc: 'B',
     xyz: 'X',
-    freeStock: 5,
+    freeStock: 1,
     stock: null,
     stockDays: 5,
     orderQty: 2,
@@ -51,6 +51,17 @@ test('known-stock A/Y is recommended with its calculated quantity approved', () 
   assert.equal(decision.confidence, 'high');
   assert.equal(decision.approvedOrderQuantity, 2);
   assert.ok(decision.reasons.includes('abc_xyz_priority:A/Y'));
+});
+
+test('Phase 1 cannot auto-approve a positive order at high stock', () => {
+  const decision = decide([
+    product({ freeStock: 4, manualMin: 2 }),
+  ]).decisions[0];
+
+  assert.equal(decision.decision, 'manual_review');
+  assert.equal(decision.approvedOrderQuantity, null);
+  assert.ok(decision.orderSafetyReasons.includes('HIGH_STOCK_ORDER_WARNING'));
+  assert.ok(decision.orderSafetyReasons.includes('FREE_STOCK_NOT_BELOW_MIN'));
 });
 
 test('unknown-stock A/X remains manual review and cannot be high confidence', () => {
@@ -100,19 +111,20 @@ test('B/Z is not automatically approved', () => {
   assert.ok(decision.reasons.includes('abc_xyz_risk:B/Z'));
 });
 
-test('missing article warns and reduces confidence exactly one level', () => {
+test('missing article blocks automatic approval with a formal reason', () => {
   const decision = decide([
     product({ article: '', abc: 'A', xyz: 'X' }),
   ]).decisions[0];
 
-  assert.equal(decision.decision, 'must_buy');
+  assert.equal(decision.decision, 'manual_review');
   assert.equal(decision.confidence, 'medium');
-  assert.equal(decision.approvedOrderQuantity, 2);
+  assert.equal(decision.approvedOrderQuantity, null);
   assert.deepEqual(decision.warnings, ['missing_article']);
+  assert.deepEqual(decision.orderSafetyReasons, ['ARTICLE_REQUIRED']);
   assert.equal(decision.decisionScore, 100);
 });
 
-test('duplicate article warns but retains and decides every row independently', () => {
+test('duplicate article retains every row but blocks automatic approval', () => {
   const rows = [
     product({ rowIdentity: 'row:duplicate:1', rowNumber: 1 }),
     product({ rowIdentity: 'row:duplicate:2', rowNumber: 2, name: 'Other product' }),
@@ -128,7 +140,10 @@ test('duplicate article warns but retains and decides every row independently', 
 
   assert.equal(result.decisions.length, 2);
   assert.ok(result.decisions.every(item => item.warnings.includes('duplicate_article')));
-  assert.ok(result.decisions.every(item => item.decision === 'recommended'));
+  assert.ok(result.decisions.every(item => item.decision === 'manual_review'));
+  assert.ok(result.decisions.every(item =>
+    item.orderSafetyReasons.includes('DUPLICATE_ARTICLE')
+  ));
 });
 
 test('strategic product increases known-stock priority but never overrides unknown stock', () => {

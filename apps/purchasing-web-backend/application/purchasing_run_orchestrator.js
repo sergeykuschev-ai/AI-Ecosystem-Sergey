@@ -360,7 +360,8 @@ async function runPurchasingWebOrchestrator(
       matrixResult.draft,
       matrixResult.manualReview,
       matrixResult.config,
-      null
+      null,
+      agentJsonFromResult(agentResult).orderSafetyReview || null
     );
     const ownerDecisions = dependencies.loadOwnerDecisions(
       request.ownerDecisionsPath,
@@ -374,7 +375,8 @@ async function runPurchasingWebOrchestrator(
       ownerApplication.draft,
       matrixResult.manualReview,
       matrixResult.config,
-      ownerApplication.summary
+      ownerApplication.summary,
+      agentJsonFromResult(agentResult).orderSafetyReview || null
     );
     ownerReviewReport = dependencies.buildOwnerReviewReport(
       ownerApplication.draft,

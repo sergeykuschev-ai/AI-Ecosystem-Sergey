@@ -1,5 +1,14 @@
-const { DECISION_ENGINE_CONFIG, DEMAND_ENGINE_CONFIG } = require('../config');
+const {
+  DECISION_ENGINE_CONFIG,
+  DEMAND_ENGINE_CONFIG,
+  ORDER_SAFETY_CONFIG,
+} = require('../config');
 const { normalizeClass } = require('../rules/abc_xyz_rules');
+const {
+  applyOrderSafety,
+  effectiveMin,
+  ORDER_SAFETY_CODES,
+} = require('./order_safety');
 
 const DECISIONS = Object.freeze({
   MUST_BUY: 'must_buy',
@@ -52,6 +61,17 @@ function getAmbiguousRowNumbers(context = {}) {
     (context.ambiguousRowClassifications || [])
       .map(diagnostic => diagnostic.rowNumber)
   );
+}
+
+function identificationReasonFromFallbackMatch(product = {}) {
+  const matchMetadata = [
+    product.assortmentMatch,
+    product.salesMatch,
+    product.inTransitMatch,
+  ];
+  return matchMetadata.some(match => match?.method === 'normalized_name')
+    ? ORDER_SAFETY_CODES.ARTICLE_NOT_FOUND
+    : null;
 }
 
 function collectRequiredData(row) {
@@ -196,7 +216,7 @@ function decideProduct(row, context, config = DECISION_ENGINE_CONFIG) {
     confidence = downgradeConfidence(confidence);
   }
 
-  return {
+  const baseDecision = {
     rowIdentity: row.rowIdentity,
     decision,
     confidence,
@@ -208,6 +228,23 @@ function decideProduct(row, context, config = DECISION_ENGINE_CONFIG) {
     decisionScore: score,
     decisionVersion: config.version,
   };
+  const safeDecision = applyOrderSafety(
+    {
+      ...row,
+      effectiveMin: effectiveMin(row).value,
+    },
+    baseDecision,
+    {
+      duplicateArticle:
+        context.duplicateArticleRowIdentities.has(row.rowIdentity),
+      highStockWarningThreshold:
+        ORDER_SAFETY_CONFIG.highStockWarningThreshold,
+    }
+  );
+  if (safeDecision.decision === DECISIONS.MANUAL_REVIEW) {
+    safeDecision.confidence = capConfidence(safeDecision.confidence, 'medium');
+  }
+  return safeDecision;
 }
 
 function summarizeDecisions(decisions, productRows) {
@@ -446,7 +483,7 @@ function decidePhase2Product(product, context, config = DEMAND_ENGINE_CONFIG) {
   if (warnings.includes('declining_sales')) confidence = downgradeConfidence(confidence);
   if (warnings.includes('missing_article')) confidence = downgradeConfidence(confidence);
 
-  return {
+  const baseDecision = {
     rowIdentity: product.rowIdentity,
     decision,
     decisionBasis,
@@ -459,6 +496,17 @@ function decidePhase2Product(product, context, config = DEMAND_ENGINE_CONFIG) {
     decisionScore,
     decisionVersion: config.version,
   };
+  const safeDecision = applyOrderSafety(product, baseDecision, {
+    duplicateArticle:
+      context.duplicateArticleRowIdentities.has(product.rowIdentity),
+    identificationReason: identificationReasonFromFallbackMatch(product),
+    highStockWarningThreshold:
+      ORDER_SAFETY_CONFIG.highStockWarningThreshold,
+  });
+  if (safeDecision.decision === DECISIONS.MANUAL_REVIEW) {
+    safeDecision.confidence = capConfidence(safeDecision.confidence, 'medium');
+  }
+  return safeDecision;
 }
 
 function summarizePhase2Decisions(decisions, products) {
