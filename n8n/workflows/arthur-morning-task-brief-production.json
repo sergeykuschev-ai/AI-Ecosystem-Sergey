@@ -1,0 +1,110 @@
+{
+  "name": "Arthur — Утренняя сводка задач (production)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * *"
+            }
+          ]
+        }
+      },
+      "id": "morning-schedule",
+      "name": "Каждое утро в 08:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://arthur-api:8787/v1/tasks/brief",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "ownerId", "value": "sergey" },
+            { "name": "horizonHours", "value": "24" },
+            { "name": "limit", "value": "50" }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-Arthur-Actor-Id", "value": "n8n-morning-brief" },
+            { "name": "X-Arthur-Actor-Type", "value": "system" },
+            { "name": "X-Correlation-Id", "value": "={{ `morning-brief-${Date.now()}` }}" }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": false,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "get-task-brief",
+      "name": "Arthur Core — получить сводку",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [500, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_IN_N8N",
+          "name": "Arthur Core API Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const brief = $json.data ?? $json;\nconst overdue = Array.isArray(brief.overdue) ? brief.overdue : [];\nconst upcoming = Array.isArray(brief.upcoming) ? brief.upcoming : [];\nconst waiting = Array.isArray(brief.waiting) ? brief.waiting : [];\nconst esc = value => String(value ?? '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));\nconst formatDate = value => {\n  if (!value) return '';\n  return new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }).format(new Date(value));\n};\nconst line = task => `• ${esc(task.title)}${task.dueAt ? ` — ${formatDate(task.dueAt)}` : ''}`;\nconst sections = ['<b>Доброе утро, Сергей!</b>', ''];\nif (overdue.length) sections.push(`<b>🔴 Просрочено: ${overdue.length}</b>`, ...overdue.slice(0, 10).map(line), '');\nif (upcoming.length) sections.push(`<b>🟡 На ближайшие 24 часа: ${upcoming.length}</b>`, ...upcoming.slice(0, 10).map(line), '');\nif (waiting.length) sections.push(`<b>⏳ Ждём ответа или события: ${waiting.length}</b>`, ...waiting.slice(0, 10).map(task => `• ${esc(task.title)}${task.waitingFor ? ` — ждём: ${esc(task.waitingFor)}` : ''}`), '');\nif (!overdue.length && !upcoming.length && !waiting.length) sections.push('На сегодня срочных и ожидающих задач нет.');\nsections.push(`<i>Всего в выборке: ${Number(brief.total ?? 0)}</i>`);\nreturn [{ json: { text: sections.join('\\n').trim() } }];"
+      },
+      "id": "format-brief",
+      "name": "Сформировать сообщение",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [740, 300]
+    },
+    {
+      "parameters": {
+        "chatId": "REPLACE_CHAT_ID",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "id": "send-telegram",
+      "name": "Telegram — отправить сводку",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [980, 300],
+      "credentials": {
+        "telegramApi": {
+          "id": "REPLACE_IN_N8N",
+          "name": "Arthur Telegram Bot"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Каждое утро в 08:00": { "main": [[{ "node": "Arthur Core — получить сводку", "type": "main", "index": 0 }]] },
+    "Arthur Core — получить сводку": { "main": [[{ "node": "Сформировать сообщение", "type": "main", "index": 0 }]] },
+    "Сформировать сообщение": { "main": [[{ "node": "Telegram — отправить сводку", "type": "main", "index": 0 }]] }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Paris",
+    "saveManualExecutions": true
+  },
+  "active": false,
+  "versionId": "arthur-morning-task-brief-production-v1",
+  "meta": { "templateCredsSetupCompleted": false },
+  "tags": []
+}
