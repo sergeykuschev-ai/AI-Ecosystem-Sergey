@@ -45,6 +45,7 @@
         "rawContentType": "application/json",
         "body": "={{ JSON.stringify({ ownerId: $json.ownerId, domain: $json.domain, title: $json.title, description: $json.description, priority: $json.priority, dueAt: $json.dueAt, sourceType: $json.sourceType, sourceRef: $json.sourceRef }) }}",
         "options": {
+          "timeout": 10000,
           "response": {
             "response": {
               "neverError": false,

@@ -42,6 +42,23 @@ jobs:
             }
           }
 
+          const createTaskPath = path.join(directory, 'arthur-create-task-production.json');
+          const createTask = JSON.parse(fs.readFileSync(createTaskPath, 'utf8'));
+          const createTaskRequest = createTask.nodes.find(node => node.id === 'create-arthur-task');
+
+          if (!createTaskRequest || createTaskRequest.type !== 'n8n-nodes-base.httpRequest') {
+            throw new Error('Create-task must contain the Arthur Core HTTP request node');
+          }
+          if (createTaskRequest.parameters.url !== 'http://arthur-api:8787/v1/tasks') {
+            throw new Error('Create-task must use the stable Arthur Core Docker network alias');
+          }
+          if (createTaskRequest.parameters.options?.timeout !== 10000) {
+            throw new Error('Create-task must fail within 10 seconds when Arthur Core is unreachable');
+          }
+          if (createTaskRequest.parameters.authentication !== 'genericCredentialType') {
+            throw new Error('Create-task must use an n8n credential for Arthur Core');
+          }
+
           const morningPath = path.join(directory, 'arthur-morning-task-brief-production.json');
           const morning = JSON.parse(fs.readFileSync(morningPath, 'utf8'));
           if (morning.nodes.length !== 4) throw new Error('Morning brief must contain exactly four nodes');
@@ -163,6 +180,9 @@ jobs:
                 .credentials.httpHeaderAuth.id,
               'ci-arthur-credential'
             );
+            const createTaskRequest = savedWorkflow.nodes.find(node => node.id === 'create-arthur-task');
+            assert.equal(createTaskRequest.parameters.url, 'http://arthur-api:8787/v1/tasks');
+            assert.equal(createTaskRequest.parameters.options.timeout, 10000);
 
             savedWorkflow.active = true;
             const updated = await runImporter(baseUrl, 'arthur-create-task-production');
