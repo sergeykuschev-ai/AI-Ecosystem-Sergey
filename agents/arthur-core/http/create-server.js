@@ -70,6 +70,17 @@ function errorStatus(error) {
   return 500;
 }
 
+function queryFilters(requestUrl) {
+  return {
+    status: requestUrl.searchParams.get('status') || undefined,
+    domain: requestUrl.searchParams.get('domain') || undefined,
+    dueBefore: requestUrl.searchParams.get('dueBefore') || undefined,
+    dueAfter: requestUrl.searchParams.get('dueAfter') || undefined,
+    includeCompleted: requestUrl.searchParams.get('includeCompleted') || undefined,
+    limit: requestUrl.searchParams.get('limit') || undefined
+  };
+}
+
 function createArthurHttpHandler({ runtime, bodyLimit = DEFAULT_BODY_LIMIT, apiToken = process.env.ARTHUR_API_TOKEN } = {}) {
   if (!runtime || !runtime.service || typeof runtime.healthcheck !== 'function') {
     throw new TypeError('Arthur runtime with service and healthcheck is required');
@@ -104,6 +115,24 @@ function createArthurHttpHandler({ runtime, bodyLimit = DEFAULT_BODY_LIMIT, apiT
       if (request.method === 'POST' && path === '/v1/tasks') {
         const task = await runtime.service.createTask(await readJson(request, bodyLimit), actorContext(request));
         return sendJson(response, 201, { data: task });
+      }
+
+      if (request.method === 'GET' && path === '/v1/tasks') {
+        const ownerId = requestUrl.searchParams.get('ownerId');
+        if (!ownerId) return sendJson(response, 400, { error: { code: 'validation_error', message: 'ownerId query parameter is required' } });
+        const tasks = await runtime.service.listTasks(ownerId, queryFilters(requestUrl));
+        return sendJson(response, 200, { data: tasks, meta: { count: tasks.length } });
+      }
+
+      if (request.method === 'GET' && path === '/v1/tasks/brief') {
+        const ownerId = requestUrl.searchParams.get('ownerId');
+        if (!ownerId) return sendJson(response, 400, { error: { code: 'validation_error', message: 'ownerId query parameter is required' } });
+        const brief = await runtime.service.taskBrief(ownerId, {
+          now: requestUrl.searchParams.get('now') || undefined,
+          horizonHours: requestUrl.searchParams.get('horizonHours') || undefined,
+          limit: requestUrl.searchParams.get('limit') || undefined
+        });
+        return sendJson(response, 200, { data: brief });
       }
 
       const transitionMatch = path.match(/^\/v1\/tasks\/([^/]+)\/transitions$/);
@@ -145,4 +174,4 @@ function createArthurHttpServer(options) {
   return http.createServer(createArthurHttpHandler(options));
 }
 
-module.exports = { createArthurHttpHandler, createArthurHttpServer, readJson, extractToken, tokensMatch };
+module.exports = { createArthurHttpHandler, createArthurHttpServer, readJson, extractToken, tokensMatch, queryFilters };
