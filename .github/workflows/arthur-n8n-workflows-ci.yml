@@ -1,0 +1,71 @@
+name: Arthur n8n Workflows CI
+
+on:
+  pull_request:
+    paths:
+      - 'n8n/workflows/**'
+      - 'docs/arthur/**'
+      - '.github/workflows/arthur-n8n-workflows-ci.yml'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate Arthur production workflows
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+
+          const directory = 'n8n/workflows';
+          const files = fs.readdirSync(directory).filter(name => name.endsWith('.json'));
+          if (!files.length) throw new Error('No n8n workflow JSON files found');
+
+          for (const file of files) {
+            const fullPath = path.join(directory, file);
+            const workflow = JSON.parse(fs.readFileSync(fullPath, 'utf8'));
+            if (!workflow.name || !Array.isArray(workflow.nodes) || !workflow.nodes.length) {
+              throw new Error(`${file}: invalid workflow structure`);
+            }
+            const serialized = JSON.stringify(workflow);
+            if (/change-this|ci-n8n-token|bot\d+:[A-Za-z0-9_-]+/.test(serialized)) {
+              throw new Error(`${file}: possible hard-coded secret`);
+            }
+            if (workflow.active !== false) {
+              throw new Error(`${file}: imported workflow must be inactive by default`);
+            }
+          }
+
+          const morningPath = path.join(directory, 'arthur-morning-task-brief-production.json');
+          const morning = JSON.parse(fs.readFileSync(morningPath, 'utf8'));
+          if (morning.nodes.length !== 4) throw new Error('Morning brief must contain exactly four nodes');
+          if (morning.settings?.timezone !== 'Europe/Paris') throw new Error('Morning brief timezone must be Europe/Paris');
+
+          const schedule = morning.nodes.find(node => node.type === 'n8n-nodes-base.scheduleTrigger');
+          const request = morning.nodes.find(node => node.type === 'n8n-nodes-base.httpRequest');
+          const formatter = morning.nodes.find(node => node.type === 'n8n-nodes-base.code');
+          const telegram = morning.nodes.find(node => node.type === 'n8n-nodes-base.telegram');
+
+          if (!schedule || JSON.stringify(schedule.parameters).includes('0 8 * * *') === false) {
+            throw new Error('Morning brief must run daily at 08:00');
+          }
+          if (!request || request.parameters.url !== 'http://arthur-api:8787/v1/tasks/brief') {
+            throw new Error('Morning brief must use the internal Arthur Core brief endpoint');
+          }
+          if (request.parameters.authentication !== 'genericCredentialType') {
+            throw new Error('Morning brief must use an n8n credential for Arthur Core');
+          }
+          if (!formatter || !formatter.parameters.jsCode.includes('overdue') || !formatter.parameters.jsCode.includes('waiting')) {
+            throw new Error('Morning brief formatter is incomplete');
+          }
+          if (!telegram || telegram.parameters.chatId !== 'REPLACE_CHAT_ID') {
+            throw new Error('Morning brief must not store a real Telegram chat ID');
+          }
+          if (!telegram.credentials?.telegramApi || telegram.credentials.telegramApi.id !== 'REPLACE_IN_N8N') {
+            throw new Error('Morning brief must use a Telegram credential placeholder');
+          }
+          NODE
