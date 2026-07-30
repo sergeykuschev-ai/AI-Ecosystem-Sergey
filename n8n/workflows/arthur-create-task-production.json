@@ -17,7 +17,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const body = $json.body ?? $json;\nconst title = String(body.title ?? '').trim();\nif (!title) throw new Error('Поле title обязательно');\nconst allowedDomains = ['personal','health','travel','content','business','purchasing','academy','finance','system'];\nconst domain = allowedDomains.includes(body.domain) ? body.domain : 'personal';\nreturn [{ json: { ownerId: 'sergey', domain, title, description: body.description ?? null, priority: body.priority ?? 'normal', dueAt: body.dueAt ?? null, sourceType: 'n8n', sourceRef: body.sourceRef ?? 'webhook:arthur-create-task', correlationId: body.correlationId ?? `n8n-${Date.now()}` } }];"
+        "jsCode": "const body = $json.body ?? $json;\nconst title = String(body.title ?? '').trim();\nif (!title) throw new Error('Поле title обязательно');\nconst allowedDomains = ['personal','health','travel','content','business','purchasing','academy','finance','system'];\nconst domain = allowedDomains.includes(body.domain) ? body.domain : 'personal';\nreturn [{ json: { ownerId: 'sergey', domain, title, description: body.description ?? null, priority: body.priority ?? 'normal', dueAt: body.dueAt ?? null, sourceType: 'n8n', sourceRef: body.sourceRef ?? 'webhook:arthur-create-task' } }];"
       },
       "id": "normalize-task",
       "name": "Проверить данные",
@@ -36,8 +36,7 @@
           "parameters": [
             { "name": "Content-Type", "value": "application/json" },
             { "name": "X-Arthur-Actor-Id", "value": "n8n" },
-            { "name": "X-Arthur-Actor-Type", "value": "system" },
-            { "name": "X-Correlation-Id", "value": "={{ $json.correlationId }}" }
+            { "name": "X-Arthur-Actor-Type", "value": "system" }
           ]
         },
         "sendBody": true,

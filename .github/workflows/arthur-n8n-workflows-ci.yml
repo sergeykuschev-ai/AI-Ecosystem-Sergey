@@ -58,6 +58,10 @@ jobs:
           if (createTaskRequest.parameters.authentication !== 'genericCredentialType') {
             throw new Error('Create-task must use an n8n credential for Arthur Core');
           }
+          const createTaskHeaders = createTaskRequest.parameters.headerParameters?.parameters || [];
+          if (createTaskHeaders.some(header => header.name.toLowerCase() === 'x-correlation-id')) {
+            throw new Error('Create-task must let Arthur Core generate a UUID correlation ID');
+          }
 
           const morningPath = path.join(directory, 'arthur-morning-task-brief-production.json');
           const morning = JSON.parse(fs.readFileSync(morningPath, 'utf8'));
