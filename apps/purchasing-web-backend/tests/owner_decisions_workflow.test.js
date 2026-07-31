@@ -132,6 +132,8 @@ test('pending decisions require an explicit Owner Review signal', () => {
       : { owner_review_required: ownerReviewRequired },
     owner_decision: { decision },
   });
+  // DEFER is a made decision: it no longer counts as «нужно решить»,
+  // matching the canonical FinalOrderState where DEFER is resolved.
   assert.deepEqual(ownerDecisionSummary([
     item(true, null),
     item(true, 'DEFER'),
@@ -140,7 +142,8 @@ test('pending decisions require an explicit Owner Review signal', () => {
     item(false, null),
     item(undefined, null),
   ]), {
-    needs_decision: 2,
+    needs_decision: 1,
+    confirmed: 0,
     confirmed_buy: 1,
     excluded: 1,
     deferred: 1,
@@ -249,6 +252,7 @@ test('PUT saves BUY in append-only Owner Decisions Memory', async () => {
   assert.equal(saved.body.data.item.owner_decision.quantity, 7);
   assert.deepEqual(saved.body.data.owner_decisions, {
     needs_decision: 0,
+    confirmed: 1,
     confirmed_buy: 1,
     excluded: 0,
     deferred: 0,
@@ -434,8 +438,11 @@ test('missing decisions filter and counters are deterministic', async () => {
     missing.body.data.items.map(item => item.sku),
     ['SKU-2']
   );
+  // The DEFER-red SKU-1 is resolved, so «нужно решить» is 0 even though
+  // SKU-2 still lacks an owner decision (it never required one).
   assert.deepEqual(missing.body.data.owner_decisions, {
-    needs_decision: 1,
+    needs_decision: 0,
+    confirmed: 0,
     confirmed_buy: 0,
     excluded: 0,
     deferred: 1,

@@ -67,11 +67,7 @@
       owner_review: 'true',
       owner_decision: 'missing',
     }),
-    deferred: Object.freeze({
-      owner_review: 'true',
-      owner_decision: 'DEFER',
-    }),
-    confirmed: Object.freeze({ owner_decision: 'BUY' }),
+    confirmed: Object.freeze({ owner_decision: 'confirmed' }),
     skip: Object.freeze({ owner_decision: 'SKIP' }),
   });
   const ITEM_SORTS = Object.freeze([
@@ -456,7 +452,9 @@
     return {
       all: displayCount(totalItems),
       needsDecision: displayCount(summary?.needs_decision),
-      confirmedBuy: displayCount(summary?.confirmed_buy),
+      confirmedBuy: displayCount(
+        summary?.confirmed ?? summary?.confirmed_buy
+      ),
       excluded: displayCount(summary?.excluded),
     };
   }
@@ -466,15 +464,39 @@
   }
 
   function needsOwnerDecisionView(item) {
+    // DEFER is a made decision (resolved), aligned with the canonical
+    // FinalOrderState: a deferred item leaves «Нужно решить» and stays
+    // visible in «Все товары» with the «Отложено» status.
     const ownerDecision = item?.owner_decision?.decision || null;
     return item?.matrix?.owner_review_required === true &&
-      (ownerDecision === null || ownerDecision === 'DEFER');
+      ownerDecision === null;
+  }
+
+  function confirmedItemView(item) {
+    // Mirrors classifyItem(item).kind === 'included' from
+    // agents/purchasing/services/final_order.js, so the «Подтверждены»
+    // tab, its counter, and the final/supplier order all come from one
+    // source of truth: owner BUY with quantity > 0 plus auto-approved
+    // positions with approved_quantity > 0.
+    const ownerDecision = item?.owner_decision?.decision || null;
+    if (ownerDecision === 'BUY') {
+      const quantity = item?.owner_decision?.quantity;
+      return typeof quantity === 'number' &&
+        Number.isFinite(quantity) && quantity > 0;
+    }
+    if (ownerDecision !== null) return false;
+    if (item?.matrix?.owner_review_required === true) return false;
+    if (item?.workflow_status === 'pending_manual_review') return false;
+    if (item?.workflow_status !== 'auto_approved') return false;
+    const approved = item?.quantities?.approved_quantity;
+    return typeof approved === 'number' &&
+      Number.isFinite(approved) && approved > 0;
   }
 
   function itemMatchesDecisionFilter(item, filter) {
     const decision = item?.owner_decision?.decision || null;
     if (filter === 'needs') return needsOwnerDecisionView(item);
-    if (filter === 'confirmed') return decision === 'BUY';
+    if (filter === 'confirmed') return confirmedItemView(item);
     if (filter === 'skip') return decision === 'SKIP';
     return true;
   }
@@ -579,7 +601,10 @@
         className: 'decision-none',
       };
     }
-    return { label: 'Решение не принято', className: 'decision-none' };
+    if (needsOwnerDecisionView(item)) {
+      return { label: 'Решение не принято', className: 'decision-none' };
+    }
+    return { label: 'Решение не требуется', className: 'decision-none' };
   }
 
   function plainReason(item) {
@@ -741,12 +766,16 @@
   }
 
   async function requestNeedsDecisionItems(fetchFunction, baseUrl, state) {
-    const [undecided, deferred] = await Promise.all([
-      requestCompleteItemFilter(fetchFunction, baseUrl, state, 'undecided'),
-      requestCompleteItemFilter(fetchFunction, baseUrl, state, 'deferred'),
-    ]);
+    // «Нужно решить» contains only positions that still lack an owner
+    // decision; DEFER is resolved and therefore no longer fetched here.
+    const undecided = await requestCompleteItemFilter(
+      fetchFunction,
+      baseUrl,
+      state,
+      'undecided'
+    );
     const uniqueItems = new Map();
-    for (const item of [...undecided.items, ...deferred.items]) {
+    for (const item of undecided.items) {
       if (
         typeof item?.row_id === 'string' &&
         itemMatchesDecisionFilter(item, 'needs')
@@ -769,8 +798,7 @@
         total_items: items.length,
         total_pages: totalPages,
       },
-      owner_decisions:
-        undecided.owner_decisions || deferred.owner_decisions,
+      owner_decisions: undecided.owner_decisions,
     };
   }
 
@@ -6076,6 +6104,7 @@
     createItemRow,
     createItemRows,
     createApplication,
+    confirmedItemView,
     decisionCounterView,
     decisionLabel,
     defaultDecisionFilter,

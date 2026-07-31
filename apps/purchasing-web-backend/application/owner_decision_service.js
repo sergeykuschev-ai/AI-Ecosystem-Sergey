@@ -25,6 +25,9 @@ const {
 } = require(
   '../../../agents/purchasing/owner_learning/owner_decision_history'
 );
+const {
+  classifyItem,
+} = require('../../../agents/purchasing/services/final_order');
 const WEB_OWNER_DECISIONS = Object.freeze(['BUY', 'SKIP', 'DEFER']);
 const MAX_OWNER_ORDER_QUANTITY = 10000;
 
@@ -115,8 +118,15 @@ function decisionView(decision) {
 }
 
 function ownerDecisionSummary(items) {
+  // Semantics are aligned with the canonical FinalOrderState classifier:
+  // - DEFER is a made decision (resolved): it leaves «Нужно решить» and the
+  //   item stays visible in «Все товары» with the «Отложено» status.
+  // - «Подтверждены» (confirmed) mirrors classifyItem(item).kind ===
+  //   'included', i.e. owner BUY with quantity > 0 plus auto-approved
+  //   positions — exactly the rows that enter the final/supplier order.
   const summary = {
     needs_decision: 0,
+    confirmed: 0,
     confirmed_buy: 0,
     excluded: 0,
     deferred: 0,
@@ -126,9 +136,10 @@ function ownerDecisionSummary(items) {
     if (decision === 'BUY') summary.confirmed_buy += 1;
     else if (decision === 'SKIP') summary.excluded += 1;
     else if (decision === 'DEFER') summary.deferred += 1;
+    if (classifyItem(item).kind === 'included') summary.confirmed += 1;
     if (
       item.matrix?.owner_review_required === true &&
-      (decision === null || decision === undefined || decision === 'DEFER')
+      (decision === null || decision === undefined)
     ) {
       summary.needs_decision += 1;
     }

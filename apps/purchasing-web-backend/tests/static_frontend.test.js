@@ -1439,11 +1439,10 @@ test('item search and filters use server-side query parameters', () => {
   }), 'http://localhost');
   assert.equal(undecided.searchParams.get('owner_review'), 'true');
   assert.equal(undecided.searchParams.get('owner_decision'), 'missing');
-  const deferred = new URL(buildItemsUrl(baseUrl, {
-    filter: 'deferred',
+  const confirmed = new URL(buildItemsUrl(baseUrl, {
+    filter: 'confirmed',
   }), 'http://localhost');
-  assert.equal(deferred.searchParams.get('owner_review'), 'true');
-  assert.equal(deferred.searchParams.get('owner_decision'), 'DEFER');
+  assert.equal(confirmed.searchParams.get('owner_decision'), 'confirmed');
   assert.equal(
     buildDecisionUrl(baseUrl, 'smartzapas:row%20one'),
     `${baseUrl}/smartzapas%3Arow%2520one/decision`
@@ -1474,7 +1473,8 @@ test('amount sorting and pagination are encoded deterministically', () => {
 test('owner decision counters map updated API totals', () => {
   const initial = decisionCounterView({
     needs_decision: 17,
-    confirmed_buy: 8,
+    confirmed: 8,
+    confirmed_buy: 5,
     excluded: 4,
     deferred: 2,
   }, 31);
@@ -1486,7 +1486,8 @@ test('owner decision counters map updated API totals', () => {
   });
   const afterBuy = decisionCounterView({
     needs_decision: 16,
-    confirmed_buy: 9,
+    confirmed: 9,
+    confirmed_buy: 6,
     excluded: 4,
     deferred: 2,
   }, 31);
@@ -1514,14 +1515,18 @@ test('decision tabs show the correct owner choices', () => {
     matrix: { owner_review_required: true },
     owner_decision: { decision: null },
   };
-  const confirmed = { owner_decision: { decision: 'BUY' } };
+  const confirmed = {
+    owner_decision: { decision: 'BUY', quantity: 3 },
+  };
   const skipped = { owner_decision: { decision: 'SKIP' } };
   const deferred = {
     matrix: { owner_review_required: true },
     owner_decision: { decision: 'DEFER' },
   };
   const automatic = {
+    workflow_status: 'auto_approved',
     matrix: { owner_review_required: false },
+    quantities: { approved_quantity: 2 },
     owner_decision: { decision: null },
   };
   const items = [undecided, confirmed, skipped, deferred, automatic];
@@ -1530,13 +1535,15 @@ test('decision tabs show the correct owner choices', () => {
     items.filter(item => itemMatchesDecisionFilter(item, 'all')),
     items
   );
+  // DEFER is a made decision: it leaves «Нужно решить».
   assert.deepEqual(
     items.filter(item => itemMatchesDecisionFilter(item, 'needs')),
-    [undecided, deferred]
+    [undecided]
   );
+  // «Подтверждены» = owner BUY + auto-approved, mirroring the final order.
   assert.deepEqual(
     items.filter(item => itemMatchesDecisionFilter(item, 'confirmed')),
-    [confirmed]
+    [confirmed, automatic]
   );
   assert.deepEqual(
     items.filter(item => itemMatchesDecisionFilter(item, 'skip')),
@@ -1559,9 +1566,10 @@ test('missing Owner Review signal never makes an item unresolved', () => {
   }), false);
 });
 
-test('unresolved tab combines reviewed missing and deferred without duplicates', async () => {
+test('unresolved tab fetches only undecided items, deferred stay out', async () => {
   const summary = {
-    needs_decision: 3,
+    needs_decision: 2,
+    confirmed: 1,
     confirmed_buy: 1,
     excluded: 1,
     deferred: 2,
@@ -1577,15 +1585,14 @@ test('unresolved tab combines reviewed missing and deferred without duplicates',
       reviewedItem('row-2', 2, null),
       reviewedItem('row-1', 1, null),
     ],
-    DEFER: [
-      reviewedItem('row-1', 1, 'DEFER'),
-      reviewedItem('row-3', 3, 'DEFER'),
-    ],
   };
-  const requestedOwnerReview = [];
+  const requestedParams = [];
   const fetchFunction = async requestUrl => {
     const url = new URL(requestUrl, 'http://localhost');
-    requestedOwnerReview.push(url.searchParams.get('owner_review'));
+    requestedParams.push({
+      owner_review: url.searchParams.get('owner_review'),
+      owner_decision: url.searchParams.get('owner_decision'),
+    });
     const ownerDecision = url.searchParams.get('owner_decision');
     const items = source[ownerDecision] || [];
     return {
@@ -1620,14 +1627,20 @@ test('unresolved tab combines reviewed missing and deferred without duplicates',
   );
   assert.deepEqual(
     payload.items.map(item => item.row_id),
-    ['row-1', 'row-2', 'row-3']
+    ['row-1', 'row-2']
   );
-  assert.equal(payload.pagination.total_items, 3);
+  assert.equal(payload.pagination.total_items, 2);
   assert.deepEqual(payload.owner_decisions, summary);
-  assert.ok(requestedOwnerReview.every(value => value === 'true'));
+  // Only the undecided filter is requested — DEFER is resolved and is
+  // never fetched for «Нужно решить».
+  assert.ok(requestedParams.length > 0);
+  assert.ok(requestedParams.every(params =>
+    params.owner_review === 'true' &&
+    params.owner_decision === 'missing'
+  ));
 });
 
-test('final choices leave unresolved tab while defer remains', async () => {
+test('final choices including defer leave the unresolved tab', async () => {
   async function choose(decision) {
     const documentObject = fakeDocument();
     const item = {
@@ -1664,7 +1677,9 @@ test('final choices leave unresolved tab while defer remains', async () => {
 
   assert.equal(await choose('BUY'), true);
   assert.equal(await choose('SKIP'), true);
-  assert.equal(await choose('DEFER'), false);
+  // DEFER is a made decision (resolved): the row leaves «Нужно решить»
+  // and remains visible in «Все товары» with the «Отложено» status.
+  assert.equal(await choose('DEFER'), true);
 });
 
 test('item renderer treats API text as textContent', () => {
