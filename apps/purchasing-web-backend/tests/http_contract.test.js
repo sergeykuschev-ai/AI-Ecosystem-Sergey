@@ -198,7 +198,19 @@ test('GET summary, items, owner-review and artifacts expose compact DTOs', async
   assert.equal(ownerReview.body.data.run_id, completedRunId);
   assert.equal(ownerReview.body.data.section, 'top_priority');
   assert.equal(artifacts.body.data.run_id, completedRunId);
-  assert.equal(artifacts.body.data.artifacts.length, 18);
+  // 18 bundle artifacts + the original Excel upload, which runs created
+  // through HTTP keep as source-report.xlsx (ЭТАП: исходный Excel как
+  // artifact run).
+  assert.equal(artifacts.body.data.artifacts.length, 19);
+  const sourceArtifact = artifacts.body.data.artifacts.find(
+    artifact => artifact.name === 'source-report.xlsx'
+  );
+  assert.ok(sourceArtifact, 'source-report.xlsx присутствует');
+  assert.equal(
+    sourceArtifact.original_name,
+    'SmartZapas_synthetic.xlsx'
+  );
+  assert.match(sourceArtifact.sha256, /^[0-9a-f]{64}$/);
   assert.ok(artifacts.body.data.artifacts.every(artifact =>
     artifact.download_url.startsWith(
       `/api/v1/runs/${completedRunId}/artifacts/`

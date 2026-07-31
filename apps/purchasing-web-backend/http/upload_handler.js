@@ -8,6 +8,7 @@ const {
   DEFAULT_UPLOAD_TIMEOUT_MS,
   MAX_REQUEST_BODY_BYTES,
   MAX_UPLOAD_FILE_BYTES,
+  isValidIdempotencyKey,
   isValidRunId,
 } = require('../config');
 const { safeOriginalName } = require('../dto/run_status_mapper');
@@ -26,6 +27,32 @@ const MIME_BY_EXTENSION = Object.freeze({
 const XLS_SIGNATURE = Buffer.from([
   0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1,
 ]);
+
+const OPTIONAL_TEXT_FIELDS = Object.freeze(['mailbox', 'message_uid']);
+
+function validateIdempotencyKeyField(value) {
+  if (!isValidIdempotencyKey(value)) {
+    throw new HttpError(
+      'INVALID_IDEMPOTENCY_KEY',
+      'idempotency_key должен быть строкой 8–512 символов из набора A–Z a–z 0–9 . _ : -.'
+    );
+  }
+  return value;
+}
+
+function validateOptionalTextField(fieldName, value) {
+  if (
+    typeof value !== 'string' ||
+    value.length > 512 ||
+    value.includes('\0')
+  ) {
+    throw new HttpError(
+      'INVALID_MULTIPART',
+      `Поле ${fieldName} имеет недопустимое значение.`
+    );
+  }
+  return value;
+}
 
 function validateReportDate(value) {
   if (value === undefined || value === null || value === '') return null;
@@ -184,9 +211,12 @@ function parseExcelUpload(request, options = {}) {
       limits: {
         fileSize: maxFileBytes,
         files: 2,
-        fields: 2,
-        fieldSize: 64,
-        parts: 4,
+        // file + report_date + idempotency_key + mailbox + message_uid,
+        // with headroom so a repeated field triggers the explicit
+        // "unsupported field" error instead of a bare limits failure.
+        fields: 8,
+        fieldSize: 1024,
+        parts: 10,
       },
       preservePath: false,
     });
@@ -205,6 +235,9 @@ function parseExcelUpload(request, options = {}) {
     let fileMetadata = null;
     let reportDate = null;
     let reportDateSeen = false;
+    let idempotencyKey = null;
+    let idempotencyKeySeen = false;
+    const optionalText = {};
     let deferredError = null;
     let requestBytes = 0;
     const writes = [];
@@ -301,19 +334,42 @@ function parseExcelUpload(request, options = {}) {
       }
     });
     parser.on('field', (fieldName, value) => {
-      if (fieldName !== 'report_date' || reportDateSeen) {
-        deferredError ||= new HttpError(
-          'INVALID_MULTIPART',
-          'Multipart содержит неподдерживаемые или повторяющиеся поля.'
-        );
+      if (fieldName === 'report_date' && !reportDateSeen) {
+        reportDateSeen = true;
+        try {
+          reportDate = validateReportDate(value);
+        } catch (error) {
+          deferredError ||= error;
+        }
         return;
       }
-      reportDateSeen = true;
-      try {
-        reportDate = validateReportDate(value);
-      } catch (error) {
-        deferredError ||= error;
+      if (fieldName === 'idempotency_key' && !idempotencyKeySeen) {
+        idempotencyKeySeen = true;
+        try {
+          idempotencyKey = validateIdempotencyKeyField(value);
+        } catch (error) {
+          deferredError ||= error;
+        }
+        return;
       }
+      if (
+        OPTIONAL_TEXT_FIELDS.includes(fieldName) &&
+        optionalText[fieldName] === undefined
+      ) {
+        try {
+          optionalText[fieldName] = validateOptionalTextField(
+            fieldName,
+            value
+          );
+        } catch (error) {
+          deferredError ||= error;
+        }
+        return;
+      }
+      deferredError ||= new HttpError(
+        'INVALID_MULTIPART',
+        'Multipart содержит неподдерживаемые или повторяющиеся поля.'
+      );
     });
     parser.once('filesLimit', () => {
       deferredError ||= new HttpError(
@@ -347,6 +403,9 @@ function parseExcelUpload(request, options = {}) {
         finish(null, {
           ...fileMetadata,
           reportDate,
+          idempotencyKey,
+          mailbox: optionalText.mailbox ?? null,
+          messageUid: optionalText.message_uid ?? null,
           cleanup: () => cleanupUploadDirectory(
             uploadRoot,
             requestId,
@@ -368,5 +427,6 @@ module.exports = {
   hasExcelSignature,
   parseExcelUpload,
   validateFileMetadata,
+  validateIdempotencyKeyField,
   validateReportDate,
 };

@@ -11,6 +11,7 @@ const {
 const {
   DEFAULT_SERVER_PATHS,
   DEFAULT_UPLOAD_ROOT,
+  isValidIdempotencyKey,
 } = require('../config');
 const {
   runPurchasingWebOrchestrator,
@@ -1313,6 +1314,94 @@ function reportDateDependencies(reportDate) {
   };
 }
 
+const MAX_IDEMPOTENCY_BODY_BYTES = 4096;
+
+function extractIdempotencyKeyHeader(request) {
+  const raw = request?.headers?.['x-idempotency-key'];
+  if (raw === undefined) return null;
+  if (Array.isArray(raw)) {
+    throw new HttpError(
+      'INVALID_IDEMPOTENCY_KEY',
+      'Заголовок x-idempotency-key допускается только один раз.'
+    );
+  }
+  if (!isValidIdempotencyKey(raw)) {
+    throw new HttpError(
+      'INVALID_IDEMPOTENCY_KEY',
+      'x-idempotency-key должен быть строкой 8–512 символов из набора A–Z a–z 0–9 . _ : -.'
+    );
+  }
+  return raw;
+}
+
+function resolveIdempotencyKey(headerKey, fieldKey) {
+  if (headerKey && fieldKey && headerKey !== fieldKey) {
+    throw new HttpError(
+      'INVALID_IDEMPOTENCY_KEY',
+      'x-idempotency-key и поле idempotency_key содержат разные значения.'
+    );
+  }
+  return headerKey || fieldKey || null;
+}
+
+async function readIdempotencyJsonBody(request) {
+  const contentType = String(request.headers['content-type'] || '')
+    .split(';')[0]
+    .trim()
+    .toLowerCase();
+  if (contentType !== 'application/json') {
+    throw new HttpError(
+      'INVALID_IDEMPOTENCY_RECORD',
+      'Idempotency record должна быть передана как application/json.'
+    );
+  }
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of request) {
+    size += chunk.length;
+    if (size > MAX_IDEMPOTENCY_BODY_BYTES) {
+      throw new HttpError(
+        'INVALID_IDEMPOTENCY_RECORD',
+        'Тело idempotency record превышает допустимый размер.'
+      );
+    }
+    chunks.push(chunk);
+  }
+  try {
+    const input = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    if (!input || typeof input !== 'object' || Array.isArray(input)) {
+      throw new Error('not an object');
+    }
+    return input;
+  } catch (error) {
+    throw new HttpError(
+      'INVALID_IDEMPOTENCY_RECORD',
+      'Idempotency record содержит некорректный JSON.',
+      { cause: error }
+    );
+  }
+}
+
+function idempotencyRecordView(record) {
+  return {
+    idempotency_key: record.idempotencyKey,
+    mailbox: record.mailbox,
+    message_uid: record.messageUid,
+    attachment_name: record.attachmentName,
+    attachment_size: record.attachmentSize,
+    sha256: record.sha256,
+    state: record.state,
+    run_id: record.runId,
+    error_code: record.errorCode,
+    created_at: record.createdAt,
+    updated_at: record.updatedAt,
+    notification_sent_at: record.notificationSentAt,
+    links: record.runId
+      ? { run: `/api/v1/runs/${record.runId}` }
+      : null,
+  };
+}
+
 function orchestrationHttpError(error) {
   if (error?.code === 'INVALID_RUN_REQUEST') {
     return new HttpError(
@@ -1357,6 +1446,8 @@ function createRunHandlers(options) {
     ownerRuleStatusService,
     ownerLearningCenterService,
     supplierOrderService,
+    uploadIdempotencyStore = null,
+    logger = console,
   } = options;
 
   if (
@@ -1375,22 +1466,102 @@ function createRunHandlers(options) {
 
   return {
     async createRun(request, context) {
-      const releaseLock = runLock.tryAcquire();
-      if (!releaseLock) {
-        throw new HttpError(
-          'RUN_ALREADY_IN_PROGRESS',
-          'Другой purchasing run уже выполняется.'
-        );
-      }
       let upload = null;
       let runId = null;
       let processingCreated = false;
+      let releaseLock = null;
+      let idempotencyKey = null;
+      // True only when this request owns the idempotency record and may
+      // move it to `failed` on error; conflict/replay paths must never
+      // clobber an existing record.
+      let ownsIdempotencyRecord = false;
       try {
+        const headerKey = extractIdempotencyKeyHeader(request);
         upload = await parseExcelUpload(request, {
           ...uploadOptions,
           uploadRoot,
           requestId: context.requestId,
         });
+        idempotencyKey = resolveIdempotencyKey(
+          headerKey,
+          upload.idempotencyKey
+        );
+
+        if (uploadIdempotencyStore && idempotencyKey) {
+          const registration = await uploadIdempotencyStore.registerReceived({
+            idempotencyKey,
+            sha256: upload.sha256,
+            attachmentName: upload.originalName,
+            attachmentSize: upload.sizeBytes,
+            mailbox: upload.mailbox,
+            messageUid: upload.messageUid,
+          });
+          if (registration.conflict) {
+            throw new HttpError(
+              'IDEMPOTENCY_KEY_CONFLICT',
+              'Idempotency key уже использован для файла с другим содержимым; новый run не создан.'
+            );
+          }
+          const existing = registration.record;
+          if (existing.runId) {
+            // The key already produced a run: return it instead of
+            // creating a second one, even after a network interruption.
+            let status;
+            try {
+              status = queryService.getRunStatus(existing.runId);
+            } catch (statusError) {
+              throw new HttpError(
+                'IDEMPOTENCY_KEY_CONFLICT',
+                'Run для этого idempotency key уже удалён retention; ключ нельзя использовать повторно.',
+                { cause: statusError }
+              );
+            }
+            return {
+              statusCode: 200,
+              headers: {
+                Location: `/api/v1/runs/${existing.runId}`,
+              },
+              data: { ...status, idempotent_replay: true },
+              runId: existing.runId,
+            };
+          }
+          ownsIdempotencyRecord = true;
+          await uploadIdempotencyStore.update(idempotencyKey, {
+            state: 'uploading',
+            sha256: upload.sha256,
+            attachmentName: upload.originalName,
+            attachmentSize: upload.sizeBytes,
+          });
+        }
+
+        releaseLock = runLock.tryAcquire();
+        if (!releaseLock) {
+          if (uploadIdempotencyStore && idempotencyKey) {
+            // A parallel request with the same key may have created the
+            // run while this one waited: answer with that run instead of
+            // a bare 409 so the caller can attach to it.
+            const current = uploadIdempotencyStore.get(idempotencyKey);
+            if (current?.runId) {
+              try {
+                const status = queryService.getRunStatus(current.runId);
+                return {
+                  statusCode: 200,
+                  headers: {
+                    Location: `/api/v1/runs/${current.runId}`,
+                  },
+                  data: { ...status, idempotent_replay: true },
+                  runId: current.runId,
+                };
+              } catch {
+                // Fall through to the standard conflict below.
+              }
+            }
+          }
+          throw new HttpError(
+            'RUN_ALREADY_IN_PROGRESS',
+            'Другой purchasing run уже выполняется.'
+          );
+        }
         runId = uuid();
         const generatedAt = now();
         registry.createProcessingRun({
@@ -1405,7 +1576,18 @@ function createRunHandlers(options) {
           },
         });
         processingCreated = true;
+        if (uploadIdempotencyStore && idempotencyKey) {
+          await uploadIdempotencyStore.update(idempotencyKey, {
+            state: 'run_created',
+            runId,
+          });
+        }
 
+        if (uploadIdempotencyStore && idempotencyKey) {
+          await uploadIdempotencyStore.update(idempotencyKey, {
+            state: 'processing',
+          });
+        }
         const bundle = await orchestrator({
           runId,
           inputPath: upload.inputPath,
@@ -1424,6 +1606,28 @@ function createRunHandlers(options) {
         const saved = registry.saveCompletedRun(bundle, {
           completedAt: now(),
         });
+        // Keep the original Excel as a binary run artifact. Failure to
+        // store it must not fail an otherwise completed run.
+        try {
+          registry.artifactStore.saveSourceArtifact(
+            runId,
+            upload.inputPath,
+            {
+              originalName: upload.originalName,
+              receivedAt: generatedAt,
+            }
+          );
+        } catch (artifactError) {
+          logger.warn(
+            `Purchasing Web: не удалось сохранить исходный Excel как artifact для run ${runId}.`,
+            { code: artifactError?.code }
+          );
+        }
+        if (uploadIdempotencyStore && idempotencyKey) {
+          await uploadIdempotencyStore.update(idempotencyKey, {
+            state: 'completed',
+          });
+        }
         return {
           statusCode: 201,
           headers: {
@@ -1434,6 +1638,20 @@ function createRunHandlers(options) {
         };
       } catch (rawError) {
         const error = orchestrationHttpError(rawError);
+        if (
+          uploadIdempotencyStore &&
+          idempotencyKey &&
+          ownsIdempotencyRecord
+        ) {
+          try {
+            await uploadIdempotencyStore.update(idempotencyKey, {
+              state: 'failed',
+              errorCode: error.code || 'RUN_FAILED',
+            });
+          } catch {
+            // Registry bookkeeping must not mask the original error.
+          }
+        }
         if (processingCreated) {
           try {
             registry.saveFailedRun(runId, error, {
@@ -1455,7 +1673,7 @@ function createRunHandlers(options) {
           if (upload?.cleanup) upload.cleanup();
           else cleanupUploadDirectory(uploadRoot, context.requestId);
         } finally {
-          releaseLock();
+          if (releaseLock) releaseLock();
         }
       }
     },
@@ -1465,6 +1683,209 @@ function createRunHandlers(options) {
         statusCode: 200,
         data: queryService.getRunStatus(runId),
         runId,
+      };
+    },
+
+    getUploadIdempotencyRecord(key) {
+      if (!uploadIdempotencyStore || !isValidIdempotencyKey(key)) {
+        throw new HttpError(
+          'UPLOAD_IDEMPOTENCY_RECORD_NOT_FOUND',
+          'Idempotency record не найдена.'
+        );
+      }
+      const record = uploadIdempotencyStore.get(key);
+      if (!record) {
+        throw new HttpError(
+          'UPLOAD_IDEMPOTENCY_RECORD_NOT_FOUND',
+          'Idempotency record не найдена.'
+        );
+      }
+      return {
+        statusCode: 200,
+        data: idempotencyRecordView(record),
+        runId: record.runId,
+      };
+    },
+
+    async markUploadIdempotencyNotification(key, request) {
+      if (!uploadIdempotencyStore || !isValidIdempotencyKey(key)) {
+        throw new HttpError(
+          'UPLOAD_IDEMPOTENCY_RECORD_NOT_FOUND',
+          'Idempotency record не найдена.'
+        );
+      }
+      const input = await readIdempotencyJsonBody(request);
+      for (const name of Object.keys(input)) {
+        if (name !== 'sent_at') {
+          throw new HttpError(
+            'INVALID_IDEMPOTENCY_RECORD',
+            `Поле ${name} не поддерживается.`
+          );
+        }
+      }
+      if (
+        typeof input.sent_at !== 'string' ||
+        !Number.isFinite(new Date(input.sent_at).getTime())
+      ) {
+        throw new HttpError(
+          'INVALID_IDEMPOTENCY_RECORD',
+          'Поле sent_at должно быть ISO-датой.'
+        );
+      }
+      const record = await uploadIdempotencyStore.update(key, {
+        notificationSentAt: new Date(input.sent_at).toISOString(),
+      });
+      if (!record) {
+        throw new HttpError(
+          'UPLOAD_IDEMPOTENCY_RECORD_NOT_FOUND',
+          'Idempotency record не найдена.'
+        );
+      }
+      return {
+        statusCode: 200,
+        data: idempotencyRecordView(record),
+        runId: record.runId,
+      };
+    },
+
+    async markUploadIdempotencyState(key, request) {
+      if (!uploadIdempotencyStore || !isValidIdempotencyKey(key)) {
+        throw new HttpError(
+          'UPLOAD_IDEMPOTENCY_RECORD_NOT_FOUND',
+          'Idempotency record не найдена.'
+        );
+      }
+      const input = await readIdempotencyJsonBody(request);
+      for (const name of Object.keys(input)) {
+        if (name !== 'state' && name !== 'error_code') {
+          throw new HttpError(
+            'INVALID_IDEMPOTENCY_RECORD',
+            `Поле ${name} не поддерживается.`
+          );
+        }
+      }
+      // The workflow may only degrade a record (never mark it completed);
+      // ignored/rejected are valid only for records without a run.
+      const allowedStates = ['uncertain', 'ignored', 'rejected'];
+      if (!allowedStates.includes(input.state)) {
+        throw new HttpError(
+          'INVALID_IDEMPOTENCY_RECORD',
+          'State должен быть uncertain, ignored или rejected.'
+        );
+      }
+      const existing = uploadIdempotencyStore.get(key);
+      if (!existing) {
+        throw new HttpError(
+          'UPLOAD_IDEMPOTENCY_RECORD_NOT_FOUND',
+          'Idempotency record не найдена.'
+        );
+      }
+      if (
+        ['ignored', 'rejected'].includes(input.state) &&
+        existing.runId
+      ) {
+        throw new HttpError(
+          'INVALID_IDEMPOTENCY_RECORD',
+          'Record с run не может быть переведена в ignored/rejected.'
+        );
+      }
+      // Terminal states are never clobbered by a late error report
+      // (e.g. an upload-conflict retry that belongs to another letter).
+      if (['completed', 'failed'].includes(existing.state)) {
+        return {
+          statusCode: 200,
+          data: idempotencyRecordView(existing),
+          runId: existing.runId,
+        };
+      }
+      if (input.error_code !== undefined &&
+          (typeof input.error_code !== 'string' ||
+            input.error_code.length > 128)) {
+        throw new HttpError(
+          'INVALID_IDEMPOTENCY_RECORD',
+          'error_code должен быть строкой до 128 символов.'
+        );
+      }
+      const record = await uploadIdempotencyStore.update(key, {
+        state: input.state,
+        errorCode: input.error_code ?? existing.errorCode,
+      });
+      return {
+        statusCode: 200,
+        data: idempotencyRecordView(record),
+        runId: record.runId,
+      };
+    },
+
+    async registerUploadIdempotencyRecord(request) {
+      if (!uploadIdempotencyStore) {
+        throw new HttpError(
+          'UPLOAD_IDEMPOTENCY_STORAGE_ERROR',
+          'Upload idempotency registry недоступен.'
+        );
+      }
+      const input = await readIdempotencyJsonBody(request);
+      const allowedFields = new Set([
+        'idempotency_key',
+        'mailbox',
+        'message_uid',
+        'attachment_name',
+        'attachment_size',
+        'sha256',
+        'state',
+        'error_code',
+      ]);
+      for (const name of Object.keys(input)) {
+        if (!allowedFields.has(name)) {
+          throw new HttpError(
+            'INVALID_IDEMPOTENCY_RECORD',
+            `Поле ${name} не поддерживается.`
+          );
+        }
+      }
+      if (!isValidIdempotencyKey(input.idempotency_key)) {
+        throw new HttpError(
+          'INVALID_IDEMPOTENCY_KEY',
+          'idempotency_key должен быть строкой 8–512 символов из набора A–Z a–z 0–9 . _ : -.'
+        );
+      }
+      // Records without a run exist for letters that were filtered out;
+      // they prevent reprocessing without touching the run registry.
+      const allowedStates = ['ignored', 'rejected', 'uncertain'];
+      if (input.state !== undefined && !allowedStates.includes(input.state)) {
+        throw new HttpError(
+          'INVALID_IDEMPOTENCY_RECORD',
+          `State ${input.state} не может быть установлен через этот endpoint.`
+        );
+      }
+      if (input.sha256 !== undefined &&
+          (typeof input.sha256 !== 'string' ||
+            !/^[0-9a-f]{64}$/i.test(input.sha256))) {
+        throw new HttpError(
+          'INVALID_IDEMPOTENCY_RECORD',
+          'sha256 должен быть 64-символьной hex-строкой.'
+        );
+      }
+      const registration = await uploadIdempotencyStore.registerReceived({
+        idempotencyKey: input.idempotency_key,
+        mailbox: input.mailbox,
+        messageUid: input.message_uid,
+        attachmentName: input.attachment_name,
+        attachmentSize: input.attachment_size,
+        sha256: input.sha256,
+        state: input.state,
+        errorCode: input.error_code,
+      });
+      if (registration.conflict) {
+        throw new HttpError(
+          'IDEMPOTENCY_KEY_CONFLICT',
+          'Idempotency key уже использован с другим sha256.'
+        );
+      }
+      return {
+        statusCode: registration.created ? 201 : 200,
+        data: idempotencyRecordView(registration.record),
+        runId: registration.record.runId,
       };
     },
 

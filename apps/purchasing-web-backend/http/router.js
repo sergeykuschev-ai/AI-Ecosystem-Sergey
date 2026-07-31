@@ -1,5 +1,6 @@
 const crypto = require('node:crypto');
 
+const { enforceApiAccess } = require('./api_access_guard');
 const { HttpError, sendError, sendSuccess } = require('./responses');
 
 const RUN_ROUTE = /^\/api\/v1\/runs\/([^/]+)$/;
@@ -61,6 +62,14 @@ const SUPPLIER_ORDER_DOWNLOAD_ROUTE =
   /^\/api\/v1\/runs\/([^/]+)\/supplier-order\/download$/;
 const FINAL_ORDER_ROUTE =
   /^\/api\/v1\/runs\/([^/]+)\/final-order$/;
+const UPLOAD_IDEMPOTENCY_ROUTE =
+  '/api/v1/upload-idempotency';
+const UPLOAD_IDEMPOTENCY_DETAIL_ROUTE =
+  /^\/api\/v1\/upload-idempotency\/([A-Za-z0-9._:-]{8,512})$/;
+const UPLOAD_IDEMPOTENCY_NOTIFICATION_ROUTE =
+  /^\/api\/v1\/upload-idempotency\/([A-Za-z0-9._:-]{8,512})\/notification$/;
+const UPLOAD_IDEMPOTENCY_STATE_ROUTE =
+  /^\/api\/v1\/upload-idempotency\/([A-Za-z0-9._:-]{8,512})\/state$/;
 
 function queryObject(searchParams) {
   const query = {};
@@ -99,6 +108,10 @@ function decodeItemId(rawItemId) {
 function createRouter(handlers, options = {}) {
   const uuid = options.uuid || crypto.randomUUID;
   const staticHandler = options.staticHandler;
+  const apiToken = options.apiToken ?? null;
+  // Injectable so tests can simulate non-loopback clients; every real
+  // request that reaches a test server technically comes from loopback.
+  const isLoopbackRequest = options.isLoopbackRequest;
 
   return async function route(request, response) {
     const requestId = uuid();
@@ -107,6 +120,10 @@ function createRouter(handlers, options = {}) {
       const url = new URL(request.url, 'http://127.0.0.1');
       const rawPath = String(request.url || '').split('?')[0];
       let result;
+
+      if (url.pathname.startsWith('/api/')) {
+        enforceApiAccess(request, { apiToken, isLoopbackRequest });
+      }
 
       if (
         request.method === 'GET' &&
@@ -124,6 +141,37 @@ function createRouter(handlers, options = {}) {
         url.pathname === '/api/v1/runs'
       ) {
         result = await handlers.createRun(request, { requestId });
+      } else if (
+        request.method === 'POST' &&
+        url.pathname === UPLOAD_IDEMPOTENCY_ROUTE
+      ) {
+        result = await handlers.registerUploadIdempotencyRecord(request);
+      } else if (
+        request.method === 'GET' &&
+        url.pathname.match(UPLOAD_IDEMPOTENCY_DETAIL_ROUTE)
+      ) {
+        const match = url.pathname.match(UPLOAD_IDEMPOTENCY_DETAIL_ROUTE);
+        result = handlers.getUploadIdempotencyRecord(match[1]);
+      } else if (
+        request.method === 'POST' &&
+        url.pathname.match(UPLOAD_IDEMPOTENCY_NOTIFICATION_ROUTE)
+      ) {
+        const match = url.pathname.match(
+          UPLOAD_IDEMPOTENCY_NOTIFICATION_ROUTE
+        );
+        result = await handlers.markUploadIdempotencyNotification(
+          match[1],
+          request
+        );
+      } else if (
+        request.method === 'POST' &&
+        url.pathname.match(UPLOAD_IDEMPOTENCY_STATE_ROUTE)
+      ) {
+        const match = url.pathname.match(UPLOAD_IDEMPOTENCY_STATE_ROUTE);
+        result = await handlers.markUploadIdempotencyState(
+          match[1],
+          request
+        );
       } else if (
         request.method === 'GET' &&
         url.pathname === OWNER_LEARNING_CENTER_ROUTE
@@ -431,6 +479,10 @@ module.exports = {
   SUMMARY_ROUTE,
   SUPPLIER_ORDER_DOWNLOAD_ROUTE,
   SUPPLIER_ORDER_ROUTE,
+  UPLOAD_IDEMPOTENCY_DETAIL_ROUTE,
+  UPLOAD_IDEMPOTENCY_NOTIFICATION_ROUTE,
+  UPLOAD_IDEMPOTENCY_ROUTE,
+  UPLOAD_IDEMPOTENCY_STATE_ROUTE,
   createRouter,
   decodeItemId,
   queryObject,

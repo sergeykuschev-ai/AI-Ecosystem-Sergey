@@ -1,13 +1,16 @@
 const http = require('node:http');
+const path = require('node:path');
 
 const {
-  DEFAULT_HTTP_HOST,
   DEFAULT_REQUEST_TIMEOUT_MS,
   DEFAULT_RUNS_ROOT,
   DEFAULT_SERVER_PATHS,
   DEFAULT_SHUTDOWN_TIMEOUT_MS,
+  DEFAULT_UPLOAD_IDEMPOTENCY_PATH,
   DEFAULT_UPLOAD_ROOT,
+  resolveApiToken,
   resolveApprovedRuleMode,
+  resolveHttpHost,
   resolveHttpPort,
   resolveRetentionTtlMs,
 } = require('./config');
@@ -55,6 +58,9 @@ const {
 const {
   FileRunRegistry,
 } = require('./storage/file_run_registry');
+const {
+  UploadIdempotencyStore,
+} = require('./storage/upload_idempotency_store');
 const { createRouter } = require('./http/router');
 const { createRunHandlers } = require('./http/run_handlers');
 const { createStaticHandler } = require('./http/static_handler');
@@ -263,6 +269,23 @@ function createPurchasingWebServer(options = {}) {
       logger: options.logger,
       now: options.now,
     });
+  // Durable upload idempotency registry: pass null explicitly to
+  // disable, otherwise it lives next to runsRoot (tests) or in the
+  // runtime output directory (default server).
+  const uploadIdempotencyStore =
+    options.uploadIdempotencyStore !== undefined
+      ? options.uploadIdempotencyStore
+      : new UploadIdempotencyStore({
+        filePath: options.uploadIdempotencyPath || (
+          options.runsRoot
+            ? path.join(
+              path.dirname(options.runsRoot),
+              'upload-idempotency.json'
+            )
+            : DEFAULT_UPLOAD_IDEMPOTENCY_PATH
+        ),
+        now: options.now,
+      });
   const handlers = options.handlers || createRunHandlers({
     registry,
     queryService,
@@ -288,12 +311,17 @@ function createPurchasingWebServer(options = {}) {
         registry,
         now: options.now,
       }),
+    uploadIdempotencyStore,
+    logger: options.logger,
   });
   const staticHandler = options.staticHandler || createStaticHandler({
     publicRoot: options.publicRoot,
   });
   const router = createRouter(handlers, {
     ...options.routerOptions,
+    apiToken: options.apiToken !== undefined
+      ? options.apiToken
+      : resolveApiToken(),
     staticHandler,
   });
   const server = http.createServer((request, response) => {
@@ -311,7 +339,10 @@ function startPurchasingWebServer(options = {}) {
   runStartupCleanup(options);
   const server = createPurchasingWebServer(options);
   const port = options.port ?? resolveHttpPort();
-  server.listen(port, DEFAULT_HTTP_HOST);
+  // Default stays loopback-only; production sets PURCHASING_WEB_HOST
+  // explicitly together with PURCHASING_API_TOKEN.
+  const host = options.host ?? resolveHttpHost();
+  server.listen(port, host);
   return server;
 }
 
@@ -428,7 +459,7 @@ if (require.main === module) {
   server.once('listening', () => {
     const address = server.address();
     console.log(
-      `Purchasing Web API v1: http://${DEFAULT_HTTP_HOST}:${address.port}`
+      `Purchasing Web API v1: http://${resolveHttpHost()}:${address.port}`
     );
   });
 }

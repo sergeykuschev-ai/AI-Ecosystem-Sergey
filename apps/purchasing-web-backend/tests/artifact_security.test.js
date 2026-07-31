@@ -12,6 +12,7 @@ const { RunQueryService } = require('../application/run_query_service');
 const { ARTIFACT_NAMES } = require('../config');
 const {
   FileArtifactStore,
+  SOURCE_ARTIFACT_NAMES,
 } = require('../storage/file_artifact_store');
 const {
   FileRunRegistry,
@@ -194,8 +195,15 @@ test('every whitelisted artifact streams with secure headers', async () => {
     '.md': 'text/markdown; charset=utf-8',
     '.txt': 'text/plain; charset=utf-8',
   };
+  // The fixture run is saved from an orchestrator bundle, so its real
+  // artifact set is the manifest; optional artifacts (source-report.*)
+  // exist only for runs created through HTTP upload.
+  const manifest = registry.artifactStore.readManifest(COMPLETED_RUN_ID);
+  const manifestNames = new Set(
+    manifest.artifacts.map(artifact => artifact.name)
+  );
   const streamCountBefore = artifactStreamCalls;
-  for (const name of ARTIFACT_NAMES) {
+  for (const name of manifestNames) {
     const result = await api(
       `/api/v1/runs/${COMPLETED_RUN_ID}/artifacts/${name}`
     );
@@ -221,16 +229,44 @@ test('every whitelisted artifact streams with secure headers', async () => {
     );
     assert.equal(result.response.headers.get('cache-control'), 'no-store');
   }
+  // Whitelisted but absent from this run: safe 404, never a fallback
+  // to another file.
+  for (const name of ARTIFACT_NAMES) {
+    if (manifestNames.has(name)) continue;
+    const result = await api(
+      `/api/v1/runs/${COMPLETED_RUN_ID}/artifacts/${name}`
+    );
+    assert.equal(result.response.status, 404, name);
+  }
   assert.equal(
     artifactStreamCalls - streamCountBefore,
-    ARTIFACT_NAMES.length
+    manifestNames.size
   );
   assert.equal(wholeArtifactReads, 0);
 });
 
 test('manifest is browser-safe and complete', () => {
   const manifest = registry.artifactStore.readManifest(COMPLETED_RUN_ID);
-  assert.equal(manifest.artifacts.length, ARTIFACT_NAMES.length);
+  const manifestNames = new Set(
+    manifest.artifacts.map(artifact => artifact.name)
+  );
+  // Every bundle artifact is present (the APPLY_SAFE bundle includes
+  // the approved-rule optionals); source-report.* appear only in runs
+  // created through HTTP upload, never from a bare bundle.
+  for (const name of ARTIFACT_NAMES) {
+    if (SOURCE_ARTIFACT_NAMES.includes(name)) {
+      assert.equal(manifestNames.has(name), false, name);
+    } else {
+      assert.ok(manifestNames.has(name), name);
+    }
+  }
+  for (const name of manifestNames) {
+    assert.ok(ARTIFACT_NAMES.includes(name), name);
+  }
+  assert.equal(
+    manifest.artifacts.length,
+    ARTIFACT_NAMES.length - SOURCE_ARTIFACT_NAMES.length
+  );
   for (const artifact of manifest.artifacts) {
     assert.deepEqual(Object.keys(artifact).sort(), [
       'content_type',

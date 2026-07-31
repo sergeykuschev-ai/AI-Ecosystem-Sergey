@@ -9,6 +9,10 @@ const DEFAULT_UPLOAD_ROOT = path.join(
   REPOSITORY_ROOT,
   'output/purchasing-web/uploads'
 );
+const DEFAULT_UPLOAD_IDEMPOTENCY_PATH = path.join(
+  REPOSITORY_ROOT,
+  'output/purchasing-web/upload-idempotency.json'
+);
 const DEFAULT_HTTP_HOST = '127.0.0.1';
 const DEFAULT_HTTP_PORT = 3210;
 const MAX_UPLOAD_FILE_BYTES = 20 * 1024 * 1024;
@@ -21,6 +25,9 @@ const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 100;
 const DEFAULT_APPROVED_RULE_MODE = 'PREVIEW';
 const RUN_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+// Idempotency keys are URL-safe: the n8n workflow builds them as
+// `minmax-<sha256(mailbox|uidvalidity|uid|filename|size)>`.
+const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9._:-]{8,512}$/;
 
 const ARTIFACT_NAMES = Object.freeze([
   'result.json',
@@ -42,6 +49,11 @@ const ARTIFACT_NAMES = Object.freeze([
   'approved-rule-preview.md',
   'approved-rule-applications.json',
   'run-metadata.json',
+  // Original uploaded Excel report, stored as a binary run artifact
+  // (exactly one of the two extensions exists per run; both names are
+  // whitelisted so the download route accepts the real one).
+  'source-report.xlsx',
+  'source-report.xls',
 ]);
 
 const DEFAULT_SERVER_PATHS = Object.freeze({
@@ -103,6 +115,10 @@ function isValidRunId(runId) {
   return typeof runId === 'string' && RUN_ID_PATTERN.test(runId);
 }
 
+function isValidIdempotencyKey(key) {
+  return typeof key === 'string' && IDEMPOTENCY_KEY_PATTERN.test(key);
+}
+
 function resolveHttpPort(value = process.env.PURCHASING_WEB_PORT) {
   if (value === undefined || value === '') return DEFAULT_HTTP_PORT;
   const port = Number(value);
@@ -110,6 +126,37 @@ function resolveHttpPort(value = process.env.PURCHASING_WEB_PORT) {
     throw new TypeError('PURCHASING_WEB_PORT должен быть допустимым портом.');
   }
   return port;
+}
+
+function resolveHttpHost(value = process.env.PURCHASING_WEB_HOST) {
+  // Default stays loopback-only; production sets the value explicitly.
+  if (value === undefined || value === '') return DEFAULT_HTTP_HOST;
+  const host = String(value).trim();
+  if (
+    host === '' ||
+    host.length > 255 ||
+    host.includes('/') ||
+    host.includes('\0')
+  ) {
+    throw new TypeError(
+      'PURCHASING_WEB_HOST должен быть допустимым именем хоста или IP.'
+    );
+  }
+  return host;
+}
+
+function resolveApiToken(value = process.env.PURCHASING_API_TOKEN) {
+  // Token is mandatory only for non-loopback API requests; loopback
+  // (the owner's local browser) never needs it. The value is never
+  // logged or echoed in responses.
+  if (value === undefined || value === '') return null;
+  const token = String(value);
+  if (token.length < 16 || token.length > 512 || token.includes('\0')) {
+    throw new TypeError(
+      'PURCHASING_API_TOKEN должен содержать от 16 до 512 символов.'
+    );
+  }
+  return token;
 }
 
 function resolveRetentionTtlMs(
@@ -144,6 +191,7 @@ module.exports = {
   DEFAULT_RUNS_ROOT,
   DEFAULT_SERVER_PATHS,
   DEFAULT_SHUTDOWN_TIMEOUT_MS,
+  DEFAULT_UPLOAD_IDEMPOTENCY_PATH,
   DEFAULT_UPLOAD_ROOT,
   DEFAULT_UPLOAD_TIMEOUT_MS,
   MAX_PAGE_SIZE,
@@ -151,8 +199,12 @@ module.exports = {
   MAX_UPLOAD_FILE_BYTES,
   REPOSITORY_ROOT,
   RUN_ID_PATTERN,
+  IDEMPOTENCY_KEY_PATTERN,
+  isValidIdempotencyKey,
   isValidRunId,
+  resolveApiToken,
   resolveApprovedRuleMode,
+  resolveHttpHost,
   resolveHttpPort,
   resolveRetentionTtlMs,
 };

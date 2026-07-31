@@ -371,6 +371,9 @@
     RUN_ALREADY_IN_PROGRESS:
       'Другой расчёт уже выполняется. Повторите запуск немного позже.',
     RUN_FAILED: 'Расчёт не завершён. Проверьте файл и попробуйте снова.',
+    RUN_NOT_FOUND:
+      'Расчёт по этой ссылке не найден или уже удалён. ' +
+      'Загрузите отчёт заново.',
     POLL_TIMEOUT:
       'Расчёт занимает больше 10 минут. Попробуйте повторить позже.',
     NETWORK_ERROR:
@@ -1366,6 +1369,28 @@
       !value.includes('\\')
       ? value
       : null;
+  }
+
+  // Deep link `?runId=<uuid>` from the owner notification email: only a
+  // strict UUID is accepted — arbitrary values and path traversal never
+  // reach the API.
+  const DEEP_LINK_RUN_ID_PATTERN =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+  function parseRunIdFromSearch(search) {
+    if (typeof search !== 'string' || search === '') return null;
+    let params;
+    try {
+      params = new URLSearchParams(
+        search.startsWith('?') ? search.slice(1) : search
+      );
+    } catch {
+      return null;
+    }
+    const values = params.getAll('runId');
+    if (values.length !== 1) return null;
+    const runId = values[0].trim();
+    return DEEP_LINK_RUN_ID_PATTERN.test(runId) ? runId : null;
   }
 
   function safeArtifactDownloadUrl(value, definition) {
@@ -5684,6 +5709,86 @@
       }
     }
 
+    // Shared completion pipeline: used both after a manual upload and
+    // when the owner opens a `?runId=<uuid>` deep link — no repeated
+    // Excel upload is required in the deep-link case.
+    async function renderCompletedRun(status) {
+      currentRunId = typeof status?.run_id === 'string'
+        ? status.run_id
+        : null;
+
+      const summaryUrl = safeRunLink(status?.links?.summary);
+      const artifactsUrl = safeRunLink(status?.links?.artifacts);
+      const itemsUrl = safeRunLink(status?.links?.items);
+      if (!summaryUrl || !artifactsUrl || !itemsUrl) {
+        throw new FrontendError('RUN_FAILED');
+      }
+      const [summary, manifest] = await Promise.all([
+        requestJson(fetchFunction, summaryUrl),
+        requestJson(fetchFunction, artifactsUrl),
+      ]);
+      renderSummary(summary, status);
+      configureDownloads(manifest);
+      refreshFinalOrder();
+      refreshSupplierOrderCard();
+      renderStatus(
+        'completed',
+        'Расчёт завершён. Итоги и файлы готовы.'
+      );
+      await activateItems(itemsUrl);
+    }
+
+    async function restoreRunFromDeepLink(runId) {
+      if (active) return;
+      if (!DEEP_LINK_RUN_ID_PATTERN.test(String(runId || ''))) return;
+
+      active = true;
+      elements.runButton.disabled = true;
+      setFieldError('');
+      elements.results.hidden = true;
+      resetExports();
+      resetBudgetOptimization();
+      resetItems();
+      renderStatus(
+        'processing',
+        'Открываем расчёт по ссылке из уведомления.'
+      );
+
+      try {
+        const statusUrl = `/api/v1/runs/${runId}`;
+        let status = await requestJson(fetchFunction, statusUrl);
+        if (status?.status === 'processing') {
+          status = await pollRunStatus({
+            fetchFunction,
+            statusUrl,
+            onStatus: current => {
+              if (current?.status === 'processing') {
+                renderStatus(
+                  'processing',
+                  'Расчёт выполняется. Не закрывайте эту страницу.'
+                );
+              }
+            },
+          });
+        }
+        if (status?.status !== 'completed') {
+          throw new FrontendError(status?.error?.code || 'RUN_FAILED');
+        }
+        await renderCompletedRun(status);
+      } catch (error) {
+        const codeValue = error instanceof FrontendError
+          ? error.code
+          : 'RUN_FAILED';
+        renderStatus(
+          'failed',
+          ERROR_MESSAGES[codeValue] || ERROR_MESSAGES.RUN_FAILED
+        );
+      } finally {
+        active = false;
+        elements.runButton.disabled = !selectedFile;
+      }
+    }
+
     async function submitRun(event) {
       event.preventDefault();
       if (active) return;
@@ -5740,29 +5845,7 @@
           });
         }
 
-        currentRunId = typeof status?.run_id === 'string'
-          ? status.run_id
-          : null;
-
-        const summaryUrl = safeRunLink(status?.links?.summary);
-        const artifactsUrl = safeRunLink(status?.links?.artifacts);
-        const itemsUrl = safeRunLink(status?.links?.items);
-        if (!summaryUrl || !artifactsUrl || !itemsUrl) {
-          throw new FrontendError('RUN_FAILED');
-        }
-        const [summary, manifest] = await Promise.all([
-          requestJson(fetchFunction, summaryUrl),
-          requestJson(fetchFunction, artifactsUrl),
-        ]);
-        renderSummary(summary, status);
-        configureDownloads(manifest);
-        refreshFinalOrder();
-        refreshSupplierOrderCard();
-        renderStatus(
-          'completed',
-          'Расчёт завершён. Итоги и файлы готовы.'
-        );
-        await activateItems(itemsUrl);
+        await renderCompletedRun(status);
       } catch (error) {
         clearTimeout(processingHint);
         const codeValue = error instanceof FrontendError
@@ -6039,6 +6122,12 @@
     resetItems();
     navigateOwnerLearning('OVERVIEW');
     loadOwnerLearningCenter();
+    const deepLinkRunId = parseRunIdFromSearch(
+      documentObject.defaultView?.location?.search || ''
+    );
+    if (deepLinkRunId) {
+      restoreRunFromDeepLink(deepLinkRunId);
+    }
     return {
       activateItems,
       loadCandidates,
@@ -6053,6 +6142,7 @@
       openRuleStatusPreview,
       openRuleMaterializationModal,
       navigateOwnerLearning,
+      restoreRunFromDeepLink,
       submitRuleMaterialization,
       submitCandidateLifecycle,
       submitBudgetOptimization,
@@ -6144,6 +6234,7 @@
     optimizedCsvFiles,
     optimizedXlsxFiles,
     paginationLabel,
+    parseRunIdFromSearch,
     patternLabel,
     priorityLabel,
     plainReason,

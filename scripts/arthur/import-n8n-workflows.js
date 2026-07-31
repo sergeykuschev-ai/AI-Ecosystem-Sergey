@@ -12,11 +12,21 @@ function required(name) {
 const WORKFLOWS = Object.freeze({
   'arthur-create-task-production': Object.freeze({
     file: 'n8n/workflows/arthur-create-task-production.json',
-    requiresTelegram: false
+    requiresTelegram: false,
+    requiresArthurApi: true
   }),
   'arthur-morning-task-brief-production': Object.freeze({
     file: 'n8n/workflows/arthur-morning-task-brief-production.json',
-    requiresTelegram: true
+    requiresTelegram: true,
+    requiresArthurApi: true
+  }),
+  'arthur-minmax-yandex-mail-intake': Object.freeze({
+    file: 'n8n/workflows/arthur-minmax-yandex-mail-intake.json',
+    requiresTelegram: false,
+    requiresArthurApi: false,
+    requiresPurchasingApi: true,
+    requiresImap: true,
+    requiresSmtp: true
   })
 });
 
@@ -34,7 +44,18 @@ function selectedWorkflow() {
 const selectedWorkflowConfig = selectedWorkflow();
 const baseUrl = required('N8N_BASE_URL').replace(/\/$/, '');
 const apiKey = required('N8N_API_KEY');
-const arthurCredentialId = required('N8N_ARTHUR_CREDENTIAL_ID');
+const arthurCredentialId = selectedWorkflowConfig.requiresArthurApi
+  ? required('N8N_ARTHUR_CREDENTIAL_ID')
+  : null;
+const purchasingCredentialId = selectedWorkflowConfig.requiresPurchasingApi
+  ? required('N8N_PURCHASING_CREDENTIAL_ID')
+  : null;
+const imapCredentialId = selectedWorkflowConfig.requiresImap
+  ? required('N8N_MINMAX_IMAP_CREDENTIAL_ID')
+  : null;
+const smtpCredentialId = selectedWorkflowConfig.requiresSmtp
+  ? required('N8N_MINMAX_SMTP_CREDENTIAL_ID')
+  : null;
 const telegramCredentialId = selectedWorkflowConfig.requiresTelegram
   ? required('N8N_TELEGRAM_CREDENTIAL_ID')
   : null;
@@ -46,7 +67,30 @@ function sanitizeWorkflow(input) {
   const workflow = structuredClone(input);
   for (const node of workflow.nodes || []) {
     if (node.credentials?.httpHeaderAuth) {
-      node.credentials.httpHeaderAuth.id = arthurCredentialId;
+      const credentialName = node.credentials.httpHeaderAuth.name;
+      if (credentialName === 'Purchasing API Token') {
+        if (!purchasingCredentialId) {
+          throw new Error('N8N_PURCHASING_CREDENTIAL_ID is required');
+        }
+        node.credentials.httpHeaderAuth.id = purchasingCredentialId;
+      } else {
+        if (!arthurCredentialId) {
+          throw new Error('N8N_ARTHUR_CREDENTIAL_ID is required');
+        }
+        node.credentials.httpHeaderAuth.id = arthurCredentialId;
+      }
+    }
+    if (node.credentials?.imap) {
+      if (!imapCredentialId) {
+        throw new Error('N8N_MINMAX_IMAP_CREDENTIAL_ID is required');
+      }
+      node.credentials.imap.id = imapCredentialId;
+    }
+    if (node.credentials?.smtp) {
+      if (!smtpCredentialId) {
+        throw new Error('N8N_MINMAX_SMTP_CREDENTIAL_ID is required');
+      }
+      node.credentials.smtp.id = smtpCredentialId;
     }
     if (node.credentials?.telegramApi) {
       node.credentials.telegramApi.id = telegramCredentialId;

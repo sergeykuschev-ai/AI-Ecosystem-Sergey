@@ -87,6 +87,39 @@ jobs:
           if (!telegram.credentials?.telegramApi || telegram.credentials.telegramApi.id !== 'REPLACE_IN_N8N') {
             throw new Error('Morning brief must use a Telegram credential placeholder');
           }
+
+          const minmaxPath = path.join(directory, 'arthur-minmax-yandex-mail-intake.json');
+          const minmax = JSON.parse(fs.readFileSync(minmaxPath, 'utf8'));
+          const minmaxSerialized = JSON.stringify(minmax);
+          if (/x-api-key["']?\s*:\s*["'][A-Za-z0-9_-]{16,}/.test(minmaxSerialized)) {
+            throw new Error('MinMax intake must not store an API token value');
+          }
+          const imap = minmax.nodes.find(node => node.type === 'n8n-nodes-base.emailReadImap');
+          if (!imap || imap.credentials?.imap?.id !== 'REPLACE_IN_N8N') {
+            throw new Error('MinMax intake must use an IMAP credential placeholder');
+          }
+          const upload = minmax.nodes.find(node => node.id === 'upload-excel');
+          if (!upload || upload.parameters?.contentType !== 'multipart-form-data') {
+            throw new Error('MinMax intake must upload the Excel via multipart form data');
+          }
+          if (!JSON.stringify(upload.parameters).includes('x-idempotency-key')) {
+            throw new Error('MinMax intake must send the idempotency key header');
+          }
+          if (upload.credentials?.httpHeaderAuth?.id !== 'REPLACE_IN_N8N') {
+            throw new Error('MinMax intake must use a Purchasing API credential placeholder');
+          }
+          for (const node of minmax.nodes.filter(item => item.type === 'n8n-nodes-base.emailSend')) {
+            if (node.credentials?.smtp?.id !== 'REPLACE_IN_N8N') {
+              throw new Error('MinMax intake must use an SMTP credential placeholder');
+            }
+          }
+          const minmaxCode = minmax.nodes
+            .filter(node => node.type === 'n8n-nodes-base.code')
+            .map(node => node.parameters?.jsCode || '')
+            .join('\n');
+          if (!minmaxCode.includes('MINMAX_ALLOWED_SENDER') || !minmaxCode.includes('MINMAX_POLL_TIMEOUT_SECONDS')) {
+            throw new Error('MinMax intake must read filtering and polling config from env');
+          }
           NODE
 
       - name: Validate minimal create-task importer
