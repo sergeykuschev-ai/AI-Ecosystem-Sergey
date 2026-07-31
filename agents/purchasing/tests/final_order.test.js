@@ -82,7 +82,7 @@ test('auto_approved с количеством > 0 включается как au
   assert.equal(state.manuallyApprovedAmount, 0);
 });
 
-test('unresolved и pending без решения блокируют финальный заказ', () => {
+test('unresolved без решения блокирует финальный заказ', () => {
   const reviewRequired = buildFinalOrderState({
     items: [
       item({
@@ -95,7 +95,12 @@ test('unresolved и pending без решения блокируют финал�
   assert.equal(reviewRequired.status, 'review_incomplete');
   assert.equal(reviewRequired.reviewComplete, false);
   assert.equal(reviewRequired.unresolvedCount, 1);
+});
 
+test('pending_manual_review без owner_review_required не блокирует заказ', () => {
+  // Единственный источник истины о завершении проверки —
+  // owner_review_required. Статус workflow pending_manual_review сам по
+  // себе заказ не блокирует: позиция просто не попадает в заказ.
   const pending = buildFinalOrderState({
     items: [
       item({
@@ -104,9 +109,17 @@ test('unresolved и pending без решения блокируют финал�
       }),
     ],
   });
-  assert.equal(pending.status, 'review_incomplete');
-  assert.equal(pending.unresolvedCount, 1);
-  assert.equal(pending.unresolvedAmount, 21);
+  assert.equal(pending.status, 'empty');
+  assert.equal(pending.reviewComplete, true);
+  assert.equal(pending.unresolvedCount, 0);
+  assert.equal(pending.excludedItems[0].reason, 'no_order');
+  assert.equal(
+    classifyItem(item({
+      workflow_status: 'pending_manual_review',
+      quantities: { approved_quantity: null },
+    })).kind,
+    'excluded'
+  );
 });
 
 test('нулевое и отрицательное количество исключается', () => {

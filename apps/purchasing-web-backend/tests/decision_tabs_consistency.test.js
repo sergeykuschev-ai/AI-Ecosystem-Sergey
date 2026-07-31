@@ -22,6 +22,8 @@ const {
   confirmedItemView,
   createApplication,
   decisionCounterView,
+  ERROR_MESSAGES,
+  finalOrderView,
   itemMatchesDecisionFilter,
   needsOwnerDecisionView,
   ownerDecisionView,
@@ -85,10 +87,25 @@ const ITEM_D = {
   workflow_status: 'no_order_action',
   matrix: { owner_review_required: false },
 };
+// The regression row for the budget deadlock: workflow says
+// pending_manual_review, but owner review never flagged the row, so the
+// owner is never asked about it. It must not block review completion.
+const ITEM_E = {
+  row_id: 'tabs:fixture:row:10',
+  source_row: 10,
+  sku: 'TAB-SKU-5',
+  name: 'Товар Д (pending без review)',
+  workflow_status: 'pending_manual_review',
+  matrix: { owner_review_required: false },
+  quantities: { provisional_quantity: 1 },
+  amounts: { unit_price: 30, provisional_line_value: 30 },
+};
 
 class FixtureRegistry {
   constructor() {
-    this.items = structuredClone([ITEM_A, ITEM_B, ITEM_C, ITEM_D]);
+    this.items = structuredClone(
+      [ITEM_A, ITEM_B, ITEM_C, ITEM_D, ITEM_E]
+    );
   }
 
   getRunStatus(runId) {
@@ -107,6 +124,16 @@ class FixtureRegistry {
   getItems(runId) {
     this.getRunStatus(runId);
     return structuredClone(this.items);
+  }
+
+  getRunSummary(runId) {
+    this.getRunStatus(runId);
+    return {
+      run_id: runId,
+      sku_count: this.items.length,
+      amounts: { analyzer_order_sum: 430 },
+      financial: { maximum_safe_order_amount: null },
+    };
   }
 }
 
@@ -208,6 +235,31 @@ test('1. initial state: auto-approved is confirmed, review rows are missing',
     }
   }
 );
+
+test('11. needs_decision > 0 blocks budget optimization (409)', async () => {
+  const listed = await jsonRequest(itemsUrl());
+  const summary = listed.body.data.owner_decisions;
+  assert.equal(summary.needs_decision, 2);
+  const finalOrder = await jsonRequest(
+    `${baseUrl}/api/v1/runs/${RUN_ID}/final-order`
+  );
+  assert.equal(finalOrder.body.data.reviewComplete, false);
+  // One source of truth: unresolved ≡ needs_decision.
+  assert.equal(
+    finalOrder.body.data.unresolvedCount,
+    summary.needs_decision
+  );
+  const attempt = await jsonRequest(
+    `${baseUrl}/api/v1/runs/${RUN_ID}/budget-optimization`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targetBudget: 100 }),
+    }
+  );
+  assert.equal(attempt.response.status, 409);
+  assert.equal(attempt.body.error.code, 'OWNER_REVIEW_INCOMPLETE');
+});
 
 test('2. BUY immediately removes the row from «Нужно решить»', async () => {
   const saved = await putDecision(ITEM_A.row_id, 'BUY', 5);
@@ -491,6 +543,73 @@ test('10. DEFER leaves «Нужно решить», stays in «Все товар
     );
   }
 );
+
+test('12. needs_decision = 0 allows optimization; pending workflow alone never blocks',
+  async () => {
+    // ITEM_E (workflow pending_manual_review, no owner review flag, no
+    // decision) is still undecided — the exact row that deadlocked
+    // optimization before the fix.
+    const listed = await jsonRequest(itemsUrl());
+    const summary = listed.body.data.owner_decisions;
+    assert.equal(summary.needs_decision, 0);
+    const finalOrder = await jsonRequest(
+      `${baseUrl}/api/v1/runs/${RUN_ID}/final-order`
+    );
+    assert.equal(finalOrder.body.data.reviewComplete, true);
+    assert.equal(finalOrder.body.data.unresolvedCount, 0);
+    // The invariant in one place:
+    assert.equal(
+      summary.needs_decision === 0,
+      finalOrder.body.data.reviewComplete
+    );
+    const optimized = await jsonRequest(
+      `${baseUrl}/api/v1/runs/${RUN_ID}/budget-optimization`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetBudget: 80 }),
+      }
+    );
+    assert.equal(optimized.response.status, 200);
+    assert.ok(optimized.body.data.optimizedTotal <= 80);
+    assert.equal(
+      optimized.body.data.originalTotal,
+      finalOrder.body.data.totalAmount
+    );
+  }
+);
+
+test('13. UI reads the same review flag and message as the backend', () => {
+  const incomplete = finalOrderView({
+    reviewComplete: false,
+    itemCount: 5,
+    unresolvedCount: 2,
+    totalAmount: 100,
+    autoApprovedAmount: 60,
+    unresolvedAmount: 40,
+  });
+  assert.equal(incomplete.ownerReviewCount, '2 позиций для решения');
+  assert.equal(incomplete.runStatus, null);
+  const complete = finalOrderView({
+    reviewComplete: true,
+    itemCount: 5,
+    unresolvedCount: 0,
+    totalAmount: 100,
+    autoApprovedAmount: 100,
+    unresolvedAmount: 0,
+  });
+  assert.equal(
+    complete.ownerReviewCount,
+    '0 позиций для решения · проверка завершена'
+  );
+  assert.equal(complete.runStatus, 'Проверка завершена');
+  // The budget block shows the server-side error code text — the UI has
+  // no separate «review complete» computation of its own.
+  assert.equal(
+    ERROR_MESSAGES.OWNER_REVIEW_INCOMPLETE,
+    'Завершите ручную проверку всех позиций перед оптимизацией под бюджет.'
+  );
+});
 
 // --- App-level fake DOM (test 7) -----------------------------------------
 

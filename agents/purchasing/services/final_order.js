@@ -14,11 +14,20 @@
  * - SKIP — исключается ('skipped');
  * - DEFER — исключается из текущего заказа ('deferred');
  * - без решения, owner_review_required — unresolved (блокирует заказ);
- * - без решения, workflow pending_manual_review — unresolved (блокирует);
  * - auto_approved с approved_quantity > 0 — включается ('auto');
  * - всё остальное (no_order_action, confidently_excluded, postponed,
- *   неопределённый статус, нулевое/отрицательное количество) —
- *   исключается ('no_order').
+ *   pending_manual_review без owner_review_required, неопределённый
+ *   статус, нулевое/отрицательное количество) — исключается
+ *   ('no_order').
+ *
+ * Единственный источник истины о завершении ручной проверки:
+ * unresolved ≡ owner_review_required === true && решение отсутствует.
+ * Это тот же предикат, что у ownerDecisionSummary.needs_decision и у
+ * вкладки «Нужно решить», поэтому needs_decision == 0 ⇔
+ * reviewComplete == true ⇔ оптимизация и экспорт разрешены. Статус
+ * workflow pending_manual_review сам по себе проверку не блокирует:
+ * решение о том, какие позиции требуют внимания владельца, принимает
+ * owner review (owner_review_required), а не конвейер workflowStatus.
  *
  * Правило дублей: идентичность позиции — rowIdentity строки, а не
  * артикул. Строки с одинаковым SKU — отдельные позиции заказа и
@@ -88,9 +97,6 @@ function classifyItem(item) {
   }
   if (item?.matrix?.owner_review_required === true) {
     return { kind: 'unresolved', reason: 'review_required' };
-  }
-  if (item?.workflow_status === 'pending_manual_review') {
-    return { kind: 'unresolved', reason: 'pending_manual_review' };
   }
   if (item?.workflow_status === 'auto_approved') {
     const quantity = finiteNumber(item?.quantities?.approved_quantity);

@@ -486,7 +486,6 @@
     }
     if (ownerDecision !== null) return false;
     if (item?.matrix?.owner_review_required === true) return false;
-    if (item?.workflow_status === 'pending_manual_review') return false;
     if (item?.workflow_status !== 'auto_approved') return false;
     const approved = item?.quantities?.approved_quantity;
     return typeof approved === 'number' &&
@@ -6108,6 +6107,7 @@
     decisionCounterView,
     decisionLabel,
     defaultDecisionFilter,
+    ERROR_MESSAGES,
     finalOrderUrl,
     finalOrderView,
     downloadBudgetOptimizationFile,

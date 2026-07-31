@@ -165,6 +165,36 @@ test('незавершённая проверка блокирует оптим�
   assert.ok(result.body.error.message.includes('Завершите ручную проверку'));
 });
 
+test('инвариант до завершения проверки: счётчик, флаг, оптимизация и экспорт согласованы',
+  async () => {
+    const listed = await jsonResponse(
+      `${baseUrl}/api/v1/runs/${RUN_ID}/items?page_size=100`
+    );
+    const summary = listed.body.data.owner_decisions;
+    const state = (await finalOrder()).body.data;
+    assert.ok(summary.needs_decision > 0);
+    assert.equal(state.reviewComplete, false);
+    // Единый источник истины: unresolvedCount ≡ needs_decision.
+    assert.equal(state.unresolvedCount, summary.needs_decision);
+    const blocked = await optimize(100);
+    assert.equal(blocked.response.status, 409);
+    const supplierOrder = await jsonResponse(
+      `${baseUrl}/api/v1/runs/${RUN_ID}/supplier-order`
+    );
+    assert.equal(supplierOrder.response.status, 200);
+    assert.equal(supplierOrder.body.data.available, false);
+    assert.ok(
+      supplierOrder.body.data.blockedReason.includes('ручную проверку')
+    );
+    // RunSummaryDTO доступен и не несёт собственного флага проверки —
+    // состояние проверки живёт только в owner_decisions + /final-order.
+    const runSummary = await jsonResponse(
+      `${baseUrl}/api/v1/runs/${RUN_ID}/summary`
+    );
+    assert.equal(runSummary.response.status, 200);
+  }
+);
+
 test('после Owner Review оптимизация работает от итогового заказа',
   async () => {
     const itemsResult = await jsonResponse(
@@ -345,3 +375,34 @@ test('SKIP после оптимизации исключает позицию �
     'SKIP-позиция не должна попадать в оптимизацию'
   );
 });
+
+test('инвариант после завершения проверки: needs 0 ⇔ complete ⇔ оптимизация и экспорт разрешены',
+  async () => {
+    const listed = await jsonResponse(
+      `${baseUrl}/api/v1/runs/${RUN_ID}/items?page_size=100`
+    );
+    const summary = listed.body.data.owner_decisions;
+    const state = (await finalOrder()).body.data;
+    assert.equal(summary.needs_decision, 0);
+    assert.equal(state.reviewComplete, true);
+    assert.equal(state.unresolvedCount, 0);
+    assert.equal(
+      summary.needs_decision === 0,
+      state.reviewComplete,
+      'один источник истины: счётчик и флаг всегда согласованы'
+    );
+    const optimized = await optimize(state.totalAmount + 1000);
+    assert.equal(optimized.response.status, 200);
+    assert.equal(optimized.body.data.originalTotal, state.totalAmount);
+    const supplierOrder = await jsonResponse(
+      `${baseUrl}/api/v1/runs/${RUN_ID}/supplier-order`
+    );
+    assert.equal(supplierOrder.response.status, 200);
+    assert.equal(supplierOrder.body.data.available, true);
+    assert.equal(supplierOrder.body.data.blockedReason, null);
+    const runSummary = await jsonResponse(
+      `${baseUrl}/api/v1/runs/${RUN_ID}/summary`
+    );
+    assert.equal(runSummary.response.status, 200);
+  }
+);

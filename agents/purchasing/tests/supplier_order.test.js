@@ -157,25 +157,22 @@ test('4. при незавершённой ручной проверке экс�
       return true;
     }
   );
-  assert.throws(
-    () => buildSupplierOrder({
-      items: [
-        item({ row_id: 'auto' }),
-        item({
-          row_id: 'pending',
-          workflow_status: 'pending_manual_review',
-          quantities: { approved_quantity: null },
-        }),
-      ],
-      supplier: 'Оникиенко',
-      generatedAt: GENERATED_AT,
-    }),
-    error => {
-      assert.equal(error.code, SUPPLIER_ORDER_BLOCKED_CODE);
-      assert.equal(error.details.pending_count, 1);
-      return true;
-    }
-  );
+  // pending_manual_review без owner_review_required не блокирует экспорт:
+  // единственный источник истины о завершении проверки — флаг
+  // owner_review_required, статус workflow сам по себе заказ не держит.
+  const order = buildSupplierOrder({
+    items: [
+      item({ row_id: 'auto' }),
+      item({
+        row_id: 'pending',
+        workflow_status: 'pending_manual_review',
+        quantities: { approved_quantity: null },
+      }),
+    ],
+    supplier: 'Оникиенко',
+    generatedAt: GENERATED_AT,
+  });
+  assert.equal(order.itemCount, 1);
 });
 
 test('4a. DEFER — принятое решение: исключается, но не блокирует', () => {
