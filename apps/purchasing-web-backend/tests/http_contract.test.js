@@ -9,6 +9,12 @@ const {
   RunQueryService,
 } = require('../application/run_query_service');
 const {
+  OwnerDecisionService,
+} = require('../application/owner_decision_service');
+const {
+  DEFAULT_SERVER_PATHS,
+} = require('../config');
+const {
   FileRunRegistry,
 } = require('../storage/file_run_registry');
 const {
@@ -40,10 +46,40 @@ before(async () => {
   runsRoot = path.join(temporaryRoot, 'runs');
   uploadsRoot = path.join(temporaryRoot, 'uploads');
   registry = new FileRunRegistry({ runsRoot });
-  const queryService = new RunQueryService(registry);
+  const ownerDecisionService = new OwnerDecisionService({
+    registry,
+    ownerDecisionsPath: path.join(
+      temporaryRoot,
+      'owner-decisions.json'
+    ),
+    ownerDecisionHistoryPath: path.join(
+      temporaryRoot,
+      'owner-decision-history.json'
+    ),
+  });
+  const queryService = new RunQueryService(
+    registry,
+    { ownerDecisionService }
+  );
   server = createPurchasingWebServer({
     registry,
     queryService,
+    ownerDecisionService,
+    serverPaths: {
+      ...DEFAULT_SERVER_PATHS,
+      ownerDecisionsPath: path.join(
+        temporaryRoot,
+        'owner-decisions.json'
+      ),
+      ownerDecisionHistoryPath: path.join(
+        temporaryRoot,
+        'owner-decision-history.json'
+      ),
+      ownerLearningHistoryPath: path.join(
+        temporaryRoot,
+        'owner-learning-history.json'
+      ),
+    },
     uploadRoot: uploadsRoot,
   });
   server.listen(0, '127.0.0.1');
@@ -181,6 +217,25 @@ test('POST budget optimization is repeatable and never changes result.json',
     const originalResult = fs.readFileSync(resultPath);
     const endpoint =
       `${baseUrl}/api/v1/runs/${completedRunId}/budget-optimization`;
+
+    const itemsResult = await jsonResponse(
+      `${baseUrl}/api/v1/runs/${completedRunId}/items?page_size=100`
+    );
+    const reviewItems = itemsResult.body.data.items.filter(
+      item => item.matrix?.owner_review_required === true
+    );
+    for (const reviewItem of reviewItems) {
+      const decided = await jsonResponse(
+        `${baseUrl}/api/v1/runs/${completedRunId}/items/` +
+        `${encodeURIComponent(reviewItem.row_id)}/decision`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ decision: 'BUY', quantity: 2 }),
+        }
+      );
+      assert.equal(decided.response.status, 200);
+    }
 
     const first = await jsonResponse(endpoint, {
       method: 'POST',

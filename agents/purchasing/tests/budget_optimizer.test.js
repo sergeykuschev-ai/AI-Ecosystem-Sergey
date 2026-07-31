@@ -276,3 +276,158 @@ test('invalid target budget is rejected clearly', () => {
       error.code === 'BUDGET_OPTIMIZER_INVALID_INPUT'
   );
 });
+
+function included({ rowId, sku, quantity, price, source = 'auto' }) {
+  return {
+    rowId,
+    sku,
+    name: `Товар ${sku}`,
+    supplier: 'Поставщик',
+    quantity,
+    price,
+    source,
+  };
+}
+
+function finalOrder(entries, reviewComplete = true) {
+  return { reviewComplete, includedItems: entries };
+}
+
+test('finalOrder: оптимизируется утверждённый заказ, а не рекомендация AI',
+  () => {
+    const result = optimizePurchasingBudget({
+      finalOrder: finalOrder([
+        included({ rowId: 'r1', sku: 'A-1', quantity: 3, price: 10.5 }),
+        included({
+          rowId: 'r2', sku: 'B-2', quantity: 2, price: 100, source: 'manual',
+        }),
+      ]),
+      targetBudget: 500,
+    });
+    assert.equal(result.originalTotal, 231.5);
+    assert.equal(result.status, 'UNCHANGED');
+    assert.equal(result.optimizedTotal, 231.5);
+    assert.equal(result.items.length, 2);
+  });
+
+test('finalOrder: сначала сокращаются auto, решения владельца — последними',
+  () => {
+    const entries = [
+      included({ rowId: 'r1', sku: 'A-1', quantity: 2, price: 10 }),
+      included({
+        rowId: 'r2', sku: 'B-2', quantity: 2, price: 100, source: 'manual',
+      }),
+    ];
+    const gentle = optimizePurchasingBudget({
+      finalOrder: finalOrder(entries),
+      targetBudget: 200,
+    });
+    assert.equal(gentle.optimizedTotal, 200);
+    assert.equal(bySku(gentle, 'B-2').optimizedQuantity, 2);
+    assert.ok(
+      gentle.removedItems.some(item => item.sku === 'A-1'),
+      'auto-позиция должна быть исключена первой'
+    );
+
+    const hard = optimizePurchasingBudget({
+      finalOrder: finalOrder(entries),
+      targetBudget: 100,
+    });
+    assert.equal(hard.optimizedTotal, 100);
+    assert.equal(bySku(hard, 'B-2').optimizedQuantity, 1);
+    assert.deepEqual(bySku(hard, 'B-2').protectedReasons, ['OWNER_BUY']);
+  });
+
+test('finalOrder: нерешённая проверка блокирует оптимизацию', () => {
+  assert.throws(
+    () => optimizePurchasingBudget({
+      finalOrder: finalOrder([
+        included({ rowId: 'r1', sku: 'A-1', quantity: 1, price: 10 }),
+      ], false),
+      targetBudget: 100,
+    }),
+    error => error.code === 'OWNER_REVIEW_INCOMPLETE' &&
+      error.message.includes('Завершите ручную проверку')
+  );
+  assert.throws(
+    () => optimizePurchasingBudget({
+      finalOrder: { includedItems: [] },
+      targetBudget: 100,
+    }),
+    error => error.code === 'OWNER_REVIEW_INCOMPLETE'
+  );
+});
+
+test('finalOrder: позиция без цены даёт понятную ошибку, а не 500', () => {
+  assert.throws(
+    () => optimizePurchasingBudget({
+      finalOrder: finalOrder([
+        included({ rowId: 'r1', sku: 'A-1', quantity: 1, price: null }),
+      ]),
+      targetBudget: 100,
+    }),
+    error => error.code === 'BUDGET_OPTIMIZER_INVALID_INPUT' &&
+      error.message.includes('отсутствует закупочная цена')
+  );
+});
+
+test('finalOrder: суммы строк сходятся с итогом без ошибок округления', () => {
+  const input = {
+    finalOrder: finalOrder([
+      included({ rowId: 'r1', sku: 'A-1', quantity: 3, price: 0.335 }),
+      included({ rowId: 'r2', sku: 'A-2', quantity: 7, price: 0.145 }),
+      included({
+        rowId: 'r3', sku: 'A-3', quantity: 2, price: 33.27,
+        source: 'manual',
+      }),
+    ]),
+    targetBudget: 40,
+  };
+  const first = optimizePurchasingBudget(input);
+  const second = optimizePurchasingBudget(input);
+  assert.deepEqual(first, second, 'повторный запуск обязан совпадать');
+  const linesSum = Math.round(
+    first.items.reduce((sum, item) => sum + item.optimizedAmount, 0) * 100
+  );
+  assert.equal(linesSum, Math.round(first.optimizedTotal * 100));
+  assert.ok(first.optimizedTotal <= 40);
+});
+
+test('finalOrder: некорректное состояние отклоняется', () => {
+  assert.throws(
+    () => optimizePurchasingBudget({
+      finalOrder: null,
+      targetBudget: 100,
+    }),
+    error => error.code === 'BUDGET_OPTIMIZER_INVALID_INPUT'
+  );
+  assert.throws(
+    () => optimizePurchasingBudget({
+      finalOrder: { reviewComplete: true },
+      targetBudget: 100,
+    }),
+    error => error.code === 'BUDGET_OPTIMIZER_INVALID_INPUT'
+  );
+});
+
+test('finalOrder: изменение бюджета пересчитывает результат', () => {
+  const entries = [
+    included({ rowId: 'r1', sku: 'A-1', quantity: 5, price: 20 }),
+    included({ rowId: 'r2', sku: 'A-2', quantity: 5, price: 30 }),
+  ];
+  const budgets = [250, 200, 150, 100, 200];
+  const totals = budgets.map(targetBudget =>
+    optimizePurchasingBudget({
+      finalOrder: finalOrder(entries),
+      targetBudget,
+    }).optimizedTotal
+  );
+  assert.ok(totals[1] <= totals[0]);
+  assert.ok(totals[2] <= totals[1]);
+  assert.ok(totals[3] <= totals[2]);
+  assert.equal(
+    totals[4],
+    totals[1],
+    'возврат к бюджету 200 восстанавливает тот же результат'
+  );
+});

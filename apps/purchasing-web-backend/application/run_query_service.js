@@ -10,6 +10,9 @@ const {
 } = require(
   '../../../agents/purchasing/budget_optimizer/budget_optimizer'
 );
+const {
+  buildFinalOrderState,
+} = require('../../../agents/purchasing/services/final_order');
 
 const ALLOWED_SORTS = Object.freeze([
   'source_row',
@@ -257,8 +260,11 @@ class RunQueryService {
 
   optimizeBudget(runId, targetBudget) {
     ensureCompleted(this.getRunStatus(runId));
+    const finalOrder = buildFinalOrderState({
+      items: this.getDecoratedItems(runId),
+    });
     return optimizePurchasingBudget({
-      agentResult: this.registry.getAgentResult(runId),
+      finalOrder,
       targetBudget,
     });
   }

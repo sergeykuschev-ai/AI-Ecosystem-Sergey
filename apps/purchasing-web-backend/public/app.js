@@ -383,6 +383,11 @@
       'Проверьте количество и повторите сохранение решения.',
     INVALID_BUDGET_OPTIMIZATION:
       'Укажите корректный бюджет в рублях.',
+    OWNER_REVIEW_INCOMPLETE:
+      'Завершите ручную проверку всех позиций перед оптимизацией ' +
+      'под бюджет.',
+    BUDGET_OPTIMIZER_INVALID_INPUT:
+      'Не удалось оптимизировать заказ: проверьте цены позиций.',
     OWNER_DECISION_STORAGE_ERROR:
       'Не удалось сохранить решение. Попробуйте ещё раз.',
     ITEM_DECISION_UNAVAILABLE:
@@ -5191,6 +5196,17 @@
       elements.budgetOptimizerError.hidden = !message;
     }
 
+    function invalidateBudgetOptimization() {
+      latestBudgetOptimization = null;
+      elements.budgetOptimizerResult.hidden = true;
+      elements.budgetOptimizerWarning.textContent = '';
+      elements.budgetOptimizerWarning.hidden = true;
+      elements.budgetSupplierOrderXlsxDownload.hidden = true;
+      elements.budgetRemovedItemsXlsxDownload.hidden = true;
+      elements.budgetSupplierOrderDownload.hidden = true;
+      elements.budgetRemovedItemsDownload.hidden = true;
+    }
+
     function renderBudgetOptimization(result) {
       const view = budgetOptimizationView(result);
       latestBudgetOptimization = result;
@@ -5397,6 +5413,7 @@
           renderDecisionCounters(result.owner_decisions);
           refreshFinalOrder();
           refreshSupplierOrderCard();
+          invalidateBudgetOptimization();
           const remove = !itemMatchesDecisionFilter(
             savedItem,
             itemState.filter
