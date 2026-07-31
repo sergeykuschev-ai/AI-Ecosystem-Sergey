@@ -233,6 +233,90 @@
       '</workbook>';
   }
 
+  const WORKBOOK_CELL_STYLES = Object.freeze({
+    text: 0,
+    header: 1,
+    money: 2,
+    totalLabel: 3,
+    totalMoney: 4,
+  });
+
+  function workbookCellXml(cell, columnIndex, rowNumber) {
+    if (cell && typeof cell === 'object' && 'number' in cell) {
+      return numberCell(
+        columnIndex,
+        rowNumber,
+        cell.number,
+        cell.style ?? WORKBOOK_CELL_STYLES.text
+      );
+    }
+    return textCell(
+      columnIndex,
+      rowNumber,
+      cell?.text ?? '',
+      cell?.style ?? WORKBOOK_CELL_STYLES.text
+    );
+  }
+
+  function buildWorkbook(sheetName, options = {}) {
+    const {
+      headers,
+      columnWidths,
+      rows,
+      totalRow = null,
+    } = options;
+    if (
+      typeof sheetName !== 'string' ||
+      sheetName.trim() === '' ||
+      !Array.isArray(headers) ||
+      headers.length === 0 ||
+      headers.some(header => typeof header !== 'string' || header === '') ||
+      !Array.isArray(columnWidths) ||
+      columnWidths.length !== headers.length ||
+      !Array.isArray(rows)
+    ) {
+      throw new TypeError(
+        'buildWorkbook requires a sheet name, matching headers/' +
+        'columnWidths and a rows array.'
+      );
+    }
+    const dataRows = rows.map((cells, index) => {
+      if (!Array.isArray(cells) || cells.length !== headers.length) {
+        throw new TypeError(
+          `buildWorkbook row ${index + 1} must contain ` +
+          `${headers.length} cells.`
+        );
+      }
+      const rowNumber = index + 2;
+      return `<row r="${rowNumber}">` +
+        cells.map((cell, columnIndex) =>
+          workbookCellXml(cell, columnIndex, rowNumber)
+        ).join('') +
+        '</row>';
+    });
+    let totalRowXml = null;
+    if (totalRow) {
+      if (!Array.isArray(totalRow) || totalRow.length !== headers.length) {
+        throw new TypeError(
+          'buildWorkbook total row must match the header count.'
+        );
+      }
+      const totalRowNumber = dataRows.length + 2;
+      totalRowXml = `<row r="${totalRowNumber}">` +
+        totalRow.map((cell, columnIndex) =>
+          workbookCellXml(cell, columnIndex, totalRowNumber)
+        ).join('') +
+        '</row>';
+    }
+    const sheetXml = worksheetXml({
+      headers,
+      columnWidths,
+      dataRows,
+      totalRow: totalRowXml,
+    });
+    return createWorkbook(sheetName, sheetXml);
+  }
+
   function createWorkbook(sheetName, sheetXml) {
     if (
       !fflate ||
@@ -389,9 +473,11 @@
     REMOVED_SHEET_NAME,
     SUPPLIER_ORDER_FILE_NAME,
     SUPPLIER_SHEET_NAME,
+    WORKBOOK_CELL_STYLES,
     XLSX_CONTENT_TYPE,
     buildOptimizedRemovedItemsXlsx,
     buildOptimizedSupplierOrderXlsx,
+    buildWorkbook,
     createOptimizedXlsxFiles,
     escapeXml,
   };

@@ -1386,6 +1386,57 @@
     );
   }
 
+  const SUPPLIER_ORDER_CARD_KEY = 'supplier-order';
+
+  function supplierOrderEndpoints(runId) {
+    if (typeof runId !== 'string' || !RUN_ID_PATTERN.test(runId)) {
+      return null;
+    }
+    return Object.freeze({
+      metadata: `/api/v1/runs/${runId}/supplier-order`,
+      download: `/api/v1/runs/${runId}/supplier-order/download`,
+    });
+  }
+
+  function positionsLabel(count) {
+    const mod100 = Math.abs(count) % 100;
+    const mod10 = mod100 % 10;
+    if (mod100 >= 11 && mod100 <= 14) return 'позиций';
+    if (mod10 === 1) return 'позиция';
+    if (mod10 >= 2 && mod10 <= 4) return 'позиции';
+    return 'позиций';
+  }
+
+  function supplierOrderCardModel(metadata, endpoints) {
+    if (!metadata || metadata.available !== true || !endpoints) {
+      return null;
+    }
+    if (
+      metadata.downloadUrl !== endpoints.download ||
+      typeof metadata.filename !== 'string' ||
+      metadata.filename === '' ||
+      !Number.isInteger(metadata.itemCount) ||
+      metadata.itemCount < 1 ||
+      typeof metadata.totalAmount !== 'number' ||
+      !Number.isFinite(metadata.totalAmount) ||
+      metadata.totalAmount <= 0
+    ) {
+      return null;
+    }
+    return Object.freeze({
+      key: SUPPLIER_ORDER_CARD_KEY,
+      icon: '📦',
+      title: 'Заказ поставщику',
+      description:
+        'Готовый Excel-файл с окончательно утверждёнными позициями ' +
+        'для отправки поставщику',
+      meta: `${metadata.itemCount} ${positionsLabel(metadata.itemCount)} · ` +
+        formatRub(metadata.totalAmount),
+      filename: metadata.filename,
+      downloadUrl: endpoints.download,
+    });
+  }
+
   function artifactNameList(manifest) {
     const entries = Array.isArray(manifest?.artifacts)
       ? manifest.artifacts
@@ -4198,6 +4249,7 @@
     let ruleEffectivenessRequestSequence = 0;
     let knowledgeHealthRequestSequence = 0;
     let currentRunId = null;
+    let supplierOrderCard = null;
     let latestBudgetOptimization = null;
     let pendingRuleStatusChange = null;
     let currentCandidates = [];
@@ -4945,10 +4997,77 @@
 
     function resetExports() {
       availableArtifacts = {};
+      supplierOrderCard = null;
       elements.reportCenterGrid.replaceChildren();
       elements.reportCenterGrid.hidden = true;
       elements.reportCenterEmpty.hidden = false;
       elements.reportPreviewDialog.close();
+    }
+
+    function removeSupplierOrderCard() {
+      supplierOrderCard = null;
+      const existing = elements.reportCenterGrid.querySelector(
+        `[data-artifact-key="${SUPPLIER_ORDER_CARD_KEY}"]`
+      );
+      if (existing) existing.remove();
+      const hasCards = elements.reportCenterGrid.children.length > 0;
+      elements.reportCenterGrid.hidden = !hasCards;
+      elements.reportCenterEmpty.hidden = hasCards;
+    }
+
+    async function refreshSupplierOrderCard() {
+      const endpoints = supplierOrderEndpoints(currentRunId);
+      if (!endpoints) {
+        removeSupplierOrderCard();
+        return;
+      }
+      let metadata;
+      try {
+        metadata = await requestJson(fetchFunction, endpoints.metadata);
+      } catch {
+        return;
+      }
+      const model = supplierOrderCardModel(metadata, endpoints);
+      removeSupplierOrderCard();
+      if (!model) return;
+      supplierOrderCard = model;
+
+      const card = documentObject.createElement('article');
+      card.className = 'report-card';
+      card.dataset.artifactKey = model.key;
+
+      const heading = documentObject.createElement('div');
+      heading.className = 'report-card-heading';
+      const icon = documentObject.createElement('span');
+      icon.className = 'report-card-icon';
+      icon.setAttribute('aria-hidden', 'true');
+      icon.textContent = model.icon;
+      const title = documentObject.createElement('h4');
+      title.textContent = model.title;
+      heading.append(icon, title);
+
+      const description = documentObject.createElement('p');
+      description.textContent = model.description;
+
+      const meta = documentObject.createElement('p');
+      meta.className = 'report-card-meta';
+      meta.textContent = `${model.meta} · ${model.filename}`;
+
+      const actions = documentObject.createElement('div');
+      actions.className = 'report-card-actions';
+      const downloadButton = documentObject.createElement('button');
+      downloadButton.className =
+        'report-action report-download report-primary';
+      downloadButton.type = 'button';
+      downloadButton.dataset.artifactKey = model.key;
+      downloadButton.dataset.reportAction = 'download';
+      downloadButton.textContent = 'Скачать';
+      actions.append(downloadButton);
+
+      card.append(heading, description, meta, actions);
+      elements.reportCenterGrid.append(card);
+      elements.reportCenterGrid.hidden = false;
+      elements.reportCenterEmpty.hidden = true;
     }
 
     function resetBudgetOptimization() {
@@ -5175,6 +5294,7 @@
         onDecision: saveItemDecision,
         onSaved(result, savedItem) {
           renderDecisionCounters(result.owner_decisions);
+          refreshSupplierOrderCard();
           const remove = !itemMatchesDecisionFilter(
             savedItem,
             itemState.filter
@@ -5490,6 +5610,7 @@
         ]);
         renderSummary(summary, status);
         configureDownloads(manifest);
+        refreshSupplierOrderCard();
         renderStatus(
           'completed',
           'Расчёт завершён. Итоги и файлы готовы.'
@@ -5512,6 +5633,17 @@
 
     function downloadArtifact(event) {
       const key = event.currentTarget.dataset.artifactKey;
+      if (key === SUPPLIER_ORDER_CARD_KEY) {
+        if (!supplierOrderCard) return;
+        const orderLink = documentObject.createElement('a');
+        orderLink.href = supplierOrderCard.downloadUrl;
+        orderLink.download = supplierOrderCard.filename;
+        orderLink.rel = 'noopener';
+        documentObject.body.append(orderLink);
+        orderLink.click();
+        orderLink.remove();
+        return;
+      }
       const artifact = availableArtifacts[key];
       if (!artifact) return;
       const link = documentObject.createElement('a');
@@ -5892,6 +6024,9 @@
     requestNeedsDecisionItems,
     requestJson,
     reportCenterItems,
+    positionsLabel,
+    supplierOrderCardModel,
+    supplierOrderEndpoints,
     runStatusLabel,
     runStatusView,
     artifactNameList,
