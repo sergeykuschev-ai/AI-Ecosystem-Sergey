@@ -1386,6 +1386,62 @@
     );
   }
 
+  function finalOrderUrl(runId) {
+    return typeof runId === 'string' && RUN_ID_PATTERN.test(runId)
+      ? `/api/v1/runs/${runId}/final-order`
+      : null;
+  }
+
+  function finalOrderAmount(value) {
+    return typeof value === 'number' && Number.isFinite(value)
+      ? value
+      : null;
+  }
+
+  /**
+   * Тексты карточек итогов из канонического финального состояния
+   * заказа. Возвращает null для некорректного ответа API.
+   */
+  function finalOrderView(state) {
+    if (
+      !state ||
+      typeof state !== 'object' ||
+      typeof state.reviewComplete !== 'boolean' ||
+      !Number.isInteger(state.itemCount) ||
+      state.itemCount < 0 ||
+      !Number.isInteger(state.unresolvedCount) ||
+      state.unresolvedCount < 0 ||
+      finalOrderAmount(state.totalAmount) === null ||
+      finalOrderAmount(state.autoApprovedAmount) === null ||
+      finalOrderAmount(state.unresolvedAmount) === null
+    ) {
+      return null;
+    }
+    const initial = state.initialRecommendation;
+    const initialAmount = finalOrderAmount(initial?.totalAmount);
+    return {
+      totalAmount: formatRub(state.totalAmount),
+      itemCount: displayCount(state.itemCount),
+      autoApprovedSum: formatRub(state.autoApprovedAmount),
+      pendingReviewSum: state.reviewComplete
+        ? formatRub(0)
+        : formatRub(state.unresolvedAmount),
+      ownerReviewCount: state.reviewComplete
+        ? '0 позиций для решения · проверка завершена'
+        : `${displayCount(state.unresolvedCount)} позиций для решения`,
+      runStatus: state.reviewComplete ? 'Проверка завершена' : null,
+      runStatusCode: state.reviewComplete
+        ? 'Все ручные решения приняты'
+        : null,
+      remainingBudget: finalOrderAmount(state.remainingBudget),
+      initialRecommendation: initialAmount !== null
+        ? 'Исходная рекомендация агента: ' +
+          `${formatRub(initialAmount)} · ` +
+          `${displayCount(initial.itemCount)} SKU`
+        : '—',
+    };
+  }
+
   const SUPPLIER_ORDER_CARD_KEY = 'supplier-order';
 
   function supplierOrderEndpoints(runId) {
@@ -4178,6 +4234,8 @@
         ownerReviewCount:
           documentObject.getElementById('owner-review-count'),
       },
+      initialRecommendation:
+        documentObject.getElementById('initial-recommendation'),
       financialDecisionCard:
         documentObject.getElementById('financial-decision-card'),
       budgetDeviationCard:
@@ -5004,6 +5062,49 @@
       elements.reportPreviewDialog.close();
     }
 
+    /**
+     * Обновляет карточки итогов из канонического финального
+     * состояния заказа. Вызывается после расчёта и после каждого
+     * решения владельца, чтобы UI, API и Excel показывали одни
+     * и те же сумму и число позиций.
+     */
+    async function refreshFinalOrder() {
+      const url = finalOrderUrl(currentRunId);
+      if (!url) return;
+      let state;
+      try {
+        state = await requestJson(fetchFunction, url);
+      } catch {
+        return;
+      }
+      const view = finalOrderView(state);
+      if (!view) return;
+      elements.summary.analyzerOrderSum.textContent = view.totalAmount;
+      elements.summary.skuCount.textContent = view.itemCount;
+      elements.summary.autoApprovedSum.textContent =
+        view.autoApprovedSum;
+      elements.summary.pendingReviewSum.textContent =
+        view.pendingReviewSum;
+      elements.summary.ownerReviewCount.textContent =
+        view.ownerReviewCount;
+      if (elements.initialRecommendation) {
+        elements.initialRecommendation.textContent =
+          view.initialRecommendation;
+      }
+      if (view.remainingBudget !== null) {
+        elements.summary.reserveSurplus.textContent =
+          formatRub(view.remainingBudget);
+        elements.budgetDeviationCard.dataset.tone =
+          view.remainingBudget < 0 ? 'error' : 'success';
+      }
+      if (view.runStatus) {
+        elements.summary.runStatus.textContent = view.runStatus;
+        elements.summary.runStatusCode.textContent =
+          view.runStatusCode;
+        elements.runStatusCard.dataset.tone = 'success';
+      }
+    }
+
     function removeSupplierOrderCard() {
       supplierOrderCard = null;
       const existing = elements.reportCenterGrid.querySelector(
@@ -5294,6 +5395,7 @@
         onDecision: saveItemDecision,
         onSaved(result, savedItem) {
           renderDecisionCounters(result.owner_decisions);
+          refreshFinalOrder();
           refreshSupplierOrderCard();
           const remove = !itemMatchesDecisionFilter(
             savedItem,
@@ -5610,6 +5712,7 @@
         ]);
         renderSummary(summary, status);
         configureDownloads(manifest);
+        refreshFinalOrder();
         refreshSupplierOrderCard();
         renderStatus(
           'completed',
@@ -5959,6 +6062,8 @@
     decisionCounterView,
     decisionLabel,
     defaultDecisionFilter,
+    finalOrderUrl,
+    finalOrderView,
     downloadBudgetOptimizationFile,
     downloadGeneratedFile,
     eligibilityLabel,

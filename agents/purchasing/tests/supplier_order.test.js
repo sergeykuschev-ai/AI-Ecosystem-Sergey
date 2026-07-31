@@ -91,15 +91,16 @@ test('2. отклонённые позиции (SKIP) отсутствуют в 
   assert.equal(order.rows[0].article, 'ART-1');
 });
 
-test('3. pending- и unresolved-позиции отсутствуют в заказе', () => {
+test('3. pending- и unresolved-позиции с решением отсутствуют в заказе', () => {
   const order = buildSupplierOrder({
     items: [
       item({ row_id: 'auto' }),
       item({
-        row_id: 'pending',
+        row_id: 'pending-skip',
         sku: 'PEND-1',
         workflow_status: 'pending_manual_review',
         quantities: { approved_quantity: null, provisional_quantity: 5 },
+        owner_decision: { decision: 'SKIP', quantity: 0 },
       }),
       item({
         row_id: 'deferred',
@@ -108,7 +109,13 @@ test('3. pending- и unresolved-позиции отсутствуют в зак�
         owner_decision: { decision: 'DEFER', quantity: null },
       }),
       item({
-        row_id: 'unresolved',
+        row_id: 'no-order',
+        sku: 'NOO-1',
+        workflow_status: 'no_order_action',
+        quantities: { approved_quantity: null },
+      }),
+      item({
+        row_id: 'unresolved-data',
         sku: 'UNR-1',
         workflow_status: null,
         quantities: { approved_quantity: null },
@@ -153,17 +160,38 @@ test('4. при незавершённой ручной проверке экс�
   assert.throws(
     () => buildSupplierOrder({
       items: [
+        item({ row_id: 'auto' }),
         item({
-          row_id: 'deferred',
-          matrix: { owner_review_required: true },
-          owner_decision: { decision: 'DEFER', quantity: null },
+          row_id: 'pending',
+          workflow_status: 'pending_manual_review',
+          quantities: { approved_quantity: null },
         }),
       ],
       supplier: 'Оникиенко',
       generatedAt: GENERATED_AT,
     }),
-    error => error.code === SUPPLIER_ORDER_BLOCKED_CODE
+    error => {
+      assert.equal(error.code, SUPPLIER_ORDER_BLOCKED_CODE);
+      assert.equal(error.details.pending_count, 1);
+      return true;
+    }
   );
+});
+
+test('4a. DEFER — принятое решение: исключается, но не блокирует', () => {
+  const order = buildSupplierOrder({
+    items: [
+      item({ row_id: 'auto' }),
+      item({
+        row_id: 'deferred',
+        matrix: { owner_review_required: true },
+        owner_decision: { decision: 'DEFER', quantity: null },
+      }),
+    ],
+    supplier: 'Оникиенко',
+    generatedAt: GENERATED_AT,
+  });
+  assert.equal(order.itemCount, 1);
 });
 
 test('5. сумма строки равна количество × цена', () => {
@@ -373,4 +401,29 @@ test('ручное количество владельца заменяет ав
   });
   assert.equal(order.rows[0].quantity, 4);
   assert.equal(order.rows[0].amount, 42);
+});
+
+test('пустой артикул не ломает экспорт: позиция выгружается с пустой ячейкой', () => {
+  const order = buildSupplierOrder({
+    items: [item({ sku: null, barcode: '' })],
+    supplier: 'Оникиенко',
+    generatedAt: GENERATED_AT,
+  });
+  assert.equal(order.itemCount, 1);
+  assert.equal(order.rows[0].article, '');
+  const xlsx = buildSupplierOrderXlsx(order);
+  const { sheet } = sheetXml(xlsx);
+  assert.ok(sheet.includes('Корм для кошек'));
+});
+
+test('штрихкод с ведущим нулём сохраняется как текст', () => {
+  const order = buildSupplierOrder({
+    items: [item({ barcode: '0460000000001' })],
+    supplier: 'Оникиенко',
+    generatedAt: GENERATED_AT,
+  });
+  const xlsx = buildSupplierOrderXlsx(order);
+  const { sheet } = sheetXml(xlsx);
+  assert.ok(sheet.includes('0460000000001'));
+  assert.ok(sheet.includes('inlineStr'), 'штрихкод записан как текст');
 });

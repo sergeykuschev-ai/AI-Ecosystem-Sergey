@@ -4,6 +4,9 @@ const {
   WORKBOOK_CELL_STYLES,
   buildWorkbook,
 } = require('../../../shared/reporting/xlsx_exporter');
+const {
+  buildFinalOrderState,
+} = require('./final_order');
 
 const SUPPLIER_ORDER_SHEET_NAME = 'Заказ поставщику';
 const SUPPLIER_ORDER_BLOCKED_CODE = 'OWNER_REVIEW_INCOMPLETE';
@@ -36,46 +39,23 @@ function roundMoney(value) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
-function finiteNumber(value) {
-  return typeof value === 'number' && Number.isFinite(value)
-    ? value
-    : null;
-}
-
-function ownerDecisionOf(item) {
-  const decision = item?.owner_decision?.decision;
-  return typeof decision === 'string' ? decision : null;
-}
-
 /**
- * Позиции, по которым владелец обязан принять решение, но решение
- * ещё не принято (или отложено). Соответствует счётчику
- * needs_decision в ownerDecisionSummary веб-слоя.
+ * Позиции, блокирующие финальный заказ: обязательные ручные решения
+ * и pending-позиции без любого решения владельца.
+ * Соответствует канонической модели final_order.
  */
 function pendingOwnerReviewItems(items) {
-  return (items || []).filter(item =>
-    item?.matrix?.owner_review_required === true &&
-    !['BUY', 'SKIP'].includes(ownerDecisionOf(item))
-  );
+  return buildFinalOrderState({ items }).unresolvedItems;
 }
 
 /**
- * Финальное количество позиции для заказа поставщику:
- * - BUY: ручное количество владельца;
- * - без ручного решения: только auto_approved с approved_quantity;
- * - SKIP / DEFER / pending / нулевые количества не включаются.
- * Возвращает null, если позиция не входит в заказ.
+ * Финальное количество позиции для заказа поставщику по каноническим
+ * правилам final_order. Возвращает null, если позиция не входит
+ * в заказ.
  */
 function finalOrderQuantity(item) {
-  const decision = ownerDecisionOf(item);
-  if (decision === 'BUY') {
-    const quantity = finiteNumber(item?.owner_decision?.quantity);
-    return quantity !== null && quantity > 0 ? quantity : null;
-  }
-  if (decision === 'SKIP' || decision === 'DEFER') return null;
-  if (item?.workflow_status !== 'auto_approved') return null;
-  const approved = finiteNumber(item?.quantities?.approved_quantity);
-  return approved !== null && approved > 0 ? approved : null;
+  const state = buildFinalOrderState({ items: [item] });
+  return state.includedItems[0]?.quantity ?? null;
 }
 
 function sanitizeSupplierName(supplier) {
@@ -107,54 +87,41 @@ function buildSupplierOrderFilename(supplier, generatedAt) {
     `${orderDatePart(generatedAt)}.xlsx`;
 }
 
-function orderRowFromItem(item, quantity) {
-  const price = finiteNumber(item?.amounts?.unit_price);
-  if (price === null || price < 0) {
+function orderRowFromIncluded(entry) {
+  if (entry.price === null || entry.price < 0) {
     throw new SupplierOrderError(
       SUPPLIER_ORDER_DATA_INCOMPLETE_CODE,
-      `Для позиции «${item?.name || item?.sku || item?.row_id || '?'}» ` +
+      `Для позиции «${entry.name || entry.sku || entry.rowId || '?'}» ` +
       'отсутствует закупочная цена; заказ поставщику не сформирован.',
-      { details: { row_id: item?.row_id ?? null } }
+      { details: { row_id: entry.rowId } }
     );
   }
   return {
-    article: item?.sku ?? '',
-    name: item?.name ?? '',
-    barcode: item?.barcode || null,
-    brand: item?.brand || null,
-    quantity,
-    price,
-    amount: roundMoney(quantity * price),
+    article: entry.sku ?? '',
+    name: entry.name ?? '',
+    barcode: entry.barcode,
+    brand: entry.brand,
+    quantity: entry.quantity,
+    price: entry.price,
+    amount: entry.amount,
   };
 }
 
-function assertItems(items) {
-  if (!Array.isArray(items)) {
-    throw new SupplierOrderError(
-      SUPPLIER_ORDER_DATA_INCOMPLETE_CODE,
-      'Финальное состояние заказа недоступно.'
-    );
-  }
-}
-
-function buildSupplierOrder({ items, supplier, generatedAt }) {
-  assertItems(items);
-  const pending = pendingOwnerReviewItems(items);
-  if (pending.length > 0) {
+/**
+ * Строит заказ поставщику из канонического финального состояния.
+ * Блокируется при незавершённой ручной проверке и не создаёт
+ * фиктивный файл для пустого заказа.
+ */
+function buildSupplierOrder({ items, supplier, generatedAt, state = null }) {
+  const finalState = state || buildFinalOrderState({ items });
+  if (!finalState.reviewComplete) {
     throw new SupplierOrderError(
       SUPPLIER_ORDER_BLOCKED_CODE,
       SUPPLIER_ORDER_BLOCKED_MESSAGE,
-      { details: { pending_count: pending.length } }
+      { details: { pending_count: finalState.unresolvedCount } }
     );
   }
-
-  const rows = [];
-  for (const item of items) {
-    const quantity = finalOrderQuantity(item);
-    if (quantity === null || quantity <= 0) continue;
-    rows.push(orderRowFromItem(item, quantity));
-  }
-  if (rows.length === 0) {
+  if (finalState.includedItems.length === 0) {
     throw new SupplierOrderError(
       SUPPLIER_ORDER_EMPTY_CODE,
       'Заказ поставщику пуст: нет утверждённых позиций с количеством ' +
@@ -162,9 +129,7 @@ function buildSupplierOrder({ items, supplier, generatedAt }) {
     );
   }
 
-  const totalAmount = roundMoney(
-    rows.reduce((sum, row) => sum + row.amount, 0)
-  );
+  const rows = finalState.includedItems.map(orderRowFromIncluded);
   const optional = {
     barcode: rows.some(row => typeof row.barcode === 'string' &&
       row.barcode !== ''),
@@ -183,7 +148,7 @@ function buildSupplierOrder({ items, supplier, generatedAt }) {
     optional,
     rows,
     itemCount: rows.length,
-    totalAmount,
+    totalAmount: finalState.totalAmount,
   };
 }
 

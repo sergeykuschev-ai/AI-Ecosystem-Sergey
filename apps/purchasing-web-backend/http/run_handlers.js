@@ -1509,6 +1509,14 @@ function createRunHandlers(options) {
       };
     },
 
+    getFinalOrder(runId) {
+      return {
+        statusCode: 200,
+        data: resolvedSupplierOrderService.getFinalOrderState(runId),
+        runId,
+      };
+    },
+
     async downloadSupplierOrder(runId, response) {
       const file = resolvedSupplierOrderService.buildSupplierOrderFile(runId);
       response.writeHead(200, {

@@ -59,6 +59,8 @@ const SUPPLIER_ORDER_ROUTE =
   /^\/api\/v1\/runs\/([^/]+)\/supplier-order$/;
 const SUPPLIER_ORDER_DOWNLOAD_ROUTE =
   /^\/api\/v1\/runs\/([^/]+)\/supplier-order\/download$/;
+const FINAL_ORDER_ROUTE =
+  /^\/api\/v1\/runs\/([^/]+)\/final-order$/;
 
 function queryObject(searchParams) {
   const query = {};
@@ -317,6 +319,8 @@ function createRouter(handlers, options = {}) {
           rawPath.match(SUPPLIER_ORDER_DOWNLOAD_ROUTE);
         const supplierOrderMatch = request.method === 'GET' &&
           url.pathname.match(SUPPLIER_ORDER_ROUTE);
+        const finalOrderMatch = request.method === 'GET' &&
+          url.pathname.match(FINAL_ORDER_ROUTE);
 
         if (supplierOrderDownloadMatch) {
           runId = supplierOrderDownloadMatch[1];
@@ -324,6 +328,9 @@ function createRouter(handlers, options = {}) {
             runId,
             response
           );
+        } else if (finalOrderMatch) {
+          runId = finalOrderMatch[1];
+          result = handlers.getFinalOrder(runId);
         } else if (supplierOrderMatch) {
           runId = supplierOrderMatch[1];
           result = handlers.getSupplierOrder(runId);
@@ -419,6 +426,7 @@ module.exports = {
   OWNER_RULE_EFFECTIVENESS_ROUTE,
   OWNER_RULE_EFFECTIVENESS_DETAIL_ROUTE,
   OWNER_RULE_EFFECTIVENESS_EVENTS_ROUTE,
+  FINAL_ORDER_ROUTE,
   RUN_ROUTE,
   SUMMARY_ROUTE,
   SUPPLIER_ORDER_DOWNLOAD_ROUTE,
