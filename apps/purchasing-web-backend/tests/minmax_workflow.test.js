@@ -67,13 +67,15 @@ const XLS_BYTES = Buffer.from([
   ...Buffer.alloc(32, 3),
 ]);
 
+// Форма объекта соответствует Email Trigger (IMAP) v2, формат resolved:
+// UID лежит в attributes.uid; uidvalidity нода НЕ возвращает.
 function letter(overrides = {}, binary = null) {
   return {
     json: {
       from: { text: 'SmartZapas <minmax@supplier.ru>' },
       subject: 'Min/Max отчёт за июль',
-      uid: 1742,
-      uidvalidity: 38505,
+      attributes: { uid: 1742 },
+      messageId: '<202607310800.1742@supplier.ru>',
       date: '2026-07-31T08:00:00.000Z',
       ...overrides,
     },
@@ -100,6 +102,15 @@ test('1. подходящее письмо → process, стабильный ide
   assert.match(result.json.idempotencyKey, /^minmax-[A-Za-z0-9._:-]+$/);
   assert.ok(result.json.idempotencyKey.length >= 8);
   assert.ok(result.json.idempotencyKey.length <= 512);
+  // Формат: minmax-<mailbox>-<UID>-<имя файла>-<размер>-<sha256-16>
+  // (имя файла само может содержать '-', поэтому проверяем голову и хвост).
+  const parts = result.json.idempotencyKey.split('-');
+  assert.equal(parts[0], 'minmax');
+  assert.equal(parts[1], 'INBOX');
+  assert.equal(parts[2], '1742');
+  assert.equal(parts.at(-2), String(XLSX_BYTES.length));
+  assert.match(parts.at(-1), /^[0-9a-f]{16}$/);
+  assert.ok(result.json.idempotencyKey.includes('minmax-july.xlsx'));
   assert.equal(result.json.attachmentName, 'minmax-july.xlsx');
   assert.equal(result.json.attachmentSize, XLSX_BYTES.length);
   assert.equal(result.json.messageUid, '1742');
@@ -108,6 +119,63 @@ test('1. подходящее письмо → process, стабильный ide
   // Ключ стабилен: то же письмо → тот же ключ (идемпотентность).
   const repeat = filterOutcome(letter());
   assert.equal(repeat.json.idempotencyKey, result.json.idempotencyKey);
+});
+
+test('1a. ключ не зависит от uidvalidity (нода его не возвращает)', () => {
+  // Даже если поле uidvalidity каким-то образом появится в $json,
+  // оно не должно влиять на ключ: реальный UIDVALIDITY недоступен,
+  // и выдуманная константа в ключе недопустима.
+  const withField = filterOutcome(letter({ uidvalidity: 38505 }));
+  const withoutField = filterOutcome(letter());
+  const otherValue = filterOutcome(letter({ uidvalidity: 99999 }));
+  assert.equal(withField.json.idempotencyKey, withoutField.json.idempotencyKey);
+  assert.equal(otherValue.json.idempotencyKey, withoutField.json.idempotencyKey);
+  assert.ok(!withoutField.json.idempotencyKey.includes('38505'));
+});
+
+test('1b. усиление ключа sha256: тот же UID/имя/размер, другое содержимое → другой ключ', () => {
+  const altered = Buffer.concat([XLSX_BYTES, Buffer.from([0x42])]);
+  // Размер подгоняем, чтобы отличалось ТОЛЬКО содержимое.
+  const sameSizeAltered = Buffer.concat([XLSX_BYTES.slice(0, -1), Buffer.from([0x42])]);
+  assert.equal(sameSizeAltered.length, XLSX_BYTES.length);
+  const result = filterOutcome(letter({}, {
+    attachment_0: {
+      fileName: 'minmax-july.xlsx',
+      data: sameSizeAltered.toString('base64'),
+      fileSize: sameSizeAltered.length,
+    },
+  }));
+  const original = filterOutcome(letter());
+  assert.equal(result.json.attachmentSize, original.json.attachmentSize);
+  assert.notEqual(result.json.idempotencyKey, original.json.idempotencyKey);
+  void altered;
+});
+
+test('1c. sha256 в ключе соответствует эталонному вектору', () => {
+  // sha256('abc') = ba7816bf8f01cfea... — первые 16 hex попадают в ключ.
+  const abc = Buffer.from('abc');
+  const result = filterOutcome(letter({}, {
+    attachment_0: { fileName: 'bad.xlsx', data: abc.toString('base64') },
+  }));
+  // 'abc' не проходит сигнатуру Excel → rejected, но ключ уже содержит хэш.
+  assert.equal(result.json.outcome, 'rejected');
+  assert.ok(result.json.idempotencyKey.endsWith('-3-ba7816bf8f01cfea'));
+});
+
+test('1d. UID берётся из attributes.uid, фолбэки: uid, messageId', () => {
+  assert.equal(filterOutcome(letter()).json.messageUid, '1742');
+  // attributes отсутствует → верхнеуровневый uid.
+  const topLevel = filterOutcome(letter({ attributes: undefined, uid: 2077 }));
+  assert.equal(topLevel.json.messageUid, '2077');
+  assert.ok(topLevel.json.idempotencyKey.split('-')[2] === '2077');
+  // Нет ни attributes, ни uid → messageId (санитизированный).
+  const byMessageId = filterOutcome(letter({
+    attributes: undefined,
+    uid: undefined,
+    messageId: '<abc.123@supplier.ru>',
+  }));
+  assert.equal(byMessageId.json.messageUid, '<abc.123@supplier.ru>');
+  assert.equal(byMessageId.json.idempotencyKey.split('-')[2], 'abc.123_supplier.ru');
 });
 
 test('2. чужой отправитель → ignored', () => {
@@ -207,13 +275,19 @@ test('6d. классический .xls (OLE2) принимается', () => {
 
 // --- Реестр: решение по существующей записи -----------------------------
 
-const FILTER_JSON = {
-  outcome: 'process',
-  idempotencyKey: 'minmax-INBOX-38505-1742-minmax-july.xlsx-68',
-  attachmentName: 'minmax-july.xlsx',
-  mailbox: 'INBOX',
-  messageUid: '1742',
-};
+// Фикстура downstream-нод выводится из реального jsCode фильтра,
+// чтобы ключ всегда соответствовал фактическому формату.
+const FILTER_JSON = (() => {
+  const filtered = filterOutcome(letter()).json;
+  assert.equal(filtered.outcome, 'process');
+  return {
+    outcome: 'process',
+    idempotencyKey: filtered.idempotencyKey,
+    attachmentName: filtered.attachmentName,
+    mailbox: filtered.mailbox,
+    messageUid: filtered.messageUid,
+  };
+})();
 
 function decideByRegistry(apiResponse) {
   return runCodeNode(jsCode('decide-by-registry'), {
@@ -486,6 +560,16 @@ test('27. workflow JSON: структура, отсутствие секрето
   const imap = workflow.nodes.find(n => n.type === 'n8n-nodes-base.emailReadImap');
   assert.ok(imap, 'IMAP trigger присутствует');
   assert.equal(imap.parameters.postProcessAction, 'nothing');
+  // Формат resolved обязателен: вложения всегда попадают в binary,
+  // а UID письма — в $json.attributes.uid (в simple без downloadAttachments
+  // вложения не скачиваются, и фильтр игнорировал бы все письма).
+  assert.equal(imap.parameters.format, 'resolved');
+  // UIDVALIDITY нода не возвращает: jsCode не должен читать его из $json
+  // (упоминания в комментариях допустимы), ключ усилен sha256 вложения.
+  const filterCode = jsCode('filter-letter');
+  assert.ok(!filterCode.includes('$json.uidvalidity'), '$json.uidvalidity не используется');
+  assert.ok(filterCode.includes('$json.attributes'));
+  assert.ok(filterCode.includes('sha256hex'));
 
   // Upload несёт idempotency key и multipart-файл.
   const upload = workflow.nodes.find(n => n.id === 'upload-excel');
