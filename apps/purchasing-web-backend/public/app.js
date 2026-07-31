@@ -67,11 +67,7 @@
       owner_review: 'true',
       owner_decision: 'missing',
     }),
-    deferred: Object.freeze({
-      owner_review: 'true',
-      owner_decision: 'DEFER',
-    }),
-    confirmed: Object.freeze({ owner_decision: 'BUY' }),
+    confirmed: Object.freeze({ owner_decision: 'confirmed' }),
     skip: Object.freeze({ owner_decision: 'SKIP' }),
   });
   const ITEM_SORTS = Object.freeze([
@@ -383,6 +379,11 @@
       'Проверьте количество и повторите сохранение решения.',
     INVALID_BUDGET_OPTIMIZATION:
       'Укажите корректный бюджет в рублях.',
+    OWNER_REVIEW_INCOMPLETE:
+      'Завершите ручную проверку всех позиций перед оптимизацией ' +
+      'под бюджет.',
+    BUDGET_OPTIMIZER_INVALID_INPUT:
+      'Не удалось оптимизировать заказ: проверьте цены позиций.',
     OWNER_DECISION_STORAGE_ERROR:
       'Не удалось сохранить решение. Попробуйте ещё раз.',
     ITEM_DECISION_UNAVAILABLE:
@@ -451,7 +452,9 @@
     return {
       all: displayCount(totalItems),
       needsDecision: displayCount(summary?.needs_decision),
-      confirmedBuy: displayCount(summary?.confirmed_buy),
+      confirmedBuy: displayCount(
+        summary?.confirmed ?? summary?.confirmed_buy
+      ),
       excluded: displayCount(summary?.excluded),
     };
   }
@@ -461,15 +464,38 @@
   }
 
   function needsOwnerDecisionView(item) {
+    // DEFER is a made decision (resolved), aligned with the canonical
+    // FinalOrderState: a deferred item leaves «Нужно решить» and stays
+    // visible in «Все товары» with the «Отложено» status.
     const ownerDecision = item?.owner_decision?.decision || null;
     return item?.matrix?.owner_review_required === true &&
-      (ownerDecision === null || ownerDecision === 'DEFER');
+      ownerDecision === null;
+  }
+
+  function confirmedItemView(item) {
+    // Mirrors classifyItem(item).kind === 'included' from
+    // agents/purchasing/services/final_order.js, so the «Подтверждены»
+    // tab, its counter, and the final/supplier order all come from one
+    // source of truth: owner BUY with quantity > 0 plus auto-approved
+    // positions with approved_quantity > 0.
+    const ownerDecision = item?.owner_decision?.decision || null;
+    if (ownerDecision === 'BUY') {
+      const quantity = item?.owner_decision?.quantity;
+      return typeof quantity === 'number' &&
+        Number.isFinite(quantity) && quantity > 0;
+    }
+    if (ownerDecision !== null) return false;
+    if (item?.matrix?.owner_review_required === true) return false;
+    if (item?.workflow_status !== 'auto_approved') return false;
+    const approved = item?.quantities?.approved_quantity;
+    return typeof approved === 'number' &&
+      Number.isFinite(approved) && approved > 0;
   }
 
   function itemMatchesDecisionFilter(item, filter) {
     const decision = item?.owner_decision?.decision || null;
     if (filter === 'needs') return needsOwnerDecisionView(item);
-    if (filter === 'confirmed') return decision === 'BUY';
+    if (filter === 'confirmed') return confirmedItemView(item);
     if (filter === 'skip') return decision === 'SKIP';
     return true;
   }
@@ -574,7 +600,10 @@
         className: 'decision-none',
       };
     }
-    return { label: 'Решение не принято', className: 'decision-none' };
+    if (needsOwnerDecisionView(item)) {
+      return { label: 'Решение не принято', className: 'decision-none' };
+    }
+    return { label: 'Решение не требуется', className: 'decision-none' };
   }
 
   function plainReason(item) {
@@ -736,12 +765,16 @@
   }
 
   async function requestNeedsDecisionItems(fetchFunction, baseUrl, state) {
-    const [undecided, deferred] = await Promise.all([
-      requestCompleteItemFilter(fetchFunction, baseUrl, state, 'undecided'),
-      requestCompleteItemFilter(fetchFunction, baseUrl, state, 'deferred'),
-    ]);
+    // «Нужно решить» contains only positions that still lack an owner
+    // decision; DEFER is resolved and therefore no longer fetched here.
+    const undecided = await requestCompleteItemFilter(
+      fetchFunction,
+      baseUrl,
+      state,
+      'undecided'
+    );
     const uniqueItems = new Map();
-    for (const item of [...undecided.items, ...deferred.items]) {
+    for (const item of undecided.items) {
       if (
         typeof item?.row_id === 'string' &&
         itemMatchesDecisionFilter(item, 'needs')
@@ -764,8 +797,7 @@
         total_items: items.length,
         total_pages: totalPages,
       },
-      owner_decisions:
-        undecided.owner_decisions || deferred.owner_decisions,
+      owner_decisions: undecided.owner_decisions,
     };
   }
 
@@ -1384,6 +1416,113 @@
           : [];
       }
     );
+  }
+
+  function finalOrderUrl(runId) {
+    return typeof runId === 'string' && RUN_ID_PATTERN.test(runId)
+      ? `/api/v1/runs/${runId}/final-order`
+      : null;
+  }
+
+  function finalOrderAmount(value) {
+    return typeof value === 'number' && Number.isFinite(value)
+      ? value
+      : null;
+  }
+
+  /**
+   * Тексты карточек итогов из канонического финального состояния
+   * заказа. Возвращает null для некорректного ответа API.
+   */
+  function finalOrderView(state) {
+    if (
+      !state ||
+      typeof state !== 'object' ||
+      typeof state.reviewComplete !== 'boolean' ||
+      !Number.isInteger(state.itemCount) ||
+      state.itemCount < 0 ||
+      !Number.isInteger(state.unresolvedCount) ||
+      state.unresolvedCount < 0 ||
+      finalOrderAmount(state.totalAmount) === null ||
+      finalOrderAmount(state.autoApprovedAmount) === null ||
+      finalOrderAmount(state.unresolvedAmount) === null
+    ) {
+      return null;
+    }
+    const initial = state.initialRecommendation;
+    const initialAmount = finalOrderAmount(initial?.totalAmount);
+    return {
+      totalAmount: formatRub(state.totalAmount),
+      itemCount: displayCount(state.itemCount),
+      autoApprovedSum: formatRub(state.autoApprovedAmount),
+      pendingReviewSum: state.reviewComplete
+        ? formatRub(0)
+        : formatRub(state.unresolvedAmount),
+      ownerReviewCount: state.reviewComplete
+        ? '0 позиций для решения · проверка завершена'
+        : `${displayCount(state.unresolvedCount)} позиций для решения`,
+      runStatus: state.reviewComplete ? 'Проверка завершена' : null,
+      runStatusCode: state.reviewComplete
+        ? 'Все ручные решения приняты'
+        : null,
+      remainingBudget: finalOrderAmount(state.remainingBudget),
+      initialRecommendation: initialAmount !== null
+        ? 'Исходная рекомендация агента: ' +
+          `${formatRub(initialAmount)} · ` +
+          `${displayCount(initial.itemCount)} SKU`
+        : '—',
+    };
+  }
+
+  const SUPPLIER_ORDER_CARD_KEY = 'supplier-order';
+
+  function supplierOrderEndpoints(runId) {
+    if (typeof runId !== 'string' || !RUN_ID_PATTERN.test(runId)) {
+      return null;
+    }
+    return Object.freeze({
+      metadata: `/api/v1/runs/${runId}/supplier-order`,
+      download: `/api/v1/runs/${runId}/supplier-order/download`,
+    });
+  }
+
+  function positionsLabel(count) {
+    const mod100 = Math.abs(count) % 100;
+    const mod10 = mod100 % 10;
+    if (mod100 >= 11 && mod100 <= 14) return 'позиций';
+    if (mod10 === 1) return 'позиция';
+    if (mod10 >= 2 && mod10 <= 4) return 'позиции';
+    return 'позиций';
+  }
+
+  function supplierOrderCardModel(metadata, endpoints) {
+    if (!metadata || metadata.available !== true || !endpoints) {
+      return null;
+    }
+    if (
+      metadata.downloadUrl !== endpoints.download ||
+      typeof metadata.filename !== 'string' ||
+      metadata.filename === '' ||
+      !Number.isInteger(metadata.itemCount) ||
+      metadata.itemCount < 1 ||
+      typeof metadata.totalAmount !== 'number' ||
+      !Number.isFinite(metadata.totalAmount) ||
+      metadata.totalAmount <= 0
+    ) {
+      return null;
+    }
+    return Object.freeze({
+      key: SUPPLIER_ORDER_CARD_KEY,
+      icon: '📦',
+      title: 'Заказ поставщику',
+      description:
+        'Готовый Excel-файл с окончательно утверждёнными позициями ' +
+        'для отправки поставщику',
+      meta: `${metadata.itemCount} ${positionsLabel(metadata.itemCount)} · ` +
+        formatRub(metadata.totalAmount),
+      filename: metadata.filename,
+      downloadUrl: endpoints.download,
+    });
   }
 
   function artifactNameList(manifest) {
@@ -4127,6 +4266,8 @@
         ownerReviewCount:
           documentObject.getElementById('owner-review-count'),
       },
+      initialRecommendation:
+        documentObject.getElementById('initial-recommendation'),
       financialDecisionCard:
         documentObject.getElementById('financial-decision-card'),
       budgetDeviationCard:
@@ -4198,6 +4339,7 @@
     let ruleEffectivenessRequestSequence = 0;
     let knowledgeHealthRequestSequence = 0;
     let currentRunId = null;
+    let supplierOrderCard = null;
     let latestBudgetOptimization = null;
     let pendingRuleStatusChange = null;
     let currentCandidates = [];
@@ -4945,10 +5087,120 @@
 
     function resetExports() {
       availableArtifacts = {};
+      supplierOrderCard = null;
       elements.reportCenterGrid.replaceChildren();
       elements.reportCenterGrid.hidden = true;
       elements.reportCenterEmpty.hidden = false;
       elements.reportPreviewDialog.close();
+    }
+
+    /**
+     * Обновляет карточки итогов из канонического финального
+     * состояния заказа. Вызывается после расчёта и после каждого
+     * решения владельца, чтобы UI, API и Excel показывали одни
+     * и те же сумму и число позиций.
+     */
+    async function refreshFinalOrder() {
+      const url = finalOrderUrl(currentRunId);
+      if (!url) return;
+      let state;
+      try {
+        state = await requestJson(fetchFunction, url);
+      } catch {
+        return;
+      }
+      const view = finalOrderView(state);
+      if (!view) return;
+      elements.summary.analyzerOrderSum.textContent = view.totalAmount;
+      elements.summary.skuCount.textContent = view.itemCount;
+      elements.summary.autoApprovedSum.textContent =
+        view.autoApprovedSum;
+      elements.summary.pendingReviewSum.textContent =
+        view.pendingReviewSum;
+      elements.summary.ownerReviewCount.textContent =
+        view.ownerReviewCount;
+      if (elements.initialRecommendation) {
+        elements.initialRecommendation.textContent =
+          view.initialRecommendation;
+      }
+      if (view.remainingBudget !== null) {
+        elements.summary.reserveSurplus.textContent =
+          formatRub(view.remainingBudget);
+        elements.budgetDeviationCard.dataset.tone =
+          view.remainingBudget < 0 ? 'error' : 'success';
+      }
+      if (view.runStatus) {
+        elements.summary.runStatus.textContent = view.runStatus;
+        elements.summary.runStatusCode.textContent =
+          view.runStatusCode;
+        elements.runStatusCard.dataset.tone = 'success';
+      }
+    }
+
+    function removeSupplierOrderCard() {
+      supplierOrderCard = null;
+      const existing = elements.reportCenterGrid.querySelector(
+        `[data-artifact-key="${SUPPLIER_ORDER_CARD_KEY}"]`
+      );
+      if (existing) existing.remove();
+      const hasCards = elements.reportCenterGrid.children.length > 0;
+      elements.reportCenterGrid.hidden = !hasCards;
+      elements.reportCenterEmpty.hidden = hasCards;
+    }
+
+    async function refreshSupplierOrderCard() {
+      const endpoints = supplierOrderEndpoints(currentRunId);
+      if (!endpoints) {
+        removeSupplierOrderCard();
+        return;
+      }
+      let metadata;
+      try {
+        metadata = await requestJson(fetchFunction, endpoints.metadata);
+      } catch {
+        return;
+      }
+      const model = supplierOrderCardModel(metadata, endpoints);
+      removeSupplierOrderCard();
+      if (!model) return;
+      supplierOrderCard = model;
+
+      const card = documentObject.createElement('article');
+      card.className = 'report-card';
+      card.dataset.artifactKey = model.key;
+
+      const heading = documentObject.createElement('div');
+      heading.className = 'report-card-heading';
+      const icon = documentObject.createElement('span');
+      icon.className = 'report-card-icon';
+      icon.setAttribute('aria-hidden', 'true');
+      icon.textContent = model.icon;
+      const title = documentObject.createElement('h4');
+      title.textContent = model.title;
+      heading.append(icon, title);
+
+      const description = documentObject.createElement('p');
+      description.textContent = model.description;
+
+      const meta = documentObject.createElement('p');
+      meta.className = 'report-card-meta';
+      meta.textContent = `${model.meta} · ${model.filename}`;
+
+      const actions = documentObject.createElement('div');
+      actions.className = 'report-card-actions';
+      const downloadButton = documentObject.createElement('button');
+      downloadButton.className =
+        'report-action report-download report-primary';
+      downloadButton.type = 'button';
+      downloadButton.dataset.artifactKey = model.key;
+      downloadButton.dataset.reportAction = 'download';
+      downloadButton.textContent = 'Скачать';
+      actions.append(downloadButton);
+
+      card.append(heading, description, meta, actions);
+      elements.reportCenterGrid.append(card);
+      elements.reportCenterGrid.hidden = false;
+      elements.reportCenterEmpty.hidden = true;
     }
 
     function resetBudgetOptimization() {
@@ -4969,6 +5221,17 @@
     function setBudgetOptimizationError(message) {
       elements.budgetOptimizerError.textContent = message || '';
       elements.budgetOptimizerError.hidden = !message;
+    }
+
+    function invalidateBudgetOptimization() {
+      latestBudgetOptimization = null;
+      elements.budgetOptimizerResult.hidden = true;
+      elements.budgetOptimizerWarning.textContent = '';
+      elements.budgetOptimizerWarning.hidden = true;
+      elements.budgetSupplierOrderXlsxDownload.hidden = true;
+      elements.budgetRemovedItemsXlsxDownload.hidden = true;
+      elements.budgetSupplierOrderDownload.hidden = true;
+      elements.budgetRemovedItemsDownload.hidden = true;
     }
 
     function renderBudgetOptimization(result) {
@@ -5175,6 +5438,9 @@
         onDecision: saveItemDecision,
         onSaved(result, savedItem) {
           renderDecisionCounters(result.owner_decisions);
+          refreshFinalOrder();
+          refreshSupplierOrderCard();
+          invalidateBudgetOptimization();
           const remove = !itemMatchesDecisionFilter(
             savedItem,
             itemState.filter
@@ -5490,6 +5756,8 @@
         ]);
         renderSummary(summary, status);
         configureDownloads(manifest);
+        refreshFinalOrder();
+        refreshSupplierOrderCard();
         renderStatus(
           'completed',
           'Расчёт завершён. Итоги и файлы готовы.'
@@ -5512,6 +5780,17 @@
 
     function downloadArtifact(event) {
       const key = event.currentTarget.dataset.artifactKey;
+      if (key === SUPPLIER_ORDER_CARD_KEY) {
+        if (!supplierOrderCard) return;
+        const orderLink = documentObject.createElement('a');
+        orderLink.href = supplierOrderCard.downloadUrl;
+        orderLink.download = supplierOrderCard.filename;
+        orderLink.rel = 'noopener';
+        documentObject.body.append(orderLink);
+        orderLink.click();
+        orderLink.remove();
+        return;
+      }
       const artifact = availableArtifacts[key];
       if (!artifact) return;
       const link = documentObject.createElement('a');
@@ -5824,9 +6103,13 @@
     createItemRow,
     createItemRows,
     createApplication,
+    confirmedItemView,
     decisionCounterView,
     decisionLabel,
     defaultDecisionFilter,
+    ERROR_MESSAGES,
+    finalOrderUrl,
+    finalOrderView,
     downloadBudgetOptimizationFile,
     downloadGeneratedFile,
     eligibilityLabel,
@@ -5892,6 +6175,9 @@
     requestNeedsDecisionItems,
     requestJson,
     reportCenterItems,
+    positionsLabel,
+    supplierOrderCardModel,
+    supplierOrderEndpoints,
     runStatusLabel,
     runStatusView,
     artifactNameList,

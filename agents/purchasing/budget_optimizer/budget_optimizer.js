@@ -1,10 +1,33 @@
 'use strict';
 
+/**
+ * Оптимизация заказа под целевой бюджет.
+ *
+ * Основной вход — каноническое финальное состояние заказа
+ * (`input.finalOrder`, результат buildFinalOrderState): оптимизируется
+ * утверждённый владельцем заказ, а не исходная рекомендация агента.
+ * Вход `input.agentResult` (workingOrderProducts) сохранён для
+ * обратной совместимости существующих сценариев и тестов.
+ *
+ * Все денежные вычисления ведутся в целых копейках, поэтому повторные
+ * запуски не накапливают ошибки округления.
+ */
+
 const DECISION_REDUCTION_ORDER = Object.freeze({
   postpone: 0,
   manual_review: 1,
   recommended: 2,
   do_not_buy: 3,
+});
+
+/**
+ * Порядок сокращения для позиций финального заказа (FinalOrderState):
+ * сначала автоматически одобренные, явные решения владельца (BUY)
+ * сокращаются в последнюю очередь.
+ */
+const FINAL_ORDER_SOURCE_REDUCTION_ORDER = Object.freeze({
+  auto: 0,
+  manual: 1,
 });
 
 const MATRIX_PRIORITY_ORDER = Object.freeze({
@@ -195,10 +218,19 @@ function priorityValue(order, value, fallback) {
   return Object.hasOwn(order, value) ? order[value] : fallback;
 }
 
+function reductionRank(decision) {
+  if (Object.hasOwn(DECISION_REDUCTION_ORDER, decision)) {
+    return DECISION_REDUCTION_ORDER[decision];
+  }
+  if (Object.hasOwn(FINAL_ORDER_SOURCE_REDUCTION_ORDER, decision)) {
+    return FINAL_ORDER_SOURCE_REDUCTION_ORDER[decision];
+  }
+  return 4;
+}
+
 function compareReductionPriority(left, right) {
   const decisionDifference =
-    priorityValue(DECISION_REDUCTION_ORDER, left.decision, 4) -
-    priorityValue(DECISION_REDUCTION_ORDER, right.decision, 4);
+    reductionRank(left.decision) - reductionRank(right.decision);
   if (decisionDifference !== 0) return decisionDifference;
 
   const matrixDifference =
@@ -292,13 +324,87 @@ function reduceGroup(items, amountCents) {
   return amountCents - remainingCents;
 }
 
+/**
+ * Строит рабочие позиции оптимизации из канонического финального
+ * состояния заказа (buildFinalOrderState). Оптимизируются только
+ * включённые позиции с финальными количествами и ценами; нерешённая
+ * ручная проверка блокирует оптимизацию.
+ */
+function finalOrderItems(state) {
+  if (!state || typeof state !== 'object') {
+    throw new BudgetOptimizerError(
+      'BUDGET_OPTIMIZER_INVALID_INPUT',
+      'Финальное состояние заказа не передано.'
+    );
+  }
+  if (state.reviewComplete !== true) {
+    throw new BudgetOptimizerError(
+      'OWNER_REVIEW_INCOMPLETE',
+      'Завершите ручную проверку всех позиций перед оптимизацией ' +
+      'под бюджет.'
+    );
+  }
+  if (!Array.isArray(state.includedItems)) {
+    throw new BudgetOptimizerError(
+      'BUDGET_OPTIMIZER_INVALID_INPUT',
+      'Финальное состояние заказа не содержит includedItems.'
+    );
+  }
+
+  return state.includedItems.map((entry, index) => {
+    const quantity = nonNegativeInteger(
+      entry?.quantity,
+      `includedItems[${index}].quantity`
+    );
+    if (entry?.price === null || entry?.price === undefined) {
+      throw new BudgetOptimizerError(
+        'BUDGET_OPTIMIZER_INVALID_INPUT',
+        `Для позиции «${entry?.name || entry?.sku || entry?.rowId ||
+          index}» отсутствует закупочная цена; оптимизация под бюджет ` +
+        'невозможна.'
+      );
+    }
+    const priceCents = toCents(
+      entry.price,
+      `includedItems[${index}].price`
+    );
+    if (priceCents === 0) {
+      throw new BudgetOptimizerError(
+        'BUDGET_OPTIMIZER_INVALID_INPUT',
+        `Цена includedItems[${index}] должна быть больше нуля.`
+      );
+    }
+
+    const source = entry.source === 'manual' ? 'manual' : 'auto';
+    return {
+      rowIdentity: entry.rowId || null,
+      sourceRow: null,
+      sku: entry.sku || null,
+      name: entry.name || null,
+      supplier: entry.supplier || null,
+      decision: source,
+      priceCents,
+      originalQuantity: quantity,
+      optimizedQuantity: quantity,
+      minimumQuantity: 0,
+      protectedReasons: source === 'manual' ? ['OWNER_BUY'] : [],
+      matrixPriority: null,
+      abc: null,
+      xyz: null,
+      decisionScore: null,
+      sourceIndex: index,
+    };
+  });
+}
+
 function optimizePurchasingBudget(input) {
   const targetBudgetCents = toCents(
     input?.targetBudget,
     'targetBudget'
   );
-  const agent = agentJson(input?.agentResult);
-  const items = sourceItems(agent);
+  const items = input?.finalOrder
+    ? finalOrderItems(input.finalOrder)
+    : sourceItems(agentJson(input?.agentResult));
 
   const originalTotalCents = items.reduce(
     (sum, item) => sum + item.originalQuantity * item.priceCents,
@@ -320,11 +426,7 @@ function optimizePurchasingBudget(input) {
     );
     const groups = new Map();
     for (const item of candidates) {
-      const rank = priorityValue(
-        DECISION_REDUCTION_ORDER,
-        item.decision,
-        4
-      );
+      const rank = reductionRank(item.decision);
       if (!groups.has(rank)) groups.set(rank, []);
       groups.get(rank).push(item);
     }

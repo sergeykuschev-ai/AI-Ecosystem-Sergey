@@ -50,6 +50,9 @@ const {
   OwnerKnowledgeHealthService,
 } = require('./application/owner_knowledge_health_service');
 const {
+  SupplierOrderService,
+} = require('./application/supplier_order_service');
+const {
   FileRunRegistry,
 } = require('./storage/file_run_registry');
 const { createRouter } = require('./http/router');
@@ -279,6 +282,12 @@ function createPurchasingWebServer(options = {}) {
     ownerKnowledgeHealthService,
     ownerRuleStatusService,
     ownerLearningCenterService,
+    supplierOrderService: options.supplierOrderService ||
+      new SupplierOrderService({
+        queryService,
+        registry,
+        now: options.now,
+      }),
   });
   const staticHandler = options.staticHandler || createStaticHandler({
     publicRoot: options.publicRoot,

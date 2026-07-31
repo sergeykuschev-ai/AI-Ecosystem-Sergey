@@ -55,6 +55,12 @@ const ARTIFACTS_ROUTE =
   /^\/api\/v1\/runs\/([^/]+)\/artifacts$/;
 const ARTIFACT_ROUTE =
   /^\/api\/v1\/runs\/([^/]+)\/artifacts\/(.*)$/;
+const SUPPLIER_ORDER_ROUTE =
+  /^\/api\/v1\/runs\/([^/]+)\/supplier-order$/;
+const SUPPLIER_ORDER_DOWNLOAD_ROUTE =
+  /^\/api\/v1\/runs\/([^/]+)\/supplier-order\/download$/;
+const FINAL_ORDER_ROUTE =
+  /^\/api\/v1\/runs\/([^/]+)\/final-order$/;
 
 function queryObject(searchParams) {
   const query = {};
@@ -309,8 +315,26 @@ function createRouter(handlers, options = {}) {
           url.pathname.match(ARTIFACTS_ROUTE);
         const artifactMatch = request.method === 'GET' &&
           rawPath.match(ARTIFACT_ROUTE);
+        const supplierOrderDownloadMatch = request.method === 'GET' &&
+          rawPath.match(SUPPLIER_ORDER_DOWNLOAD_ROUTE);
+        const supplierOrderMatch = request.method === 'GET' &&
+          url.pathname.match(SUPPLIER_ORDER_ROUTE);
+        const finalOrderMatch = request.method === 'GET' &&
+          url.pathname.match(FINAL_ORDER_ROUTE);
 
-        if (budgetOptimizationMatch) {
+        if (supplierOrderDownloadMatch) {
+          runId = supplierOrderDownloadMatch[1];
+          result = await handlers.downloadSupplierOrder(
+            runId,
+            response
+          );
+        } else if (finalOrderMatch) {
+          runId = finalOrderMatch[1];
+          result = handlers.getFinalOrder(runId);
+        } else if (supplierOrderMatch) {
+          runId = supplierOrderMatch[1];
+          result = handlers.getSupplierOrder(runId);
+        } else if (budgetOptimizationMatch) {
           runId = budgetOptimizationMatch[1];
           result = await handlers.optimizeBudget(runId, request);
         } else if (itemDecisionMatch) {
@@ -402,8 +426,11 @@ module.exports = {
   OWNER_RULE_EFFECTIVENESS_ROUTE,
   OWNER_RULE_EFFECTIVENESS_DETAIL_ROUTE,
   OWNER_RULE_EFFECTIVENESS_EVENTS_ROUTE,
+  FINAL_ORDER_ROUTE,
   RUN_ROUTE,
   SUMMARY_ROUTE,
+  SUPPLIER_ORDER_DOWNLOAD_ROUTE,
+  SUPPLIER_ORDER_ROUTE,
   createRouter,
   decodeItemId,
   queryObject,

@@ -16,6 +16,9 @@ const {
   runPurchasingWebOrchestrator,
 } = require('../application/purchasing_run_orchestrator');
 const {
+  SupplierOrderService,
+} = require('../application/supplier_order_service');
+const {
   DEFAULT_RUN_EXECUTION_LOCK,
 } = require('../application/run_execution_lock');
 const {
@@ -1353,6 +1356,7 @@ function createRunHandlers(options) {
     ownerKnowledgeHealthService,
     ownerRuleStatusService,
     ownerLearningCenterService,
+    supplierOrderService,
   } = options;
 
   if (
@@ -1365,6 +1369,9 @@ function createRunHandlers(options) {
       'Registry, query service и owner learning services обязательны.'
     );
   }
+
+  const resolvedSupplierOrderService = supplierOrderService ||
+    new SupplierOrderService({ queryService, registry });
 
   return {
     async createRun(request, context) {
@@ -1492,6 +1499,37 @@ function createRunHandlers(options) {
         data: queryService.getOwnerReview(runId, query),
         runId,
       };
+    },
+
+    getSupplierOrder(runId) {
+      return {
+        statusCode: 200,
+        data: resolvedSupplierOrderService.getSupplierOrder(runId),
+        runId,
+      };
+    },
+
+    getFinalOrder(runId) {
+      return {
+        statusCode: 200,
+        data: resolvedSupplierOrderService.getFinalOrderState(runId),
+        runId,
+      };
+    },
+
+    async downloadSupplierOrder(runId, response) {
+      const file = resolvedSupplierOrderService.buildSupplierOrderFile(runId);
+      response.writeHead(200, {
+        'Cache-Control': 'no-store',
+        'Content-Disposition':
+          `attachment; filename="supplier-order.xlsx"; ` +
+          `filename*=UTF-8''${encodeURIComponent(file.filename)}`,
+        'Content-Length': file.content.length,
+        'Content-Type': file.contentType,
+        'X-Content-Type-Options': 'nosniff',
+      });
+      response.end(file.content);
+      return { streamed: true, runId };
     },
 
     getOwnerDecisionAnalytics(query) {

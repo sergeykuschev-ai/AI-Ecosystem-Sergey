@@ -10,6 +10,10 @@ const {
 } = require(
   '../../../agents/purchasing/budget_optimizer/budget_optimizer'
 );
+const {
+  buildFinalOrderState,
+  classifyItem,
+} = require('../../../agents/purchasing/services/final_order');
 
 const ALLOWED_SORTS = Object.freeze([
   'source_row',
@@ -206,8 +210,13 @@ function itemMatches(item, filters) {
     item.owner_decision?.decision
   ) return false;
   if (
+    filters.owner_decision === 'confirmed' &&
+    classifyItem(item).kind !== 'included'
+  ) return false;
+  if (
     filters.owner_decision &&
     filters.owner_decision !== 'missing' &&
+    filters.owner_decision !== 'confirmed' &&
     item.owner_decision?.decision !== filters.owner_decision
   ) return false;
   return true;
@@ -257,8 +266,11 @@ class RunQueryService {
 
   optimizeBudget(runId, targetBudget) {
     ensureCompleted(this.getRunStatus(runId));
+    const finalOrder = buildFinalOrderState({
+      items: this.getDecoratedItems(runId),
+    });
     return optimizePurchasingBudget({
-      agentResult: this.registry.getAgentResult(runId),
+      finalOrder,
       targetBudget,
     });
   }
@@ -306,7 +318,7 @@ class RunQueryService {
       ),
       owner_decision: enumQuery(
         query.owner_decision,
-        ['missing', 'BUY', 'SKIP', 'DEFER'],
+        ['missing', 'BUY', 'SKIP', 'DEFER', 'confirmed'],
         'owner_decision'
       ),
     };

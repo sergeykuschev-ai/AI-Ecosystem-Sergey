@@ -1996,6 +1996,14 @@ h2 {
   line-height: 1.55;
 }
 
+.report-card-meta {
+  margin: -8px 0 18px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text, #102515);
+  word-break: break-word;
+}
+
 .report-card-actions {
   display: flex;
   flex-wrap: wrap;

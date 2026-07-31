@@ -791,6 +791,7 @@ test('CLI writes Matrix Builder files and the Owner Review Dashboard', async () 
   const result = await runMatrixBuilderCli([
     '--input', SYNTHETIC_XLSX,
     '--output-dir', outputRoot,
+    '--owner-decisions', path.join(TEMP_DIRECTORY, 'missing-owner-decisions.json'),
     '--report-date', '2026-07-19',
   ], { output: () => {}, currentDate: new Date(2026, 6, 20, 10, 11, 12) });
   assert.deepEqual(fs.readdirSync(result.runDirectory).sort(), [
@@ -852,6 +853,7 @@ test('CLI forwards explicit report date without using system date as report date
   };
   await runMatrixBuilderCli([
     '--input', SYNTHETIC_XLSX,
+    '--owner-decisions', path.join(TEMP_DIRECTORY, 'missing-owner-decisions.json'),
     '--report-date', '2026-07-19',
     '--dry-run',
   ], {
