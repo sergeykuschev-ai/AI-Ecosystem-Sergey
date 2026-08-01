@@ -211,6 +211,69 @@ test('fixed workflow HTTP-ноды соответствуют единому bac
   }
 });
 
+test('HTTP Request JSON contract handles registry 404 and found with x-api-key', async t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'minmax-http-node-json-'));
+  const runtime = await startContractServer(root, async () => {});
+  t.after(async () => {
+    runtime.server.close();
+    await once(runtime.server, 'close').catch(() => {});
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  const node = workflow.nodes.find(item => item.id === 'check-registry');
+  assert.equal(
+    node.parameters.options.response.response.responseFormat,
+    'json'
+  );
+  assert.ok(node.parameters.headerParameters.parameters.some(header =>
+    header.name === 'Accept' && header.value === 'application/json'
+  ));
+
+  const key = 'minmax-http-node-contract-404-and-found';
+  const missing = await jsonRequest(
+    runtime.baseUrl,
+    `/api/v1/upload-idempotency/${key}`
+  );
+  assert.equal(missing.response.status, 404);
+  assert.equal(
+    missing.body.error.code,
+    'UPLOAD_IDEMPOTENCY_RECORD_NOT_FOUND'
+  );
+
+  const created = await jsonRequest(
+    runtime.baseUrl,
+    '/api/v1/upload-idempotency',
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        idempotency_key: key,
+        mailbox: 'INBOX',
+        message_uid: 'contract-272',
+        attachment_name: 'contract.xlsx',
+        state: 'rejected',
+        error_code: 'CONTRACT_ONLY',
+      }),
+    }
+  );
+  assert.equal(created.response.status, 201);
+
+  const found = await jsonRequest(
+    runtime.baseUrl,
+    `/api/v1/upload-idempotency/${key}`
+  );
+  assert.equal(found.response.status, 200);
+  assert.equal(found.body.data.idempotency_key, key);
+
+  const unauthorized = await jsonRequest(
+    runtime.baseUrl,
+    `/api/v1/upload-idempotency/${key}`,
+    { useApiKey: false }
+  );
+  assert.equal(unauthorized.response.status, 401);
+  assert.equal(unauthorized.body.error.code, 'API_TOKEN_REQUIRED');
+});
+
 test('реальный backend обслуживает полный fixed-workflow lifecycle и replay', async t => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'minmax-contract-'));
   let releaseOrchestrator;

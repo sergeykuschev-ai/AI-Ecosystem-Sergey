@@ -252,6 +252,36 @@ generated metadata только если соответствующая repo-н�
 
 Успешный deploy заканчивается собственным verify и не требует кликов в UI.
 
+### Автоматическая проверка упавшего execution
+
+Inspector получает execution через Public API с `includeData=true`, извлекает
+фактически выполненный workflow, `runData`, вход ноды `Проверить реестр`,
+`idempotencyKey`, URL и credential reference. Затем он получает безопасную
+metadata credential (`id`, `name`, `type`) и повторяет тот же registry GET из
+контейнера n8n с `Accept: application/json` и `x-api-key`. Секрет передаётся в
+контейнер только через process environment и не печатается.
+
+```powershell
+npm run arthur:minmax:inspect -- --execution-id 272
+```
+
+Нужны уже описанные `N8N_BASE_URL`, `N8N_API_KEY`,
+`N8N_ARTHUR_CREDENTIAL_ID`, а также `PURCHASING_API_TOKEN` и
+`N8N_CONTAINER_NAME`. Public API n8n намеренно не возвращает credential data,
+поэтому имя header подтверждается эффективно: Purchasing backend принимает
+только `x-api-key`, а container replay должен вернуть JSON 200 или JSON 404.
+
+HTTP Request node n8n 2.28.6 при неудачном `JSON.parse()` создаёт новый
+`NodeOperationError` и обычно не сохраняет исходные status, headers и body в
+execution. Inspector показывает их, если `cause` сохранился; иначе явно пишет
+`not retained` и получает точный текущий raw response повтором того же URL.
+
+Одна команда deploy + semantic verify + inspection + container replay:
+
+```powershell
+npm run arthur:minmax:deploy:check -- --execution-id 272
+```
+
 ## Запуск Purchasing backend на Windows
 
 Из корня актуальной ветки репозитория в PowerShell:

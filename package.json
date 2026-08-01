@@ -18,7 +18,9 @@
     "purchasing:web": "node apps/purchasing-web-backend/server.js",
     "purchasing:minmax:verify": "node scripts/purchasing/verify-minmax-n8n-contract.js",
     "arthur:minmax:deploy": "node scripts/arthur/deploy-minmax-workflow.js",
-    "arthur:minmax:verify": "node scripts/arthur/verify-deployed-minmax-workflow.js"
+    "arthur:minmax:verify": "node scripts/arthur/verify-deployed-minmax-workflow.js",
+    "arthur:minmax:inspect": "node scripts/arthur/inspect-minmax-execution.js",
+    "arthur:minmax:deploy:check": "node scripts/arthur/deploy-and-inspect-minmax-workflow.js"
   },
   "repository": {
     "type": "git",
