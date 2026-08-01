@@ -216,13 +216,30 @@ Deploy находит record сначала по стабильному ID, за
 сохраняются без изменений. Это отличие от CLI importer, который принимает
 более широкий внутренний JSON, чем строгая Public API OpenAPI-схема.
 
+Переменная credential для Arthur Core называется строго
+`N8N_ARTHUR_CREDENTIAL_ID`. Если по ошибке задана
+`N88N_ARTHUR_CREDENTIAL_ID`, deploy завершается до HTTP-запроса и прямо
+указывает на опечатку.
+
 Verify получает фактический workflow через API и проверяет:
 
 - `id`, `name`, `active`, `versionId`, active version и `updatedAt`;
-- совпадение структурных SHA-256 draft и published version с repo JSON;
+- семантическое совпадение draft и published version с repo JSON после того,
+  как ко всем трём представлениям применена одна canonicalization;
 - все восемь HTTP-нод, их URL, `Accept: application/json`, JSON response
   format и credential `Arthur Core API` с ID из env;
+- `INBOX`, resolved IMAP format, IMAP/SMTP credential IDs и отсутствие
+  `$env`/`process.env` во всех нодах;
 - отсутствие второго неархивированного workflow с тем же именем.
+
+Canonicalization игнорирует только порядок JSON-ключей и нод, read-only
+metadata, пустые значения и документированные defaults n8n. Credential type
+и ID, параметры, URL, method, headers, response format, node type/typeVersion,
+connections, retry-настройки и явно отличающиеся settings продолжают
+сравниваться. При реальном расхождении verify печатает путь в формате
+`node name → path → expected → actual`. Если raw JSON отличается только из-за
+нормализации n8n, команда показывает эти raw-различия как `INFO`, но успешно
+завершается по совпавшим semantic hashes.
 
 Успешный deploy заканчивается собственным verify и не требует кликов в UI.
 

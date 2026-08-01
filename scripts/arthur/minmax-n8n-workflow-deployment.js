@@ -49,11 +49,37 @@ const LEGACY_NODE_FIELD_ALIASES = Object.freeze({
   maxRetries: 'maxTries',
   waitBetweenRetries: 'waitBetweenTries',
 });
+const NODE_FALSE_DEFAULTS = Object.freeze([
+  'disabled',
+  'notesInFlow',
+  'executeOnce',
+  'alwaysOutputData',
+  'retryOnFail',
+  'continueOnFail',
+]);
+const WORKFLOW_SETTING_DEFAULTS = Object.freeze({
+  availableInMCP: false,
+  callerPolicy: 'workflowsFromSameOwner',
+  errorWorkflow: '',
+  executionOrder: 'v1',
+  executionTimeout: -1,
+  redactionPolicy: 'none',
+  saveDataErrorExecution: 'all',
+  saveDataSuccessExecution: 'all',
+  saveExecutionProgress: false,
+  saveManualExecutions: true,
+  timeSavedPerExecution: 0,
+});
 
 function requiredEnvironment(name, environment = process.env) {
   const value = environment[name];
   if (!value || !String(value).trim()) {
-    throw new Error(`${name} is required`);
+    const typo = name === 'N8N_ARTHUR_CREDENTIAL_ID' &&
+      environment.N88N_ARTHUR_CREDENTIAL_ID
+      ? ' Possible typo detected: N88N_ARTHUR_CREDENTIAL_ID is set; ' +
+        'rename it to N8N_ARTHUR_CREDENTIAL_ID.'
+      : '';
+    throw new Error(`${name} is required.${typo}`);
   }
   return String(value).trim();
 }
@@ -157,6 +183,257 @@ function sanitizeNodeForPublicApi(node) {
 
 function sanitizeNodesForPublicApi(nodes) {
   return (nodes || []).map(sanitizeNodeForPublicApi);
+}
+
+function pruneSemanticEmpty(value) {
+  if (Array.isArray(value)) {
+    const values = value
+      .map(pruneSemanticEmpty)
+      .filter(item => item !== undefined);
+    return values.length > 0 ? values : undefined;
+  }
+  if (value && typeof value === 'object') {
+    const result = {};
+    for (const [key, child] of Object.entries(value)) {
+      const normalized = pruneSemanticEmpty(child);
+      if (normalized !== undefined) result[key] = normalized;
+    }
+    return Object.keys(result).length > 0 ? result : undefined;
+  }
+  if (value === undefined || value === null || value === '') return undefined;
+  return value;
+}
+
+function canonicalizeCredentials(credentials) {
+  const result = {};
+  for (const [type, reference] of Object.entries(credentials || {}).sort()) {
+    if (reference?.id === undefined || reference?.id === null) continue;
+    result[type] = { id: String(reference.id) };
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+function canonicalizeNodeForComparison(node) {
+  const normalized = sanitizeNodeForPublicApi(node);
+  for (const field of NODE_FALSE_DEFAULTS) {
+    if (normalized[field] === false) delete normalized[field];
+  }
+  if (normalized.onError === 'stopWorkflow') delete normalized.onError;
+  if (normalized.retryOnFail !== true) {
+    delete normalized.maxTries;
+    delete normalized.waitBetweenTries;
+  }
+  normalized.credentials = canonicalizeCredentials(normalized.credentials);
+  normalized.parameters = pruneSemanticEmpty(normalized.parameters);
+  normalized.customTelemetryTags = pruneSemanticEmpty(
+    normalized.customTelemetryTags
+  );
+  for (const field of Object.keys(normalized)) {
+    if (normalized[field] === undefined) delete normalized[field];
+  }
+  return stableValue(normalized);
+}
+
+function canonicalizeConnections(connections) {
+  // Object key order is serialization-only. Array order is retained because
+  // output indexes and branch target order can affect workflow execution.
+  return stableValue(structuredClone(connections || {}));
+}
+
+function canonicalizeSettings(settings) {
+  const normalized = pruneSemanticEmpty(settings) || {};
+  for (const [field, defaultValue] of Object.entries(
+    WORKFLOW_SETTING_DEFAULTS
+  )) {
+    if (normalized[field] === defaultValue) delete normalized[field];
+  }
+  return stableValue(normalized);
+}
+
+function canonicalizeWorkflowForComparison(workflow) {
+  const canonical = {};
+  for (const field of ['name', 'description']) {
+    const value = pruneSemanticEmpty(workflow?.[field]);
+    if (value !== undefined) canonical[field] = value;
+  }
+  canonical.nodes = (workflow?.nodes || [])
+    .map(canonicalizeNodeForComparison)
+    .sort((left, right) =>
+      `${left.id || ''}\0${left.name || ''}`.localeCompare(
+        `${right.id || ''}\0${right.name || ''}`
+      )
+    );
+  canonical.connections = canonicalizeConnections(workflow?.connections);
+  if (workflow?.settings !== undefined) {
+    canonical.settings = canonicalizeSettings(workflow.settings);
+  }
+  for (const field of ['nodeGroups', 'pinData', 'staticData']) {
+    const value = pruneSemanticEmpty(workflow?.[field]);
+    if (value !== undefined) canonical[field] = stableValue(value);
+  }
+  return stableValue(canonical);
+}
+
+function collectValueDiffs(expected, actual, path = '', differences = []) {
+  if (stableJson(expected) === stableJson(actual)) return differences;
+  const expectedObject = expected && typeof expected === 'object';
+  const actualObject = actual && typeof actual === 'object';
+  if (!expectedObject || !actualObject ||
+      Array.isArray(expected) !== Array.isArray(actual)) {
+    differences.push({ path: path || '(root)', expected, actual });
+    return differences;
+  }
+  if (Array.isArray(expected)) {
+    const length = Math.max(expected.length, actual.length);
+    for (let index = 0; index < length; index += 1) {
+      collectValueDiffs(
+        expected[index],
+        actual[index],
+        `${path}[${index}]`,
+        differences
+      );
+    }
+    return differences;
+  }
+  const keys = new Set([...Object.keys(expected), ...Object.keys(actual)]);
+  for (const key of [...keys].sort()) {
+    collectValueDiffs(
+      expected[key],
+      actual[key],
+      path ? `${path}.${key}` : key,
+      differences
+    );
+  }
+  return differences;
+}
+
+function semanticWorkflowDiff(expectedWorkflow, actualWorkflow) {
+  const expected = canonicalizeWorkflowForComparison(expectedWorkflow);
+  const actual = canonicalizeWorkflowForComparison(actualWorkflow);
+  const differences = [];
+  const expectedNodes = new Map(expected.nodes.map(node => [node.id || node.name, node]));
+  const actualNodes = new Map(actual.nodes.map(node => [node.id || node.name, node]));
+  const nodeKeys = new Set([...expectedNodes.keys(), ...actualNodes.keys()]);
+  for (const key of [...nodeKeys].sort()) {
+    const expectedNode = expectedNodes.get(key);
+    const actualNode = actualNodes.get(key);
+    const nodeName = expectedNode?.name || actualNode?.name || key;
+    for (const difference of collectValueDiffs(expectedNode, actualNode)) {
+      differences.push({ scope: nodeName, ...difference });
+    }
+  }
+  const withoutNodes = value => {
+    const copy = structuredClone(value);
+    delete copy.nodes;
+    return copy;
+  };
+  for (const difference of collectValueDiffs(
+    withoutNodes(expected),
+    withoutNodes(actual)
+  )) {
+    differences.push({ scope: 'workflow', ...difference });
+  }
+  return { expected, actual, differences };
+}
+
+function rawWorkflowDiff(expectedWorkflow, actualWorkflow) {
+  const expected = stableValue(expectedWorkflow || {});
+  const actual = stableValue(actualWorkflow || {});
+  const differences = [];
+  const expectedNodes = new Map(
+    (expected.nodes || []).map(node => [node.id || node.name, node])
+  );
+  const actualNodes = new Map(
+    (actual.nodes || []).map(node => [node.id || node.name, node])
+  );
+  const nodeKeys = new Set([...expectedNodes.keys(), ...actualNodes.keys()]);
+  for (const key of [...nodeKeys].sort()) {
+    const expectedNode = expectedNodes.get(key);
+    const actualNode = actualNodes.get(key);
+    const nodeName = expectedNode?.name || actualNode?.name || key;
+    for (const difference of collectValueDiffs(expectedNode, actualNode)) {
+      differences.push({ scope: nodeName, ...difference });
+    }
+  }
+  const withoutNodes = value => {
+    const copy = structuredClone(value);
+    delete copy.nodes;
+    return copy;
+  };
+  for (const difference of collectValueDiffs(
+    withoutNodes(expected),
+    withoutNodes(actual)
+  )) {
+    differences.push({ scope: 'workflow', ...difference });
+  }
+  return differences;
+}
+
+function printableValue(value) {
+  return value === undefined ? '<missing>' : stableJson(value);
+}
+
+function formatSemanticDifference(difference) {
+  return `${difference.scope} → ${difference.path} → expected ` +
+    `${printableValue(difference.expected)} → actual ` +
+    `${printableValue(difference.actual)}`;
+}
+
+function inspectWorkflowInvariants(
+  workflow,
+  credentials,
+  expectedWorkflow
+) {
+  const issues = [];
+  const http = inspectHttpNodes(
+    workflow,
+    credentials.httpHeaderAuth,
+    expectedWorkflow
+  );
+  issues.push(...http.issues);
+
+  const imap = (workflow.nodes || []).find(node =>
+    node.type === 'n8n-nodes-base.emailReadImap'
+  );
+  if (!imap) {
+    issues.push('IMAP node is missing');
+  } else {
+    if (imap.parameters?.mailbox !== 'INBOX') {
+      issues.push(
+        `${imap.name}: mailbox expected INBOX, actual ` +
+        `${printableValue(imap.parameters?.mailbox)}`
+      );
+    }
+    if (String(imap.parameters?.format || '').toLowerCase() !== 'resolved') {
+      issues.push(
+        `${imap.name}: format expected resolved, actual ` +
+        `${printableValue(imap.parameters?.format)}`
+      );
+    }
+    if (String(imap.credentials?.imap?.id || '') !== String(credentials.imap)) {
+      issues.push(`${imap.name}: IMAP credential id differs from env`);
+    }
+  }
+
+  const smtpNodes = (workflow.nodes || []).filter(node =>
+    node.type === 'n8n-nodes-base.emailSend'
+  );
+  if (smtpNodes.length !== 2) {
+    issues.push(`SMTP node count expected 2, actual ${smtpNodes.length}`);
+  }
+  for (const node of smtpNodes) {
+    if (String(node.credentials?.smtp?.id || '') !== String(credentials.smtp)) {
+      issues.push(`${node.name}: SMTP credential id differs from env`);
+    }
+  }
+
+  for (const node of workflow.nodes || []) {
+    const serialized = JSON.stringify(node.parameters || {});
+    if (/\$env\b|process\.env\b/.test(serialized)) {
+      issues.push(`${node.name}: forbidden env access is present`);
+    }
+  }
+  return { issues, http };
 }
 
 function workflowPayload(workflow, credentials) {
@@ -436,8 +713,17 @@ async function locateWorkflow(client, preferredId, workflowName) {
   };
 }
 
-function verificationIssues(record, expectedPayload, duplicates, credentialId) {
+function verificationIssues(
+  record,
+  expectedPayload,
+  duplicates,
+  credentials,
+  expectedWorkflowId = record.id
+) {
   const issues = [];
+  if (String(record.id) !== String(expectedWorkflowId)) {
+    issues.push(`id=${record.id}; expected stable id=${expectedWorkflowId}`);
+  }
   if (record.name !== expectedPayload.name) {
     issues.push(`name=${record.name}; expected=${expectedPayload.name}`);
   }
@@ -457,37 +743,38 @@ function verificationIssues(record, expectedPayload, duplicates, credentialId) {
     );
   }
 
-  const expectedDraftHash = structuralHash(draftStructure(expectedPayload));
-  const deployedDraftHash = structuralHash(draftStructure(record));
-  if (expectedDraftHash !== deployedDraftHash) {
-    issues.push(
-      `draft structure hash differs: deployed=${deployedDraftHash}; ` +
-      `repo=${expectedDraftHash}`
-    );
-  }
-  const expectedActiveHash = structuralHash(
-    expectedActiveStructure(expectedPayload)
+  const expectedDraft = draftStructure(expectedPayload);
+  const deployedDraft = draftStructure(record);
+  const expectedPublished = expectedActiveStructure(expectedPayload);
+  const deployedPublished = activeStructure(record);
+  const draftComparison = semanticWorkflowDiff(expectedDraft, deployedDraft);
+  const publishedComparison = semanticWorkflowDiff(
+    expectedPublished,
+    deployedPublished
   );
-  const deployedActiveHash = structuralHash(activeStructure(record));
-  if (expectedActiveHash !== deployedActiveHash) {
-    issues.push(
-      `published structure hash differs: deployed=${deployedActiveHash}; ` +
-      `repo=${expectedActiveHash}`
-    );
-  }
+  issues.push(...draftComparison.differences.map(
+    difference => `draft: ${formatSemanticDifference(difference)}`
+  ));
+  issues.push(...publishedComparison.differences.map(
+    difference => `published: ${formatSemanticDifference(difference)}`
+  ));
 
-  const httpInspection = inspectHttpNodes(
+  const draftInspection = inspectWorkflowInvariants(
     record,
-    credentialId,
+    credentials,
     expectedPayload
   );
-  issues.push(...httpInspection.issues);
-  const publishedHttpInspection = inspectHttpNodes(
-    { nodes: record.activeVersion?.nodes || [] },
-    credentialId,
+  issues.push(...draftInspection.issues);
+  const publishedWorkflow = {
+    nodes: record.activeVersion?.nodes || [],
+    connections: record.activeVersion?.connections || {},
+  };
+  const publishedInspection = inspectWorkflowInvariants(
+    publishedWorkflow,
+    credentials,
     expectedPayload
   );
-  issues.push(...publishedHttpInspection.issues.map(
+  issues.push(...publishedInspection.issues.map(
     issue => `published: ${issue}`
   ));
   const liveDuplicates = duplicates.filter(item => !item.isArchived);
@@ -500,14 +787,24 @@ function verificationIssues(record, expectedPayload, duplicates, credentialId) {
   return {
     issues,
     hashes: {
-      repoDraft: expectedDraftHash,
-      deployedDraft: deployedDraftHash,
-      repoPublished: expectedActiveHash,
-      deployedPublished: deployedActiveHash,
+      repoDraft: structuralHash(draftComparison.expected),
+      deployedDraft: structuralHash(draftComparison.actual),
+      repoPublished: structuralHash(publishedComparison.expected),
+      deployedPublished: structuralHash(publishedComparison.actual),
+    },
+    rawHashes: {
+      repoDraft: structuralHash(expectedDraft),
+      deployedDraft: structuralHash(deployedDraft),
+      repoPublished: structuralHash(expectedPublished),
+      deployedPublished: structuralHash(deployedPublished),
+    },
+    normalizations: {
+      draft: rawWorkflowDiff(expectedDraft, deployedDraft),
+      published: rawWorkflowDiff(expectedPublished, deployedPublished),
     },
     activeVersionId,
-    httpNodes: httpInspection.summaries,
-    publishedHttpNodes: publishedHttpInspection.summaries,
+    httpNodes: draftInspection.http.summaries,
+    publishedHttpNodes: publishedInspection.http.summaries,
   };
 }
 
@@ -532,7 +829,8 @@ async function verifyDeployedWorkflow(options) {
     record,
     expectedPayload,
     located.duplicates,
-    options.credentials.httpHeaderAuth
+    options.credentials,
+    options.workflowId || DEFAULT_WORKFLOW_ID
   );
   if (result.issues.length > 0) {
     throw Object.assign(
@@ -553,6 +851,8 @@ async function verifyDeployedWorkflow(options) {
       updatedAt: record.updatedAt,
     },
     hashes: result.hashes,
+    rawHashes: result.rawHashes,
+    normalizations: result.normalizations,
     httpNodes: result.httpNodes,
     publishedHttpNodes: result.publishedHttpNodes,
     archivedDuplicateIds: located.duplicates
@@ -635,7 +935,24 @@ function checkRegistrySummary(httpNodes) {
 
 function printVerification(result, logger = console) {
   logger.log(`[PASS] workflow record: ${JSON.stringify(result.record)}`);
-  logger.log(`[PASS] structural hashes: ${JSON.stringify(result.hashes)}`);
+  logger.log(`[PASS] semantic hashes: ${JSON.stringify(result.hashes)}`);
+  if (
+    result.rawHashes.repoDraft !== result.rawHashes.deployedDraft ||
+    result.rawHashes.repoPublished !== result.rawHashes.deployedPublished
+  ) {
+    logger.log(
+      `[PASS] raw hashes differ only by n8n normalization: ` +
+      `${JSON.stringify(result.rawHashes)}`
+    );
+    for (const stage of ['draft', 'published']) {
+      for (const difference of result.normalizations[stage]) {
+        logger.log(
+          `[INFO] n8n ${stage} normalization: ` +
+          formatSemanticDifference(difference)
+        );
+      }
+    }
+  }
   logger.log(`[PASS] 8 HTTP nodes: ${result.httpNodes.length}`);
   logger.log(
     `[PASS] draft Проверить реестр: ` +
@@ -665,20 +982,24 @@ module.exports = {
   WORKFLOW_NAME,
   activeStructure,
   bindCredentials,
+  canonicalizeWorkflowForComparison,
   checkRegistrySummary,
   deployWorkflow,
   deploymentConfig,
   draftStructure,
   expectedActiveStructure,
   inspectHttpNodes,
+  inspectWorkflowInvariants,
   locateWorkflow,
   printVerification,
   readRepositoryWorkflow,
   requiredEnvironment,
+  rawWorkflowDiff,
   sanitizeNodeForPublicApi,
   sanitizeNodesForPublicApi,
   stableJson,
   structuralHash,
+  semanticWorkflowDiff,
   verificationIssues,
   verifyDeployedWorkflow,
   workflowPayload,

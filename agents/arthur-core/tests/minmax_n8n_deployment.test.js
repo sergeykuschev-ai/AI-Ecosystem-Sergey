@@ -9,10 +9,14 @@ const {
   DEFAULT_WORKFLOW_ID,
   NODE_PUBLIC_API_WRITABLE_FIELDS,
   N8nApiClient,
+  canonicalizeWorkflowForComparison,
   deployWorkflow,
+  deploymentConfig,
   inspectHttpNodes,
   readRepositoryWorkflow,
   sanitizeNodesForPublicApi,
+  semanticWorkflowDiff,
+  verificationIssues,
   verifyDeployedWorkflow,
   workflowPayload,
 } = require('../../../scripts/arthur/minmax-n8n-workflow-deployment');
@@ -43,6 +47,31 @@ function activeVersion(record, versionId = record.versionId) {
       ? {}
       : { nodeGroups: structuredClone(record.nodeGroups) }),
   };
+}
+
+function normalizeLikeN8n(payload) {
+  const normalized = structuredClone(payload);
+  normalized.settings = {
+    ...normalized.settings,
+    callerPolicy: 'workflowsFromSameOwner',
+    availableInMCP: false,
+    saveExecutionProgress: false,
+  };
+  normalized.nodes = normalized.nodes.map(node => ({
+    updatedAt: '2026-08-01T00:00:00.000Z',
+    createdAt: '2026-08-01T00:00:00.000Z',
+    continueOnFail: false,
+    alwaysOutputData: false,
+    executeOnce: false,
+    notesInFlow: false,
+    disabled: false,
+    ...node,
+    parameters: {
+      ...node.parameters,
+      options: node.parameters?.options || {},
+    },
+  }));
+  return normalized;
 }
 
 function workflowRecord(id, payload, options = {}) {
@@ -107,7 +136,7 @@ function startN8nApi(initialRecords) {
       version += 1;
       const created = workflowRecord(
         `created-workflow-${version}`,
-        body,
+        normalizeLikeN8n(body),
         { versionId: `draft-new-${version}` }
       );
       records.set(created.id, created);
@@ -132,7 +161,7 @@ function startN8nApi(initialRecords) {
         });
       }
       version += 1;
-      Object.assign(record, structuredClone(body), {
+      Object.assign(record, normalizeLikeN8n(body), {
         versionId: `draft-new-${version}`,
         updatedAt: `2026-08-01T00:00:0${version}.000Z`,
       });
@@ -225,6 +254,19 @@ test('deploy updates stable record, publishes saved version and archives duplica
   );
   assert.equal(result.verification.httpNodes.length, 8);
   assert.equal(result.verification.publishedHttpNodes.length, 8);
+  assert.equal(
+    result.verification.hashes.repoDraft,
+    result.verification.hashes.deployedDraft
+  );
+  assert.equal(
+    result.verification.hashes.repoPublished,
+    result.verification.hashes.deployedPublished
+  );
+  assert.notEqual(
+    result.verification.rawHashes.repoDraft,
+    result.verification.rawHashes.deployedDraft
+  );
+  assert.ok(result.verification.normalizations.draft.length > 0);
   assert.equal(runtime.records.get('old-duplicate-workflow').isArchived, true);
   assert.ok(runtime.calls.some(call =>
     call.method === 'PUT' &&
@@ -292,7 +334,8 @@ test('verify rejects updated draft with stale published version', async t => {
     }),
     error =>
       error.message.includes('published version published-old differs') &&
-      error.message.includes('published structure hash differs')
+      error.message.includes('published: Проверить реестр') &&
+      error.message.includes('parameters.headerParameters')
   );
 });
 
@@ -386,3 +429,156 @@ test('Public API sanitizer allowlists every node and normalizes nodes[8]', () =>
   assert.equal(sanitized.typeVersion, original.typeVersion);
   assert.deepEqual(sanitized.position, original.position);
 });
+
+test('semantic comparison accepts n8n defaults and read-only node fields', () => {
+  const expected = workflowPayload(readRepositoryWorkflow(), CREDENTIALS);
+  const actual = normalizeLikeN8n(expected);
+  assert.deepEqual(semanticWorkflowDiff(expected, actual).differences, []);
+});
+
+test('semantic comparison accepts object key and node array order changes', () => {
+  const expected = workflowPayload(readRepositoryWorkflow(), CREDENTIALS);
+  const reordered = {
+    settings: Object.fromEntries(Object.entries(expected.settings).reverse()),
+    connections: Object.fromEntries(
+      Object.entries(expected.connections).reverse()
+    ),
+    nodes: [...expected.nodes].reverse().map(node =>
+      Object.fromEntries(Object.entries(node).reverse())
+    ),
+    name: expected.name,
+  };
+  assert.deepEqual(semanticWorkflowDiff(expected, reordered).differences, []);
+});
+
+test('semantic comparison normalizes legacy and Public API retry fields', () => {
+  const repository = readRepositoryWorkflow();
+  const legacy = bindForComparison(repository);
+  const canonical = workflowPayload(repository, CREDENTIALS);
+  assert.deepEqual(semanticWorkflowDiff(legacy, canonical).differences, []);
+  const upload = canonicalizeWorkflowForComparison(legacy).nodes.find(
+    node => node.id === 'upload-excel'
+  );
+  assert.equal(upload.maxTries, 3);
+  assert.equal(upload.waitBetweenTries, 30000);
+});
+
+test('semantic verification rejects a different credential id with exact path', () => {
+  const expected = workflowPayload(readRepositoryWorkflow(), CREDENTIALS);
+  const record = workflowRecord(DEFAULT_WORKFLOW_ID, expected, {
+    active: true,
+    versionId: 'current-version',
+  });
+  record.nodes.find(node => node.id === 'check-registry')
+    .credentials.httpHeaderAuth.id = 'wrong-id';
+  const result = verificationIssues(
+    record,
+    expected,
+    [],
+    CREDENTIALS,
+    DEFAULT_WORKFLOW_ID
+  );
+  assert.ok(result.issues.some(issue =>
+    issue === 'draft: Проверить реестр → credentials.httpHeaderAuth.id → ' +
+      `expected "${CREDENTIALS.httpHeaderAuth}" → actual "wrong-id"`
+  ));
+});
+
+test('semantic verification rejects a different URL with exact path', () => {
+  const expected = workflowPayload(readRepositoryWorkflow(), CREDENTIALS);
+  const record = workflowRecord(DEFAULT_WORKFLOW_ID, expected, {
+    active: true,
+    versionId: 'current-version',
+  });
+  record.nodes.find(node => node.id === 'check-registry').parameters.url =
+    'http://stale.example/api/v1/upload-idempotency/key';
+  const result = verificationIssues(
+    record,
+    expected,
+    [],
+    CREDENTIALS,
+    DEFAULT_WORKFLOW_ID
+  );
+  assert.ok(result.issues.some(issue =>
+    issue.startsWith(
+      'draft: Проверить реестр → parameters.url → expected '
+    ) && issue.endsWith(
+      '→ actual "http://stale.example/api/v1/upload-idempotency/key"'
+    )
+  ));
+});
+
+test('workflow invariants reject a missing Accept header', () => {
+  const expected = workflowPayload(readRepositoryWorkflow(), CREDENTIALS);
+  const record = workflowRecord(DEFAULT_WORKFLOW_ID, expected, {
+    active: true,
+    versionId: 'current-version',
+  });
+  for (const workflow of [record, record.activeVersion]) {
+    workflow.nodes.find(node => node.id === 'check-registry')
+      .parameters.headerParameters.parameters = [];
+  }
+  const result = verificationIssues(
+    record,
+    expected,
+    [],
+    CREDENTIALS,
+    DEFAULT_WORKFLOW_ID
+  );
+  assert.ok(result.issues.includes(
+    'Проверить реестр: Accept must be application/json'
+  ));
+  assert.ok(result.issues.includes(
+    'published: Проверить реестр: Accept must be application/json'
+  ));
+});
+
+test('workflow invariants reject duplicate active workflow', () => {
+  const expected = workflowPayload(readRepositoryWorkflow(), CREDENTIALS);
+  const record = workflowRecord(DEFAULT_WORKFLOW_ID, expected, {
+    active: true,
+    versionId: 'current-version',
+  });
+  const duplicate = workflowRecord('duplicate-active', expected, {
+    active: true,
+    versionId: 'duplicate-version',
+  });
+  const result = verificationIssues(
+    record,
+    expected,
+    [duplicate],
+    CREDENTIALS,
+    DEFAULT_WORKFLOW_ID
+  );
+  assert.ok(result.issues.includes(
+    'duplicate non-archived workflow ids: duplicate-active'
+  ));
+});
+
+test('deployment config identifies N88N credential variable typo', () => {
+  assert.throws(
+    () => deploymentConfig({
+      N8N_BASE_URL: 'http://n8n.example',
+      N8N_API_KEY: 'api-key',
+      N88N_ARTHUR_CREDENTIAL_ID: 'mistyped-id',
+      N8N_MINMAX_IMAP_CREDENTIAL_ID: 'imap-id',
+      N8N_MINMAX_SMTP_CREDENTIAL_ID: 'smtp-id',
+    }),
+    error =>
+      error.message.includes('N8N_ARTHUR_CREDENTIAL_ID is required') &&
+      error.message.includes('Possible typo detected') &&
+      error.message.includes('N88N_ARTHUR_CREDENTIAL_ID')
+  );
+});
+
+function bindForComparison(repositoryWorkflow) {
+  const bound = structuredClone(repositoryWorkflow);
+  for (const node of bound.nodes) {
+    if (node.credentials?.httpHeaderAuth) {
+      node.credentials.httpHeaderAuth.id = CREDENTIALS.httpHeaderAuth;
+    }
+    if (node.credentials?.imap) node.credentials.imap.id = CREDENTIALS.imap;
+    if (node.credentials?.smtp) node.credentials.smtp.id = CREDENTIALS.smtp;
+  }
+  return bound;
+}
