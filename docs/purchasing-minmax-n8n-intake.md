@@ -100,8 +100,9 @@ Workflow `Arthur — MinMax Yandex Mail Intake (Fixed Config)` полность�
 Пароли и API-токен в конфигурационную ноду не добавляются: они остаются в
 n8n Credentials.
 
-Fixed Config-файл импортируется как отдельный workflow. После импорта оставьте
-его выключенным до ручного теста с реальным письмом.
+Fixed Config разворачивается через Public API n8n как отдельный workflow.
+Production deploy публикует конкретную сохранённую версию и затем сверяет её
+с JSON репозитория; ручной CLI import для этого workflow не используется.
 
 ### Обязательная версия Purchasing backend
 
@@ -131,9 +132,9 @@ API-аутентификация backend использует заголовок
 `Accept: application/json` и сохраняет `Response Format = JSON`. Менять
 Response Format на Text не требуется и нельзя: актуальный backend возвращает
 JSON и для успешных ответов, и для ошибок 401/404.
-После обновления репозитория Fixed workflow нужно переимпортировать штатным
-скриптом, чтобы опубликованная копия получила эти заголовки без ручного
-редактирования нод.
+После обновления репозитория Fixed workflow нужно развернуть командой
+`npm run arthur:minmax:deploy`. Она обновляет draft, публикует его точный
+`versionId` и проверяет active version без ручного редактирования нод.
 
 Для однозначного обнаружения старого процесса backend предоставляет защищённый
 `GET /api/v1/health`. Ответ содержит `service=purchasing-web`, версию
@@ -179,24 +180,44 @@ export N8N_MINMAX_SMTP_CREDENTIAL_ID=<id credential «MinMax Yandex SMTP»>
 node scripts/arthur/import-n8n-workflows.js
 ```
 
-Для Fixed Config-варианта на Windows PowerShell:
+Для Fixed Config-варианта CLI import не применяется: n8n import сохраняет
+workflow и деактивирует его, но в n8n 2.x сохранённая draft-версия и
+published active version — разные сущности. Production execution использует
+published version. Используйте автоматический deploy через Public API.
+
+### Автоматический deploy Fixed Config на Windows
+
+API key n8n должен иметь scopes для чтения, создания/обновления,
+публикации/деактивации и архивации workflows. IDs credentials берутся из env;
+значения credentials и секреты через API не читаются и в JSON не записываются.
+
+Одна PowerShell-команда обновления и публикации:
 
 ```powershell
-$env:ARTHUR_N8N_WORKFLOW='arthur-minmax-yandex-mail-intake-fixed'; $env:N8N_BASE_URL='https://<N8N-HOST>'; $env:N8N_API_KEY='<N8N-API-KEY>'; $env:N8N_ARTHUR_CREDENTIAL_ID='<ARTHUR-CORE-API-CREDENTIAL-ID>'; $env:N8N_MINMAX_IMAP_CREDENTIAL_ID='<IMAP-CREDENTIAL-ID>'; $env:N8N_MINMAX_SMTP_CREDENTIAL_ID='<SMTP-CREDENTIAL-ID>'; node scripts/arthur/import-n8n-workflows.js
+$env:N8N_BASE_URL='https://<N8N-HOST>'; $env:N8N_API_KEY='<N8N-API-KEY>'; $env:N8N_MINMAX_WORKFLOW_ID='minmaxYandexIntakeFixed01'; $env:N8N_ARTHUR_CREDENTIAL_ID='<ARTHUR-CORE-API-CREDENTIAL-ID>'; $env:N8N_MINMAX_IMAP_CREDENTIAL_ID='<IMAP-CREDENTIAL-ID>'; $env:N8N_MINMAX_SMTP_CREDENTIAL_ID='<SMTP-CREDENTIAL-ID>'; npm run arthur:minmax:deploy
 ```
 
-Скрипт подставляет ID credentials и **всегда оставляет workflow
-выключенным**. После импорта откройте workflow в UI, проверьте ноды и
-включите его вручную.
+Повторная независимая проверка при уже заданных env:
 
-## Ручные действия в n8n UI после импорта
+```powershell
+npm run arthur:minmax:verify
+```
 
-1. Проверить, что у IMAP-ноды выбран credential `MinMax Yandex IMAP`.
-2. Проверить, что у HTTP-нод выбран credential `Purchasing API Token`.
-3. Проверить, что у обеих emailSend-нод выбран credential
-   `MinMax Yandex SMTP`.
-4. Выполнить тестовый запуск (Execute Workflow) с тестовым письмом.
-5. Активировать workflow.
+Deploy находит record сначала по стабильному ID, затем по точному имени и не
+создаёт новый record, если существующий найден. После PUT/POST он вызывает
+`POST /api/v1/workflows/:id/activate` с сохранённым `versionId`.
+Одноимённые старые records деактивируются и архивируются, чтобы IMAP trigger
+не мог продолжить выполнение старой версии.
+
+Verify получает фактический workflow через API и проверяет:
+
+- `id`, `name`, `active`, `versionId`, active version и `updatedAt`;
+- совпадение структурных SHA-256 draft и published version с repo JSON;
+- все восемь HTTP-нод, их URL, `Accept: application/json`, JSON response
+  format и credential `Arthur Core API` с ID из env;
+- отсутствие второго неархивированного workflow с тем же именем.
+
+Успешный deploy заканчивается собственным verify и не требует кликов в UI.
 
 ## Запуск Purchasing backend на Windows
 

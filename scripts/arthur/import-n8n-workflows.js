@@ -155,6 +155,15 @@ async function upsertWorkflow(file) {
 }
 
 (async () => {
+  if (selectedWorkflowConfig.name === 'arthur-minmax-yandex-mail-intake-fixed') {
+    const {
+      deployWorkflow,
+      deploymentConfig,
+    } = require('./minmax-n8n-workflow-deployment');
+    const result = await deployWorkflow(deploymentConfig(process.env));
+    console.log(JSON.stringify({ ok: true, deployment: result }, null, 2));
+    return;
+  }
   const result = await upsertWorkflow(selectedWorkflowConfig.file);
   console.log(JSON.stringify({ ok: true, workflow: result }, null, 2));
 })().catch(error => {

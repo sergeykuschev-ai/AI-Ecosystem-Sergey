@@ -5,7 +5,12 @@ on:
     paths:
       - 'n8n/workflows/**'
       - 'scripts/arthur/import-n8n-workflows.js'
+      - 'scripts/arthur/*minmax-workflow.js'
+      - 'scripts/arthur/minmax-n8n-workflow-deployment.js'
       - 'scripts/arthur/n8n-import.env.example'
+      - 'agents/arthur-core/tests/minmax_n8n_deployment.test.js'
+      - 'docs/purchasing-minmax-n8n-intake.md'
+      - 'package.json'
       - 'docs/arthur/**'
       - '.github/workflows/arthur-n8n-workflows-ci.yml'
   workflow_dispatch:
@@ -16,6 +21,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Test Fixed MinMax deployment contract
+        run: node --test agents/arthur-core/tests/minmax_n8n_deployment.test.js
 
       - name: Validate Arthur production workflows
         run: |
