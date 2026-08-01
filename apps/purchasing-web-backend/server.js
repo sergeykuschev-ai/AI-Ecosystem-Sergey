@@ -8,8 +8,10 @@ const {
   DEFAULT_SHUTDOWN_TIMEOUT_MS,
   DEFAULT_UPLOAD_IDEMPOTENCY_PATH,
   DEFAULT_UPLOAD_ROOT,
+  MINMAX_HTTP_CONTRACT_VERSION,
   resolveApiToken,
   resolveApprovedRuleMode,
+  resolveBuildSha,
   resolveHttpHost,
   resolveHttpPort,
   resolveRetentionTtlMs,
@@ -312,6 +314,9 @@ function createPurchasingWebServer(options = {}) {
         now: options.now,
       }),
     uploadIdempotencyStore,
+    backendBuildSha: options.backendBuildSha !== undefined
+      ? options.backendBuildSha
+      : resolveBuildSha(),
     logger: options.logger,
   });
   const staticHandler = options.staticHandler || createStaticHandler({
@@ -459,7 +464,9 @@ if (require.main === module) {
   server.once('listening', () => {
     const address = server.address();
     console.log(
-      `Purchasing Web API v1: http://${resolveHttpHost()}:${address.port}`
+      `Purchasing Web API v1: http://${resolveHttpHost()}:${address.port}; ` +
+      `minmax_contract=${MINMAX_HTTP_CONTRACT_VERSION}; ` +
+      `build_sha=${resolveBuildSha() || 'unknown'}`
     );
   });
 }

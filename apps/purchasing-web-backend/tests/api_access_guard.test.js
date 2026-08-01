@@ -8,6 +8,7 @@ const { once } = require('node:events');
 const {
   DEFAULT_SERVER_PATHS,
   resolveApiToken,
+  resolveBuildSha,
   resolveHttpHost,
 } = require('../config');
 const {
@@ -226,6 +227,15 @@ test('resolveApiToken проверяет длину и пустое значен
   assert.equal(resolveApiToken(API_TOKEN), API_TOKEN);
   assert.throws(() => resolveApiToken('short'), TypeError);
   assert.throws(() => resolveApiToken('x'.repeat(513)), TypeError);
+});
+
+test('resolveBuildSha принимает только проверяемый Git SHA', () => {
+  assert.equal(resolveBuildSha(undefined), null);
+  assert.equal(resolveBuildSha(''), null);
+  assert.equal(resolveBuildSha('11D487D'), '11d487d');
+  assert.equal(resolveBuildSha('a'.repeat(40)), 'a'.repeat(40));
+  assert.throws(() => resolveBuildSha('not-a-sha'), TypeError);
+  assert.throws(() => resolveBuildSha('abc123'), TypeError);
 });
 
 test('resolveHttpHost по умолчанию возвращает loopback', () => {

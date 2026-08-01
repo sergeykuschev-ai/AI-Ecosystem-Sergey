@@ -7,6 +7,7 @@ const { test } = require('node:test');
 
 const {
   DEFAULT_SERVER_PATHS,
+  MINMAX_HTTP_CONTRACT_VERSION,
 } = require('../config');
 const {
   runPurchasingWebOrchestrator,
@@ -17,6 +18,11 @@ const {
 const {
   FileRunRegistry,
 } = require('../storage/file_run_registry');
+const {
+  inspectWindowsPort,
+  probeN8nContainer,
+  verifyDirectContract,
+} = require('../../../scripts/purchasing/verify-minmax-n8n-contract');
 
 const REPOSITORY_ROOT = path.resolve(__dirname, '../../..');
 const WORKFLOW_PATH = path.join(
@@ -129,6 +135,7 @@ async function startContractServer(root, orchestrator) {
     uploadRoot: path.join(root, 'uploads'),
     uploadIdempotencyPath: path.join(root, 'upload-idempotency.json'),
     apiToken: API_TOKEN,
+    backendBuildSha: 'abcdef1',
     routerOptions: {
       isLoopbackRequest: () => false,
     },
@@ -191,6 +198,12 @@ test('fixed workflow HTTP-ноды соответствуют единому bac
     assert.equal(node.parameters.authentication, 'genericCredentialType');
     assert.equal(node.parameters.genericAuthType, 'httpHeaderAuth');
     assert.equal(node.credentials.httpHeaderAuth.name, 'Arthur Core API');
+    assert.ok(
+      node.parameters.headerParameters.parameters.some(parameter =>
+        parameter.name === 'Accept' && parameter.value === 'application/json'
+      ),
+      `${node.name}: должен явно запрашивать application/json`
+    );
     assert.equal(
       node.parameters.options.response.response.responseFormat,
       'json'
@@ -231,6 +244,14 @@ test('реальный backend обслуживает полный fixed-workflo
   );
   assert.equal(bearerOnly.response.status, 401);
   assert.equal(bearerOnly.body.error.code, 'API_TOKEN_REQUIRED');
+
+  const health = await jsonRequest(runtime.baseUrl, '/api/v1/health');
+  assert.equal(health.response.status, 200);
+  assert.equal(
+    health.body.data.minmax_http_contract,
+    MINMAX_HTTP_CONTRACT_VERSION
+  );
+  assert.equal(health.body.data.build_sha, 'abcdef1');
 
   const missing = await jsonRequest(
     runtime.baseUrl,
@@ -345,4 +366,108 @@ test('реальный backend обслуживает полный fixed-workflo
     withFileTypes: true,
   }).filter(entry => entry.isDirectory());
   assert.equal(runDirectories.length, 1, 'replay не создаёт второй run');
+});
+
+test('диагностический скрипт проверяет реальные JSON headers/body и все idempotency routes', async t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'minmax-diagnostic-'));
+  const runtime = await startContractServer(
+    root,
+    runPurchasingWebOrchestrator
+  );
+  t.after(async () => {
+    runtime.server.close();
+    await once(runtime.server, 'close').catch(() => {});
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+  const messages = [];
+  const result = await verifyDirectContract({
+    baseUrl: runtime.baseUrl,
+    apiKey: API_TOKEN,
+    expectedSha: 'abcdef1',
+  }, {
+    logger: { log(message) { messages.push(message); } },
+  });
+
+  assert.equal(result.expectedSha, 'abcdef1');
+  assert.ok(messages.some(message => message.includes('health auth=none')));
+  assert.ok(messages.some(message => message.includes('health auth=bearer')));
+  assert.ok(messages.some(message => message.includes('health auth=x-api-key')));
+  assert.ok(messages.some(message => message.includes('GET registry')));
+  assert.ok(messages.some(message => message.includes('POST registry')));
+  assert.ok(messages.some(message => message.includes('POST state')));
+  assert.ok(messages.some(message => message.includes('POST notification')));
+});
+
+test('диагностика проверяет listener Windows и маршрут из n8n-контейнера', () => {
+  const messages = [];
+  const logger = { log(message) { messages.push(message); } };
+  const listener = inspectWindowsPort(3210, {
+    platform: 'win32',
+    logger,
+    spawn() {
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          pid: 4242,
+          name: 'node.exe',
+          commandLine: 'node apps/purchasing-web-backend/server.js',
+        }),
+        stderr: '',
+      };
+    },
+  });
+  assert.equal(listener.pid, 4242);
+
+  const healthBody = JSON.stringify({
+    api_version: 'v1',
+    data: {
+      status: 'ok',
+      service: 'purchasing-web',
+      minmax_http_contract: MINMAX_HTTP_CONTRACT_VERSION,
+      build_sha: 'abcdef1',
+    },
+  });
+  const requiredBody = JSON.stringify({
+    api_version: 'v1',
+    error: { code: 'API_TOKEN_REQUIRED' },
+  });
+  const probe = probeN8nContainer({
+    apiKey: API_TOKEN,
+    expectedSha: 'abcdef1',
+    n8nContainer: 'n8n',
+    containerBaseUrl: 'http://host.docker.internal:3210',
+  }, {
+    logger,
+    spawn() {
+      return {
+        status: 0,
+        stdout: JSON.stringify([
+          {
+            mode: 'none',
+            status: 401,
+            contentType: 'application/json; charset=utf-8',
+            body: requiredBody,
+          },
+          {
+            mode: 'bearer',
+            status: 401,
+            contentType: 'application/json; charset=utf-8',
+            body: requiredBody,
+          },
+          {
+            mode: 'x-api-key',
+            status: 200,
+            contentType: 'application/json; charset=utf-8',
+            body: healthBody,
+          },
+        ]),
+        stderr: '',
+      };
+    },
+  });
+  assert.equal(probe.length, 3);
+  assert.ok(messages.some(message => message.includes('PID 4242')));
+  assert.ok(messages.some(message =>
+    message.includes('container health auth=x-api-key')
+  ));
 });

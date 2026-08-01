@@ -99,6 +99,15 @@
               "responseFormat": "json"
             }
           }
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
         }
       },
       "id": "register-ignored",
@@ -130,6 +139,15 @@
               "responseFormat": "json"
             }
           }
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
         }
       },
       "id": "check-registry",
@@ -282,6 +300,10 @@
         "headerParameters": {
           "parameters": [
             {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
               "name": "x-idempotency-key",
               "value": "={{ $json.idempotencyKey }}"
             }
@@ -402,6 +424,15 @@
               "responseFormat": "json"
             }
           }
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
         }
       },
       "id": "poll-run-status",
@@ -528,6 +559,15 @@
               "responseFormat": "json"
             }
           }
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
         }
       },
       "id": "fetch-summary",
@@ -560,6 +600,15 @@
               "responseFormat": "json"
             }
           }
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
         }
       },
       "id": "fetch-items-summary",
@@ -632,6 +681,15 @@
               "responseFormat": "json"
             }
           }
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
         }
       },
       "id": "mark-notification-sent",
@@ -704,6 +762,15 @@
               "responseFormat": "json"
             }
           }
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
         }
       },
       "id": "mark-uncertain",
@@ -1000,7 +1067,7 @@
     "saveManualExecutions": true
   },
   "active": false,
-  "versionId": "arthur-minmax-yandex-mail-intake-fixed-v1",
+  "versionId": "arthur-minmax-yandex-mail-intake-fixed-v2",
   "meta": {
     "templateCredsSetupCompleted": false
   },

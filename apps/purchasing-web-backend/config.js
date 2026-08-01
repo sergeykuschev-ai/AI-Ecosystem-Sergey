@@ -24,6 +24,8 @@ const DEFAULT_RETENTION_TTL_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 100;
 const DEFAULT_APPROVED_RULE_MODE = 'PREVIEW';
+const PURCHASING_SERVICE_NAME = 'purchasing-web';
+const MINMAX_HTTP_CONTRACT_VERSION = 'minmax-upload-idempotency-v1';
 const RUN_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 // Idempotency keys are URL-safe: the n8n workflow builds them as
 // `minmax-<sha256(mailbox|uidvalidity|uid|filename|size)>`.
@@ -159,6 +161,17 @@ function resolveApiToken(value = process.env.PURCHASING_API_TOKEN) {
   return token;
 }
 
+function resolveBuildSha(value = process.env.PURCHASING_BUILD_SHA) {
+  if (value === undefined || value === '') return null;
+  const sha = String(value).trim().toLowerCase();
+  if (!/^[0-9a-f]{7,40}$/.test(sha)) {
+    throw new TypeError(
+      'PURCHASING_BUILD_SHA должен быть Git SHA длиной 7–40 символов.'
+    );
+  }
+  return sha;
+}
+
 function resolveRetentionTtlMs(
   value = process.env.PURCHASING_WEB_RETENTION_TTL_MS
 ) {
@@ -197,6 +210,8 @@ module.exports = {
   MAX_PAGE_SIZE,
   MAX_REQUEST_BODY_BYTES,
   MAX_UPLOAD_FILE_BYTES,
+  MINMAX_HTTP_CONTRACT_VERSION,
+  PURCHASING_SERVICE_NAME,
   REPOSITORY_ROOT,
   RUN_ID_PATTERN,
   IDEMPOTENCY_KEY_PATTERN,
@@ -204,6 +219,7 @@ module.exports = {
   isValidRunId,
   resolveApiToken,
   resolveApprovedRuleMode,
+  resolveBuildSha,
   resolveHttpHost,
   resolveHttpPort,
   resolveRetentionTtlMs,

@@ -11,6 +11,8 @@ const {
 const {
   DEFAULT_SERVER_PATHS,
   DEFAULT_UPLOAD_ROOT,
+  MINMAX_HTTP_CONTRACT_VERSION,
+  PURCHASING_SERVICE_NAME,
   isValidIdempotencyKey,
 } = require('../config');
 const {
@@ -1447,6 +1449,7 @@ function createRunHandlers(options) {
     ownerLearningCenterService,
     supplierOrderService,
     uploadIdempotencyStore = null,
+    backendBuildSha = null,
     logger = console,
   } = options;
 
@@ -1465,6 +1468,18 @@ function createRunHandlers(options) {
     new SupplierOrderService({ queryService, registry });
 
   return {
+    getHealth() {
+      return {
+        statusCode: 200,
+        data: {
+          status: 'ok',
+          service: PURCHASING_SERVICE_NAME,
+          minmax_http_contract: MINMAX_HTTP_CONTRACT_VERSION,
+          build_sha: backendBuildSha,
+        },
+      };
+    },
+
     async createRun(request, context) {
       let upload = null;
       let runId = null;

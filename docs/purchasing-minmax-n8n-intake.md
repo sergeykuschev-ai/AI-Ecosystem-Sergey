@@ -127,6 +127,18 @@ API-аутентификация backend использует заголовок
 `Arthur Core API` должен иметь тип Header Auth с именем заголовка
 `x-api-key`; `Authorization: Bearer` этим backend не поддерживается.
 
+Каждая HTTP-нода Fixed workflow явно отправляет
+`Accept: application/json` и сохраняет `Response Format = JSON`. Менять
+Response Format на Text не требуется и нельзя: актуальный backend возвращает
+JSON и для успешных ответов, и для ошибок 401/404.
+После обновления репозитория Fixed workflow нужно переимпортировать штатным
+скриптом, чтобы опубликованная копия получила эти заголовки без ручного
+редактирования нод.
+
+Для однозначного обнаружения старого процесса backend предоставляет защищённый
+`GET /api/v1/health`. Ответ содержит `service=purchasing-web`, версию
+MinMax HTTP-контракта и `build_sha`, переданный при запуске процесса.
+
 ## Переменные окружения
 
 ### Purchasing backend
@@ -191,13 +203,39 @@ $env:ARTHUR_N8N_WORKFLOW='arthur-minmax-yandex-mail-intake-fixed'; $env:N8N_BASE
 Из корня актуальной ветки репозитория в PowerShell:
 
 ```powershell
-$env:PURCHASING_WEB_HOST='0.0.0.0'; $env:PURCHASING_WEB_PORT='3210'; $env:PURCHASING_API_TOKEN='<ЗНАЧЕНИЕ-ИЗ-ARTHUR-CORE-API>'; npm run purchasing:web
+$env:PURCHASING_WEB_HOST='0.0.0.0'; $env:PURCHASING_WEB_PORT='3210'; $env:PURCHASING_API_TOKEN='minmax-server-2026'; $env:PURCHASING_BUILD_SHA=(git rev-parse --short HEAD); npm run purchasing:web
 ```
 
 Значение `PURCHASING_API_TOKEN` должно совпадать со значением Header Auth
 credential `Arthur Core API`. Привязка к `0.0.0.0` нужна для обращения из
 Docker через `host.docker.internal` и разрешена backend только при заданном
 API-токене.
+
+## Автоматическая диагностика Windows ↔ n8n
+
+После запуска backend выполните из корня того же checkout:
+
+```powershell
+$env:PURCHASING_API_TOKEN='minmax-server-2026'; npm run purchasing:minmax:verify -- --base-url http://127.0.0.1:3210 --expected-sha (git rev-parse --short HEAD) --n8n-container <N8N-CONTAINER-NAME>
+```
+
+Диагностика:
+
+- на Windows показывает PID, имя и command line единственного listener порта
+  `3210`;
+- сравнивает локальный Git HEAD с `build_sha` запущенного backend;
+- выводит status, `Content-Type` и безопасный фрагмент body для health и всех
+  четырёх `upload-idempotency` endpoint'ов;
+- проверяет запросы без токена, с `Authorization: Bearer` и с `x-api-key`;
+- повторяет health-проверку непосредственно из указанного n8n-контейнера через
+  `host.docker.internal:3210`;
+- завершается `[PASS]` только для `application/json`, правильного контракта,
+  правильного build SHA и успешного `x-api-key`.
+
+Если запрос с Windows проходит, а container probe возвращает HTML, text,
+пустой body или другой build SHA, `host.docker.internal:3210` ведёт не в этот
+процесс. Остановите обнаруженный старый listener и перезапустите backend из
+актуального checkout; изменение Response Format в n8n такую ошибку не лечит.
 
 ## Защита API
 

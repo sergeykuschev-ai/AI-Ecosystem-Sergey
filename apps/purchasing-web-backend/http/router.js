@@ -70,6 +70,7 @@ const UPLOAD_IDEMPOTENCY_NOTIFICATION_ROUTE =
   /^\/api\/v1\/upload-idempotency\/([A-Za-z0-9._:-]{8,512})\/notification$/;
 const UPLOAD_IDEMPOTENCY_STATE_ROUTE =
   /^\/api\/v1\/upload-idempotency\/([A-Za-z0-9._:-]{8,512})\/state$/;
+const HEALTH_ROUTE = '/api/v1/health';
 
 function queryObject(searchParams) {
   const query = {};
@@ -126,6 +127,11 @@ function createRouter(handlers, options = {}) {
       }
 
       if (
+        request.method === 'GET' &&
+        url.pathname === HEALTH_ROUTE
+      ) {
+        result = handlers.getHealth();
+      } else if (
         request.method === 'GET' &&
         !url.pathname.startsWith('/api/')
       ) {
@@ -475,6 +481,7 @@ module.exports = {
   OWNER_RULE_EFFECTIVENESS_DETAIL_ROUTE,
   OWNER_RULE_EFFECTIVENESS_EVENTS_ROUTE,
   FINAL_ORDER_ROUTE,
+  HEALTH_ROUTE,
   RUN_ROUTE,
   SUMMARY_ROUTE,
   SUPPLIER_ORDER_DOWNLOAD_ROUTE,
