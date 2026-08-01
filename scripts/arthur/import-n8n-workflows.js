@@ -27,6 +27,14 @@ const WORKFLOWS = Object.freeze({
     requiresPurchasingApi: true,
     requiresImap: true,
     requiresSmtp: true
+  }),
+  'arthur-minmax-yandex-mail-intake-fixed': Object.freeze({
+    file: 'n8n/workflows/arthur-minmax-yandex-mail-intake-fixed.json',
+    requiresTelegram: false,
+    requiresArthurApi: true,
+    requiresPurchasingApi: false,
+    requiresImap: true,
+    requiresSmtp: true
   })
 });
 

@@ -100,9 +100,32 @@ Workflow `Arthur — MinMax Yandex Mail Intake (Fixed Config)` полность�
 Пароли и API-токен в конфигурационную ноду не добавляются: они остаются в
 n8n Credentials.
 
-Fixed Config-файл импортируется через UI n8n как отдельный workflow. После
-импорта выберите существующие credentials и оставьте workflow выключенным до
-ручного теста с реальным письмом.
+Fixed Config-файл импортируется как отдельный workflow. После импорта оставьте
+его выключенным до ручного теста с реальным письмом.
+
+### Обязательная версия Purchasing backend
+
+Fixed Config workflow и backend этой ветки используют один HTTP-контракт:
+
+| Операция workflow | Метод и endpoint |
+|---|---|
+| Проверить реестр | `GET /api/v1/upload-idempotency/:key` |
+| Записать ignored/rejected | `POST /api/v1/upload-idempotency` |
+| Загрузить Excel | `POST /api/v1/runs` |
+| Проверить run | `GET /api/v1/runs/:runId` |
+| Получить сводку | `GET /api/v1/runs/:runId/summary` |
+| Получить счётчики | `GET /api/v1/runs/:runId/items?page_size=1` |
+| Отметить уведомление | `POST /api/v1/upload-idempotency/:key/notification` |
+| Отметить uncertain | `POST /api/v1/upload-idempotency/:key/state` |
+
+Маршруты `upload-idempotency` добавлены в backend в коммите `f7063e9`.
+Ответ `ROUTE_NOT_FOUND` от любого из них означает, что Windows-сервер запущен
+из более старой версии репозитория. В этом случае переимпорт одного workflow
+не поможет: необходимо обновить и перезапустить Purchasing backend.
+
+API-аутентификация backend использует заголовок `x-api-key`. Credential
+`Arthur Core API` должен иметь тип Header Auth с именем заголовка
+`x-api-key`; `Authorization: Bearer` этим backend не поддерживается.
 
 ## Переменные окружения
 
@@ -144,6 +167,12 @@ export N8N_MINMAX_SMTP_CREDENTIAL_ID=<id credential «MinMax Yandex SMTP»>
 node scripts/arthur/import-n8n-workflows.js
 ```
 
+Для Fixed Config-варианта на Windows PowerShell:
+
+```powershell
+$env:ARTHUR_N8N_WORKFLOW='arthur-minmax-yandex-mail-intake-fixed'; $env:N8N_BASE_URL='https://<N8N-HOST>'; $env:N8N_API_KEY='<N8N-API-KEY>'; $env:N8N_ARTHUR_CREDENTIAL_ID='<ARTHUR-CORE-API-CREDENTIAL-ID>'; $env:N8N_MINMAX_IMAP_CREDENTIAL_ID='<IMAP-CREDENTIAL-ID>'; $env:N8N_MINMAX_SMTP_CREDENTIAL_ID='<SMTP-CREDENTIAL-ID>'; node scripts/arthur/import-n8n-workflows.js
+```
+
 Скрипт подставляет ID credentials и **всегда оставляет workflow
 выключенным**. После импорта откройте workflow в UI, проверьте ноды и
 включите его вручную.
@@ -156,6 +185,19 @@ node scripts/arthur/import-n8n-workflows.js
    `MinMax Yandex SMTP`.
 4. Выполнить тестовый запуск (Execute Workflow) с тестовым письмом.
 5. Активировать workflow.
+
+## Запуск Purchasing backend на Windows
+
+Из корня актуальной ветки репозитория в PowerShell:
+
+```powershell
+$env:PURCHASING_WEB_HOST='0.0.0.0'; $env:PURCHASING_WEB_PORT='3210'; $env:PURCHASING_API_TOKEN='<ЗНАЧЕНИЕ-ИЗ-ARTHUR-CORE-API>'; npm run purchasing:web
+```
+
+Значение `PURCHASING_API_TOKEN` должно совпадать со значением Header Auth
+credential `Arthur Core API`. Привязка к `0.0.0.0` нужна для обращения из
+Docker через `host.docker.internal` и разрешена backend только при заданном
+API-токене.
 
 ## Защита API
 
