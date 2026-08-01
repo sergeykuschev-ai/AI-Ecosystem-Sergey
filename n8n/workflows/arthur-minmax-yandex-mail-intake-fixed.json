@@ -1,0 +1,1008 @@
+{
+  "name": "Arthur — MinMax Yandex Mail Intake (Fixed Config)",
+  "nodes": [
+    {
+      "parameters": {
+        "mailbox": "INBOX",
+        "postProcessAction": "nothing",
+        "options": {},
+        "format": "resolved"
+      },
+      "id": "imap-minmax-report",
+      "name": "IMAP — отчёт Min/Max",
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2,
+      "position": [
+        240,
+        420
+      ],
+      "credentials": {
+        "imap": {
+          "id": "REPLACE_IN_N8N",
+          "name": "MinMax Yandex IMAP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Production-конфигурация для n8n, где доступ к env запрещён.\nconst config = Object.freeze({\n  apiBaseUrl: 'http://host.docker.internal:3210',\n  ownerUiBaseUrl: 'http://<SERVER-IP>:3210',\n  allowedSender: '',\n  subjectPattern: '',\n  mailbox: 'INBOX',\n  notifyTo: 'miskakhv@yandex.ru',\n  notifyFrom: 'miskakhv@yandex.ru',\n  maxAttachmentBytes: 20971520,\n  pollIntervalSeconds: 10,\n  pollTimeoutSeconds: 600\n});\n\nreturn $input.all().map(item => ({\n  json: {\n    ...item.json,\n    config\n  },\n  binary: item.binary\n}));"
+      },
+      "id": "minmax-fixed-config",
+      "name": "Конфигурация MinMax",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Фильтр письма Min/Max: отправитель, тема, ровно один Excel.\n// Idempotency key: minmax-<mailbox>-<UID>-<имя файла>-<размер>-<sha256-16>.\n// UID берётся из $json.attributes.uid (Email Trigger (IMAP) v2, формат resolved).\n// ВАЖНО: IMAP-нода n8n НЕ возвращает UIDVALIDITY (проверено по исходному коду\n// n8n: EmailReadImapV2.node.ts + v2/utils.ts), поэтому вместо UIDVALIDITY в ключ\n// включены первые 16 hex-символов sha256 содержимого вложения. Это защищает от\n// коллизии при пересоздании ящика (смена UIDVALIDITY → переиспользование UID):\n// у другого письма другой sha256, значит и другой ключ.\nconst config = $json.config || {};\nconst allowedSender = String(config.allowedSender || '').trim().toLowerCase();\nconst subjectPattern = String(config.subjectPattern || '').trim().toLowerCase();\nconst maxBytes = Number(config.maxAttachmentBytes);\nconst mailbox = String(config.mailbox);\n\nconst from = String(($json.from && $json.from.text) || $json.from || '').toLowerCase();\nconst subject = String($json.subject || '');\n// Email Trigger (IMAP) v2 кладёт UID в $json.attributes.uid.\n// Фолбэки: $json.uid (старые/сторонние ноды), $json.messageId (RFC-заголовок).\nconst messageUid = String(\n  ($json.attributes && $json.attributes.uid) ??\n  $json.uid ??\n  $json.messageId ??\n  ''\n);\n\n// SHA-256 на чистом JS: Code node не позволяет require('crypto') без\n// NODE_FUNCTION_ALLOW_BUILTIN, а от этой настройки workflow не зависит.\nfunction sha256hex(data) {\n  const rotr = (x, n) => ((x >>> n) | (x << (32 - n))) | 0;\n  const K = [\n    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,\n    0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,\n    0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,\n    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,\n    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,\n    0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,\n    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,\n    0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2\n  ];\n  let h0 = 0x6a09e667, h1 = 0xbb67ae85, h2 = 0x3c6ef372, h3 = 0xa54ff53a;\n  let h4 = 0x510e527f, h5 = 0x9b05688c, h6 = 0x1f83d9ab, h7 = 0x5be0cd19;\n  const bitLen = data.length * 8;\n  const paddedLen = Math.ceil((data.length + 1 + 8) / 64) * 64;\n  const msg = new Uint8Array(paddedLen);\n  msg.set(data);\n  msg[data.length] = 0x80;\n  const dv = new DataView(msg.buffer);\n  dv.setUint32(paddedLen - 8, Math.floor(bitLen / 0x100000000), false);\n  dv.setUint32(paddedLen - 4, bitLen >>> 0, false);\n  const w = new Uint32Array(64);\n  for (let off = 0; off < paddedLen; off += 64) {\n    for (let i = 0; i < 16; i++) w[i] = dv.getUint32(off + i * 4, false);\n    for (let i = 16; i < 64; i++) {\n      const s0 = (rotr(w[i - 15], 7) ^ rotr(w[i - 15], 18) ^ (w[i - 15] >>> 3)) | 0;\n      const s1 = (rotr(w[i - 2], 17) ^ rotr(w[i - 2], 19) ^ (w[i - 2] >>> 10)) | 0;\n      w[i] = (w[i - 16] + s0 + w[i - 7] + s1) | 0;\n    }\n    let a = h0, b = h1, c = h2, d = h3, e = h4, f = h5, g = h6, h = h7;\n    for (let i = 0; i < 64; i++) {\n      const S1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25);\n      const ch = (e & f) ^ (~e & g);\n      const t1 = (h + S1 + ch + K[i] + w[i]) | 0;\n      const S0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22);\n      const maj = (a & b) ^ (a & c) ^ (b & c);\n      const t2 = (S0 + maj) | 0;\n      h = g; g = f; f = e; e = (d + t1) | 0; d = c; c = b; b = a; a = (t1 + t2) | 0;\n    }\n    h0 = (h0 + a) | 0; h1 = (h1 + b) | 0; h2 = (h2 + c) | 0; h3 = (h3 + d) | 0;\n    h4 = (h4 + e) | 0; h5 = (h5 + f) | 0; h6 = (h6 + g) | 0; h7 = (h7 + h) | 0;\n  }\n  return [h0, h1, h2, h3, h4, h5, h6, h7]\n    .map(x => ('00000000' + (x >>> 0).toString(16)).slice(-8))\n    .join('');\n}\n\nconst sanitize = value => {\n  const cleaned = String(value ?? '')\n    .replace(/[^A-Za-z0-9._:-]+/g, '_')\n    .replace(/^_+|_+$/g, '');\n  return (cleaned || 'na').slice(0, 120);\n};\nconst buildKey = (attachmentName, size, contentHash) => [\n  'minmax',\n  sanitize(mailbox),\n  sanitize(messageUid),\n  sanitize(attachmentName),\n  String(Number(size) || 0),\n  contentHash\n].join('-').slice(0, 512);\n\n// sha256-16 содержимого вложения; 'na', если данные недоступны\n// (например, binary-режим filesystem без data в $binary) — тогда\n// уникальность ключа опирается на UID + имя + размер.\nconst hashBinary = entry => {\n  if (entry && entry.data) {\n    return sha256hex(Buffer.from(String(entry.data), 'base64')).slice(0, 16);\n  }\n  return 'na';\n};\n\nconst base = {\n  mailbox,\n  messageUid,\n  sender: from,\n  subject,\n  receivedDate: $json.date ?? null\n};\n\nif (allowedSender && !from.includes(allowedSender)) {\n  return [{ json: { ...base, outcome: 'ignored', reasonCode: 'SENDER_NOT_ALLOWED', idempotencyKey: buildKey('no-attachment', 0, 'na') } }];\n}\nif (subjectPattern && !subject.toLowerCase().includes(subjectPattern)) {\n  return [{ json: { ...base, outcome: 'ignored', reasonCode: 'SUBJECT_MISMATCH', idempotencyKey: buildKey('no-attachment', 0, 'na') } }];\n}\n\nconst binary = $binary || {};\nconst names = Object.keys(binary);\nif (names.length === 0) {\n  return [{ json: { ...base, outcome: 'ignored', reasonCode: 'NO_ATTACHMENT', idempotencyKey: buildKey('no-attachment', 0, 'na') } }];\n}\nconst excelNames = names.filter(name => {\n  const fileName = String(binary[name]?.fileName || '').toLowerCase();\n  return fileName.endsWith('.xlsx') || fileName.endsWith('.xls');\n});\nif (excelNames.length === 0) {\n  return [{ json: { ...base, outcome: 'rejected', reasonCode: 'ATTACHMENT_TYPE_UNSUPPORTED', idempotencyKey: buildKey(binary[names[0]]?.fileName || names[0], 0, hashBinary(binary[names[0]])) } }];\n}\nif (excelNames.length > 1) {\n  return [{ json: { ...base, outcome: 'rejected', reasonCode: 'MULTIPLE_ATTACHMENTS', idempotencyKey: buildKey(binary[excelNames[0]]?.fileName || excelNames[0], 0, hashBinary(binary[excelNames[0]])) } }];\n}\n\nconst binaryKey = excelNames[0];\nconst attachment = binary[binaryKey];\nconst attachmentName = String(attachment.fileName || 'report.xlsx');\nlet size = Number(attachment.fileSize ?? attachment.fileSizeBytes ?? 0) || 0;\nlet bytes = null;\nif (attachment.data) {\n  bytes = Buffer.from(attachment.data, 'base64');\n  size = bytes.length;\n}\nconst contentHash = bytes ? sha256hex(bytes).slice(0, 16) : 'na';\nif (size > maxBytes) {\n  return [{ json: { ...base, outcome: 'rejected', reasonCode: 'ATTACHMENT_TOO_LARGE', idempotencyKey: buildKey(attachmentName, size, contentHash) } }];\n}\nif (bytes) {\n  const isXlsx = bytes.length >= 4 && bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04;\n  const isXls = bytes.length >= 8 && bytes[0] === 0xd0 && bytes[1] === 0xcf && bytes[2] === 0x11 && bytes[3] === 0xe0 && bytes[4] === 0xa1 && bytes[5] === 0xb1 && bytes[6] === 0x1a && bytes[7] === 0xe1;\n  if (!isXlsx && !isXls) {\n    return [{ json: { ...base, outcome: 'rejected', reasonCode: 'ATTACHMENT_SIGNATURE_INVALID', idempotencyKey: buildKey(attachmentName, size, contentHash) } }];\n  }\n}\n\nreturn [{\n  json: {\n    ...base,\n    outcome: 'process',\n    reasonCode: null,\n    idempotencyKey: buildKey(attachmentName, size, contentHash),\n    attachmentName,\n    attachmentSize: size,\n    binaryKey,\n    pollCount: 0,\n    pollDeadline: 0\n  },\n  binary: { [binaryKey]: attachment }\n}];"
+      },
+      "id": "filter-letter",
+      "name": "Отфильтровать письмо",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        760,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "outcome-process",
+              "leftValue": "={{ $json.outcome }}",
+              "rightValue": "process",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-letter-matches",
+      "name": "Письмо подходит?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Конфигурация MinMax').first().json.config.apiBaseUrl.replace(/\\/$/, '') + '/api/v1/upload-idempotency' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ idempotency_key: $json.idempotencyKey, mailbox: $json.mailbox, message_uid: $json.messageUid, attachment_name: $json.attachmentName || null, attachment_size: $json.attachmentSize || null, state: $json.outcome, error_code: $json.reasonCode }) }}",
+        "options": {
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "register-ignored",
+      "name": "Записать ignored/rejected",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1240,
+        620
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_IN_N8N",
+          "name": "Arthur Core API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Конфигурация MinMax').first().json.config.apiBaseUrl.replace(/\\/$/, '') + '/api/v1/upload-idempotency/' + $json.idempotencyKey }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "check-registry",
+      "name": "Проверить реестр",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1240,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_IN_N8N",
+          "name": "Arthur Core API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Решение по реестру: upload / poll / notify / notify-error / done.\nconst filter = $('Отфильтровать письмо').first().json;\nconst record = $json && $json.data ? $json.data : null;\n\nif (!record || !record.idempotency_key) {\n  return [{ json: { ...filter, action: 'upload' } }];\n}\nif (record.state === 'completed' && record.run_id) {\n  return [{\n    json: {\n      ...filter,\n      action: record.notification_sent_at ? 'done' : 'notify',\n      runId: record.run_id\n    }\n  }];\n}\nif (record.run_id && ['received', 'uploading', 'run_created', 'processing'].includes(record.state)) {\n  return [{ json: { ...filter, action: 'poll', runId: record.run_id } }];\n}\nif (record.state === 'failed' && record.run_id) {\n  return [{ json: { ...filter, action: 'notify-error', runId: record.run_id, runError: record.error_code } }];\n}\nreturn [{ json: { ...filter, action: 'done' } }];"
+      },
+      "id": "decide-by-registry",
+      "name": "Решить по реестру",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "action-upload",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "upload",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "upload"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "action-poll",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "poll",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "poll"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "action-notify",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "notify",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "notify"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "action-notify-error",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "notify-error",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "notify-error"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "done"
+        }
+      },
+      "id": "switch-registry-action",
+      "name": "Действие по реестру",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        1720,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Конфигурация MinMax').first().json.config.apiBaseUrl.replace(/\\/$/, '') + '/api/v1/runs' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-idempotency-key",
+              "value": "={{ $json.idempotencyKey }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "file",
+              "parameterType": "formBinaryData",
+              "inputDataFieldName": "={{ $json.binaryKey }}"
+            },
+            {
+              "name": "idempotency_key",
+              "parameterType": "formData",
+              "value": "={{ $json.idempotencyKey }}"
+            },
+            {
+              "name": "mailbox",
+              "parameterType": "formData",
+              "value": "={{ $json.mailbox }}"
+            },
+            {
+              "name": "message_uid",
+              "parameterType": "formData",
+              "value": "={{ $json.messageUid }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 600000,
+          "includeInputData": true,
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "upload-excel",
+      "name": "Загрузить Excel в Purchasing API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1980,
+        180
+      ],
+      "retryOnFail": true,
+      "maxRetries": 3,
+      "waitBetweenRetries": 30000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_IN_N8N",
+          "name": "Arthur Core API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ответ загрузки: runId (201 или replay 200) либо ошибка.\nconst data = $json && $json.data ? $json.data : null;\nconst passthrough = { ...$json };\ndelete passthrough.data;\ndelete passthrough.api_version;\ndelete passthrough.error;\nif (data && data.run_id) {\n  return [{\n    json: {\n      ...passthrough,\n      runId: data.run_id,\n      uploadReplay: data.idempotent_replay === true,\n      uploadError: null\n    }\n  }];\n}\nreturn [{\n  json: {\n    ...passthrough,\n    runId: null,\n    uploadReplay: false,\n    uploadError: ($json && $json.error && $json.error.code) || 'UPLOAD_FAILED'\n  }\n}];"
+      },
+      "id": "check-upload-response",
+      "name": "Проверить ответ загрузки",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2220,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "runid-present",
+              "leftValue": "={{ $json.runId }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-upload-ok",
+      "name": "Загрузка удалась?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2460,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Конфигурация MinMax').first().json.config.apiBaseUrl.replace(/\\/$/, '') + '/api/v1/runs/' + $json.runId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 30000,
+          "includeInputData": true,
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "poll-run-status",
+      "name": "Статус run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2700,
+        180
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_IN_N8N",
+          "name": "Arthur Core API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Оценка статуса: completed / failed / wait / timeout (без бесконечного цикла).\nconst config = $('Конфигурация MinMax').first().json.config;\nconst timeoutSeconds = Number(config.pollTimeoutSeconds);\nconst data = $json && $json.data ? $json.data : null;\nconst status = data && data.status ? data.status : null;\nconst runId = (data && data.run_id) || $json.runId || null;\nconst pollCount = Number($json.pollCount || 0) + 1;\nconst now = Date.now();\nconst pollDeadline = Number($json.pollDeadline || 0) || now + timeoutSeconds * 1000;\nlet verdict;\nif (status === 'completed') verdict = 'completed';\nelse if (status === 'failed') verdict = 'failed';\nelse if (!status) verdict = 'timeout';\nelse verdict = now >= pollDeadline ? 'timeout' : 'wait';\nreturn [{\n  json: {\n    ...$json,\n    runId,\n    pollCount,\n    pollDeadline,\n    verdict,\n    runError: data && data.error && data.error.code ? data.error.code : null\n  }\n}];"
+      },
+      "id": "evaluate-run-status",
+      "name": "Оценить статус",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2940,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "verdict-completed",
+                    "leftValue": "={{ $json.verdict }}",
+                    "rightValue": "completed",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "completed"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "verdict-wait",
+                    "leftValue": "={{ $json.verdict }}",
+                    "rightValue": "wait",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "wait"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "error"
+        }
+      },
+      "id": "switch-run-verdict",
+      "name": "Run завершён?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        3180,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "amount": "={{ Math.min(Number($('Конфигурация MinMax').first().json.config.pollIntervalSeconds), 300) }}",
+        "unit": "seconds"
+      },
+      "id": "wait-poll-interval",
+      "name": "Подождать",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2940,
+        420
+      ],
+      "webhookId": "minmax-poll-wait"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Конфигурация MinMax').first().json.config.apiBaseUrl.replace(/\\/$/, '') + '/api/v1/runs/' + $json.runId + '/summary' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 30000,
+          "includeInputData": true,
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "fetch-summary",
+      "name": "Сводка run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3420,
+        100
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_IN_N8N",
+          "name": "Arthur Core API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Конфигурация MinMax').first().json.config.apiBaseUrl.replace(/\\/$/, '') + '/api/v1/runs/' + $json.runId + '/items?page_size=1' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 30000,
+          "includeInputData": true,
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "fetch-items-summary",
+      "name": "Счётчики решений",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3660,
+        100
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_IN_N8N",
+          "name": "Arthur Core API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Уведомление владельцу: ссылка на Owner Review, без автоотправки заказа.\nconst filter = $('Отфильтровать письмо').first().json;\nconst config = filter.config || $('Конфигурация MinMax').first().json.config;\nconst summaryResponse = $('Сводка run').first().json;\nconst itemsResponse = $('Счётчики решений').first().json;\nconst summary = summaryResponse && summaryResponse.data ? summaryResponse.data : {};\nconst itemsData = itemsResponse && itemsResponse.data ? itemsResponse.data : {};\nconst decisions = itemsData.owner_decisions || {};\nconst firstItem = Array.isArray(itemsData.items) && itemsData.items.length > 0 ? itemsData.items[0] : {};\nconst runId = $json.runId || summary.run_id || filter.runId;\nconst uiBase = String(config.ownerUiBaseUrl).replace(/\\/$/, '');\nconst link = uiBase + '/?runId=' + runId;\nconst financial = summary.financial || {};\nconst lines = [\n  'Отчёт Min/Max обработан AI-закупщиком.',\n  '',\n  'Поставщик: ' + (firstItem.supplier || '—'),\n  'Файл: ' + (filter.attachmentName || '—'),\n  'Дата письма: ' + (filter.receivedDate || '—'),\n  'Run: ' + runId,\n  'Рекомендация: ' + (financial.recommendation || '—'),\n  'Позиций в отчёте: ' + (summary.sku_count ?? '—'),\n  'Требуют решения владельца: ' + (decisions.needs_decision ?? 0),\n  'Финансовый статус: ' + (financial.status || '—'),\n  '',\n  'Открыть проверку владельца: ' + link,\n  '',\n  'Заказ поставщику автоматически не отправляется.'\n];\nreturn [{\n  json: {\n    ...$json,\n    runId,\n    notifyTo: String(config.notifyTo || ''),\n    notifyFrom: String(config.notifyFrom || config.notifyTo || ''),\n    notifySubject: 'Min/Max: отчёт обработан (' + runId + ')',\n    notifyText: lines.join('\\n')\n  }\n}];"
+      },
+      "id": "compose-owner-notification",
+      "name": "Сформировать уведомление",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3900,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $json.notifyFrom }}",
+        "toEmail": "={{ $json.notifyTo }}",
+        "subject": "={{ $json.notifySubject }}",
+        "emailFormat": "text",
+        "text": "={{ $json.notifyText }}",
+        "options": {}
+      },
+      "id": "send-owner-notification",
+      "name": "Отправить уведомление владельцу",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        4140,
+        100
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "REPLACE_IN_N8N",
+          "name": "MinMax Yandex SMTP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Конфигурация MinMax').first().json.config.apiBaseUrl.replace(/\\/$/, '') + '/api/v1/upload-idempotency/' + $('Отфильтровать письмо').item.json.idempotencyKey + '/notification' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ sent_at: new Date().toISOString() }) }}",
+        "options": {
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "mark-notification-sent",
+      "name": "Отметить уведомление отправленным",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4380,
+        100
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_IN_N8N",
+          "name": "Arthur Core API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Письмо об ошибке: письмо НЕ отмечается успешным, дубликат run невозможен.\nconst filter = $('Отфильтровать письмо').first().json;\nconst config = filter.config || $('Конфигурация MinMax').first().json.config;\nconst reasonCode = $json.uploadError || $json.runError || $json.reasonCode || ($json.verdict === 'timeout' ? 'POLL_TIMEOUT' : 'UNKNOWN_ERROR');\nconst lines = [\n  'AI-закупщик не смог обработать письмо Min/Max.',\n  '',\n  'Файл: ' + (filter.attachmentName || '—'),\n  'Письмо UID: ' + (filter.messageUid || '—'),\n  'Код ошибки: ' + reasonCode,\n  'Idempotency key: ' + (filter.idempotencyKey || '—'),\n  '',\n  'Письмо НЕ отмечено как успешно обработанное.',\n  'Повторная обработка безопасна: дубликат run не будет создан (idempotency key).'\n];\nreturn [{\n  json: {\n    ...$json,\n    errorCode: reasonCode,\n    notifyTo: String(config.notifyTo || ''),\n    notifyFrom: String(config.notifyFrom || config.notifyTo || ''),\n    notifySubject: 'Min/Max: ошибка обработки письма (' + reasonCode + ')',\n    notifyText: lines.join('\\n')\n  }\n}];"
+      },
+      "id": "compose-error-letter",
+      "name": "Сформировать письмо об ошибке",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3660,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $json.notifyFrom }}",
+        "toEmail": "={{ $json.notifyTo }}",
+        "subject": "={{ $json.notifySubject }}",
+        "emailFormat": "text",
+        "text": "={{ $json.notifyText }}",
+        "options": {}
+      },
+      "id": "send-error-letter",
+      "name": "Отправить письмо об ошибке",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        3900,
+        420
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "REPLACE_IN_N8N",
+          "name": "MinMax Yandex SMTP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Конфигурация MinMax').first().json.config.apiBaseUrl.replace(/\\/$/, '') + '/api/v1/upload-idempotency/' + $('Отфильтровать письмо').item.json.idempotencyKey + '/state' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ state: 'uncertain', error_code: $('Сформировать письмо об ошибке').item.json.errorCode }) }}",
+        "options": {
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "mark-uncertain",
+      "name": "Отметить ошибку в реестре",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4140,
+        420
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_IN_N8N",
+          "name": "Arthur Core API"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "IMAP — отчёт Min/Max": {
+      "main": [
+        [
+          {
+            "node": "Конфигурация MinMax",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Отфильтровать письмо": {
+      "main": [
+        [
+          {
+            "node": "Письмо подходит?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Письмо подходит?": {
+      "main": [
+        [
+          {
+            "node": "Проверить реестр",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Записать ignored/rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Проверить реестр": {
+      "main": [
+        [
+          {
+            "node": "Решить по реестру",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Решить по реестру": {
+      "main": [
+        [
+          {
+            "node": "Действие по реестру",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Действие по реестру": {
+      "main": [
+        [
+          {
+            "node": "Загрузить Excel в Purchasing API",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Статус run",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Сводка run",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Сформировать письмо об ошибке",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Загрузить Excel в Purchasing API": {
+      "main": [
+        [
+          {
+            "node": "Проверить ответ загрузки",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Проверить ответ загрузки": {
+      "main": [
+        [
+          {
+            "node": "Загрузка удалась?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Загрузка удалась?": {
+      "main": [
+        [
+          {
+            "node": "Статус run",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Сформировать письмо об ошибке",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Статус run": {
+      "main": [
+        [
+          {
+            "node": "Оценить статус",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Оценить статус": {
+      "main": [
+        [
+          {
+            "node": "Run завершён?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run завершён?": {
+      "main": [
+        [
+          {
+            "node": "Сводка run",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Подождать",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Сформировать письмо об ошибке",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Подождать": {
+      "main": [
+        [
+          {
+            "node": "Статус run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Сводка run": {
+      "main": [
+        [
+          {
+            "node": "Счётчики решений",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Счётчики решений": {
+      "main": [
+        [
+          {
+            "node": "Сформировать уведомление",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Сформировать уведомление": {
+      "main": [
+        [
+          {
+            "node": "Отправить уведомление владельцу",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Отправить уведомление владельцу": {
+      "main": [
+        [
+          {
+            "node": "Отметить уведомление отправленным",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Сформировать письмо об ошибке": {
+      "main": [
+        [
+          {
+            "node": "Отправить письмо об ошибке",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Отправить письмо об ошибке": {
+      "main": [
+        [
+          {
+            "node": "Отметить ошибку в реестре",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Конфигурация MinMax": {
+      "main": [
+        [
+          {
+            "node": "Отфильтровать письмо",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "active": false,
+  "versionId": "arthur-minmax-yandex-mail-intake-fixed-v1",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

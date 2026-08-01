@@ -44,8 +44,13 @@
    Браузер владельца на сервере: http://localhost:3210/?runId=<uuid>
 ```
 
-- Production URL Purchasing API задаётся только через env
-  `MINMAX_API_BASE_URL` в контейнере n8n — никаких хардкодов в workflow.
+- Основной workflow получает URL Purchasing API через env
+  `MINMAX_API_BASE_URL` в контейнере n8n.
+- Для production-установок n8n, где доступ к `$env` запрещён, используйте
+  отдельный workflow
+  `n8n/workflows/arthur-minmax-yandex-mail-intake-fixed.json`. Его параметры
+  собраны в ноде `Конфигурация MinMax`; основной env-вариант при этом не
+  изменяется.
 - `host.docker.internal` на Windows с Docker Desktop работает
   нативно; при запуске backend в отдельном контейнере используйте имя
   сервиса (например `http://purchasing-api:3210`) в общей docker-сети.
@@ -72,7 +77,32 @@
 |---|---|---|
 | `MinMax Yandex IMAP` | IMAP | host `imap.yandex.ru`, port `993`, SSL on, user = полный e-mail, password = пароль приложения |
 | `MinMax Yandex SMTP` | SMTP | host `smtp.yandex.ru`, port `465`, SSL on, user = полный e-mail, password = пароль приложения |
-| `Purchasing API Token` | Header Auth | header name `x-api-key`, value = `PURCHASING_API_TOKEN` |
+| `Purchasing API Token` | Header Auth | credential для основного env-варианта; header name `x-api-key`, value = `PURCHASING_API_TOKEN` |
+| `Arthur Core API` | Header Auth | credential с тем же API-заголовком для Fixed Config-варианта в текущей production-установке |
+
+## Fixed Config-вариант без доступа к env
+
+Workflow `Arthur — MinMax Yandex Mail Intake (Fixed Config)` полностью
+исключает обращения к `$env` и `process.env` внутри нод. Он использует:
+
+- IMAP mailbox: фиксированный `INBOX`;
+- IMAP format: `Resolved`;
+- Purchasing upload: `http://host.docker.internal:3210/api/v1/runs`;
+- Header Auth credential: `Arthur Core API`;
+- SMTP/IMAP credentials: существующие `MinMax Yandex SMTP` и
+  `MinMax Yandex IMAP`.
+
+Все несекретные параметры находятся только в Code-ноде
+`Конфигурация MinMax`. Перед production-активацией замените
+`http://<SERVER-IP>:3210` в `ownerUiBaseUrl` на адрес, доступный владельцу.
+Пустые `allowedSender` и `subjectPattern` отключают соответствующие фильтры;
+после определения стабильного отправителя и темы их рекомендуется заполнить.
+Пароли и API-токен в конфигурационную ноду не добавляются: они остаются в
+n8n Credentials.
+
+Fixed Config-файл импортируется через UI n8n как отдельный workflow. После
+импорта выберите существующие credentials и оставьте workflow выключенным до
+ручного теста с реальным письмом.
 
 ## Переменные окружения
 
@@ -84,7 +114,7 @@
 | `PURCHASING_WEB_HOST` | `127.0.0.1` | Адрес прослушивания; менять только осознанно |
 | `PURCHASING_API_TOKEN` | (пусто = защита выключена) | Токен для не-loopback запросов, 16–512 символов |
 
-### Контейнер n8n
+### Контейнер n8n — основной env-вариант
 
 | Переменная | Пример | Назначение |
 |---|---|---|

@@ -9,10 +9,21 @@ const WORKFLOW_PATH = path.resolve(
   '../../../n8n/workflows/arthur-minmax-yandex-mail-intake.json'
 );
 const workflow = JSON.parse(fs.readFileSync(WORKFLOW_PATH, 'utf8'));
+const FIXED_WORKFLOW_PATH = path.resolve(
+  __dirname,
+  '../../../n8n/workflows/arthur-minmax-yandex-mail-intake-fixed.json'
+);
+const fixedWorkflow = JSON.parse(fs.readFileSync(FIXED_WORKFLOW_PATH, 'utf8'));
 
 function jsCode(nodeId) {
   const node = workflow.nodes.find(item => item.id === nodeId);
   assert.ok(node, `node ${nodeId} существует`);
+  return node.parameters.jsCode;
+}
+
+function fixedJsCode(nodeId) {
+  const node = fixedWorkflow.nodes.find(item => item.id === nodeId);
+  assert.ok(node, `fixed workflow node ${nodeId} существует`);
   return node.parameters.jsCode;
 }
 
@@ -591,6 +602,111 @@ test('27. workflow JSON: структура, отсутствие секрето
     for (const outputs of conn.main) {
       for (const edge of outputs) {
         assert.ok(names.has(edge.node), `connection target ${edge.node}`);
+      }
+    }
+  }
+});
+
+test('28. fixed-config workflow не обращается к env и использует production endpoints', () => {
+  assert.equal(
+    fixedWorkflow.name,
+    'Arthur — MinMax Yandex Mail Intake (Fixed Config)'
+  );
+  assert.equal(fixedWorkflow.active, false);
+
+  const serialized = JSON.stringify(fixedWorkflow);
+  assert.ok(!serialized.includes('$env'));
+  assert.ok(!serialized.includes('process.env'));
+  for (const node of fixedWorkflow.nodes.filter(
+    item => item.type === 'n8n-nodes-base.code'
+  )) {
+    assert.doesNotThrow(
+      () => new vm.Script(`(function () {\n${node.parameters.jsCode}\n})()`),
+      `Code-нода ${node.name} синтаксически корректна`
+    );
+  }
+
+  const configNode = fixedWorkflow.nodes.find(
+    node => node.id === 'minmax-fixed-config'
+  );
+  assert.ok(configNode, 'единая конфигурационная нода присутствует');
+  const configCode = configNode.parameters.jsCode;
+  assert.ok(configCode.includes("apiBaseUrl: 'http://host.docker.internal:3210'"));
+  assert.ok(configCode.includes("ownerUiBaseUrl: 'http://<SERVER-IP>:3210'"));
+  assert.ok(configCode.includes("mailbox: 'INBOX'"));
+  assert.ok(configCode.includes("notifyTo: 'miskakhv@yandex.ru'"));
+  assert.ok(configCode.includes('maxAttachmentBytes: 20971520'));
+  assert.ok(configCode.includes('pollIntervalSeconds: 10'));
+  assert.ok(configCode.includes('pollTimeoutSeconds: 600'));
+  assert.ok(configCode.includes('binary: item.binary'));
+
+  const imap = fixedWorkflow.nodes.find(
+    node => node.type === 'n8n-nodes-base.emailReadImap'
+  );
+  assert.equal(imap.parameters.mailbox, 'INBOX');
+  assert.equal(imap.parameters.format, 'resolved');
+
+  const upload = fixedWorkflow.nodes.find(node => node.id === 'upload-excel');
+  assert.ok(upload.parameters.url.includes("+ '/api/v1/runs'"));
+  assert.ok(upload.parameters.url.includes("$('Конфигурация MinMax')"));
+  assert.equal(
+    serialized.match(/http:\/\/host\.docker\.internal:3210/g)?.length,
+    1,
+    'production API URL задан только в конфигурационной ноде'
+  );
+
+  const httpNodes = fixedWorkflow.nodes.filter(
+    node => node.credentials?.httpHeaderAuth
+  );
+  assert.ok(httpNodes.length > 0);
+  for (const node of httpNodes) {
+    assert.equal(node.credentials.httpHeaderAuth.id, 'REPLACE_IN_N8N');
+    assert.equal(node.credentials.httpHeaderAuth.name, 'Arthur Core API');
+  }
+});
+
+test('29. fixed-config workflow пропускает письмо без env и сохраняет фильтры опциональными', () => {
+  const config = {
+    apiBaseUrl: 'http://host.docker.internal:3210',
+    ownerUiBaseUrl: 'http://<SERVER-IP>:3210',
+    allowedSender: '',
+    subjectPattern: '',
+    mailbox: 'INBOX',
+    notifyTo: 'miskakhv@yandex.ru',
+    notifyFrom: 'miskakhv@yandex.ru',
+    maxAttachmentBytes: 20971520,
+    pollIntervalSeconds: 10,
+    pollTimeoutSeconds: 600,
+  };
+  const input = letter({ config });
+  input.env = new Proxy({}, {
+    get() {
+      throw new Error('access to env vars denied');
+    },
+  });
+
+  const [result] = runCodeNode(fixedJsCode('filter-letter'), input);
+  assert.equal(result.json.outcome, 'process');
+  assert.equal(result.json.mailbox, 'INBOX');
+  assert.ok(result.binary.attachment_0);
+});
+
+test('30. fixed-config connections начинаются с IMAP → конфигурация → фильтр', () => {
+  assert.equal(
+    fixedWorkflow.connections['IMAP — отчёт Min/Max'].main[0][0].node,
+    'Конфигурация MinMax'
+  );
+  assert.equal(
+    fixedWorkflow.connections['Конфигурация MinMax'].main[0][0].node,
+    'Отфильтровать письмо'
+  );
+
+  const names = new Set(fixedWorkflow.nodes.map(node => node.name));
+  for (const [from, connection] of Object.entries(fixedWorkflow.connections)) {
+    assert.ok(names.has(from), `fixed connection source ${from}`);
+    for (const outputs of connection.main) {
+      for (const edge of outputs) {
+        assert.ok(names.has(edge.node), `fixed connection target ${edge.node}`);
       }
     }
   }
