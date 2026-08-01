@@ -26,6 +26,14 @@ const SOURCE_ARTIFACT_NAMES = Object.freeze([
   'source-report.xlsx',
   'source-report.xls',
 ]);
+const WINDOWS_RENAME_RETRY_CODES = new Set([
+  'EACCES',
+  'EBUSY',
+  'EEXIST',
+  'EPERM',
+]);
+const WINDOWS_RENAME_ATTEMPTS = 5;
+const WINDOWS_RENAME_RETRY_DELAY_MS = 20;
 
 class ArtifactStoreError extends Error {
   constructor(code, message, options = {}) {
@@ -44,13 +52,58 @@ function assertRunId(runId) {
   }
 }
 
-function fsyncDirectory(directoryPath, fsModule = fs) {
+function sleepSync(delayMs) {
+  if (delayMs <= 0) return;
+  const signal = new Int32Array(new SharedArrayBuffer(4));
+  Atomics.wait(signal, 0, 0, delayMs);
+}
+
+function fsyncDirectory(directoryPath, fsModule = fs, options = {}) {
+  const platform = options.platform || process.platform;
+  // Node/libuv does not provide a portable directory-fsync contract on
+  // Windows. The file itself has already been fsynced before rename.
+  if (platform === 'win32') return false;
+
   let descriptor;
   try {
     descriptor = fsModule.openSync(directoryPath, 'r');
     fsModule.fsyncSync(descriptor);
+    return true;
+  } catch (error) {
+    if (options.strict) throw error;
+    return false;
   } finally {
-    if (descriptor !== undefined) fsModule.closeSync(descriptor);
+    if (descriptor !== undefined) {
+      try {
+        fsModule.closeSync(descriptor);
+      } catch (error) {
+        if (options.strict) throw error;
+      }
+    }
+  }
+}
+
+function replaceFileAtomic(temporaryPath, filePath, options = {}) {
+  const fsModule = options.fsModule || fs;
+  const platform = options.platform || process.platform;
+  const attempts = platform === 'win32'
+    ? options.renameAttempts || WINDOWS_RENAME_ATTEMPTS
+    : 1;
+  const retryDelayMs = options.renameRetryDelayMs ??
+    WINDOWS_RENAME_RETRY_DELAY_MS;
+  const wait = options.sleep || sleepSync;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      fsModule.renameSync(temporaryPath, filePath);
+      return;
+    } catch (error) {
+      const retryable = platform === 'win32' &&
+        WINDOWS_RENAME_RETRY_CODES.has(error.code) &&
+        attempt < attempts;
+      if (!retryable) throw error;
+      wait(retryDelayMs * attempt);
+    }
   }
 }
 
@@ -70,8 +123,11 @@ function atomicWriteFile(filePath, content, options = {}) {
     fsModule.fsyncSync(descriptor);
     fsModule.closeSync(descriptor);
     descriptor = undefined;
-    fsModule.renameSync(temporaryPath, filePath);
-    fsyncDirectory(directoryPath, fsModule);
+    replaceFileAtomic(temporaryPath, filePath, options);
+    // The rename is the commit point. Directory fsync strengthens crash
+    // durability where supported, but a failure after commit must not be
+    // reported as a failed write (which would trigger unsafe retries).
+    fsyncDirectory(directoryPath, fsModule, options);
   } catch (error) {
     if (descriptor !== undefined) {
       try {
@@ -485,6 +541,7 @@ module.exports = {
   assertRunId,
   atomicWriteFile,
   fsyncDirectory,
+  replaceFileAtomic,
   serializeJson,
   sha256,
 };

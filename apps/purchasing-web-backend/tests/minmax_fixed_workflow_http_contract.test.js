@@ -380,15 +380,25 @@ test('диагностический скрипт проверяет реаль�
     fs.rmSync(root, { recursive: true, force: true });
   });
   const messages = [];
-  const result = await verifyDirectContract({
+  const diagnosticOptions = {
     baseUrl: runtime.baseUrl,
     apiKey: API_TOKEN,
     expectedSha: 'abcdef1',
-  }, {
+  };
+  const diagnosticDependencies = {
     logger: { log(message) { messages.push(message); } },
-  });
+  };
+  const result = await verifyDirectContract(
+    diagnosticOptions,
+    diagnosticDependencies
+  );
+  const repeated = await verifyDirectContract(
+    diagnosticOptions,
+    diagnosticDependencies
+  );
 
   assert.equal(result.expectedSha, 'abcdef1');
+  assert.notEqual(result.key, repeated.key);
   assert.ok(messages.some(message => message.includes('health auth=none')));
   assert.ok(messages.some(message => message.includes('health auth=bearer')));
   assert.ok(messages.some(message => message.includes('health auth=x-api-key')));
@@ -396,6 +406,11 @@ test('диагностический скрипт проверяет реаль�
   assert.ok(messages.some(message => message.includes('POST registry')));
   assert.ok(messages.some(message => message.includes('POST state')));
   assert.ok(messages.some(message => message.includes('POST notification')));
+  assert.deepEqual(
+    fs.readdirSync(root, { recursive: true })
+      .filter(name => name.endsWith('.tmp')),
+    []
+  );
 });
 
 test('диагностика проверяет listener Windows и маршрут из n8n-контейнера', () => {

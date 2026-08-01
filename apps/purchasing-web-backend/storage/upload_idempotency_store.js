@@ -66,6 +66,7 @@ class UploadIdempotencyStore {
   constructor(options = {}) {
     this.filePath = options.filePath || DEFAULT_UPLOAD_IDEMPOTENCY_PATH;
     this.fsModule = options.fsModule || fs;
+    this.atomicWriteOptions = options.atomicWriteOptions || {};
     this.now = options.now || (() => new Date().toISOString());
     this.queue = Promise.resolve();
     this.records = this.loadRecords();
@@ -121,7 +122,10 @@ class UploadIdempotencyStore {
       2
     );
     try {
-      atomicWriteFile(this.filePath, payload, { fsModule: this.fsModule });
+      atomicWriteFile(this.filePath, payload, {
+        ...this.atomicWriteOptions,
+        fsModule: this.fsModule,
+      });
     } catch (error) {
       throw storageError(
         'Не удалось сохранить upload idempotency registry.',
