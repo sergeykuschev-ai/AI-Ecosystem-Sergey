@@ -241,6 +241,15 @@ connections, retry-настройки и явно отличающиеся setti
 нормализации n8n, команда показывает эти raw-различия как `INFO`, но успешно
 завершается по совпавшим semantic hashes.
 
+n8n 2.28.6 при сохранении через API добавляет `webhookId` нодам, чей node
+type объявляет webhook definitions. В частности, Email Send 2.1 содержит
+webhook для операции Send-and-Wait, поэтому UUID появляется и у сохранённых
+нод обычной отправки письма. При сравнении такой `webhookId` считается
+generated metadata только если соответствующая repo-нода не задаёт его.
+Явно зафиксированный `webhookId` (например, у Wait-ноды) остаётся частью
+строгого semantic contract. Canonicalizer не изменяет deploy payload или
+сохранённый ответ n8n; исключение действует только внутри verifier.
+
 Успешный deploy заканчивается собственным verify и не требует кликов в UI.
 
 ## Запуск Purchasing backend на Windows

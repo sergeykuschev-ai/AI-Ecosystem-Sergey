@@ -213,8 +213,15 @@ function canonicalizeCredentials(credentials) {
   return Object.keys(result).length > 0 ? result : undefined;
 }
 
-function canonicalizeNodeForComparison(node) {
+function nodeComparisonKey(node) {
+  return node.id || node.name;
+}
+
+function canonicalizeNodeForComparison(node, options = {}) {
   const normalized = sanitizeNodeForPublicApi(node);
+  if (options.ignoredGeneratedWebhookIds?.has(nodeComparisonKey(node))) {
+    delete normalized.webhookId;
+  }
   for (const field of NODE_FALSE_DEFAULTS) {
     if (normalized[field] === false) delete normalized[field];
   }
@@ -250,14 +257,14 @@ function canonicalizeSettings(settings) {
   return stableValue(normalized);
 }
 
-function canonicalizeWorkflowForComparison(workflow) {
+function canonicalizeWorkflowForComparison(workflow, options = {}) {
   const canonical = {};
   for (const field of ['name', 'description']) {
     const value = pruneSemanticEmpty(workflow?.[field]);
     if (value !== undefined) canonical[field] = value;
   }
   canonical.nodes = (workflow?.nodes || [])
-    .map(canonicalizeNodeForComparison)
+    .map(node => canonicalizeNodeForComparison(node, options))
     .sort((left, right) =>
       `${left.id || ''}\0${left.name || ''}`.localeCompare(
         `${right.id || ''}\0${right.name || ''}`
@@ -308,8 +315,23 @@ function collectValueDiffs(expected, actual, path = '', differences = []) {
 }
 
 function semanticWorkflowDiff(expectedWorkflow, actualWorkflow) {
-  const expected = canonicalizeWorkflowForComparison(expectedWorkflow);
-  const actual = canonicalizeWorkflowForComparison(actualWorkflow);
+  // n8n assigns UUID webhookIds on save to node types that expose webhook
+  // definitions. Treat only IDs absent from the repository representation as
+  // generated metadata; explicitly versioned webhookIds remain strict.
+  const ignoredGeneratedWebhookIds = new Set(
+    (expectedWorkflow?.nodes || [])
+      .filter(node => !node.webhookId)
+      .map(nodeComparisonKey)
+  );
+  const comparisonOptions = { ignoredGeneratedWebhookIds };
+  const expected = canonicalizeWorkflowForComparison(
+    expectedWorkflow,
+    comparisonOptions
+  );
+  const actual = canonicalizeWorkflowForComparison(
+    actualWorkflow,
+    comparisonOptions
+  );
   const differences = [];
   const expectedNodes = new Map(expected.nodes.map(node => [node.id || node.name, node]));
   const actualNodes = new Map(actual.nodes.map(node => [node.id || node.name, node]));

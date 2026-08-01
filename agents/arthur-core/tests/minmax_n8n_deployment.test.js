@@ -436,6 +436,61 @@ test('semantic comparison accepts n8n defaults and read-only node fields', () =>
   assert.deepEqual(semanticWorkflowDiff(expected, actual).differences, []);
 });
 
+test('semantic comparison accepts generated webhookId absent from repository', () => {
+  const expected = workflowPayload(readRepositoryWorkflow(), CREDENTIALS);
+  const actual = structuredClone(expected);
+  actual.nodes.find(node => node.id === 'send-error-letter').webhookId =
+    'a2a65ebb-8863-4223-9e91-3924337eaaa6';
+  actual.nodes.find(node => node.id === 'send-owner-notification').webhookId =
+    '8b58995c-3d47-43eb-abb3-e420f472358f';
+  assert.deepEqual(semanticWorkflowDiff(expected, actual).differences, []);
+});
+
+test('generated webhookId does not hide a neighboring parameter change', () => {
+  const expected = workflowPayload(readRepositoryWorkflow(), CREDENTIALS);
+  const actual = structuredClone(expected);
+  const email = actual.nodes.find(node => node.id === 'send-error-letter');
+  email.webhookId = 'a2a65ebb-8863-4223-9e91-3924337eaaa6';
+  email.parameters.subject = 'changed subject';
+  const differences = semanticWorkflowDiff(expected, actual).differences;
+  assert.ok(differences.some(difference =>
+    difference.scope === 'Отправить письмо об ошибке' &&
+    difference.path === 'parameters.subject'
+  ));
+});
+
+test('different generated webhookIds in draft and published remain neutral', () => {
+  const expected = workflowPayload(readRepositoryWorkflow(), CREDENTIALS);
+  const record = workflowRecord(DEFAULT_WORKFLOW_ID, expected, {
+    active: true,
+    versionId: 'current-version',
+  });
+  record.nodes.find(node => node.id === 'send-error-letter').webhookId =
+    'draft-generated-id';
+  record.activeVersion.nodes.find(
+    node => node.id === 'send-error-letter'
+  ).webhookId = 'published-generated-id';
+  const result = verificationIssues(
+    record,
+    expected,
+    [],
+    CREDENTIALS,
+    DEFAULT_WORKFLOW_ID
+  );
+  assert.deepEqual(result.issues, []);
+});
+
+test('explicit repository webhookId remains semantically strict', () => {
+  const expected = workflowPayload(readRepositoryWorkflow(), CREDENTIALS);
+  const actual = structuredClone(expected);
+  actual.nodes.find(node => node.id === 'wait-poll-interval').webhookId =
+    'different-explicit-id';
+  const differences = semanticWorkflowDiff(expected, actual).differences;
+  assert.ok(differences.some(difference =>
+    difference.scope === 'Подождать' && difference.path === 'webhookId'
+  ));
+});
+
 test('semantic comparison accepts object key and node array order changes', () => {
   const expected = workflowPayload(readRepositoryWorkflow(), CREDENTIALS);
   const reordered = {
