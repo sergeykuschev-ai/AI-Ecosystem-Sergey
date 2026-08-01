@@ -21,6 +21,34 @@ const HTTP_NODE_IDS = Object.freeze([
   'mark-notification-sent',
   'mark-uncertain',
 ]);
+// Public API schema from n8n 2.28.6:
+// packages/cli/src/public-api/v1/handlers/workflows/spec/schemas/node.yml
+// createdAt/updatedAt are read-only and therefore excluded from request bodies.
+const NODE_PUBLIC_API_WRITABLE_FIELDS = Object.freeze([
+  'id',
+  'name',
+  'webhookId',
+  'disabled',
+  'notesInFlow',
+  'notes',
+  'type',
+  'typeVersion',
+  'executeOnce',
+  'alwaysOutputData',
+  'retryOnFail',
+  'maxTries',
+  'waitBetweenTries',
+  'continueOnFail',
+  'onError',
+  'position',
+  'parameters',
+  'credentials',
+  'customTelemetryTags',
+]);
+const LEGACY_NODE_FIELD_ALIASES = Object.freeze({
+  maxRetries: 'maxTries',
+  waitBetweenRetries: 'waitBetweenTries',
+});
 
 function requiredEnvironment(name, environment = process.env) {
   const value = environment[name];
@@ -102,11 +130,40 @@ function bindCredentials(workflow, credentials) {
   return bound;
 }
 
+function sanitizeNodeForPublicApi(node) {
+  const sanitized = {};
+  for (const field of NODE_PUBLIC_API_WRITABLE_FIELDS) {
+    if (node[field] !== undefined) {
+      sanitized[field] = structuredClone(node[field]);
+    }
+  }
+  for (const [legacyField, publicApiField] of Object.entries(
+    LEGACY_NODE_FIELD_ALIASES
+  )) {
+    if (node[legacyField] === undefined) continue;
+    if (
+      sanitized[publicApiField] !== undefined &&
+      sanitized[publicApiField] !== node[legacyField]
+    ) {
+      throw new Error(
+        `${node.name || node.id}: conflicting ${legacyField} and ` +
+        `${publicApiField} values`
+      );
+    }
+    sanitized[publicApiField] = structuredClone(node[legacyField]);
+  }
+  return sanitized;
+}
+
+function sanitizeNodesForPublicApi(nodes) {
+  return (nodes || []).map(sanitizeNodeForPublicApi);
+}
+
 function workflowPayload(workflow, credentials) {
   const bound = bindCredentials(workflow, credentials);
   const payload = {
     name: bound.name,
-    nodes: bound.nodes,
+    nodes: sanitizeNodesForPublicApi(bound.nodes),
     connections: bound.connections,
     settings: bound.settings,
   };
@@ -604,6 +661,7 @@ module.exports = {
   DEFAULT_WORKFLOW_PATH,
   HTTP_NODE_IDS,
   N8nApiClient,
+  NODE_PUBLIC_API_WRITABLE_FIELDS,
   WORKFLOW_NAME,
   activeStructure,
   bindCredentials,
@@ -617,6 +675,8 @@ module.exports = {
   printVerification,
   readRepositoryWorkflow,
   requiredEnvironment,
+  sanitizeNodeForPublicApi,
+  sanitizeNodesForPublicApi,
   stableJson,
   structuralHash,
   verificationIssues,

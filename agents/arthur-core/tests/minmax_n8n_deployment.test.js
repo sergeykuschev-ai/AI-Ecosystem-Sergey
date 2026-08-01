@@ -7,10 +7,12 @@ const { test } = require('node:test');
 
 const {
   DEFAULT_WORKFLOW_ID,
+  NODE_PUBLIC_API_WRITABLE_FIELDS,
   N8nApiClient,
   deployWorkflow,
   inspectHttpNodes,
   readRepositoryWorkflow,
+  sanitizeNodesForPublicApi,
   verifyDeployedWorkflow,
   workflowPayload,
 } = require('../../../scripts/arthur/minmax-n8n-workflow-deployment');
@@ -21,6 +23,15 @@ const CREDENTIALS = Object.freeze({
   imap: 'minmax-imap-id',
   smtp: 'minmax-smtp-id',
 });
+const NODE_PUBLIC_API_FIELDS = new Set(NODE_PUBLIC_API_WRITABLE_FIELDS);
+
+function invalidNodeFields(nodes) {
+  return (nodes || []).flatMap((node, index) =>
+    Object.keys(node)
+      .filter(field => !NODE_PUBLIC_API_FIELDS.has(field))
+      .map(field => ({ index, field }))
+  );
+}
 
 function activeVersion(record, versionId = record.versionId) {
   return {
@@ -86,6 +97,13 @@ function startN8nApi(initialRecords) {
       return send(200, { data: [...records.values()], nextCursor: null });
     }
     if (request.method === 'POST' && url.pathname === '/api/v1/workflows') {
+      const invalid = invalidNodeFields(body?.nodes);
+      if (invalid.length > 0) {
+        return send(400, {
+          message: `request/body/nodes/${invalid[0].index} ` +
+            'must NOT have additional properties',
+        });
+      }
       version += 1;
       const created = workflowRecord(
         `created-workflow-${version}`,
@@ -106,6 +124,13 @@ function startN8nApi(initialRecords) {
 
     if (request.method === 'GET' && !operation) return send(200, record);
     if (request.method === 'PUT' && !operation) {
+      const invalid = invalidNodeFields(body?.nodes);
+      if (invalid.length > 0) {
+        return send(400, {
+          message: `request/body/nodes/${invalid[0].index} ` +
+            'must NOT have additional properties',
+        });
+      }
       version += 1;
       Object.assign(record, structuredClone(body), {
         versionId: `draft-new-${version}`,
@@ -205,6 +230,15 @@ test('deploy updates stable record, publishes saved version and archives duplica
     call.method === 'PUT' &&
     call.path === `/api/v1/workflows/${DEFAULT_WORKFLOW_ID}`
   ));
+  const update = runtime.calls.find(call =>
+    call.method === 'PUT' &&
+    call.path === `/api/v1/workflows/${DEFAULT_WORKFLOW_ID}`
+  );
+  assert.deepEqual(invalidNodeFields(update.body.nodes), []);
+  assert.equal(update.body.nodes[8].maxTries, 3);
+  assert.equal(update.body.nodes[8].waitBetweenTries, 30000);
+  assert.equal(update.body.nodes[8].maxRetries, undefined);
+  assert.equal(update.body.nodes[8].waitBetweenRetries, undefined);
   const publish = runtime.calls.find(call =>
     call.method === 'POST' &&
     call.path === `/api/v1/workflows/${DEFAULT_WORKFLOW_ID}/activate`
@@ -314,4 +348,41 @@ test('HTTP contract requires all eight nodes, JSON response and bound auth', () 
   assert.ok(inspected.issues.includes(
     'Проверить реестр: URL differs from repository'
   ));
+});
+
+test('Public API sanitizer allowlists every node and normalizes nodes[8]', () => {
+  const repositoryWorkflow = readRepositoryWorkflow();
+  const original = repositoryWorkflow.nodes[8];
+  assert.equal(original.name, 'Загрузить Excel в Purchasing API');
+  assert.equal(original.type, 'n8n-nodes-base.httpRequest');
+  assert.deepEqual(Object.keys(original), [
+    'parameters',
+    'id',
+    'name',
+    'type',
+    'typeVersion',
+    'position',
+    'retryOnFail',
+    'maxRetries',
+    'waitBetweenRetries',
+    'credentials',
+  ]);
+
+  const bound = workflowPayload(repositoryWorkflow, CREDENTIALS);
+  assert.deepEqual(invalidNodeFields(bound.nodes), []);
+  for (const node of bound.nodes) {
+    assert.ok(Object.keys(node).every(field =>
+      NODE_PUBLIC_API_FIELDS.has(field)
+    ));
+  }
+
+  const sanitized = sanitizeNodesForPublicApi(repositoryWorkflow.nodes)[8];
+  assert.equal(sanitized.maxRetries, undefined);
+  assert.equal(sanitized.waitBetweenRetries, undefined);
+  assert.equal(sanitized.maxTries, 3);
+  assert.equal(sanitized.waitBetweenTries, 30000);
+  assert.deepEqual(sanitized.parameters, original.parameters);
+  assert.deepEqual(sanitized.credentials, original.credentials);
+  assert.equal(sanitized.typeVersion, original.typeVersion);
+  assert.deepEqual(sanitized.position, original.position);
 });

@@ -209,6 +209,13 @@ Deploy находит record сначала по стабильному ID, за
 Одноимённые старые records деактивируются и архивируются, чтобы IMAP trigger
 не мог продолжить выполнение старой версии.
 
+Перед Public API PUT deploy нормализует каждую ноду по writable allowlist
+схемы n8n 2.28.6. Legacy top-level retry-поля `maxRetries` и
+`waitBetweenRetries` преобразуются в разрешённые `maxTries` и
+`waitBetweenTries`; `parameters`, credentials, `typeVersion` и `position`
+сохраняются без изменений. Это отличие от CLI importer, который принимает
+более широкий внутренний JSON, чем строгая Public API OpenAPI-схема.
+
 Verify получает фактический workflow через API и проверяет:
 
 - `id`, `name`, `active`, `versionId`, active version и `updatedAt`;
