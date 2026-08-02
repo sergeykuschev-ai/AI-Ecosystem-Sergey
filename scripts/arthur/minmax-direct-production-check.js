@@ -23,6 +23,7 @@ const INTAKE_COMPOSE = path.join(ROOT, 'docker/minmax-direct-mail-intake/compose
 const WORKBOOK = path.join(ROOT, 'tests/fixtures/SmartZapas_synthetic.xlsx');
 const INTAKE_CONTAINER = 'minmax-direct-mail-intake';
 const BACKEND_CONTAINER = 'purchasing-web-backend';
+const NOTIFICATION_SUBJECT_PREFIX = 'Min/Max: отчёт обработан';
 
 function required(name, environment) {
   const value = String(environment[name] || '').trim();
@@ -303,6 +304,41 @@ function verifyDeliveredMessage(raw, expectedFilters, marker) {
   return diagnostics;
 }
 
+function exactTokenPresent(value, token) {
+  const escaped = String(token).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(?:^|[^A-Za-z0-9-])${escaped}(?:$|[^A-Za-z0-9-])`).test(
+    String(value || '')
+  );
+}
+
+function inspectNotificationMessage(message, options) {
+  const parsed = parseMimeMessage(message.raw);
+  const subject = normalizeHeaderText(parsed.subject);
+  const decodedContent = [subject, parsed.text, parsed.html].filter(Boolean).join('\n');
+  const receivedTimestamp = Date.parse(message.receivedAt || parsed.date || '');
+  const e2eStartTimestamp = Date.parse(options.e2eStartedAt);
+  const e2eStartSecond = Math.floor(e2eStartTimestamp / 1000) * 1000;
+  const evidence = {
+    uid: String(message.uid),
+    subject,
+    subjectPrefixMatches: subject.startsWith(options.subjectPrefix),
+    exactRunIdMatches: exactTokenPresent(decodedContent, options.runId),
+    receivedAt: Number.isFinite(receivedTimestamp)
+      ? new Date(receivedTimestamp).toISOString()
+      : null,
+    afterE2EStart: Number.isFinite(receivedTimestamp) &&
+      Number.isFinite(e2eStartTimestamp) && receivedTimestamp >= e2eStartSecond,
+    contentTypes: parsed.textParts.map(part => part.contentType),
+    transferEncodings: parsed.textParts.map(part => part.transferEncoding),
+  };
+  return {
+    ...evidence,
+    matches: evidence.subjectPrefixMatches &&
+      evidence.exactRunIdMatches &&
+      evidence.afterE2EStart,
+  };
+}
+
 function composeEnvironment(config, sha) {
   return {
     ...process.env,
@@ -487,6 +523,7 @@ async function runProductionCheck(config, dependencies = {}) {
     });
     retryCounts.owner_review_fetch = ownerStage.retryCount;
     const ownerReview = ownerStage.value;
+    let notificationEvidence = null;
     const notificationStage = await waitForStage(
       'wait_notification',
       ({ remainingMs }) => waitForMailboxText({
@@ -498,13 +535,26 @@ async function runProductionCheck(config, dependencies = {}) {
         user: config.e2e.notificationUser,
         password: config.e2e.notificationPassword,
         mailbox: 'INBOX',
-        since: event.startedAt,
+        since: sentAt,
         text: event.runId,
+        description: `notification for runId ${event.runId}`,
+        matchMessage(message) {
+          const evidence = inspectNotificationMessage(message, {
+            runId: event.runId,
+            subjectPrefix: NOTIFICATION_SUBJECT_PREFIX,
+            e2eStartedAt: sentAt,
+          });
+          if (evidence.matches) notificationEvidence = evidence;
+          return evidence.matches;
+        },
       }),
       { deadline: e2eDeadline, logger, intervalMs: 1000 }
     );
     retryCounts.wait_notification = notificationStage.retryCount;
-    logger.log(`[PASS] notification received; runId=${event.runId}`);
+    logger.log(
+      `[PASS] notification received; runId=${event.runId}; ` +
+      `${JSON.stringify(notificationEvidence)}`
+    );
 
     const beforeRestartEventCount = Number(health.event_count || 0);
     run('docker', ['restart', INTAKE_CONTAINER], { env: e2eEnv });
@@ -548,7 +598,7 @@ async function runProductionCheck(config, dependencies = {}) {
       runId: event.runId,
       sourceArtifactSha256: event.sourceArtifactSha256,
       ownerReview,
-      notification: 'received',
+      notification: notificationEvidence,
       replay: { noDuplicate: true, runId: replay.runId },
       restart: 'healthy',
       retries: retryCounts,
@@ -587,8 +637,11 @@ if (require.main === module) {
 module.exports = {
   diagnostics,
   eventByUid,
+  exactTokenPresent,
+  inspectNotificationMessage,
   isTransientNetworkError,
   main,
+  NOTIFICATION_SUBJECT_PREFIX,
   productionConfig,
   redact,
   runProductionCheck,

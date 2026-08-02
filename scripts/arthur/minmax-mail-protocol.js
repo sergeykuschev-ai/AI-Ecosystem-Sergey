@@ -182,6 +182,13 @@ function imapSinceDate(value) {
   return `${date.getUTCDate()}-${months[date.getUTCMonth()]}-${date.getUTCFullYear()}`;
 }
 
+function imapInternalDate(response) {
+  const value = response.toString('latin1').match(/\bINTERNALDATE\s+"([^"]+)"/i)?.[1];
+  if (!value) return null;
+  const timestamp = Date.parse(value.replace(/^(\d{1,2})-([A-Za-z]{3})-(\d{4})\s/, '$1 $2 $3 '));
+  return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : null;
+}
+
 async function waitForMailboxText(options, dependencies = {}) {
   const delay = dependencies.delay || (ms => new Promise(resolve => setTimeout(resolve, ms)));
   const deadline = Date.now() + options.timeoutMs;
@@ -212,17 +219,21 @@ async function waitForMailboxText(options, dependencies = {}) {
         const message = await imapCommand(
           socket,
           tag,
-          `UID FETCH ${uid} (BODY.PEEK[])`
+          `UID FETCH ${uid} (INTERNALDATE BODY.PEEK[])`
         );
         const literal = message.toString('latin1').match(/\{(\d+)\}\r\n/);
         if (!literal) continue;
         const start = literal.index + literal[0].length;
         const raw = message.subarray(start, start + Number(literal[1]));
-        if (raw.includes(Buffer.from(options.text, 'utf8')) ||
-            raw.toString('latin1').includes(options.text)) {
+        const receivedAt = imapInternalDate(message);
+        const matches = options.matchMessage
+          ? await options.matchMessage({ uid, raw, receivedAt })
+          : raw.includes(Buffer.from(options.text, 'utf8')) ||
+            raw.toString('latin1').includes(options.text);
+        if (matches) {
           const logoutTag = `A${String(commandNumber).padStart(3, '0')}`;
           await imapCommand(socket, logoutTag, 'LOGOUT').catch(() => {});
-          return { found: true, uid, raw };
+          return { found: true, uid, raw, receivedAt };
         }
       }
       const logoutTag = `A${String(commandNumber).padStart(3, '0')}`;
@@ -232,11 +243,14 @@ async function waitForMailboxText(options, dependencies = {}) {
     }
     await delay(Math.min(options.pollIntervalMs || 5000, Math.max(0, deadline - Date.now())));
   }
-  throw new Error(`Notification containing ${options.text} was not found in IMAP mailbox.`);
+  throw new Error(
+    `${options.description || `Message containing ${options.text}`} was not found in IMAP mailbox.`
+  );
 }
 
 module.exports = {
   buildExcelMessage,
+  imapInternalDate,
   imapSinceDate,
   sendExcelMail,
   waitForMailboxText,

@@ -32,14 +32,19 @@ const {
   filterDiagnostics,
 } = require('../worker');
 const {
+  inspectNotificationMessage,
   isTransientNetworkError,
+  NOTIFICATION_SUBJECT_PREFIX,
   productionConfig,
   redact,
   verifyDeliveredMessage,
   waitForStage,
   withProductionRestore,
 } = require('../../../scripts/arthur/minmax-direct-production-check');
-const { buildExcelMessage } = require('../../../scripts/arthur/minmax-mail-protocol');
+const {
+  buildExcelMessage,
+  imapInternalDate,
+} = require('../../../scripts/arthur/minmax-mail-protocol');
 
 const ROOT = path.resolve(__dirname, '../../..');
 const XLSX = Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.from('fixture')]);
@@ -105,6 +110,52 @@ function mime(options = {}) {
   return Buffer.from(lines.join('\r\n'), 'utf8');
 }
 
+function quotedPrintable(value) {
+  return [...Buffer.from(value, 'utf8')].map(byte =>
+    (byte >= 0x21 && byte <= 0x7e && byte !== 0x3d)
+      ? String.fromCharCode(byte)
+      : `=${byte.toString(16).padStart(2, '0').toUpperCase()}`
+  ).join('');
+}
+
+function notificationMime(options = {}) {
+  const runId = options.runId || 'e54dfafb-25ff-4575-88d4-940e50116bf3';
+  const subject = options.subject || `${NOTIFICATION_SUBJECT_PREFIX} (${runId})`;
+  const subjectValue = options.encodedSubject
+    ? `=?UTF-8?B?${Buffer.from(subject).toString('base64')}?=`
+    : subject;
+  const body = options.body || `Run: ${runId}`;
+  const encoding = options.encoding || '8bit';
+  const encodedBody = encoding === 'base64'
+    ? Buffer.from(body).toString('base64').replace(/.{1,32}/g, '$&\r\n')
+    : encoding === 'quoted-printable'
+      ? quotedPrintable(body)
+      : body;
+  return Buffer.from([
+    'From: Robot <robot@example.test>',
+    `Subject: ${subjectValue}`,
+    `Date: ${options.date || 'Sun, 02 Aug 2026 00:00:01 GMT'}`,
+    'MIME-Version: 1.0',
+    `Content-Type: ${options.contentType || 'text/plain'}; charset=utf-8`,
+    `Content-Transfer-Encoding: ${encoding}`,
+    '',
+    encodedBody,
+    '',
+  ].join('\r\n'), 'utf8');
+}
+
+function inspectNotification(raw, overrides = {}) {
+  return inspectNotificationMessage({
+    uid: overrides.uid || '5909',
+    raw,
+    receivedAt: overrides.receivedAt || null,
+  }, {
+    runId: overrides.runId || 'e54dfafb-25ff-4575-88d4-940e50116bf3',
+    subjectPrefix: NOTIFICATION_SUBJECT_PREFIX,
+    e2eStartedAt: overrides.e2eStartedAt || '2026-08-02T00:00:00.500Z',
+  });
+}
+
 function fakeResponse(status, body, headers = {}) {
   const bytes = Buffer.isBuffer(body) ? body : Buffer.from(
     typeof body === 'string' ? body : JSON.stringify(body)
@@ -167,6 +218,66 @@ test('MIME unfolds and decodes UTF-8 encoded Subject with stable spaces', () => 
     subject: '  Прямой   UTF-8 отчёт  ',
   })).subject, 'Прямой UTF-8 отчёт');
   assert.equal(normalizeHeaderText('  Отчёт\t  MinMax  '), 'Отчёт MinMax');
+});
+
+test('notification correlation finds exact runId in plain text', () => {
+  const evidence = inspectNotification(notificationMime());
+  assert.equal(evidence.matches, true);
+  assert.equal(evidence.uid, '5909');
+  assert.deepEqual(evidence.contentTypes, ['text/plain']);
+  assert.deepEqual(evidence.transferEncodings, ['8bit']);
+});
+
+test('notification correlation decodes a base64 body', () => {
+  const evidence = inspectNotification(notificationMime({
+    encoding: 'base64',
+    subject: NOTIFICATION_SUBJECT_PREFIX,
+  }));
+  assert.equal(evidence.matches, true);
+  assert.deepEqual(evidence.transferEncodings, ['base64']);
+});
+
+test('notification correlation decodes a quoted-printable body', () => {
+  const evidence = inspectNotification(notificationMime({
+    encoding: 'quoted-printable',
+    subject: NOTIFICATION_SUBJECT_PREFIX,
+  }));
+  assert.equal(evidence.matches, true);
+  assert.deepEqual(evidence.transferEncodings, ['quoted-printable']);
+});
+
+test('notification correlation finds runId only in decoded HTML', () => {
+  const evidence = inspectNotification(notificationMime({
+    contentType: 'text/html',
+    subject: NOTIFICATION_SUBJECT_PREFIX,
+    body: '<html><body><strong>Run:</strong> e54dfafb-25ff-4575-88d4-940e50116bf3</body></html>',
+  }));
+  assert.equal(evidence.matches, true);
+  assert.deepEqual(evidence.contentTypes, ['text/html']);
+});
+
+test('notification correlation decodes the encoded-word Subject', () => {
+  const evidence = inspectNotification(notificationMime({
+    encodedSubject: true,
+    encoding: 'base64',
+  }));
+  assert.equal(evidence.matches, true);
+  assert.equal(
+    evidence.subject,
+    `${NOTIFICATION_SUBJECT_PREFIX} (e54dfafb-25ff-4575-88d4-940e50116bf3)`
+  );
+});
+
+test('notification received before E2E start is ignored', () => {
+  const evidence = inspectNotification(notificationMime({
+    date: 'Sat, 01 Aug 2026 23:59:59 GMT',
+  }));
+  assert.equal(evidence.exactRunIdMatches, true);
+  assert.equal(evidence.afterE2EStart, false);
+  assert.equal(evidence.matches, false);
+  assert.equal(imapInternalDate(Buffer.from(
+    '* 1 FETCH (INTERNALDATE "02-Aug-2026 00:00:01 +0000")\r\n'
+  )), '2026-08-02T00:00:01.000Z');
 });
 
 test('filter covers attachment count, sender, subject, size and signature', () => {

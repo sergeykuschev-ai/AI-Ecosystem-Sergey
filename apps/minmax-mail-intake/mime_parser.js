@@ -157,6 +157,13 @@ function decodePartBody(body, transferEncoding) {
   return Buffer.from(body);
 }
 
+function decodeTextBody(body, charset) {
+  const normalized = String(charset || 'utf-8').trim().toLowerCase();
+  return body.toString(
+    ['iso-8859-1', 'latin1'].includes(normalized) ? 'latin1' : 'utf8'
+  );
+}
+
 function collectParts(entity, output) {
   const { header, body } = headerBody(entity);
   const headers = parseHeaders(header);
@@ -169,11 +176,21 @@ function collectParts(entity, output) {
   }
   const disposition = parseStructuredHeader(headers['content-disposition'] || '');
   const filename = disposition.parameters.filename || contentType.parameters.name || null;
+  const decodedBody = decodePartBody(body, headers['content-transfer-encoding']);
   if (filename || disposition.value === 'attachment') {
-    output.push({
+    output.attachments.push({
       filename: filename || 'attachment.bin',
       contentType: contentType.value,
-      content: decodePartBody(body, headers['content-transfer-encoding']),
+      content: decodedBody,
+    });
+    return;
+  }
+  if (['text/plain', 'text/html'].includes(contentType.value)) {
+    output.textParts.push({
+      contentType: contentType.value,
+      charset: contentType.parameters.charset || 'utf-8',
+      transferEncoding: String(headers['content-transfer-encoding'] || '7bit').toLowerCase(),
+      text: decodeTextBody(decodedBody, contentType.parameters.charset),
     });
   }
 }
@@ -182,8 +199,8 @@ function parseMimeMessage(input) {
   const raw = Buffer.isBuffer(input) ? input : Buffer.from(input);
   const { header } = headerBody(raw);
   const headers = parseHeaders(header);
-  const attachments = [];
-  collectParts(raw, attachments);
+  const output = { attachments: [], textParts: [] };
+  collectParts(raw, output);
   const from = normalizeHeaderText(decodeEncodedWords(headers.from || ''));
   const subject = normalizeHeaderText(decodeEncodedWords(headers.subject || ''));
   return {
@@ -192,12 +209,22 @@ function parseMimeMessage(input) {
     subject,
     date: headers.date || null,
     messageId: headers['message-id'] || null,
-    attachments,
+    attachments: output.attachments,
+    text: output.textParts
+      .filter(part => part.contentType === 'text/plain')
+      .map(part => part.text)
+      .join('\n'),
+    html: output.textParts
+      .filter(part => part.contentType === 'text/html')
+      .map(part => part.text)
+      .join('\n'),
+    textParts: output.textParts,
   };
 }
 
 module.exports = {
   decodeEncodedWords,
+  decodeTextBody,
   decodeQuotedPrintable,
   multipartParts,
   normalizeEmailAddress,
