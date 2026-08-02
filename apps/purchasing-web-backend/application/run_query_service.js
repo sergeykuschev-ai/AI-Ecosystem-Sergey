@@ -200,6 +200,10 @@ function itemMatches(item, filters) {
     filters.owner_review !== null &&
     item.matrix?.owner_review_required !== filters.owner_review
   ) return false;
+  if (
+    filters.policy_adjusted !== null &&
+    item.assortment_policy?.adjusted !== filters.policy_adjusted
+  ) return false;
   if (filters.positive_order !== null) {
     const positive = (item.quantities?.approved_quantity ?? 0) > 0 ||
       (item.quantities?.provisional_quantity ?? 0) > 0;
@@ -233,6 +237,20 @@ function ownerSectionItem(item) {
     score: item.matrix?.owner_review_score ?? null,
     reasons: [...(item.matrix?.owner_review_reasons || [])],
     recommended_action: item.matrix?.recommended_action || null,
+    quantities: {
+      minmax_quantity: item.quantities?.minmax_quantity ??
+        item.quantities?.calculated_quantity ??
+        null,
+      policy_quantity: item.quantities?.policy_quantity ??
+        item.quantities?.calculated_quantity ??
+        null,
+      final_quantity: item.quantities?.final_quantity ?? null,
+    },
+    assortment_policy: item.assortment_policy || {
+      matched: false,
+      adjusted: false,
+      rule: 'NONE',
+    },
   };
 }
 
@@ -315,6 +333,10 @@ class RunQueryService {
       positive_order: booleanQuery(
         query.positive_order,
         'positive_order'
+      ),
+      policy_adjusted: booleanQuery(
+        query.policy_adjusted,
+        'policy_adjusted'
       ),
       owner_decision: enumQuery(
         query.owner_decision,
