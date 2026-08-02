@@ -1,7 +1,6 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const { spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 const { test } = require('node:test');
@@ -20,7 +19,6 @@ const {
   productionConfig,
   productionEnvironment: buildProductionEnvironment,
   registryNodeSnapshot,
-  runDockerNodeFromStdin,
   runE2EWithAutomaticRestore,
   verifyConnectionRefused,
   verifyBackendHealthResponse,
@@ -33,6 +31,10 @@ const {
   bindCredentials,
   bindFixedRuntimeConfig,
 } = require('../../../scripts/arthur/minmax-n8n-workflow-deployment');
+const {
+  SELF_BYTES_ENV,
+  runTrackedContainerProbe,
+} = require('../../../scripts/purchasing/container-probe-runner');
 
 const ROOT = path.resolve(__dirname, '../../..');
 const workflow = JSON.parse(fs.readFileSync(path.join(
@@ -499,6 +501,7 @@ test('healthy container passes host health and restart verification', async () =
 test('running container proves healthy state, runtime files and published port', () => {
   const result = verifyContainerRuntime({}, {
     runCommand: containerRuntimeCommand(),
+    runTrackedContainerProbe: () => ({ stdout: 'runtime-ok' }),
   });
 
   assert.equal(result.status, 'running');
@@ -508,49 +511,58 @@ test('running container proves healthy state, runtime files and published port',
   assert.equal(result.publishedPorts['3210/tcp'][0].HostPort, '3210');
 });
 
-test('Windows-safe docker exec transports complex JavaScript only through stdin', () => {
-  const script = String.raw`
-    const value = {
-      semicolon: 'one;two',
-      quotes: 'single\' and "double"',
-      backslash: 'C:\\MinMax\\report.json',
-      json: { ok: true, count: 2 },
-      url: new URL('http://127.0.0.1:3210/api/v1/health?source=e2e').pathname,
-      cyrillic: 'Проверка МинМакс',
-    };
-    process.stdout.write(JSON.stringify(value));
-  `;
-  let captured = null;
-  const output = runDockerNodeFromStdin(
-    'purchasing-web-backend',
-    script,
-    {},
-    {
-      runCommand(command, args, options) {
-        captured = { command, args, options };
-        const result = spawnSync(process.execPath, ['-'], {
-          encoding: 'utf8',
-          input: options.input,
-        });
-        assert.equal(result.status, 0, result.stderr);
-        return result.stdout;
-      },
-    }
+test('PowerShell-safe tracked probe preserves exact bytes with shell=false', () => {
+  const hostPath = path.join(
+    ROOT,
+    'scripts/purchasing/probes/n8n-backend-probe.js'
   );
-
-  assert.deepEqual(captured.args, [
-    'exec', '-i', 'purchasing-web-backend', 'node', '-',
-  ]);
-  assert.equal(captured.options.input, script);
-  assert.ok(!captured.args.includes(script));
-  assert.deepEqual(JSON.parse(output), {
-    semicolon: 'one;two',
-    quotes: 'single\' and "double"',
-    backslash: 'C:\\MinMax\\report.json',
-    json: { ok: true, count: 2 },
-    url: '/api/v1/health',
-    cyrillic: 'Проверка МинМакс',
+  const sourceBytes = fs.readFileSync(hostPath);
+  const source = sourceBytes.toString('utf8');
+  const calls = [];
+  const secret = 'do-not-expose-this-token';
+  const result = runTrackedContainerProbe({
+    container: 'n8n',
+    hostPath,
+    containerPath: '/tmp/minmax-n8n-backend-probe.js',
+    environment: {
+      MINMAX_VERIFY_API_KEY: secret,
+      MINMAX_PROBE_BASE_URL: 'http://host.docker.internal:3210',
+    },
+  }, {
+    spawn(command, args, options) {
+      calls.push({ command, args, options });
+      if (args[0] === 'cp') return { status: 0, stdout: '', stderr: '' };
+      if (options.env[SELF_BYTES_ENV] === '1') {
+        return {
+          status: 0,
+          stdout: sourceBytes.toString('base64'),
+          stderr: '',
+        };
+      }
+      return { status: 0, stdout: 'probe-ok', stderr: '' };
+    },
   });
+
+  assert.match(source, /;/);
+  assert.match(source, /' \" \\\\/);
+  assert.match(source, /JSON \{\"ok\":true\}/);
+  assert.match(source, /http:\/\/127\.0\.0\.1/);
+  assert.match(source, /Кириллица/);
+  assert.ok(result.sourceBytes.equals(result.beforeSpawnBytes));
+  assert.ok(result.sourceBytes.equals(result.receivedBytes));
+  assert.equal(result.stdout, 'probe-ok');
+  assert.equal(calls.length, 3);
+  for (const call of calls) {
+    assert.equal(call.command, 'docker');
+    assert.equal(call.options.shell, false);
+    assert.ok(!call.args.includes(source));
+    assert.ok(!call.args.includes(secret));
+    assert.ok(!call.args.includes('-i'));
+    assert.ok(!call.args.includes('-'));
+  }
+  assert.deepEqual(calls[2].args.slice(-3), [
+    'n8n', 'node', '/tmp/minmax-n8n-backend-probe.js',
+  ]);
 });
 
 test('missing published port fails container runtime verification', () => {
@@ -559,6 +571,7 @@ test('missing published port fails container runtime verification', () => {
       runCommand: containerRuntimeCommand({
         '{{json .NetworkSettings.Ports}}': {},
       }),
+      runTrackedContainerProbe: () => ({ stdout: 'runtime-ok' }),
     }),
     /publishedPorts=\{\}.*expected host 3210/
   );
@@ -742,6 +755,11 @@ test('Docker service is restart-safe and keeps output/data on host mounts', () =
   assert.match(dockerfile, /COPY agents \.\/agents/);
   assert.match(dockerfile, /COPY apps \.\/apps/);
   assert.match(dockerfile, /COPY shared \.\/shared/);
+  assert.match(
+    dockerfile,
+    /COPY scripts\/purchasing\/container-probe-runner\.js/
+  );
+  assert.match(dockerfile, /COPY scripts\/purchasing\/probes/);
   assert.match(dockerfile, /mkdir -p \/app\/output \/app\/data\/purchasing/);
   assert.match(
     dockerfile,
@@ -759,6 +777,23 @@ test('Docker service is restart-safe and keeps output/data on host mounts', () =
   assert.deepEqual(healthCommand, [
     'node', 'apps/purchasing-web-backend/server.js', '--healthcheck',
   ]);
+});
+
+test('production path contains no inline or stdin Node.js execution', () => {
+  const productionFiles = [
+    'scripts/arthur/minmax-production-check.js',
+    'scripts/arthur/inspect-minmax-execution.js',
+    'scripts/purchasing/verify-minmax-n8n-contract.js',
+    'scripts/purchasing/container-probe-runner.js',
+    'docker/purchasing-web-backend/Dockerfile',
+  ];
+  for (const relativePath of productionFiles) {
+    const source = fs.readFileSync(path.join(ROOT, relativePath), 'utf8');
+    assert.doesNotMatch(source, /node\s+-e(?:\s|["'])/);
+    assert.doesNotMatch(source, /node\s+-(?:\s|["'])/);
+    assert.doesNotMatch(source, /['"]node['"]\s*,\s*['"]-e?['"]/);
+    assert.doesNotMatch(source, /input:\s*(?:code|probe|script)/);
+  }
 });
 
 test('SMTP message has one Excel attachment and correlation marker', () => {

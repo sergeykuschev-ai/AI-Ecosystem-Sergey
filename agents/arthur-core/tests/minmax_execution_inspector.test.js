@@ -181,10 +181,9 @@ test('container replay passes x-api-key without exposing it in argv', () => {
     url: 'http://host.docker.internal:3210/api/v1/upload-idempotency/key',
     apiToken: 'secret-token',
   }, {
-    spawn(command, args, spawnOptions) {
-      captured = { command, args, spawnOptions };
+    runTrackedContainerProbe(probeOptions) {
+      captured = probeOptions;
       return {
-        status: 0,
         stdout: JSON.stringify({
           status: 200,
           headers: { 'content-type': 'application/json' },
@@ -196,18 +195,16 @@ test('container replay passes x-api-key without exposing it in argv', () => {
   });
   assert.equal(response.status, 200);
   assert.deepEqual(response.json, { data: { state: 'processing' } });
-  assert.equal(captured.command, 'docker');
-  assert.deepEqual(captured.args.slice(0, 2), ['exec', '-i']);
-  assert.deepEqual(captured.args.slice(-3), [
-    'node', '-',
-    'http://host.docker.internal:3210/api/v1/upload-idempotency/key',
-  ]);
-  assert.match(captured.spawnOptions.input, /process\.argv\[2\]/);
-  assert.ok(!captured.args.includes(captured.spawnOptions.input));
-  assert.ok(!captured.args.includes('secret-token'));
+  assert.equal(captured.container, 'n8n-main');
+  assert.match(captured.hostPath, /n8n-http-get-probe\.js$/);
+  assert.equal(captured.containerPath, '/tmp/minmax-n8n-http-get-probe.js');
   assert.equal(
-    captured.spawnOptions.env.MINMAX_INSPECT_API_KEY,
+    captured.environment.MINMAX_INSPECT_API_KEY,
     'secret-token'
+  );
+  assert.equal(
+    captured.environment.MINMAX_PROBE_URL,
+    'http://host.docker.internal:3210/api/v1/upload-idempotency/key'
   );
 });
 

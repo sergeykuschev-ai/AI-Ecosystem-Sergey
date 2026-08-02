@@ -26,6 +26,9 @@ const {
   sendExcelMail,
   waitForMailboxText,
 } = require('./minmax-mail-protocol');
+const {
+  runTrackedContainerProbe,
+} = require('../purchasing/container-probe-runner');
 
 const REPOSITORY_ROOT = path.resolve(__dirname, '../..');
 const COMPOSE_FILE = path.join(
@@ -37,6 +40,15 @@ const WORKBOOK_PATH = path.join(
   'tests/fixtures/SmartZapas_synthetic.xlsx'
 );
 const REQUIRED_BRANCH = 'feature/minmax-yandex-mail-intake';
+const PROBE_ROOT = path.join(REPOSITORY_ROOT, 'scripts/purchasing/probes');
+const CONTAINER_RUNTIME_PROBE_PATH = path.join(
+  PROBE_ROOT,
+  'container-runtime-probe.js'
+);
+const CONTAINER_HEALTH_PROBE_PATH = path.join(
+  PROBE_ROOT,
+  'container-health-probe.js'
+);
 const DEFAULT_E2E_SUBJECT_PATTERN = 'minmax production e2e';
 const DEFAULT_CREDENTIALS = Object.freeze({
   httpHeaderAuth: 'pjXec1bxtt81cy0u',
@@ -247,6 +259,7 @@ function gitValue(args) {
   return execFileSync('git', args, {
     cwd: REPOSITORY_ROOT,
     encoding: 'utf8',
+    shell: false,
   }).trim();
 }
 
@@ -254,9 +267,9 @@ function runCommand(command, args, options = {}) {
   const result = spawnSync(command, args, {
     cwd: options.cwd || REPOSITORY_ROOT,
     encoding: 'utf8',
+    shell: false,
     env: options.env || process.env,
     maxBuffer: 32 * 1024 * 1024,
-    input: options.input,
     stdio: options.inherit ? 'inherit' : 'pipe',
   });
   if (result.error) throw result.error;
@@ -273,9 +286,9 @@ function runCommandCapture(command, args, options = {}) {
   const result = spawnSync(command, args, {
     cwd: options.cwd || REPOSITORY_ROOT,
     encoding: 'utf8',
+    shell: false,
     env: options.env || process.env,
     maxBuffer: 32 * 1024 * 1024,
-    input: options.input,
     stdio: 'pipe',
   });
   return {
@@ -284,27 +297,6 @@ function runCommandCapture(command, args, options = {}) {
     stdout: String(result.stdout || ''),
     stderr: String(result.stderr || ''),
   };
-}
-
-function runDockerNodeFromStdin(
-  container,
-  script,
-  options = {},
-  dependencies = {}
-) {
-  const run = dependencies.runCommand || runCommand;
-  const environmentNames = options.environmentNames || [];
-  const environmentArguments = environmentNames.flatMap(name => ['-e', name]);
-  return run('docker', [
-    'exec', '-i',
-    ...environmentArguments,
-    container,
-    'node', '-',
-    ...(options.arguments || []),
-  ], {
-    env: { ...process.env, ...(options.environment || {}) },
-    input: script,
-  });
 }
 
 function redactDiagnosticText(value, secrets = []) {
@@ -347,31 +339,6 @@ function redactedContainerEnvironment(diagnostic, secrets) {
     };
   }
 }
-
-const CONTAINER_HEALTH_PROBE = [
-  "const http=require('node:http')",
-  "const request=http.get('http://127.0.0.1:3210/api/v1/health',",
-  "response=>{let body='';response.setEncoding('utf8');",
-  "response.on('data',chunk=>body+=chunk);",
-  "response.on('end',()=>console.log(JSON.stringify({",
-  "status:response.statusCode,contentType:response.headers['content-type']||'',body})))})",
-  "request.setTimeout(4000,()=>request.destroy(new Error('request timeout')))",
-  "request.on('error',error=>{console.error(error.stack||error.message);process.exit(1)})",
-].join(';');
-
-const CONTAINER_RUNTIME_PROBE = [
-  "const fs=require('node:fs')",
-  "const required=['/app/package.json','/app/package-lock.json',",
-  "'/app/apps/purchasing-web-backend/server.js',",
-  "'/app/agents/purchasing/order_agent.js',",
-  "'/app/shared/reporting/xlsx_exporter.js']",
-  "for(const file of required)fs.accessSync(file,fs.constants.R_OK)",
-  "for(const directory of ['/app/output','/app/data/purchasing'])",
-  "fs.accessSync(directory,fs.constants.R_OK|fs.constants.W_OK)",
-  "for(const moduleName of ['busboy','fflate','read-excel-file'])",
-  "require.resolve(moduleName)",
-  "console.log('runtime-ok')",
-].join(';');
 
 async function collectBackendDiagnostics(config, dependencies = {}) {
   const capture = dependencies.runCommandCapture || runCommandCapture;
@@ -444,10 +411,28 @@ async function collectBackendDiagnostics(config, dependencies = {}) {
       'inspect', '--format', '{{json .NetworkSettings.Ports}}', container,
     ]),
     healthcheckTool: captureDocker(['exec', container, 'node', '--version']),
-    containerHealthEndpoint: captureDocker([
-      'exec', '-i', container, 'node', '-',
-    ], { input: CONTAINER_HEALTH_PROBE }),
   };
+  try {
+    const runProbe = dependencies.runTrackedContainerProbe ||
+      runTrackedContainerProbe;
+    const result = runProbe({
+      container,
+      hostPath: CONTAINER_HEALTH_PROBE_PATH,
+      containerPath: '/app/scripts/purchasing/probes/container-health-probe.js',
+      copy: false,
+    }, { spawn: capture });
+    diagnostics.containerHealthEndpoint = {
+      exitCode: 0,
+      output: redactDiagnosticText(result.stdout, secrets),
+      bytesVerified: true,
+    };
+  } catch (error) {
+    diagnostics.containerHealthEndpoint = {
+      exitCode: null,
+      output: redactDiagnosticText(error.message, secrets),
+      bytesVerified: false,
+    };
+  }
   diagnostics.environment = redactedContainerEnvironment(
     diagnostics.environment,
     secrets
@@ -594,12 +579,15 @@ function verifyContainerRuntime(config, dependencies = {}) {
       `container image command=${JSON.stringify(imageCommand)}, expected backend CMD.`
     );
   }
-  const runtimeProbe = runDockerNodeFromStdin(
-    'purchasing-web-backend',
-    CONTAINER_RUNTIME_PROBE,
-    {},
-    { runCommand: run }
-  );
+  const runProbe = dependencies.runTrackedContainerProbe ||
+    runTrackedContainerProbe;
+  const runtimeProbeResult = runProbe({
+    container: 'purchasing-web-backend',
+    hostPath: CONTAINER_RUNTIME_PROBE_PATH,
+    containerPath: '/app/scripts/purchasing/probes/container-runtime-probe.js',
+    copy: false,
+  });
+  const runtimeProbe = runtimeProbeResult.stdout;
   if (runtimeProbe !== 'runtime-ok') {
     throw new Error(`container runtime probe=${runtimeProbe || '(empty)'}.`);
   }
@@ -1346,7 +1334,6 @@ module.exports = {
   publishedWorkflowFromRecord,
   registryNodeSnapshot,
   runE2EWithAutomaticRestore,
-  runDockerNodeFromStdin,
   runMailE2E,
   runProductionCheck,
   startPersistentBackend,

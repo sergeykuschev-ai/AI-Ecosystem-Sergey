@@ -509,7 +509,7 @@ test('диагностика проверяет listener Windows и маршру
     api_version: 'v1',
     error: { code: 'API_TOKEN_REQUIRED' },
   });
-  let capturedSpawn = null;
+  let capturedProbe = null;
   const probe = probeN8nContainer({
     apiKey: API_TOKEN,
     expectedSha: 'abcdef1',
@@ -517,10 +517,9 @@ test('диагностика проверяет listener Windows и маршру
     containerBaseUrl: 'http://host.docker.internal:3210',
   }, {
     logger,
-    spawn(command, args, spawnOptions) {
-      capturedSpawn = { command, args, spawnOptions };
+    runTrackedContainerProbe(probeOptions) {
+      capturedProbe = probeOptions;
       return {
-        status: 0,
         stdout: JSON.stringify([
           {
             mode: 'none',
@@ -546,14 +545,17 @@ test('диагностика проверяет listener Windows и маршру
     },
   });
   assert.equal(probe.length, 3);
-  assert.equal(capturedSpawn.command, 'docker');
-  assert.deepEqual(capturedSpawn.args.slice(0, 2), ['exec', '-i']);
-  assert.deepEqual(capturedSpawn.args.slice(-3), [
-    'node', '-', 'http://host.docker.internal:3210',
-  ]);
-  assert.match(capturedSpawn.spawnOptions.input, /Promise\.all/);
-  assert.ok(!capturedSpawn.args.includes(capturedSpawn.spawnOptions.input));
-  assert.ok(!capturedSpawn.args.includes(API_TOKEN));
+  assert.equal(capturedProbe.container, 'n8n');
+  assert.match(capturedProbe.hostPath, /n8n-backend-probe\.js$/);
+  assert.equal(
+    capturedProbe.containerPath,
+    '/tmp/minmax-n8n-backend-probe.js'
+  );
+  assert.equal(capturedProbe.environment.MINMAX_VERIFY_API_KEY, API_TOKEN);
+  assert.equal(
+    capturedProbe.environment.MINMAX_PROBE_BASE_URL,
+    'http://host.docker.internal:3210'
+  );
   assert.ok(messages.some(message => message.includes('PID 4242')));
   assert.ok(messages.some(message =>
     message.includes('container health auth=x-api-key')

@@ -1,6 +1,11 @@
 'use strict';
 
 const { spawnSync } = require('node:child_process');
+const path = require('node:path');
+
+const {
+  runTrackedContainerProbe,
+} = require('../purchasing/container-probe-runner');
 
 const {
   DEFAULT_WORKFLOW_ID,
@@ -12,6 +17,11 @@ const CHECK_NODE_ID = 'check-registry';
 const CHECK_NODE_NAME = 'Проверить реестр';
 const CONFIG_NODE_NAME = 'Конфигурация MinMax';
 const DEFAULT_ARTHUR_CREDENTIAL_ID = 'pjXec1bxtt81cy0u';
+const N8N_HTTP_GET_PROBE_PATH = path.join(
+  __dirname,
+  '../purchasing/probes/n8n-http-get-probe.js'
+);
+const N8N_HTTP_GET_CONTAINER_PATH = '/tmp/minmax-n8n-http-get-probe.js';
 
 function parseArguments(argv, environment = process.env) {
   const options = {
@@ -224,41 +234,19 @@ function safeBodyPreview(value, secrets = []) {
 }
 
 function replayFromContainer(options, dependencies = {}) {
-  const spawn = dependencies.spawn || spawnSync;
-  const code = [
-    "const url=process.argv[2];",
-    "const token=process.env.MINMAX_INSPECT_API_KEY;",
-    "fetch(url,{method:'GET',headers:{accept:'application/json','x-api-key':token}})",
-    ".then(async r=>({status:r.status,headers:Object.fromEntries(r.headers.entries()),body:await r.text()}))",
-    ".then(v=>process.stdout.write(JSON.stringify(v)))",
-    ".catch(e=>{console.error(e.stack||e.message);process.exit(1)});",
-  ].join('');
-  const result = spawn(
-    'docker',
-    [
-      'exec',
-      '-i',
-      '-e',
-      'MINMAX_INSPECT_API_KEY',
-      options.container,
-      'node',
-      '-',
-      options.url,
-    ],
-    {
-      encoding: 'utf8',
-      env: {
-        ...process.env,
-        MINMAX_INSPECT_API_KEY: options.apiToken,
-      },
-      input: code,
-    }
-  );
-  if (result.status !== 0) {
-    throw new Error(
-      `Container replay failed: ${safeBodyPreview(result.stderr)}`
-    );
-  }
+  const runProbe = dependencies.runTrackedContainerProbe ||
+    runTrackedContainerProbe;
+  const result = runProbe({
+    container: options.container,
+    hostPath: N8N_HTTP_GET_PROBE_PATH,
+    containerPath: N8N_HTTP_GET_CONTAINER_PATH,
+    environment: {
+      MINMAX_INSPECT_API_KEY: options.apiToken,
+      MINMAX_PROBE_URL: options.url,
+    },
+  }, {
+    spawn: dependencies.spawn || spawnSync,
+  });
   const response = JSON.parse(result.stdout);
   const contentType = response.headers?.['content-type'] || '';
   let json = null;

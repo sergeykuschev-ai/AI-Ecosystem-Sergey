@@ -8,6 +8,8 @@ RUN npm ci --omit=dev --ignore-scripts
 COPY agents ./agents
 COPY apps ./apps
 COPY shared ./shared
+COPY scripts/purchasing/container-probe-runner.js ./scripts/purchasing/container-probe-runner.js
+COPY scripts/purchasing/probes ./scripts/purchasing/probes
 
 RUN mkdir -p /app/output /app/data/purchasing
 

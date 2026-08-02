@@ -5,6 +5,10 @@ const crypto = require('node:crypto');
 const path = require('node:path');
 
 const {
+  runTrackedContainerProbe,
+} = require('./container-probe-runner');
+
+const {
   MINMAX_HTTP_CONTRACT_VERSION,
   PURCHASING_SERVICE_NAME,
   REPOSITORY_ROOT,
@@ -12,6 +16,11 @@ const {
 
 const DEFAULT_BASE_URL = 'http://127.0.0.1:3210';
 const DEFAULT_CONTAINER_BASE_URL = 'http://host.docker.internal:3210';
+const N8N_BACKEND_PROBE_PATH = path.join(
+  __dirname,
+  'probes/n8n-backend-probe.js'
+);
+const N8N_BACKEND_CONTAINER_PATH = '/tmp/minmax-n8n-backend-probe.js';
 
 function parseArguments(argv) {
   const options = {
@@ -49,6 +58,7 @@ function localGitSha() {
   return execFileSync('git', ['rev-parse', '--short', 'HEAD'], {
     cwd: REPOSITORY_ROOT,
     encoding: 'utf8',
+    shell: false,
   }).trim().toLowerCase();
 }
 
@@ -256,7 +266,7 @@ function inspectWindowsPort(port, dependencies = {}) {
   const result = spawn(
     'powershell.exe',
     ['-NoProfile', '-Command', command],
-    { encoding: 'utf8' }
+    { encoding: 'utf8', shell: false }
   );
   if (result.status !== 0) {
     throw new Error(`Не удалось проверить listener порта ${port}: ${result.stderr}`);
@@ -286,49 +296,25 @@ function inspectWindowsPort(port, dependencies = {}) {
 
 function probeN8nContainer(options, dependencies = {}) {
   const logger = dependencies.logger || console;
-  const spawn = dependencies.spawn || spawnSync;
   if (!options.n8nContainer) {
     logger.log(
       '[SKIP] Контейнерный probe не запущен; задайте --n8n-container <name>.'
     );
     return null;
   }
-  const probeCode = [
-    "const base=process.argv[2].replace(/\\/$/,'');",
-    "const key=process.env.MINMAX_VERIFY_API_KEY;",
-    "const modes=[['none',{}],['bearer',{authorization:'Bearer '+key}],['x-api-key',{'x-api-key':key}]];",
-    "Promise.all(modes.map(async ([mode,headers])=>{",
-    "const r=await fetch(base+'/api/v1/health',{headers});",
-    "return {mode,status:r.status,contentType:r.headers.get('content-type')||'',body:await r.text()};",
-    "})).then(v=>process.stdout.write(JSON.stringify(v))).catch(e=>{console.error(e.message);process.exit(1)});",
-  ].join('');
-  const result = spawn(
-    'docker',
-    [
-      'exec',
-      '-i',
-      '-e',
-      'MINMAX_VERIFY_API_KEY',
-      options.n8nContainer,
-      'node',
-      '-',
-      options.containerBaseUrl,
-    ],
-    {
-      encoding: 'utf8',
-      env: {
-        ...process.env,
-        MINMAX_VERIFY_API_KEY: options.apiKey,
-      },
-      input: probeCode,
-    }
-  );
-  if (result.status !== 0) {
-    throw new Error(
-      `Probe из контейнера ${options.n8nContainer} не выполнен: ` +
-      `${bodyPreview(result.stderr)}`
-    );
-  }
+  const runProbe = dependencies.runTrackedContainerProbe ||
+    runTrackedContainerProbe;
+  const result = runProbe({
+    container: options.n8nContainer,
+    hostPath: N8N_BACKEND_PROBE_PATH,
+    containerPath: N8N_BACKEND_CONTAINER_PATH,
+    environment: {
+      MINMAX_VERIFY_API_KEY: options.apiKey,
+      MINMAX_PROBE_BASE_URL: options.containerBaseUrl,
+    },
+  }, {
+    spawn: dependencies.spawn || spawnSync,
+  });
   const responses = JSON.parse(result.stdout);
   for (const item of responses) {
     const parsed = {
