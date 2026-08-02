@@ -23,8 +23,20 @@ function decodeQuotedPrintable(buffer) {
   return Buffer.from(bytes);
 }
 
+function unfoldHeaderValue(value) {
+  return String(value || '').replace(/\r?\n[ \t]+/g, ' ');
+}
+
+function decodeRawUtf8(value) {
+  const bytes = Buffer.from(String(value || ''), 'latin1');
+  const decoded = bytes.toString('utf8');
+  return decoded.includes('\ufffd') ? String(value || '') : decoded;
+}
+
 function decodeEncodedWords(value) {
-  return String(value || '').replace(
+  const unfolded = unfoldHeaderValue(value);
+  const source = unfolded.includes('=?') ? unfolded : decodeRawUtf8(unfolded);
+  return source.replace(/(\?=)[ \t]+(?==\?)/g, '$1').replace(
     /=\?([^?]+)\?([bqBQ])\?([^?]*)\?=/g,
     (_match, charset, encoding, content) => {
       let bytes;
@@ -37,6 +49,18 @@ function decodeEncodedWords(value) {
       return bytes.toString(normalized === 'iso-8859-1' ? 'latin1' : 'utf8');
     }
   );
+}
+
+function normalizeHeaderText(value) {
+  return unfoldHeaderValue(value).normalize('NFC').replace(/\s+/gu, ' ').trim();
+}
+
+function normalizeEmailAddress(value) {
+  const decoded = normalizeHeaderText(decodeEncodedWords(value));
+  const angleAddress = decoded.match(/<\s*([^<>]+?)\s*>/)?.[1] || '';
+  const source = angleAddress || decoded;
+  const email = source.match(/[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?(?:\.[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?)+/i)?.[0];
+  return String(email || source).replace(/^mailto:/i, '').trim().toLowerCase();
 }
 
 function parseHeaders(buffer) {
@@ -160,9 +184,12 @@ function parseMimeMessage(input) {
   const headers = parseHeaders(header);
   const attachments = [];
   collectParts(raw, attachments);
+  const from = normalizeHeaderText(decodeEncodedWords(headers.from || ''));
+  const subject = normalizeHeaderText(decodeEncodedWords(headers.subject || ''));
   return {
-    from: decodeEncodedWords(headers.from || ''),
-    subject: decodeEncodedWords(headers.subject || ''),
+    from,
+    sender: normalizeEmailAddress(from),
+    subject,
     date: headers.date || null,
     messageId: headers['message-id'] || null,
     attachments,
@@ -173,7 +200,10 @@ module.exports = {
   decodeEncodedWords,
   decodeQuotedPrintable,
   multipartParts,
+  normalizeEmailAddress,
+  normalizeHeaderText,
   parseHeaders,
   parseMimeMessage,
   parseStructuredHeader,
+  unfoldHeaderValue,
 };

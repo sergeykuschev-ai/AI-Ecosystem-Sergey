@@ -8,14 +8,18 @@ const { EventEmitter } = require('node:events');
 const { test } = require('node:test');
 
 const { loadConfig } = require('../config');
-const { healthPayload } = require('../health_server');
+const { eventForMessageUid, healthPayload } = require('../health_server');
 const {
   ImapClient,
   extractFetchedMessage,
   parseSearch,
   sinceDate,
 } = require('../imap_client');
-const { parseMimeMessage } = require('../mime_parser');
+const {
+  normalizeEmailAddress,
+  normalizeHeaderText,
+  parseMimeMessage,
+} = require('../mime_parser');
 const { NotificationMailer } = require('../notification_mailer');
 const {
   PurchasingClient,
@@ -25,11 +29,14 @@ const {
   MinmaxMailWorker,
   buildIdempotencyKey,
   evaluateMessage,
+  filterDiagnostics,
 } = require('../worker');
 const {
   productionConfig,
   redact,
+  verifyDeliveredMessage,
 } = require('../../../scripts/arthur/minmax-direct-production-check');
+const { buildExcelMessage } = require('../../../scripts/arthur/minmax-mail-protocol');
 
 const ROOT = path.resolve(__dirname, '../../..');
 const XLSX = Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.from('fixture')]);
@@ -63,9 +70,12 @@ function mime(options = {}) {
     content: options.content || XLSX,
     encoding: options.encoding || 'base64',
   }];
+  const subjectLines = options.subjectLines || [
+    `Subject: ${options.subject || 'Еженедельный MinMax report'}`,
+  ];
   const lines = [
     `From: ${options.from || 'Supplier <supplier@example.test>'}`,
-    `Subject: ${options.subject || 'Еженедельный MinMax report'}`,
+    ...subjectLines,
     'MIME-Version: 1.0',
     `Content-Type: multipart/mixed; boundary="${boundary}"`,
     '',
@@ -127,6 +137,35 @@ test('MIME parses quoted-printable attachment content', () => {
   assert.deepEqual(parsed.attachments[0].content, XLSX);
 });
 
+test('MIME normalizes display name, angle brackets and email case', () => {
+  const parsed = parseMimeMessage(mime({
+    from: 'Supplier Name <MAIL@Example.COM>',
+  }));
+  assert.equal(parsed.from, 'Supplier Name <MAIL@Example.COM>');
+  assert.equal(parsed.sender, 'mail@example.com');
+  assert.equal(normalizeEmailAddress('  MAIL@Example.COM  '), 'mail@example.com');
+});
+
+test('MIME decodes an encoded sender address', () => {
+  const encodedAddress = `=?UTF-8?B?${Buffer.from('MAIL@Example.COM').toString('base64')}?=`;
+  const parsed = parseMimeMessage(mime({ from: encodedAddress }));
+  assert.equal(parsed.sender, 'mail@example.com');
+});
+
+test('MIME unfolds and decodes UTF-8 encoded Subject with stable spaces', () => {
+  const first = `=?UTF-8?B?${Buffer.from('Еженедельный ').toString('base64')}?=`;
+  const second = `=?UTF-8?B?${Buffer.from('MinMax отчёт').toString('base64')}?=`;
+  const marker = 'minmax-direct-e2e-1720000000000-a1b2c3d4';
+  const parsed = parseMimeMessage(mime({
+    subjectLines: [`Subject: ${first}`, `\t${second}   ${marker}`],
+  }));
+  assert.equal(parsed.subject, `Еженедельный MinMax отчёт ${marker}`);
+  assert.equal(parseMimeMessage(mime({
+    subject: '  Прямой   UTF-8 отчёт  ',
+  })).subject, 'Прямой UTF-8 отчёт');
+  assert.equal(normalizeHeaderText('  Отчёт\t  MinMax  '), 'Отчёт MinMax');
+});
+
 test('filter covers attachment count, sender, subject, size and signature', () => {
   const cfg = config({ maxAttachmentBytes: 20 });
   const good = parseMimeMessage(mime());
@@ -145,6 +184,88 @@ test('filter covers attachment count, sender, subject, size and signature', () =
     'ATTACHMENT_TOO_LARGE');
   assert.equal(evaluateMessage({ ...good, attachments: [{ ...good.attachments[0], content: Buffer.from('not excel') }] }, cfg).reasonCode,
     'ATTACHMENT_SIGNATURE_INVALID');
+});
+
+test('production runner message marker passes filters while unrelated mail stays ignored', () => {
+  const marker = 'minmax-direct-e2e-1720000000000-a1b2c3d4';
+  const raw = Buffer.from(buildExcelMessage({
+    marker,
+    from: 'MAIL@Example.COM',
+    to: 'intake@example.test',
+    subject: marker,
+    fileName: `${marker}.xlsx`,
+    file: XLSX,
+    date: '2026-08-02T00:00:00.000Z',
+  }), 'utf8');
+  const expected = { allowedSender: 'mail@example.com', subjectPattern: marker };
+  const parsed = parseMimeMessage(raw);
+  assert.equal(evaluateMessage(parsed, config(expected)).outcome, 'process');
+  assert.deepEqual(verifyDeliveredMessage(raw, expected, marker), {
+    normalizedSender: 'mail@example.com',
+    expectedSender: 'mail@example.com',
+    normalizedSubject: marker,
+    expectedSubjectPattern: marker,
+    markerPresent: true,
+  });
+
+  const unrelated = parseMimeMessage(mime({
+    from: 'Other <other@example.test>',
+    subject: 'Ordinary supplier update',
+  }));
+  const decision = evaluateMessage(unrelated, config(expected));
+  assert.equal(decision.outcome, 'ignored');
+  assert.deepEqual(decision.reasonCodes, ['SENDER_NOT_ALLOWED', 'SUBJECT_MISMATCH']);
+  assert.deepEqual(filterDiagnostics(unrelated, config(expected)), {
+    normalizedSender: 'other@example.test',
+    expectedSender: 'mail@example.com',
+    normalizedSubject: 'Ordinary supplier update',
+    expectedSubjectPattern: marker,
+    markerPresent: false,
+  });
+});
+
+test('UID correlation finds the E2E event after a later ignored event', () => {
+  const state = {
+    lastEvent: { messageUid: '5904', status: 'ignored' },
+    recentEvents: [
+      { messageUid: '5903', status: 'completed', eventId: 'e2e-event' },
+      { messageUid: '5904', status: 'ignored', eventId: 'unrelated-event' },
+    ],
+  };
+  assert.deepEqual(eventForMessageUid(state, '5903'), {
+    messageUid: '5903', status: 'completed', eventId: 'e2e-event',
+  });
+  assert.equal(eventForMessageUid(state, '5999'), null);
+});
+
+test('ignored worker event exposes safe normalized filter diagnostics', async () => {
+  const harness = workerHarness();
+  const event = await harness.worker.processFetchedMessage({
+    uid: '5904',
+    raw: mime({
+      from: 'Unrelated <OTHER@Example.TEST>',
+      subject: '  Ordinary   update  ',
+    }),
+  });
+  assert.deepEqual({
+    status: event.status,
+    reasonCodes: event.reasonCodes,
+    normalizedSender: event.normalizedSender,
+    expectedSender: event.expectedSender,
+    normalizedSubject: event.normalizedSubject,
+    expectedSubjectPattern: event.expectedSubjectPattern,
+    markerPresent: event.markerPresent,
+  }, {
+    status: 'ignored',
+    reasonCodes: ['SENDER_NOT_ALLOWED', 'SUBJECT_MISMATCH'],
+    normalizedSender: 'other@example.test',
+    expectedSender: 'supplier@example.test',
+    normalizedSubject: 'Ordinary update',
+    expectedSubjectPattern: 'minmax report',
+    markerPresent: false,
+  });
+  assert.equal(JSON.stringify(event).includes('password'), false);
+  assert.equal(JSON.stringify(event).includes('api-token'), false);
 });
 
 test('idempotency key includes mailbox UID name size and full sha256', () => {

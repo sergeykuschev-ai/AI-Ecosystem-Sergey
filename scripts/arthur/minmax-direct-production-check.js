@@ -10,6 +10,11 @@ const {
   waitForMailboxText,
 } = require('./minmax-mail-protocol');
 const { loadConfig } = require('../../apps/minmax-mail-intake/config');
+const {
+  normalizeEmailAddress,
+  normalizeHeaderText,
+  parseMimeMessage,
+} = require('../../apps/minmax-mail-intake/mime_parser');
 
 const ROOT = path.resolve(__dirname, '../..');
 const BRANCH = 'feature/minmax-direct-imap-intake';
@@ -170,13 +175,35 @@ async function waitForHealth(expectedSha, timeoutMs, expectedFilters = null) {
   }, timeoutMs);
 }
 
-async function waitForEvent(match, timeoutMs) {
+async function waitForEvent(match, timeoutMs, messageUid = null) {
   return waitFor(async () => {
-    const result = await jsonRequest('http://127.0.0.1:3220/events/latest');
+    const query = messageUid ? `?messageUid=${encodeURIComponent(messageUid)}` : '';
+    const result = await jsonRequest(`http://127.0.0.1:3220/events/latest${query}`);
     const event = result.json?.event;
     if (result.status === 200 && event && match(event)) return event;
     return null;
   }, timeoutMs);
+}
+
+function verifyDeliveredMessage(raw, expectedFilters, marker) {
+  const parsed = parseMimeMessage(raw);
+  const diagnostics = {
+    normalizedSender: normalizeEmailAddress(parsed.sender || parsed.from),
+    expectedSender: normalizeEmailAddress(expectedFilters.allowedSender),
+    normalizedSubject: normalizeHeaderText(parsed.subject).slice(0, 500),
+    expectedSubjectPattern: normalizeHeaderText(expectedFilters.subjectPattern).slice(0, 500),
+    markerPresent: normalizeHeaderText(parsed.subject).toLowerCase().includes(
+      normalizeHeaderText(marker).toLowerCase()
+    ),
+  };
+  const senderMatches = diagnostics.normalizedSender === diagnostics.expectedSender;
+  const subjectMatches = diagnostics.normalizedSubject.toLowerCase().includes(
+    diagnostics.expectedSubjectPattern.toLowerCase()
+  );
+  if (!senderMatches || !subjectMatches || !diagnostics.markerPresent) {
+    throw new Error(`E2E MIME filter mismatch: ${JSON.stringify(diagnostics)}`);
+  }
+  return diagnostics;
 }
 
 function composeEnvironment(config, sha) {
@@ -269,6 +296,7 @@ async function runProductionCheck(config, dependencies = {}) {
     const filename = `${marker}.xlsx`;
     const workbook = fs.readFileSync(WORKBOOK);
     const workbookSha = crypto.createHash('sha256').update(workbook).digest('hex');
+    const sentAt = new Date().toISOString();
     await sendExcelMail({
       host: config.e2e.smtpHost,
       port: config.e2e.smtpPort,
@@ -284,9 +312,25 @@ async function runProductionCheck(config, dependencies = {}) {
     });
     logger.log(`[PASS] one E2E email sent; marker=${marker}`);
 
+    const delivered = await waitForMailboxText({
+      host: config.direct.imap.host,
+      port: config.direct.imap.port,
+      timeoutMs: config.e2e.timeoutMs,
+      pollIntervalMs: 3000,
+      user: config.direct.imap.user,
+      password: config.direct.imap.password,
+      mailbox: config.direct.imap.mailbox,
+      since: sentAt,
+      text: marker,
+    });
+    const mimeDiagnostics = verifyDeliveredMessage(delivered.raw, e2eFilters, marker);
+    logger.log(`[PASS] E2E MIME correlated; uid=${delivered.uid}; ${JSON.stringify(mimeDiagnostics)}`);
+
     const event = await waitForEvent(candidate =>
-      candidate.status === 'completed' && candidate.attachmentName === filename,
-    config.e2e.timeoutMs);
+      candidate.status === 'completed' &&
+      candidate.messageUid === delivered.uid &&
+      candidate.attachmentName === filename,
+    config.e2e.timeoutMs, delivered.uid);
     if (event.sourceArtifactSha256 !== workbookSha) {
       throw new Error('source artifact SHA differs from E2E workbook.');
     }
@@ -315,7 +359,7 @@ async function runProductionCheck(config, dependencies = {}) {
       candidate.runId === event.runId &&
       candidate.replay === true &&
       candidate.notificationSuppressed === true,
-    config.e2e.timeoutMs);
+    config.e2e.timeoutMs, delivered.uid);
     if (replay.runId !== event.runId) throw new Error('Restart replay created another run.');
     const afterRestartHealth = await jsonRequest('http://127.0.0.1:3220/health');
     if (Number(afterRestartHealth.json?.event_count || 0) <= beforeRestartEventCount) {
@@ -374,6 +418,7 @@ module.exports = {
   productionConfig,
   redact,
   runProductionCheck,
+  verifyDeliveredMessage,
   waitFor,
   waitForEvent,
   waitForHealth,

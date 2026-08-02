@@ -18,6 +18,7 @@ async function start(environment = process.env, dependencies = {}) {
     lastSuccessfulRunId: null,
     lastError: null,
     lastEvent: null,
+    recentEvents: [],
     eventCount: 0,
   };
   const worker = new MinmaxMailWorker({

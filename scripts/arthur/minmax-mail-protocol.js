@@ -206,11 +206,15 @@ async function waitForMailboxText(options, dependencies = {}) {
           tag,
           `UID FETCH ${uid} (BODY.PEEK[])`
         );
-        if (message.includes(Buffer.from(options.text, 'utf8')) ||
-            message.toString('latin1').includes(options.text)) {
+        const literal = message.toString('latin1').match(/\{(\d+)\}\r\n/);
+        if (!literal) continue;
+        const start = literal.index + literal[0].length;
+        const raw = message.subarray(start, start + Number(literal[1]));
+        if (raw.includes(Buffer.from(options.text, 'utf8')) ||
+            raw.toString('latin1').includes(options.text)) {
           const logoutTag = `A${String(commandNumber).padStart(3, '0')}`;
           await imapCommand(socket, logoutTag, 'LOGOUT').catch(() => {});
-          return { found: true, uid };
+          return { found: true, uid, raw };
         }
       }
       const logoutTag = `A${String(commandNumber).padStart(3, '0')}`;

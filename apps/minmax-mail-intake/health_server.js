@@ -19,6 +19,14 @@ function healthPayload(config, state) {
   };
 }
 
+function eventForMessageUid(state, messageUid) {
+  if (!messageUid) return state.lastEvent;
+  const events = Array.isArray(state.recentEvents) ? state.recentEvents : [];
+  return [...events].reverse().find(candidate =>
+    String(candidate.messageUid) === String(messageUid)
+  ) || null;
+}
+
 function createHealthServer(config, state) {
   return http.createServer((request, response) => {
     const url = new URL(request.url, 'http://localhost');
@@ -27,9 +35,11 @@ function createHealthServer(config, state) {
       response.end(JSON.stringify({ error: { code: 'ROUTE_NOT_FOUND' } }));
       return;
     }
+    const messageUid = url.searchParams.get('messageUid');
+    const event = eventForMessageUid(state, messageUid);
     const body = url.pathname === '/health'
       ? healthPayload(config, state)
-      : { event: state.lastEvent };
+      : { event };
     response.writeHead(200, {
       'content-type': 'application/json; charset=utf-8',
       'cache-control': 'no-store',
@@ -38,4 +48,4 @@ function createHealthServer(config, state) {
   });
 }
 
-module.exports = { createHealthServer, healthPayload };
+module.exports = { createHealthServer, eventForMessageUid, healthPayload };

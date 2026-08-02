@@ -2,7 +2,11 @@
 
 const crypto = require('node:crypto');
 
-const { parseMimeMessage } = require('./mime_parser');
+const {
+  normalizeEmailAddress,
+  normalizeHeaderText,
+  parseMimeMessage,
+} = require('./mime_parser');
 
 function sanitizeKeyPart(value) {
   return String(value ?? '')
@@ -27,8 +31,21 @@ function buildIdempotencyKey(input) {
 }
 
 function senderAddress(value) {
-  const text = String(value || '').trim().toLowerCase();
-  return text.match(/<([^<>]+)>/)?.[1]?.trim() || text;
+  return normalizeEmailAddress(value);
+}
+
+function filterDiagnostics(message, config) {
+  const normalizedSender = normalizeEmailAddress(message.from || message.sender);
+  const expectedSender = normalizeEmailAddress(config.allowedSender);
+  const normalizedSubject = normalizeHeaderText(message.subject).slice(0, 500);
+  const expectedSubjectPattern = normalizeHeaderText(config.subjectPattern).slice(0, 500);
+  return {
+    normalizedSender,
+    expectedSender,
+    normalizedSubject,
+    expectedSubjectPattern,
+    markerPresent: /\bminmax-direct-e2e-\d+-[a-z0-9]+\b/i.test(normalizedSubject),
+  };
 }
 
 function excelSignature(content, filename) {
@@ -45,11 +62,23 @@ function excelSignature(content, filename) {
 }
 
 function evaluateMessage(message, config) {
-  if (senderAddress(message.from) !== config.allowedSender) {
-    return { outcome: 'ignored', reasonCode: 'SENDER_NOT_ALLOWED' };
+  const diagnostics = filterDiagnostics(message, config);
+  const reasonCodes = [];
+  if (diagnostics.normalizedSender !== diagnostics.expectedSender) {
+    reasonCodes.push('SENDER_NOT_ALLOWED');
   }
-  if (!String(message.subject).toLowerCase().includes(config.subjectPattern)) {
-    return { outcome: 'ignored', reasonCode: 'SUBJECT_MISMATCH' };
+  if (!diagnostics.normalizedSubject.toLowerCase().includes(
+    diagnostics.expectedSubjectPattern.toLowerCase()
+  )) {
+    reasonCodes.push('SUBJECT_MISMATCH');
+  }
+  if (reasonCodes.length) {
+    return {
+      outcome: 'ignored',
+      reasonCode: reasonCodes[0],
+      reasonCodes,
+      diagnostics,
+    };
   }
   if (message.attachments.length === 0) {
     return { outcome: 'rejected', reasonCode: 'NO_ATTACHMENT' };
@@ -106,6 +135,15 @@ class MinmaxMailWorker {
     this.logger[method](record);
   }
 
+  recordEvent(event) {
+    this.state.lastEvent = event;
+    if (!Array.isArray(this.state.recentEvents)) this.state.recentEvents = [];
+    this.state.recentEvents.push(event);
+    if (this.state.recentEvents.length > 200) {
+      this.state.recentEvents.splice(0, this.state.recentEvents.length - 200);
+    }
+  }
+
   async notifyOnce(record, context) {
     if (record?.notification_sent_at) return { sent: false, suppressed: true };
     await this.mailer.sendCompleted(context);
@@ -146,8 +184,14 @@ class MinmaxMailWorker {
       const decision = evaluateMessage(message, this.config);
       if (decision.outcome === 'ignored') {
         this.handledUids.add(String(fetched.uid));
-        const event = { ...baseEvent, status: 'ignored', reasonCode: decision.reasonCode };
-        this.state.lastEvent = event;
+        const event = {
+          ...baseEvent,
+          status: 'ignored',
+          reasonCode: decision.reasonCode,
+          reasonCodes: decision.reasonCodes,
+          ...decision.diagnostics,
+        };
+        this.recordEvent(event);
         this.log('log', event);
         return event;
       }
@@ -184,7 +228,7 @@ class MinmaxMailWorker {
           status: 'rejected',
           reasonCode: decision.reasonCode,
         };
-        this.state.lastEvent = event;
+        this.recordEvent(event);
         this.handledUids.add(String(fetched.uid));
         this.log('warn', event);
         return event;
@@ -228,7 +272,7 @@ class MinmaxMailWorker {
       this.state.lastProcessedUid = String(fetched.uid);
       this.state.lastSuccessfulRunId = result.runId;
       this.state.lastError = null;
-      this.state.lastEvent = event;
+      this.recordEvent(event);
       this.state.eventCount += 1;
       this.handledUids.add(String(fetched.uid));
       this.log('log', event);
@@ -237,7 +281,7 @@ class MinmaxMailWorker {
       const safe = safeError(error);
       const event = { ...baseEvent, status: 'failed', error: safe };
       this.state.lastError = safe;
-      this.state.lastEvent = event;
+      this.recordEvent(event);
       this.state.eventCount += 1;
       this.log('error', event);
       throw error;
@@ -295,6 +339,7 @@ module.exports = {
   buildIdempotencyKey,
   evaluateMessage,
   excelSignature,
+  filterDiagnostics,
   safeError,
   sanitizeKeyPart,
   senderAddress,
