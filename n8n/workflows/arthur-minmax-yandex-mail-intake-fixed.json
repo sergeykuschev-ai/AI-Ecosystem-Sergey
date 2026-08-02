@@ -158,6 +158,9 @@
         1240,
         300
       ],
+      "retryOnFail": true,
+      "maxRetries": 3,
+      "waitBetweenRetries": 5000,
       "credentials": {
         "httpHeaderAuth": {
           "id": "REPLACE_IN_N8N",

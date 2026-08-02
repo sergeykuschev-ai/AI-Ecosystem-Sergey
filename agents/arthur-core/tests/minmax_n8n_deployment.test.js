@@ -9,6 +9,7 @@ const {
   DEFAULT_WORKFLOW_ID,
   NODE_PUBLIC_API_WRITABLE_FIELDS,
   N8nApiClient,
+  bindFixedRuntimeConfig,
   canonicalizeWorkflowForComparison,
   deployWorkflow,
   deploymentConfig,
@@ -624,6 +625,25 @@ test('deployment config identifies N88N credential variable typo', () => {
       error.message.includes('Possible typo detected') &&
       error.message.includes('N88N_ARTHUR_CREDENTIAL_ID')
   );
+});
+
+test('production runtime values are bound without mutating repository workflow', () => {
+  const source = readRepositoryWorkflow();
+  const configNode = source.nodes.find(node => node.id === 'minmax-fixed-config');
+  const originalCode = configNode.parameters.jsCode;
+  const bound = bindFixedRuntimeConfig(source, {
+    apiBaseUrl: 'http://host.docker.internal:3210',
+    ownerUiBaseUrl: 'http://arthur-server:3210',
+    notifyTo: 'owner@example.test',
+    notifyFrom: 'robot@example.test',
+  });
+  const code = bound.nodes.find(node => node.id === 'minmax-fixed-config')
+    .parameters.jsCode;
+
+  assert.match(code, /ownerUiBaseUrl: "http:\/\/arthur-server:3210"/);
+  assert.match(code, /notifyTo: "owner@example\.test"/);
+  assert.match(code, /notifyFrom: "robot@example\.test"/);
+  assert.equal(configNode.parameters.jsCode, originalCode);
 });
 
 function bindForComparison(repositoryWorkflow) {

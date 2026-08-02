@@ -92,9 +92,10 @@ Workflow `Arthur — MinMax Yandex Mail Intake (Fixed Config)` полность�
 - SMTP/IMAP credentials: существующие `MinMax Yandex SMTP` и
   `MinMax Yandex IMAP`.
 
-Все несекретные параметры находятся только в Code-ноде
-`Конфигурация MinMax`. Перед production-активацией замените
-`http://<SERVER-IP>:3210` в `ownerUiBaseUrl` на адрес, доступный владельцу.
+Все несекретные параметры находятся в Code-ноде `Конфигурация MinMax`.
+Production deploy автоматически подставляет доступный владельцу
+`MINMAX_OWNER_UI_BASE_URL`, адрес уведомления и SMTP From; открывать и
+редактировать ноду вручную не нужно.
 Пустые `allowedSender` и `subjectPattern` отключают соответствующие фильтры;
 после определения стабильного отправителя и темы их рекомендуется заполнить.
 Пароли и API-токен в конфигурационную ноду не добавляются: они остаются в
@@ -191,7 +192,7 @@ API key n8n должен иметь scopes для чтения, создания
 публикации/деактивации и архивации workflows. IDs credentials берутся из env;
 значения credentials и секреты через API не читаются и в JSON не записываются.
 
-Одна PowerShell-команда обновления и публикации:
+Низкоуровневая команда обновления и публикации:
 
 ```powershell
 $env:N8N_BASE_URL='https://<N8N-HOST>'; $env:N8N_API_KEY='<N8N-API-KEY>'; $env:N8N_MINMAX_WORKFLOW_ID='minmaxYandexIntakeFixed01'; $env:N8N_ARTHUR_CREDENTIAL_ID='<ARTHUR-CORE-API-CREDENTIAL-ID>'; $env:N8N_MINMAX_IMAP_CREDENTIAL_ID='<IMAP-CREDENTIAL-ID>'; $env:N8N_MINMAX_SMTP_CREDENTIAL_ID='<SMTP-CREDENTIAL-ID>'; npm run arthur:minmax:deploy
@@ -251,6 +252,9 @@ generated metadata только если соответствующая repo-н�
 сохранённый ответ n8n; исключение действует только внутри verifier.
 
 Успешный deploy заканчивается собственным verify и не требует кликов в UI.
+Если заданы `MINMAX_OWNER_UI_BASE_URL`, `MINMAX_NOTIFY_EMAIL` и
+`MINMAX_SMTP_FROM`, deploy подставляет их в Fixed Config до сохранения и
+проверяет именно это production-представление в draft и active version.
 
 ### Автоматическая проверка упавшего execution
 
@@ -282,44 +286,55 @@ execution. Inspector показывает их, если `cause` сохрани�
 npm run arthur:minmax:deploy:check -- --execution-id 272
 ```
 
-## Запуск Purchasing backend на Windows
+## Постоянный backend и единая production-проверка
 
-Из корня актуальной ветки репозитория в PowerShell:
+Production backend описан в
+`docker/purchasing-web-backend/compose.yml`. Контейнер публикует порт `3210`,
+имеет healthcheck и `restart: unless-stopped`. Каталоги `output/` и
+`data/purchasing/` подключены с Windows-хоста, поэтому runs, source artifacts,
+реестр идемпотентности и решения владельца переживают rebuild/restart.
+Закрытие PowerShell не останавливает backend.
 
-```powershell
-$env:PURCHASING_WEB_HOST='0.0.0.0'; $env:PURCHASING_WEB_PORT='3210'; $env:PURCHASING_API_TOKEN='minmax-server-2026'; $env:PURCHASING_BUILD_SHA=(git rev-parse --short HEAD); npm run purchasing:web
-```
-
-Значение `PURCHASING_API_TOKEN` должно совпадать со значением Header Auth
-credential `Arthur Core API`. Привязка к `0.0.0.0` нужна для обращения из
-Docker через `host.docker.internal` и разрешена backend только при заданном
-API-токене.
-
-## Автоматическая диагностика Windows ↔ n8n
-
-После запуска backend выполните из корня того же checkout:
+Перед первым запуском задаются только секреты:
 
 ```powershell
-$env:PURCHASING_API_TOKEN='minmax-server-2026'; npm run purchasing:minmax:verify -- --base-url http://127.0.0.1:3210 --expected-sha (git rev-parse --short HEAD) --n8n-container <N8N-CONTAINER-NAME>
+$env:N8N_API_KEY='<N8N-API-KEY>'
+$env:PURCHASING_API_TOKEN='<VALUE-OF-ARTHUR-CORE-API-CREDENTIAL>'
+$env:MINMAX_E2E_MAIL_USER='<YANDEX-MAIL-LOGIN>'
+$env:MINMAX_E2E_MAIL_PASSWORD='<YANDEX-APP-PASSWORD>'
 ```
 
-Диагностика:
+Затем используется одна команда:
 
-- на Windows показывает PID, имя и command line единственного listener порта
-  `3210`;
-- сравнивает локальный Git HEAD с `build_sha` запущенного backend;
-- выводит status, `Content-Type` и безопасный фрагмент body для health и всех
-  четырёх `upload-idempotency` endpoint'ов;
-- проверяет запросы без токена, с `Authorization: Bearer` и с `x-api-key`;
-- повторяет health-проверку непосредственно из указанного n8n-контейнера через
-  `host.docker.internal:3210`;
-- завершается `[PASS]` только для `application/json`, правильного контракта,
-  правильного build SHA и успешного `x-api-key`.
+```powershell
+npm run arthur:minmax:production-check
+```
 
-Если запрос с Windows проходит, а container probe возвращает HTML, text,
-пустой body или другой build SHA, `host.docker.internal:3210` ведёт не в этот
-процесс. Остановите обнаруженный старый listener и перезапустите backend из
-актуального checkout; изменение Response Format в n8n такую ошибку не лечит.
+По умолчанию используются production IDs из текущего контура, локальный n8n
+`http://127.0.0.1:5678`, контейнер `n8n`, Yandex SMTP `465` и IMAP `993`.
+`MINMAX_OWNER_UI_BASE_URL` необязателен: runner использует Windows hostname и
+порт `3210`; его можно задать явно, если владелец открывает UI по другому
+LAN/DNS адресу. Значения credentials API не читаются и не печатаются.
+
+Команда автоматически:
+
+- проверяет ветку и SHA, строит/запускает Docker service и реально перезапускает
+  контейнер для проверки restart;
+- проверяет health с Windows и из контейнера n8n, JSON 404/200/401 и настоящий
+  `connection refused`;
+- инспектирует execution 272 с фактическим runData и точным container replay;
+- deploy/publish/verify workflow, activeVersion, metadata трёх credentials и
+  отсутствие активного дубля;
+- отправляет через Yandex SMTP уникальное письмо с одним synthetic Excel,
+  ждёт IMAP trigger и единственный execution, completed run и отметку
+  notification;
+- проверяет исходный Excel artifact, получение уведомления через IMAP,
+  открытие Owner Review deep link и multipart replay без второго run;
+- запускает полный `npm test` и печатает один итоговый `[RESULT] PASS` либо
+  `[RESULT] FAIL <точная причина>`.
+
+Если любой этап не подтверждён, команда завершается `FAIL`; частично зелёные
+локальные проверки не считаются end-to-end успехом.
 
 ## Защита API
 

@@ -185,6 +185,29 @@ function computedRegistryRequest(execution) {
     accept: (node.parameters?.headerParameters?.parameters || []).find(
       header => String(header.name).toLowerCase() === 'accept'
     )?.value || null,
+    nodeContract: {
+      urlExpression: node.parameters?.url || null,
+      sendHeaders: node.parameters?.sendHeaders === true,
+      authentication: node.parameters?.authentication || null,
+      genericAuthType: node.parameters?.genericAuthType || null,
+      neverError:
+        node.parameters?.options?.response?.response?.neverError === true,
+      fullResponse:
+        node.parameters?.options?.response?.response?.fullResponse ?? false,
+      includeHeaders:
+        node.parameters?.options?.response?.response
+          ?.includeResponseHeaders ?? false,
+      retryOnFail: node.retryOnFail === true,
+      maxTries: node.maxTries ?? node.maxRetries ?? 1,
+      waitBetweenTries:
+        node.waitBetweenTries ?? node.waitBetweenRetries ?? 0,
+      followRedirects:
+        node.parameters?.options?.redirect?.redirect?.followRedirects ?? true,
+      maxRedirects:
+        node.parameters?.options?.redirect?.redirect?.maxRedirects ?? null,
+      encoding: node.parameters?.options?.encoding || 'utf8',
+      timeout: node.parameters?.options?.timeout ?? null,
+    },
   };
 }
 
@@ -359,6 +382,11 @@ async function inspectExecution(options, dependencies = {}) {
 
 function printInspection(result, logger = console, secrets = []) {
   const { classification, request, credential, evidence, replay } = result;
+  logger.log(
+    `[INFO] execution id=${result.execution.id}; ` +
+    `workflowId=${result.execution.workflowId}; ` +
+    `status=${result.execution.status || '(missing)'}`
+  );
   logger.log(`[INFO] execution mode=${classification.mode}`);
   logger.log(
     `[INFO] execution versionId=${classification.versionId}; ` +
@@ -371,6 +399,9 @@ function printInspection(result, logger = console, secrets = []) {
     `autosaveLabel=${classification.isAutosaveLabel}`
   );
   logger.log(`[INFO] computed URL=${request.url}`);
+  logger.log(`[INFO] idempotency key=${request.idempotencyKey}`);
+  logger.log(`[INFO] input source node=${request.previousNode}`);
+  logger.log(`[INFO] executed node contract=${JSON.stringify(request.nodeContract)}`);
   logger.log(
     `[INFO] credential id=${credential.id}; type=${credential.type}; ` +
     `name=${credential.name}`
@@ -386,6 +417,15 @@ function printInspection(result, logger = console, secrets = []) {
     safeBodyPreview(replay.body, secrets)
   );
   logger.log(`[INFO] execution error=${evidence.errorMessage || '(none)'}`);
+  logger.log(
+    `[INFO] execution description=${evidence.errorDescription || '(none)'}; ` +
+    `cause=${safeBodyPreview(
+      typeof evidence.underlyingCause === 'string'
+        ? evidence.underlyingCause
+        : JSON.stringify(evidence.underlyingCause || ''),
+      secrets
+    ) || '(none)'}`
+  );
   logger.log(`[RESULT] exact cause=${result.cause}`);
   if (!/^application\/json(?:;|$)/i.test(replay.contentType) || replay.json === null) {
     throw new Error('Exact container replay is not a JSON response.');

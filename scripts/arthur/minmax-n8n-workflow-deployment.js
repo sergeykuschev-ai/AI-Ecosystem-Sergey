@@ -11,6 +11,7 @@ const DEFAULT_WORKFLOW_PATH = path.join(
 );
 const DEFAULT_WORKFLOW_ID = 'minmaxYandexIntakeFixed01';
 const WORKFLOW_NAME = 'Arthur — MinMax Yandex Mail Intake (Fixed Config)';
+const FIXED_CONFIG_NODE_ID = 'minmax-fixed-config';
 const HTTP_NODE_IDS = Object.freeze([
   'register-ignored',
   'check-registry',
@@ -108,6 +109,14 @@ function deploymentConfig(environment = process.env) {
         environment
       ),
     },
+    runtimeConfig: {
+      apiBaseUrl: environment.MINMAX_API_BASE_URL,
+      ownerUiBaseUrl: environment.MINMAX_OWNER_UI_BASE_URL,
+      notifyTo: environment.MINMAX_NOTIFY_EMAIL,
+      notifyFrom: environment.MINMAX_SMTP_FROM,
+      allowedSender: environment.MINMAX_ALLOWED_SENDER,
+      subjectPattern: environment.MINMAX_SUBJECT_PATTERN,
+    },
   };
 }
 
@@ -153,6 +162,27 @@ function bindCredentials(workflow, credentials) {
       node.credentials.smtp.id = credentials.smtp;
     }
   }
+  return bound;
+}
+
+function bindFixedRuntimeConfig(workflow, runtimeConfig = {}) {
+  const bound = structuredClone(workflow);
+  const node = (bound.nodes || []).find(candidate =>
+    candidate.id === FIXED_CONFIG_NODE_ID
+  );
+  if (!node) throw new Error('Fixed MinMax configuration node is missing.');
+  let code = String(node.parameters?.jsCode || '');
+  for (const [field, rawValue] of Object.entries(runtimeConfig || {})) {
+    if (rawValue === undefined || rawValue === null) continue;
+    const value = String(rawValue).trim();
+    if (!value) continue;
+    const expression = new RegExp(`(\\b${field}:\\s*)('[^']*'|"[^"]*")`);
+    if (!expression.test(code)) {
+      throw new Error(`Fixed MinMax config field ${field} is missing.`);
+    }
+    code = code.replace(expression, `$1${JSON.stringify(value)}`);
+  }
+  node.parameters.jsCode = code;
   return bound;
 }
 
@@ -832,8 +862,10 @@ function verificationIssues(
 
 async function verifyDeployedWorkflow(options) {
   const client = options.client || new N8nApiClient(options);
-  const repositoryWorkflow = options.repositoryWorkflow ||
-    readRepositoryWorkflow(options.workflowPath);
+  const repositoryWorkflow = bindFixedRuntimeConfig(
+    options.repositoryWorkflow || readRepositoryWorkflow(options.workflowPath),
+    options.runtimeConfig
+  );
   const expectedPayload = workflowPayload(
     repositoryWorkflow,
     options.credentials
@@ -885,8 +917,10 @@ async function verifyDeployedWorkflow(options) {
 
 async function deployWorkflow(options) {
   const client = options.client || new N8nApiClient(options);
-  const repositoryWorkflow = options.repositoryWorkflow ||
-    readRepositoryWorkflow(options.workflowPath);
+  const repositoryWorkflow = bindFixedRuntimeConfig(
+    options.repositoryWorkflow || readRepositoryWorkflow(options.workflowPath),
+    options.runtimeConfig
+  );
   const payload = workflowPayload(repositoryWorkflow, options.credentials);
   const contract = inspectHttpNodes(
     payload,
@@ -940,6 +974,7 @@ async function deployWorkflow(options) {
     ...options,
     client,
     repositoryWorkflow,
+    runtimeConfig: undefined,
     workflowId,
   });
   return {
@@ -1004,6 +1039,7 @@ module.exports = {
   WORKFLOW_NAME,
   activeStructure,
   bindCredentials,
+  bindFixedRuntimeConfig,
   canonicalizeWorkflowForComparison,
   checkRegistrySummary,
   deployWorkflow,
