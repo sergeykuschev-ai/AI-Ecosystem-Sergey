@@ -51,7 +51,11 @@ function putDecision(runId, rowId, decision, quantity) {
     {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ decision, quantity }),
+      body: JSON.stringify({
+        decision,
+        quantity,
+        reasonCode: 'MANUAL_EXPERIENCE',
+      }),
     }
   );
 }

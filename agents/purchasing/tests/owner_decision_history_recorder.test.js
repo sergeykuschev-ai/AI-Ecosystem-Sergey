@@ -57,6 +57,7 @@ function recorderInput(overrides = {}) {
     ownerDecision: {
       decision: 'SKIP',
       quantity: 0,
+      decidedBy: 'owner-web-ui',
       reasonCode: 'TOO_MUCH_STOCK',
       comment: 'Запаса достаточно.',
     },
@@ -103,6 +104,7 @@ test('records an OWNER_REVIEW event', () => {
   assert.equal(history.entries[0].source, 'OWNER_REVIEW');
   assert.equal(history.entries[0].agentRecommendation, 'BUY');
   assert.equal(history.entries[0].ownerDecision, 'SKIP');
+  assert.equal(history.entries[0].decidedBy, 'owner-web-ui');
 });
 
 test('records an APPROVED_RULE event with rule context', () => {

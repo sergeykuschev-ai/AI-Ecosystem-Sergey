@@ -43,6 +43,7 @@ function entry(sequence, overrides = {}) {
     agentQuantity: 5,
     ownerDecision: sequence % 2 === 0 ? 'BUY' : 'SKIP',
     ownerQuantity: sequence % 2 === 0 ? 5 : 0,
+    decidedBy: 'owner-web-ui',
     reasonCode: sequence % 2 === 0 ? 'OTHER' : 'LOW_SALES',
     ownerComment: '<script>private</script>',
     ruleId: null,
@@ -110,9 +111,29 @@ test('analytics endpoint returns compact AVAILABLE data', async () => {
   assert.equal(result.body.api_version, 'v1');
   assert.equal(result.body.data.status, 'AVAILABLE');
   assert.equal(result.body.data.data.population.totalEntries, 12);
+  assert.equal(result.body.data.data.decisionHistory.length, 12);
+  assert.equal(
+    result.body.data.data.decisionHistory[0].decidedBy,
+    'owner-web-ui'
+  );
+  assert.equal(
+    result.body.data.data.decisionHistory[0].ownerComment,
+    '<script>private</script>'
+  );
+  assert.equal(
+    result.body.data.data.itemAnalytics[0].latestOwnerDecision,
+    'BUY'
+  );
+  assert.equal(
+    result.body.data.data.itemAnalytics[0].latestReasonCode,
+    'OTHER'
+  );
+  assert.equal(
+    result.body.data.data.itemAnalytics[0].latestOwnerComment,
+    '<script>private</script>'
+  );
   const serialized = JSON.stringify(result.body);
   for (const forbidden of [
-    'ownerComment',
     'metadata',
     'decisionId',
     'evidenceDecisionIds',

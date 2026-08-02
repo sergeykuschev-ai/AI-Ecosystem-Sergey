@@ -186,6 +186,8 @@ function mapPurchasingItems(bundle) {
         decided_at: null,
         decided_by: null,
         reason: matrix.owner_decision_summary || null,
+        reason_code: null,
+        comment: null,
       },
     };
   });

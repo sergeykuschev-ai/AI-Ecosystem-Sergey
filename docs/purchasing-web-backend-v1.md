@@ -214,6 +214,51 @@ curl 'http://127.0.0.1:3210/api/v1/runs/REPLACE_WITH_RUN_ID/owner-review?section
 A red Owner Review status means that a commercial owner decision is required.
 It is a business status, not an HTTP failure or technical backend error.
 
+Manual item decisions are saved with:
+
+`PUT /api/v1/runs/:runId/items/:itemId/decision`
+
+```json
+{
+  "decision": "BUY",
+  "quantity": 7,
+  "reasonCode": "CUSTOMER_REQUEST",
+  "comment": "Заказ подтверждён клиентом."
+}
+```
+
+`decision` is `BUY`, `SKIP`, or `DEFER`. `quantity` is used for `BUY`,
+normalized to `0` for `SKIP`, and normalized to `null` for `DEFER`.
+The current Owner Review UI requires `reasonCode` before it sends a manual
+decision. For backward compatibility, this existing v1 endpoint still accepts
+a legacy request in which the `reasonCode` property is omitted. Such a request
+is stored with `reason_code: null` in Owner Decisions Memory and
+`NOT_SPECIFIED` in Owner Decision History. If the property is present, it must
+contain one of the fixed codes below; explicit `null`, an unknown value, or a
+localized label is rejected. `comment` is limited to 1000 characters and is
+required when `reasonCode` is `OTHER`.
+
+The fixed Owner Review reason codes are:
+
+- `HIGH_STOCK`, `LOW_DEMAND`, `SEASONAL`, `MANDATORY`;
+- `NEW_PRODUCT`, `CUSTOMER_REQUEST`, `TEST_PRODUCT`;
+- `MINMAX_ERROR`, `POLICY_ERROR`;
+- `ALREADY_ORDERED`, `WAIT_NEXT_DELIVERY`;
+- `SUPPLIER_LIMITATION`, `PRICE_TOO_HIGH`, `LOW_MARGIN`;
+- `MANUAL_EXPERIENCE`, `OTHER`.
+
+The existing Owner Decisions Memory remains authoritative for the latest
+active manual choice. The existing Owner Decision History additionally stores
+the run, SKU, decision, normalized quantity, reason code, optional comment,
+server-side owner identity, and decision time. No policy, matrix role, Min/Max,
+purchase hold, or final-order rule is learned or changed from these fields.
+The Owner Learning Center exposes the allowlisted event history read-only.
+The two existing files remain the only journals:
+`data/purchasing/miska-owner-decisions.json` and
+`data/purchasing/owner-decision-history.json`. Reading a page or report never
+appends an event; only a successfully validated decision does. Legacy records
+without `reason_code` remain readable and do not change FinalOrderState.
+
 ### Materialized rule status
 
 The management flow always targets one rule and has two steps:

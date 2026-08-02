@@ -6,6 +6,7 @@ const { afterEach, test } = require('node:test');
 
 const {
   HISTORY_SCHEMA_VERSION,
+  OWNER_REVIEW_REASON_CODES,
   OwnerDecisionHistoryError,
   appendDecisionHistoryEntry,
   createDecisionHistoryEntry,
@@ -49,6 +50,7 @@ function entryInput(overrides = {}) {
     agentQuantity: 5,
     ownerDecision: 'SKIP',
     ownerQuantity: 0,
+    decidedBy: 'owner-web-ui',
     reasonCode: 'TOO_MUCH_STOCK',
     ownerComment: 'Запаса достаточно.',
     ruleId: null,
@@ -96,6 +98,7 @@ test('creates a complete normalized decision history entry', () => {
   assert.equal(entry.agentRecommendation, 'BUY');
   assert.equal(entry.ownerDecision, 'SKIP');
   assert.equal(entry.reasonCode, 'TOO_MUCH_STOCK');
+  assert.equal(entry.decidedBy, 'owner-web-ui');
   assert.equal(entry.financialContext.currency, 'RUB');
   assert.equal(entry.financialContext.financialStatus, 'APPROVED');
   assert.deepEqual(entry.metadata, {
@@ -122,6 +125,7 @@ test('normalizes every absent optional field consistently', () => {
     'agentRecommendation',
     'agentQuantity',
     'ownerQuantity',
+    'decidedBy',
     'ownerComment',
     'ruleId',
     'applicationMode',
@@ -151,15 +155,41 @@ test('normalizes every absent optional field consistently', () => {
   assert.deepEqual(entry.metadata, {});
 });
 
+test('exports the fixed Arthur Learning v1 reason codes', () => {
+  assert.deepEqual(OWNER_REVIEW_REASON_CODES, [
+    'HIGH_STOCK',
+    'LOW_DEMAND',
+    'SEASONAL',
+    'MANDATORY',
+    'NEW_PRODUCT',
+    'CUSTOMER_REQUEST',
+    'MINMAX_ERROR',
+    'POLICY_ERROR',
+    'ALREADY_ORDERED',
+    'WAIT_NEXT_DELIVERY',
+    'TEST_PRODUCT',
+    'SUPPLIER_LIMITATION',
+    'PRICE_TOO_HIGH',
+    'LOW_MARGIN',
+    'MANUAL_EXPERIENCE',
+    'OTHER',
+  ]);
+});
+
 test('decisionId is deterministic and changes for another event', () => {
   const first = createDecisionHistoryEntry(entryInput());
   const repeated = createDecisionHistoryEntry(entryInput());
   const later = createDecisionHistoryEntry(entryInput({
     recordedAt: '2026-07-24T11:00:00.000Z',
   }));
+  const anotherReason = createDecisionHistoryEntry(entryInput({
+    reasonCode: 'LOW_DEMAND',
+    ownerComment: 'Спрос снизился.',
+  }));
 
   assert.equal(repeated.decisionId, first.decisionId);
   assert.notEqual(later.decisionId, first.decisionId);
+  assert.notEqual(anotherReason.decisionId, first.decisionId);
 });
 
 test('appends the first entry to a new journal', () => {

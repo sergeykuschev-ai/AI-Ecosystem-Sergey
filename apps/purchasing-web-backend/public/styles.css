@@ -2479,6 +2479,10 @@ h2 {
 }
 
 .decision-controls input,
+.decision-controls select,
+.decision-controls textarea,
+.decision-confirm,
+.decision-cancel,
 .decision-action {
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -2486,6 +2490,44 @@ h2 {
   background: #fff;
   color: var(--text);
   font-size: 0.75rem;
+}
+
+.decision-learning-fields {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(220px, 1.5fr);
+  width: 100%;
+  gap: 6px;
+}
+
+.decision-learning-fields select,
+.decision-learning-fields textarea {
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+}
+
+.decision-confirmation-group {
+  display: flex;
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.decision-confirm,
+.decision-cancel {
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.decision-confirm {
+  border-color: #b9cec0;
+  background: var(--green-soft);
+  color: var(--green-dark);
+}
+
+.decision-learning-fields textarea {
+  min-height: 36px;
+  resize: vertical;
 }
 
 .decision-controls input {
@@ -2527,7 +2569,11 @@ h2 {
 }
 
 .decision-action:disabled,
-.decision-controls input:disabled {
+.decision-controls input:disabled,
+.decision-controls select:disabled,
+.decision-controls textarea:disabled,
+.decision-confirm:disabled,
+.decision-cancel:disabled {
   opacity: 0.58;
   cursor: wait;
 }
@@ -2801,6 +2847,10 @@ h2 {
 
   .decision-controls {
     max-width: 100%;
+  }
+
+  .decision-learning-fields {
+    grid-template-columns: 1fr;
   }
 
   .product-details-row {

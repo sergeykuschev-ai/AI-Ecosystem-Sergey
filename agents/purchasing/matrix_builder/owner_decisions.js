@@ -41,6 +41,18 @@ function nonEmptyString(value, field) {
   return value.trim();
 }
 
+function optionalString(value, field) {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== 'string') {
+    throw new OwnerDecisionError(
+      `${field} должен быть строкой.`,
+      'INVALID_OWNER_DECISION'
+    );
+  }
+  const normalized = value.trim();
+  return normalized === '' ? null : normalized;
+}
+
 function normalizeSku(value) {
   return nonEmptyString(String(value ?? ''), 'sku').toUpperCase();
 }
@@ -172,6 +184,10 @@ function validateOwnerDecision(value) {
     owner_order_quantity: optionalOrderQuantity(
       value.owner_order_quantity
     ),
+    run_id: optionalString(value.run_id, 'run_id'),
+    reason_code: optionalString(value.reason_code, 'reason_code')
+      ?.toUpperCase() || null,
+    comment: optionalString(value.comment, 'comment'),
     reason: nonEmptyString(value.reason, 'reason'),
     decided_at: isoTimestamp(value.decided_at),
     decided_by: nonEmptyString(value.decided_by, 'decided_by'),

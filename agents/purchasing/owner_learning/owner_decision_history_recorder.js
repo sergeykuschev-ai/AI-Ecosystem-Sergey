@@ -71,6 +71,7 @@ function recorderInput(input) {
     agentQuantity: agent.quantity ?? null,
     ownerDecision: owner.decision,
     ownerQuantity: owner.quantity ?? null,
+    decidedBy: owner.decidedBy ?? null,
     reasonCode: owner.reasonCode ?? 'NOT_SPECIFIED',
     ownerComment: owner.comment ?? null,
     ruleId: rule.ruleId ?? null,

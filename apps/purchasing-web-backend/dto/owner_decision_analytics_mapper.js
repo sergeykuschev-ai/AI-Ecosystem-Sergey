@@ -41,18 +41,7 @@ function mapGroup(value, keyName, extra = {}) {
       'DEFER',
       'REVIEW',
     ]),
-    reasonsByType: mapCounts(value?.reasonsByType, [
-      'TOO_MUCH_STOCK',
-      'LOW_SALES',
-      'STRATEGIC_ITEM',
-      'REQUIRED_ASSORTMENT',
-      'SEASONAL',
-      'SUPPLIER_CONSTRAINT',
-      'PRICE_TOO_HIGH',
-      'OWNER_EXPERIENCE',
-      'OTHER',
-      'NOT_SPECIFIED',
-    ]),
+    reasonsByType: mapCounts(value?.reasonsByType, REASON_CODES),
     agreements: value?.agreements ?? 0,
     disagreements: value?.disagreements ?? 0,
     agreementRate: nullableNumber(value?.agreementRate),
@@ -78,18 +67,7 @@ function mapItem(value = {}) {
       'DEFER',
       'REVIEW',
     ]),
-    reasonsByType: mapCounts(value.reasonsByType, [
-      'TOO_MUCH_STOCK',
-      'LOW_SALES',
-      'STRATEGIC_ITEM',
-      'REQUIRED_ASSORTMENT',
-      'SEASONAL',
-      'SUPPLIER_CONSTRAINT',
-      'PRICE_TOO_HIGH',
-      'OWNER_EXPERIENCE',
-      'OTHER',
-      'NOT_SPECIFIED',
-    ]),
+    reasonsByType: mapCounts(value.reasonsByType, REASON_CODES),
     agentRecommendationsByType: mapCounts(
       value.agentRecommendationsByType,
       ['BUY', 'SKIP', 'DEFER', 'UNKNOWN']
@@ -106,6 +84,10 @@ function mapItem(value = {}) {
     repeatedSameDecisionCount: value.repeatedSameDecisionCount ?? 0,
     dominantOwnerDecision: nullableText(value.dominantOwnerDecision),
     dominantReason: nullableText(value.dominantReason),
+    latestOwnerDecision: nullableText(value.latestOwnerDecision),
+    latestOwnerQuantity: nullableNumber(value.latestOwnerQuantity),
+    latestReasonCode: nullableText(value.latestReasonCode),
+    latestOwnerComment: nullableText(value.latestOwnerComment),
   };
 }
 
@@ -144,6 +126,18 @@ function mapAnalytics(analytics = {}) {
       'MANUAL_OVERRIDE',
       'IMPORTED_HISTORY',
     ]),
+    decisionHistory: (analytics.decisionHistory || []).map(item => ({
+      recordedAt: nullableText(item.recordedAt),
+      runId: nullableText(item.runId),
+      source: nullableText(item.source),
+      sku: nullableText(item.sku),
+      productName: nullableText(item.productName),
+      ownerDecision: nullableText(item.ownerDecision),
+      ownerQuantity: nullableNumber(item.ownerQuantity),
+      reasonCode: nullableText(item.reasonCode),
+      ownerComment: nullableText(item.ownerComment),
+      decidedBy: nullableText(item.decidedBy),
+    })),
     reasonDistribution: (analytics.reasonDistribution || []).map(item => ({
       reasonCode: nullableText(item.reasonCode),
       count: item.count ?? 0,
@@ -214,3 +208,8 @@ module.exports = {
   mapAnalytics,
   mapOwnerDecisionAnalytics,
 };
+const {
+  REASON_CODES,
+} = require(
+  '../../../agents/purchasing/owner_learning/owner_decision_history'
+);

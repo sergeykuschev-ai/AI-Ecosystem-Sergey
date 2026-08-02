@@ -33,6 +33,7 @@ function entry(sequence, overrides = {}) {
     agentQuantity: 5,
     ownerDecision: 'BUY',
     ownerQuantity: 5,
+    decidedBy: 'owner-web-ui',
     reasonCode: 'OTHER',
     ownerComment: 'Не раскрывать',
     ruleId: null,
@@ -84,7 +85,7 @@ test('returns AVAILABLE analytics for an absent or empty history', () => {
   assert.equal(empty.analytics.population.filteredEntries, 0);
 });
 
-test('returns AVAILABLE analytics without exposing history entries', () => {
+test('returns AVAILABLE analytics with a safe recent decision history', () => {
   writeHistory([entry(1), entry(2, {
     ownerDecision: 'SKIP',
     ownerQuantity: 0,
@@ -100,6 +101,18 @@ test('returns AVAILABLE analytics without exposing history entries', () => {
   assert.equal(result.analytics.population.totalEntries, 2);
   assert.equal(result.analytics.population.filteredEntries, 1);
   assert.equal('entries' in result.analytics, false);
+  assert.deepEqual(result.analytics.decisionHistory, [{
+    recordedAt: '2026-07-02T10:00:00.000Z',
+    runId: 'run-2',
+    source: 'OWNER_REVIEW',
+    sku: 'SKU-1',
+    productName: 'Товар',
+    ownerDecision: 'SKIP',
+    ownerQuantity: 0,
+    reasonCode: 'LOW_SALES',
+    ownerComment: 'Не раскрывать',
+    decidedBy: 'owner-web-ui',
+  }]);
 });
 
 test('corrupted journal is fail-safe and logs one short warning', () => {

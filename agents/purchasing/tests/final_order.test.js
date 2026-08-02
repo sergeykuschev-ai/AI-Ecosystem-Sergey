@@ -47,6 +47,27 @@ test('BUY с ручным количеством > 0 включается как
   assert.equal(state.autoApprovedAmount, 0);
 });
 
+test('legacy owner decision без reasonCode участвует в FinalOrderState', () => {
+  const legacyDecision = {
+    decision: 'BUY',
+    quantity: 6,
+  };
+  const state = buildFinalOrderState({
+    items: [item({
+      workflow_status: 'pending_manual_review',
+      quantities: { approved_quantity: null },
+      matrix: { owner_review_required: true },
+      owner_decision: legacyDecision,
+    })],
+  });
+
+  assert.equal(Object.hasOwn(legacyDecision, 'reason_code'), false);
+  assert.equal(state.status, 'ready');
+  assert.equal(state.reviewComplete, true);
+  assert.equal(state.includedItems[0].quantity, 6);
+  assert.equal(state.includedItems[0].source, 'manual');
+});
+
 test('SKIP исключается и учитывается в skippedAmount', () => {
   const state = buildFinalOrderState({
     items: [

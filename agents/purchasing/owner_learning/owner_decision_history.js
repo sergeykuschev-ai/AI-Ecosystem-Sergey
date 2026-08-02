@@ -24,7 +24,25 @@ const OWNER_DECISIONS = Object.freeze([
   'DEFER',
   'REVIEW',
 ]);
-const REASON_CODES = Object.freeze([
+const OWNER_REVIEW_REASON_CODES = Object.freeze([
+  'HIGH_STOCK',
+  'LOW_DEMAND',
+  'SEASONAL',
+  'MANDATORY',
+  'NEW_PRODUCT',
+  'CUSTOMER_REQUEST',
+  'MINMAX_ERROR',
+  'POLICY_ERROR',
+  'ALREADY_ORDERED',
+  'WAIT_NEXT_DELIVERY',
+  'TEST_PRODUCT',
+  'SUPPLIER_LIMITATION',
+  'PRICE_TOO_HIGH',
+  'LOW_MARGIN',
+  'MANUAL_EXPERIENCE',
+  'OTHER',
+]);
+const LEGACY_REASON_CODES = Object.freeze([
   'TOO_MUCH_STOCK',
   'LOW_SALES',
   'STRATEGIC_ITEM',
@@ -36,6 +54,10 @@ const REASON_CODES = Object.freeze([
   'OTHER',
   'NOT_SPECIFIED',
 ]);
+const REASON_CODES = Object.freeze(Array.from(new Set([
+  ...OWNER_REVIEW_REASON_CODES,
+  ...LEGACY_REASON_CODES,
+])));
 const APPLICATION_MODES = Object.freeze([
   'OFF',
   'PREVIEW',
@@ -289,7 +311,7 @@ function normalizeSalesContext(value) {
 }
 
 function decisionIdPayload(entry) {
-  return [
+  const payload = [
     entry.schemaVersion,
     entry.recordedAt,
     entry.source,
@@ -300,6 +322,14 @@ function decisionIdPayload(entry) {
     entry.ruleId,
     entry.applicationMode,
   ];
+  if (entry.decidedBy !== null) {
+    payload.push(
+      entry.decidedBy,
+      entry.reasonCode,
+      entry.ownerComment
+    );
+  }
+  return payload;
 }
 
 function buildDecisionId(entry) {
@@ -344,6 +374,7 @@ function createDecisionHistoryEntry(input = {}) {
       source.ownerQuantity,
       'ownerQuantity'
     ),
+    decidedBy: optionalString(source.decidedBy, 'decidedBy'),
     reasonCode: normalizedEnum(
       source.reasonCode,
       REASON_CODES,
@@ -683,6 +714,7 @@ module.exports = {
   DEFAULT_HISTORY_PATH,
   HISTORY_SCHEMA_VERSION,
   OWNER_DECISIONS,
+  OWNER_REVIEW_REASON_CODES,
   REASON_CODES,
   SOURCES,
   OwnerDecisionHistoryError,
