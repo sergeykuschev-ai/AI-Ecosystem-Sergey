@@ -8,7 +8,7 @@ const {
 } = require('./owner_learning_report');
 
 const ANALYTICS_SCHEMA_VERSION =
-  'owner-decision-history-analytics-v0.7.3';
+  'owner-decision-history-analytics-v0.7.4';
 const UNKNOWN_GROUP = '__UNKNOWN__';
 const DEFAULT_OPTIONS = Object.freeze({
   minOccurrences: 3,
@@ -280,6 +280,7 @@ function normalizeEntry(value, index) {
     recordedAtTimestamp,
     sourceText,
     source: normalizedEnum(sourceText, SOURCES),
+    runId: safeText(entry.runId),
     stableItemKey,
     sku: safeText(entry.sku),
     productName: safeText(entry.productName),
@@ -296,7 +297,31 @@ function normalizeEntry(value, index) {
     agentRecommendation,
     agentQuantity: finiteNonNegative(entry.agentQuantity),
     ownerQuantity: finiteNonNegative(entry.ownerQuantity),
+    decidedBy: safeText(entry.decidedBy),
+    ownerComment: safeText(entry.ownerComment),
   };
+}
+
+function decisionHistory(entries, limit) {
+  return [...entries]
+    .sort((left, right) =>
+      (right.recordedAtTimestamp ?? -1) -
+        (left.recordedAtTimestamp ?? -1) ||
+      right.inputIndex - left.inputIndex
+    )
+    .slice(0, limit ?? entries.length)
+    .map(entry => ({
+      recordedAt: entry.recordedAt,
+      runId: entry.runId,
+      source: entry.source,
+      sku: entry.sku,
+      productName: entry.productName,
+      ownerDecision: entry.ownerDecision,
+      ownerQuantity: entry.ownerQuantity,
+      reasonCode: entry.reasonCode,
+      ownerComment: entry.ownerComment,
+      decidedBy: entry.decidedBy,
+    }));
 }
 
 function groupValue(value) {
@@ -494,6 +519,14 @@ function dateRange(entries) {
   };
 }
 
+function latestEntry(entries) {
+  return [...entries].sort((left, right) =>
+    (right.recordedAtTimestamp ?? -1) -
+      (left.recordedAtTimestamp ?? -1) ||
+    right.inputIndex - left.inputIndex
+  )[0] || null;
+}
+
 function quantityDeltaAverage(entries) {
   return average(entries
     .filter(comparableQuantity)
@@ -569,6 +602,7 @@ function buildItemAnalytics(entries, maxItems) {
     };
     const agreement = agreementAnalysis(group);
     const decisionDominant = dominant(decisionsByType);
+    const latest = latestEntry(group);
     return {
       stableItemKey,
       sku: representative(group, 'sku'),
@@ -594,6 +628,10 @@ function buildItemAnalytics(entries, maxItems) {
       repeatedSameDecisionCount: decisionDominant.count,
       dominantOwnerDecision: decisionDominant.value,
       dominantReason: dominant(reasonsByType).value,
+      latestOwnerDecision: latest?.ownerDecision || null,
+      latestOwnerQuantity: latest?.ownerQuantity ?? null,
+      latestReasonCode: latest?.reasonCode || null,
+      latestOwnerComment: latest?.ownerComment || null,
     };
   });
   sortedAnalytics(values, 'stableItemKey');
@@ -940,6 +978,10 @@ function analyzeOwnerDecisionHistory({
     },
     ownerDecisionDistribution,
     sourceDistribution,
+    decisionHistory: decisionHistory(
+      entries,
+      normalizedOptions.maxItems
+    ),
     reasonDistribution: reasonDistribution(entries),
     agreementAnalysis: agreementAnalysis(entries),
     itemAnalytics,

@@ -191,6 +191,7 @@ function historyElements() {
     historyContent: fakeElement(),
     historyDecisionDistribution: fakeElement('dl'),
     historyReasons: fakeElement('tbody'),
+    historyDecisions: fakeElement('tbody'),
     historyPatterns: fakeElement('tbody'),
     historyItems: fakeElement('tbody'),
     historySummary: {
@@ -1669,9 +1670,14 @@ test('final choices including defer leave the unresolved tab', async () => {
         };
       },
     });
-    const actionGroup = rows[0].children[5].children[1].children[1];
+    const controls = rows[0].children[5].children[1];
+    controls.children[2].children[0].value = 'MANUAL_EXPERIENCE';
+    const actionGroup = controls.children[1];
     const buttonIndex = { BUY: 0, SKIP: 1, DEFER: 2 }[decision];
     await actionGroup.children[buttonIndex].listeners.click[0]();
+    assert.equal(rows[0].hidden, false);
+    await controls.children[2].children[2].children[0]
+      .listeners.click[0]();
     return rows[0].hidden;
   }
 
@@ -1768,6 +1774,8 @@ test('owner action saves once, updates the row and rolls back on error', async (
       calls.push({
         decision: input.decision,
         quantity: input.quantity,
+        reasonCode: input.reasonCode,
+        comment: input.comment,
       });
       return {
         item: {
@@ -1786,15 +1794,40 @@ test('owner action saves once, updates the row and rolls back on error', async (
   const actionGroup = controls.children[1];
   const buyButton = actionGroup.children[0];
   controls.children[0].value = '9';
+  controls.children[2].children[0].value = 'CUSTOMER_REQUEST';
+  controls.children[2].children[1].value = 'Запрос клиента';
   await buyButton.listeners.click[0]();
-  assert.deepEqual(calls[0], { decision: 'BUY', quantity: 9 });
+  assert.equal(calls.length, 0);
+  assert.equal(controls.children[2].hidden, false);
+  await controls.children[2].children[2].children[0]
+    .listeners.click[0]();
+  assert.deepEqual(calls[0], {
+    decision: 'BUY',
+    quantity: 9,
+    reasonCode: 'CUSTOMER_REQUEST',
+    comment: 'Запрос клиента',
+  });
   assert.equal(item.owner_decision.decision, 'BUY');
   assert.equal(decisionCell.children[2].textContent, 'Сохранено');
   await actionGroup.children[1].listeners.click[0]();
-  assert.deepEqual(calls[1], { decision: 'SKIP', quantity: 0 });
+  await controls.children[2].children[2].children[0]
+    .listeners.click[0]();
+  assert.deepEqual(calls[1], {
+    decision: 'SKIP',
+    quantity: 0,
+    reasonCode: 'CUSTOMER_REQUEST',
+    comment: 'Запрос клиента',
+  });
   assert.equal(item.owner_decision.decision, 'SKIP');
   await actionGroup.children[2].listeners.click[0]();
-  assert.deepEqual(calls[2], { decision: 'DEFER', quantity: null });
+  await controls.children[2].children[2].children[0]
+    .listeners.click[0]();
+  assert.deepEqual(calls[2], {
+    decision: 'DEFER',
+    quantity: null,
+    reasonCode: 'CUSTOMER_REQUEST',
+    comment: 'Запрос клиента',
+  });
   assert.equal(item.owner_decision.decision, 'DEFER');
 
   const failingItem = structuredClone(item);
@@ -1806,7 +1839,11 @@ test('owner action saves once, updates the row and rolls back on error', async (
   const failingDecisionCell = failingRow.children[5];
   const skipButton =
     failingDecisionCell.children[1].children[1].children[1];
+  failingDecisionCell.children[1].children[2].children[0].value =
+    'MANUAL_EXPERIENCE';
   await skipButton.listeners.click[0]();
+  await failingDecisionCell.children[1].children[2].children[2]
+    .children[0].listeners.click[0]();
   assert.equal(failingItem.owner_decision.decision, 'DEFER');
   assert.match(failingDecisionCell.children[2].textContent, /Не удалось/);
 });
@@ -1832,7 +1869,11 @@ test('owner action exposes saving state and prevents a second click', async () =
   const decisionCell = row.children[5];
   const controls = decisionCell.children[1];
   const actions = controls.children[1];
-  const pending = actions.children[0].listeners.click[0]();
+  controls.children[2].children[0].value = 'MANUAL_EXPERIENCE';
+  actions.children[0].listeners.click[0]();
+  assert.equal(calls, 0);
+  const pending = controls.children[2].children[2].children[0]
+    .listeners.click[0]();
   assert.equal(decisionCell.children[2].textContent, 'Сохраняем…');
   assert.equal(actions.children[0].disabled, true);
   assert.equal(actions.children[1].disabled, true);
@@ -1897,6 +1938,8 @@ test('analytics labels use neutral Russian owner language', () => {
   assert.equal(decisionLabel('DEFER'), 'Отложить');
   assert.equal(decisionLabel('REVIEW'), 'Проверить');
   assert.equal(reasonLabel('LOW_SALES'), 'Низкие продажи');
+  assert.equal(reasonLabel('LOW_DEMAND'), 'Низкий спрос');
+  assert.equal(reasonLabel(null), 'Причина не указана');
   assert.equal(
     patternLabel('AGENT_DISAGREEMENT_REPEAT'),
     'Повторные расхождения с агентом'
@@ -1976,6 +2019,17 @@ test('analytics renderer shows summary, labels, patterns and item table safely',
       share: 1 / 3,
       ownerComment: 'private',
     }],
+    decisionHistory: [{
+      recordedAt: '2026-07-03T00:00:00.000Z',
+      runId: 'run-3',
+      productName: maliciousName,
+      sku: 'SKU-1',
+      ownerDecision: 'SKIP',
+      ownerQuantity: 0,
+      reasonCode: 'HIGH_STOCK',
+      ownerComment: '<script>комментарий</script>',
+      decidedBy: 'owner-web-ui',
+    }],
     itemAnalytics: [{
       stableItemKey: 'technical:key:must-not-render',
       sku: 'SKU-1',
@@ -1984,6 +2038,9 @@ test('analytics renderer shows summary, labels, patterns and item table safely',
       supplier: 'Валта',
       totalEntries: 3,
       dominantOwnerDecision: 'BUY',
+      latestOwnerDecision: 'SKIP',
+      latestReasonCode: 'NOT_SPECIFIED',
+      latestOwnerComment: 'Последний комментарий',
       agreements: 2,
       disagreements: 1,
       agreementRate: null,
@@ -2013,6 +2070,7 @@ test('analytics renderer shows summary, labels, patterns and item table safely',
     children: [
       elements.historyDecisionDistribution,
       elements.historyReasons,
+      elements.historyDecisions,
       elements.historyPatterns,
       elements.historyItems,
     ],
@@ -2020,13 +2078,17 @@ test('analytics renderer shows summary, labels, patterns and item table safely',
   });
   assert.match(visible, /Купить/);
   assert.match(visible, /Низкие продажи/);
+  assert.match(visible, /Высокий остаток/);
+  assert.match(visible, /<script>комментарий<\/script>/);
+  assert.match(visible, /owner-web-ui/);
   assert.match(visible, /Повторяется одно решение по товару/);
+  assert.match(visible, /Причина не указана/);
+  assert.match(visible, /Последний комментарий/);
   assert.match(visible, /<img src=x onerror=alert\(1\)>/);
   assert.match(visible, /—/);
   for (const forbidden of [
     'technical:key:must-not-render',
     'private-id',
-    'ownerComment',
     'metadata',
   ]) {
     assert.equal(visible.includes(forbidden), false);

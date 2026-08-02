@@ -103,6 +103,19 @@
     REVIEW: 'Проверить',
   });
   const REASON_LABELS = Object.freeze({
+    HIGH_STOCK: 'Высокий остаток',
+    LOW_DEMAND: 'Низкий спрос',
+    MANDATORY: 'Обязательный товар',
+    NEW_PRODUCT: 'Новый товар',
+    CUSTOMER_REQUEST: 'Запрос клиента',
+    MINMAX_ERROR: 'Ошибка Min/Max',
+    POLICY_ERROR: 'Ошибка политики',
+    ALREADY_ORDERED: 'Уже заказано',
+    WAIT_NEXT_DELIVERY: 'Ожидание следующей поставки',
+    TEST_PRODUCT: 'Тестовый товар',
+    SUPPLIER_LIMITATION: 'Ограничение поставщика',
+    LOW_MARGIN: 'Низкая маржа',
+    MANUAL_EXPERIENCE: 'Ручной опыт владельца',
     TOO_MUCH_STOCK: 'Слишком большой остаток',
     LOW_SALES: 'Низкие продажи',
     STRATEGIC_ITEM: 'Стратегический товар',
@@ -114,6 +127,24 @@
     OTHER: 'Другое',
     NOT_SPECIFIED: 'Причина не указана',
   });
+  const OWNER_REVIEW_REASON_CODES = Object.freeze([
+    'HIGH_STOCK',
+    'LOW_DEMAND',
+    'SEASONAL',
+    'MANDATORY',
+    'NEW_PRODUCT',
+    'CUSTOMER_REQUEST',
+    'MINMAX_ERROR',
+    'POLICY_ERROR',
+    'ALREADY_ORDERED',
+    'WAIT_NEXT_DELIVERY',
+    'TEST_PRODUCT',
+    'SUPPLIER_LIMITATION',
+    'PRICE_TOO_HIGH',
+    'LOW_MARGIN',
+    'MANUAL_EXPERIENCE',
+    'OTHER',
+  ]);
   const PATTERN_LABELS = Object.freeze({
     SAME_ITEM_SAME_DECISION:
       'Повторяется одно решение по товару',
@@ -377,7 +408,7 @@
     NETWORK_ERROR:
       'Нет связи с локальным сервером. Проверьте, что он запущен.',
     INVALID_OWNER_DECISION:
-      'Проверьте количество и повторите сохранение решения.',
+      'Проверьте количество, причину и комментарий, затем повторите.',
     INVALID_BUDGET_OPTIMIZATION:
       'Укажите корректный бюджет в рублях.',
     OWNER_REVIEW_INCOMPLETE:
@@ -925,9 +956,44 @@
       actionGroup.append(button);
       return button;
     });
-    controls.append(quantity, actionGroup);
+    const learningFields = documentObject.createElement('div');
+    learningFields.className = 'decision-learning-fields';
+    const reasonSelect = documentObject.createElement('select');
+    reasonSelect.setAttribute('aria-label', 'Причина решения');
+    const reasonPlaceholder = documentObject.createElement('option');
+    reasonPlaceholder.value = '';
+    reasonPlaceholder.textContent = 'Выберите причину';
+    reasonSelect.append(reasonPlaceholder);
+    for (const reasonCode of OWNER_REVIEW_REASON_CODES) {
+      const option = documentObject.createElement('option');
+      option.value = reasonCode;
+      option.textContent = reasonLabel(reasonCode);
+      reasonSelect.append(option);
+    }
+    reasonSelect.value = item?.owner_decision?.reason_code || '';
+    const comment = documentObject.createElement('textarea');
+    comment.maxLength = 1000;
+    comment.rows = 2;
+    comment.placeholder = 'Комментарий (необязательно)';
+    comment.setAttribute('aria-label', 'Комментарий владельца');
+    comment.value = item?.owner_decision?.comment || '';
+    const confirmationGroup = documentObject.createElement('div');
+    confirmationGroup.className = 'decision-confirmation-group';
+    const confirmDecision = documentObject.createElement('button');
+    confirmDecision.type = 'button';
+    confirmDecision.className = 'decision-confirm';
+    confirmDecision.textContent = 'Сохранить решение';
+    const cancelDecision = documentObject.createElement('button');
+    cancelDecision.type = 'button';
+    cancelDecision.className = 'decision-cancel';
+    cancelDecision.textContent = 'Отмена';
+    confirmationGroup.append(confirmDecision, cancelDecision);
+    learningFields.append(reasonSelect, comment, confirmationGroup);
+    learningFields.hidden = true;
+    controls.append(quantity, actionGroup, learningFields);
     const saveMessage = documentObject.createElement('small');
     saveMessage.className = 'decision-save-message';
+    let pendingDecision = null;
 
     function syncDecisionStatus() {
       const view = ownerDecisionView(item);
@@ -936,67 +1002,116 @@
       for (const button of buttons) {
         button.setAttribute(
           'aria-pressed',
-          String(button.dataset.decision === item?.owner_decision?.decision)
+          String(
+            button.dataset.decision === (
+              pendingDecision || item?.owner_decision?.decision
+            )
+          )
         );
       }
     }
     syncDecisionStatus();
 
     for (const button of buttons) {
-      button.addEventListener('click', async () => {
+      button.addEventListener('click', () => {
         if (typeof options.onDecision !== 'function') return;
-        const decision = button.dataset.decision;
-        const requestedQuantity = decision === 'BUY'
-          ? Number(quantity.value)
-          : decision === 'SKIP'
-            ? 0
-            : null;
-        if (
-          decision === 'BUY' &&
-          (!Number.isInteger(requestedQuantity) ||
-            requestedQuantity < 0 ||
-            requestedQuantity > 10000)
-        ) {
-          saveMessage.textContent =
-            'Введите целое количество от 0 до 10000.';
-          saveMessage.dataset.tone = 'error';
-          return;
-        }
-        for (const action of buttons) action.disabled = true;
-        quantity.disabled = true;
-        saveMessage.textContent = 'Сохраняем…';
-        saveMessage.dataset.tone = 'saving';
-        try {
-          const result = await options.onDecision({
-            item,
-            decision,
-            quantity: requestedQuantity,
-          });
-          item.owner_decision = result.item.owner_decision;
-          if (item.owner_decision.decision === 'BUY') {
-            quantity.value = String(item.owner_decision.quantity ?? 0);
-          }
-          syncDecisionStatus();
-          saveMessage.textContent = 'Сохранено';
-          saveMessage.dataset.tone = 'success';
-          if (typeof options.onSaved === 'function') {
-            const effect = options.onSaved(result, item);
-            if (effect?.remove === true) {
-              row.hidden = true;
-              detailsRow.hidden = true;
-            }
-          }
-        } catch (error) {
-          saveMessage.textContent =
-            ERROR_MESSAGES[error?.code] ||
-            'Не удалось сохранить. Решение не изменено.';
-          saveMessage.dataset.tone = 'error';
-        } finally {
-          for (const action of buttons) action.disabled = false;
-          quantity.disabled = false;
-        }
+        pendingDecision = button.dataset.decision;
+        learningFields.hidden = false;
+        saveMessage.textContent = 'Выберите причину и подтвердите решение.';
+        saveMessage.dataset.tone = 'pending';
+        syncDecisionStatus();
       });
     }
+
+    cancelDecision.addEventListener('click', () => {
+      pendingDecision = null;
+      learningFields.hidden = true;
+      saveMessage.textContent = '';
+      delete saveMessage.dataset.tone;
+      syncDecisionStatus();
+    });
+
+    confirmDecision.addEventListener('click', async () => {
+      if (
+        pendingDecision === null ||
+        typeof options.onDecision !== 'function'
+      ) return;
+      const decision = pendingDecision;
+      const requestedQuantity = decision === 'BUY'
+        ? Number(quantity.value)
+        : decision === 'SKIP'
+          ? 0
+          : null;
+      if (
+        decision === 'BUY' &&
+        (!Number.isInteger(requestedQuantity) ||
+          requestedQuantity < 0 ||
+          requestedQuantity > 10000)
+      ) {
+        saveMessage.textContent =
+          'Введите целое количество от 0 до 10000.';
+        saveMessage.dataset.tone = 'error';
+        return;
+      }
+      const reasonCode = reasonSelect.value;
+      const ownerComment = comment.value.trim();
+      if (!OWNER_REVIEW_REASON_CODES.includes(reasonCode)) {
+        saveMessage.textContent = 'Выберите причину решения.';
+        saveMessage.dataset.tone = 'error';
+        return;
+      }
+      if (reasonCode === 'OTHER' && ownerComment === '') {
+        saveMessage.textContent =
+          'Для причины «Другое» добавьте комментарий.';
+        saveMessage.dataset.tone = 'error';
+        return;
+      }
+      for (const action of buttons) action.disabled = true;
+      quantity.disabled = true;
+      reasonSelect.disabled = true;
+      comment.disabled = true;
+      confirmDecision.disabled = true;
+      cancelDecision.disabled = true;
+      saveMessage.textContent = 'Сохраняем…';
+      saveMessage.dataset.tone = 'saving';
+      try {
+        const result = await options.onDecision({
+          item,
+          decision,
+          quantity: requestedQuantity,
+          reasonCode,
+          comment: ownerComment || null,
+        });
+        item.owner_decision = result.item.owner_decision;
+        if (item.owner_decision.decision === 'BUY') {
+          quantity.value = String(item.owner_decision.quantity ?? 0);
+        }
+        pendingDecision = null;
+        learningFields.hidden = true;
+        syncDecisionStatus();
+        saveMessage.textContent = 'Сохранено';
+        saveMessage.dataset.tone = 'success';
+        if (typeof options.onSaved === 'function') {
+          const effect = options.onSaved(result, item);
+          if (effect?.remove === true) {
+            row.hidden = true;
+            detailsRow.hidden = true;
+          }
+        }
+      } catch (error) {
+        saveMessage.textContent =
+          ERROR_MESSAGES[error?.code] ||
+          'Не удалось сохранить. Решение не изменено.';
+        saveMessage.dataset.tone = 'error';
+      } finally {
+        for (const action of buttons) action.disabled = false;
+        quantity.disabled = false;
+        reasonSelect.disabled = false;
+        comment.disabled = false;
+        confirmDecision.disabled = false;
+        cancelDecision.disabled = false;
+      }
+    });
     decisionCell.append(decisionStatus, controls, saveMessage);
     row.append(decisionCell);
 
@@ -1642,7 +1757,7 @@
   }
 
   function reasonLabel(value) {
-    return REASON_LABELS[value] || value || '—';
+    return REASON_LABELS[value] || value || 'Причина не указана';
   }
 
   function patternLabel(value) {
@@ -1767,6 +1882,25 @@
       elements.historyReasons.append(row);
     }
 
+    elements.historyDecisions.replaceChildren();
+    for (const decision of analytics?.decisionHistory || []) {
+      const row = documentObject.createElement('tr');
+      for (const value of [
+        formatHistoryDateTime(decision.recordedAt),
+        decision.runId || '—',
+        decision.productName || '—',
+        decision.sku || '—',
+        decisionLabel(decision.ownerDecision),
+        formatQuantity(decision.ownerQuantity),
+        reasonLabel(decision.reasonCode),
+        decision.ownerComment || '—',
+        decision.decidedBy || '—',
+      ]) {
+        appendHistoryCell(documentObject, row, value);
+      }
+      elements.historyDecisions.append(row);
+    }
+
     const items = Array.isArray(analytics?.itemAnalytics)
       ? analytics.itemAnalytics
       : [];
@@ -1803,6 +1937,9 @@
         item.supplier || '—',
         displayCount(item.totalEntries),
         decisionLabel(item.dominantOwnerDecision),
+        decisionLabel(item.latestOwnerDecision),
+        reasonLabel(item.latestReasonCode),
+        item.latestOwnerComment || '—',
         displayCount(item.agreements),
         displayCount(item.disagreements),
         formatPercent(item.agreementRate),
@@ -3818,6 +3955,8 @@
       historyDecisionDistribution:
         documentObject.getElementById('history-decision-distribution'),
       historyReasons: documentObject.getElementById('history-reasons'),
+      historyDecisions:
+        documentObject.getElementById('history-decisions'),
       historyPatterns: documentObject.getElementById('history-patterns'),
       historyItems:
         documentObject.getElementById('history-item-analytics'),
@@ -5469,6 +5608,8 @@
         body: JSON.stringify({
           decision: input.decision,
           quantity: input.quantity,
+          reasonCode: input.reasonCode,
+          comment: input.comment,
         }),
       });
     }

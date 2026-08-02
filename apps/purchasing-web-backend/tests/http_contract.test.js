@@ -231,7 +231,11 @@ test('POST budget optimization is repeatable and never changes result.json',
         {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ decision: 'BUY', quantity: 2 }),
+          body: JSON.stringify({
+            decision: 'BUY',
+            quantity: 2,
+            reasonCode: 'MANUAL_EXPERIENCE',
+          }),
         }
       );
       assert.equal(decided.response.status, 200);

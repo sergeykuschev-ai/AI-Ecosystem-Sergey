@@ -182,7 +182,11 @@ async function putDecision(rowId, decision, quantity) {
   return jsonRequest(decisionUrl(rowId), {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ decision, quantity }),
+    body: JSON.stringify({
+      decision,
+      quantity,
+      reasonCode: 'MANUAL_EXPERIENCE',
+    }),
   });
 }
 

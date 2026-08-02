@@ -422,6 +422,19 @@
             Причина
             <select id="history-reason" name="reasonCode">
               <option value="">Все причины</option>
+              <option value="HIGH_STOCK">Высокий остаток</option>
+              <option value="LOW_DEMAND">Низкий спрос</option>
+              <option value="MANDATORY">Обязательный товар</option>
+              <option value="NEW_PRODUCT">Новый товар</option>
+              <option value="CUSTOMER_REQUEST">Запрос клиента</option>
+              <option value="MINMAX_ERROR">Ошибка Min/Max</option>
+              <option value="POLICY_ERROR">Ошибка политики</option>
+              <option value="ALREADY_ORDERED">Уже заказано</option>
+              <option value="WAIT_NEXT_DELIVERY">Ожидание следующей поставки</option>
+              <option value="TEST_PRODUCT">Тестовый товар</option>
+              <option value="SUPPLIER_LIMITATION">Ограничение поставщика</option>
+              <option value="LOW_MARGIN">Низкая маржа</option>
+              <option value="MANUAL_EXPERIENCE">Ручной опыт владельца</option>
               <option value="TOO_MUCH_STOCK">Слишком большой остаток</option>
               <option value="LOW_SALES">Низкие продажи</option>
               <option value="STRATEGIC_ITEM">Стратегический товар</option>
@@ -502,6 +515,28 @@
           </div>
 
           <article class="history-panel">
+            <h3>Последние решения владельца</h3>
+            <div class="history-table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Время</th>
+                    <th>Run ID</th>
+                    <th>Товар</th>
+                    <th>SKU</th>
+                    <th>Решение</th>
+                    <th>Количество</th>
+                    <th>Причина</th>
+                    <th>Комментарий</th>
+                    <th>Владелец</th>
+                  </tr>
+                </thead>
+                <tbody id="history-decisions"></tbody>
+              </table>
+            </div>
+          </article>
+
+          <article class="history-panel">
             <h3>Повторяющиеся паттерны</h3>
             <div class="history-table-scroll">
               <table>
@@ -532,12 +567,15 @@
                     <th>Поставщик</th>
                     <th>Решений</th>
                     <th>Основное решение</th>
+                    <th>Последнее решение</th>
+                    <th>Последняя причина</th>
+                    <th>Последний комментарий</th>
                     <th>Совпадений</th>
                     <th>Расхождений</th>
                     <th>Доля совпадений</th>
                     <th>Среднее количество владельца</th>
                     <th>Средняя разница количества</th>
-                    <th>Последнее решение</th>
+                    <th>Последняя дата</th>
                   </tr>
                 </thead>
                 <tbody id="history-item-analytics"></tbody>
@@ -595,6 +633,19 @@
             Причина
             <select id="candidate-reason" name="reasonCode">
               <option value="">Все причины</option>
+              <option value="HIGH_STOCK">Высокий остаток</option>
+              <option value="LOW_DEMAND">Низкий спрос</option>
+              <option value="MANDATORY">Обязательный товар</option>
+              <option value="NEW_PRODUCT">Новый товар</option>
+              <option value="CUSTOMER_REQUEST">Запрос клиента</option>
+              <option value="MINMAX_ERROR">Ошибка Min/Max</option>
+              <option value="POLICY_ERROR">Ошибка политики</option>
+              <option value="ALREADY_ORDERED">Уже заказано</option>
+              <option value="WAIT_NEXT_DELIVERY">Ожидание следующей поставки</option>
+              <option value="TEST_PRODUCT">Тестовый товар</option>
+              <option value="SUPPLIER_LIMITATION">Ограничение поставщика</option>
+              <option value="LOW_MARGIN">Низкая маржа</option>
+              <option value="MANUAL_EXPERIENCE">Ручной опыт владельца</option>
               <option value="TOO_MUCH_STOCK">Слишком большой остаток</option>
               <option value="LOW_SALES">Низкие продажи</option>
               <option value="STRATEGIC_ITEM">Стратегический товар</option>

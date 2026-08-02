@@ -140,6 +140,61 @@ test('owner decision distribution keeps all supported decisions', () => {
   });
 });
 
+test('item analytics merges runs by SKU and keeps the latest decision details', () => {
+  const result = report([
+    entry(1, {
+      runId: 'run-old',
+      stableItemKey: 'sku:SHARED',
+      sku: 'SHARED',
+      ownerDecision: 'SKIP',
+      ownerQuantity: 0,
+      reasonCode: 'HIGH_STOCK',
+      ownerComment: 'Сначала пропустить',
+    }),
+    entry(2, {
+      runId: 'run-new',
+      stableItemKey: 'sku:SHARED',
+      sku: 'SHARED',
+      ownerDecision: 'BUY',
+      ownerQuantity: 7,
+      reasonCode: 'CUSTOMER_REQUEST',
+      ownerComment: 'Заказать клиенту',
+    }),
+    entry(3, {
+      stableItemKey: 'sku:SEPARATE',
+      sku: 'SEPARATE',
+      ownerDecision: 'DEFER',
+      ownerQuantity: 0,
+      reasonCode: 'WAIT_NEXT_DELIVERY',
+      ownerComment: 'Другой товар',
+    }),
+  ]);
+  const shared = result.itemAnalytics.find(
+    item => item.stableItemKey === 'sku:SHARED'
+  );
+  const separate = result.itemAnalytics.find(
+    item => item.stableItemKey === 'sku:SEPARATE'
+  );
+
+  assert.equal(result.itemAnalytics.length, 2);
+  assert.equal(shared.totalEntries, 2);
+  assert.deepEqual(shared.decisionsByType, {
+    BUY: 1,
+    SKIP: 1,
+    DEFER: 0,
+    REVIEW: 0,
+  });
+  assert.equal(shared.reasonsByType.HIGH_STOCK, 1);
+  assert.equal(shared.reasonsByType.CUSTOMER_REQUEST, 1);
+  assert.equal(shared.latestOwnerDecision, 'BUY');
+  assert.equal(shared.latestOwnerQuantity, 7);
+  assert.equal(shared.latestReasonCode, 'CUSTOMER_REQUEST');
+  assert.equal(shared.latestOwnerComment, 'Заказать клиенту');
+  assert.equal(shared.lastRecordedAt, '2026-07-02T10:00:00.000Z');
+  assert.equal(separate.totalEntries, 1);
+  assert.equal(separate.latestOwnerDecision, 'DEFER');
+});
+
 test('reason distribution contains count, share, and stable sorting', () => {
   const entries = [
     entry(1, { reasonCode: 'LOW_SALES' }),
@@ -588,7 +643,7 @@ test('unsupported decisions and reasons never create false matches', () => {
   assert.equal(result.agreementAnalysis.comparableEntries, 0);
 });
 
-test('result never exposes ownerComment, metadata, or absolute paths', () => {
+test('decision history exposes comment but not metadata or absolute paths', () => {
   const unsafe = {
     ...entry(1),
     ownerComment: 'Нельзя раскрывать',
@@ -597,9 +652,10 @@ test('result never exposes ownerComment, metadata, or absolute paths', () => {
   };
   const serialized = JSON.stringify(report([unsafe]));
 
-  assert.equal(serialized.includes('ownerComment'), false);
+  assert.equal(serialized.includes('ownerComment'), true);
   assert.equal(serialized.includes('metadata'), false);
-  assert.equal(serialized.includes('Нельзя раскрывать'), false);
+  assert.equal(serialized.includes('Нельзя раскрывать'), true);
+  assert.equal(serialized.includes('Нельзя раскрывать metadata'), false);
   assert.equal(serialized.includes('/Users/'), false);
 });
 
@@ -672,7 +728,7 @@ test('groups and patterns use deterministic documented sorting', () => {
   assert.deepEqual(result.repeatedDecisionPatterns, sorted);
 });
 
-test('maxItems limits only the sorted item analytics list', () => {
+test('maxItems limits item analytics and recent decision history', () => {
   const result = report([
     entry(1, {
       stableItemKey: 'sku:A',
@@ -691,6 +747,8 @@ test('maxItems limits only the sorted item analytics list', () => {
   });
 
   assert.equal(result.itemAnalytics.length, 1);
+  assert.equal(result.decisionHistory.length, 1);
+  assert.equal(result.decisionHistory[0].sku, 'B');
   assert.equal(result.itemAnalytics[0].stableItemKey, 'sku:B');
   assert.equal(result.population.uniqueItems, 2);
 });

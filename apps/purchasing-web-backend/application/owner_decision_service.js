@@ -22,6 +22,7 @@ const {
 );
 const {
   APPLICATION_MODES,
+  OWNER_REVIEW_REASON_CODES,
 } = require(
   '../../../agents/purchasing/owner_learning/owner_decision_history'
 );
@@ -30,6 +31,31 @@ const {
 } = require('../../../agents/purchasing/services/final_order');
 const WEB_OWNER_DECISIONS = Object.freeze(['BUY', 'SKIP', 'DEFER']);
 const MAX_OWNER_ORDER_QUANTITY = 10000;
+const MAX_OWNER_COMMENT_LENGTH = 1000;
+const OWNER_DECISION_ACTOR = 'owner-web-ui';
+const OWNER_REVIEW_REASON_LABELS = Object.freeze({
+  HIGH_STOCK: 'Высокий остаток',
+  LOW_DEMAND: 'Низкий спрос',
+  SEASONAL: 'Сезонный фактор',
+  MANDATORY: 'Обязательный товар',
+  NEW_PRODUCT: 'Новый товар',
+  CUSTOMER_REQUEST: 'Запрос клиента',
+  MINMAX_ERROR: 'Ошибка Min/Max',
+  POLICY_ERROR: 'Ошибка политики',
+  ALREADY_ORDERED: 'Уже заказано',
+  WAIT_NEXT_DELIVERY: 'Ожидание следующей поставки',
+  TEST_PRODUCT: 'Тестовый товар',
+  SUPPLIER_LIMITATION: 'Ограничение поставщика',
+  PRICE_TOO_HIGH: 'Слишком высокая цена',
+  LOW_MARGIN: 'Низкая маржа',
+  MANUAL_EXPERIENCE: 'Ручной опыт владельца',
+  OTHER: 'Другая причина',
+});
+const LEGACY_DECISION_REASONS = Object.freeze({
+  BUY: 'Владелец подтвердил заказ вручную.',
+  SKIP: 'Владелец исключил товар из текущей закупки.',
+  DEFER: 'Владелец отложил решение по текущей закупке.',
+});
 
 class OwnerDecisionServiceError extends Error {
   constructor(code, message, options = {}) {
@@ -88,7 +114,50 @@ function validateWebDecision(input) {
       `Количество должно быть целым числом от 0 до ${MAX_OWNER_ORDER_QUANTITY}.`
     );
   }
-  return { decision, quantity };
+  const hasReasonCode = Object.hasOwn(input, 'reasonCode');
+  const reasonCode = hasReasonCode && typeof input.reasonCode === 'string'
+    ? input.reasonCode.trim().toUpperCase()
+    : null;
+  if (
+    hasReasonCode &&
+    !OWNER_REVIEW_REASON_CODES.includes(reasonCode)
+  ) {
+    throw new OwnerDecisionServiceError(
+      'INVALID_OWNER_DECISION',
+      'Укажите поддерживаемую причину решения.'
+    );
+  }
+  if (
+    input.comment !== null &&
+    input.comment !== undefined &&
+    typeof input.comment !== 'string'
+  ) {
+    throw new OwnerDecisionServiceError(
+      'INVALID_OWNER_DECISION',
+      'Комментарий должен быть строкой.'
+    );
+  }
+  const comment = typeof input.comment === 'string'
+    ? input.comment.trim()
+    : '';
+  if (comment.length > MAX_OWNER_COMMENT_LENGTH) {
+    throw new OwnerDecisionServiceError(
+      'INVALID_OWNER_DECISION',
+      `Комментарий не должен превышать ${MAX_OWNER_COMMENT_LENGTH} символов.`
+    );
+  }
+  if (reasonCode === 'OTHER' && comment === '') {
+    throw new OwnerDecisionServiceError(
+      'INVALID_OWNER_DECISION',
+      'Для причины OTHER укажите комментарий.'
+    );
+  }
+  return {
+    decision,
+    quantity,
+    reasonCode,
+    comment: comment || null,
+  };
 }
 
 function decisionView(decision) {
@@ -100,6 +169,8 @@ function decisionView(decision) {
       decided_at: null,
       decided_by: null,
       reason: null,
+      reason_code: null,
+      comment: null,
     };
   }
   const webDecision = WEB_OWNER_DECISIONS.includes(decision.owner_decision)
@@ -114,6 +185,8 @@ function decisionView(decision) {
     decided_at: decision.decided_at,
     decided_by: decision.decided_by,
     reason: decision.reason,
+    reason_code: decision.reason_code ?? null,
+    comment: decision.comment ?? null,
   };
 }
 
@@ -343,11 +416,10 @@ class OwnerDecisionService {
         'Для товара не удалось определить безопасный ключ решения.'
       );
     }
-    const reason = {
-      BUY: `Владелец подтвердил заказ: ${validated.quantity} шт.`,
-      SKIP: 'Владелец исключил товар из текущей закупки.',
-      DEFER: 'Владелец отложил решение по текущей закупке.',
-    }[validated.decision];
+    const reason = validated.reasonCode
+      ? OWNER_REVIEW_REASON_LABELS[validated.reasonCode]
+      : LEGACY_DECISION_REASONS[validated.decision];
+    const decidedAt = this.now();
     let saved;
     try {
       saved = this.appendDecision(this.ownerDecisionsPath, {
@@ -356,9 +428,12 @@ class OwnerDecisionService {
         owner_role_override: null,
         owner_policy_override: null,
         owner_order_quantity: validated.quantity,
+        run_id: runId,
+        reason_code: validated.reasonCode,
+        comment: validated.comment,
         reason,
-        decided_at: this.now(),
-        decided_by: 'owner-web-ui',
+        decided_at: decidedAt,
+        decided_by: OWNER_DECISION_ACTOR,
         status: 'active',
         source_version: 'purchasing-web-owner-decisions-v1',
       });
@@ -419,8 +494,9 @@ class OwnerDecisionService {
         ownerDecision: {
           decision: validated.decision,
           quantity: validated.quantity,
-          reasonCode: 'NOT_SPECIFIED',
-          comment: null,
+          decidedBy: saved.decision.decided_by,
+          reasonCode: validated.reasonCode,
+          comment: validated.comment,
         },
         financialContext: historyFinancialContext(summary),
         inventoryContext: {
@@ -455,6 +531,10 @@ class OwnerDecisionService {
 
 module.exports = {
   MAX_OWNER_ORDER_QUANTITY,
+  MAX_OWNER_COMMENT_LENGTH,
+  LEGACY_DECISION_REASONS,
+  OWNER_DECISION_ACTOR,
+  OWNER_REVIEW_REASON_LABELS,
   OwnerDecisionService,
   OwnerDecisionServiceError,
   WEB_OWNER_DECISIONS,

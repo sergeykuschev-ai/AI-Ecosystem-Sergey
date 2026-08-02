@@ -325,6 +325,27 @@ test('helper appends history and never removes the previous decision', () => {
   assert.equal(loaded.decisions[1].owner_decision, 'KEEP_OPTIONAL');
 });
 
+test('legacy stored decision without reason_code still loads', () => {
+  const directory = fs.mkdtempSync(path.join(
+    os.tmpdir(),
+    'owner-decisions-legacy-'
+  ));
+  const filePath = path.join(directory, 'decisions.json');
+  fs.writeFileSync(filePath, JSON.stringify(store([
+    decision('BUY', { owner_order_quantity: 3 }),
+  ])));
+
+  try {
+    const loaded = loadOwnerDecisions(filePath).store.decisions[0];
+    assert.equal(loaded.owner_decision, 'BUY');
+    assert.equal(loaded.owner_order_quantity, 3);
+    assert.equal(loaded.reason_code, null);
+    assert.equal(loaded.comment, null);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test('unknown owner decision is rejected without writing a record', () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'owner-decisions-'));
   const filePath = path.join(directory, 'decisions.json');
