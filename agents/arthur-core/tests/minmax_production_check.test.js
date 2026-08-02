@@ -1,6 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const { spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 const { test } = require('node:test');
@@ -19,6 +20,7 @@ const {
   productionConfig,
   productionEnvironment: buildProductionEnvironment,
   registryNodeSnapshot,
+  runDockerNodeFromStdin,
   runE2EWithAutomaticRestore,
   verifyConnectionRefused,
   verifyBackendHealthResponse,
@@ -506,6 +508,51 @@ test('running container proves healthy state, runtime files and published port',
   assert.equal(result.publishedPorts['3210/tcp'][0].HostPort, '3210');
 });
 
+test('Windows-safe docker exec transports complex JavaScript only through stdin', () => {
+  const script = String.raw`
+    const value = {
+      semicolon: 'one;two',
+      quotes: 'single\' and "double"',
+      backslash: 'C:\\MinMax\\report.json',
+      json: { ok: true, count: 2 },
+      url: new URL('http://127.0.0.1:3210/api/v1/health?source=e2e').pathname,
+      cyrillic: 'Проверка МинМакс',
+    };
+    process.stdout.write(JSON.stringify(value));
+  `;
+  let captured = null;
+  const output = runDockerNodeFromStdin(
+    'purchasing-web-backend',
+    script,
+    {},
+    {
+      runCommand(command, args, options) {
+        captured = { command, args, options };
+        const result = spawnSync(process.execPath, ['-'], {
+          encoding: 'utf8',
+          input: options.input,
+        });
+        assert.equal(result.status, 0, result.stderr);
+        return result.stdout;
+      },
+    }
+  );
+
+  assert.deepEqual(captured.args, [
+    'exec', '-i', 'purchasing-web-backend', 'node', '-',
+  ]);
+  assert.equal(captured.options.input, script);
+  assert.ok(!captured.args.includes(script));
+  assert.deepEqual(JSON.parse(output), {
+    semicolon: 'one;two',
+    quotes: 'single\' and "double"',
+    backslash: 'C:\\MinMax\\report.json',
+    json: { ok: true, count: 2 },
+    url: '/api/v1/health',
+    cyrillic: 'Проверка МинМакс',
+  });
+});
+
 test('missing published port fails container runtime verification', () => {
   assert.throws(
     () => verifyContainerRuntime({}, {
@@ -678,6 +725,10 @@ test('Docker service is restart-safe and keeps output/data on host mounts', () =
     ROOT,
     'apps/purchasing-web-backend/application/supplier_order_service.js'
   ), 'utf8');
+  const serverSource = fs.readFileSync(path.join(
+    ROOT,
+    'apps/purchasing-web-backend/server.js'
+  ), 'utf8');
   assert.match(compose, /restart: unless-stopped/);
   assert.match(compose, /"3210:3210"/);
   assert.match(compose, /\.\.\/\.\.\/output:\/app\/output/);
@@ -697,16 +748,17 @@ test('Docker service is restart-safe and keeps output/data on host mounts', () =
     /CMD \["node", "apps\/purchasing-web-backend\/server\.js"\]/
   );
   assert.match(supplierOrderService, /shared\/reporting\/xlsx_exporter/);
-  assert.match(dockerfile, /node:http/);
-  assert.match(dockerfile, /127\.0\.0\.1',port:3210/);
-  assert.match(dockerfile, /service!=='purchasing-web'/);
-  assert.match(dockerfile, /data\.build_sha!==expected/);
+  assert.doesNotMatch(dockerfile, /\["node", "-e"/);
+  assert.match(serverSource, /hostname: '127\.0\.0\.1'/);
+  assert.match(serverSource, /port: 3210/);
+  assert.match(serverSource, /service !== 'purchasing-web'/);
+  assert.match(serverSource, /build_sha !== expectedSha/);
   const healthCommand = JSON.parse(
     dockerfile.match(/\n  CMD (\[[^\n]+\])/)[1]
   );
-  assert.equal(healthCommand[0], 'node');
-  assert.equal(healthCommand[1], '-e');
-  assert.doesNotThrow(() => new Function(healthCommand[2]));
+  assert.deepEqual(healthCommand, [
+    'node', 'apps/purchasing-web-backend/server.js', '--healthcheck',
+  ]);
 });
 
 test('SMTP message has one Excel attachment and correlation marker', () => {

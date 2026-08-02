@@ -256,6 +256,7 @@ function runCommand(command, args, options = {}) {
     encoding: 'utf8',
     env: options.env || process.env,
     maxBuffer: 32 * 1024 * 1024,
+    input: options.input,
     stdio: options.inherit ? 'inherit' : 'pipe',
   });
   if (result.error) throw result.error;
@@ -274,6 +275,7 @@ function runCommandCapture(command, args, options = {}) {
     encoding: 'utf8',
     env: options.env || process.env,
     maxBuffer: 32 * 1024 * 1024,
+    input: options.input,
     stdio: 'pipe',
   });
   return {
@@ -282,6 +284,27 @@ function runCommandCapture(command, args, options = {}) {
     stdout: String(result.stdout || ''),
     stderr: String(result.stderr || ''),
   };
+}
+
+function runDockerNodeFromStdin(
+  container,
+  script,
+  options = {},
+  dependencies = {}
+) {
+  const run = dependencies.runCommand || runCommand;
+  const environmentNames = options.environmentNames || [];
+  const environmentArguments = environmentNames.flatMap(name => ['-e', name]);
+  return run('docker', [
+    'exec', '-i',
+    ...environmentArguments,
+    container,
+    'node', '-',
+    ...(options.arguments || []),
+  ], {
+    env: { ...process.env, ...(options.environment || {}) },
+    input: script,
+  });
 }
 
 function redactDiagnosticText(value, secrets = []) {
@@ -355,11 +378,11 @@ async function collectBackendDiagnostics(config, dependencies = {}) {
   const request = dependencies.request || rawRequest;
   const secrets = [config.apiToken];
   const container = 'purchasing-web-backend';
-  const captureDocker = args => diagnosticCommand(
+  const captureDocker = (args, options = {}) => diagnosticCommand(
     capture,
     'docker',
     args,
-    { cwd: REPOSITORY_ROOT },
+    { cwd: REPOSITORY_ROOT, ...options },
     secrets
   );
   const diagnostics = {
@@ -422,8 +445,8 @@ async function collectBackendDiagnostics(config, dependencies = {}) {
     ]),
     healthcheckTool: captureDocker(['exec', container, 'node', '--version']),
     containerHealthEndpoint: captureDocker([
-      'exec', container, 'node', '-e', CONTAINER_HEALTH_PROBE,
-    ]),
+      'exec', '-i', container, 'node', '-',
+    ], { input: CONTAINER_HEALTH_PROBE }),
   };
   diagnostics.environment = redactedContainerEnvironment(
     diagnostics.environment,
@@ -571,9 +594,12 @@ function verifyContainerRuntime(config, dependencies = {}) {
       `container image command=${JSON.stringify(imageCommand)}, expected backend CMD.`
     );
   }
-  const runtimeProbe = run('docker', [
-    'exec', 'purchasing-web-backend', 'node', '-e', CONTAINER_RUNTIME_PROBE,
-  ]);
+  const runtimeProbe = runDockerNodeFromStdin(
+    'purchasing-web-backend',
+    CONTAINER_RUNTIME_PROBE,
+    {},
+    { runCommand: run }
+  );
   if (runtimeProbe !== 'runtime-ok') {
     throw new Error(`container runtime probe=${runtimeProbe || '(empty)'}.`);
   }
@@ -1320,6 +1346,7 @@ module.exports = {
   publishedWorkflowFromRecord,
   registryNodeSnapshot,
   runE2EWithAutomaticRestore,
+  runDockerNodeFromStdin,
   runMailE2E,
   runProductionCheck,
   startPersistentBackend,

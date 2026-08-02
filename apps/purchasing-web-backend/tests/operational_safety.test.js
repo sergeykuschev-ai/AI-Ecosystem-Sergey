@@ -15,6 +15,7 @@ const {
 const {
   createPurchasingWebServer,
   installGracefulShutdown,
+  runContainerHealthcheck,
 } = require('../server');
 
 const REPOSITORY_ROOT = path.resolve(__dirname, '../../..');
@@ -23,6 +24,25 @@ const temporaryRoots = [];
 const openServers = [];
 let sourceBundle;
 let workbook;
+
+function healthcheckHttpResponse(payload, statusCode = 200) {
+  return {
+    get(options, callback) {
+      const request = new EventEmitter();
+      request.setTimeout = () => {};
+      request.destroy = error => request.emit('error', error);
+      const response = new EventEmitter();
+      response.statusCode = statusCode;
+      response.setEncoding = () => {};
+      process.nextTick(() => {
+        callback(response);
+        response.emit('data', payload);
+        response.emit('end');
+      });
+      return request;
+    },
+  };
+}
 
 function runRequest() {
   return {
@@ -112,6 +132,35 @@ afterEach(async () => {
   while (temporaryRoots.length > 0) {
     fs.rmSync(temporaryRoots.pop(), { recursive: true, force: true });
   }
+});
+
+test('container healthcheck mode validates service and build SHA', async () => {
+  const payload = {
+    data: {
+      status: 'ok',
+      service: 'purchasing-web',
+      build_sha: 'b6ea2e5',
+    },
+  };
+  const result = await runContainerHealthcheck({
+    expectedSha: 'b6ea2e5',
+    apiToken: '0123456789abcdef',
+    httpModule: healthcheckHttpResponse(JSON.stringify(payload)),
+  });
+  assert.deepEqual(result, payload);
+});
+
+test('container healthcheck mode rejects wrong build SHA', async () => {
+  await assert.rejects(
+    () => runContainerHealthcheck({
+      expectedSha: 'b6ea2e5',
+      apiToken: '0123456789abcdef',
+      httpModule: healthcheckHttpResponse(JSON.stringify({
+        data: { service: 'purchasing-web', build_sha: 'fffffff' },
+      })),
+    }),
+    /build_sha="fffffff" expected="b6ea2e5"/
+  );
 });
 
 test('concurrent POST is rejected and success releases the lock', async () => {

@@ -197,6 +197,13 @@ test('container replay passes x-api-key without exposing it in argv', () => {
   assert.equal(response.status, 200);
   assert.deepEqual(response.json, { data: { state: 'processing' } });
   assert.equal(captured.command, 'docker');
+  assert.deepEqual(captured.args.slice(0, 2), ['exec', '-i']);
+  assert.deepEqual(captured.args.slice(-3), [
+    'node', '-',
+    'http://host.docker.internal:3210/api/v1/upload-idempotency/key',
+  ]);
+  assert.match(captured.spawnOptions.input, /process\.argv\[2\]/);
+  assert.ok(!captured.args.includes(captured.spawnOptions.input));
   assert.ok(!captured.args.includes('secret-token'));
   assert.equal(
     captured.spawnOptions.env.MINMAX_INSPECT_API_KEY,

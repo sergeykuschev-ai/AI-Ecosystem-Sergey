@@ -364,6 +364,9 @@ mounts, published ports, наличие Node.js и ответы health endpoint 
 runner проверяет их наличие, production dependencies, write-доступ к
 `/app/output` и `/app/data/purchasing`, стабильный `RestartCount`, healthy state
 и фактическую публикацию `3210/tcp` на host port `3210`.
+Все Node.js probes, запускаемые через `docker exec`, передают программу по stdin
+командой `docker exec -i <container> node -`; inline `node -e` и JavaScript в
+Windows argv не используются. Значения API token передаются только через env.
 
 ## Защита API
 

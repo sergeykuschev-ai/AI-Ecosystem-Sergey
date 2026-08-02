@@ -226,7 +226,7 @@ function safeBodyPreview(value, secrets = []) {
 function replayFromContainer(options, dependencies = {}) {
   const spawn = dependencies.spawn || spawnSync;
   const code = [
-    "const url=process.argv[1];",
+    "const url=process.argv[2];",
     "const token=process.env.MINMAX_INSPECT_API_KEY;",
     "fetch(url,{method:'GET',headers:{accept:'application/json','x-api-key':token}})",
     ".then(async r=>({status:r.status,headers:Object.fromEntries(r.headers.entries()),body:await r.text()}))",
@@ -237,12 +237,12 @@ function replayFromContainer(options, dependencies = {}) {
     'docker',
     [
       'exec',
+      '-i',
       '-e',
       'MINMAX_INSPECT_API_KEY',
       options.container,
       'node',
-      '-e',
-      code,
+      '-',
       options.url,
     ],
     {
@@ -251,6 +251,7 @@ function replayFromContainer(options, dependencies = {}) {
         ...process.env,
         MINMAX_INSPECT_API_KEY: options.apiToken,
       },
+      input: code,
     }
   );
   if (result.status !== 0) {

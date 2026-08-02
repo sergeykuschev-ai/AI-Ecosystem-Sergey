@@ -294,7 +294,7 @@ function probeN8nContainer(options, dependencies = {}) {
     return null;
   }
   const probeCode = [
-    "const base=process.argv[1].replace(/\\/$/,'');",
+    "const base=process.argv[2].replace(/\\/$/,'');",
     "const key=process.env.MINMAX_VERIFY_API_KEY;",
     "const modes=[['none',{}],['bearer',{authorization:'Bearer '+key}],['x-api-key',{'x-api-key':key}]];",
     "Promise.all(modes.map(async ([mode,headers])=>{",
@@ -306,12 +306,12 @@ function probeN8nContainer(options, dependencies = {}) {
     'docker',
     [
       'exec',
+      '-i',
       '-e',
       'MINMAX_VERIFY_API_KEY',
       options.n8nContainer,
       'node',
-      '-e',
-      probeCode,
+      '-',
       options.containerBaseUrl,
     ],
     {
@@ -320,6 +320,7 @@ function probeN8nContainer(options, dependencies = {}) {
         ...process.env,
         MINMAX_VERIFY_API_KEY: options.apiKey,
       },
+      input: probeCode,
     }
   );
   if (result.status !== 0) {

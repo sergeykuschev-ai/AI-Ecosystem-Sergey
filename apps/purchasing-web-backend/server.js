@@ -351,6 +351,67 @@ function startPurchasingWebServer(options = {}) {
   return server;
 }
 
+function runContainerHealthcheck(options = {}) {
+  const httpModule = options.httpModule || http;
+  const expectedSha = options.expectedSha ?? resolveBuildSha();
+  const apiToken = options.apiToken ?? resolveApiToken();
+  return new Promise((resolve, reject) => {
+    const fail = message => reject(new Error(`healthcheck failed: ${message}`));
+    const request = httpModule.get({
+      hostname: '127.0.0.1',
+      port: 3210,
+      path: '/api/v1/health',
+      headers: {
+        accept: 'application/json',
+        ...(apiToken ? { 'x-api-key': apiToken } : {}),
+      },
+    }, response => {
+      let body = '';
+      response.setEncoding('utf8');
+      response.on('data', chunk => {
+        body += chunk;
+        if (body.length > 65536) {
+          request.destroy(new Error('response exceeds 65536 bytes'));
+        }
+      });
+      response.on('end', () => {
+        let payload;
+        try {
+          payload = JSON.parse(body);
+        } catch {
+          fail(
+            `non-JSON response: HTTP ${response.statusCode} ` +
+            `body=${JSON.stringify(body.slice(0, 240))}`
+          );
+          return;
+        }
+        const errors = [];
+        if (response.statusCode !== 200) {
+          errors.push(`HTTP ${response.statusCode}`);
+        }
+        if (payload?.data?.service !== 'purchasing-web') {
+          errors.push(`service=${JSON.stringify(payload?.data?.service)}`);
+        }
+        if (payload?.data?.build_sha !== expectedSha) {
+          errors.push(
+            `build_sha=${JSON.stringify(payload?.data?.build_sha)} ` +
+            `expected=${JSON.stringify(expectedSha)}`
+          );
+        }
+        if (errors.length > 0) {
+          fail(errors.join('; '));
+          return;
+        }
+        resolve(payload);
+      });
+    });
+    request.setTimeout(4000, () => {
+      request.destroy(new Error('request timeout'));
+    });
+    request.on('error', error => fail(error.message));
+  });
+}
+
 function installGracefulShutdown(options) {
   const {
     server,
@@ -459,22 +520,30 @@ function installGracefulShutdown(options) {
 }
 
 if (require.main === module) {
-  const server = startPurchasingWebServer();
-  installGracefulShutdown({ server });
-  server.once('listening', () => {
-    const address = server.address();
-    console.log(
-      `Purchasing Web API v1: http://${resolveHttpHost()}:${address.port}; ` +
-      `minmax_contract=${MINMAX_HTTP_CONTRACT_VERSION}; ` +
-      `build_sha=${resolveBuildSha() || 'unknown'}`
-    );
-  });
+  if (process.argv[2] === '--healthcheck') {
+    runContainerHealthcheck().catch(error => {
+      console.error(error.message);
+      process.exitCode = 1;
+    });
+  } else {
+    const server = startPurchasingWebServer();
+    installGracefulShutdown({ server });
+    server.once('listening', () => {
+      const address = server.address();
+      console.log(
+        `Purchasing Web API v1: http://${resolveHttpHost()}:${address.port}; ` +
+        `minmax_contract=${MINMAX_HTTP_CONTRACT_VERSION}; ` +
+        `build_sha=${resolveBuildSha() || 'unknown'}`
+      );
+    });
+  }
 }
 
 module.exports = {
   createPurchasingWebServer,
   installGracefulShutdown,
   runStartupCleanup,
+  runContainerHealthcheck,
   safeCleanupLog,
   startPurchasingWebServer,
 };
