@@ -335,6 +335,8 @@ restore всегда превращает общий результат в `FAIL
 
 - проверяет ветку и SHA, строит/запускает Docker service и реально перезапускает
   контейнер для проверки restart;
+- Docker healthcheck выполняется встроенным Node.js и требует HTTP 200, JSON,
+  `service=purchasing-web` и `build_sha`, равный текущему HEAD;
 - проверяет health с Windows и из контейнера n8n, JSON 404/200/401 и настоящий
   `connection refused`;
 - при явном `MINMAX_EXECUTION_ID` инспектирует указанный execution с фактическим
@@ -353,6 +355,10 @@ restore всегда превращает общий результат в `FAIL
 
 Если любой этап не подтверждён, команда завершается `FAIL`; частично зелёные
 локальные проверки не считаются end-to-end успехом.
+При Docker health failure runner сам печатает полный `.State.Health`, все
+`Health.Log`, container logs, фактическую команду, redacted env, mounts,
+published ports, наличие Node.js и ответы health endpoint из контейнера и с
+Windows host. Ручные `docker inspect`, `docker logs` и `curl` не требуются.
 
 ## Защита API
 

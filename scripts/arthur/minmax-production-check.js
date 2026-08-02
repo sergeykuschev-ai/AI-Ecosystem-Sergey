@@ -268,6 +268,140 @@ function runCommand(command, args, options = {}) {
   return String(result.stdout || '').trim();
 }
 
+function runCommandCapture(command, args, options = {}) {
+  const result = spawnSync(command, args, {
+    cwd: options.cwd || REPOSITORY_ROOT,
+    encoding: 'utf8',
+    env: options.env || process.env,
+    maxBuffer: 32 * 1024 * 1024,
+    stdio: 'pipe',
+  });
+  return {
+    status: result.status,
+    error: result.error?.message || null,
+    stdout: String(result.stdout || ''),
+    stderr: String(result.stderr || ''),
+  };
+}
+
+function redactDiagnosticText(value, secrets = []) {
+  let text = String(value || '').trim();
+  for (const secret of secrets.filter(Boolean)) {
+    text = text.split(String(secret)).join('[REDACTED]');
+  }
+  return text;
+}
+
+function diagnosticCommand(capture, command, args, options, secrets) {
+  const result = capture(command, args, options);
+  const output = [result.stdout, result.stderr, result.error]
+    .filter(Boolean)
+    .join('\n');
+  return {
+    exitCode: result.status ?? null,
+    output: redactDiagnosticText(output, secrets) || '(no output)',
+  };
+}
+
+function redactedContainerEnvironment(diagnostic, secrets) {
+  if (diagnostic.exitCode !== 0) return diagnostic;
+  try {
+    const values = JSON.parse(diagnostic.output);
+    if (!Array.isArray(values)) return diagnostic;
+    const redacted = values.map(entry => {
+      const separator = String(entry).indexOf('=');
+      const name = separator === -1 ? String(entry) : String(entry).slice(0, separator);
+      const value = separator === -1 ? '' : String(entry).slice(separator + 1);
+      const sensitive = /(?:TOKEN|PASSWORD|SECRET|API_KEY|CREDENTIAL)/i.test(name) ||
+        secrets.some(secret => secret && value.includes(String(secret)));
+      return `${name}=${sensitive ? '[REDACTED]' : value}`;
+    });
+    return { ...diagnostic, output: JSON.stringify(redacted) };
+  } catch {
+    return {
+      ...diagnostic,
+      output: '(container environment could not be parsed safely)',
+    };
+  }
+}
+
+const CONTAINER_HEALTH_PROBE = [
+  "const http=require('node:http')",
+  "const request=http.get('http://127.0.0.1:3210/api/v1/health',",
+  "response=>{let body='';response.setEncoding('utf8');",
+  "response.on('data',chunk=>body+=chunk);",
+  "response.on('end',()=>console.log(JSON.stringify({",
+  "status:response.statusCode,contentType:response.headers['content-type']||'',body})))})",
+  "request.setTimeout(4000,()=>request.destroy(new Error('request timeout')))",
+  "request.on('error',error=>{console.error(error.stack||error.message);process.exit(1)})",
+].join(';');
+
+async function collectBackendDiagnostics(config, dependencies = {}) {
+  const capture = dependencies.runCommandCapture || runCommandCapture;
+  const request = dependencies.request || rawRequest;
+  const secrets = [config.apiToken];
+  const container = 'purchasing-web-backend';
+  const captureDocker = args => diagnosticCommand(
+    capture,
+    'docker',
+    args,
+    { cwd: REPOSITORY_ROOT },
+    secrets
+  );
+  const diagnostics = {
+    health: captureDocker([
+      'inspect', '--format', '{{json .State.Health}}', container,
+    ]),
+    healthLogEntries: captureDocker([
+      'inspect', '--format', '{{json .State.Health.Log}}', container,
+    ]),
+    containerLogs: captureDocker(['logs', '--timestamps', container]),
+    command: captureDocker([
+      'inspect', '--format', '{{json .Path}} {{json .Args}}', container,
+    ]),
+    environment: captureDocker([
+      'inspect', '--format', '{{json .Config.Env}}', container,
+    ]),
+    mounts: captureDocker([
+      'inspect', '--format', '{{json .Mounts}}', container,
+    ]),
+    publishedPorts: captureDocker([
+      'inspect', '--format', '{{json .NetworkSettings.Ports}}', container,
+    ]),
+    healthcheckTool: captureDocker(['exec', container, 'node', '--version']),
+    containerHealthEndpoint: captureDocker([
+      'exec', container, 'node', '-e', CONTAINER_HEALTH_PROBE,
+    ]),
+  };
+  diagnostics.environment = redactedContainerEnvironment(
+    diagnostics.environment,
+    secrets
+  );
+  try {
+    const result = await request(config.backendBaseUrl, '/api/v1/health', {
+      headers: { 'x-api-key': config.apiToken, accept: 'application/json' },
+    });
+    diagnostics.hostHealthEndpoint = {
+      status: result.status,
+      contentType: result.contentType,
+      body: redactDiagnosticText(result.text, secrets).slice(0, 4000),
+    };
+  } catch (error) {
+    diagnostics.hostHealthEndpoint = {
+      error: redactDiagnosticText(error.stack || error.message, secrets),
+    };
+  }
+  return diagnostics;
+}
+
+function printBackendDiagnostics(diagnostics, logger = console) {
+  logger.error('[DOCKER HEALTH DIAGNOSTICS] begin');
+  for (const [name, value] of Object.entries(diagnostics)) {
+    logger.error(`[DOCKER HEALTH ${name}] ${JSON.stringify(value)}`);
+  }
+  logger.error('[DOCKER HEALTH DIAGNOSTICS] end');
+}
+
 function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -282,13 +416,7 @@ async function waitForHealth(config, dependencies = {}) {
       const result = await request(config.backendBaseUrl, '/api/v1/health', {
         headers: { 'x-api-key': config.apiToken, accept: 'application/json' },
       });
-      assertJsonResponse(result, [200]);
-      if (result.json?.data?.build_sha !== config.shortSha) {
-        throw new Error(
-          `backend build_sha=${result.json?.data?.build_sha || '(missing)'}, ` +
-          `expected ${config.shortSha}`
-        );
-      }
+      verifyBackendHealthResponse(result, config.shortSha, 'Windows host');
       return result;
     } catch (error) {
       lastError = error;
@@ -296,6 +424,23 @@ async function waitForHealth(config, dependencies = {}) {
     }
   }
   throw new Error(`Backend health did not become ready: ${lastError?.message}`);
+}
+
+function verifyBackendHealthResponse(result, expectedSha, source) {
+  assertJsonResponse(result, [200]);
+  if (result.json?.data?.service !== 'purchasing-web') {
+    throw new Error(
+      `${source} health service=${result.json?.data?.service || '(missing)'}, ` +
+      'expected purchasing-web.'
+    );
+  }
+  if (result.json?.data?.build_sha !== expectedSha) {
+    throw new Error(
+      `${source} health build_sha=${result.json?.data?.build_sha || '(missing)'}, ` +
+      `expected ${expectedSha}.`
+    );
+  }
+  return result;
 }
 
 function startPersistentBackend(config, dependencies = {}) {
@@ -323,6 +468,24 @@ async function verifyBackendRestart(config, dependencies = {}) {
   const run = dependencies.runCommand || runCommand;
   run('docker', ['restart', 'purchasing-web-backend']);
   return waitForHealth(config, dependencies);
+}
+
+async function ensurePersistentBackend(config, dependencies = {}) {
+  try {
+    const persistence = startPersistentBackend(config, dependencies);
+    await waitForHealth(config, dependencies);
+    await verifyBackendRestart(config, dependencies);
+    return persistence;
+  } catch (cause) {
+    const diagnostics = await collectBackendDiagnostics(config, dependencies);
+    printBackendDiagnostics(diagnostics, dependencies.logger || console);
+    const error = new Error(
+      `purchasing-web-backend failed Docker health verification: ${cause.message}`,
+      { cause }
+    );
+    error.backendDiagnostics = diagnostics;
+    throw error;
+  }
 }
 
 async function verifyConnectionRefused(dependencies = {}) {
@@ -883,9 +1046,7 @@ async function runProductionCheck(config, dependencies = {}) {
   }
   logger.log(`[PASS] branch=${branch}; SHA=${sha}`);
 
-  startPersistentBackend(config, dependencies);
-  await waitForHealth(config, dependencies);
-  await verifyBackendRestart(config, dependencies);
+  const persistence = await ensurePersistentBackend(config, dependencies);
   logger.log('[PASS] purchasing-web-backend is persistent and restart-safe.');
 
   const client = dependencies.client || new N8nApiClient({
@@ -932,7 +1093,7 @@ async function runProductionCheck(config, dependencies = {}) {
     sha,
     historicalInspection: inspection,
     deployment: transaction.deployment,
-    backend: { restartPolicy: 'unless-stopped', buildSha: config.shortSha },
+    backend: { ...persistence, buildSha: config.shortSha },
     registryNode: transaction.registryNode,
     e2e: transaction.e2e,
     restore: transaction.restore,
@@ -969,10 +1130,13 @@ module.exports = {
   backendJson,
   buildE2EMailOptions,
   buildE2ESubject,
+  collectBackendDiagnostics,
   deployedRuntimeConfigSnapshot,
+  ensurePersistentBackend,
   inspectHistoricalExecution,
   latestOutputJson,
   matchingExecutionDetails,
+  printBackendDiagnostics,
   productionConfig,
   productionEnvironment,
   publishedWorkflowFromRecord,
@@ -981,6 +1145,7 @@ module.exports = {
   runMailE2E,
   runProductionCheck,
   startPersistentBackend,
+  verifyBackendHealthResponse,
   verifyConnectionRefused,
   verifyCredentialMetadata,
   verifyDeployedRuntimeConfig,

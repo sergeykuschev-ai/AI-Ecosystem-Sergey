@@ -12,6 +12,8 @@ const {
 const {
   buildE2EMailOptions,
   buildE2ESubject,
+  collectBackendDiagnostics,
+  ensurePersistentBackend,
   inspectHistoricalExecution,
   latestOutputJson,
   productionConfig,
@@ -19,6 +21,7 @@ const {
   registryNodeSnapshot,
   runE2EWithAutomaticRestore,
   verifyConnectionRefused,
+  verifyBackendHealthResponse,
   verifyCredentialMetadata,
   verifyDeployedRuntimeConfig,
   waitForE2EExecution,
@@ -158,6 +161,25 @@ function execution(overrides = {}) {
       },
     },
     ...overrides,
+  };
+}
+
+function healthResponse(overrides = {}) {
+  const body = {
+    data: {
+      status: 'ok',
+      service: 'purchasing-web',
+      build_sha: 'd14d642',
+      ...overrides.data,
+    },
+  };
+  return {
+    method: 'GET',
+    requestPath: '/api/v1/health',
+    status: overrides.status ?? 200,
+    contentType: overrides.contentType || 'application/json; charset=utf-8',
+    text: overrides.text === undefined ? JSON.stringify(body) : overrides.text,
+    json: overrides.json === undefined ? body : overrides.json,
   };
 }
 
@@ -405,6 +427,147 @@ test('published registry node contract exposes JSON, retries and exact options',
   assert.equal(snapshot.timeout, 30000);
 });
 
+test('healthy container passes host health and restart verification', async () => {
+  const commands = [];
+  const config = {
+    apiToken: '0123456789abcdef',
+    backendBaseUrl: 'http://127.0.0.1:3210',
+    composeFile: '/repo/compose.yml',
+    shortSha: 'd14d642',
+  };
+  const result = await ensurePersistentBackend(config, {
+    runCommand(command, args) {
+      commands.push([command, ...args]);
+      return args[0] === 'inspect' ? 'unless-stopped' : '';
+    },
+    request: async () => healthResponse(),
+  });
+
+  assert.deepEqual(result, { restartPolicy: 'unless-stopped' });
+  assert.equal(commands.filter(command => command[1] === 'restart').length, 1);
+});
+
+test('backend not started prints Docker health and container logs automatically', async () => {
+  const messages = [];
+  const config = {
+    apiToken: '0123456789abcdef',
+    backendBaseUrl: 'http://127.0.0.1:3210',
+    composeFile: '/repo/compose.yml',
+    shortSha: 'd14d642',
+  };
+
+  await assert.rejects(
+    () => ensurePersistentBackend(config, {
+      runCommand() { throw new Error('container is unhealthy'); },
+      runCommandCapture(command, args) {
+        return {
+          status: 1,
+          stdout: '',
+          stderr: args[0] === 'logs'
+            ? 'backend process exited before listen'
+            : 'No such container',
+          error: null,
+        };
+      },
+      request: async () => { throw new Error('connect ECONNREFUSED'); },
+      logger: { error(message) { messages.push(message); } },
+    }),
+    /container is unhealthy/
+  );
+  assert.ok(messages.some(message => message.includes('healthLogEntries')));
+  assert.ok(messages.some(message =>
+    message.includes('backend process exited before listen')
+  ));
+  assert.ok(messages.some(message => message.includes('ECONNREFUSED')));
+});
+
+test('wrong published port is reported with host connection evidence', async () => {
+  const messages = [];
+  const config = {
+    apiToken: '0123456789abcdef',
+    backendBaseUrl: 'http://127.0.0.1:3211',
+    composeFile: '/repo/compose.yml',
+    shortSha: 'd14d642',
+  };
+
+  await assert.rejects(
+    () => ensurePersistentBackend(config, {
+      runCommand(command, args) {
+        return args[0] === 'inspect' ? 'unless-stopped' : '';
+      },
+      runCommandCapture() {
+        return { status: 0, stdout: '{}', stderr: '', error: null };
+      },
+      request: async () => {
+        throw new Error('connect ECONNREFUSED 127.0.0.1:3211');
+      },
+      delay: async () => new Promise(resolve => setTimeout(resolve, 2)),
+      timeoutMs: 5,
+      logger: { error(message) { messages.push(message); } },
+    }),
+    /Backend health did not become ready.*3211/
+  );
+  assert.ok(messages.some(message => message.includes('127.0.0.1:3211')));
+});
+
+test('wrong build SHA fails the exact health contract', () => {
+  assert.throws(
+    () => verifyBackendHealthResponse(
+      healthResponse({ data: { build_sha: 'fffffff' } }),
+      'd14d642',
+      'Windows host'
+    ),
+    /build_sha=fffffff, expected d14d642/
+  );
+});
+
+test('non-JSON health response fails the exact health contract', () => {
+  assert.throws(
+    () => verifyBackendHealthResponse(healthResponse({
+      contentType: 'text/html',
+      text: '<h1>proxy error</h1>',
+      json: null,
+    }), 'd14d642', 'Windows host'),
+    /Content-Type "text\/html"/
+  );
+});
+
+test('missing healthcheck tool is preserved in automatic diagnostics', async () => {
+  const diagnostics = await collectBackendDiagnostics({
+    apiToken: '0123456789abcdef',
+    backendBaseUrl: 'http://127.0.0.1:3210',
+  }, {
+    runCommandCapture(command, args) {
+      if (args[0] === 'exec' && args.includes('--version')) {
+        return {
+          status: 127,
+          stdout: '',
+          stderr: 'exec: node: executable file not found',
+          error: null,
+        };
+      }
+      if (args.includes('{{json .Config.Env}}')) {
+        return {
+          status: 0,
+          stdout: JSON.stringify([
+            'PURCHASING_API_TOKEN=0123456789abcdef',
+            'PURCHASING_BUILD_SHA=d14d642',
+          ]),
+          stderr: '',
+          error: null,
+        };
+      }
+      return { status: 0, stdout: '{}', stderr: '', error: null };
+    },
+    request: async () => healthResponse(),
+  });
+
+  assert.equal(diagnostics.healthcheckTool.exitCode, 127);
+  assert.match(diagnostics.healthcheckTool.output, /node.*not found/);
+  assert.doesNotMatch(diagnostics.environment.output, /0123456789abcdef/);
+  assert.match(diagnostics.environment.output, /PURCHASING_API_TOKEN=\[REDACTED\]/);
+});
+
 test('Docker service is restart-safe and keeps output/data on host mounts', () => {
   const compose = fs.readFileSync(path.join(
     ROOT,
@@ -421,6 +584,16 @@ test('Docker service is restart-safe and keeps output/data on host mounts', () =
   assert.match(compose, /PURCHASING_API_TOKEN/);
   assert.match(compose, /PURCHASING_BUILD_SHA/);
   assert.match(dockerfile, /HEALTHCHECK/);
+  assert.match(dockerfile, /node:http/);
+  assert.match(dockerfile, /127\.0\.0\.1',port:3210/);
+  assert.match(dockerfile, /service!=='purchasing-web'/);
+  assert.match(dockerfile, /data\.build_sha!==expected/);
+  const healthCommand = JSON.parse(
+    dockerfile.match(/\n  CMD (\[[^\n]+\])/)[1]
+  );
+  assert.equal(healthCommand[0], 'node');
+  assert.equal(healthCommand[1], '-e');
+  assert.doesNotThrow(() => new Function(healthCommand[2]));
 });
 
 test('SMTP message has one Excel attachment and correlation marker', () => {
