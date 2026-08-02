@@ -177,6 +177,7 @@ function noRuleResult(minmaxQty, currentStock, warnings = []) {
   return {
     minmax_qty: minmaxQty,
     policy_qty: minmaxQty,
+    mandatory_minimum_gap: null,
     policy_rule: POLICY_RULES.NONE,
     applied_rules: [],
     explanation: 'Ассортиментное правило отсутствует: рекомендация Min/Max сохранена.',
@@ -214,6 +215,7 @@ function applyAssortmentPolicy(input = {}) {
   const warnings = [];
   const appliedRules = [];
   let quantity = normalizedMinmax;
+  let mandatoryMinimumGap = null;
   let mainRule = POLICY_RULES.NONE;
   let explanation = `Min/Max предложил ${normalizedMinmax ?? 'неопределённое количество'} шт. Политика не изменила рекомендацию.`;
 
@@ -238,7 +240,6 @@ function applyAssortmentPolicy(input = {}) {
         ? `Min/Max предложил ${normalizedMinmax ?? 0} шт. Заказ отменён: действует полный временный запрет закупки.`
         : `Min/Max предложил ${normalizedMinmax ?? 0} шт. Заказ отменён: текущий остаток ${stock} шт., действует запрет до снижения остатка до ${rule.purchase_hold_until_stock} шт.`;
     } else {
-      if (quantity === null && rule.mandatory_assortment) quantity = 0;
       if (quantity === null) warnings.push('MINMAX_QUANTITY_UNAVAILABLE');
 
       if (quantity !== null && stock !== null && rule.max_stock !== null) {
@@ -256,13 +257,14 @@ function applyAssortmentPolicy(input = {}) {
       if (
         rule.mandatory_assortment &&
         stock !== null &&
-        rule.min_stock !== null &&
-        stock < rule.min_stock
+        rule.min_stock !== null
       ) {
         const replenishTo = rule.target_stock ?? rule.min_stock;
-        const required = Math.max(0, replenishTo - stock);
-        const restored = Math.max(quantity ?? 0, required);
-        if (restored !== quantity) {
+        mandatoryMinimumGap = stock < rule.min_stock
+          ? Math.max(0, replenishTo - stock)
+          : 0;
+        const restored = Math.max(quantity ?? 0, mandatoryMinimumGap);
+        if (mandatoryMinimumGap > 0 && restored !== quantity) {
           quantity = restored;
           mainRule = POLICY_RULES.MANDATORY_ASSORTMENT;
           appliedRules.push(POLICY_RULES.MANDATORY_ASSORTMENT);
@@ -289,6 +291,7 @@ function applyAssortmentPolicy(input = {}) {
   return {
     minmax_qty: normalizedMinmax,
     policy_qty: quantity,
+    mandatory_minimum_gap: mandatoryMinimumGap,
     policy_rule: mainRule,
     applied_rules: appliedRules,
     explanation,
@@ -324,6 +327,9 @@ function applyAssortmentPolicyToProducts(products, store, runContext = {}) {
       ...product,
       minmaxRecommendedQuantity: result.minmax_qty,
       finalRecommendedQuantity: result.policy_qty,
+      mandatoryMinimumGap: result.mandatory_minimum_gap === null
+        ? product.mandatoryMinimumGap
+        : Math.max(product.mandatoryMinimumGap ?? 0, result.mandatory_minimum_gap),
       assortmentPolicy: result,
       mandatoryAssortment: result.matched && result.mandatory_assortment
         ? true

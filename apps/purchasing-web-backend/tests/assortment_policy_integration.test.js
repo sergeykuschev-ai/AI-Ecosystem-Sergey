@@ -22,6 +22,10 @@ const {
 const {
   mapPurchasingItems,
 } = require('../dto/purchasing_item_mapper');
+const {
+  itemMatchesDecisionFilter,
+  recommendedQuantity,
+} = require('../public/app');
 
 function item(overrides = {}) {
   return {
@@ -204,4 +208,43 @@ test('41-43. legacy item without policy opens, filters and exports', () => {
     generatedAt: '2026-08-02T00:00:00.000Z',
   });
   assert.equal(order.rows[0].quantity, 3);
+});
+
+test('GAL5427740 UI shows mandatory provisional quantity only for known stock', () => {
+  const knownZero = item({
+    workflow_status: 'pending_manual_review',
+    quantities: {
+      calculated_quantity: 0,
+      minmax_quantity: 0,
+      policy_quantity: 2,
+      approved_quantity: null,
+      provisional_quantity: 2,
+      final_quantity: 2,
+    },
+    assortment_policy: {
+      matched: true,
+      adjusted: true,
+      rule: 'MANDATORY_ASSORTMENT',
+    },
+  });
+  const unknownStock = item({
+    quantities: {
+      calculated_quantity: null,
+      minmax_quantity: null,
+      policy_quantity: null,
+      approved_quantity: null,
+      provisional_quantity: null,
+      final_quantity: null,
+    },
+    assortment_policy: {
+      matched: true,
+      adjusted: false,
+      rule: 'NONE',
+    },
+  });
+
+  assert.equal(recommendedQuantity(knownZero), 2);
+  assert.equal(itemMatchesDecisionFilter(knownZero, 'policy'), true);
+  assert.equal(recommendedQuantity(unknownStock), null);
+  assert.equal(itemMatchesDecisionFilter(unknownStock, 'policy'), false);
 });

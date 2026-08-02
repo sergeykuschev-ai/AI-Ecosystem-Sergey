@@ -18,6 +18,10 @@ const {
   loadAssortmentPolicy,
   updateAssortmentPolicyRule,
 } = require('../services/assortment_policy_store');
+const {
+  buildPhase2PurchasingDecisions,
+} = require('../services/decision_engine');
+const { buildWorkingOrder } = require('../services/working_order');
 
 const UPDATED_AT = '2026-08-02T00:00:00.000Z';
 
@@ -51,6 +55,35 @@ function apply(overrides = {}) {
     run_context: { runId: 'run-1' },
     ...overrides,
   });
+}
+
+function phase2Product(overrides = {}) {
+  return {
+    rowIdentity: 'row-gal',
+    rowNumber: 1,
+    article: 'GAL5427740',
+    name: 'Вет диета CRAFTIA Гипоаллердженик Дерм для кошек 1,4',
+    supplier: 'Supplier',
+    freeStock: 0,
+    stockStatus: 'known',
+    finalRecommendedQuantity: 0,
+    analyzerCalculatedQuantity: 0,
+    salesStatus: 'confirmed_zero',
+    salesDailyRate: 0,
+    salesRateSource: 'period_sales',
+    salesTrend: 'consistent',
+    mandatoryAssortment: false,
+    mandatoryMinimumGap: 0,
+    assortmentPriority: null,
+    requiredData: [],
+    warnings: [],
+    abc: 'C',
+    xyz: 'Z',
+    priceNum: 100,
+    quantityReason: 'confirmed_zero_sales',
+    matchingHints: {},
+    ...overrides,
+  };
 }
 
 test('1. SKU без правила сохраняет Min/Max', () => {
@@ -209,11 +242,13 @@ test('18-21. реальное правило Craftia соблюдает оста
   const store = loadAssortmentPolicy(DEFAULT_POLICY_PATH).store;
   const craftia = store.rules.find(candidate => candidate.sku === 'GAL5427740');
   assert.ok(craftia);
-  assert.equal(applyAssortmentPolicy({
+  const zeroStock = applyAssortmentPolicy({
     current_stock: 0,
     minmax_qty: null,
     rule: craftia,
-  }).policy_qty, 2);
+  });
+  assert.equal(zeroStock.policy_qty, 2);
+  assert.equal(zeroStock.mandatory_minimum_gap, 2);
   assert.equal(applyAssortmentPolicy({
     current_stock: 1,
     minmax_qty: 0,
@@ -224,6 +259,50 @@ test('18-21. реальное правило Craftia соблюдает оста
     minmax_qty: 0,
     rule: craftia,
   }).policy_qty, 0);
+});
+
+test('known zero stock keeps GAL5427740 mandatory quantity through Phase 2', () => {
+  const store = loadAssortmentPolicy(DEFAULT_POLICY_PATH).store;
+  const [product] = applyAssortmentPolicyToProducts([
+    phase2Product(),
+  ], store);
+  const decisions = buildPhase2PurchasingDecisions({ products: [product] });
+  const decision = decisions.decisions[0];
+  const working = buildWorkingOrder([product], decisions.decisions).products[0];
+
+  assert.equal(product.finalRecommendedQuantity, 2);
+  assert.equal(product.mandatoryMinimumGap, 2);
+  assert.equal(product.assortmentPolicy.policy_adjusted, true);
+  assert.equal(decision.decision, 'manual_review');
+  assert.equal(decision.approvedOrderQuantity, null);
+  assert.ok(!decision.reasons.includes('confirmed_zero_sales_without_mandatory_gap'));
+  assert.equal(working.provisionalOrderQuantity, 2);
+});
+
+test('unknown GAL5427740 stock stays unknown and is not policy-adjusted', () => {
+  const store = loadAssortmentPolicy(DEFAULT_POLICY_PATH).store;
+  const [product] = applyAssortmentPolicyToProducts([
+    phase2Product({
+      freeStock: null,
+      stockStatus: 'unknown',
+      finalRecommendedQuantity: null,
+      mandatoryMinimumGap: null,
+      requiredData: ['free_stock'],
+      quantityReason: 'incomplete_critical_data',
+    }),
+  ], store);
+  const decision = buildPhase2PurchasingDecisions({ products: [product] })
+    .decisions[0];
+
+  assert.equal(product.finalRecommendedQuantity, null);
+  assert.equal(product.mandatoryMinimumGap, null);
+  assert.equal(product.assortmentPolicy.policy_adjusted, false);
+  assert.equal(product.assortmentPolicy.policy_rule, 'NONE');
+  assert.ok(product.assortmentPolicy.policy_warnings.includes(
+    'CURRENT_STOCK_REQUIRED_FOR_MANDATORY_ASSORTMENT'
+  ));
+  assert.equal(decision.decision, 'manual_review');
+  assert.equal(decision.approvedOrderQuantity, null);
 });
 
 test('22-23. HYPO Puppy блокируется только выше порога', () => {
