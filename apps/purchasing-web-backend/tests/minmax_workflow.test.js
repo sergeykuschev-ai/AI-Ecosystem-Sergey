@@ -634,7 +634,12 @@ test('28. fixed-config workflow не обращается к env и исполь
   assert.ok(configCode.includes("apiBaseUrl: 'http://host.docker.internal:3210'"));
   assert.ok(configCode.includes("ownerUiBaseUrl: 'http://<SERVER-IP>:3210'"));
   assert.ok(configCode.includes("mailbox: 'INBOX'"));
-  assert.ok(configCode.includes("notifyTo: 'miskakhv@yandex.ru'"));
+  assert.ok(configCode.includes("notifyTo: ''"));
+  assert.ok(configCode.includes("notifyFrom: ''"));
+  assert.doesNotMatch(
+    serialized,
+    /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i
+  );
   assert.ok(configCode.includes('maxAttachmentBytes: 20971520'));
   assert.ok(configCode.includes('pollIntervalSeconds: 10'));
   assert.ok(configCode.includes('pollTimeoutSeconds: 600'));

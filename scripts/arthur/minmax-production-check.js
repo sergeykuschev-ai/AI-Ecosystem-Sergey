@@ -37,6 +37,7 @@ const WORKBOOK_PATH = path.join(
   'tests/fixtures/SmartZapas_synthetic.xlsx'
 );
 const REQUIRED_BRANCH = 'feature/minmax-yandex-mail-intake';
+const DEFAULT_E2E_SUBJECT_PATTERN = 'minmax production e2e';
 const DEFAULT_CREDENTIALS = Object.freeze({
   httpHeaderAuth: 'pjXec1bxtt81cy0u',
   imap: 'Od4UJQh12iTGufks',
@@ -60,6 +61,19 @@ function positiveInteger(value, fallback, name) {
 function productionConfig(environment = process.env) {
   const mailUser = requiredSecret('MINMAX_E2E_MAIL_USER', environment);
   const mailPassword = requiredSecret('MINMAX_E2E_MAIL_PASSWORD', environment);
+  const allowedSender = environment.MINMAX_ALLOWED_SENDER === undefined
+    ? mailUser
+    : String(environment.MINMAX_ALLOWED_SENDER).trim();
+  const subjectPattern = environment.MINMAX_SUBJECT_PATTERN === undefined
+    ? DEFAULT_E2E_SUBJECT_PATTERN
+    : String(environment.MINMAX_SUBJECT_PATTERN).trim();
+  if (!allowedSender) throw new Error('MINMAX_ALLOWED_SENDER is required.');
+  if (!subjectPattern) throw new Error('MINMAX_SUBJECT_PATTERN is required.');
+  if (allowedSender.toLowerCase() !== mailUser.toLowerCase()) {
+    throw new Error(
+      'MINMAX_ALLOWED_SENDER must equal MINMAX_E2E_MAIL_USER for production E2E.'
+    );
+  }
   const ownerUrl = String(
     environment.MINMAX_OWNER_UI_BASE_URL || `http://${os.hostname()}:3210`
   ).replace(/\/+$/, '');
@@ -76,7 +90,9 @@ function productionConfig(environment = process.env) {
     composeFile: environment.PURCHASING_COMPOSE_FILE
       ? path.resolve(environment.PURCHASING_COMPOSE_FILE)
       : COMPOSE_FILE,
-    executionId: String(environment.MINMAX_EXECUTION_ID || '272'),
+    executionId: environment.MINMAX_EXECUTION_ID === undefined
+      ? null
+      : String(environment.MINMAX_EXECUTION_ID).trim() || null,
     fixturePath: environment.MINMAX_E2E_FIXTURE
       ? path.resolve(environment.MINMAX_E2E_FIXTURE)
       : WORKBOOK_PATH,
@@ -104,8 +120,10 @@ function productionConfig(environment = process.env) {
     },
     apiToken: requiredSecret('PURCHASING_API_TOKEN', environment),
     ownerUrl,
-    notifyEmail: String(environment.MINMAX_NOTIFY_EMAIL || mailUser),
-    smtpFrom: String(environment.MINMAX_SMTP_FROM || mailUser),
+    allowedSender,
+    subjectPattern,
+    notifyEmail: requiredSecret('MINMAX_NOTIFY_EMAIL', environment),
+    smtpFrom: requiredSecret('MINMAX_SMTP_FROM', environment),
     mail: {
       smtpHost: String(environment.MINMAX_E2E_SMTP_HOST || 'smtp.yandex.ru'),
       smtpPort: positiveInteger(
@@ -135,6 +153,80 @@ function productionConfig(environment = process.env) {
       'MINMAX_E2E_TIMEOUT_MS'
     ),
   };
+}
+
+function buildE2ESubject(config, marker) {
+  return `${config.subjectPattern} ${marker}`;
+}
+
+function buildE2EMailOptions(config, marker, file) {
+  return {
+    host: config.mail.smtpHost,
+    port: config.mail.smtpPort,
+    user: config.mail.user,
+    password: config.mail.password,
+    from: config.mail.user,
+    to: config.mail.recipient,
+    subject: buildE2ESubject(config, marker),
+    marker,
+    file,
+    fileName: 'minmax-production-e2e.xlsx',
+    timeoutMs: 30000,
+  };
+}
+
+function fixedConfigValue(code, field) {
+  const expression = new RegExp(`\\b${field}:\\s*('[^']*'|"[^"]*")`);
+  const literal = String(code || '').match(expression)?.[1];
+  if (!literal) return null;
+  if (literal.startsWith('"')) return JSON.parse(literal);
+  return literal.slice(1, -1).replace(/\\'/g, "'").replace(/\\\\/g, '\\');
+}
+
+function deployedRuntimeConfigSnapshot(workflow) {
+  const code = (workflow.nodes || []).find(node =>
+    node.id === 'minmax-fixed-config'
+  )?.parameters?.jsCode;
+  if (!code) throw new Error('Published Fixed MinMax config node is missing.');
+  return {
+    allowedSender: fixedConfigValue(code, 'allowedSender'),
+    subjectPattern: fixedConfigValue(code, 'subjectPattern'),
+    notifyTo: fixedConfigValue(code, 'notifyTo'),
+    notifyFrom: fixedConfigValue(code, 'notifyFrom'),
+  };
+}
+
+function verifyDeployedRuntimeConfig(workflow, config) {
+  const snapshot = deployedRuntimeConfigSnapshot(workflow);
+  if (!snapshot.allowedSender || !snapshot.subjectPattern) {
+    throw new Error('Published MinMax filters must not be accept-all.');
+  }
+  const expected = {
+    allowedSender: config.allowedSender,
+    subjectPattern: config.subjectPattern,
+    notifyTo: config.notifyEmail,
+    notifyFrom: config.smtpFrom,
+  };
+  for (const [field, value] of Object.entries(expected)) {
+    if (snapshot[field] !== value) {
+      throw new Error(
+        `Published MinMax ${field}=${snapshot[field] || '(empty)'}, ` +
+        `expected ${value}.`
+      );
+    }
+  }
+  const sampleSubject = buildE2ESubject(config, 'contract-marker');
+  if (!config.mail.user.toLowerCase().includes(
+    snapshot.allowedSender.toLowerCase()
+  )) {
+    throw new Error('E2E sender does not match published allowedSender.');
+  }
+  if (!sampleSubject.toLowerCase().includes(
+    snapshot.subjectPattern.toLowerCase()
+  )) {
+    throw new Error('E2E subject does not match published subjectPattern.');
+  }
+  return snapshot;
 }
 
 function gitValue(args) {
@@ -466,21 +558,11 @@ async function verifyIdempotentReplay(config, idempotencyKey, runId, file, depen
 async function runMailE2E(config, client, dependencies = {}) {
   const file = fs.readFileSync(config.fixturePath);
   const marker = `minmax-${Date.now()}-${crypto.randomBytes(5).toString('hex')}`;
-  const subject = `MinMax production E2E ${marker}`;
+  const subject = buildE2ESubject(config, marker);
   const startedAt = Date.now();
-  await (dependencies.sendMail || sendExcelMail)({
-    host: config.mail.smtpHost,
-    port: config.mail.smtpPort,
-    user: config.mail.user,
-    password: config.mail.password,
-    from: config.smtpFrom,
-    to: config.mail.recipient,
-    subject,
-    marker,
-    file,
-    fileName: 'minmax-production-e2e.xlsx',
-    timeoutMs: 30000,
-  });
+  await (dependencies.sendMail || sendExcelMail)(
+    buildE2EMailOptions(config, marker, file)
+  );
   const execution = await waitForE2EExecution(
     client,
     config,
@@ -584,9 +666,39 @@ function productionEnvironment(config) {
     PURCHASING_BUILD_SHA: config.shortSha,
     MINMAX_API_BASE_URL: config.backendContainerBaseUrl,
     MINMAX_OWNER_UI_BASE_URL: config.ownerUrl,
+    MINMAX_ALLOWED_SENDER: config.allowedSender,
+    MINMAX_SUBJECT_PATTERN: config.subjectPattern,
     MINMAX_NOTIFY_EMAIL: config.notifyEmail,
     MINMAX_SMTP_FROM: config.smtpFrom,
   };
+}
+
+async function inspectHistoricalExecution(config, client, dependencies = {}) {
+  const logger = dependencies.logger || console;
+  if (!config.executionId) {
+    logger.log('[SKIP] MINMAX_EXECUTION_ID is not set; historical inspect skipped.');
+    return null;
+  }
+  const inspect = dependencies.inspectExecution || inspectExecution;
+  const inspection = await inspect({
+    baseUrl: config.n8n.baseUrl,
+    n8nApiKey: config.n8n.apiKey,
+    workflowId: config.n8n.workflowId,
+    executionId: config.executionId,
+    container: config.n8n.container,
+    credentialId: config.n8n.credentials.httpHeaderAuth,
+    expectedCredentialId: config.n8n.credentials.httpHeaderAuth,
+    purchasingApiToken: config.apiToken,
+  }, {
+    client,
+    replay: dependencies.replay,
+  });
+  (dependencies.printInspection || printInspection)(
+    inspection,
+    logger,
+    [config.apiToken]
+  );
+  return inspection;
 }
 
 async function runProductionCheck(config, dependencies = {}) {
@@ -613,20 +725,11 @@ async function runProductionCheck(config, dependencies = {}) {
     baseUrl: config.n8n.baseUrl,
     apiKey: config.n8n.apiKey,
   });
-  const inspection = await inspectExecution({
-    baseUrl: config.n8n.baseUrl,
-    n8nApiKey: config.n8n.apiKey,
-    workflowId: config.n8n.workflowId,
-    executionId: config.executionId,
-    container: config.n8n.container,
-    credentialId: config.n8n.credentials.httpHeaderAuth,
-    expectedCredentialId: config.n8n.credentials.httpHeaderAuth,
-    purchasingApiToken: config.apiToken,
-  }, {
+  const inspection = await inspectHistoricalExecution(
+    config,
     client,
-    replay: dependencies.replay,
-  });
-  printInspection(inspection, logger, [config.apiToken]);
+    dependencies
+  );
 
   await verifyInvalidToken(config, dependencies);
   await verifyConnectionRefused(dependencies);
@@ -656,11 +759,13 @@ async function runProductionCheck(config, dependencies = {}) {
     nodes: deployed.activeVersion?.nodes || [],
   };
   const registryNode = registryNodeSnapshot(publishedWorkflow);
+  const runtimeConfig = verifyDeployedRuntimeConfig(publishedWorkflow, config);
   if (registryNode.credential?.id !== config.n8n.credentials.httpHeaderAuth) {
     throw new Error('Published registry node has the wrong credential id.');
   }
   logger.log(`[PASS] credentials metadata=${JSON.stringify(credentialMetadata)}`);
   logger.log(`[PASS] published registry node=${JSON.stringify(registryNode)}`);
+  logger.log(`[PASS] published runtime config=${JSON.stringify(runtimeConfig)}`);
 
   const e2e = await runMailE2E(config, client, dependencies);
   logger.log(`[PASS] email -> Excel -> run -> notification -> Owner Review ${JSON.stringify(e2e)}`);
@@ -670,7 +775,7 @@ async function runProductionCheck(config, dependencies = {}) {
   return {
     status: 'PASS',
     sha,
-    rootCause272: inspection.cause,
+    historicalInspection: inspection,
     deployment,
     backend: { restartPolicy: 'unless-stopped', buildSha: config.shortSha },
     registryNode,
@@ -706,15 +811,21 @@ if (require.main === module) {
 
 module.exports = {
   backendJson,
+  buildE2EMailOptions,
+  buildE2ESubject,
+  deployedRuntimeConfigSnapshot,
+  inspectHistoricalExecution,
   latestOutputJson,
   matchingExecutionDetails,
   productionConfig,
+  productionEnvironment,
   registryNodeSnapshot,
   runMailE2E,
   runProductionCheck,
   startPersistentBackend,
   verifyConnectionRefused,
   verifyCredentialMetadata,
+  verifyDeployedRuntimeConfig,
   verifyIdempotentReplay,
   verifyInvalidToken,
   waitForE2EExecution,

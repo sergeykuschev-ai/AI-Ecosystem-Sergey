@@ -627,22 +627,54 @@ test('deployment config identifies N88N credential variable typo', () => {
   );
 });
 
-test('production runtime values are bound without mutating repository workflow', () => {
+test('deploy binds production filters and notify/from without mutating repository workflow', async t => {
   const source = readRepositoryWorkflow();
   const configNode = source.nodes.find(node => node.id === 'minmax-fixed-config');
   const originalCode = configNode.parameters.jsCode;
-  const bound = bindFixedRuntimeConfig(source, {
-    apiBaseUrl: 'http://host.docker.internal:3210',
-    ownerUiBaseUrl: 'http://arthur-server:3210',
-    notifyTo: 'owner@example.test',
-    notifyFrom: 'robot@example.test',
+  const config = deploymentConfig({
+    N8N_BASE_URL: 'http://n8n.example',
+    N8N_API_KEY: 'api-key',
+    N8N_ARTHUR_CREDENTIAL_ID: 'arthur-id',
+    N8N_MINMAX_IMAP_CREDENTIAL_ID: 'imap-id',
+    N8N_MINMAX_SMTP_CREDENTIAL_ID: 'smtp-id',
+    MINMAX_API_BASE_URL: 'http://host.docker.internal:3210',
+    MINMAX_OWNER_UI_BASE_URL: 'http://arthur-server:3210',
+    MINMAX_ALLOWED_SENDER: 'e2e-sender@example.test',
+    MINMAX_SUBJECT_PATTERN: 'minmax production e2e',
+    MINMAX_NOTIFY_EMAIL: 'owner@example.test',
+    MINMAX_SMTP_FROM: 'robot@example.test',
   });
-  const code = bound.nodes.find(node => node.id === 'minmax-fixed-config')
+  const bound = bindFixedRuntimeConfig(source, config.runtimeConfig);
+  const runtime = await startN8nApi([]);
+  t.after(async () => {
+    runtime.server.close();
+    await once(runtime.server, 'close').catch(() => {});
+  });
+  const result = await deployWorkflow({
+    client: runtime.client,
+    credentials: config.credentials,
+    repositoryWorkflow: source,
+    runtimeConfig: config.runtimeConfig,
+    workflowId: DEFAULT_WORKFLOW_ID,
+  });
+  const deployed = runtime.records.get(result.workflowId);
+  const code = deployed.nodes.find(node => node.id === 'minmax-fixed-config')
     .parameters.jsCode;
+  const publishedCode = deployed.activeVersion.nodes.find(
+    node => node.id === 'minmax-fixed-config'
+  ).parameters.jsCode;
 
   assert.match(code, /ownerUiBaseUrl: "http:\/\/arthur-server:3210"/);
+  assert.match(code, /allowedSender: "e2e-sender@example\.test"/);
+  assert.match(code, /subjectPattern: "minmax production e2e"/);
   assert.match(code, /notifyTo: "owner@example\.test"/);
   assert.match(code, /notifyFrom: "robot@example\.test"/);
+  assert.equal(publishedCode, code);
+  assert.match(
+    bound.nodes.find(node => node.id === 'minmax-fixed-config')
+      .parameters.jsCode,
+    /notifyTo: "owner@example\.test"/
+  );
   assert.equal(configNode.parameters.jsCode, originalCode);
 });
 

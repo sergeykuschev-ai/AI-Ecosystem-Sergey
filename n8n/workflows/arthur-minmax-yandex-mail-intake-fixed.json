@@ -25,7 +25,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Production-конфигурация для n8n, где доступ к env запрещён.\nconst config = Object.freeze({\n  apiBaseUrl: 'http://host.docker.internal:3210',\n  ownerUiBaseUrl: 'http://<SERVER-IP>:3210',\n  allowedSender: '',\n  subjectPattern: '',\n  mailbox: 'INBOX',\n  notifyTo: 'miskakhv@yandex.ru',\n  notifyFrom: 'miskakhv@yandex.ru',\n  maxAttachmentBytes: 20971520,\n  pollIntervalSeconds: 10,\n  pollTimeoutSeconds: 600\n});\n\nreturn $input.all().map(item => ({\n  json: {\n    ...item.json,\n    config\n  },\n  binary: item.binary\n}));"
+        "jsCode": "// Production-конфигурация для n8n, где доступ к env запрещён.\nconst config = Object.freeze({\n  apiBaseUrl: 'http://host.docker.internal:3210',\n  ownerUiBaseUrl: 'http://<SERVER-IP>:3210',\n  allowedSender: '',\n  subjectPattern: '',\n  mailbox: 'INBOX',\n  notifyTo: '',\n  notifyFrom: '',\n  maxAttachmentBytes: 20971520,\n  pollIntervalSeconds: 10,\n  pollTimeoutSeconds: 600\n});\n\nreturn $input.all().map(item => ({\n  json: {\n    ...item.json,\n    config\n  },\n  binary: item.binary\n}));"
       },
       "id": "minmax-fixed-config",
       "name": "Конфигурация MinMax",

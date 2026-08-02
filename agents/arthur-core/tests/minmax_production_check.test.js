@@ -10,19 +10,39 @@ const {
   imapSinceDate,
 } = require('../../../scripts/arthur/minmax-mail-protocol');
 const {
+  buildE2EMailOptions,
+  buildE2ESubject,
+  inspectHistoricalExecution,
   latestOutputJson,
   productionConfig,
+  productionEnvironment: buildProductionEnvironment,
   registryNodeSnapshot,
   verifyConnectionRefused,
   verifyCredentialMetadata,
+  verifyDeployedRuntimeConfig,
   waitForE2EExecution,
 } = require('../../../scripts/arthur/minmax-production-check');
+const {
+  bindFixedRuntimeConfig,
+} = require('../../../scripts/arthur/minmax-n8n-workflow-deployment');
 
 const ROOT = path.resolve(__dirname, '../../..');
 const workflow = JSON.parse(fs.readFileSync(path.join(
   ROOT,
   'n8n/workflows/arthur-minmax-yandex-mail-intake-fixed.json'
 ), 'utf8'));
+
+function productionEnvironment(overrides = {}) {
+  return {
+    N8N_API_KEY: 'n8n-secret',
+    PURCHASING_API_TOKEN: '0123456789abcdef',
+    MINMAX_E2E_MAIL_USER: 'e2e-sender@example.test',
+    MINMAX_E2E_MAIL_PASSWORD: 'mail-secret',
+    MINMAX_NOTIFY_EMAIL: 'owner@example.test',
+    MINMAX_SMTP_FROM: 'robot@example.test',
+    ...overrides,
+  };
+}
 
 function execution(overrides = {}) {
   return {
@@ -47,13 +67,8 @@ function execution(overrides = {}) {
   };
 }
 
-test('production config needs only secret values and uses production ids', () => {
-  const config = productionConfig({
-    N8N_API_KEY: 'n8n-secret',
-    PURCHASING_API_TOKEN: '0123456789abcdef',
-    MINMAX_E2E_MAIL_USER: 'miskakhv@yandex.ru',
-    MINMAX_E2E_MAIL_PASSWORD: 'mail-secret',
-  });
+test('production config uses required runtime values and production ids', () => {
+  const config = productionConfig(productionEnvironment());
 
   assert.equal(config.n8n.workflowId, 'minmaxYandexIntakeFixed01');
   assert.equal(config.n8n.credentials.httpHeaderAuth, 'pjXec1bxtt81cy0u');
@@ -62,18 +77,115 @@ test('production config needs only secret values and uses production ids', () =>
   assert.equal(config.n8n.container, 'n8n');
   assert.equal(config.mail.smtpHost, 'smtp.yandex.ru');
   assert.equal(config.mail.imapHost, 'imap.yandex.ru');
+  assert.equal(config.allowedSender, 'e2e-sender@example.test');
+  assert.equal(config.subjectPattern, 'minmax production e2e');
+  assert.equal(config.executionId, null);
   assert.match(config.ownerUrl, /^http:\/\/[^/]+:3210$/);
 });
 
 test('production config rejects missing secrets and placeholder owner URL', () => {
   assert.throws(() => productionConfig({}), /MINMAX_E2E_MAIL_USER/);
-  assert.throws(() => productionConfig({
-    N8N_API_KEY: 'n8n-secret',
-    PURCHASING_API_TOKEN: '0123456789abcdef',
-    MINMAX_E2E_MAIL_USER: 'owner@example.test',
-    MINMAX_E2E_MAIL_PASSWORD: 'mail-secret',
+  assert.throws(() => productionConfig(productionEnvironment({
     MINMAX_OWNER_UI_BASE_URL: 'http://<SERVER-IP>:3210',
-  }), /absolute usable URL/);
+  })), /absolute usable URL/);
+  assert.throws(
+    () => productionConfig(productionEnvironment({
+      MINMAX_NOTIFY_EMAIL: '',
+    })),
+    /MINMAX_NOTIFY_EMAIL is required/
+  );
+  assert.throws(
+    () => productionConfig(productionEnvironment({
+      MINMAX_SMTP_FROM: '',
+    })),
+    /MINMAX_SMTP_FROM is required/
+  );
+});
+
+test('empty production sender or subject pattern fails before deploy', () => {
+  assert.throws(
+    () => productionConfig(productionEnvironment({
+      MINMAX_ALLOWED_SENDER: '',
+    })),
+    /MINMAX_ALLOWED_SENDER is required/
+  );
+  assert.throws(
+    () => productionConfig(productionEnvironment({
+      MINMAX_SUBJECT_PATTERN: '',
+    })),
+    /MINMAX_SUBJECT_PATTERN is required/
+  );
+});
+
+test('E2E sender and subject match deployed production filters', () => {
+  const config = productionConfig(productionEnvironment());
+  config.shortSha = '031aabd';
+  const deployEnvironment = buildProductionEnvironment(config);
+  const deployed = bindFixedRuntimeConfig(workflow, {
+    allowedSender: deployEnvironment.MINMAX_ALLOWED_SENDER,
+    subjectPattern: deployEnvironment.MINMAX_SUBJECT_PATTERN,
+    notifyTo: deployEnvironment.MINMAX_NOTIFY_EMAIL,
+    notifyFrom: deployEnvironment.MINMAX_SMTP_FROM,
+  });
+  const snapshot = verifyDeployedRuntimeConfig(deployed, config);
+  const marker = 'minmax-correlation-marker';
+  const mail = buildE2EMailOptions(config, marker, Buffer.from('fixture'));
+
+  assert.equal(snapshot.allowedSender, config.mail.user);
+  assert.equal(deployEnvironment.MINMAX_ALLOWED_SENDER, config.mail.user);
+  assert.equal(
+    deployEnvironment.MINMAX_SUBJECT_PATTERN,
+    'minmax production e2e'
+  );
+  assert.equal(mail.from, config.mail.user);
+  assert.equal(mail.subject, buildE2ESubject(config, marker));
+  assert.ok(mail.subject.toLowerCase().includes(
+    snapshot.subjectPattern.toLowerCase()
+  ));
+});
+
+test('accept-all deployed filter configuration is forbidden', () => {
+  const config = productionConfig(productionEnvironment());
+  assert.throws(
+    () => verifyDeployedRuntimeConfig(workflow, config),
+    /must not be accept-all/
+  );
+});
+
+test('historical inspect is skipped without MINMAX_EXECUTION_ID', async () => {
+  const config = productionConfig(productionEnvironment());
+  let calls = 0;
+  const result = await inspectHistoricalExecution(config, {}, {
+    logger: { log() {} },
+    inspectExecution: async () => { calls += 1; },
+  });
+  assert.equal(result, null);
+  assert.equal(calls, 0);
+});
+
+test('historical inspect runs when MINMAX_EXECUTION_ID is explicit', async () => {
+  const config = productionConfig(productionEnvironment({
+    MINMAX_EXECUTION_ID: '891',
+  }));
+  let received = null;
+  const result = await inspectHistoricalExecution(config, { id: 'client' }, {
+    logger: { log() {} },
+    inspectExecution: async options => {
+      received = options;
+      return { cause: 'retained JSON evidence' };
+    },
+    printInspection() {},
+  });
+  assert.equal(received.executionId, '891');
+  assert.equal(result.cause, 'retained JSON evidence');
+});
+
+test('repository workflow contains no real email addresses', () => {
+  const code = workflow.nodes.find(node => node.id === 'minmax-fixed-config')
+    .parameters.jsCode;
+  assert.doesNotMatch(JSON.stringify(workflow), /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+  assert.match(code, /notifyTo: ''/);
+  assert.match(code, /notifyFrom: ''/);
 });
 
 test('published registry node contract exposes JSON, retries and exact options', () => {

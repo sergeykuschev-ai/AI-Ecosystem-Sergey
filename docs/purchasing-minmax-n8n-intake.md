@@ -295,13 +295,15 @@ Production backend описан в
 реестр идемпотентности и решения владельца переживают rebuild/restart.
 Закрытие PowerShell не останавливает backend.
 
-Перед первым запуском задаются только секреты:
+Перед первым запуском задаются секреты и адреса уведомления:
 
 ```powershell
 $env:N8N_API_KEY='<N8N-API-KEY>'
 $env:PURCHASING_API_TOKEN='<VALUE-OF-ARTHUR-CORE-API-CREDENTIAL>'
 $env:MINMAX_E2E_MAIL_USER='<YANDEX-MAIL-LOGIN>'
 $env:MINMAX_E2E_MAIL_PASSWORD='<YANDEX-APP-PASSWORD>'
+$env:MINMAX_NOTIFY_EMAIL='<OWNER-EMAIL>'
+$env:MINMAX_SMTP_FROM='<SMTP-FROM>'
 ```
 
 Затем используется одна команда:
@@ -314,7 +316,11 @@ npm run arthur:minmax:production-check
 `http://127.0.0.1:5678`, контейнер `n8n`, Yandex SMTP `465` и IMAP `993`.
 `MINMAX_OWNER_UI_BASE_URL` необязателен: runner использует Windows hostname и
 порт `3210`; его можно задать явно, если владелец открывает UI по другому
-LAN/DNS адресу. Значения credentials API не читаются и не печатаются.
+LAN/DNS адресу. Runner всегда деплоит непустые production-фильтры:
+`MINMAX_ALLOWED_SENDER` равен `MINMAX_E2E_MAIL_USER`, а
+`MINMAX_SUBJECT_PATTERN` по умолчанию равен `minmax production e2e`.
+Historical inspect выполняется только при явном `MINMAX_EXECUTION_ID`.
+Значения credentials API не читаются и не печатаются.
 
 Команда автоматически:
 
