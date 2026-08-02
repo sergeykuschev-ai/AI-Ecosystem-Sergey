@@ -130,6 +130,8 @@ function buildWorkflowProduct(product, decision) {
     phase1OrderRelevant: isPositive(phase1Quantity),
     phase2Addition,
     analyzerCalculatedQuantity: phase1Quantity,
+    minmaxRecommendedQuantity: product.minmaxRecommendedQuantity ??
+      product.finalRecommendedQuantity,
     demandCalculatedQuantity: product.demandCalculatedQuantity,
     finalRecommendedQuantity: product.finalRecommendedQuantity,
     approvedOrderQuantity: decision.approvedOrderQuantity,
@@ -159,6 +161,19 @@ function buildWorkflowProduct(product, decision) {
     expectedCoverageAfterOrder: product.expectedCoverageAfterOrder,
     quantityReason: product.quantityReason,
     assortment_matrix: product.assortment_matrix || { matched: false },
+    assortmentPolicy: product.assortmentPolicy || {
+      matched: false,
+      minmax_qty: product.finalRecommendedQuantity,
+      policy_qty: product.finalRecommendedQuantity,
+      policy_rule: 'NONE',
+      applied_rules: [],
+      explanation:
+        'Ассортиментное правило отсутствует: рекомендация Min/Max сохранена.',
+      policy_adjusted: false,
+      projected_stock: null,
+      policy_warnings: [],
+      rule: null,
+    },
     inventory_projection: product.inventory_projection || null,
   };
 }

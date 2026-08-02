@@ -727,7 +727,7 @@ test('decision tabs are large, counted and do not use horizontal scrolling', () 
   const css = fs.readFileSync(path.join(PUBLIC_ROOT, 'styles.css'), 'utf8');
   assert.match(
     css,
-    /\.product-filters\s*\{[^}]*grid-template-columns:\s*repeat\(4,/s
+    /\.product-filters\s*\{[^}]*grid-template-columns:\s*repeat\(5,/s
   );
   assert.match(
     css,
