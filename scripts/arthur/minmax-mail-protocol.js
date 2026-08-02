@@ -52,7 +52,7 @@ function connectTls(options, dependencies = {}) {
     };
     const onConnect = () => {
       socket.removeListener('error', onError);
-      socket.setTimeout(options.timeoutMs || 30000, () => {
+      socket.setTimeout(options.socketTimeoutMs || options.timeoutMs || 30000, () => {
         socket.destroy(new Error('Mail server response timed out.'));
       });
       resolve(socket);
@@ -116,6 +116,8 @@ async function smtpCommand(socket, command, expected, stage) {
 
 async function sendExcelMail(options, dependencies = {}) {
   const socket = await connectTls(options, dependencies);
+  let dataSubmitted = false;
+  let deliveryAccepted = false;
   try {
     assertSmtp(await smtpResponse(socket), [220], 'greeting');
     await smtpCommand(socket, `EHLO ${options.clientName || 'minmax-production-check'}`, [250], 'EHLO');
@@ -135,12 +137,18 @@ async function sendExcelMail(options, dependencies = {}) {
     await smtpCommand(socket, `MAIL FROM:<${options.from}>`, [250], 'MAIL FROM');
     await smtpCommand(socket, `RCPT TO:<${options.to}>`, [250, 251], 'RCPT TO');
     await smtpCommand(socket, 'DATA', [354], 'DATA');
+    dataSubmitted = true;
     const message = buildExcelMessage(options)
       .replace(/(^|\r\n)\./g, '$1..');
     socket.write(`${message}\r\n.\r\n`);
     assertSmtp(await smtpResponse(socket), [250], 'message acceptance');
+    deliveryAccepted = true;
     await smtpCommand(socket, 'QUIT', [221], 'QUIT');
     return { accepted: true, marker: options.marker };
+  } catch (error) {
+    error.deliveryAccepted = deliveryAccepted;
+    error.deliveryUncertain = dataSubmitted && !deliveryAccepted;
+    throw error;
   } finally {
     socket.destroy();
   }

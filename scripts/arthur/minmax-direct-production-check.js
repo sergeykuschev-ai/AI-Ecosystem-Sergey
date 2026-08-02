@@ -145,6 +145,93 @@ function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+const TRANSIENT_NETWORK_CODES = new Set([
+  'ECONNRESET',
+  'ETIMEDOUT',
+  'EPIPE',
+]);
+
+function errorChain(error) {
+  const values = [];
+  let current = error;
+  while (current && !values.includes(current)) {
+    values.push(current);
+    current = current.cause;
+  }
+  return values;
+}
+
+function isTransientNetworkError(error) {
+  return errorChain(error).some(candidate => {
+    const code = String(candidate?.code || '').toUpperCase();
+    const message = String(candidate?.message || candidate || '');
+    return TRANSIENT_NETWORK_CODES.has(code) ||
+      /(?:read\s+)?ECONNRESET|ETIMEDOUT|EPIPE|socket\s+(?:is\s+)?closed|connection\s+(?:was\s+)?closed|closed\s+the\s+connection|TLS[^\n]*connection\s+reset/i.test(message);
+  });
+}
+
+function stageError(stage, error, retryCount) {
+  const wrapped = new Error(
+    `[stage=${stage}] ${String(error?.message || error)}; transient_retries=${retryCount}`,
+    { cause: error }
+  );
+  wrapped.code = error?.code || 'E2E_STAGE_FAILED';
+  wrapped.stage = stage;
+  wrapped.retryCount = retryCount;
+  return wrapped;
+}
+
+async function waitForStage(stage, operation, options) {
+  const logger = options.logger || console;
+  const now = options.now || Date.now;
+  const sleep = options.delay || delay;
+  const deadline = options.deadline;
+  const intervalMs = options.intervalMs || 1000;
+  const maxBackoffMs = options.maxBackoffMs || 10000;
+  let retryCount = 0;
+  let lastError = null;
+  logger.log(`[STAGE] ${stage} start`);
+  while (now() < deadline) {
+    try {
+      const value = await operation({
+        attempt: retryCount + 1,
+        remainingMs: Math.max(1, deadline - now()),
+      });
+      if (value) {
+        logger.log(`[PASS] stage=${stage}; transient_retries=${retryCount}`);
+        return { value, retryCount };
+      }
+      lastError = null;
+    } catch (error) {
+      lastError = error;
+      if (!isTransientNetworkError(error)) throw stageError(stage, error, retryCount);
+      retryCount += 1;
+      const code = errorChain(error).map(item => item?.code).find(Boolean) || 'TRANSIENT_NETWORK_ERROR';
+      logger.warn(
+        `[RETRY] stage=${stage}; retry=${retryCount}; code=${code}; ` +
+        `remaining_ms=${Math.max(0, deadline - now())}`
+      );
+    }
+    const backoff = lastError
+      ? Math.min(intervalMs * (2 ** Math.min(retryCount - 1, 4)), maxBackoffMs)
+      : intervalMs;
+    await sleep(Math.min(backoff, Math.max(1, deadline - now())));
+  }
+  const timeout = new Error(
+    `overall E2E timeout exhausted${lastError ? `; last_error=${lastError.message}` : ''}`
+  );
+  timeout.code = 'E2E_STAGE_TIMEOUT';
+  throw stageError(stage, timeout, retryCount);
+}
+
+async function withProductionRestore(task, restore) {
+  try {
+    return await task();
+  } finally {
+    await restore();
+  }
+}
+
 async function waitFor(predicate, timeoutMs, intervalMs = 3000) {
   const deadline = Date.now() + timeoutMs;
   let lastError;
@@ -183,6 +270,16 @@ async function waitForEvent(match, timeoutMs, messageUid = null) {
     if (result.status === 200 && event && match(event)) return event;
     return null;
   }, timeoutMs);
+}
+
+async function eventByUid(messageUid) {
+  const result = await jsonRequest(
+    `http://127.0.0.1:3220/events/latest?messageUid=${encodeURIComponent(messageUid)}`
+  );
+  if (result.status !== 200) {
+    throw new Error(`service event HTTP ${result.status}: ${result.text.slice(0, 500)}`);
+  }
+  return result.json?.event || null;
 }
 
 function verifyDeliveredMessage(raw, expectedFilters, marker) {
@@ -282,9 +379,10 @@ async function runProductionCheck(config, dependencies = {}) {
     MINMAX_SUBJECT_PATTERN: e2eFilters.subjectPattern,
   };
   let intakeStarted = false;
+  const retryCounts = {};
   logger.log(`[PASS] branch=${branch}; SHA=${sha}`);
 
-  try {
+  return withProductionRestore(async () => {
     run('docker', ['compose', '-f', BACKEND_COMPOSE, 'up', '-d', '--build', '--wait'], { env: productionEnv });
     await verifyBackend(config, sha);
     logger.log('[PASS] purchasing backend healthy');
@@ -292,77 +390,150 @@ async function runProductionCheck(config, dependencies = {}) {
     run('docker', ['compose', '-f', INTAKE_COMPOSE, 'up', '-d', '--build', '--wait'], { env: e2eEnv });
     const health = await waitForHealth(sha, config.e2e.timeoutMs, e2eFilters);
     logger.log(`[PASS] intake healthy with isolated E2E filters; poll=${health.last_poll_time}`);
+    const e2eDeadline = Date.now() + config.e2e.timeoutMs;
 
     const filename = `${marker}.xlsx`;
     const workbook = fs.readFileSync(WORKBOOK);
     const workbookSha = crypto.createHash('sha256').update(workbook).digest('hex');
     const sentAt = new Date().toISOString();
-    await sendExcelMail({
-      host: config.e2e.smtpHost,
-      port: config.e2e.smtpPort,
-      timeoutMs: 30000,
-      user: config.e2e.user,
-      password: config.e2e.password,
-      from: config.e2e.user,
-      to: config.direct.imap.user,
-      marker,
-      subject: marker,
-      fileName: filename,
-      file: workbook,
-    });
-    logger.log(`[PASS] one E2E email sent; marker=${marker}`);
-
-    const delivered = await waitForMailboxText({
-      host: config.direct.imap.host,
-      port: config.direct.imap.port,
-      timeoutMs: config.e2e.timeoutMs,
-      pollIntervalMs: 3000,
-      user: config.direct.imap.user,
-      password: config.direct.imap.password,
-      mailbox: config.direct.imap.mailbox,
-      since: sentAt,
-      text: marker,
-    });
+    let emailSubmitted = false;
+    const correlateStage = await waitForStage('correlate_e2e_mail', async ({ remainingMs }) => {
+      if (!emailSubmitted) {
+        try {
+          await sendExcelMail({
+            host: config.e2e.smtpHost,
+            port: config.e2e.smtpPort,
+            timeoutMs: Math.min(30000, remainingMs),
+            socketTimeoutMs: Math.min(30000, remainingMs),
+            user: config.e2e.user,
+            password: config.e2e.password,
+            from: config.e2e.user,
+            to: config.direct.imap.user,
+            marker,
+            subject: marker,
+            fileName: filename,
+            file: workbook,
+          });
+          emailSubmitted = true;
+          logger.log(`[PASS] one E2E email sent; marker=${marker}`);
+        } catch (error) {
+          if (error.deliveryAccepted || error.deliveryUncertain) {
+            emailSubmitted = true;
+            logger.warn(
+              `[RETRY] stage=correlate_e2e_mail; SMTP delivery uncertain; ` +
+              'message will be correlated by marker without resending'
+            );
+          } else {
+            throw error;
+          }
+        }
+      }
+      return waitForMailboxText({
+        host: config.direct.imap.host,
+        port: config.direct.imap.port,
+        timeoutMs: remainingMs,
+        socketTimeoutMs: Math.min(30000, remainingMs),
+        pollIntervalMs: 3000,
+        user: config.direct.imap.user,
+        password: config.direct.imap.password,
+        mailbox: config.direct.imap.mailbox,
+        since: sentAt,
+        text: marker,
+      });
+    }, { deadline: e2eDeadline, logger, intervalMs: 1000 });
+    retryCounts.correlate_e2e_mail = correlateStage.retryCount;
+    const delivered = correlateStage.value;
     const mimeDiagnostics = verifyDeliveredMessage(delivered.raw, e2eFilters, marker);
     logger.log(`[PASS] E2E MIME correlated; uid=${delivered.uid}; ${JSON.stringify(mimeDiagnostics)}`);
 
-    const event = await waitForEvent(candidate =>
-      candidate.status === 'completed' &&
-      candidate.messageUid === delivered.uid &&
-      candidate.attachmentName === filename,
-    config.e2e.timeoutMs, delivered.uid);
+    const serviceStage = await waitForStage('wait_service_event', async () => {
+      const candidate = await eventByUid(delivered.uid);
+      if (
+        candidate?.messageUid === delivered.uid &&
+        candidate?.correlationMarker === marker
+      ) return candidate;
+      return null;
+    }, { deadline: e2eDeadline, logger, intervalMs: 1000 });
+    retryCounts.wait_service_event = serviceStage.retryCount;
+    const serviceEvent = serviceStage.value;
+    const serviceEventId = serviceEvent.eventId;
+
+    const runStage = await waitForStage('wait_run', async () => {
+      const candidate = await eventByUid(delivered.uid);
+      if (
+        candidate?.messageUid !== delivered.uid ||
+        candidate?.correlationMarker !== marker ||
+        candidate?.eventId !== serviceEventId
+      ) return null;
+      if (candidate.status === 'completed') return candidate;
+      if (candidate.status === 'failed') {
+        const failure = new Error(candidate.error?.message || 'service event failed');
+        failure.code = candidate.error?.code || 'SERVICE_EVENT_FAILED';
+        throw failure;
+      }
+      return null;
+    }, { deadline: e2eDeadline, logger, intervalMs: 1000 });
+    retryCounts.wait_run = runStage.retryCount;
+    const event = runStage.value;
     if (event.sourceArtifactSha256 !== workbookSha) {
       throw new Error('source artifact SHA differs from E2E workbook.');
     }
     if (!event.ownerReviewUrl?.includes(`runId=${event.runId}`)) {
       throw new Error('Owner Review URL does not contain the runId.');
     }
-    const ownerReview = await verifyOwnerReview(event.ownerReviewUrl);
-    await waitForMailboxText({
-      host: config.e2e.notificationHost,
-      port: config.e2e.notificationPort,
-      timeoutMs: config.e2e.timeoutMs,
-      pollIntervalMs: 5000,
-      user: config.e2e.notificationUser,
-      password: config.e2e.notificationPassword,
-      mailbox: 'INBOX',
-      since: event.startedAt,
-      text: event.runId,
+    const ownerStage = await waitForStage('owner_review_fetch', () =>
+      verifyOwnerReview(event.ownerReviewUrl), {
+      deadline: e2eDeadline, logger, intervalMs: 1000,
     });
+    retryCounts.owner_review_fetch = ownerStage.retryCount;
+    const ownerReview = ownerStage.value;
+    const notificationStage = await waitForStage(
+      'wait_notification',
+      ({ remainingMs }) => waitForMailboxText({
+        host: config.e2e.notificationHost,
+        port: config.e2e.notificationPort,
+        timeoutMs: remainingMs,
+        socketTimeoutMs: Math.min(30000, remainingMs),
+        pollIntervalMs: 5000,
+        user: config.e2e.notificationUser,
+        password: config.e2e.notificationPassword,
+        mailbox: 'INBOX',
+        since: event.startedAt,
+        text: event.runId,
+      }),
+      { deadline: e2eDeadline, logger, intervalMs: 1000 }
+    );
+    retryCounts.wait_notification = notificationStage.retryCount;
     logger.log(`[PASS] notification received; runId=${event.runId}`);
 
     const beforeRestartEventCount = Number(health.event_count || 0);
     run('docker', ['restart', INTAKE_CONTAINER], { env: e2eEnv });
-    await waitForHealth(sha, config.e2e.timeoutMs, e2eFilters);
-    const replay = await waitForEvent(candidate =>
-      candidate.idempotencyKey === event.idempotencyKey &&
-      candidate.runId === event.runId &&
-      candidate.replay === true &&
-      candidate.notificationSuppressed === true,
-    config.e2e.timeoutMs, delivered.uid);
+    const replayStage = await waitForStage('replay', async () => {
+      const replayHealth = await jsonRequest('http://127.0.0.1:3220/health');
+      if (
+        replayHealth.status !== 200 ||
+        replayHealth.json?.build_sha !== sha ||
+        replayHealth.json?.allowed_sender !== e2eFilters.allowedSender ||
+        replayHealth.json?.subject_pattern !== e2eFilters.subjectPattern ||
+        replayHealth.json?.imap_connected !== true
+      ) return null;
+      const candidate = await eventByUid(delivered.uid);
+      if (
+        candidate?.messageUid === delivered.uid &&
+        candidate?.correlationMarker === marker &&
+        candidate?.eventId === serviceEventId &&
+        candidate?.idempotencyKey === event.idempotencyKey &&
+        candidate?.runId === event.runId &&
+        candidate?.replay === true &&
+        candidate?.notificationSuppressed === true
+      ) return { event: candidate, health: replayHealth.json };
+      return null;
+    }, { deadline: e2eDeadline, logger, intervalMs: 1000 });
+    retryCounts.replay = replayStage.retryCount;
+    const replay = replayStage.value.event;
     if (replay.runId !== event.runId) throw new Error('Restart replay created another run.');
-    const afterRestartHealth = await jsonRequest('http://127.0.0.1:3220/health');
-    if (Number(afterRestartHealth.json?.event_count || 0) <= beforeRestartEventCount) {
+    const afterRestartHealth = replayStage.value.health;
+    if (Number(afterRestartHealth.event_count || 0) <= beforeRestartEventCount) {
       throw new Error('Service restart did not produce a replay event.');
     }
     logger.log('[PASS] restart-safe replay produced no duplicate run or notification');
@@ -380,9 +551,10 @@ async function runProductionCheck(config, dependencies = {}) {
       notification: 'received',
       replay: { noDuplicate: true, runId: replay.runId },
       restart: 'healthy',
+      retries: retryCounts,
       tests: 'PASS',
     };
-  } finally {
+  }, async () => {
     if (intakeStarted) {
       run('docker', [
         'compose', '-f', INTAKE_COMPOSE, 'up', '-d', '--force-recreate', '--wait',
@@ -393,7 +565,7 @@ async function runProductionCheck(config, dependencies = {}) {
       });
       logger.log('[PASS] production intake filters restored after E2E');
     }
-  }
+  });
 }
 
 async function main(environment = process.env, logger = console) {
@@ -414,12 +586,17 @@ if (require.main === module) {
 
 module.exports = {
   diagnostics,
+  eventByUid,
+  isTransientNetworkError,
   main,
   productionConfig,
   redact,
   runProductionCheck,
+  stageError,
   verifyDeliveredMessage,
   waitFor,
   waitForEvent,
   waitForHealth,
+  waitForStage,
+  withProductionRestore,
 };

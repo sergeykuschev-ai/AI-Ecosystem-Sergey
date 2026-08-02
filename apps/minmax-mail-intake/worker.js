@@ -19,6 +19,17 @@ function sha256(content) {
   return crypto.createHash('sha256').update(content).digest('hex');
 }
 
+function buildEventId(mailbox, messageUid, raw) {
+  const digest = crypto.createHash('sha256')
+    .update(String(mailbox))
+    .update('\0')
+    .update(String(messageUid))
+    .update('\0')
+    .update(raw)
+    .digest('hex');
+  return `minmax-event-${digest.slice(0, 32)}`;
+}
+
 function buildIdempotencyKey(input) {
   return [
     'minmax',
@@ -39,12 +50,16 @@ function filterDiagnostics(message, config) {
   const expectedSender = normalizeEmailAddress(config.allowedSender);
   const normalizedSubject = normalizeHeaderText(message.subject).slice(0, 500);
   const expectedSubjectPattern = normalizeHeaderText(config.subjectPattern).slice(0, 500);
+  const correlationMarker = normalizedSubject.match(
+    /\bminmax-direct-e2e-\d+-[a-z0-9]+\b/i
+  )?.[0]?.toLowerCase() || null;
   return {
     normalizedSender,
     expectedSender,
     normalizedSubject,
     expectedSubjectPattern,
-    markerPresent: /\bminmax-direct-e2e-\d+-[a-z0-9]+\b/i.test(normalizedSubject),
+    markerPresent: Boolean(correlationMarker),
+    correlationMarker,
   };
 }
 
@@ -81,23 +96,27 @@ function evaluateMessage(message, config) {
     };
   }
   if (message.attachments.length === 0) {
-    return { outcome: 'rejected', reasonCode: 'NO_ATTACHMENT' };
+    return { outcome: 'rejected', reasonCode: 'NO_ATTACHMENT', diagnostics };
   }
   if (message.attachments.length !== 1) {
-    return { outcome: 'rejected', reasonCode: 'MULTIPLE_ATTACHMENTS' };
+    return { outcome: 'rejected', reasonCode: 'MULTIPLE_ATTACHMENTS', diagnostics };
   }
   const attachment = message.attachments[0];
   const lower = attachment.filename.toLowerCase();
   if (!lower.endsWith('.xlsx') && !lower.endsWith('.xls')) {
-    return { outcome: 'rejected', reasonCode: 'ATTACHMENT_TYPE_UNSUPPORTED', attachment };
+    return {
+      outcome: 'rejected', reasonCode: 'ATTACHMENT_TYPE_UNSUPPORTED', attachment, diagnostics,
+    };
   }
   if (attachment.content.length > config.maxAttachmentBytes) {
-    return { outcome: 'rejected', reasonCode: 'ATTACHMENT_TOO_LARGE', attachment };
+    return { outcome: 'rejected', reasonCode: 'ATTACHMENT_TOO_LARGE', attachment, diagnostics };
   }
   if (!excelSignature(attachment.content, attachment.filename)) {
-    return { outcome: 'rejected', reasonCode: 'ATTACHMENT_SIGNATURE_INVALID', attachment };
+    return {
+      outcome: 'rejected', reasonCode: 'ATTACHMENT_SIGNATURE_INVALID', attachment, diagnostics,
+    };
   }
-  return { outcome: 'process', reasonCode: null, attachment };
+  return { outcome: 'process', reasonCode: null, attachment, diagnostics };
 }
 
 function safeError(error) {
@@ -171,7 +190,7 @@ class MinmaxMailWorker {
   }
 
   async processFetchedMessage(fetched) {
-    const eventId = crypto.randomUUID();
+    const eventId = buildEventId(this.config.imap.mailbox, fetched.uid, fetched.raw);
     const baseEvent = {
       eventId,
       mailbox: this.config.imap.mailbox,
@@ -179,9 +198,11 @@ class MinmaxMailWorker {
       startedAt: new Date().toISOString(),
     };
     this.state.lastEvent = baseEvent;
+    let correlationMarker = null;
     try {
       const message = this.parseMime(fetched.raw);
       const decision = evaluateMessage(message, this.config);
+      correlationMarker = decision.diagnostics?.correlationMarker || null;
       if (decision.outcome === 'ignored') {
         this.handledUids.add(String(fetched.uid));
         const event = {
@@ -224,6 +245,7 @@ class MinmaxMailWorker {
         });
         const event = {
           ...baseEvent,
+          correlationMarker,
           idempotencyKey: context.idempotencyKey,
           status: 'rejected',
           reasonCode: decision.reasonCode,
@@ -233,12 +255,36 @@ class MinmaxMailWorker {
         this.log('warn', event);
         return event;
       }
+      this.recordEvent({
+        ...baseEvent,
+        correlationMarker,
+        status: 'processing',
+        processingStage: 'wait_service_event',
+      });
       const existing = await this.purchasingClient.registryRecord(context.idempotencyKey);
       let result;
       if (existing?.run_id) {
+        this.recordEvent({
+          ...baseEvent,
+          correlationMarker,
+          idempotencyKey: context.idempotencyKey,
+          status: 'processing',
+          processingStage: 'wait_run',
+          runId: existing.run_id,
+          replay: true,
+        });
         result = await this.completeExisting(existing, context);
       } else {
         const uploaded = await this.purchasingClient.upload(context);
+        this.recordEvent({
+          ...baseEvent,
+          correlationMarker,
+          idempotencyKey: context.idempotencyKey,
+          status: 'processing',
+          processingStage: 'wait_run',
+          runId: uploaded.runId,
+          replay: uploaded.replay === true,
+        });
         const status = await this.purchasingClient.waitForRun(uploaded.runId);
         const artifact = await this.purchasingClient.verifySourceArtifact(
           uploaded.runId,
@@ -258,6 +304,7 @@ class MinmaxMailWorker {
       }
       const event = {
         ...baseEvent,
+        correlationMarker,
         idempotencyKey: context.idempotencyKey,
         attachmentName,
         status: 'completed',
@@ -279,7 +326,12 @@ class MinmaxMailWorker {
       return event;
     } catch (error) {
       const safe = safeError(error);
-      const event = { ...baseEvent, status: 'failed', error: safe };
+      const event = {
+        ...baseEvent,
+        correlationMarker,
+        status: 'failed',
+        error: safe,
+      };
       this.state.lastError = safe;
       this.recordEvent(event);
       this.state.eventCount += 1;
@@ -336,6 +388,7 @@ class MinmaxMailWorker {
 
 module.exports = {
   MinmaxMailWorker,
+  buildEventId,
   buildIdempotencyKey,
   evaluateMessage,
   excelSignature,

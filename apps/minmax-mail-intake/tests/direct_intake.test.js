@@ -32,9 +32,12 @@ const {
   filterDiagnostics,
 } = require('../worker');
 const {
+  isTransientNetworkError,
   productionConfig,
   redact,
   verifyDeliveredMessage,
+  waitForStage,
+  withProductionRestore,
 } = require('../../../scripts/arthur/minmax-direct-production-check');
 const { buildExcelMessage } = require('../../../scripts/arthur/minmax-mail-protocol');
 
@@ -221,6 +224,7 @@ test('production runner message marker passes filters while unrelated mail stays
     normalizedSubject: 'Ordinary supplier update',
     expectedSubjectPattern: marker,
     markerPresent: false,
+    correlationMarker: null,
   });
 });
 
@@ -228,12 +232,20 @@ test('UID correlation finds the E2E event after a later ignored event', () => {
   const state = {
     lastEvent: { messageUid: '5904', status: 'ignored' },
     recentEvents: [
-      { messageUid: '5903', status: 'completed', eventId: 'e2e-event' },
+      {
+        messageUid: '5903',
+        correlationMarker: 'minmax-direct-e2e-1720000000000-a1b2c3d4',
+        status: 'completed',
+        eventId: 'e2e-event',
+      },
       { messageUid: '5904', status: 'ignored', eventId: 'unrelated-event' },
     ],
   };
   assert.deepEqual(eventForMessageUid(state, '5903'), {
-    messageUid: '5903', status: 'completed', eventId: 'e2e-event',
+    messageUid: '5903',
+    correlationMarker: 'minmax-direct-e2e-1720000000000-a1b2c3d4',
+    status: 'completed',
+    eventId: 'e2e-event',
   });
   assert.equal(eventForMessageUid(state, '5999'), null);
 });
@@ -266,6 +278,123 @@ test('ignored worker event exposes safe normalized filter diagnostics', async ()
   });
   assert.equal(JSON.stringify(event).includes('password'), false);
   assert.equal(JSON.stringify(event).includes('api-token'), false);
+});
+
+function stageHarness() {
+  let clock = 0;
+  const logs = [];
+  return {
+    logs,
+    options: {
+      deadline: 100,
+      now: () => clock,
+      delay: async milliseconds => { clock += milliseconds; },
+      intervalMs: 10,
+      logger: {
+        log(value) { logs.push(value); },
+        warn(value) { logs.push(value); },
+      },
+    },
+  };
+}
+
+test('ECONNRESET during IMAP correlation reconnects and passes', async () => {
+  const harness = stageHarness();
+  let searches = 0;
+  const result = await waitForStage('correlate_e2e_mail', async () => {
+    searches += 1;
+    if (searches === 1) {
+      const error = new Error('read ECONNRESET');
+      error.code = 'ECONNRESET';
+      throw error;
+    }
+    return { uid: '5906', marker: 'minmax-direct-e2e-marker' };
+  }, harness.options);
+  assert.equal(result.value.uid, '5906');
+  assert.equal(result.retryCount, 1);
+  assert.equal(searches, 2);
+  assert.ok(harness.logs.some(line => line.includes('stage=correlate_e2e_mail')));
+});
+
+test('ECONNRESET after UID correlation still finds the exact service event', async () => {
+  const harness = stageHarness();
+  let requests = 0;
+  const result = await waitForStage('wait_service_event', async () => {
+    requests += 1;
+    if (requests === 1) {
+      const cause = new Error('TLS connection reset');
+      cause.code = 'ECONNRESET';
+      throw new TypeError('fetch failed', { cause });
+    }
+    return {
+      messageUid: '5906',
+      correlationMarker: 'minmax-direct-e2e-marker',
+      eventId: 'minmax-event-5906',
+    };
+  }, harness.options);
+  assert.equal(result.value.eventId, 'minmax-event-5906');
+  assert.equal(result.retryCount, 1);
+});
+
+test('notification IMAP reset retries without creating a second run', async () => {
+  const harness = stageHarness();
+  const workerState = workerHarness();
+  await workerState.worker.pollOnce();
+  assert.equal(workerState.calls.upload, 1);
+  let notificationSearches = 0;
+  const result = await waitForStage('wait_notification', async () => {
+    notificationSearches += 1;
+    if (notificationSearches === 1) {
+      const error = new Error('socket closed');
+      error.code = 'EPIPE';
+      throw error;
+    }
+    return { found: true, uid: '5907' };
+  }, harness.options);
+  assert.equal(result.value.found, true);
+  assert.equal(result.retryCount, 1);
+  assert.equal(workerState.calls.upload, 1);
+});
+
+test('transient network error does not restore filters before retry succeeds', async () => {
+  const harness = stageHarness();
+  let attempts = 0;
+  let restores = 0;
+  await withProductionRestore(async () => waitForStage('wait_service_event', async () => {
+    attempts += 1;
+    assert.equal(restores, 0);
+    if (attempts === 1) {
+      const error = new Error('read ECONNRESET');
+      error.code = 'ECONNRESET';
+      throw error;
+    }
+    return { eventId: 'event-1' };
+  }, harness.options), async () => { restores += 1; });
+  assert.equal(attempts, 2);
+  assert.equal(restores, 1);
+});
+
+test('overall timeout restores production filters', async () => {
+  const harness = stageHarness();
+  let restores = 0;
+  await assert.rejects(() => withProductionRestore(
+    () => waitForStage('wait_run', async () => null, harness.options),
+    async () => { restores += 1; }
+  ), error => error.stage === 'wait_run' && error.code === 'E2E_STAGE_TIMEOUT');
+  assert.equal(restores, 1);
+});
+
+test('terminal PASS restores production filters exactly once', async () => {
+  let restores = 0;
+  const result = await withProductionRestore(
+    async () => ({ result: 'PASS' }),
+    async () => { restores += 1; }
+  );
+  assert.equal(result.result, 'PASS');
+  assert.equal(restores, 1);
+  assert.equal(isTransientNetworkError(Object.assign(new Error('timed out'), {
+    code: 'ETIMEDOUT',
+  })), true);
 });
 
 test('idempotency key includes mailbox UID name size and full sha256', () => {
@@ -481,6 +610,7 @@ test('worker replay and restart suppress duplicate run and notification', async 
   const restarted = workerHarness({ record });
   const [restartEvent] = await restarted.worker.pollOnce();
   assert.equal(restartEvent.runId, 'run-existing');
+  assert.equal(restartEvent.eventId, event.eventId);
   assert.equal(restarted.calls.upload, 0);
 });
 
@@ -521,11 +651,13 @@ test('SMTP failure retries notification without creating another run', async () 
   });
   await assert.rejects(() => worker.processFetchedMessage({ uid: '42', raw: mime() }),
     /SMTP timeout/);
+  assert.equal(worker.handledUids.has('42'), false);
   const event = await worker.processFetchedMessage({ uid: '42', raw: mime() });
   assert.equal(event.replay, true);
   assert.equal(uploads, 1);
   assert.equal(sends, 2);
   assert.ok(record.notification_sent_at);
+  assert.equal(worker.handledUids.has('42'), true);
 });
 
 test('worker deduplicates duplicate UID in one poll and reconnects after failure', async () => {
@@ -607,6 +739,8 @@ test('direct production-check validates E2E mailbox and one-command stages', () 
     'docker', 'sendExcelMail', 'waitForEvent', 'waitForMailboxText',
     'verifyOwnerReview', "run('npm', ['test']", "run('docker', ['restart'",
     'production intake filters restored after E2E',
+    'correlate_e2e_mail', 'wait_service_event', 'wait_run',
+    'wait_notification', 'owner_review_fetch', 'replay',
   ]) assert.ok(source.includes(stage), `missing production stage ${stage}`);
   assert.doesNotMatch(source, /node\s+-(?:e|\s)/);
   assert.match(source, /shell: false/);
