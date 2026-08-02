@@ -434,13 +434,14 @@ test('worker graceful shutdown interrupts reconnect and poll waits', async () =>
   assert.equal(harness.worker.running, false);
 });
 
-test('Docker definition has restart, health and no inline Node execution', () => {
+test('Docker definition has restart, localhost-only health port and no inline Node execution', () => {
   const compose = fs.readFileSync(path.join(ROOT,
     'docker/minmax-direct-mail-intake/compose.yml'), 'utf8');
   const dockerfile = fs.readFileSync(path.join(ROOT,
     'docker/minmax-direct-mail-intake/Dockerfile'), 'utf8');
   assert.match(compose, /restart: unless-stopped/);
-  assert.match(compose, /"3220:3220"/);
+  assert.match(compose, /^\s+-\s+"127\.0\.0\.1:3220:3220"\s*$/m);
+  assert.doesNotMatch(compose, /^\s+-\s+"3220:3220"\s*$/m);
   assert.match(dockerfile, /HEALTHCHECK/);
   assert.doesNotMatch(`${compose}\n${dockerfile}`, /node\s+-(?:e|\s)/);
   assert.doesNotMatch(compose, /data\/purchasing/);
