@@ -7,7 +7,7 @@
     "doc": "docs"
   },
   "scripts": {
-    "test": "node --test agents/purchasing/tests/*.test.js apps/purchasing-web-backend/tests/*.test.js agents/arthur-core/tests/*.test.js",
+    "test": "node --test agents/purchasing/tests/*.test.js apps/purchasing-web-backend/tests/*.test.js apps/minmax-mail-intake/tests/*.test.js agents/arthur-core/tests/*.test.js",
     "test:arthur": "node --test agents/arthur-core/tests/*.test.js",
     "finance:update:miska": "node scripts/update-miska-financial-data.js",
     "finance:check:miska": "node scripts/update-miska-financial-data.js --check",
@@ -21,7 +21,8 @@
     "arthur:minmax:verify": "node scripts/arthur/verify-deployed-minmax-workflow.js",
     "arthur:minmax:inspect": "node scripts/arthur/inspect-minmax-execution.js",
     "arthur:minmax:deploy:check": "node scripts/arthur/deploy-and-inspect-minmax-workflow.js",
-    "arthur:minmax:production-check": "node scripts/arthur/minmax-production-check.js"
+    "arthur:minmax:production-check": "node scripts/arthur/minmax-production-check.js",
+    "arthur:minmax:direct:production-check": "node scripts/arthur/minmax-direct-production-check.js"
   },
   "repository": {
     "type": "git",
