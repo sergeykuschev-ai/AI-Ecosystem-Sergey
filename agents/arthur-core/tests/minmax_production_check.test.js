@@ -17,12 +17,14 @@ const {
   productionConfig,
   productionEnvironment: buildProductionEnvironment,
   registryNodeSnapshot,
+  runE2EWithAutomaticRestore,
   verifyConnectionRefused,
   verifyCredentialMetadata,
   verifyDeployedRuntimeConfig,
   waitForE2EExecution,
 } = require('../../../scripts/arthur/minmax-production-check');
 const {
+  bindCredentials,
   bindFixedRuntimeConfig,
 } = require('../../../scripts/arthur/minmax-n8n-workflow-deployment');
 
@@ -39,8 +41,100 @@ function productionEnvironment(overrides = {}) {
     MINMAX_E2E_MAIL_USER: 'e2e-sender@example.test',
     MINMAX_E2E_MAIL_PASSWORD: 'mail-secret',
     MINMAX_NOTIFY_EMAIL: 'owner@example.test',
+    MINMAX_NOTIFICATION_IMAP_USER: 'owner@example.test',
+    MINMAX_NOTIFICATION_IMAP_PASSWORD: 'notification-secret',
     MINMAX_SMTP_FROM: 'robot@example.test',
     ...overrides,
+  };
+}
+
+function publishedRecord(runtimeConfig, versionId) {
+  const deployed = bindCredentials(
+    bindFixedRuntimeConfig(workflow, runtimeConfig),
+    {
+      httpHeaderAuth: 'pjXec1bxtt81cy0u',
+      imap: 'Od4UJQh12iTGufks',
+      smtp: 'zOGxEOJGUvn59jgC',
+    }
+  );
+  return {
+    active: true,
+    versionId,
+    activeVersionId: versionId,
+    activeVersion: {
+      versionId,
+      nodes: deployed.nodes,
+      connections: deployed.connections,
+    },
+  };
+}
+
+function transactionHarness(options = {}) {
+  const config = productionConfig(productionEnvironment());
+  config.shortSha = '8d530fe';
+  const originalRuntime = {
+    apiBaseUrl: 'http://production-backend.internal:3210',
+    ownerUiBaseUrl: 'https://owner.example.test',
+    allowedSender: 'supplier@example.test',
+    subjectPattern: 'supplier minmax report',
+    notifyTo: 'operations@example.test',
+    notifyFrom: 'minmax@example.test',
+    ...options.originalRuntime,
+  };
+  const e2eRuntime = {
+    apiBaseUrl: config.backendContainerBaseUrl,
+    ownerUiBaseUrl: config.ownerUrl,
+    allowedSender: config.allowedSender,
+    subjectPattern: config.subjectPattern,
+    notifyTo: config.notifyEmail,
+    notifyFrom: config.smtpFrom,
+  };
+  const records = [
+    publishedRecord(originalRuntime, 'production-v1'),
+    publishedRecord(e2eRuntime, 'e2e-v2'),
+    publishedRecord(originalRuntime, 'restored-v3'),
+  ];
+  const deployEnvironments = [];
+  let e2eCalls = 0;
+  const credentialTypes = {
+    [config.n8n.credentials.httpHeaderAuth]: 'httpHeaderAuth',
+    [config.n8n.credentials.imap]: 'imap',
+    [config.n8n.credentials.smtp]: 'smtp',
+  };
+  const client = {
+    async getWorkflow() {
+      const record = records.shift();
+      if (!record) throw new Error('Unexpected workflow read.');
+      return record;
+    },
+    async request(method, endpoint) {
+      assert.equal(method, 'GET');
+      const id = endpoint.split('/').at(-1);
+      return { id, name: `credential-${id}`, type: credentialTypes[id] };
+    },
+  };
+  const dependencies = {
+    logger: { log() {} },
+    async deploy(environment) {
+      deployEnvironments.push(environment);
+      if (options.restoreFails && deployEnvironments.length === 2) {
+        throw new Error('restore publish rejected');
+      }
+      return { publishedVersionId: `published-${deployEnvironments.length}` };
+    },
+    async runMailE2E() {
+      e2eCalls += 1;
+      if (options.e2eError) throw options.e2eError;
+      return { executionId: 'new-execution', runId: 'new-run' };
+    },
+  };
+  return {
+    client,
+    config,
+    dependencies,
+    deployEnvironments,
+    get e2eCalls() { return e2eCalls; },
+    originalRuntime,
   };
 }
 
@@ -102,6 +196,16 @@ test('production config rejects missing secrets and placeholder owner URL', () =
   );
 });
 
+test('separate notification mailbox requires explicit IMAP credentials', () => {
+  assert.throws(
+    () => productionConfig(productionEnvironment({
+      MINMAX_NOTIFICATION_IMAP_USER: '',
+      MINMAX_NOTIFICATION_IMAP_PASSWORD: '',
+    })),
+    /required when MINMAX_NOTIFY_EMAIL differs from MINMAX_E2E_MAIL_USER/
+  );
+});
+
 test('empty production sender or subject pattern fails before deploy', () => {
   assert.throws(
     () => productionConfig(productionEnvironment({
@@ -122,6 +226,8 @@ test('E2E sender and subject match deployed production filters', () => {
   config.shortSha = '031aabd';
   const deployEnvironment = buildProductionEnvironment(config);
   const deployed = bindFixedRuntimeConfig(workflow, {
+    apiBaseUrl: deployEnvironment.MINMAX_API_BASE_URL,
+    ownerUiBaseUrl: deployEnvironment.MINMAX_OWNER_UI_BASE_URL,
     allowedSender: deployEnvironment.MINMAX_ALLOWED_SENDER,
     subjectPattern: deployEnvironment.MINMAX_SUBJECT_PATTERN,
     notifyTo: deployEnvironment.MINMAX_NOTIFY_EMAIL,
@@ -150,6 +256,101 @@ test('accept-all deployed filter configuration is forbidden', () => {
     () => verifyDeployedRuntimeConfig(workflow, config),
     /must not be accept-all/
   );
+});
+
+test('successful E2E restores and verifies the original production config', async () => {
+  const harness = transactionHarness();
+  const result = await runE2EWithAutomaticRestore(
+    harness.config,
+    harness.client,
+    harness.dependencies
+  );
+
+  assert.equal(harness.e2eCalls, 1);
+  assert.equal(harness.deployEnvironments.length, 2);
+  assert.deepEqual({
+    apiBaseUrl: harness.deployEnvironments[1].MINMAX_API_BASE_URL,
+    ownerUiBaseUrl: harness.deployEnvironments[1].MINMAX_OWNER_UI_BASE_URL,
+    allowedSender: harness.deployEnvironments[1].MINMAX_ALLOWED_SENDER,
+    subjectPattern: harness.deployEnvironments[1].MINMAX_SUBJECT_PATTERN,
+    notifyTo: harness.deployEnvironments[1].MINMAX_NOTIFY_EMAIL,
+    notifyFrom: harness.deployEnvironments[1].MINMAX_SMTP_FROM,
+  }, harness.originalRuntime);
+  assert.equal(result.restore.activeVersionId, 'restored-v3');
+  assert.deepEqual(result.restore.runtimeConfig, harness.originalRuntime);
+});
+
+test('failed E2E restores the original production config', async () => {
+  const harness = transactionHarness({
+    e2eError: new Error('workflow execution failed'),
+  });
+
+  await assert.rejects(
+    () => runE2EWithAutomaticRestore(
+      harness.config,
+      harness.client,
+      harness.dependencies
+    ),
+    /workflow execution failed/
+  );
+  assert.equal(harness.e2eCalls, 1);
+  assert.equal(harness.deployEnvironments.length, 2);
+  assert.equal(
+    harness.deployEnvironments[1].MINMAX_ALLOWED_SENDER,
+    harness.originalRuntime.allowedSender
+  );
+});
+
+test('E2E timeout restores the original production config', async () => {
+  const harness = transactionHarness({
+    e2eError: new Error('E2E execution timed out; last state=running.'),
+  });
+
+  await assert.rejects(
+    () => runE2EWithAutomaticRestore(
+      harness.config,
+      harness.client,
+      harness.dependencies
+    ),
+    /timed out/
+  );
+  assert.equal(harness.deployEnvironments.length, 2);
+  assert.equal(
+    harness.deployEnvironments[1].MINMAX_SUBJECT_PATTERN,
+    harness.originalRuntime.subjectPattern
+  );
+});
+
+test('restore failure makes the overall production check fail', async () => {
+  const harness = transactionHarness({ restoreFails: true });
+
+  await assert.rejects(
+    () => runE2EWithAutomaticRestore(
+      harness.config,
+      harness.client,
+      harness.dependencies
+    ),
+    /Automatic production runtime config restore failed: restore publish rejected/
+  );
+  assert.equal(harness.e2eCalls, 1);
+  assert.equal(harness.deployEnvironments.length, 2);
+});
+
+test('unsafe original accept-all config prevents deploy and E2E', async () => {
+  const harness = transactionHarness({
+    originalRuntime: { allowedSender: '', subjectPattern: '' },
+  });
+
+  await assert.rejects(
+    () => runE2EWithAutomaticRestore(
+      harness.config,
+      harness.client,
+      harness.dependencies
+    ),
+    /unsafe to restore.*allowedSender, subjectPattern.*E2E was not started/
+  );
+  assert.equal(harness.e2eCalls, 0);
+  assert.equal(harness.deployEnvironments.length, 0);
 });
 
 test('historical inspect is skipped without MINMAX_EXECUTION_ID', async () => {

@@ -306,6 +306,10 @@ $env:MINMAX_NOTIFY_EMAIL='<OWNER-EMAIL>'
 $env:MINMAX_SMTP_FROM='<SMTP-FROM>'
 ```
 
+Если `MINMAX_NOTIFY_EMAIL` отличается от `MINMAX_E2E_MAIL_USER`, до запуска
+также обязательны `MINMAX_NOTIFICATION_IMAP_USER` и
+`MINMAX_NOTIFICATION_IMAP_PASSWORD` для проверки полученного уведомления.
+
 Затем используется одна команда:
 
 ```powershell
@@ -321,6 +325,11 @@ LAN/DNS адресу. Runner всегда деплоит непустые produc
 `MINMAX_SUBJECT_PATTERN` по умолчанию равен `minmax production e2e`.
 Historical inspect выполняется только при явном `MINMAX_EXECUTION_ID`.
 Значения credentials API не читаются и не печатаются.
+До временного E2E deploy runner сохраняет все runtime-поля опубликованного
+`activeVersion`. В `finally` он повторно deploy/publish исходной production-
+конфигурации и проверяет новый `activeVersion` и точное совпадение полей.
+Пустая или accept-all исходная конфигурация блокирует E2E до deploy, а ошибка
+restore всегда превращает общий результат в `FAIL`.
 
 Команда автоматически:
 
@@ -328,7 +337,8 @@ Historical inspect выполняется только при явном `MINMAX
   контейнер для проверки restart;
 - проверяет health с Windows и из контейнера n8n, JSON 404/200/401 и настоящий
   `connection refused`;
-- инспектирует execution 272 с фактическим runData и точным container replay;
+- при явном `MINMAX_EXECUTION_ID` инспектирует указанный execution с фактическим
+  runData и точным container replay;
 - deploy/publish/verify workflow, activeVersion, metadata трёх credentials и
   отсутствие активного дубля;
 - отправляет через Yandex SMTP уникальное письмо с одним synthetic Excel,
@@ -336,6 +346,8 @@ Historical inspect выполняется только при явном `MINMAX
   notification;
 - проверяет исходный Excel artifact, получение уведомления через IMAP,
   открытие Owner Review deep link и multipart replay без второго run;
+- независимо от результата E2E восстанавливает и публикует исходную production-
+  конфигурацию, затем проверяет её `activeVersion`;
 - запускает полный `npm test` и печатает один итоговый `[RESULT] PASS` либо
   `[RESULT] FAIL <точная причина>`.
 

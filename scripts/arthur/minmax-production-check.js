@@ -61,6 +61,20 @@ function positiveInteger(value, fallback, name) {
 function productionConfig(environment = process.env) {
   const mailUser = requiredSecret('MINMAX_E2E_MAIL_USER', environment);
   const mailPassword = requiredSecret('MINMAX_E2E_MAIL_PASSWORD', environment);
+  const notifyEmail = requiredSecret('MINMAX_NOTIFY_EMAIL', environment);
+  const notificationUser = String(
+    environment.MINMAX_NOTIFICATION_IMAP_USER || ''
+  ).trim();
+  const notificationPassword = String(
+    environment.MINMAX_NOTIFICATION_IMAP_PASSWORD || ''
+  ).trim();
+  if (notifyEmail.toLowerCase() !== mailUser.toLowerCase() &&
+      (!notificationUser || !notificationPassword)) {
+    throw new Error(
+      'MINMAX_NOTIFICATION_IMAP_USER and MINMAX_NOTIFICATION_IMAP_PASSWORD ' +
+      'are required when MINMAX_NOTIFY_EMAIL differs from MINMAX_E2E_MAIL_USER.'
+    );
+  }
   const allowedSender = environment.MINMAX_ALLOWED_SENDER === undefined
     ? mailUser
     : String(environment.MINMAX_ALLOWED_SENDER).trim();
@@ -122,7 +136,7 @@ function productionConfig(environment = process.env) {
     ownerUrl,
     allowedSender,
     subjectPattern,
-    notifyEmail: requiredSecret('MINMAX_NOTIFY_EMAIL', environment),
+    notifyEmail,
     smtpFrom: requiredSecret('MINMAX_SMTP_FROM', environment),
     mail: {
       smtpHost: String(environment.MINMAX_E2E_SMTP_HOST || 'smtp.yandex.ru'),
@@ -140,12 +154,8 @@ function productionConfig(environment = process.env) {
       user: mailUser,
       password: mailPassword,
       recipient: String(environment.MINMAX_E2E_RECIPIENT || mailUser),
-      notificationUser: String(
-        environment.MINMAX_NOTIFICATION_IMAP_USER || mailUser
-      ),
-      notificationPassword: String(
-        environment.MINMAX_NOTIFICATION_IMAP_PASSWORD || mailPassword
-      ),
+      notificationUser: notificationUser || mailUser,
+      notificationPassword: notificationPassword || mailPassword,
     },
     timeoutMs: positiveInteger(
       environment.MINMAX_E2E_TIMEOUT_MS,
@@ -189,6 +199,8 @@ function deployedRuntimeConfigSnapshot(workflow) {
   )?.parameters?.jsCode;
   if (!code) throw new Error('Published Fixed MinMax config node is missing.');
   return {
+    apiBaseUrl: fixedConfigValue(code, 'apiBaseUrl'),
+    ownerUiBaseUrl: fixedConfigValue(code, 'ownerUiBaseUrl'),
     allowedSender: fixedConfigValue(code, 'allowedSender'),
     subjectPattern: fixedConfigValue(code, 'subjectPattern'),
     notifyTo: fixedConfigValue(code, 'notifyTo'),
@@ -202,6 +214,8 @@ function verifyDeployedRuntimeConfig(workflow, config) {
     throw new Error('Published MinMax filters must not be accept-all.');
   }
   const expected = {
+    apiBaseUrl: config.backendContainerBaseUrl,
+    ownerUiBaseUrl: config.ownerUrl,
     allowedSender: config.allowedSender,
     subjectPattern: config.subjectPattern,
     notifyTo: config.notifyEmail,
@@ -652,7 +666,16 @@ async function runMailE2E(config, client, dependencies = {}) {
   };
 }
 
-function productionEnvironment(config) {
+function productionEnvironment(config, runtimeConfig = {}) {
+  const runtime = {
+    apiBaseUrl: config.backendContainerBaseUrl,
+    ownerUiBaseUrl: config.ownerUrl,
+    allowedSender: config.allowedSender,
+    subjectPattern: config.subjectPattern,
+    notifyTo: config.notifyEmail,
+    notifyFrom: config.smtpFrom,
+    ...runtimeConfig,
+  };
   return {
     ...process.env,
     N8N_BASE_URL: config.n8n.baseUrl,
@@ -664,12 +687,157 @@ function productionEnvironment(config) {
     N8N_CONTAINER_NAME: config.n8n.container,
     PURCHASING_API_TOKEN: config.apiToken,
     PURCHASING_BUILD_SHA: config.shortSha,
-    MINMAX_API_BASE_URL: config.backendContainerBaseUrl,
-    MINMAX_OWNER_UI_BASE_URL: config.ownerUrl,
-    MINMAX_ALLOWED_SENDER: config.allowedSender,
-    MINMAX_SUBJECT_PATTERN: config.subjectPattern,
-    MINMAX_NOTIFY_EMAIL: config.notifyEmail,
-    MINMAX_SMTP_FROM: config.smtpFrom,
+    MINMAX_API_BASE_URL: runtime.apiBaseUrl,
+    MINMAX_OWNER_UI_BASE_URL: runtime.ownerUiBaseUrl,
+    MINMAX_ALLOWED_SENDER: runtime.allowedSender,
+    MINMAX_SUBJECT_PATTERN: runtime.subjectPattern,
+    MINMAX_NOTIFY_EMAIL: runtime.notifyTo,
+    MINMAX_SMTP_FROM: runtime.notifyFrom,
+  };
+}
+
+function publishedWorkflowFromRecord(record) {
+  if (record?.active !== true) {
+    throw new Error('MinMax workflow is not active/published.');
+  }
+  const activeVersionId = record.activeVersion?.versionId || null;
+  if (!activeVersionId || !Array.isArray(record.activeVersion?.nodes)) {
+    throw new Error('Published MinMax activeVersion is missing.');
+  }
+  if (record.versionId !== activeVersionId) {
+    throw new Error(
+      `Published MinMax activeVersion=${activeVersionId}, ` +
+      `but saved version=${record.versionId || '(missing)'}.`
+    );
+  }
+  return {
+    versionId: activeVersionId,
+    nodes: record.activeVersion.nodes,
+    connections: record.activeVersion.connections || {},
+  };
+}
+
+function verifySafeProductionRuntimeConfig(runtimeConfig) {
+  const fields = [
+    'apiBaseUrl',
+    'ownerUiBaseUrl',
+    'allowedSender',
+    'subjectPattern',
+    'notifyTo',
+    'notifyFrom',
+  ];
+  const emptyFields = fields.filter(field =>
+    !String(runtimeConfig?.[field] || '').trim()
+  );
+  if (emptyFields.length > 0) {
+    throw new Error(
+      'Published production runtime config is unsafe to restore; ' +
+      `empty/accept-all fields: ${emptyFields.join(', ')}. E2E was not started.`
+    );
+  }
+  return runtimeConfig;
+}
+
+function verifyRuntimeConfigMatches(workflow, expected, label) {
+  const actual = deployedRuntimeConfigSnapshot(workflow);
+  for (const [field, value] of Object.entries(expected)) {
+    if (actual[field] !== value) {
+      throw new Error(
+        `${label} ${field}=${actual[field] || '(empty)'}, expected ${value}.`
+      );
+    }
+  }
+  return actual;
+}
+
+async function runE2EWithAutomaticRestore(config, client, dependencies = {}) {
+  const logger = dependencies.logger || console;
+  const deploy = dependencies.deploy || deployWorkflow;
+  const executeE2E = dependencies.runMailE2E || runMailE2E;
+  const originalRecord = await client.getWorkflow(config.n8n.workflowId);
+  const originalPublished = publishedWorkflowFromRecord(originalRecord);
+  const originalRuntimeConfig = verifySafeProductionRuntimeConfig(
+    deployedRuntimeConfigSnapshot(originalPublished)
+  );
+  logger.log(
+    `[PASS] captured published production runtime config ` +
+    `from activeVersion=${originalPublished.versionId}.`
+  );
+
+  let deployment = null;
+  let credentialMetadata = null;
+  let registryNode = null;
+  let e2eRuntimeConfig = null;
+  let e2e = null;
+  let e2eError = null;
+  let restore = null;
+  let restoreError = null;
+
+  try {
+    deployment = await deploy(productionEnvironment(config), logger);
+    credentialMetadata = await verifyCredentialMetadata(config, client);
+    const deployedRecord = await client.getWorkflow(config.n8n.workflowId);
+    const publishedWorkflow = publishedWorkflowFromRecord(deployedRecord);
+    registryNode = registryNodeSnapshot(publishedWorkflow);
+    e2eRuntimeConfig = verifyDeployedRuntimeConfig(publishedWorkflow, config);
+    if (registryNode.credential?.id !== config.n8n.credentials.httpHeaderAuth) {
+      throw new Error('Published registry node has the wrong credential id.');
+    }
+    logger.log(`[PASS] credentials metadata=${JSON.stringify(credentialMetadata)}`);
+    logger.log(`[PASS] published registry node=${JSON.stringify(registryNode)}`);
+    logger.log(`[PASS] temporary E2E runtime config=${JSON.stringify(e2eRuntimeConfig)}`);
+
+    e2e = await executeE2E(config, client, dependencies);
+    logger.log(
+      `[PASS] email -> Excel -> run -> notification -> Owner Review ` +
+      `${JSON.stringify(e2e)}`
+    );
+  } catch (error) {
+    e2eError = error;
+  } finally {
+    try {
+      const restoreDeployment = await deploy(
+        productionEnvironment(config, originalRuntimeConfig),
+        logger
+      );
+      const restoredRecord = await client.getWorkflow(config.n8n.workflowId);
+      const restoredPublished = publishedWorkflowFromRecord(restoredRecord);
+      const restoredRuntimeConfig = verifyRuntimeConfigMatches(
+        restoredPublished,
+        originalRuntimeConfig,
+        'Restored published MinMax config'
+      );
+      restore = {
+        deployment: restoreDeployment,
+        activeVersionId: restoredPublished.versionId,
+        runtimeConfig: restoredRuntimeConfig,
+      };
+      logger.log(
+        `[PASS] original production runtime config restored and published; ` +
+        `activeVersion=${restoredPublished.versionId}.`
+      );
+    } catch (error) {
+      restoreError = error;
+    }
+  }
+
+  if (restoreError) {
+    const e2eDetail = e2eError ? ` E2E also failed: ${e2eError.message}.` : '';
+    throw new Error(
+      `Automatic production runtime config restore failed: ` +
+      `${restoreError.message}.${e2eDetail}`,
+      { cause: restoreError }
+    );
+  }
+  if (e2eError) throw e2eError;
+
+  return {
+    deployment,
+    credentialMetadata,
+    registryNode,
+    runtimeConfig: e2eRuntimeConfig,
+    e2e,
+    restore,
   };
 }
 
@@ -720,7 +888,6 @@ async function runProductionCheck(config, dependencies = {}) {
   await verifyBackendRestart(config, dependencies);
   logger.log('[PASS] purchasing-web-backend is persistent and restart-safe.');
 
-  const environment = productionEnvironment(config);
   const client = dependencies.client || new N8nApiClient({
     baseUrl: config.n8n.baseUrl,
     apiKey: config.n8n.apiKey,
@@ -752,23 +919,11 @@ async function runProductionCheck(config, dependencies = {}) {
     spawn: dependencies.spawn,
   });
 
-  const deployment = await (dependencies.deploy || deployWorkflow)(environment, logger);
-  const credentialMetadata = await verifyCredentialMetadata(config, client);
-  const deployed = await client.getWorkflow(config.n8n.workflowId);
-  const publishedWorkflow = {
-    nodes: deployed.activeVersion?.nodes || [],
-  };
-  const registryNode = registryNodeSnapshot(publishedWorkflow);
-  const runtimeConfig = verifyDeployedRuntimeConfig(publishedWorkflow, config);
-  if (registryNode.credential?.id !== config.n8n.credentials.httpHeaderAuth) {
-    throw new Error('Published registry node has the wrong credential id.');
-  }
-  logger.log(`[PASS] credentials metadata=${JSON.stringify(credentialMetadata)}`);
-  logger.log(`[PASS] published registry node=${JSON.stringify(registryNode)}`);
-  logger.log(`[PASS] published runtime config=${JSON.stringify(runtimeConfig)}`);
-
-  const e2e = await runMailE2E(config, client, dependencies);
-  logger.log(`[PASS] email -> Excel -> run -> notification -> Owner Review ${JSON.stringify(e2e)}`);
+  const transaction = await runE2EWithAutomaticRestore(
+    config,
+    client,
+    dependencies
+  );
 
   (dependencies.runCommand || runCommand)('npm', ['test'], { inherit: true });
   logger.log('[PASS] npm test');
@@ -776,10 +931,11 @@ async function runProductionCheck(config, dependencies = {}) {
     status: 'PASS',
     sha,
     historicalInspection: inspection,
-    deployment,
+    deployment: transaction.deployment,
     backend: { restartPolicy: 'unless-stopped', buildSha: config.shortSha },
-    registryNode,
-    e2e,
+    registryNode: transaction.registryNode,
+    e2e: transaction.e2e,
+    restore: transaction.restore,
     tests: 'PASS',
   };
 }
@@ -819,13 +975,17 @@ module.exports = {
   matchingExecutionDetails,
   productionConfig,
   productionEnvironment,
+  publishedWorkflowFromRecord,
   registryNodeSnapshot,
+  runE2EWithAutomaticRestore,
   runMailE2E,
   runProductionCheck,
   startPersistentBackend,
   verifyConnectionRefused,
   verifyCredentialMetadata,
   verifyDeployedRuntimeConfig,
+  verifyRuntimeConfigMatches,
+  verifySafeProductionRuntimeConfig,
   verifyIdempotentReplay,
   verifyInvalidToken,
   waitForE2EExecution,
