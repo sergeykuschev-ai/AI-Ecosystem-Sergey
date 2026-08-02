@@ -22,6 +22,7 @@ const {
   runE2EWithAutomaticRestore,
   verifyConnectionRefused,
   verifyBackendHealthResponse,
+  verifyContainerRuntime,
   verifyCredentialMetadata,
   verifyDeployedRuntimeConfig,
   waitForE2EExecution,
@@ -180,6 +181,47 @@ function healthResponse(overrides = {}) {
     contentType: overrides.contentType || 'application/json; charset=utf-8',
     text: overrides.text === undefined ? JSON.stringify(body) : overrides.text,
     json: overrides.json === undefined ? body : overrides.json,
+  };
+}
+
+function healthyContainerRuntime(overrides = {}) {
+  return {
+    status: 'running',
+    health: 'healthy',
+    exitCode: 0,
+    oomKilled: false,
+    restartCount: 0,
+    publishedPorts: {
+      '3210/tcp': [{ HostIp: '0.0.0.0', HostPort: '3210' }],
+    },
+    workingDirectory: '/app',
+    imageCommand: ['node', 'apps/purchasing-web-backend/server.js'],
+    runtimeProbe: 'runtime-ok',
+    ...overrides,
+  };
+}
+
+function containerRuntimeCommand(overrides = {}) {
+  const values = {
+    '{{json .State}}': {
+      Status: 'running',
+      ExitCode: 0,
+      Error: '',
+      OOMKilled: false,
+      Health: { Status: 'healthy' },
+    },
+    '{{json .RestartCount}}': 0,
+    '{{json .NetworkSettings.Ports}}': {
+      '3210/tcp': [{ HostIp: '0.0.0.0', HostPort: '3210' }],
+    },
+    '{{json .Config.WorkingDir}}': '/app',
+    '{{json .Config.Cmd}}': ['node', 'apps/purchasing-web-backend/server.js'],
+    ...overrides,
+  };
+  return (command, args) => {
+    assert.equal(command, 'docker');
+    if (args[0] === 'exec') return 'runtime-ok';
+    return JSON.stringify(values[args[2]]);
   };
 }
 
@@ -435,16 +477,70 @@ test('healthy container passes host health and restart verification', async () =
     composeFile: '/repo/compose.yml',
     shortSha: 'd14d642',
   };
+  const runtime = healthyContainerRuntime();
   const result = await ensurePersistentBackend(config, {
     runCommand(command, args) {
       commands.push([command, ...args]);
       return args[0] === 'inspect' ? 'unless-stopped' : '';
     },
     request: async () => healthResponse(),
+    verifyContainerRuntime: () => runtime,
   });
 
-  assert.deepEqual(result, { restartPolicy: 'unless-stopped' });
+  assert.deepEqual(result, {
+    restartPolicy: 'unless-stopped',
+    container: runtime,
+  });
   assert.equal(commands.filter(command => command[1] === 'restart').length, 1);
+});
+
+test('running container proves healthy state, runtime files and published port', () => {
+  const result = verifyContainerRuntime({}, {
+    runCommand: containerRuntimeCommand(),
+  });
+
+  assert.equal(result.status, 'running');
+  assert.equal(result.health, 'healthy');
+  assert.equal(result.restartCount, 0);
+  assert.equal(result.runtimeProbe, 'runtime-ok');
+  assert.equal(result.publishedPorts['3210/tcp'][0].HostPort, '3210');
+});
+
+test('missing published port fails container runtime verification', () => {
+  assert.throws(
+    () => verifyContainerRuntime({}, {
+      runCommand: containerRuntimeCommand({
+        '{{json .NetworkSettings.Ports}}': {},
+      }),
+    }),
+    /publishedPorts=\{\}.*expected host 3210/
+  );
+});
+
+test('automatic restart during verification fails production-check', async () => {
+  const runtimes = [
+    healthyContainerRuntime({ restartCount: 3 }),
+    healthyContainerRuntime({ restartCount: 4 }),
+  ];
+  await assert.rejects(
+    () => ensurePersistentBackend({
+      apiToken: '0123456789abcdef',
+      backendBaseUrl: 'http://127.0.0.1:3210',
+      composeFile: '/repo/compose.yml',
+      shortSha: 'd14d642',
+    }, {
+      runCommand(command, args) {
+        return args[0] === 'inspect' ? 'unless-stopped' : '';
+      },
+      runCommandCapture() {
+        return { status: 0, stdout: '{}', stderr: '', error: null };
+      },
+      request: async () => healthResponse(),
+      verifyContainerRuntime: () => runtimes.shift(),
+      logger: { error() {} },
+    }),
+    /RestartCount changed from 3 to 4/
+  );
 });
 
 test('backend not started prints Docker health and container logs automatically', async () => {
@@ -501,6 +597,7 @@ test('wrong published port is reported with host connection evidence', async () 
       request: async () => {
         throw new Error('connect ECONNREFUSED 127.0.0.1:3211');
       },
+      verifyContainerRuntime: () => healthyContainerRuntime(),
       delay: async () => new Promise(resolve => setTimeout(resolve, 2)),
       timeoutMs: 5,
       logger: { error(message) { messages.push(message); } },
@@ -577,6 +674,10 @@ test('Docker service is restart-safe and keeps output/data on host mounts', () =
     ROOT,
     'docker/purchasing-web-backend/Dockerfile'
   ), 'utf8');
+  const supplierOrderService = fs.readFileSync(path.join(
+    ROOT,
+    'apps/purchasing-web-backend/application/supplier_order_service.js'
+  ), 'utf8');
   assert.match(compose, /restart: unless-stopped/);
   assert.match(compose, /"3210:3210"/);
   assert.match(compose, /\.\.\/\.\.\/output:\/app\/output/);
@@ -584,6 +685,18 @@ test('Docker service is restart-safe and keeps output/data on host mounts', () =
   assert.match(compose, /PURCHASING_API_TOKEN/);
   assert.match(compose, /PURCHASING_BUILD_SHA/);
   assert.match(dockerfile, /HEALTHCHECK/);
+  assert.match(dockerfile, /WORKDIR \/app/);
+  assert.match(dockerfile, /COPY package\.json package-lock\.json/);
+  assert.match(dockerfile, /npm ci --omit=dev/);
+  assert.match(dockerfile, /COPY agents \.\/agents/);
+  assert.match(dockerfile, /COPY apps \.\/apps/);
+  assert.match(dockerfile, /COPY shared \.\/shared/);
+  assert.match(dockerfile, /mkdir -p \/app\/output \/app\/data\/purchasing/);
+  assert.match(
+    dockerfile,
+    /CMD \["node", "apps\/purchasing-web-backend\/server\.js"\]/
+  );
+  assert.match(supplierOrderService, /shared\/reporting\/xlsx_exporter/);
   assert.match(dockerfile, /node:http/);
   assert.match(dockerfile, /127\.0\.0\.1',port:3210/);
   assert.match(dockerfile, /service!=='purchasing-web'/);

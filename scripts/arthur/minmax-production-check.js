@@ -336,6 +336,20 @@ const CONTAINER_HEALTH_PROBE = [
   "request.on('error',error=>{console.error(error.stack||error.message);process.exit(1)})",
 ].join(';');
 
+const CONTAINER_RUNTIME_PROBE = [
+  "const fs=require('node:fs')",
+  "const required=['/app/package.json','/app/package-lock.json',",
+  "'/app/apps/purchasing-web-backend/server.js',",
+  "'/app/agents/purchasing/order_agent.js',",
+  "'/app/shared/reporting/xlsx_exporter.js']",
+  "for(const file of required)fs.accessSync(file,fs.constants.R_OK)",
+  "for(const directory of ['/app/output','/app/data/purchasing'])",
+  "fs.accessSync(directory,fs.constants.R_OK|fs.constants.W_OK)",
+  "for(const moduleName of ['busboy','fflate','read-excel-file'])",
+  "require.resolve(moduleName)",
+  "console.log('runtime-ok')",
+].join(';');
+
 async function collectBackendDiagnostics(config, dependencies = {}) {
   const capture = dependencies.runCommandCapture || runCommandCapture;
   const request = dependencies.request || rawRequest;
@@ -349,15 +363,53 @@ async function collectBackendDiagnostics(config, dependencies = {}) {
     secrets
   );
   const diagnostics = {
+    stateStatus: captureDocker([
+      'inspect', '--format', '{{json .State.Status}}', container,
+    ]),
+    stateExitCode: captureDocker([
+      'inspect', '--format', '{{json .State.ExitCode}}', container,
+    ]),
+    stateError: captureDocker([
+      'inspect', '--format', '{{json .State.Error}}', container,
+    ]),
+    stateOOMKilled: captureDocker([
+      'inspect', '--format', '{{json .State.OOMKilled}}', container,
+    ]),
+    restartCount: captureDocker([
+      'inspect', '--format', '{{json .RestartCount}}', container,
+    ]),
     health: captureDocker([
       'inspect', '--format', '{{json .State.Health}}', container,
     ]),
     healthLogEntries: captureDocker([
       'inspect', '--format', '{{json .State.Health.Log}}', container,
     ]),
-    containerLogs: captureDocker(['logs', '--timestamps', container]),
+    containerLogs: captureDocker([
+      'logs', '--tail', '300', '--timestamps', container,
+    ]),
+    composeLogs: diagnosticCommand(
+      capture,
+      'docker',
+      [
+        'compose', '-f', config.composeFile,
+        'logs', '--no-color', '--tail', '300', container,
+      ],
+      {
+        cwd: REPOSITORY_ROOT,
+        env: {
+          ...process.env,
+          PURCHASING_API_TOKEN: config.apiToken,
+          PURCHASING_BUILD_SHA: config.shortSha,
+        },
+      },
+      secrets
+    ),
     command: captureDocker([
       'inspect', '--format', '{{json .Path}} {{json .Args}}', container,
+    ]),
+    imageCommandEntrypoint: captureDocker([
+      'inspect', '--format',
+      '{{json .Config.Entrypoint}} {{json .Config.Cmd}}', container,
     ]),
     environment: captureDocker([
       'inspect', '--format', '{{json .Config.Env}}', container,
@@ -443,6 +495,119 @@ function verifyBackendHealthResponse(result, expectedSha, source) {
   return result;
 }
 
+function dockerInspectJson(run, format, label) {
+  const output = run('docker', [
+    'inspect', '--format', format, 'purchasing-web-backend',
+  ]);
+  try {
+    return JSON.parse(output);
+  } catch (error) {
+    throw new Error(
+      `Docker ${label} is not valid JSON: ${String(output).slice(0, 500)}.`,
+      { cause: error }
+    );
+  }
+}
+
+function verifyContainerRuntime(config, dependencies = {}) {
+  const run = dependencies.runCommand || runCommand;
+  const state = dockerInspectJson(run, '{{json .State}}', 'State');
+  const restartCount = dockerInspectJson(
+    run,
+    '{{json .RestartCount}}',
+    'RestartCount'
+  );
+  const publishedPorts = dockerInspectJson(
+    run,
+    '{{json .NetworkSettings.Ports}}',
+    'published ports'
+  );
+  const workingDirectory = dockerInspectJson(
+    run,
+    '{{json .Config.WorkingDir}}',
+    'working directory'
+  );
+  const imageCommand = dockerInspectJson(
+    run,
+    '{{json .Config.Cmd}}',
+    'image command'
+  );
+  if (state.Status !== 'running') {
+    throw new Error(
+      `container State.Status=${state.Status || '(missing)'}, expected running; ` +
+      `ExitCode=${state.ExitCode}; Error=${state.Error || '(empty)'}; ` +
+      `OOMKilled=${state.OOMKilled}.`
+    );
+  }
+  if (state.Health?.Status !== 'healthy') {
+    throw new Error(
+      `container health=${state.Health?.Status || '(missing)'}, expected healthy.`
+    );
+  }
+  if (state.OOMKilled === true) {
+    throw new Error('container State.OOMKilled=true.');
+  }
+  if (!Number.isInteger(restartCount) || restartCount < 0) {
+    throw new Error(`container RestartCount=${restartCount}, expected non-negative integer.`);
+  }
+  const portBindings = publishedPorts?.['3210/tcp'];
+  if (!Array.isArray(portBindings) || !portBindings.some(binding =>
+    String(binding?.HostPort) === '3210'
+  )) {
+    throw new Error(
+      `container publishedPorts=${JSON.stringify(publishedPorts)}, ` +
+      'expected host 3210 -> container 3210/tcp.'
+    );
+  }
+  if (workingDirectory !== '/app') {
+    throw new Error(
+      `container working directory=${workingDirectory || '(missing)'}, expected /app.`
+    );
+  }
+  if (JSON.stringify(imageCommand) !== JSON.stringify([
+    'node', 'apps/purchasing-web-backend/server.js',
+  ])) {
+    throw new Error(
+      `container image command=${JSON.stringify(imageCommand)}, expected backend CMD.`
+    );
+  }
+  const runtimeProbe = run('docker', [
+    'exec', 'purchasing-web-backend', 'node', '-e', CONTAINER_RUNTIME_PROBE,
+  ]);
+  if (runtimeProbe !== 'runtime-ok') {
+    throw new Error(`container runtime probe=${runtimeProbe || '(empty)'}.`);
+  }
+  return {
+    status: state.Status,
+    health: state.Health.Status,
+    exitCode: state.ExitCode,
+    oomKilled: state.OOMKilled,
+    restartCount,
+    publishedPorts,
+    workingDirectory,
+    imageCommand,
+    runtimeProbe,
+  };
+}
+
+async function waitForStableContainerRuntime(config, dependencies = {}) {
+  const verify = dependencies.verifyContainerRuntime || verifyContainerRuntime;
+  const wait = dependencies.delay || delay;
+  const deadline = Date.now() + (dependencies.timeoutMs || 90000);
+  let lastError = null;
+  while (Date.now() < deadline) {
+    try {
+      return verify(config, dependencies);
+    } catch (error) {
+      lastError = error;
+      await wait(2000);
+    }
+  }
+  throw new Error(
+    `Container runtime did not become stable: ${lastError?.message || 'unknown error'}`
+  );
+}
+
 function startPersistentBackend(config, dependencies = {}) {
   const run = dependencies.runCommand || runCommand;
   const environment = {
@@ -473,9 +638,22 @@ async function verifyBackendRestart(config, dependencies = {}) {
 async function ensurePersistentBackend(config, dependencies = {}) {
   try {
     const persistence = startPersistentBackend(config, dependencies);
+    const verifyRuntime = dependencies.verifyContainerRuntime ||
+      verifyContainerRuntime;
+    const beforeRestart = verifyRuntime(config, dependencies);
     await waitForHealth(config, dependencies);
     await verifyBackendRestart(config, dependencies);
-    return persistence;
+    const afterRestart = await waitForStableContainerRuntime(
+      config,
+      dependencies
+    );
+    if (afterRestart.restartCount !== beforeRestart.restartCount) {
+      throw new Error(
+        `container RestartCount changed from ${beforeRestart.restartCount} ` +
+        `to ${afterRestart.restartCount}.`
+      );
+    }
+    return { ...persistence, container: afterRestart };
   } catch (cause) {
     const diagnostics = await collectBackendDiagnostics(config, dependencies);
     printBackendDiagnostics(diagnostics, dependencies.logger || console);
@@ -1146,6 +1324,7 @@ module.exports = {
   runProductionCheck,
   startPersistentBackend,
   verifyBackendHealthResponse,
+  verifyContainerRuntime,
   verifyConnectionRefused,
   verifyCredentialMetadata,
   verifyDeployedRuntimeConfig,
@@ -1155,4 +1334,5 @@ module.exports = {
   verifyInvalidToken,
   waitForE2EExecution,
   waitForHealth,
+  waitForStableContainerRuntime,
 };

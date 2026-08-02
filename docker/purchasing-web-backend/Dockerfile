@@ -7,6 +7,9 @@ RUN npm ci --omit=dev --ignore-scripts
 
 COPY agents ./agents
 COPY apps ./apps
+COPY shared ./shared
+
+RUN mkdir -p /app/output /app/data/purchasing
 
 ENV NODE_ENV=production \
     PURCHASING_WEB_HOST=0.0.0.0 \

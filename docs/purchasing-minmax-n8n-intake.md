@@ -356,9 +356,14 @@ restore всегда превращает общий результат в `FAIL
 Если любой этап не подтверждён, команда завершается `FAIL`; частично зелёные
 локальные проверки не считаются end-to-end успехом.
 При Docker health failure runner сам печатает полный `.State.Health`, все
-`Health.Log`, container logs, фактическую команду, redacted env, mounts,
-published ports, наличие Node.js и ответы health endpoint из контейнера и с
-Windows host. Ручные `docker inspect`, `docker logs` и `curl` не требуются.
+`Health.Log`, `State.Status/ExitCode/Error/OOMKilled`, `RestartCount`, последние
+300 строк container/compose logs, image command/entrypoint, redacted env,
+mounts, published ports, наличие Node.js и ответы health endpoint из контейнера
+и с Windows host. Ручные `docker inspect`, `docker logs` и `curl` не требуются.
+Образ копирует все runtime roots (`apps/`, `agents/`, `shared/`) и перед E2E
+runner проверяет их наличие, production dependencies, write-доступ к
+`/app/output` и `/app/data/purchasing`, стабильный `RestartCount`, healthy state
+и фактическую публикацию `3210/tcp` на host port `3210`.
 
 ## Защита API
 
