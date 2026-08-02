@@ -69,6 +69,7 @@
     }),
     confirmed: Object.freeze({ owner_decision: 'confirmed' }),
     skip: Object.freeze({ owner_decision: 'SKIP' }),
+    policy: Object.freeze({ policy_adjusted: 'true' }),
   });
   const ITEM_SORTS = Object.freeze([
     'source_row',
@@ -497,6 +498,7 @@
     if (filter === 'needs') return needsOwnerDecisionView(item);
     if (filter === 'confirmed') return confirmedItemView(item);
     if (filter === 'skip') return decision === 'SKIP';
+    if (filter === 'policy') return item?.assortment_policy?.adjusted === true;
     return true;
   }
 
@@ -1021,9 +1023,62 @@
       'Текущее решение',
       ownerDecisionView(item).label
     );
+    if (item?.assortment_policy?.matched) {
+      appendDetail(
+        documentObject,
+        facts,
+        'Min/Max',
+        `${formatQuantity(item?.quantities?.minmax_quantity)} шт.`
+      );
+      appendDetail(
+        documentObject,
+        facts,
+        'После политики',
+        `${formatQuantity(item?.quantities?.policy_quantity)} шт.`
+      );
+      appendDetail(
+        documentObject,
+        facts,
+        'Правило',
+        item.assortment_policy.rule || 'NONE'
+      );
+      appendDetail(
+        documentObject,
+        facts,
+        'Статус ассортимента',
+        item.assortment_policy.assortment_status || '—'
+      );
+      appendDetail(
+        documentObject,
+        facts,
+        'MIN / MAX',
+        `${formatQuantity(item.assortment_policy.min_stock)} / ` +
+          `${formatQuantity(item.assortment_policy.max_stock)}`
+      );
+      appendDetail(
+        documentObject,
+        facts,
+        'Режим',
+        item.assortment_policy.order_mode || '—'
+      );
+      appendDetail(
+        documentObject,
+        facts,
+        'Размер коробки',
+        formatQuantity(item.assortment_policy.box_qty)
+      );
+      appendDetail(
+        documentObject,
+        facts,
+        'Прогнозируемый остаток',
+        formatQuantity(item.assortment_policy.projected_stock)
+      );
+    }
     const reason = documentObject.createElement('p');
     reason.className = 'plain-reason';
-    reason.textContent = plainReason(item);
+    reason.textContent = item?.assortment_policy?.adjusted
+      ? item.assortment_policy.explanation
+      : plainReason(item);
     const signals = documentObject.createElement('p');
     signals.className = 'matrix-signals';
     signals.textContent =

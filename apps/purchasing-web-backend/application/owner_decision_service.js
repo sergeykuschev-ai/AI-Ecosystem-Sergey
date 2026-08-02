@@ -117,6 +117,31 @@ function decisionView(decision) {
   };
 }
 
+function finalQuantityWithOwnerDecision(item) {
+  const decision = item?.owner_decision?.decision;
+  if (decision === 'BUY') return firstNonNegativeNumber(
+    item.owner_decision.quantity
+  );
+  if (decision === 'SKIP') return 0;
+  if (decision === 'DEFER') return null;
+  return firstNonNegativeNumber(
+    item?.quantities?.policy_quantity,
+    item?.quantities?.approved_quantity,
+    item?.quantities?.provisional_quantity,
+    item?.quantities?.calculated_quantity
+  );
+}
+
+function withFinalQuantity(item) {
+  return {
+    ...item,
+    quantities: {
+      ...(item.quantities || {}),
+      final_quantity: finalQuantityWithOwnerDecision(item),
+    },
+  };
+}
+
 function ownerDecisionSummary(items) {
   // Semantics are aligned with the canonical FinalOrderState classifier:
   // - DEFER is a made decision (resolved): it leaves «Нужно решить» and the
@@ -289,10 +314,10 @@ class OwnerDecisionService {
       const decision = decisionKey
         ? active.get(decisionKey)
         : null;
-      return {
+      return withFinalQuantity({
         ...item,
         owner_decision: decisionView(decision),
-      };
+      });
     });
   }
 
@@ -344,10 +369,10 @@ class OwnerDecisionService {
         { cause: error }
       );
     }
-    const savedItem = {
+    const savedItem = withFinalQuantity({
       ...item,
       owner_decision: decisionView(saved.decision),
-    };
+    });
     let itemStableKey;
     try {
       itemStableKey = stableItemKey(item, items);
@@ -434,8 +459,10 @@ module.exports = {
   OwnerDecisionServiceError,
   WEB_OWNER_DECISIONS,
   decisionView,
+  finalQuantityWithOwnerDecision,
   historyFinancialContext,
   ownerDecisionSummary,
   validateItemId,
   validateWebDecision,
+  withFinalQuantity,
 };

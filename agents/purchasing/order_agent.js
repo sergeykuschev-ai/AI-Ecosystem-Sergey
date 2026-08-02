@@ -21,6 +21,13 @@ const {
 const {
   buildAssortmentMatrixReport,
 } = require('./services/assortment_matrix_report');
+const {
+  applyAssortmentPolicyToProducts,
+} = require('./services/assortment_policy');
+const {
+  DEFAULT_POLICY_PATH,
+  loadAssortmentPolicy,
+} = require('./services/assortment_policy_store');
 const { validateInput } = require('./services/validator');
 const { buildResult } = require('./services/result_assembly');
 const {
@@ -97,11 +104,23 @@ function runOrderAgentFromAdapterResultWithDemand(
     assortmentContext = { ...loaded, matchResult };
   }
   const demandResult = buildDemandPlan(analysis, resolvedPhase2Inputs);
+  const policy = loadAssortmentPolicy(
+    options.assortmentPolicyPath || DEFAULT_POLICY_PATH
+  );
+  const policyProducts = applyAssortmentPolicyToProducts(
+    demandResult.products,
+    policy.store,
+    { runId: options.runId || null }
+  );
+  const policyDemandResult = {
+    ...demandResult,
+    products: policyProducts,
+  };
   let phase2DecisionResult = buildPhase2PurchasingDecisions(
-    demandResult,
+    policyDemandResult,
     adapterResult.diagnostics
   );
-  let demandProducts = demandResult.products;
+  let demandProducts = policyProducts;
   let assortmentControl = null;
   let assortmentReport = null;
   if (assortmentContext) {

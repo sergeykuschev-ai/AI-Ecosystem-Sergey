@@ -53,6 +53,11 @@ function mapPurchasingItems(bundle) {
     const provisionalQuantity = finiteOrNull(
       product.provisionalOrderQuantity
     );
+    const minmaxQuantity = finiteOrNull(
+      product.minmaxRecommendedQuantity ?? product.finalRecommendedQuantity
+    );
+    const policyQuantity = finiteOrNull(product.finalRecommendedQuantity);
+    const policy = product.assortmentPolicy || null;
 
     return {
       row_id: rowIdentity,
@@ -114,12 +119,50 @@ function mapPurchasingItems(bundle) {
         analyzer_quantity: finiteOrNull(
           product.analyzerCalculatedQuantity
         ),
-        calculated_quantity: finiteOrNull(
-          product.finalRecommendedQuantity
-        ),
+        calculated_quantity: minmaxQuantity,
+        minmax_quantity: minmaxQuantity,
+        policy_quantity: policyQuantity,
         approved_quantity: approvedQuantity,
         provisional_quantity: provisionalQuantity,
+        final_quantity: policyQuantity,
       },
+      assortment_policy: policy
+        ? {
+          matched: policy.matched === true,
+          adjusted: policy.policy_adjusted === true,
+          rule: policy.policy_rule || 'NONE',
+          applied_rules: Array.isArray(policy.applied_rules)
+            ? [...policy.applied_rules]
+            : [],
+          explanation: policy.explanation || null,
+          assortment_status: policy.assortment_status || null,
+          min_stock: finiteOrNull(policy.min_stock),
+          max_stock: finiteOrNull(policy.max_stock),
+          target_stock: finiteOrNull(policy.target_stock),
+          order_mode: policy.order_mode || null,
+          box_qty: finiteOrNull(policy.box_qty),
+          display_stock: policy.display_stock === true,
+          display_min_qty: finiteOrNull(policy.display_min_qty),
+          purchase_hold: policy.purchase_hold === true,
+          purchase_hold_until_stock: finiteOrNull(
+            policy.purchase_hold_until_stock
+          ),
+          mandatory_assortment: policy.mandatory_assortment === true,
+          owner_comment: policy.owner_comment || '',
+          rule_source: policy.rule_source || null,
+          projected_stock: finiteOrNull(policy.projected_stock),
+          warnings: Array.isArray(policy.policy_warnings)
+            ? [...policy.policy_warnings]
+            : [],
+        }
+        : {
+          matched: false,
+          adjusted: false,
+          rule: 'NONE',
+          applied_rules: [],
+          explanation: null,
+          warnings: [],
+        },
       amounts: {
         unit_price: finiteOrNull(product.priceNum),
         approved_line_value: approvedQuantity === null
