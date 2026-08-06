@@ -2,13 +2,13 @@ const {
   appendOwnerDecision,
   latestActiveDecisions,
   loadOwnerDecisions,
-  normalizeSku,
 } = require('../../../agents/purchasing/matrix_builder/owner_decisions');
 const {
-  buildStableItemKey,
-  stableKeyContext,
+  ownerDecisionKeyCandidates,
+  ownerDecisionKeyContext,
+  uniqueOwnerDecisionKey,
 } = require(
-  '../../../agents/purchasing/owner_learning/owner_learning_history'
+  '../../../agents/purchasing/services/owner_decision_identity'
 );
 const {
   normalizeAgentRecommendation,
@@ -245,48 +245,16 @@ function ownerDecisionSummary(items) {
   return summary;
 }
 
-function decisionCandidates(item) {
-  const candidates = [];
-  for (const value of [item?.sku, item?.barcode, item?.row_id]) {
-    try {
-      const normalized = normalizeSku(value);
-      if (!candidates.includes(normalized)) candidates.push(normalized);
-    } catch {}
-  }
-  return candidates;
-}
-
 function decisionIdentifierCounts(items) {
-  const counts = new Map();
-  for (const item of items || []) {
-    for (const candidate of decisionCandidates(item)) {
-      counts.set(candidate, (counts.get(candidate) || 0) + 1);
-    }
-  }
-  return counts;
+  return ownerDecisionKeyContext(items);
 }
 
 function uniqueDecisionKey(item, identifierCounts) {
-  return decisionCandidates(item).find(
-    candidate => identifierCounts.get(candidate) === 1
-  ) || null;
+  return uniqueOwnerDecisionKey(item, identifierCounts);
 }
 
 function stableItemKey(item, items) {
-  const identities = (items || []).map(candidate => ({
-    sku: candidate.sku,
-    barcode: candidate.barcode,
-    rowId: candidate.row_id,
-    name: candidate.name,
-    brand: candidate.brand,
-  }));
-  const index = (items || []).findIndex(
-    candidate => candidate.row_id === item.row_id
-  );
-  return buildStableItemKey(
-    identities[index],
-    stableKeyContext(identities)
-  );
+  return uniqueOwnerDecisionKey(item, ownerDecisionKeyContext(items));
 }
 
 function firstNonNegativeNumber(...values) {
@@ -381,7 +349,7 @@ class OwnerDecisionService {
     const active = this.activeDecisions();
     const identifierCounts = decisionIdentifierCounts(items);
     return (items || []).map(item => {
-      const decisionKey = decisionCandidates(item).find(candidate =>
+      const decisionKey = ownerDecisionKeyCandidates(item).find(candidate =>
         identifierCounts.get(candidate) === 1 && active.has(candidate)
       );
       const decision = decisionKey

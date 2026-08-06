@@ -1,6 +1,10 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
+const {
+  ownerDecisionKeyCandidates,
+} = require('../services/owner_decision_identity');
+
 const OWNER_DECISIONS = Object.freeze([
   'KEEP_CORE',
   'KEEP_OPTIONAL',
@@ -285,9 +289,22 @@ function latestDecisions(decisions) {
 }
 
 function itemSkuCandidates(item) {
-  return [item.article, item.barcode, item.internal_product_id, item.rowIdentity]
-    .filter(value => value !== null && value !== undefined && String(value).trim() !== '')
-    .map(value => String(value).trim().toUpperCase());
+  const candidates = ownerDecisionKeyCandidates({
+    supplier: item?.supplier,
+    sku: item?.article,
+    barcode: item?.barcode,
+    brand: item?.brand,
+    name: item?.name,
+  });
+  // Legacy decisions keyed by internal product id are still honored.
+  if (
+    item.internal_product_id !== null &&
+    item.internal_product_id !== undefined &&
+    String(item.internal_product_id).trim() !== ''
+  ) {
+    candidates.push(String(item.internal_product_id).trim().toUpperCase());
+  }
+  return candidates;
 }
 
 function roleForDecision(decision, calculatedRole) {

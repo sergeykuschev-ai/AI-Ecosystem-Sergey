@@ -29,6 +29,7 @@ function item(overrides = {}) {
     barcode: null,
     internal_product_id: null,
     name: 'Синтетический товар',
+    supplier: 'Тестовый поставщик',
     category: 'Корм',
     suggested_role: 'OPTIONAL',
     suggested_priority: 'standard',
@@ -404,4 +405,128 @@ test('a duplicated source SKU is never silently overridden', () => {
     ['OPTIONAL', 'OPTIONAL']
   );
   assert.deepEqual(application.summary.unmatched_active_skus, ['SKU-1']);
+});
+
+test('legacy plain SKU decision still applies for backward compatibility', () => {
+  const application = applyOwnerDecisions(draft(), store([decision('KEEP_CORE')]));
+  assert.equal(application.draft.items[0].suggested_role, 'CORE');
+  assert.equal(application.summary.matched_active_skus, 1);
+});
+
+test('supplier-aware decision takes precedence over legacy plain SKU', () => {
+  const sourceDraft = draft();
+  const application = applyOwnerDecisions(
+    sourceDraft,
+    store([
+      decision('KEEP_CORE', {
+        sku: 'SKU-1',
+        decided_at: '2026-07-20T09:00:00.000Z',
+      }),
+      decision('KEEP_OPTIONAL', {
+        sku: 'SUPPLIER:ТЕСТОВЫЙ ПОСТАВЩИК:SKU:SKU-1',
+        decided_at: '2026-07-20T10:00:00.000Z',
+      }),
+    ])
+  );
+  assert.equal(application.draft.items[0].suggested_role, 'OPTIONAL');
+});
+
+test('identical SKU at different suppliers does not mix decisions', () => {
+  const first = item();
+  const second = item({
+    rowIdentity: 'row-2',
+    source_row_number: 2,
+    supplier: 'Другой поставщик',
+  });
+  const sourceDraft = draft(first);
+  sourceDraft.items = [first, second];
+  sourceDraft.summary.total_sku = 2;
+  sourceDraft.summary.roles.OPTIONAL = 2;
+
+  const application = applyOwnerDecisions(
+    sourceDraft,
+    store([
+      decision('KEEP_CORE', {
+        sku: 'SUPPLIER:ТЕСТОВЫЙ ПОСТАВЩИК:SKU:SKU-1',
+      }),
+    ])
+  );
+
+  assert.equal(application.draft.items[0].suggested_role, 'CORE');
+  assert.equal(application.draft.items[1].suggested_role, 'OPTIONAL');
+});
+
+test('decision persists when row identity changes', () => {
+  const original = applyOwnerDecisions(
+    draft(),
+    store([decision('KEEP_CORE')])
+  );
+  const reimported = applyOwnerDecisions(
+    draft(item({ rowIdentity: 'row-99', source_row_number: 99 })),
+    store([decision('KEEP_CORE')])
+  );
+
+  assert.equal(original.draft.items[0].suggested_role, 'CORE');
+  assert.equal(reimported.draft.items[0].suggested_role, 'CORE');
+});
+
+test('decision persists when stock or sales figures change', () => {
+  const original = applyOwnerDecisions(
+    draft(),
+    store([decision('KEEP_CORE')])
+  );
+  const updated = applyOwnerDecisions(
+    draft(item({ evidence: { purchase_price: 200, strategic_group_matches: [], weekly_sales: [], supplier_need_qty: 100, supplier_recommended_qty: 100 } })),
+    store([decision('KEEP_CORE')])
+  );
+
+  assert.equal(original.draft.items[0].suggested_role, 'CORE');
+  assert.equal(updated.draft.items[0].suggested_role, 'CORE');
+});
+
+test('decision persists when new SKUs are added', () => {
+  const first = item({ article: 'ART-001' });
+  const second = item({
+    rowIdentity: 'row-2',
+    source_row_number: 2,
+    article: 'ART-002',
+    supplier: 'Другой поставщик',
+  });
+  const originalDraft = draft(first);
+  originalDraft.items = [first];
+  originalDraft.summary.total_sku = 1;
+
+  const expandedDraft = draft(first);
+  expandedDraft.items = [first, second];
+  expandedDraft.summary.total_sku = 2;
+  expandedDraft.summary.roles.OPTIONAL = 2;
+
+  const original = applyOwnerDecisions(
+    originalDraft,
+    store([decision('KEEP_CORE', { sku: 'SUPPLIER:ТЕСТОВЫЙ ПОСТАВЩИК:SKU:ART-001' })])
+  );
+  const expanded = applyOwnerDecisions(
+    expandedDraft,
+    store([decision('KEEP_CORE', { sku: 'SUPPLIER:ТЕСТОВЫЙ ПОСТАВЩИК:SKU:ART-001' })])
+  );
+
+  assert.equal(original.draft.items[0].suggested_role, 'CORE');
+  assert.equal(expanded.draft.items[0].suggested_role, 'CORE');
+  assert.equal(expanded.draft.items[1].suggested_role, 'OPTIONAL');
+});
+
+test('fallback brand-name decision applies when article is missing', () => {
+  const sourceItem = item({ article: null, barcode: null, brand: 'Миска' });
+  const sourceDraft = draft(sourceItem);
+  const application = applyOwnerDecisions(
+    sourceDraft,
+    store([
+      decision('KEEP_CORE', {
+        sku: 'SUPPLIER:ТЕСТОВЫЙ ПОСТАВЩИК:FALLBACK:МИСКА|СИНТЕТИЧЕСКИЙ ТОВАР',
+      }),
+    ])
+  );
+
+  assert.equal(application.draft.items[0].suggested_role, 'CORE');
+  assert.equal(application.summary.matched_active_skus, 1);
 });

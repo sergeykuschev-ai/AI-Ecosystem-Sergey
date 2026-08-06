@@ -201,18 +201,24 @@ test('all review items accept BUY, SKIP, and DEFER without a unique SKU', () => 
       row_id: 'smartzapas:fixture:sheet:8',
       sku: null,
       barcode: null,
+      name: 'Товар без артикула',
+      brand: 'Бренд',
       matrix: { owner_review_required: true },
     },
     {
       row_id: 'smartzapas:fixture:sheet:9',
       sku: 'DUPLICATE',
       barcode: null,
+      name: 'Товар дубль А',
+      brand: 'Бренд',
       matrix: { owner_review_required: true },
     },
     {
       row_id: 'smartzapas:fixture:sheet:10',
       sku: 'DUPLICATE',
       barcode: null,
+      name: 'Товар дубль Б',
+      brand: 'Бренд',
       matrix: { owner_review_required: true },
     },
   ];
@@ -255,7 +261,11 @@ test('all review items accept BUY, SKIP, and DEFER without a unique SKU', () => 
     ));
     assert.deepEqual(
       stored.decisions.map(decision => decision.sku),
-      items.map(item => item.row_id.toUpperCase())
+      [
+        'SUPPLIER:UNKNOWN:FALLBACK:БРЕНД|ТОВАР БЕЗ АРТИКУЛА',
+        'SUPPLIER:UNKNOWN:FALLBACK:БРЕНД|ТОВАР ДУБЛЬ А',
+        'SUPPLIER:UNKNOWN:FALLBACK:БРЕНД|ТОВАР ДУБЛЬ Б',
+      ]
     );
   } finally {
     fs.rmSync(isolatedRoot, { recursive: true, force: true });
@@ -363,7 +373,7 @@ test('PUT saves BUY in append-only Owner Decisions Memory', async () => {
   assert.equal(history.entries.length, 1);
   assert.equal(history.entries[0].source, 'OWNER_REVIEW');
   assert.equal(history.entries[0].runId, RUN_ID);
-  assert.equal(history.entries[0].stableItemKey, 'sku:SKU-1');
+  assert.equal(history.entries[0].stableItemKey, 'SUPPLIER:ПОСТАВЩИК:SKU:SKU-1');
   assert.equal(history.entries[0].ownerDecision, 'BUY');
   assert.equal(history.entries[0].ownerQuantity, 7);
   assert.equal(history.entries[0].reasonCode, 'CUSTOMER_REQUEST');
