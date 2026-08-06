@@ -14,8 +14,10 @@ const {
   validateAssortmentPolicyStore,
 } = require('../services/assortment_policy');
 const {
+  DEFAULT_CANONICAL_MATRIX_PATH,
   DEFAULT_POLICY_PATH,
   loadAssortmentPolicy,
+  loadAssortmentPolicySource,
   updateAssortmentPolicyRule,
 } = require('../services/assortment_policy_store');
 const {
@@ -393,4 +395,167 @@ test('37-40. history records real changes once and isolates SKU', () => {
     loadAssortmentPolicy(policyPath).store.rules.find(item => item.sku === 'B').max_stock,
     6
   );
+});
+
+test('canonical matrix contains all 5 legacy SKU', () => {
+  const source = loadAssortmentPolicySource({ legacyPath: null });
+  assert.equal(source.source, 'canonical-matrix');
+  const skuIds = source.store.rules.map(r => r.sku).sort();
+  assert.deepEqual(skuIds, ['2548917', '2548924', '2548931', '2548955', 'GAL5427740']);
+});
+
+test('canonical active does not produce noRuleResult for legacy SKU', () => {
+  const source = loadAssortmentPolicySource({ legacyPath: null });
+  const [product] = applyAssortmentPolicyToProducts(
+    [phase2Product({ article: 'GAL5427740' })],
+    source.store
+  );
+  assert.equal(product.assortmentPolicy.matched, true);
+  assert.equal(product.finalRecommendedQuantity, 2);
+  assert.equal(product.assortmentPolicy.policy_rule, 'MANDATORY_ASSORTMENT');
+});
+
+test('GAL5427740 mandatory protection is preserved in canonical matrix', () => {
+  const source = loadAssortmentPolicySource({ legacyPath: null });
+  const galRule = source.store.rules.find(r => r.sku === 'GAL5427740');
+  const zeroStock = applyAssortmentPolicy({
+    current_stock: 0,
+    minmax_qty: null,
+    rule: galRule,
+  });
+  assert.equal(zeroStock.policy_qty, 2);
+  assert.equal(zeroStock.mandatory_minimum_gap, 2);
+  assert.equal(
+    applyAssortmentPolicy({
+      current_stock: 1,
+      minmax_qty: 0,
+      rule: galRule,
+    }).policy_qty,
+    0
+  );
+  assert.equal(
+    applyAssortmentPolicy({
+      current_stock: 2,
+      minmax_qty: 0,
+      rule: galRule,
+    }).policy_qty,
+    0
+  );
+});
+
+test('HYPO Puppy purchase hold behaves identically with canonical matrix', () => {
+  const source = loadAssortmentPolicySource({ legacyPath: null });
+  const puppy = source.store.rules.find(r => r.sku === '2548924');
+  assert.equal(
+    applyAssortmentPolicy({
+      current_stock: 4,
+      minmax_qty: 2,
+      rule: puppy,
+    }).policy_qty,
+    0
+  );
+  assert.equal(
+    applyAssortmentPolicy({
+      current_stock: 3,
+      minmax_qty: 2,
+      rule: puppy,
+    }).policy_qty,
+    2
+  );
+});
+
+test('legacy and canonical policy produce identical quantities for all 5 SKU', () => {
+  const legacy = loadAssortmentPolicy(DEFAULT_POLICY_PATH).store;
+  const canonical = loadAssortmentPolicySource({ legacyPath: null }).store;
+  const scenarios = [
+    { sku: 'GAL5427740', current_stock: 0, minmax_qty: null },
+    { sku: 'GAL5427740', current_stock: 1, minmax_qty: 0 },
+    { sku: 'GAL5427740', current_stock: 2, minmax_qty: 0 },
+    { sku: '2548924', current_stock: 4, minmax_qty: 2 },
+    { sku: '2548924', current_stock: 3, minmax_qty: 2 },
+    { sku: '2548931', current_stock: 4, minmax_qty: 2 },
+    { sku: '2548917', current_stock: 4, minmax_qty: 2 },
+    { sku: '2548955', current_stock: 4, minmax_qty: 2 },
+  ];
+  for (const s of scenarios) {
+    const legacyRule = legacy.rules.find(r => r.sku === s.sku);
+    const canonicalRule = canonical.rules.find(r => r.sku === s.sku);
+    assert.ok(legacyRule, `legacy rule not found for ${s.sku}`);
+    assert.ok(canonicalRule, `canonical rule not found for ${s.sku}`);
+    const legacyResult = applyAssortmentPolicy({
+      current_stock: s.current_stock,
+      minmax_qty: s.minmax_qty,
+      rule: legacyRule,
+    });
+    const canonicalResult = applyAssortmentPolicy({
+      current_stock: s.current_stock,
+      minmax_qty: s.minmax_qty,
+      rule: canonicalRule,
+    });
+    assert.equal(
+      legacyResult.policy_qty,
+      canonicalResult.policy_qty,
+      `quantity mismatch for ${s.sku} stock=${s.current_stock} minmax=${s.minmax_qty}: legacy=${legacyResult.policy_qty} canonical=${canonicalResult.policy_qty}`
+    );
+    assert.equal(
+      legacyResult.policy_rule,
+      canonicalResult.policy_rule,
+      `rule mismatch for ${s.sku}`
+    );
+  }
+});
+
+test('canonical matrix does not contain representative SKU', () => {
+  const source = loadAssortmentPolicySource({ legacyPath: null });
+  const representative = [
+    '7173648',
+    '7173600',
+    'CRF5421670',
+    'PREM-001',
+    'AIDA-001',
+    'BEA-001',
+    'WRP_SA400',
+  ];
+  for (const sku of representative) {
+    assert.ok(
+      !source.store.rules.some(r => r.sku.toUpperCase() === sku.toUpperCase()),
+      `representative SKU ${sku} found in canonical matrix`
+    );
+  }
+});
+
+test('fallback to legacy policy works when canonical matrix is missing', () => {
+  const source = loadAssortmentPolicySource({
+    canonicalPath: '/nonexistent/canonical-matrix.json',
+  });
+  assert.equal(source.source, 'legacy-policy');
+  const skuIds = source.store.rules.map(r => r.sku).sort();
+  assert.deepEqual(skuIds, ['2548917', '2548924', '2548931', '2548955', 'GAL5427740']);
+});
+
+test('fallback to legacy policy works when canonical matrix is inactive', () => {
+  const inactiveCanonical = JSON.stringify({
+    version: 1,
+    updated_at: UPDATED_AT,
+    store: 'Миска',
+    active: false,
+    items: [],
+  });
+  const legacyPolicy = JSON.stringify(loadAssortmentPolicy(DEFAULT_POLICY_PATH).store);
+  const fsModule = {
+    readFileSync: (filePath) => {
+      if (filePath.includes('canonical-assortment-matrix')) return inactiveCanonical;
+      if (filePath.includes('miska-assortment-policy')) return legacyPolicy;
+      throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+    },
+    existsSync: () => true,
+    mkdirSync: () => {},
+    writeFileSync: () => {},
+    renameSync: () => {},
+    unlinkSync: () => {},
+  };
+  const source = loadAssortmentPolicySource({ fsModule, legacyPath: DEFAULT_POLICY_PATH });
+  assert.equal(source.source, 'legacy-policy');
+  const skuIds = source.store.rules.map(r => r.sku).sort();
+  assert.deepEqual(skuIds, ['2548917', '2548924', '2548931', '2548955', 'GAL5427740']);
 });

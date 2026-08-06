@@ -25,8 +25,8 @@ const {
   applyAssortmentPolicyToProducts,
 } = require('./services/assortment_policy');
 const {
-  DEFAULT_POLICY_PATH,
-  loadAssortmentPolicy,
+  DEFAULT_CANONICAL_MATRIX_PATH,
+  loadAssortmentPolicySource,
 } = require('./services/assortment_policy_store');
 const { validateInput } = require('./services/validator');
 const { buildResult } = require('./services/result_assembly');
@@ -104,13 +104,15 @@ function runOrderAgentFromAdapterResultWithDemand(
     assortmentContext = { ...loaded, matchResult };
   }
   const demandResult = buildDemandPlan(analysis, resolvedPhase2Inputs);
-  const policy = loadAssortmentPolicy(
-    options.assortmentPolicyPath || DEFAULT_POLICY_PATH
-  );
+  const policy = loadAssortmentPolicySource({
+    canonicalPath: options.canonicalAssortmentMatrixPath ||
+      (options.assortmentPolicyPath ? null : DEFAULT_CANONICAL_MATRIX_PATH),
+    legacyPath: options.assortmentPolicyPath || undefined,
+  });
   const policyProducts = applyAssortmentPolicyToProducts(
     demandResult.products,
     policy.store,
-    { runId: options.runId || null }
+    { runId: options.runId || null, currentDate: options.currentDate }
   );
   const policyDemandResult = {
     ...demandResult,

@@ -132,6 +132,7 @@ function validateAssortmentPolicyRule(value) {
       required: true,
     }),
     updated_at: validateTimestamp(value.updated_at, `updated_at для ${sku}`),
+    canonical: value.canonical || null,
   };
 }
 
@@ -163,6 +164,15 @@ function policyIndex(store) {
   );
 }
 
+function buildRulesIndex(store) {
+  if (store && store.schema_version === 'miska-canonical-assortment-matrix-v1') {
+    return new Map(
+      store.rules.map(rule => [normalizeSku(rule.sku), rule])
+    );
+  }
+  return policyIndex(store);
+}
+
 function policyView(rule) {
   if (!rule) return null;
   const {
@@ -188,6 +198,7 @@ function noRuleResult(minmaxQty, currentStock, warnings = []) {
     policy_warnings: warnings,
     matched: false,
     rule: null,
+    canonical: null,
   };
 }
 
@@ -302,6 +313,7 @@ function applyAssortmentPolicy(input = {}) {
     policy_warnings: warnings,
     matched: true,
     rule: policyView(rule),
+    canonical: rule.canonical,
     ...policyView(rule),
   };
 }
@@ -310,7 +322,7 @@ function applyAssortmentPolicyToProducts(products, store, runContext = {}) {
   if (!Array.isArray(products)) {
     throw new TypeError('Assortment Policy требует массив products.');
   }
-  const rules = policyIndex(store);
+  const rules = buildRulesIndex(store);
   return products.map(product => {
     const sku = product.article ||
       product.matchingHints?.barcode ||
@@ -345,6 +357,7 @@ module.exports = {
   POLICY_RULES,
   applyAssortmentPolicy,
   applyAssortmentPolicyToProducts,
+  buildRulesIndex,
   normalizeSku,
   policyIndex,
   validateAssortmentPolicyRule,

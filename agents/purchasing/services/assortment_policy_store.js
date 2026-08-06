@@ -9,6 +9,12 @@ const {
   validateAssortmentPolicyRule,
   validateAssortmentPolicyStore,
 } = require('./assortment_policy');
+const {
+  toAssortmentPolicyRule,
+} = require('./canonical_assortment_matrix');
+const {
+  loadCanonicalAssortmentMatrix,
+} = require('./canonical_assortment_matrix_store');
 
 const DEFAULT_POLICY_PATH = path.resolve(
   __dirname,
@@ -17,6 +23,10 @@ const DEFAULT_POLICY_PATH = path.resolve(
 const DEFAULT_HISTORY_PATH = path.resolve(
   __dirname,
   '../../../data/purchasing/miska-assortment-policy-history.json'
+);
+const DEFAULT_CANONICAL_MATRIX_PATH = path.resolve(
+  __dirname,
+  '../../../data/purchasing/miska-canonical-assortment-matrix.json'
 );
 
 function storageError(code, message, cause) {
@@ -153,11 +163,40 @@ function updateAssortmentPolicyRule(input = {}, options = {}) {
   return { changed: true, store: nextStore, historyEntry };
 }
 
+function loadAssortmentPolicySource(options = {}) {
+  const fsModule = options.fsModule || fs;
+  const canonicalPath = options.canonicalPath || DEFAULT_CANONICAL_MATRIX_PATH;
+  const legacyPath = options.legacyPath || DEFAULT_POLICY_PATH;
+
+  const canonical = loadCanonicalAssortmentMatrix(canonicalPath, { fsModule });
+  if (canonical && canonical.matrix.active !== false) {
+    return {
+      path: canonical.path,
+      source: 'canonical-matrix',
+      store: {
+        schema_version: canonical.matrix.schema_version,
+        version: 1,
+        updated_at: canonical.matrix.updated_at,
+        rules: canonical.matrix.items.map(toAssortmentPolicyRule),
+      },
+    };
+  }
+
+  const legacy = loadAssortmentPolicy(legacyPath, { fsModule });
+  return {
+    path: legacy.path,
+    source: 'legacy-policy',
+    store: legacy.store,
+  };
+}
+
 module.exports = {
+  DEFAULT_CANONICAL_MATRIX_PATH,
   DEFAULT_HISTORY_PATH,
   DEFAULT_POLICY_PATH,
   atomicWriteJson,
   loadAssortmentPolicy,
+  loadAssortmentPolicySource,
   sameRule,
   updateAssortmentPolicyRule,
   validateHistory,
