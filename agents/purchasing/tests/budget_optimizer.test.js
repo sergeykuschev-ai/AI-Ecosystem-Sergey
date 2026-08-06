@@ -310,7 +310,7 @@ test('finalOrder: оптимизируется утверждённый зака
     assert.equal(result.items.length, 2);
   });
 
-test('finalOrder: сначала сокращаются auto, решения владельца — последними',
+test('finalOrder: сначала сокращаются auto, решения владельца не сокращаются',
   () => {
     const entries = [
       included({ rowId: 'r1', sku: 'A-1', quantity: 2, price: 10 }),
@@ -333,9 +333,32 @@ test('finalOrder: сначала сокращаются auto, решения в�
       finalOrder: finalOrder(entries),
       targetBudget: 100,
     });
-    assert.equal(hard.optimizedTotal, 100);
-    assert.equal(bySku(hard, 'B-2').optimizedQuantity, 1);
+    assert.equal(hard.status, 'BUDGET_TOO_LOW');
+    assert.equal(hard.optimizedTotal, 200);
+    assert.equal(bySku(hard, 'B-2').optimizedQuantity, 2);
     assert.deepEqual(bySku(hard, 'B-2').protectedReasons, ['OWNER_BUY']);
+    assert.ok(
+      hard.warnings.includes('OWNER_BUY_PROTECTED_FROM_BUDGET_CUT'),
+      'должно быть явное предупреждение о защите OWNER BUY'
+    );
+  });
+
+test('finalOrder: OWNER BUY не удаляется даже при крайне малом бюджете',
+  () => {
+    const entries = [
+      included({
+        rowId: 'r1', sku: 'B-1', quantity: 5, price: 100, source: 'manual',
+      }),
+    ];
+    const result = optimizePurchasingBudget({
+      finalOrder: finalOrder(entries),
+      targetBudget: 1,
+    });
+    assert.equal(result.status, 'BUDGET_TOO_LOW');
+    assert.equal(result.items.length, 1);
+    assert.equal(result.items[0].optimizedQuantity, 5);
+    assert.equal(result.items[0].originalQuantity, 5);
+    assert.ok(result.warnings.includes('OWNER_BUY_PROTECTED_FROM_BUDGET_CUT'));
   });
 
 test('finalOrder: нерешённая проверка блокирует оптимизацию', () => {
@@ -381,7 +404,7 @@ test('finalOrder: суммы строк сходятся с итогом без 
         source: 'manual',
       }),
     ]),
-    targetBudget: 40,
+    targetBudget: 67,
   };
   const first = optimizePurchasingBudget(input);
   const second = optimizePurchasingBudget(input);
@@ -390,7 +413,13 @@ test('finalOrder: суммы строк сходятся с итогом без 
     first.items.reduce((sum, item) => sum + item.optimizedAmount, 0) * 100
   );
   assert.equal(linesSum, Math.round(first.optimizedTotal * 100));
-  assert.ok(first.optimizedTotal <= 40);
+  assert.ok(first.optimizedTotal <= 67);
+  assert.ok(
+    first.items.some(
+      item => item.sku === 'A-3' && item.optimizedQuantity === 2
+    ),
+    'OWNER BUY остаётся неизменным при округлении'
+  );
 });
 
 test('finalOrder: некорректное состояние отклоняется', () => {

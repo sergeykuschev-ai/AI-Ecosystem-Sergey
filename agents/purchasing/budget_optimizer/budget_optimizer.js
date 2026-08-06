@@ -386,7 +386,7 @@ function finalOrderItems(state) {
       priceCents,
       originalQuantity: quantity,
       optimizedQuantity: quantity,
-      minimumQuantity: 0,
+      minimumQuantity: source === 'manual' ? quantity : 0,
       protectedReasons: source === 'manual' ? ['OWNER_BUY'] : [],
       matrixPriority: null,
       abc: null,
@@ -480,6 +480,12 @@ function optimizePurchasingBudget(input) {
   const warnings = status === 'BUDGET_TOO_LOW'
     ? ['TARGET_BUDGET_BELOW_MANDATORY_MINIMUM']
     : [];
+  if (
+    status === 'BUDGET_TOO_LOW' &&
+    items.some(item => item.decision === 'manual')
+  ) {
+    warnings.push('OWNER_BUY_PROTECTED_FROM_BUDGET_CUT');
+  }
 
   return {
     targetBudget: fromCents(targetBudgetCents),

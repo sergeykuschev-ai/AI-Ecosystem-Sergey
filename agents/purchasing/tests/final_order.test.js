@@ -47,6 +47,24 @@ test('BUY с ручным количеством > 0 включается как
   assert.equal(state.autoApprovedAmount, 0);
 });
 
+test('BUY включён в заказ независимо от matrix и флага owner_review_required', () => {
+  const state = buildFinalOrderState({
+    items: [
+      item({
+        workflow_status: 'auto_approved',
+        quantities: { approved_quantity: 3 },
+        matrix: { owner_review_required: false },
+        owner_decision: { decision: 'BUY', quantity: 9 },
+      }),
+    ],
+  });
+  assert.equal(state.reviewComplete, true);
+  assert.equal(state.itemCount, 1);
+  assert.equal(state.includedItems[0].source, 'manual');
+  assert.equal(state.includedItems[0].quantity, 9);
+  assert.equal(state.manuallyApprovedAmount, 94.5);
+});
+
 test('legacy owner decision без reasonCode участвует в FinalOrderState', () => {
   const legacyDecision = {
     decision: 'BUY',

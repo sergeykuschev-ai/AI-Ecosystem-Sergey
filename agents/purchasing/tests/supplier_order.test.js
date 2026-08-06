@@ -49,6 +49,32 @@ function sheetXml(xlsx) {
   };
 }
 
+test('OWNER BUY сохраняет исходное количество в заказе поставщику', () => {
+  const order = buildSupplierOrder({
+    items: [
+      item({
+        row_id: 'owner-buy',
+        sku: 'BUY-1',
+        workflow_status: 'pending_manual_review',
+        quantities: { approved_quantity: null },
+        matrix: { owner_review_required: true },
+        owner_decision: { decision: 'BUY', quantity: 7 },
+      }),
+    ],
+    supplier: 'Оникиенко',
+    generatedAt: GENERATED_AT,
+  });
+  assert.equal(order.itemCount, 1);
+  assert.equal(order.rows[0].article, 'BUY-1');
+  assert.equal(order.rows[0].quantity, 7);
+  assert.equal(order.rows[0].amount, 73.5);
+
+  const xlsx = buildSupplierOrderXlsx(order);
+  const { sheet } = sheetXml(xlsx);
+  assert.ok(sheet.includes('>BUY-1<'));
+  assert.ok(sheet.includes('<v>7</v>') || sheet.includes('<v>7.0</v>'));
+});
+
 test('1. в заказ попадают только утверждённые позиции: BUY и auto_approved', () => {
   const order = buildSupplierOrder({
     items: [

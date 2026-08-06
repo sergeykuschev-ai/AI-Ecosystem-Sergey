@@ -27,6 +27,9 @@ const {
 } = require('../public/app');
 const csvExporter = require('../../../shared/reporting/csv_exporter');
 const xlsxExporter = require('../../../shared/reporting/xlsx_exporter');
+const {
+  optimizePurchasingBudget,
+} = require('../../../agents/purchasing/budget_optimizer/budget_optimizer');
 
 const REPOSITORY_ROOT = path.resolve(__dirname, '../../..');
 const RUN_ID = '34343434-3434-4344-8434-343434343434';
@@ -228,38 +231,49 @@ test('после Owner Review оптимизация работает от ит�
     );
   });
 
-test('оптимизация сокращает итоговый заказ без расхождения сумм', async () => {
-  const state = (await finalOrder()).body.data;
-  const budget = Math.round((state.totalAmount - 20) * 100) / 100;
-  const result = await optimize(budget);
-  assert.equal(result.response.status, 200);
-  const data = result.body.data;
-  assert.equal(data.status, 'OPTIMIZED');
-  assert.ok(data.optimizedTotal <= budget);
-  assert.equal(data.originalTotal, state.totalAmount);
+test('оптимизация сокращает обычный заказ без OWNER BUY', () => {
+  // Детерминированная фикстура: только auto-позиции, OWNER BUY отсутствует.
+  function autoItem(rowId, sku, quantity, price) {
+    return {
+      rowId,
+      sku,
+      name: `Товар ${sku}`,
+      supplier: 'Поставщик',
+      quantity,
+      price,
+      source: 'auto',
+    };
+  }
+
+  const result = optimizePurchasingBudget({
+    finalOrder: {
+      reviewComplete: true,
+      includedItems: [
+        autoItem('a1', 'A-1', 10, 100),
+        autoItem('a2', 'A-2', 5, 50),
+        autoItem('a3', 'A-3', 2, 10),
+      ],
+    },
+    targetBudget: 1200,
+  });
+
+  assert.equal(result.status, 'OPTIMIZED');
+  assert.equal(result.originalTotal, 1270);
+  assert.ok(result.optimizedTotal <= 1200);
+  assert.ok(
+    result.reducedItemsCount >= 1 || result.removedItemsCount >= 1,
+    'хотя бы одна обычная позиция должна быть сокращена или удалена'
+  );
 
   const linesSum = Math.round(
-    data.items.reduce((sum, item) => sum + item.optimizedAmount, 0) * 100
+    result.items.reduce((sum, item) => sum + item.optimizedAmount, 0) * 100
   );
-  assert.equal(linesSum, Math.round(data.optimizedTotal * 100));
+  assert.equal(linesSum, Math.round(result.optimizedTotal * 100));
 
-  const itemsResult = await jsonResponse(
-    `${baseUrl}/api/v1/runs/${RUN_ID}/items?page_size=100`
-  );
-  const excludedRowIds = itemsResult.body.data.items
-    .filter(item => ['SKIP', 'DEFER'].includes(
-      item.owner_decision?.decision
-    ))
-    .map(item => item.row_id);
-  assert.ok(excludedRowIds.length > 0);
-  for (const rowId of excludedRowIds) {
+  for (const item of result.items) {
     assert.ok(
-      !data.items.some(item => item.rowIdentity === rowId),
-      'исключённые решения владельца не воскресают в оптимизации'
-    );
-    assert.ok(
-      !data.removedItems.some(item => item.rowIdentity === rowId),
-      'исключённые владельцем позиции не числятся удалёнными оптимизацией'
+      !item.protectedReasons.includes('OWNER_BUY'),
+      'обычные позиции не должны получать защиту OWNER BUY'
     );
   }
 });
@@ -267,7 +281,9 @@ test('оптимизация сокращает итоговый заказ бе
 test('UI, API, optimized-order.json, CSV и Excel показывают одну сумму',
   async () => {
     const state = (await finalOrder()).body.data;
-    const budget = Math.round((state.totalAmount - 20) * 100) / 100;
+    // Используем бюджет выше итога, чтобы проверить отображение
+    // UNCHANGED-результата независимо от возможного BUDGET_TOO_LOW.
+    const budget = Math.round((state.totalAmount + 1000) * 100) / 100;
     const result = (await optimize(budget)).body.data;
 
     const view = budgetOptimizationView(result);
@@ -379,6 +395,42 @@ test('SKIP после оптимизации исключает позицию �
     'SKIP-позиция не должна попадать в оптимизацию'
   );
 });
+
+test('OWNER BUY не сокращается при нехватке бюджета и возвращает предупреждение',
+  async () => {
+    const itemsResult = await jsonResponse(
+      `${baseUrl}/api/v1/runs/${RUN_ID}/items?page_size=100`
+    );
+    const target = itemsResult.body.data.items.find(
+      item => item.matrix?.owner_review_required === true
+    );
+    assert.ok(target, 'должна быть позиция, требующая решения владельца');
+
+    const decided = await putDecision(target.row_id, 'BUY', 5);
+    assert.equal(decided.response.status, 200);
+
+    const before = (await finalOrder()).body.data;
+    assert.equal(before.reviewComplete, true);
+
+    const result = await optimize(1);
+    assert.equal(result.response.status, 200);
+    const data = result.body.data;
+    assert.equal(data.status, 'BUDGET_TOO_LOW');
+    assert.ok(
+      data.warnings.includes('OWNER_BUY_PROTECTED_FROM_BUDGET_CUT'),
+      'должно быть явное предупреждение о защите OWNER BUY'
+    );
+
+    const buyLine = data.items.find(
+      item => item.rowIdentity === target.row_id
+    );
+    assert.ok(buyLine, 'OWNER BUY должен остаться в оптимизированном заказе');
+    assert.equal(buyLine.originalQuantity, 5);
+    assert.equal(buyLine.optimizedQuantity, 5);
+    assert.deepEqual(buyLine.protectedReasons, ['OWNER_BUY']);
+
+  }
+);
 
 test('инвариант после завершения проверки: needs 0 ⇔ complete ⇔ оптимизация и экспорт разрешены',
   async () => {
