@@ -2,6 +2,13 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const {
+  atomicWriteJsonFile,
+  readJsonFileWithRecovery,
+  rotateBackup,
+} = require('../../../shared/storage/safe_json_store');
+const {
+  buildOwnerDecisionMigrationPlan,
+  isRowIdHashKey,
   ownerDecisionKeyCandidates,
 } = require('../services/owner_decision_identity');
 
@@ -21,6 +28,18 @@ const OWNER_DECISIONS = Object.freeze([
 
 const OWNER_DECISION_STATUSES = Object.freeze(['active', 'inactive']);
 const OWNER_ROLE_OVERRIDES = Object.freeze(['CORE', 'OPTIONAL', 'EXIT']);
+const RUN_SCOPED_DECISIONS = Object.freeze(['BUY', 'SKIP', 'DEFER']);
+const PERMANENT_DECISIONS = Object.freeze([
+  'KEEP_CORE',
+  'KEEP_OPTIONAL',
+  'APPROVE_EXIT',
+  'REJECT_EXIT',
+  'KEEP_ZERO_STOCK',
+  'REQUIRE_STOCK',
+  'ACCEPT_POLICY',
+  'OVERRIDE_POLICY',
+]);
+const DEFAULT_RUN_DECISION_TTL_DAYS = 30;
 const POLICY_FIELDS = Object.freeze([
   'priority',
   'minimum_shelf_stock',
@@ -68,6 +87,54 @@ function isoTimestamp(value, field = 'decided_at') {
     throw new OwnerDecisionError(`${field} должен содержать ISO timestamp.`, 'INVALID_OWNER_DECISION');
   }
   return parsed.toISOString();
+}
+
+function optionalScope(value) {
+  if (value === null || value === undefined) return null;
+  if (value !== 'permanent' && value !== 'run') {
+    throw new OwnerDecisionError(
+      "scope должен быть 'permanent' или 'run'.",
+      'INVALID_OWNER_DECISION'
+    );
+  }
+  return value;
+}
+
+function optionalExpiresAt(value) {
+  if (value === null || value === undefined) return null;
+  return isoTimestamp(value, 'expires_at');
+}
+
+function addDaysToIsoTimestamp(isoTimestamp, days) {
+  const date = new Date(isoTimestamp);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString();
+}
+
+function defaultScopeForDecision(ownerDecision) {
+  if (RUN_SCOPED_DECISIONS.includes(ownerDecision)) return 'run';
+  return 'permanent';
+}
+
+function effectiveScope(decision) {
+  if (decision.scope === 'permanent' || decision.scope === 'run') return decision.scope;
+  return defaultScopeForDecision(decision.owner_decision);
+}
+
+function effectiveExpiresAt(decision) {
+  if (decision.expires_at) return decision.expires_at;
+  if (effectiveScope(decision) === 'permanent') return null;
+  if (decision.decided_at) {
+    return addDaysToIsoTimestamp(decision.decided_at, DEFAULT_RUN_DECISION_TTL_DAYS);
+  }
+  return null;
+}
+
+function isDecisionExpired(decision, nowIso) {
+  if (effectiveScope(decision) === 'permanent') return false;
+  const expiresAt = effectiveExpiresAt(decision);
+  if (!expiresAt) return false;
+  return expiresAt <= nowIso;
 }
 
 function optionalPolicyOverride(value, decision) {
@@ -197,6 +264,9 @@ function validateOwnerDecision(value) {
     decided_by: nonEmptyString(value.decided_by, 'decided_by'),
     status,
     source_version: nonEmptyString(value.source_version, 'source_version'),
+    idempotency_key: optionalString(value.idempotency_key, 'idempotency_key'),
+    scope: optionalScope(value.scope),
+    expires_at: optionalExpiresAt(value.expires_at),
   };
 }
 
@@ -232,13 +302,25 @@ function loadOwnerDecisions(filePath, options = {}) {
     return { store: emptyOwnerDecisionStore(), sourcePath: null, missing: true };
   }
   const resolvedPath = path.resolve(filePath);
-  let source;
+  let recovery = null;
+  let parsed;
   try {
-    source = fs.readFileSync(resolvedPath, 'utf8');
-  } catch (error) {
-    if (error.code === 'ENOENT' && options.allowMissing !== false) {
-      return { store: emptyOwnerDecisionStore(), sourcePath: resolvedPath, missing: true };
+    const readResult = readJsonFileWithRecovery(resolvedPath, {
+      fsModule: options.fsModule || fs,
+    });
+    parsed = readResult.data;
+    if (readResult.diagnostic) {
+      recovery = readResult.diagnostic;
     }
+  } catch (error) {
+    if (error.code === 'SAFE_JSON_NOT_FOUND' && options.allowMissing !== false) {
+      return {
+        store: emptyOwnerDecisionStore(),
+        sourcePath: resolvedPath,
+        missing: true,
+      };
+    }
+    if (error instanceof OwnerDecisionError) throw error;
     throw new OwnerDecisionError(
       `Не удалось загрузить owner decisions «${resolvedPath}»: ${error.message}.`,
       'OWNER_DECISION_FILE_ERROR',
@@ -247,9 +329,10 @@ function loadOwnerDecisions(filePath, options = {}) {
   }
   try {
     return {
-      store: validateOwnerDecisionStore(JSON.parse(source)),
+      store: validateOwnerDecisionStore(parsed),
       sourcePath: resolvedPath,
       missing: false,
+      recovery,
     };
   } catch (error) {
     if (error instanceof OwnerDecisionError) throw error;
@@ -261,10 +344,12 @@ function loadOwnerDecisions(filePath, options = {}) {
   }
 }
 
-function latestActiveDecisions(decisions) {
+function latestActiveDecisions(decisions, options = {}) {
+  const nowIso = options.now || new Date().toISOString();
   const latest = new Map();
   decisions.forEach((decision, index) => {
     if (decision.status !== 'active') return;
+    if (isDecisionExpired(decision, nowIso)) return;
     const previous = latest.get(decision.sku);
     if (
       !previous ||
@@ -286,6 +371,26 @@ function latestDecisions(decisions) {
     ) latest.set(decision.sku, { decision, index });
   });
   return new Map(Array.from(latest, ([sku, entry]) => [sku, entry.decision]));
+}
+
+/**
+ * Build a map of legacy SMARTZAPAS row-id hash keys to stable canonical keys.
+ *
+ * The returned map lets old hash-key decisions continue to apply after a new
+ * Excel export: the hash key is kept as an alias that resolves to the same
+ * supplier+SKU (or barcode / brand+name) decision key that the migration plan
+ * derived from owner-decision-history.json.
+ */
+function buildLegacyRowIdAliases(store, history) {
+  const plan = buildOwnerDecisionMigrationPlan(store, history);
+  const aliases = new Map();
+  for (const migration of plan.migrated) {
+    aliases.set(migration.oldKey, {
+      newKey: migration.newKey,
+      matchMethod: migration.matchMethod,
+    });
+  }
+  return { aliases, plan };
 }
 
 function itemSkuCandidates(item) {
@@ -479,11 +584,32 @@ function applyDecisionToItem(sourceItem, decision, builderVersion) {
   return item;
 }
 
-function applyOwnerDecisions(draft, storeInput) {
+function applyOwnerDecisions(draft, storeInput, options = {}) {
   const store = validateOwnerDecisionStore(storeInput || emptyOwnerDecisionStore());
+  const nowIso = options.now || new Date().toISOString();
   const latest = latestDecisions(store.decisions);
-  const latestActive = latestActiveDecisions(store.decisions);
-  const matchedActiveSkus = new Set();
+  const latestActive = latestActiveDecisions(store.decisions, { now: nowIso });
+
+  const legacyIdentityDiagnostics = [];
+  const ownerDecisionDiagnostics = [];
+  let aliases = new Map();
+  let migrationPlan = null;
+
+  if (options.history) {
+    const aliasResult = buildLegacyRowIdAliases(store, options.history);
+    aliases = aliasResult.aliases;
+    migrationPlan = aliasResult.plan;
+    for (const [oldKey, { newKey, matchMethod }] of aliases) {
+      legacyIdentityDiagnostics.push({
+        code: 'OWNER_DECISION_MIGRATED',
+        oldSku: oldKey,
+        newSku: newKey,
+        matchMethod,
+        severity: 'info',
+      });
+    }
+  }
+
   const sourceItems = draft.items || [];
   const identifierCounts = new Map();
   sourceItems.forEach(sourceItem => {
@@ -491,8 +617,27 @@ function applyOwnerDecisions(draft, storeInput) {
       identifierCounts.set(candidate, (identifierCounts.get(candidate) || 0) + 1);
     });
   });
+
+  // Alias old hash keys to the stable canonical keys that history derived.
+  // Each alias is counted once because a legacy row identity is unique.
+  sourceItems.forEach(sourceItem => {
+    const candidates = new Set(itemSkuCandidates(sourceItem));
+    for (const [oldKey, { newKey }] of aliases) {
+      if (candidates.has(newKey)) {
+        identifierCounts.set(oldKey, (identifierCounts.get(oldKey) || 0) + 1);
+      }
+    }
+  });
+
+  const matchedActiveSkus = new Set();
   const items = sourceItems.map(sourceItem => {
-    const candidates = itemSkuCandidates(sourceItem);
+    const baseCandidates = itemSkuCandidates(sourceItem);
+    const candidates = [...baseCandidates];
+    for (const [oldKey, { newKey }] of aliases) {
+      if (baseCandidates.includes(newKey) && !candidates.includes(oldKey)) {
+        candidates.push(oldKey);
+      }
+    }
     const activeSku = candidates.find(candidate =>
       identifierCounts.get(candidate) === 1 && latestActive.has(candidate)
     );
@@ -510,6 +655,7 @@ function applyOwnerDecisions(draft, storeInput) {
     if (activeSku) matchedActiveSkus.add(activeSku);
     return applyDecisionToItem(sourceItem, decision, draft.builder_version);
   });
+
   const count = predicate => items.filter(predicate).length;
   const roles = { ...(draft.summary?.roles || {}) };
   for (const role of Object.keys(roles)) {
@@ -519,6 +665,85 @@ function applyOwnerDecisions(draft, storeInput) {
     item.owner_decision_status === 'active' &&
     item.owner_decision_summary?.startsWith('DEFER:')
   );
+
+  const orphanedLegacyDecisions = [];
+  const historicalExpiredLegacyDecisions = [];
+  if (migrationPlan) {
+    const resolvedOldKeys = new Set();
+    sourceItems.forEach(sourceItem => {
+      const candidates = new Set(itemSkuCandidates(sourceItem));
+      for (const [oldKey, { newKey }] of aliases) {
+        if (candidates.has(newKey)) resolvedOldKeys.add(oldKey);
+      }
+    });
+
+    const migratedOrEquivalentOldKeys = new Set([
+      ...migrationPlan.migrated.map(entry => entry.oldKey),
+      ...migrationPlan.unchanged.filter(entry => entry.newKey).map(entry => entry.oldKey),
+    ]);
+
+    for (const decision of store.decisions) {
+      if (decision.status !== 'active') continue;
+      if (!isRowIdHashKey(decision.sku)) continue;
+      if (migratedOrEquivalentOldKeys.has(decision.sku)) continue;
+      if (resolvedOldKeys.has(decision.sku)) continue;
+
+      const skipped = migrationPlan.skipped.find(entry => entry.oldKey === decision.sku);
+      const conflict = migrationPlan.conflicts.find(entry => entry.oldKey === decision.sku);
+      const reason = skipped?.reason || conflict?.reason || 'unrecognized-legacy-key';
+
+      if (RUN_SCOPED_DECISIONS.includes(decision.owner_decision)) {
+        historicalExpiredLegacyDecisions.push({
+          sku: decision.sku,
+          reason,
+          decided_at: decision.decided_at,
+          owner_decision: decision.owner_decision,
+        });
+        continue;
+      }
+
+      orphanedLegacyDecisions.push({
+        sku: decision.sku,
+        reason,
+        decided_at: decision.decided_at,
+        owner_decision: decision.owner_decision,
+      });
+      legacyIdentityDiagnostics.push({
+        code: 'ORPHANED_OWNER_DECISION',
+        sku: decision.sku,
+        reason,
+        severity: 'warning',
+      });
+    }
+  }
+
+  // Diagnostics for run-scoped decisions that have expired but still resolve
+  // to a current item (not orphaned). These are intentionally surfaced so the
+  // owner sees when a one-time BUY/SKIP/DEFER decision stopped being applied.
+  const currentDraftSkuKeys = new Set();
+  sourceItems.forEach(sourceItem => {
+    itemSkuCandidates(sourceItem).forEach(candidate => currentDraftSkuKeys.add(candidate));
+  });
+  sourceItems.forEach(sourceItem => {
+    const candidates = new Set(itemSkuCandidates(sourceItem));
+    for (const [oldKey, { newKey }] of aliases) {
+      if (candidates.has(newKey)) currentDraftSkuKeys.add(oldKey);
+    }
+  });
+  for (const [sku, decision] of latest) {
+    if (decision.status !== 'active') continue;
+    if (!isDecisionExpired(decision, nowIso)) continue;
+    if (!currentDraftSkuKeys.has(sku)) continue;
+    ownerDecisionDiagnostics.push({
+      code: 'RUN_SCOPED_DECISION_EXPIRED',
+      sku,
+      owner_decision: decision.owner_decision,
+      decided_at: decision.decided_at,
+      expires_at: effectiveExpiresAt(decision),
+      severity: 'info',
+    });
+  }
+
   const result = {
     draft: {
       ...draft,
@@ -543,11 +768,17 @@ function applyOwnerDecisions(draft, storeInput) {
       excluded_skus: items
         .filter(item => item.owner_decision_excluded_from_review)
         .map(item => item.article || item.rowIdentity),
+      orphaned_legacy_decisions: orphanedLegacyDecisions,
+      historical_expired_legacy_decisions: historicalExpiredLegacyDecisions,
     },
+    legacyIdentityDiagnostics,
+    ownerDecisionDiagnostics,
     store,
   };
   return result;
 }
+
+const fileWriteLocks = new Map();
 
 function appendOwnerDecision(filePath, decisionInput, options = {}) {
   if (!filePath) {
@@ -556,48 +787,85 @@ function appendOwnerDecision(filePath, decisionInput, options = {}) {
       'OWNER_DECISION_FILE_ERROR'
     );
   }
-  const loaded = loadOwnerDecisions(filePath, { allowMissing: true });
-  const decidedAt = decisionInput.decided_at || new Date(
-    options.currentDate || new Date()
-  ).toISOString();
-  const decision = validateOwnerDecision({
-    ...decisionInput,
-    decided_at: decidedAt,
-  });
-  const store = {
-    ...loaded.store,
-    updated_at: decision.decided_at,
-    decisions: [...loaded.store.decisions, decision],
-  };
-  const validated = validateOwnerDecisionStore(store);
   const resolvedPath = path.resolve(filePath);
-  fs.mkdirSync(path.dirname(resolvedPath), { recursive: true });
-  const temporaryPath = path.join(
-    path.dirname(resolvedPath),
-    `.${path.basename(resolvedPath)}.${process.pid}.tmp`
-  );
+
+  if (fileWriteLocks.has(resolvedPath)) {
+    throw new OwnerDecisionError(
+      `Конфликтующая запись в owner decisions «${resolvedPath}» уже выполняется.`,
+      'OWNER_DECISION_WRITE_CONFLICT'
+    );
+  }
+  fileWriteLocks.set(resolvedPath, true);
+
   try {
-    fs.writeFileSync(temporaryPath, `${JSON.stringify(validated, null, 2)}\n`, {
-      encoding: 'utf8',
-      flag: 'wx',
+    const loaded = loadOwnerDecisions(resolvedPath, {
+      allowMissing: true,
+      fsModule: options.fsModule || fs,
     });
-    fs.renameSync(temporaryPath, resolvedPath);
+
+    if (options.idempotencyKey) {
+      const duplicate = [...loaded.store.decisions]
+        .reverse()
+        .find(entry => entry.idempotency_key === options.idempotencyKey);
+      if (duplicate) {
+        return {
+          decision: duplicate,
+          store: loaded.store,
+          sourcePath: resolvedPath,
+          duplicate: true,
+        };
+      }
+    }
+
+    const decidedAt = decisionInput.decided_at || new Date(
+      options.currentDate || new Date()
+    ).toISOString();
+    const decision = validateOwnerDecision({
+      ...decisionInput,
+      idempotency_key: options.idempotencyKey,
+      decided_at: decidedAt,
+    });
+    const store = {
+      ...loaded.store,
+      updated_at: decision.decided_at,
+      decisions: [...loaded.store.decisions, decision],
+    };
+    const validated = validateOwnerDecisionStore(store);
+
+    fs.mkdirSync(path.dirname(resolvedPath), { recursive: true });
+    rotateBackup(resolvedPath, {
+      fsModule: options.fsModule || fs,
+      maxBackups: options.maxBackups ?? 5,
+    });
+    atomicWriteJsonFile(resolvedPath, validated, {
+      fsModule: options.fsModule || fs,
+      staleMaxAgeMs: options.staleMaxAgeMs ?? 5 * 60 * 1000,
+    });
+
+    return {
+      decision,
+      store: validated,
+      sourcePath: resolvedPath,
+      duplicate: false,
+    };
   } catch (error) {
-    try {
-      if (fs.existsSync(temporaryPath)) fs.unlinkSync(temporaryPath);
-    } catch {}
+    if (error instanceof OwnerDecisionError) throw error;
     throw new OwnerDecisionError(
       `Не удалось сохранить owner decision: ${error.message}.`,
       'OWNER_DECISION_WRITE_ERROR',
       error
     );
+  } finally {
+    fileWriteLocks.delete(resolvedPath);
   }
-  return { decision, store: validated, sourcePath: resolvedPath };
 }
 
 module.exports = {
   OWNER_DECISIONS,
   OWNER_DECISION_STATUSES,
+  RUN_SCOPED_DECISIONS,
+  PERMANENT_DECISIONS,
+  DEFAULT_RUN_DECISION_TTL_DAYS,
   OwnerDecisionError,
   normalizeSku,
   validateOwnerDecision,
@@ -606,6 +874,11 @@ module.exports = {
   loadOwnerDecisions,
   latestActiveDecisions,
   latestDecisions,
+  buildLegacyRowIdAliases,
   applyOwnerDecisions,
   appendOwnerDecision,
+  addDaysToIsoTimestamp,
+  effectiveScope,
+  effectiveExpiresAt,
+  isDecisionExpired,
 };

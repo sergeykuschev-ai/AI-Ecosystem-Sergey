@@ -24,6 +24,16 @@ function recommendedQuantity(product) {
   return 0;
 }
 
+function recommendedQuantitySource(product) {
+  if (finiteNumber(product.finalRecommendedQuantity)) {
+    return 'phase2_final';
+  }
+  if (finiteNumber(product.analyzerCalculatedQuantity)) {
+    return 'phase1_analyzer';
+  }
+  return 'unavailable';
+}
+
 function resolveInventoryModel(inventoryModel = {}) {
   const subtractReserve =
     inventoryModel.stockBasis === 'physical_stock' ||
@@ -166,6 +176,16 @@ function controlDecision(product, decision, match) {
   if (projection.below_matrix_minimum !== true) return decision;
 
   if (item.priority === 'critical' && decision.decision === 'do_not_buy') {
+    if (recommendedQuantitySource(product) === 'phase1_analyzer') {
+      return withDecision(decision, {
+        decision: 'manual_review',
+        decisionBasis: 'assortment_matrix_control',
+        approvedOrderQuantity: null,
+        reasons: ['MATRIX_CONTROLLER_PHASE2_FALLBACK_MANUAL_REVIEW'],
+        requiredData: ['final_recommended_quantity'],
+      });
+    }
+
     return withDecision(decision, quantity > 0
       ? {
         decision: 'must_buy',

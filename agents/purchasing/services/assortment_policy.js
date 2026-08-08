@@ -183,6 +183,129 @@ function policyView(rule) {
   return { ...view, sku, updated_at: updatedAt };
 }
 
+function collectProductCandidateIds(product) {
+  if (!product || typeof product !== 'object') return [];
+  const candidates = [];
+  if (product.article) {
+    candidates.push({ type: 'article', value: normalizeSku(product.article) });
+  }
+  if (product.matchingHints?.barcode) {
+    candidates.push({ type: 'barcode', value: normalizeSku(product.matchingHints.barcode) });
+  }
+  if (product.matchingHints?.internalProductId) {
+    candidates.push({ type: 'internalProductId', value: normalizeSku(product.matchingHints.internalProductId) });
+  }
+  if (product.sku) {
+    candidates.push({ type: 'sku', value: normalizeSku(product.sku) });
+  }
+  if (product.supplierSku) {
+    candidates.push({ type: 'supplierSku', value: normalizeSku(product.supplierSku) });
+  }
+  return candidates;
+}
+
+function findRuleByCandidateIds(product, rules) {
+  for (const candidate of collectProductCandidateIds(product)) {
+    if (!candidate.value) continue;
+    const matchedRule = rules.get(candidate.value);
+    if (matchedRule) return { rule: matchedRule, matchedBy: candidate.type };
+  }
+  return null;
+}
+
+function isActiveAssortmentRule(rule) {
+  return rule && rule.assortment_status !== 'EXIT';
+}
+
+function buildUnmatchedActiveRuleDiagnostics(rules, matchedRuleSkus) {
+  const diagnostics = [];
+  for (const rule of rules.values()) {
+    if (!isActiveAssortmentRule(rule)) continue;
+    if (matchedRuleSkus.has(normalizeSku(rule.sku))) continue;
+    diagnostics.push({
+      code: 'UNMATCHED_ASSORTMENT_POLICY_RULE',
+      sku: rule.sku,
+      assortmentStatus: rule.assortment_status,
+      severity: 'warning',
+    });
+    if (rule.mandatory_assortment) {
+      diagnostics.push({
+        code: 'MANDATORY_SKU_MISSING_FROM_SOURCE',
+        sku: rule.sku,
+        severity: 'warning',
+      });
+    }
+  }
+  return diagnostics;
+}
+
+function classifyAssortmentPolicyError(error, product) {
+  const codes = [];
+  const message = error?.message || '';
+  const availableStock = product?.availableStock ?? product?.freeStock ?? null;
+  if (typeof availableStock === 'number' && availableStock < 0) {
+    codes.push('NEGATIVE_STOCK');
+  }
+  if (
+    message.includes('current_stock') ||
+    message.includes('minmax_qty') ||
+    message.includes('не может превышать') ||
+    message.includes('должен находиться между') ||
+    message.includes('Неизвестный')
+  ) {
+    codes.push('DATA_INVALID');
+  }
+  if (
+    message.includes('не должен быть пустым') ||
+    message.includes('требует')
+  ) {
+    codes.push('MISSING_CRITICAL_FIELD');
+  }
+  if (codes.length === 0) {
+    codes.push('DATA_INVALID');
+  }
+  return codes;
+}
+
+function isolatedRowDiagnostic(product, error, reasonCodes, index) {
+  const sku =
+    product?.article ||
+    product?.sku ||
+    product?.matchingHints?.barcode ||
+    product?.matchingHints?.internalProductId ||
+    product?.supplierSku ||
+    null;
+  return {
+    code: 'ISOLATED_ROW_DATA_INVALID',
+    sku,
+    rowIdentity: product?.rowIdentity ?? null,
+    rowNumber: product?.rowNumber ?? index + 1,
+    reasonCodes,
+    severity: 'warning',
+    cause: error.message,
+  };
+}
+
+function isolatedAssortmentPolicyProduct(product, error, reasonCodes) {
+  return {
+    ...product,
+    workflow_status: 'manual_review',
+    reason_codes: reasonCodes,
+    approved_quantity: 0,
+    finalRecommendedQuantity: 0,
+    minmaxRecommendedQuantity: product?.finalRecommendedQuantity ?? null,
+    assortmentPolicy: {
+      matched: false,
+      policy_rule: POLICY_RULES.NONE,
+      policy_qty: 0,
+      policy_adjusted: false,
+      projected_stock: null,
+      policy_warnings: [],
+      error: error.message,
+    },
+  };
+}
+
 function noRuleResult(minmaxQty, currentStock, warnings = []) {
   return {
     minmax_qty: minmaxQty,
@@ -323,31 +446,56 @@ function applyAssortmentPolicyToProducts(products, store, runContext = {}) {
     throw new TypeError('Assortment Policy требует массив products.');
   }
   const rules = buildRulesIndex(store);
-  return products.map(product => {
-    const sku = product.article ||
-      product.matchingHints?.barcode ||
-      product.matchingHints?.internalProductId ||
-      null;
-    const result = applyAssortmentPolicy({
-      sku,
-      current_stock: product.freeStock,
-      minmax_qty: product.finalRecommendedQuantity,
-      rule: rules.get(normalizeSku(sku)) || null,
-      run_context: runContext,
-    });
-    return {
-      ...product,
-      minmaxRecommendedQuantity: result.minmax_qty,
-      finalRecommendedQuantity: result.policy_qty,
-      mandatoryMinimumGap: result.mandatory_minimum_gap === null
-        ? product.mandatoryMinimumGap
-        : Math.max(product.mandatoryMinimumGap ?? 0, result.mandatory_minimum_gap),
-      assortmentPolicy: result,
-      mandatoryAssortment: result.matched && result.mandatory_assortment
-        ? true
-        : product.mandatoryAssortment,
-    };
+  const matchedRuleSkus = new Set();
+  const isolatedRowDiagnostics = [];
+  const resultProducts = products.map((product, index) => {
+    const match = findRuleByCandidateIds(product, rules);
+    const matchedRule = match ? match.rule : null;
+    if (matchedRule) {
+      matchedRuleSkus.add(normalizeSku(matchedRule.sku));
+    }
+    try {
+      const sku = matchedRule
+        ? matchedRule.sku
+        : (product.article ||
+            product.matchingHints?.barcode ||
+            product.matchingHints?.internalProductId ||
+            product.sku ||
+            product.supplierSku ||
+            null);
+      const result = applyAssortmentPolicy({
+        sku,
+        current_stock: product.availableStock ?? null,
+        minmax_qty: product.finalRecommendedQuantity,
+        rule: matchedRule,
+        run_context: runContext,
+      });
+      return {
+        ...product,
+        minmaxRecommendedQuantity: result.minmax_qty,
+        finalRecommendedQuantity: result.policy_qty,
+        mandatoryMinimumGap: result.mandatory_minimum_gap === null
+          ? product.mandatoryMinimumGap
+          : Math.max(product.mandatoryMinimumGap ?? 0, result.mandatory_minimum_gap),
+        assortmentPolicy: result,
+        mandatoryAssortment: result.matched && result.mandatory_assortment
+          ? true
+          : product.mandatoryAssortment,
+      };
+    } catch (error) {
+      const reasonCodes = classifyAssortmentPolicyError(error, product);
+      isolatedRowDiagnostics.push(
+        isolatedRowDiagnostic(product, error, reasonCodes, index)
+      );
+      return isolatedAssortmentPolicyProduct(product, error, reasonCodes);
+    }
   });
+  resultProducts.unmatchedActiveRules = buildUnmatchedActiveRuleDiagnostics(
+    rules,
+    matchedRuleSkus
+  );
+  resultProducts.isolatedRowDiagnostics = isolatedRowDiagnostics;
+  return resultProducts;
 }
 
 module.exports = {

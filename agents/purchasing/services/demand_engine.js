@@ -316,6 +316,32 @@ function stockStatus(freeStock) {
   return 'positive';
 }
 
+function resolveReserveStock(row, inventorySemantics) {
+  const reserveAlreadyExcluded =
+    inventorySemantics?.reserveTreatment === 'already_excluded_from_free_stock';
+  if (reserveAlreadyExcluded) {
+    return { reserveStock: 0, reserveStockSource: 'already_excluded_from_free_stock' };
+  }
+  const reserve = row.reserve ?? null;
+  if (reserve === null || reserve === undefined) {
+    return { reserveStock: 0, reserveStockSource: 'assumed_zero' };
+  }
+  if (typeof reserve !== 'number' || !Number.isFinite(reserve) || reserve < 0) {
+    return { reserveStock: null, reserveStockSource: 'invalid' };
+  }
+  return { reserveStock: reserve, reserveStockSource: 'parsed_from_row' };
+}
+
+function resolveIncomingStockSource(inTransitMode, sources, inTransitStatus) {
+  if (inTransitMode === 'included_in_source_stock') return 'included_in_source_stock';
+  if (inTransitMode === 'disabled') return 'disabled';
+  if (!sources.inTransit) {
+    return inTransitMode === 'optional' ? 'assumed_zero' : 'unknown';
+  }
+  if (inTransitStatus === 'quantity_unknown') return 'unknown';
+  return 'external_in_transit_data';
+}
+
 function supplierDeliveryCycle(row, inputs, config) {
   const supplier = normalize(row.supplier);
   const inputCycles = inputs.supplierDeliveryCycleDays || {};
@@ -359,6 +385,90 @@ function demandQuantityReason(analyzerQuantity, demandQuantity, mandatoryGap) {
   if (demandQuantity === maximum) leaders.push('demand');
   if (mandatoryGap === maximum) leaders.push('mandatory_gap');
   return leaders.length > 1 ? `equal_maximum:${leaders.join('+')}` : `${leaders[0]}_maximum`;
+}
+
+function isolatedDemandProduct(row, error, index) {
+  const rowIdentity = row?.rowIdentity ?? `isolated-demand-row-${index}`;
+  const rowNumber = row?.rowNumber ?? index + 1;
+  let freeStock = null;
+  try {
+    freeStock = row?.freeStock ?? null;
+  } catch {
+    freeStock = null;
+  }
+  return {
+    rowIdentity,
+    rowNumber,
+    name: row?.name || null,
+    article: row?.article || null,
+    supplier: row?.supplier || null,
+    abc: row?.abc || null,
+    xyz: row?.xyz || null,
+    priceNum: row?.priceNum ?? null,
+    matchingHints: row?.matchingHints,
+    salesDailyRate: null,
+    salesRateSource: null,
+    salesRateConfidence: null,
+    salesStatus: 'invalid',
+    salesTrend: 'unknown',
+    sales7: null,
+    sales14: null,
+    sales28: null,
+    sales30: null,
+    externalSales7: null,
+    externalSales14: null,
+    externalSales30: null,
+    weeklySalesHistory: [],
+    weeklyPeriodsUsed: { sales7: [], sales14: [], sales28: [] },
+    excludedPartialWeek: null,
+    salesPeriodSource: null,
+    salesPeriodConfidence: null,
+    weeklyToCumulativeReconciliation: null,
+    reportedSalesQuantity: null,
+    reportedSalesPeriodDays: null,
+    reportedDailySalesRate: null,
+    reportedSalesRateSource: null,
+    reportedSalesRateConfidence: null,
+    originalSmartZapasSalesValue: null,
+    originalSmartZapasVelocityValue: null,
+    reportedSalesWarnings: [],
+    freeStock,
+    stockStatus: stockStatus(freeStock),
+    onHandStock: freeStock,
+    reserveStock: null,
+    reserveStockSource: 'invalid',
+    incomingStock: null,
+    incomingStockSource: 'unknown',
+    inTransitQuantity: null,
+    inTransitStatus: 'quantity_unknown',
+    inTransitDecisionBasis: null,
+    mandatoryAssortment: null,
+    minDisplayStock: null,
+    assortmentPriority: null,
+    strategicSku: null,
+    strategicBrand: null,
+    assortmentMatch: { matched: false, method: null, confidence: null },
+    salesMatch: { matched: false, method: null, confidence: null },
+    inTransitMatch: { matched: false, method: null, confidence: null },
+    supplierDeliveryCycleDays: null,
+    safetyStockDays: null,
+    targetCoverageDays: null,
+    targetStock: null,
+    availableStock: null,
+    analyzerCalculatedQuantity: row?.orderQty ?? null,
+    demandCalculatedQuantity: null,
+    mandatoryMinimumGap: null,
+    finalRecommendedQuantity: null,
+    stockAfterOrder: null,
+    expectedCoverageAfterOrder: null,
+    quantityReason: 'incomplete_critical_data',
+    requiredData: [],
+    warnings: ['data_invalid_row_isolated'],
+    workflow_status: 'manual_review',
+    reason_codes: ['DATA_INVALID'],
+    approved_quantity: 0,
+    demandEngineError: error.message,
+  };
 }
 
 function calculateDemandProduct(row, sources, matches, context, config) {
@@ -488,6 +598,32 @@ function calculateDemandProduct(row, sources, matches, context, config) {
     requiredData.push('in_transit_quantity');
   }
 
+  const onHandStock = freeStock;
+  const { reserveStock, reserveStockSource } = resolveReserveStock(
+    row,
+    context.inventorySemantics
+  );
+  if (reserveStockSource === 'invalid') {
+    warnings.push('invalid_reserve_stock');
+    requiredData.push('reserve_stock');
+  } else if (reserveStockSource === 'unknown') {
+    requiredData.push('reserve_stock');
+  }
+
+  const incomingStockSource = resolveIncomingStockSource(
+    context.inTransitMode,
+    sources,
+    inTransitStatus
+  );
+  const incomingStock = inTransitQuantity;
+  const availableStock =
+    onHandStock !== null && reserveStock !== null && incomingStock !== null
+      ? onHandStock - reserveStock + incomingStock
+      : null;
+  if (availableStock === null) {
+    warnings.push('available_stock_cannot_be_calculated');
+  }
+
   const hasAssortmentMatrix = Boolean(sources.assortment);
   let mandatoryAssortment = null;
   let minDisplayStock = null;
@@ -566,9 +702,6 @@ function calculateDemandProduct(row, sources, matches, context, config) {
   const analyzerCalculatedQuantity = row.orderQty ?? null;
   if (analyzerCalculatedQuantity === null) requiredData.push('analyzer_calculated_quantity');
 
-  const availableStock = freeStock !== null && inTransitQuantity !== null
-    ? freeStock + inTransitQuantity
-    : null;
   const targetStock =
     salesSelection.salesDailyRate !== null && targetCoverageDays !== null
       ? Math.ceil(salesSelection.salesDailyRate * targetCoverageDays)
@@ -695,6 +828,11 @@ function calculateDemandProduct(row, sources, matches, context, config) {
       : [],
     freeStock,
     stockStatus: resolvedStockStatus,
+    onHandStock,
+    reserveStock,
+    reserveStockSource,
+    incomingStock,
+    incomingStockSource,
     inTransitQuantity,
     inTransitStatus,
     inTransitDecisionBasis: context.inTransitDecisionBasis,
@@ -946,13 +1084,50 @@ function buildDemandPlan(analysis, phase2Inputs = {}, config = DEMAND_ENGINE_CON
     salesInputMode,
     inTransitMode,
     inTransitDecisionBasis,
+    inventorySemantics: phase2Inputs.inventorySemantics || null,
     ambiguousSalesRows: ambiguousRows(matches.sales),
     ambiguousAssortmentRows: ambiguousRows(matches.assortment),
     ambiguousTransitRows: ambiguousRows(matches.inTransit),
   };
-  const products = rows.map(row =>
-    calculateDemandProduct(row, sources, matches, context, config)
-  );
+  const products = [];
+  const isolatedRowDiagnostics = [];
+  for (let index = 0; index < rows.length; index += 1) {
+    const row = rows[index];
+    try {
+      products.push(
+        calculateDemandProduct(row, sources, matches, context, config)
+      );
+    } catch (error) {
+      isolatedRowDiagnostics.push({
+        code: 'ISOLATED_ROW_DATA_INVALID',
+        rowIdentity: row?.rowIdentity ?? null,
+        rowNumber: row?.rowNumber ?? index + 1,
+        reasonCodes: ['DATA_INVALID'],
+        severity: 'warning',
+        cause: error.message,
+      });
+      products.push(isolatedDemandProduct(row, error, index));
+    }
+  }
+
+  const deliveryCycleDiagnostics = [];
+  const unknownDeliveryCycleSuppliers = new Set();
+  for (const product of products) {
+    if (product.supplierDeliveryCycleDays === null) {
+      deliveryCycleDiagnostics.push({
+        code: 'DELIVERY_CYCLE_UNKNOWN',
+        supplier: product.supplier,
+        rowIdentity: product.rowIdentity,
+        rowNumber: product.rowNumber,
+        severity: 'warning',
+      });
+      if (product.supplier) unknownDeliveryCycleSuppliers.add(product.supplier);
+    }
+  }
+  inputStatus.unknownDeliveryCycleSuppliers = Array.from(unknownDeliveryCycleSuppliers).sort();
+  if (deliveryCycleDiagnostics.length > 0) {
+    inputStatus.phase2ResultStatus = 'preliminary';
+  }
 
   return {
     demandVersion: config.version,
@@ -967,6 +1142,8 @@ function buildDemandPlan(analysis, phase2Inputs = {}, config = DEMAND_ENGINE_CON
       salesRowDiagnostics: matches.sales.rowDiagnostics,
       assortmentRowDiagnostics: matches.assortment.rowDiagnostics,
       inTransitRowDiagnostics: matches.inTransit.rowDiagnostics,
+      deliveryCycleDiagnostics,
+      isolatedRowDiagnostics,
       suppliedInTransitDataIgnored:
         !acceptsExternalInTransit && Boolean(phase2Inputs.inTransitData),
     },

@@ -44,6 +44,7 @@ function product(overrides = {}) {
     abc: value('abc', 'B'),
     xyz: value('xyz', 'X'),
     freeStock: value('freeStock', 0),
+    reserve: value('reserve', null),
     inTransit: value('inTransit', null),
     orderQty: value('orderQty', 2),
     priceNum: value('priceNum', 10),
@@ -926,4 +927,176 @@ test('Miska report labels the result preliminary and emits the verification warn
     'This Phase 2 result is preliminary until SmartZapas expected-receipt semantics are confirmed.'
   ));
   assert.equal(report.split(warning).length - 1, 1);
+});
+
+test('known supplier delivery cycle calculates final quantity normally', () => {
+  const row = product({
+    supplier: 'ао "валта пет продактс"',
+    freeStock: 0,
+    orderQty: 2,
+  });
+  const result = demandFor(row);
+  const demand = result.products[0];
+
+  assert.equal(demand.supplierDeliveryCycleDays, 14);
+  assert.ok(!demand.requiredData.includes('supplier_delivery_cycle_days'));
+  assert.equal(demand.demandCalculatedQuantity, 28);
+  assert.equal(demand.finalRecommendedQuantity, 28);
+  assert.equal(result.inputStatus.phase2ResultStatus, 'calculated');
+  assert.deepEqual(result.inputStatus.unknownDeliveryCycleSuppliers, []);
+  assert.equal(result.diagnostics.deliveryCycleDiagnostics.length, 0);
+});
+
+test('unknown supplier delivery cycle emits diagnostic and sets preliminary status', () => {
+  const row = product({
+    supplier: 'Unknown Supplier LLC',
+    freeStock: 0,
+    orderQty: 2,
+  });
+  const result = demandFor(row);
+  const demand = result.products[0];
+
+  assert.equal(demand.supplierDeliveryCycleDays, null);
+  assert.ok(demand.requiredData.includes('supplier_delivery_cycle_days'));
+  assert.equal(demand.demandCalculatedQuantity, null);
+  assert.equal(demand.finalRecommendedQuantity, null);
+  assert.equal(result.inputStatus.phase2ResultStatus, 'preliminary');
+  assert.deepEqual(result.inputStatus.unknownDeliveryCycleSuppliers, ['Unknown Supplier LLC']);
+  assert.equal(result.diagnostics.deliveryCycleDiagnostics.length, 1);
+  assert.deepEqual(result.diagnostics.deliveryCycleDiagnostics[0], {
+    code: 'DELIVERY_CYCLE_UNKNOWN',
+    supplier: 'Unknown Supplier LLC',
+    rowIdentity: row.rowIdentity,
+    rowNumber: row.rowNumber,
+    severity: 'warning',
+  });
+});
+
+test('real supplier зооград-хабаровск ооо resolves delivery cycle from config', () => {
+  const row = product({
+    supplier: 'зооград-хабаровск ооо',
+    freeStock: 0,
+    orderQty: 2,
+  });
+  const result = demandFor(row);
+  const demand = result.products[0];
+
+  assert.equal(demand.supplierDeliveryCycleDays, 14);
+  assert.ok(!demand.requiredData.includes('supplier_delivery_cycle_days'));
+  assert.equal(demand.demandCalculatedQuantity, 28);
+  assert.equal(demand.finalRecommendedQuantity, 28);
+  assert.equal(result.inputStatus.phase2ResultStatus, 'calculated');
+  assert.deepEqual(result.inputStatus.unknownDeliveryCycleSuppliers, []);
+  assert.equal(result.diagnostics.deliveryCycleDiagnostics.length, 0);
+});
+
+test('canonical available stock includes incoming stock so demand is zero when covered', () => {
+  const row = product({
+    freeStock: 2,
+    orderQty: 3,
+    reportedDailySalesRate: 5 / 28,
+    reportedSalesRateSource: 'smartzapas_confirmed_daily_rate',
+    reportedSalesRateConfidence: 'high',
+  });
+  const inputs = exactInputs(row, { inTransit: { inTransitQuantity: 10 } });
+  delete inputs.salesData;
+  inputs.salesInputMode = 'reported_daily_rate';
+  inputs.inventorySemantics = { reserveTreatment: 'already_excluded_from_free_stock' };
+  const result = buildDemandPlan({ productRows: [row] }, inputs);
+  const demand = result.products[0];
+
+  assert.equal(demand.targetStock, 5);
+  assert.equal(demand.onHandStock, 2);
+  assert.equal(demand.incomingStock, 10);
+  assert.equal(demand.availableStock, 12);
+  assert.equal(demand.demandCalculatedQuantity, 0);
+  assert.equal(demand.finalRecommendedQuantity, 3);
+});
+
+test('canonical available stock subtracts reserve when not already excluded from free stock', () => {
+  const row = product({
+    freeStock: 10,
+    reserve: 3,
+    orderQty: 1,
+    reportedDailySalesRate: 15 / 28,
+    reportedSalesRateSource: 'smartzapas_confirmed_daily_rate',
+    reportedSalesRateConfidence: 'high',
+  });
+  const inputs = exactInputs(row, { inTransit: { inTransitQuantity: 2 } });
+  delete inputs.salesData;
+  inputs.salesInputMode = 'reported_daily_rate';
+  inputs.inventorySemantics = { reserveTreatment: 'unknown' };
+  const result = buildDemandPlan({ productRows: [row] }, inputs);
+  const demand = result.products[0];
+
+  assert.equal(demand.onHandStock, 10);
+  assert.equal(demand.reserveStock, 3);
+  assert.equal(demand.reserveStockSource, 'parsed_from_row');
+  assert.equal(demand.incomingStock, 2);
+  assert.equal(demand.availableStock, 9);
+  assert.equal(demand.targetStock, 15);
+  assert.equal(demand.demandCalculatedQuantity, 6);
+});
+
+test('miska included-in-source-stock mode exposes incoming stock source and available equals on hand', () => {
+  const row = product({ freeStock: 5, orderQty: 1 });
+  const inputs = exactInputs(row);
+  delete inputs.inTransitData;
+  delete inputs.assortmentMatrix;
+  inputs.purchasingProfile = 'miska';
+  const result = buildDemandPlan({ productRows: [row] }, inputs);
+  const demand = result.products[0];
+
+  assert.equal(demand.incomingStock, 0);
+  assert.equal(demand.incomingStockSource, 'included_in_source_stock');
+  assert.equal(demand.onHandStock, 5);
+  assert.equal(demand.availableStock, 5);
+  assert.equal(demand.inTransitStatus, 'included_in_source_stock');
+});
+
+test('per-product error in demand engine is isolated to manual_review/DATA_INVALID', () => {
+  const goodRow = product({ rowIdentity: 'good-row', rowNumber: 10 });
+  const badRow = {
+    ...product({ rowIdentity: 'bad-row', rowNumber: 11, barcode: 'BAD-BC-001' }),
+    get freeStock() { throw new Error('invalid free stock'); },
+  };
+  const inputs = exactInputs(badRow, {
+    sales: { sales7: 7, sales14: 14, sales30: 30 },
+    assortment: { mandatory: false, minDisplayStock: 0, assortmentPriority: 'normal' },
+    inTransit: { inTransitQuantity: 0 },
+  });
+  inputs.salesData.products.push({
+    matchType: 'barcode',
+    matchKey: goodRow.matchingHints.barcode,
+    sales7: 7,
+    sales14: 14,
+    sales30: 30,
+  });
+  inputs.assortmentMatrix.products.push({
+    matchType: 'barcode',
+    matchKey: goodRow.matchingHints.barcode,
+    mandatory: false,
+    minDisplayStock: 0,
+    assortmentPriority: 'normal',
+    strategicSku: false,
+    strategicBrand: false,
+  });
+  inputs.inTransitData.products.push({
+    matchType: 'barcode',
+    matchKey: goodRow.matchingHints.barcode,
+    inTransitQuantity: 0,
+  });
+
+  const result = buildDemandPlan(
+    { productRows: [goodRow, badRow] },
+    inputs
+  );
+
+  assert.equal(result.products.length, 2);
+  assert.equal(result.products[0].finalRecommendedQuantity, 28);
+  assert.equal(result.products[1].workflow_status, 'manual_review');
+  assert.deepEqual(result.products[1].reason_codes, ['DATA_INVALID']);
+  assert.equal(result.products[1].approved_quantity, 0);
+  assert.equal(result.diagnostics.isolatedRowDiagnostics.length, 1);
+  assert.equal(result.diagnostics.isolatedRowDiagnostics[0].rowIdentity, 'bad-row');
 });

@@ -395,6 +395,43 @@ test('critical confirmed zero stock with sales becomes must_buy', () => {
   ));
 });
 
+test('critical below minimum with phase2 fallback quantity routes to manual review', () => {
+  const sourceRow = row({ reserve: 0 });
+  const product = demandProduct(sourceRow, {
+    freeStock: 0,
+    finalQuantity: null,
+    analyzerQuantity: 1,
+    salesDailyRate: 0,
+  });
+  const result = applyControl({ sourceRow, product });
+
+  assert.equal(result.products[0].inventory_projection.recommended_order_qty, 1);
+  assert.equal(result.products[0].inventory_projection.projected_stock, 1);
+  assert.equal(result.products[0].inventory_projection.below_matrix_minimum, true);
+  assert.equal(result.decisions[0].decision, 'manual_review');
+  assert.ok(result.decisions[0].reasons.includes(
+    'MATRIX_CONTROLLER_PHASE2_FALLBACK_MANUAL_REVIEW'
+  ));
+  assert.ok(result.decisions[0].requiredData.includes('final_recommended_quantity'));
+});
+
+test('critical confirmed zero stock with phase1 fallback quantity still becomes must_buy', () => {
+  const sourceRow = row({ reserve: null });
+  const product = demandProduct(sourceRow, {
+    freeStock: 0,
+    finalQuantity: null,
+    analyzerQuantity: 2,
+    salesDailyRate: 0.5,
+  });
+  const result = applyControl({ sourceRow, product });
+
+  assert.equal(result.products[0].inventory_projection.recommended_order_qty, 2);
+  assert.equal(result.decisions[0].decision, 'must_buy');
+  assert.ok(result.decisions[0].reasons.includes(
+    'critical_zero_stock_with_confirmed_sales'
+  ));
+});
+
 test('critical with unknown stock is sent to manual review', () => {
   const sourceRow = row({ reserve: 0 });
   const product = demandProduct(sourceRow, { freeStock: null });

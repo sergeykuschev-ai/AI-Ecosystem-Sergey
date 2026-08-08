@@ -1,5 +1,21 @@
+const {
+  applyPackagingRules,
+  classifyItem,
+} = require('../../../agents/purchasing/services/final_order');
+
 function finiteOrNull(value) {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function mapFinalQuantity(item) {
+  const classification = classifyItem(item);
+  if (classification.kind === 'included') {
+    return applyPackagingRules(item, classification.quantity).quantity;
+  }
+  if (classification.kind === 'unresolved') {
+    return null;
+  }
+  return classification.reason === 'deferred' ? null : 0;
 }
 
 function indexByIdentity(items) {
@@ -59,7 +75,7 @@ function mapPurchasingItems(bundle) {
     const policyQuantity = finiteOrNull(product.finalRecommendedQuantity);
     const policy = product.assortmentPolicy || null;
 
-    return {
+    const mapped = {
       row_id: rowIdentity,
       source_row: Number.isInteger(product.rowNumber)
         ? product.rowNumber
@@ -111,6 +127,12 @@ function mapPurchasingItems(bundle) {
         free_stock: finiteOrNull(product.freeStock),
         stock_known: typeof product.freeStock === 'number' &&
           Number.isFinite(product.freeStock),
+        on_hand_stock: finiteOrNull(product.onHandStock),
+        reserve_stock: finiteOrNull(product.reserveStock),
+        reserve_stock_source: product.reserveStockSource || null,
+        incoming_stock: finiteOrNull(product.incomingStock),
+        incoming_stock_source: product.incomingStockSource || null,
+        available_stock: finiteOrNull(product.availableStock),
       },
       sales: {
         last_28_days: finiteOrNull(product.sales28),
@@ -124,7 +146,7 @@ function mapPurchasingItems(bundle) {
         policy_quantity: policyQuantity,
         approved_quantity: approvedQuantity,
         provisional_quantity: provisionalQuantity,
-        final_quantity: policyQuantity,
+        final_quantity: null,
       },
       assortment_policy: policy
         ? {
@@ -190,6 +212,9 @@ function mapPurchasingItems(bundle) {
         comment: null,
       },
     };
+
+    mapped.quantities.final_quantity = mapFinalQuantity(mapped);
+    return mapped;
   });
 }
 

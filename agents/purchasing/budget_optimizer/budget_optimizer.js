@@ -376,6 +376,14 @@ function finalOrderItems(state) {
     }
 
     const source = entry.source === 'manual' ? 'manual' : 'auto';
+    const protectedReasons = Array.isArray(entry.protectedReasons)
+      ? [...entry.protectedReasons]
+      : source === 'manual'
+        ? ['OWNER_BUY']
+        : [];
+    const protectedFlag = entry.protected === true ||
+      protectedReasons.length > 0 ||
+      source === 'manual';
     return {
       rowIdentity: entry.rowId || null,
       sourceRow: null,
@@ -386,8 +394,8 @@ function finalOrderItems(state) {
       priceCents,
       originalQuantity: quantity,
       optimizedQuantity: quantity,
-      minimumQuantity: source === 'manual' ? quantity : 0,
-      protectedReasons: source === 'manual' ? ['OWNER_BUY'] : [],
+      minimumQuantity: protectedFlag ? quantity : 0,
+      protectedReasons,
       matrixPriority: null,
       abc: null,
       xyz: null,
@@ -477,6 +485,14 @@ function optimizePurchasingBudget(input) {
   ).length;
   const removedAmountCents =
     originalTotalCents - optimizedTotalCents;
+  const protectedTotalCents = items.reduce(
+    (sum, item) =>
+      sum +
+      (item.minimumQuantity >= item.originalQuantity
+        ? item.originalQuantity * item.priceCents
+        : 0),
+    0
+  );
   const warnings = status === 'BUDGET_TOO_LOW'
     ? ['TARGET_BUDGET_BELOW_MANDATORY_MINIMUM']
     : [];
@@ -486,8 +502,12 @@ function optimizePurchasingBudget(input) {
   ) {
     warnings.push('OWNER_BUY_PROTECTED_FROM_BUDGET_CUT');
   }
+  if (targetBudgetCents < protectedTotalCents) {
+    warnings.push('BUDGET_CONFLICT_PROTECTED_ITEMS');
+  }
 
   return {
+    resultType: 'BUDGET_SIMULATION',
     targetBudget: fromCents(targetBudgetCents),
     originalTotal: fromCents(originalTotalCents),
     optimizedTotal: fromCents(optimizedTotalCents),

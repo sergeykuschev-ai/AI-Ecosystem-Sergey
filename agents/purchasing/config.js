@@ -57,6 +57,9 @@ const DEMAND_ENGINE_CONFIG = Object.freeze({
     default: null,
     bySupplier: Object.freeze({
       'ао "валта пет продактс"': 14,
+      'рич стор ооо': 7,
+      'зооград-хабаровск ооо': 14,
+      'оникиенко роман евгеньевич': 21,
     }),
   }),
   safetyStockDays: Object.freeze({

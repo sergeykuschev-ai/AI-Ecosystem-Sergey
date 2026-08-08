@@ -283,3 +283,124 @@ test('позиции без заказного действия исключаю
     assert.equal(classification.reason, 'no_order');
   }
 });
+
+function policyItem(overrides = {}) {
+  return item({
+    assortment_policy: {
+      matched: true,
+      order_mode: 'PIECE',
+      box_qty: null,
+      max_stock: null,
+    },
+    ...overrides,
+  });
+}
+
+test('BOX order_mode округляет вверх до кратности короба', () => {
+  const state = buildFinalOrderState({
+    items: [
+      policyItem({
+        sku: 'BOX-3',
+        quantities: { approved_quantity: 3 },
+        assortment_policy: { order_mode: 'BOX', box_qty: 5 },
+      }),
+      policyItem({
+        row_id: 'row-7',
+        sku: 'BOX-7',
+        quantities: { approved_quantity: 7 },
+        assortment_policy: { order_mode: 'BOX', box_qty: 5 },
+      }),
+    ],
+  });
+  assert.equal(state.includedItems[0].quantity, 5);
+  assert.equal(state.includedItems[1].quantity, 10);
+  assert.equal(state.totalQuantity, 15);
+});
+
+test('BOX order_mode не округляет вниз обязательный минимум', () => {
+  const state = buildFinalOrderState({
+    items: [
+      policyItem({
+        sku: 'BOX-MIN',
+        quantities: { approved_quantity: 8 },
+        assortment_policy: {
+          order_mode: 'BOX',
+          box_qty: 5,
+          mandatory_assortment: true,
+        },
+      }),
+    ],
+  });
+  assert.equal(state.includedItems[0].quantity, 10);
+  assert.deepEqual(
+    state.includedItems[0].protectedReasons,
+    ['MANDATORY_ASSORTMENT']
+  );
+});
+
+test('BOX order_mode при конфликте с max_stock ограничивает и предупреждает', () => {
+  const state = buildFinalOrderState({
+    items: [
+      policyItem({
+        sku: 'BOX-CAP',
+        quantities: { approved_quantity: 7 },
+        assortment_policy: {
+          order_mode: 'BOX',
+          box_qty: 5,
+          max_stock: 8,
+        },
+      }),
+    ],
+  });
+  const entry = state.includedItems[0];
+  assert.equal(entry.quantity, 8);
+  assert.equal(entry.quantityDiagnostics.length, 1);
+  assert.equal(
+    entry.quantityDiagnostics[0].code,
+    'BOX_MULTIPLICITY_MAX_CONFLICT'
+  );
+  assert.equal(entry.quantityDiagnostics[0].severity, 'warning');
+  assert.equal(entry.quantityDiagnostics[0].details.max_stock, 8);
+  assert.equal(entry.quantityDiagnostics[0].details.rounded_quantity, 10);
+});
+
+test('PIECE order_mode округляет дробное количество и диагностирует', () => {
+  const state = buildFinalOrderState({
+    items: [
+      policyItem({
+        sku: 'PIECE-FRAC',
+        quantities: { approved_quantity: 2.5 },
+        assortment_policy: { order_mode: 'PIECE' },
+      }),
+    ],
+  });
+  const entry = state.includedItems[0];
+  assert.equal(entry.quantity, 3);
+  assert.equal(entry.quantityDiagnostics.length, 1);
+  assert.equal(
+    entry.quantityDiagnostics[0].code,
+    'PIECE_QUANTITY_FRACTIONAL'
+  );
+  assert.equal(entry.quantityDiagnostics[0].severity, 'warning');
+  assert.equal(entry.quantityDiagnostics[0].details.original_quantity, 2.5);
+  assert.equal(entry.quantityDiagnostics[0].details.rounded_quantity, 3);
+});
+
+test('OWNER_BUY не сокращается из-за кратности короба, округление вверх разрешено', () => {
+  const state = buildFinalOrderState({
+    items: [
+      policyItem({
+        workflow_status: 'pending_manual_review',
+        quantities: { approved_quantity: null },
+        matrix: { owner_review_required: true },
+        owner_decision: { decision: 'BUY', quantity: 7 },
+        assortment_policy: { order_mode: 'BOX', box_qty: 5 },
+      }),
+    ],
+  });
+  const entry = state.includedItems[0];
+  assert.equal(entry.source, 'manual');
+  assert.deepEqual(entry.protectedReasons, ['OWNER_BUY']);
+  assert.equal(entry.quantity, 10);
+  assert.equal(entry.quantityDiagnostics.length, 0);
+});

@@ -103,6 +103,9 @@ function runOrderAgentFromAdapterResultWithDemand(
       resolvedPhase2Inputs.assortmentMatrixMode || 'required';
     assortmentContext = { ...loaded, matchResult };
   }
+  if (!resolvedPhase2Inputs.inventorySemantics) {
+    resolvedPhase2Inputs.inventorySemantics = adapterResult.source.inventorySemantics;
+  }
   const demandResult = buildDemandPlan(analysis, resolvedPhase2Inputs);
   const policy = loadAssortmentPolicySource({
     canonicalPath: options.canonicalAssortmentMatrixPath ||

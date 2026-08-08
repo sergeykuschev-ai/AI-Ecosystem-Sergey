@@ -24,6 +24,18 @@ const {
 const {
   finalOrderView,
 } = require('../public/app');
+const {
+  applyPackagingRules,
+  buildFinalOrderState,
+  classifyItem,
+} = require('../../../agents/purchasing/services/final_order');
+const {
+  finalQuantityWithOwnerDecision,
+  withFinalQuantity,
+} = require('../application/owner_decision_service');
+const {
+  mapPurchasingItems,
+} = require('../dto/purchasing_item_mapper');
 
 const REPOSITORY_ROOT = path.resolve(__dirname, '../../..');
 const RUN_ID = '12121212-1212-4212-8212-121212121212';
@@ -431,4 +443,276 @@ test('финансовые суммы округляются одинаково 
     Math.round(metadata.totalAmount * 100),
     Math.round(excel * 100)
   );
+});
+
+function supplierSheetRows(sheet) {
+  const rows = [];
+  const rowRegex = /<row r="(\d+)">(.*?)<\/row>/g;
+  let match;
+  while ((match = rowRegex.exec(sheet)) !== null) {
+    const rowNumber = match[1];
+    const rowContent = match[2];
+    const skuMatch = rowContent.match(
+      /<c r="A\d+"[^>]*>.*?<is><t[^>]*>([^<]*)<\/t><\/is><\/c>/
+    );
+    if (!skuMatch) continue;
+    const quantityMatch = rowContent.match(
+      new RegExp(`<c r="C${rowNumber}"[^>]*><v>(\\d+)</v></c>`)
+    );
+    if (quantityMatch) {
+      rows.push({ sku: skuMatch[1], quantity: Number(quantityMatch[1]) });
+    }
+  }
+  return rows;
+}
+
+test('e2e: от импорта до Supplier XLSX количества в финальных слоях совпадают',
+  async () => {
+    const itemsResult = await jsonResponse(
+      `${baseUrl}/api/v1/runs/${RUN_ID}/items?page_size=100`
+    );
+    const state = buildFinalOrderState({
+      items: itemsResult.body.data.items,
+    });
+    assert.equal(state.reviewComplete, true);
+    assert.ok(state.includedItems.length > 0);
+
+    const metadata = (await supplierOrder()).body.data;
+    assert.equal(metadata.available, true);
+    assert.equal(metadata.itemCount, state.itemCount);
+    assert.equal(metadata.totalAmount, state.totalAmount);
+
+    const { sheet } = await downloadSheet(metadata.downloadUrl);
+    assert.equal(excelDataRows(sheet), state.itemCount);
+    assert.equal(excelTotal(sheet), state.totalAmount);
+
+    const rows = supplierSheetRows(sheet);
+    assert.equal(rows.length, state.includedItems.length);
+    for (let index = 0; index < state.includedItems.length; index += 1) {
+      const expected = state.includedItems[index];
+      const actual = rows[index];
+      assert.equal(actual.sku, expected.sku);
+      assert.equal(
+        actual.quantity,
+        expected.quantity,
+        `количество ${expected.sku} в Supplier XLSX должно совпадать с финальным заказом`
+      );
+    }
+
+    const buyBySku = new Map();
+    for (const item of itemsResult.body.data.items) {
+      if (item.owner_decision?.decision === 'BUY') {
+        buyBySku.set(item.sku, item.owner_decision.quantity);
+      }
+    }
+    for (const row of rows) {
+      if (buyBySku.has(row.sku)) {
+        assert.equal(
+          row.quantity,
+          buyBySku.get(row.sku),
+          `количество OWNER BUY ${row.sku} должно дойти до Supplier XLSX без изменений`
+        );
+      }
+    }
+  }
+);
+test(
+  'e2e: per-item final_quantity совпадает в API, FinalOrderState и Supplier XLSX',
+  async () => {
+    const itemsResult = await jsonResponse(
+      `${baseUrl}/api/v1/runs/${RUN_ID}/items?page_size=100`
+    );
+    const apiItems = itemsResult.body.data.items;
+    const state = buildFinalOrderState({ items: apiItems });
+    assert.equal(state.reviewComplete, true);
+    assert.ok(state.includedItems.length > 0);
+
+    const metadata = (await supplierOrder()).body.data;
+    assert.equal(metadata.available, true);
+    const { sheet } = await downloadSheet(metadata.downloadUrl);
+    const rows = supplierSheetRows(sheet);
+    assert.equal(rows.length, state.includedItems.length);
+
+    let checkedOwnerBuy = 0;
+    for (const item of apiItems) {
+      if (classifyItem(item).kind !== 'included') continue;
+      const finalEntry = state.includedItems.find(
+        entry => entry.rowId === item.row_id
+      );
+      assert.ok(finalEntry, `ожидается включённая позиция ${item.sku}`);
+      assert.equal(
+        item.quantities.final_quantity,
+        finalEntry.quantity,
+        `API final_quantity ${item.sku} должна совпадать с FinalOrderState`
+      );
+
+      const xlsxRow = rows.find(row => row.sku === item.sku);
+      assert.ok(xlsxRow, `ожидается строка Supplier XLSX для ${item.sku}`);
+      assert.equal(
+        xlsxRow.quantity,
+        finalEntry.quantity,
+        `Supplier XLSX quantity ${item.sku} должна совпадать с FinalOrderState`
+      );
+
+      if (item.owner_decision?.decision === 'BUY') {
+        checkedOwnerBuy += 1;
+      }
+    }
+    assert.ok(
+      checkedOwnerBuy >= 1,
+      'должна быть проверена хотя бы одна OWNER BUY позиция'
+    );
+  }
+);
+
+function boxItem(overrides = {}) {
+  return {
+    row_id: 'box-row-1',
+    sku: 'BOX-SKU-1',
+    name: 'Box item',
+    supplier: 'Supplier',
+    workflow_status: 'auto_approved',
+    quantities: { approved_quantity: 5 },
+    amounts: { unit_price: 10 },
+    matrix: { owner_review_required: false },
+    assortment_policy: {
+      matched: true,
+      adjusted: true,
+      rule: 'BOX',
+      order_mode: 'BOX',
+      box_qty: 12,
+      max_stock: 100,
+    },
+    owner_decision: { decision: null, quantity: null },
+    ...overrides,
+  };
+}
+
+function boxBundle(ownerDecisionOverrides = {}) {
+  const ownerDecision = {
+    decision: null,
+    quantity: null,
+    ...ownerDecisionOverrides,
+  };
+  return {
+    agentResult: [{
+      json: {
+        decisions: [],
+        workingOrderProducts: [{
+          rowIdentity: 'box-row-1',
+          rowNumber: 1,
+          article: 'BOX-SKU-1',
+          name: 'Box item',
+          supplier: 'Supplier',
+          workflowStatus: 'auto_approved',
+          analyzerCalculatedQuantity: 5,
+          minmaxRecommendedQuantity: 5,
+          finalRecommendedQuantity: 5,
+          approvedOrderQuantity: 5,
+          provisionalOrderQuantity: null,
+          approvedLineSum: 50,
+          priceNum: 10,
+          freeStock: 0,
+          assortmentPolicy: {
+            matched: true,
+            policy_adjusted: true,
+            policy_rule: 'BOX',
+            applied_rules: ['BOX'],
+            explanation: 'Box rule.',
+            order_mode: 'BOX',
+            box_qty: 12,
+            max_stock: 100,
+            policy_warnings: [],
+          },
+        }],
+      },
+    }],
+    matrixDraft: {
+      items: [{
+        rowIdentity: 'box-row-1',
+        owner_order_decision: ownerDecision.decision,
+        owner_order_quantity: ownerDecision.quantity,
+        owner_action_required: false,
+      }],
+    },
+    ownerReview: {
+      items: [{
+        rowIdentity: 'box-row-1',
+        owner_action_required: false,
+      }],
+      sections: {},
+    },
+    explanations: { items: [{}] },
+  };
+}
+
+test('auto-approved final_quantity is consistent across DTO, service and FinalOrderState', () => {
+  const autoItem = {
+    row_id: 'auto-row-1',
+    sku: 'AUTO-SKU-1',
+    name: 'Auto item',
+    workflow_status: 'auto_approved',
+    quantities: { approved_quantity: 8 },
+    amounts: { unit_price: 5 },
+    matrix: { owner_review_required: false },
+    assortment_policy: { order_mode: 'PIECE' },
+    owner_decision: { decision: null, quantity: null },
+  };
+  const decorated = withFinalQuantity(autoItem);
+  assert.equal(finalQuantityWithOwnerDecision(decorated), 8);
+  assert.equal(decorated.quantities.final_quantity, 8);
+
+  const state = buildFinalOrderState({ items: [decorated] });
+  assert.equal(state.includedItems[0].quantity, 8);
+});
+
+test('BOX multiplicity rounds auto-approved quantity up to box_qty', () => {
+  const item = boxItem();
+  const decorated = withFinalQuantity(item);
+  assert.equal(
+    finalQuantityWithOwnerDecision(decorated),
+    12,
+    'API final_quantity должна округляться до кратности короба'
+  );
+  assert.equal(decorated.quantities.final_quantity, 12);
+
+  const state = buildFinalOrderState({ items: [decorated] });
+  assert.equal(state.includedItems[0].quantity, 12);
+
+  const [mapped] = mapPurchasingItems(boxBundle());
+  assert.equal(
+    mapped.quantities.final_quantity,
+    12,
+    'DTO final_quantity должна округляться до кратности короба'
+  );
+});
+
+test('BOX multiplicity rounds OWNER BUY quantity up to box_qty', () => {
+  const item = boxItem({
+    owner_decision: { decision: 'BUY', quantity: 7 },
+  });
+  const decorated = withFinalQuantity(item);
+  assert.equal(finalQuantityWithOwnerDecision(decorated), 12);
+  assert.equal(decorated.quantities.final_quantity, 12);
+
+  const state = buildFinalOrderState({ items: [decorated] });
+  assert.equal(state.includedItems[0].quantity, 12);
+
+  const [mapped] = mapPurchasingItems(boxBundle({
+    decision: 'BUY',
+    quantity: 7,
+  }));
+  assert.equal(mapped.quantities.final_quantity, 12);
+});
+
+test('classifyItem + applyPackagingRules is the single source of final_quantity', () => {
+  const item = boxItem({
+    owner_decision: { decision: 'BUY', quantity: 7 },
+  });
+  const classification = classifyItem(item);
+  assert.equal(classification.kind, 'included');
+  const packaging = applyPackagingRules(item, classification.quantity);
+  assert.equal(packaging.quantity, 12);
+  assert.equal(packaging.orderMode, 'BOX');
+  assert.equal(finalQuantityWithOwnerDecision(item), packaging.quantity);
 });

@@ -450,3 +450,63 @@ test('штрихкод с ведущим нулём сохраняется ка�
   assert.ok(sheet.includes('0460000000001'));
   assert.ok(sheet.includes('inlineStr'), 'штрихкод записан как текст');
 });
+
+test('BOX order_mode: Supplier XLSX использует каноническое округлённое количество', () => {
+  const order = buildSupplierOrder({
+    items: [
+      item({
+        row_id: 'box-row',
+        sku: 'BOX-7',
+        quantities: { approved_quantity: 7 },
+        assortment_policy: {
+          matched: true,
+          order_mode: 'BOX',
+          box_qty: 5,
+        },
+      }),
+    ],
+    supplier: 'Оникиенко',
+    generatedAt: GENERATED_AT,
+  });
+  assert.equal(order.rows[0].quantity, 10);
+  assert.equal(order.rows[0].amount, 105);
+  assert.equal(order.totalAmount, 105);
+
+  const xlsx = buildSupplierOrderXlsx(order);
+  const { sheet } = sheetXml(xlsx);
+  assert.ok(sheet.includes('>BOX-7<'));
+  assert.ok(sheet.includes('<v>10</v>') || sheet.includes('<v>10.0</v>'));
+  assert.ok(sheet.includes('<v>105</v>') || sheet.includes('<v>105.0</v>'));
+});
+
+test('PIECE order_mode: дробное количество блокирует выгрузку поставщику', () => {
+  const state = {
+    reviewComplete: true,
+    unresolvedCount: 0,
+    includedItems: [{
+      rowId: 'piece-frac',
+      sku: 'PIECE-FRAC',
+      name: 'Fractional piece',
+      barcode: null,
+      brand: null,
+      supplier: 'Оникиенко',
+      quantity: 2.5,
+      orderMode: 'PIECE',
+      price: 10.5,
+      source: 'auto',
+      protected: false,
+      protectedReasons: [],
+      quantityDiagnostics: [],
+      amount: 26.25,
+    }],
+  };
+  assert.throws(
+    () => buildSupplierOrder({
+      items: [],
+      supplier: 'Оникиенко',
+      generatedAt: GENERATED_AT,
+      state,
+    }),
+    error => error.code === SUPPLIER_ORDER_DATA_INCOMPLETE_CODE
+  );
+});

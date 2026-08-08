@@ -16,6 +16,9 @@ const {
   loadOwnerDecisions,
 } = require('../agents/purchasing/matrix_builder/owner_decisions');
 const {
+  loadDecisionHistory,
+} = require('../agents/purchasing/owner_learning/owner_decision_history');
+const {
   localDateParts,
   optionalSha256File,
   safeWriteRunFiles,
@@ -32,6 +35,10 @@ const DEFAULT_OUTPUT_DIRECTORY = path.join(
 const DEFAULT_OWNER_DECISIONS_PATH = path.join(
   REPOSITORY_ROOT,
   'data/purchasing/miska-owner-decisions.json'
+);
+const DEFAULT_OWNER_DECISION_HISTORY_PATH = path.join(
+  REPOSITORY_ROOT,
+  'data/purchasing/owner-decision-history.json'
 );
 
 class MatrixBuilderCliError extends Error {
@@ -239,9 +246,23 @@ async function runMatrixBuilderCli(argv, dependencies = {}) {
   const ownerDecisionsSource = loadOwnerDecisions(args.ownerDecisionsPath, {
     allowMissing: true,
   });
+  let ownerDecisionHistory = null;
+  try {
+    ownerDecisionHistory = loadDecisionHistory({
+      filePath: DEFAULT_OWNER_DECISION_HISTORY_PATH,
+    });
+  } catch (historyError) {
+    console.warn(
+      `[OWNER_DECISION_HISTORY_LOAD_WARNING] ${historyError.message}`
+    );
+  }
   const ownerDecisionApplication = applyOwnerDecisions(
     result.draft,
-    ownerDecisionsSource.store
+    ownerDecisionsSource.store,
+    {
+      history: ownerDecisionHistory,
+      enableLegacyResolution: true,
+    }
   );
   const ownerReviewDraft = ownerDecisionApplication.draft;
   const ownerReview = buildOwnerReviewModel(

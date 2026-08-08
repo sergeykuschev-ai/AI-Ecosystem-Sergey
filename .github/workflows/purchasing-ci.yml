@@ -1,0 +1,61 @@
+name: Purchasing CI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'agents/purchasing/**'
+      - 'apps/purchasing-web-backend/**'
+      - 'shared/**'
+      - 'scripts/**'
+      - 'data/purchasing/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/purchasing-ci.yml'
+  pull_request:
+    paths:
+      - 'agents/purchasing/**'
+      - 'apps/purchasing-web-backend/**'
+      - 'shared/**'
+      - 'scripts/**'
+      - 'data/purchasing/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/purchasing-ci.yml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    env:
+      NODE_ENV: test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Run purchasing agent tests
+        run: node --test agents/purchasing/tests/*.test.js
+
+      - name: Run purchasing web-backend tests
+        run: node --test apps/purchasing-web-backend/tests/*.test.js
+
+      - name: Run new regression tests (targeted)
+        run: |
+          node --test agents/purchasing/tests/minmax_parser.test.js
+          node --test agents/purchasing/tests/demand_engine.test.js
+          node --test agents/purchasing/tests/assortment_policy.test.js
+          node --test agents/purchasing/tests/owner_decisions.test.js
+          node --test agents/purchasing/tests/owner_decisions_storage.test.js
+          node --test agents/purchasing/tests/budget_optimizer.test.js

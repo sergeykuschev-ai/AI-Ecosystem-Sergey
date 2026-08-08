@@ -5,6 +5,10 @@ const { isPriorityABC, isRiskyABC } = require('../rules/abc_xyz_rules');
 const { DELIVERY_THRESHOLD, isStrategic } = require('../rules/supplier_rules');
 
 function analyzeRows(rows) {
+  if (!Array.isArray(rows)) {
+    throw new TypeError('Analyzer requires an array of rows.');
+  }
+
   const normalizedRows = rows.filter(
     row => row && row.schemaVersion === 'smartzapas-row-v1'
   );
@@ -26,18 +30,57 @@ function analyzeRows(rows) {
     }
   }
 
-  const prepared = rows.map(row => {
-    const parsed = parseRow(row);
-    return {
-      ...parsed,
-      strategic: isStrategic(parsed.name),
-      priority: isPriorityABC(parsed.abc, parsed.xyz),
-      risky: isRiskyABC(parsed.abc, parsed.xyz),
-    };
+  const isolatedRowDiagnostics = [];
+  const prepared = rows.map((row, index) => {
+    try {
+      const parsed = parseRow(row);
+      return {
+        ...parsed,
+        strategic: isStrategic(parsed.name),
+        priority: isPriorityABC(parsed.abc, parsed.xyz),
+        risky: isRiskyABC(parsed.abc, parsed.xyz),
+      };
+    } catch (error) {
+      const rowIdentity = row?.rowIdentity || `analyzer-invalid-row-${index}`;
+      const rowNumber = row?.rowNumber || index + 1;
+      isolatedRowDiagnostics.push({
+        code: 'ISOLATED_ROW_DATA_INVALID',
+        rowIdentity,
+        rowNumber,
+        reasonCodes: ['DATA_INVALID'],
+        severity: 'warning',
+        cause: error.message,
+      });
+      return {
+        rowIdentity,
+        rowNumber,
+        name: row?.name || '',
+        article: row?.article || null,
+        supplier: row?.supplier || null,
+        abc: null,
+        xyz: null,
+        freeStock: null,
+        stock: null,
+        sales: null,
+        orderQty: null,
+        priceNum: null,
+        sumNum: null,
+        reserve: null,
+        inTransit: null,
+        multiplicity: null,
+        strategic: false,
+        priority: false,
+        risky: false,
+        workflow_status: 'manual_review',
+        reason_codes: ['DATA_INVALID'],
+        approved_quantity: 0,
+        analyzerParseError: error.message,
+      };
+    }
   });
   const productRows = normalizedRows.length > 0
     ? prepared
-    : prepared.filter(isProductRow);
+    : prepared.filter(row => row.workflow_status === 'manual_review' || isProductRow(row));
   const orderRows = productRows
     .filter(row => row.orderQty !== null && row.orderQty > 0)
     .sort((a, b) => {
@@ -86,6 +129,7 @@ function analyzeRows(rows) {
     expensiveRows,
     totalOrderSum,
     missingToFreeDelivery,
+    isolatedRowDiagnostics,
   };
 }
 

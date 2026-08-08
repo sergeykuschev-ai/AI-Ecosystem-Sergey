@@ -1,5 +1,7 @@
 const {
+  addDaysToIsoTimestamp,
   appendOwnerDecision,
+  DEFAULT_RUN_DECISION_TTL_DAYS,
   latestActiveDecisions,
   loadOwnerDecisions,
 } = require('../../../agents/purchasing/matrix_builder/owner_decisions');
@@ -27,6 +29,7 @@ const {
   '../../../agents/purchasing/owner_learning/owner_decision_history'
 );
 const {
+  applyPackagingRules,
   classifyItem,
 } = require('../../../agents/purchasing/services/final_order');
 const WEB_OWNER_DECISIONS = Object.freeze(['BUY', 'SKIP', 'DEFER']);
@@ -157,6 +160,7 @@ function validateWebDecision(input) {
     quantity,
     reasonCode,
     comment: comment || null,
+    permanent: input.permanent === true,
   };
 }
 
@@ -191,18 +195,14 @@ function decisionView(decision) {
 }
 
 function finalQuantityWithOwnerDecision(item) {
-  const decision = item?.owner_decision?.decision;
-  if (decision === 'BUY') return firstNonNegativeNumber(
-    item.owner_decision.quantity
-  );
-  if (decision === 'SKIP') return 0;
-  if (decision === 'DEFER') return null;
-  return firstNonNegativeNumber(
-    item?.quantities?.policy_quantity,
-    item?.quantities?.approved_quantity,
-    item?.quantities?.provisional_quantity,
-    item?.quantities?.calculated_quantity
-  );
+  const classification = classifyItem(item);
+  if (classification.kind === 'included') {
+    return applyPackagingRules(item, classification.quantity).quantity;
+  }
+  if (classification.kind === 'unresolved') {
+    return null;
+  }
+  return classification.reason === 'deferred' ? null : 0;
 }
 
 function withFinalQuantity(item) {
@@ -342,7 +342,7 @@ class OwnerDecisionService {
     const loaded = this.loadDecisions(this.ownerDecisionsPath, {
       allowMissing: true,
     });
-    return latestActiveDecisions(loaded.store.decisions);
+    return latestActiveDecisions(loaded.store.decisions, { now: this.now() });
   }
 
   decorateItems(items) {
@@ -365,6 +365,10 @@ class OwnerDecisionService {
   saveDecision(runId, itemId, input) {
     const validatedItemId = validateItemId(itemId);
     const validated = validateWebDecision(input);
+    const idempotencyKey = input?.idempotencyKey &&
+      typeof input.idempotencyKey === 'string'
+      ? input.idempotencyKey.trim() || null
+      : null;
     const items = this.registry.getItems(runId);
     const item = items
       .find(candidate => candidate.row_id === validatedItemId);
@@ -388,6 +392,11 @@ class OwnerDecisionService {
       ? OWNER_REVIEW_REASON_LABELS[validated.reasonCode]
       : LEGACY_DECISION_REASONS[validated.decision];
     const decidedAt = this.now();
+    const canBePermanent = validated.decision === 'BUY' || validated.decision === 'SKIP';
+    const scope = canBePermanent && validated.permanent ? 'permanent' : 'run';
+    const expiresAt = scope === 'run'
+      ? addDaysToIsoTimestamp(decidedAt, DEFAULT_RUN_DECISION_TTL_DAYS)
+      : null;
     let saved;
     try {
       saved = this.appendDecision(this.ownerDecisionsPath, {
@@ -404,7 +413,9 @@ class OwnerDecisionService {
         decided_by: OWNER_DECISION_ACTOR,
         status: 'active',
         source_version: 'purchasing-web-owner-decisions-v1',
-      });
+        scope,
+        expires_at: expiresAt,
+      }, { idempotencyKey });
     } catch (error) {
       throw new OwnerDecisionServiceError(
         'OWNER_DECISION_STORAGE_ERROR',
@@ -416,6 +427,20 @@ class OwnerDecisionService {
       ...item,
       owner_decision: decisionView(saved.decision),
     });
+    if (saved.duplicate) {
+      return {
+        item: savedItem,
+        decisionHistory: {
+          status: 'DUPLICATE',
+          decisionId: null,
+          added: false,
+          warning: {
+            code: 'OWNER_DECISION_IDEMPOTENT_DUPLICATE',
+            message: 'Решение с указанным idempotencyKey уже сохранено.',
+          },
+        },
+      };
+    }
     let itemStableKey;
     try {
       itemStableKey = stableItemKey(item, items);

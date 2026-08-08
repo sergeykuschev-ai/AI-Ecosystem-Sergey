@@ -248,7 +248,7 @@ test('budget below protected total returns BUDGET_TOO_LOW', () => {
   assert.equal(result.minimumPossibleTotal, 250);
   assert.equal(result.optimizedTotal, 250);
   assert.deepEqual(result.warnings,
-    ['TARGET_BUDGET_BELOW_MANDATORY_MINIMUM']);
+    ['TARGET_BUDGET_BELOW_MANDATORY_MINIMUM', 'BUDGET_CONFLICT_PROTECTED_ITEMS']);
   assert.equal(bySku(result, 'SKU-1').optimizedQuantity, 2);
   assert.equal(bySku(result, 'SKU-2').optimizedQuantity, 1);
 });

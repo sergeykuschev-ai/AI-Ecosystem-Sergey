@@ -68,6 +68,66 @@ function ownerDecisionOf(item) {
 }
 
 /**
+ * Обязательный ассортимент: позиция помечена как mandatory в политике
+ * ассортимента. Поддерживаются как канонический путь из purchasing item
+ * mapper (`assortment_policy.mandatory_assortment`), так и возможный
+ * альтернативный путь (`assortment.mandatory`).
+ */
+function isMandatoryItem(item) {
+  return item?.assortment_policy?.mandatory_assortment === true ||
+    item?.assortment?.mandatory === true;
+}
+
+function roundUpToMultiple(value, multiple) {
+  return Math.ceil(value / multiple) * multiple;
+}
+
+/**
+ * Применяет правила упаковки (кратность короба / целое число штук)
+ * к количеству включённой позиции. Возвращает скорректированное
+ * количество и диагностики.
+ */
+function applyPackagingRules(item, quantity) {
+  const quantityDiagnostics = [];
+  const orderMode = item?.assortment_policy?.order_mode || null;
+  const boxQty = finiteNumber(item?.assortment_policy?.box_qty);
+  const maxStock = finiteNumber(item?.assortment_policy?.max_stock);
+
+  if (orderMode === 'BOX' && boxQty !== null && boxQty > 1) {
+    const rounded = roundUpToMultiple(quantity, boxQty);
+    if (maxStock !== null && maxStock > 0 && rounded > maxStock) {
+      quantityDiagnostics.push({
+        code: 'BOX_MULTIPLICITY_MAX_CONFLICT',
+        severity: 'warning',
+        details: {
+          original_quantity: quantity,
+          box_qty: boxQty,
+          rounded_quantity: rounded,
+          max_stock: maxStock,
+        },
+      });
+      return { quantity: maxStock, quantityDiagnostics, orderMode };
+    }
+    return { quantity: rounded, quantityDiagnostics, orderMode };
+  }
+
+  if (orderMode === 'PIECE' && !Number.isInteger(quantity)) {
+    const rounded = Math.round(quantity);
+    quantityDiagnostics.push({
+      code: 'PIECE_QUANTITY_FRACTIONAL',
+      severity: 'warning',
+      details: {
+        original_quantity: quantity,
+        rounded_quantity: rounded,
+      },
+    });
+    return { quantity: rounded, quantityDiagnostics, orderMode };
+  }
+
+  return { quantity, quantityDiagnostics, orderMode };
+}
+
+/**
  * Рекомендованное количество позиции для справочных сумм исключённых
  * позиций: ручное количество BUY, затем approved, provisional,
  * calculated, analyzer. Не влияет на включённые позиции.
@@ -107,7 +167,14 @@ function classifyItem(item) {
   return { kind: 'excluded', reason: 'no_order' };
 }
 
-function includedEntry(item, classification) {
+function includedEntry(item, classification, packaging) {
+  const protectedReasons = [];
+  if (classification.source === 'manual') {
+    protectedReasons.push('OWNER_BUY');
+  }
+  if (isMandatoryItem(item)) {
+    protectedReasons.push('MANDATORY_ASSORTMENT');
+  }
   return {
     rowId: item?.row_id ?? null,
     sku: item?.sku ?? '',
@@ -116,8 +183,12 @@ function includedEntry(item, classification) {
     brand: item?.brand || null,
     supplier: item?.supplier || null,
     quantity: classification.quantity,
+    orderMode: packaging.orderMode,
     price: finiteNumber(item?.amounts?.unit_price),
     source: classification.source,
+    protected: protectedReasons.length > 0,
+    protectedReasons,
+    quantityDiagnostics: packaging.quantityDiagnostics,
   };
 }
 
@@ -168,7 +239,12 @@ function buildFinalOrderState(input = {}) {
   for (const item of items) {
     const classification = classifyItem(item);
     if (classification.kind === 'included') {
-      const entry = includedEntry(item, classification);
+      const packaging = applyPackagingRules(item, classification.quantity);
+      const entry = includedEntry(
+        item,
+        { ...classification, quantity: packaging.quantity },
+        packaging
+      );
       entry.amount = entry.price !== null
         ? roundMoney(entry.quantity * entry.price)
         : null;
@@ -242,6 +318,7 @@ function buildFinalOrderState(input = {}) {
 module.exports = {
   EXCLUSION_REASONS,
   FINAL_ORDER_STATUSES,
+  applyPackagingRules,
   buildFinalOrderState,
   classifyItem,
   referenceQuantity,

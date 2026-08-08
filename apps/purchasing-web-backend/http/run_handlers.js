@@ -1414,6 +1414,7 @@ function createRunHandlers(options) {
           configPath: serverPaths.configPath,
           matrixPath: serverPaths.matrixPath,
           ownerDecisionsPath: serverPaths.ownerDecisionsPath,
+          ownerDecisionHistoryPath: serverPaths.ownerDecisionHistoryPath,
           approvedRulesPath: serverPaths.approvedRulesPath,
           ownerLearningRuleEffectivenessFilePath:
             serverPaths.ownerLearningRuleEffectivenessFilePath,

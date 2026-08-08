@@ -671,3 +671,172 @@ test('missing decisions filter and counters are deterministic', async () => {
     deferred: 1,
   });
 });
+
+
+test('PUT saves BUY as run-scoped with 30-day expiration', async () => {
+  const isolatedRoot = fs.mkdtempSync(path.join(
+    os.tmpdir(),
+    'purchasing-owner-scope-run-'
+  ));
+  const isolatedDecisionsPath = path.join(
+    isolatedRoot,
+    'miska-owner-decisions.json'
+  );
+  const isolatedHistoryPath = path.join(
+    isolatedRoot,
+    'owner-decision-history.json'
+  );
+  const isolatedServer = createPurchasingWebServer({
+    registry: new FixtureRegistry(),
+    serverPaths: {
+      ...DEFAULT_SERVER_PATHS,
+      ownerDecisionsPath: isolatedDecisionsPath,
+      ownerDecisionHistoryPath: isolatedHistoryPath,
+    },
+    now: () => '2026-07-23T10:00:00.000Z',
+  });
+  isolatedServer.listen(0, '127.0.0.1');
+  await once(isolatedServer, 'listening');
+  const isolatedBase =
+    `http://127.0.0.1:${isolatedServer.address().port}`;
+  const url = `${isolatedBase}/api/v1/runs/${RUN_ID}/items/` +
+    `${encodeURIComponent(ROW_ID)}/decision`;
+
+  try {
+    const response = await jsonRequest(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        decision: 'BUY',
+        quantity: 5,
+        reasonCode: 'CUSTOMER_REQUEST',
+      }),
+    });
+    assert.equal(response.response.status, 200);
+    const stored = JSON.parse(fs.readFileSync(
+      isolatedDecisionsPath,
+      'utf8'
+    ));
+    assert.equal(stored.decisions.length, 1);
+    assert.equal(stored.decisions[0].owner_decision, 'BUY');
+    assert.equal(stored.decisions[0].scope, 'run');
+    assert.equal(stored.decisions[0].expires_at, '2026-08-22T10:00:00.000Z');
+    assert.equal(stored.decisions[0].decided_at, '2026-07-23T10:00:00.000Z');
+  } finally {
+    isolatedServer.close();
+    await once(isolatedServer, 'close');
+    fs.rmSync(isolatedRoot, { recursive: true, force: true });
+  }
+});
+
+test('PUT with permanent flag saves BUY as permanent without expiration', async () => {
+  const isolatedRoot = fs.mkdtempSync(path.join(
+    os.tmpdir(),
+    'purchasing-owner-scope-permanent-'
+  ));
+  const isolatedDecisionsPath = path.join(
+    isolatedRoot,
+    'miska-owner-decisions.json'
+  );
+  const isolatedHistoryPath = path.join(
+    isolatedRoot,
+    'owner-decision-history.json'
+  );
+  const isolatedServer = createPurchasingWebServer({
+    registry: new FixtureRegistry(),
+    serverPaths: {
+      ...DEFAULT_SERVER_PATHS,
+      ownerDecisionsPath: isolatedDecisionsPath,
+      ownerDecisionHistoryPath: isolatedHistoryPath,
+    },
+    now: () => '2026-07-23T10:00:00.000Z',
+  });
+  isolatedServer.listen(0, '127.0.0.1');
+  await once(isolatedServer, 'listening');
+  const isolatedBase =
+    `http://127.0.0.1:${isolatedServer.address().port}`;
+  const url = `${isolatedBase}/api/v1/runs/${RUN_ID}/items/` +
+    `${encodeURIComponent(ROW_ID)}/decision`;
+
+  try {
+    const response = await jsonRequest(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        decision: 'BUY',
+        quantity: 5,
+        reasonCode: 'CUSTOMER_REQUEST',
+        permanent: true,
+      }),
+    });
+    assert.equal(response.response.status, 200);
+    const stored = JSON.parse(fs.readFileSync(
+      isolatedDecisionsPath,
+      'utf8'
+    ));
+    assert.equal(stored.decisions.length, 1);
+    assert.equal(stored.decisions[0].owner_decision, 'BUY');
+    assert.equal(stored.decisions[0].scope, 'permanent');
+    assert.equal(stored.decisions[0].expires_at, null);
+  } finally {
+    isolatedServer.close();
+    await once(isolatedServer, 'close');
+    fs.rmSync(isolatedRoot, { recursive: true, force: true });
+  }
+});
+
+test('DEFER is always run-scoped regardless of permanent flag', async () => {
+  const isolatedRoot = fs.mkdtempSync(path.join(
+    os.tmpdir(),
+    'purchasing-owner-defer-scope-'
+  ));
+  const isolatedDecisionsPath = path.join(
+    isolatedRoot,
+    'miska-owner-decisions.json'
+  );
+  const isolatedHistoryPath = path.join(
+    isolatedRoot,
+    'owner-decision-history.json'
+  );
+  const isolatedServer = createPurchasingWebServer({
+    registry: new FixtureRegistry(),
+    serverPaths: {
+      ...DEFAULT_SERVER_PATHS,
+      ownerDecisionsPath: isolatedDecisionsPath,
+      ownerDecisionHistoryPath: isolatedHistoryPath,
+    },
+    now: () => '2026-07-23T10:00:00.000Z',
+  });
+  isolatedServer.listen(0, '127.0.0.1');
+  await once(isolatedServer, 'listening');
+  const isolatedBase =
+    `http://127.0.0.1:${isolatedServer.address().port}`;
+  const url = `${isolatedBase}/api/v1/runs/${RUN_ID}/items/` +
+    `${encodeURIComponent(ROW_ID)}/decision`;
+
+  try {
+    const response = await jsonRequest(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        decision: 'DEFER',
+        quantity: null,
+        reasonCode: 'WAIT_NEXT_DELIVERY',
+        permanent: true,
+      }),
+    });
+    assert.equal(response.response.status, 200);
+    const stored = JSON.parse(fs.readFileSync(
+      isolatedDecisionsPath,
+      'utf8'
+    ));
+    assert.equal(stored.decisions.length, 1);
+    assert.equal(stored.decisions[0].owner_decision, 'DEFER');
+    assert.equal(stored.decisions[0].scope, 'run');
+    assert.equal(stored.decisions[0].expires_at, '2026-08-22T10:00:00.000Z');
+  } finally {
+    isolatedServer.close();
+    await once(isolatedServer, 'close');
+    fs.rmSync(isolatedRoot, { recursive: true, force: true });
+  }
+});

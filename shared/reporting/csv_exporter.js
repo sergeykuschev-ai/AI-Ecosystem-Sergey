@@ -5,8 +5,8 @@
   const CSV_SEPARATOR = ';';
   const CSV_LINE_ENDING = '\r\n';
   const CSV_CONTENT_TYPE = 'text/csv;charset=utf-8';
-  const SUPPLIER_ORDER_FILE_NAME = 'optimized-supplier-order.csv';
-  const REMOVED_ITEMS_FILE_NAME = 'optimized-removed-items.csv';
+  const SUPPLIER_ORDER_FILE_NAME = 'budget-simulation-draft.csv';
+  const REMOVED_ITEMS_FILE_NAME = 'budget-simulation-removed-items.csv';
   const EXPORTABLE_STATUSES = new Set(['OPTIMIZED', 'UNCHANGED']);
 
   function escapeCsvCell(value) {

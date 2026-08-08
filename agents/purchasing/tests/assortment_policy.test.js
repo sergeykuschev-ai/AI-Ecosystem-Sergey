@@ -67,6 +67,7 @@ function phase2Product(overrides = {}) {
     name: 'Вет диета CRAFTIA Гипоаллердженик Дерм для кошек 1,4',
     supplier: 'Supplier',
     freeStock: 0,
+    availableStock: 0,
     stockStatus: 'known',
     finalRecommendedQuantity: 0,
     analyzerCalculatedQuantity: 0,
@@ -196,8 +197,8 @@ test('12. правило одного SKU не влияет на другой', 
     rules: [rule({ sku: 'A', assortment_status: 'EXIT' })],
   };
   const products = applyAssortmentPolicyToProducts([
-    { article: 'A', freeStock: 0, finalRecommendedQuantity: 5 },
-    { article: 'B', freeStock: 0, finalRecommendedQuantity: 5 },
+    { article: 'A', freeStock: 0, availableStock: 0, finalRecommendedQuantity: 5 },
+    { article: 'B', freeStock: 0, availableStock: 0, finalRecommendedQuantity: 5 },
   ], store);
   assert.equal(products[0].finalRecommendedQuantity, 0);
   assert.equal(products[1].finalRecommendedQuantity, 5);
@@ -286,6 +287,7 @@ test('unknown GAL5427740 stock stays unknown and is not policy-adjusted', () => 
   const [product] = applyAssortmentPolicyToProducts([
     phase2Product({
       freeStock: null,
+      availableStock: null,
       stockStatus: 'unknown',
       finalRecommendedQuantity: null,
       mandatoryMinimumGap: null,
@@ -558,4 +560,172 @@ test('fallback to legacy policy works when canonical matrix is inactive', () => 
   assert.equal(source.source, 'legacy-policy');
   const skuIds = source.store.rules.map(r => r.sku).sort();
   assert.deepEqual(skuIds, ['2548917', '2548924', '2548931', '2548955', 'GAL5427740']);
+});
+
+test('rule stored by barcode matches product with same barcode but different article', () => {
+  const store = {
+    version: 1,
+    updated_at: UPDATED_AT,
+    rules: [rule({ sku: 'BARCODE-123', assortment_status: 'EXIT' })],
+  };
+  const products = applyAssortmentPolicyToProducts([
+    {
+      article: 'ARTICLE-999',
+      freeStock: 5,
+      availableStock: 5,
+      finalRecommendedQuantity: 3,
+      matchingHints: { barcode: 'BARCODE-123' },
+    },
+  ], store);
+  assert.equal(products[0].finalRecommendedQuantity, 0);
+  assert.equal(products[0].assortmentPolicy.matched, true);
+  assert.equal(products[0].assortmentPolicy.sku, 'BARCODE-123');
+  assert.deepEqual(products.unmatchedActiveRules, []);
+});
+
+test('rule stored by internalProductId matches product', () => {
+  const store = {
+    version: 1,
+    updated_at: UPDATED_AT,
+    rules: [rule({ sku: 'INTERNAL-42', min_stock: 2, mandatory_assortment: true })],
+  };
+  const products = applyAssortmentPolicyToProducts([
+    {
+      article: 'ARTICLE-999',
+      freeStock: 0,
+      availableStock: 0,
+      finalRecommendedQuantity: 0,
+      matchingHints: { internalProductId: 'INTERNAL-42' },
+    },
+  ], store);
+  assert.equal(products[0].finalRecommendedQuantity, 2);
+  assert.equal(products[0].assortmentPolicy.matched, true);
+  assert.equal(products[0].assortmentPolicy.sku, 'INTERNAL-42');
+  assert.deepEqual(products.unmatchedActiveRules, []);
+});
+
+test('rule stored by top-level sku matches product without article', () => {
+  const store = {
+    version: 1,
+    updated_at: UPDATED_AT,
+    rules: [rule({ sku: 'SUPPLIER-SKU-7', max_stock: 4 })],
+  };
+  const products = applyAssortmentPolicyToProducts([
+    {
+      freeStock: 1,
+      availableStock: 1,
+      finalRecommendedQuantity: 5,
+      supplierSku: 'SUPPLIER-SKU-7',
+    },
+  ], store);
+  assert.equal(products[0].finalRecommendedQuantity, 3);
+  assert.equal(products[0].assortmentPolicy.matched, true);
+  assert.equal(products[0].assortmentPolicy.sku, 'SUPPLIER-SKU-7');
+  assert.deepEqual(products.unmatchedActiveRules, []);
+});
+
+test('active rule with no matching product emits UNMATCHED_ASSORTMENT_POLICY_RULE', () => {
+  const store = {
+    version: 1,
+    updated_at: UPDATED_AT,
+    rules: [rule({ sku: 'ORPHAN-1', assortment_status: 'CORE' })],
+  };
+  const products = applyAssortmentPolicyToProducts([
+    { article: 'OTHER', freeStock: 0, availableStock: 0, finalRecommendedQuantity: 0 },
+  ], store);
+  const unmatched = products.unmatchedActiveRules;
+  assert.equal(unmatched.length, 1);
+  assert.equal(unmatched[0].code, 'UNMATCHED_ASSORTMENT_POLICY_RULE');
+  assert.equal(unmatched[0].sku, 'ORPHAN-1');
+  assert.equal(unmatched[0].assortmentStatus, 'CORE');
+  assert.equal(unmatched[0].severity, 'warning');
+});
+
+test('mandatory active rule missing from source emits MANDATORY_SKU_MISSING_FROM_SOURCE', () => {
+  const store = {
+    version: 1,
+    updated_at: UPDATED_AT,
+    rules: [rule({ sku: 'MANDATORY-1', mandatory_assortment: true })],
+  };
+  const products = applyAssortmentPolicyToProducts([
+    { article: 'OTHER', freeStock: 0, availableStock: 0, finalRecommendedQuantity: 0 },
+  ], store);
+  const unmatched = products.unmatchedActiveRules;
+  const codes = unmatched.map(d => d.code);
+  assert.ok(codes.includes('UNMATCHED_ASSORTMENT_POLICY_RULE'));
+  assert.ok(codes.includes('MANDATORY_SKU_MISSING_FROM_SOURCE'));
+  const mandatory = unmatched.find(d => d.code === 'MANDATORY_SKU_MISSING_FROM_SOURCE');
+  assert.equal(mandatory.sku, 'MANDATORY-1');
+  assert.equal(mandatory.severity, 'warning');
+});
+
+test('EXIT rule missing from source is not reported as unmatched active', () => {
+  const store = {
+    version: 1,
+    updated_at: UPDATED_AT,
+    rules: [rule({ sku: 'EXIT-1', assortment_status: 'EXIT' })],
+  };
+  const products = applyAssortmentPolicyToProducts([
+    { article: 'OTHER', freeStock: 0, availableStock: 0, finalRecommendedQuantity: 0 },
+  ], store);
+  assert.deepEqual(products.unmatchedActiveRules, []);
+});
+
+test('negative stock isolates one row to manual_review and continues others', () => {
+  const store = {
+    version: 1,
+    updated_at: UPDATED_AT,
+    rules: [rule({ sku: 'A' }), rule({ sku: 'B' })],
+  };
+  const products = applyAssortmentPolicyToProducts([
+    { article: 'A', freeStock: 0, availableStock: 0, finalRecommendedQuantity: 5 },
+    { article: 'B', freeStock: -1, availableStock: -1, finalRecommendedQuantity: 5 },
+  ], store);
+
+  assert.equal(products[0].finalRecommendedQuantity, 5);
+  assert.equal(products[1].workflow_status, 'manual_review');
+  assert.ok(products[1].reason_codes.includes('NEGATIVE_STOCK'));
+  assert.equal(products[1].approved_quantity, 0);
+  assert.equal(products[1].finalRecommendedQuantity, 0);
+  assert.equal(products.isolatedRowDiagnostics.length, 1);
+  assert.equal(products.isolatedRowDiagnostics[0].sku, 'B');
+  assert.ok(products.isolatedRowDiagnostics[0].reasonCodes.includes('NEGATIVE_STOCK'));
+});
+
+test('invalid minmax quantity isolates one row to manual_review/DATA_INVALID', () => {
+  const store = {
+    version: 1,
+    updated_at: UPDATED_AT,
+    rules: [rule({ sku: 'A' }), rule({ sku: 'B' })],
+  };
+  const products = applyAssortmentPolicyToProducts([
+    { article: 'A', freeStock: 0, availableStock: 0, finalRecommendedQuantity: 5 },
+    { article: 'B', freeStock: 0, availableStock: 0, finalRecommendedQuantity: -1 },
+  ], store);
+
+  assert.equal(products[0].finalRecommendedQuantity, 5);
+  assert.equal(products[1].workflow_status, 'manual_review');
+  assert.ok(products[1].reason_codes.includes('DATA_INVALID'));
+  assert.equal(products[1].approved_quantity, 0);
+  assert.equal(products[1].finalRecommendedQuantity, 0);
+  assert.equal(products.isolatedRowDiagnostics.length, 1);
+  assert.equal(products.isolatedRowDiagnostics[0].sku, 'B');
+  assert.ok(products.isolatedRowDiagnostics[0].reasonCodes.includes('DATA_INVALID'));
+});
+
+test('all rows bad returns all manual_review without throwing', () => {
+  const store = {
+    version: 1,
+    updated_at: UPDATED_AT,
+    rules: [rule({ sku: 'A' }), rule({ sku: 'B' })],
+  };
+  const products = applyAssortmentPolicyToProducts([
+    { article: 'A', freeStock: 0, availableStock: 0, finalRecommendedQuantity: -1 },
+    { article: 'B', freeStock: 0, availableStock: 0, finalRecommendedQuantity: -2 },
+  ], store);
+
+  assert.equal(products.length, 2);
+  assert.ok(products.every(p => p.workflow_status === 'manual_review'));
+  assert.ok(products.every(p => p.approved_quantity === 0));
+  assert.equal(products.isolatedRowDiagnostics.length, 2);
 });

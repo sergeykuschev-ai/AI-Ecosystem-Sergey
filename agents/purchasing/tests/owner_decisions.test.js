@@ -12,6 +12,9 @@ const {
   loadOwnerDecisions,
 } = require('../matrix_builder/owner_decisions');
 const {
+  buildOwnerDecisionMigrationPlan,
+} = require('../services/owner_decision_identity');
+const {
   DEFAULT_OWNER_REVIEW_POLICY,
   buildOwnerReviewModel,
 } = require('../matrix_builder/owner_review_dashboard');
@@ -529,4 +532,341 @@ test('fallback brand-name decision applies when article is missing', () => {
 
   assert.equal(application.draft.items[0].suggested_role, 'CORE');
   assert.equal(application.summary.matched_active_skus, 1);
+});
+
+function hashKey(hash = 'E3B693', row = 5) {
+  return `SMARTZAPAS:${hash}:%D0%9B%D0%B8%D1%81%D1%82_1:${row}`;
+}
+
+function historyEntry(overrides = {}) {
+  return {
+    schemaVersion: 'owner-decision-history-v0.7.1',
+    decisionId: 'owner-decision-test',
+    recordedAt: '2026-07-31T04:03:19.435Z',
+    source: 'OWNER_REVIEW',
+    runId: 'test-run',
+    supplier: 'ЗООГРАД-ХАБАРОВСК ООО',
+    stableItemKey: `row:smartzapas:e3b693:%d0%bb%d0%b8%d1%81%d1%82_1:${overrides.row || 5}`,
+    sku: overrides.sku ?? '00-00006177',
+    barcode: overrides.barcode ?? null,
+    productName: overrides.productName ?? 'Тестовый товар',
+    brand: overrides.brand ?? null,
+    agentRecommendation: null,
+    agentQuantity: 0,
+    ownerDecision: 'SKIP',
+    ownerQuantity: 0,
+    decidedBy: 'owner-web-ui',
+    reasonCode: 'NOT_SPECIFIED',
+    ownerComment: null,
+    ruleId: null,
+    applicationMode: 'PREVIEW',
+    financialContext: {},
+    inventoryContext: {},
+    salesContext: {},
+    metadata: {},
+    ...overrides,
+  };
+}
+
+function decisionHistory(entries) {
+  return { schemaVersion: 'owner-decision-history-v0.7.1', updatedAt: null, entries };
+}
+
+test('legacy SMARTZAPAS hash-key decision resolves after migration when item matches history', () => {
+  const sourceItem = item({
+    rowIdentity: 'row-5',
+    source_row_number: 5,
+    article: '00-00006177',
+    supplier: 'ЗООГРАД-ХАБАРОВСК ООО',
+    suggested_role: 'OPTIONAL',
+  });
+  const sourceDraft = draft(sourceItem);
+  const decisions = store([
+    decision('KEEP_CORE', {
+      sku: hashKey(),
+      decided_by: 'owner-web-ui',
+      source_version: 'purchasing-web-owner-decisions-v1',
+    }),
+  ]);
+
+  const application = applyOwnerDecisions(
+    sourceDraft,
+    decisions,
+    { history: decisionHistory([historyEntry()]) }
+  );
+
+  assert.equal(application.draft.items[0].suggested_role, 'CORE');
+  assert.equal(application.draft.items[0].owner_decision_applied, true);
+  assert.equal(application.summary.matched_active_skus, 1);
+  assert.equal(application.summary.orphaned_legacy_decisions.length, 0);
+  assert.equal(application.legacyIdentityDiagnostics.length, 1);
+  assert.equal(application.legacyIdentityDiagnostics[0].code, 'OWNER_DECISION_MIGRATED');
+  assert.equal(application.legacyIdentityDiagnostics[0].oldSku, hashKey());
+  assert.equal(
+    application.legacyIdentityDiagnostics[0].newSku,
+    'SUPPLIER:ЗООГРАД-ХАБАРОВСК ООО:SKU:00-00006177'
+  );
+});
+
+test('legacy SMARTZAPAS hash-key decision with no history becomes orphaned', () => {
+  const sourceItem = item({
+    rowIdentity: 'row-5',
+    source_row_number: 5,
+    article: '00-00006177',
+    supplier: 'ЗООГРАД-ХАБАРОВСК ООО',
+  });
+  const sourceDraft = draft(sourceItem);
+  const hashDecision = decision('KEEP_CORE', {
+    sku: hashKey(),
+    decided_by: 'owner-web-ui',
+    source_version: 'purchasing-web-owner-decisions-v1',
+  });
+  const decisions = store([hashDecision]);
+
+  const application = applyOwnerDecisions(
+    sourceDraft,
+    decisions,
+    { history: decisionHistory([]) }
+  );
+
+  assert.equal(application.draft.items[0].suggested_role, 'OPTIONAL');
+  assert.equal(application.draft.items[0].owner_decision_applied, false);
+  assert.equal(application.summary.orphaned_legacy_decisions.length, 1);
+  assert.equal(application.summary.orphaned_legacy_decisions[0].sku, hashKey());
+  assert.equal(application.summary.orphaned_legacy_decisions[0].reason, 'no-matching-history-entry');
+  assert.equal(application.legacyIdentityDiagnostics.length, 1);
+  assert.equal(application.legacyIdentityDiagnostics[0].code, 'ORPHANED_OWNER_DECISION');
+  assert.equal(application.legacyIdentityDiagnostics[0].severity, 'warning');
+});
+
+test('plain SKU and canonical supplier-aware keys still work when history is provided', () => {
+  const sourceDraft = draft();
+  const decisions = store([
+    decision('KEEP_CORE'),
+    decision('KEEP_OPTIONAL', {
+      sku: 'SUPPLIER:ТЕСТОВЫЙ ПОСТАВЩИК:SKU:SKU-1',
+      decided_at: '2026-07-20T10:00:00.000Z',
+    }),
+  ]);
+
+  const application = applyOwnerDecisions(
+    sourceDraft,
+    decisions,
+    { history: decisionHistory([historyEntry()]) }
+  );
+
+  assert.equal(application.draft.items[0].suggested_role, 'OPTIONAL');
+  assert.equal(application.summary.matched_active_skus, 1);
+  assert.equal(application.summary.orphaned_legacy_decisions.length, 0);
+});
+
+
+test('BUY from run-1 is applied in run-1', () => {
+  const run1Now = '2026-07-20T10:00:00.000Z';
+  const application = applyOwnerDecisions(
+    draft(),
+    store([decision('BUY', {
+      owner_order_quantity: 5,
+      scope: 'run',
+      expires_at: '2026-08-19T10:00:00.000Z',
+      decided_at: run1Now,
+    })]),
+    { now: run1Now }
+  );
+  const result = application.draft.items[0];
+  assert.equal(result.owner_order_decision, 'BUY');
+  assert.equal(result.owner_order_quantity, 5);
+  assert.equal(result.owner_decision_applied, true);
+});
+
+test('BUY from run-1 is NOT applied in run-2 after TTL expiration', () => {
+  const run1Now = '2026-07-20T10:00:00.000Z';
+  const run2Now = '2026-08-20T10:00:00.000Z';
+  const application = applyOwnerDecisions(
+    draft(),
+    store([decision('BUY', {
+      owner_order_quantity: 5,
+      scope: 'run',
+      expires_at: '2026-08-19T10:00:00.000Z',
+      decided_at: run1Now,
+    })]),
+    { now: run2Now }
+  );
+  const result = application.draft.items[0];
+  assert.equal(result.owner_order_decision, null);
+  assert.equal(result.owner_order_quantity, null);
+  assert.equal(result.owner_decision_status, 'none');
+  assert.equal(result.owner_decision_applied, false);
+});
+
+test('permanent KEEP_CORE decision remains applied across runs', () => {
+  const run1Now = '2026-07-20T10:00:00.000Z';
+  const run2Now = '2026-08-20T10:00:00.000Z';
+  const application = applyOwnerDecisions(
+    draft(),
+    store([decision('KEEP_CORE', {
+      scope: 'permanent',
+      decided_at: run1Now,
+    })]),
+    { now: run2Now }
+  );
+  assert.equal(application.draft.items[0].suggested_role, 'CORE');
+  assert.equal(application.draft.items[0].owner_decision_applied, true);
+});
+
+test('explicit permanent BUY remains applied across runs', () => {
+  const run1Now = '2026-07-20T10:00:00.000Z';
+  const run2Now = '2026-08-20T10:00:00.000Z';
+  const application = applyOwnerDecisions(
+    draft(),
+    store([decision('BUY', {
+      owner_order_quantity: 5,
+      scope: 'permanent',
+      decided_at: run1Now,
+    })]),
+    { now: run2Now }
+  );
+  const result = application.draft.items[0];
+  assert.equal(result.owner_order_decision, 'BUY');
+  assert.equal(result.owner_order_quantity, 5);
+  assert.equal(result.owner_decision_applied, true);
+});
+
+test('legacy BUY without scope/expires_at defaults to run scope with 30-day TTL', () => {
+  const decidedAt = '2026-07-20T10:00:00.000Z';
+  const withinTtl = '2026-08-19T09:59:59.000Z';
+  const afterTtl = '2026-08-19T10:00:01.000Z';
+  const decisions = store([decision('BUY', {
+    owner_order_quantity: 5,
+    decided_at: decidedAt,
+  })]);
+
+  const applied = applyOwnerDecisions(draft(), decisions, { now: withinTtl });
+  assert.equal(applied.draft.items[0].owner_order_decision, 'BUY');
+
+  const expired = applyOwnerDecisions(draft(), decisions, { now: afterTtl });
+  assert.equal(expired.draft.items[0].owner_order_decision, null);
+});
+
+test('expired run-scoped decision that matches a current item emits RUN_SCOPED_DECISION_EXPIRED diagnostic', () => {
+  const decidedAt = '2026-07-20T10:00:00.000Z';
+  const afterTtl = '2026-08-20T10:00:00.000Z';
+  const application = applyOwnerDecisions(
+    draft(),
+    store([decision('BUY', {
+      owner_order_quantity: 5,
+      scope: 'run',
+      expires_at: '2026-08-19T10:00:00.000Z',
+      decided_at: decidedAt,
+    })]),
+    { now: afterTtl }
+  );
+  const diagnostic = application.ownerDecisionDiagnostics.find(
+    entry => entry.code === 'RUN_SCOPED_DECISION_EXPIRED'
+  );
+  assert.ok(diagnostic, 'Expected RUN_SCOPED_DECISION_EXPIRED diagnostic');
+  assert.equal(diagnostic.sku, 'SKU-1');
+  assert.equal(diagnostic.owner_decision, 'BUY');
+  assert.equal(diagnostic.expires_at, '2026-08-19T10:00:00.000Z');
+});
+
+test('historical run-scoped BUY on legacy hash key does not create ORPHANED warning', () => {
+  const legacyHashKey = 'ROW:EXPORTA%23HASH';
+  const history = {
+    version: 1,
+    entries: [{
+      stableItemKey: legacyHashKey,
+      supplier: 'Тестовый поставщик',
+      sku: 'SKU-1',
+      barcode: null,
+      productName: 'Синтетический товар',
+      exportTag: 'run-2026-07-20',
+      decided_at: '2026-07-20T10:00:00.000Z',
+    }],
+  };
+  const memory = store([decision('BUY', {
+    sku: legacyHashKey,
+    owner_order_quantity: 5,
+    decided_at: '2026-07-20T10:00:00.000Z',
+  })]);
+  const application = applyOwnerDecisions(draft(), memory, { history });
+  assert.equal(application.draft.items[0].owner_order_decision, null);
+  assert.equal(application.legacyIdentityDiagnostics.some(d => d.code === 'ORPHANED_OWNER_DECISION'), false);
+  assert.ok(application.summary.historical_expired_legacy_decisions.length > 0);
+  const historical = application.summary.historical_expired_legacy_decisions[0];
+  assert.equal(historical.owner_decision, 'BUY');
+  assert.equal(historical.sku, legacyHashKey);
+});
+
+test('historical run-scoped SKIP on legacy hash key does not hide SKU forever', () => {
+  const legacyHashKey = 'ROW:EXPORTB%23HASH';
+  const history = {
+    version: 1,
+    entries: [{
+      stableItemKey: legacyHashKey,
+      supplier: 'Тестовый поставщик',
+      sku: 'SKU-1',
+      barcode: null,
+      productName: 'Синтетический товар',
+      exportTag: 'run-2026-07-20',
+      decided_at: '2026-07-20T10:00:00.000Z',
+    }],
+  };
+  const memory = store([decision('SKIP', {
+    sku: legacyHashKey,
+    decided_at: '2026-07-20T10:00:00.000Z',
+  })]);
+  const application = applyOwnerDecisions(draft(), memory, { history });
+  assert.equal(application.draft.items[0].owner_decision_applied, false);
+  assert.equal(application.legacyIdentityDiagnostics.some(d => d.code === 'ORPHANED_OWNER_DECISION'), false);
+  assert.ok(application.summary.historical_expired_legacy_decisions.some(
+    h => h.owner_decision === 'SKIP' && h.sku === legacyHashKey
+  ));
+});
+
+test('expired legacy row key does not create ORPHANED_OWNER_DECISION diagnostic', () => {
+  const legacyHashKey = 'ROW:EXPIRED%23HASH';
+  const history = {
+    version: 1,
+    entries: [{
+      stableItemKey: legacyHashKey,
+      supplier: 'Тестовый поставщик',
+      sku: 'SKU-1',
+      barcode: null,
+      productName: 'Синтетический товар',
+      exportTag: 'run-2026-07-20',
+      decided_at: '2026-07-20T10:00:00.000Z',
+    }],
+  };
+  const memory = store([decision('BUY', {
+    sku: legacyHashKey,
+    owner_order_quantity: 3,
+    decided_at: '2026-07-20T10:00:00.000Z',
+  })]);
+  const application = applyOwnerDecisions(draft(), memory, { history });
+  assert.equal(application.legacyIdentityDiagnostics.some(d => d.code === 'ORPHANED_OWNER_DECISION'), false);
+});
+
+test('genuinely unmatched persistent legacy decision still creates ORPHANED warning', () => {
+  const legacyHashKey = 'ROW:PERSISTENT%23HASH';
+  const history = {
+    version: 1,
+    entries: [{
+      stableItemKey: legacyHashKey,
+      supplier: null,
+      sku: null,
+      barcode: null,
+      productName: '??',
+      exportTag: 'run-2026-07-20',
+      decided_at: '2026-07-20T10:00:00.000Z',
+    }],
+  };
+  const memory = store([decision('KEEP_CORE', {
+    sku: legacyHashKey,
+    decided_at: '2026-07-20T10:00:00.000Z',
+  })]);
+  const application = applyOwnerDecisions(draft(), memory, { history });
+  const orphaned = application.legacyIdentityDiagnostics.find(d => d.code === 'ORPHANED_OWNER_DECISION');
+  assert.ok(orphaned, 'Expected ORPHANED_OWNER_DECISION for unmatched persistent legacy decision');
+  assert.equal(orphaned.sku, legacyHashKey);
 });

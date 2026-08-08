@@ -3,6 +3,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const {
+  cleanStaleTemporaryFiles,
+  rotateBackup,
+} = require('../../../shared/storage/safe_json_store');
+const {
   normalizeAgentRecommendation,
 } = require('./owner_learning_report');
 
@@ -557,6 +561,10 @@ function atomicWriteDecisionHistory(
   let descriptor;
   try {
     fsModule.mkdirSync(directoryPath, { recursive: true });
+    rotateBackup(resolvedPath, {
+      fsModule,
+      maxBackups: options.maxBackups ?? 5,
+    });
     descriptor = fsModule.openSync(temporaryPath, 'wx', 0o600);
     fsModule.writeFileSync(
       descriptor,
@@ -568,6 +576,12 @@ function atomicWriteDecisionHistory(
     descriptor = undefined;
     fsModule.renameSync(temporaryPath, resolvedPath);
     fsyncDirectory(directoryPath, fsModule);
+    cleanStaleTemporaryFiles(
+      directoryPath,
+      `.${path.basename(resolvedPath)}.*.tmp`,
+      options.staleMaxAgeMs ?? 5 * 60 * 1000,
+      fsModule
+    );
     return validated;
   } catch (error) {
     if (descriptor !== undefined) {

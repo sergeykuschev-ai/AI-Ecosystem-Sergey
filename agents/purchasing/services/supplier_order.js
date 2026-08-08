@@ -96,6 +96,14 @@ function orderRowFromIncluded(entry) {
       { details: { row_id: entry.rowId } }
     );
   }
+  if (entry.orderMode === 'PIECE' && !Number.isInteger(entry.quantity)) {
+    throw new SupplierOrderError(
+      SUPPLIER_ORDER_DATA_INCOMPLETE_CODE,
+      `Для позиции «${entry.name || entry.sku || entry.rowId || '?'}» ` +
+      'количество PIECE должно быть целым числом; дробные значения не выгружаются поставщику.',
+      { details: { row_id: entry.rowId, quantity: entry.quantity } }
+    );
+  }
   return {
     article: entry.sku ?? '',
     name: entry.name ?? '',

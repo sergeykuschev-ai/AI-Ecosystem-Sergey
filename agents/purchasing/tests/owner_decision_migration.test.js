@@ -18,14 +18,14 @@ function rowIdKey(hash = 'E3B693') {
 function decision(overrides = {}) {
   return {
     sku: rowIdKey(),
-    owner_decision: 'SKIP',
+    owner_decision: 'KEEP_CORE',
     owner_role_override: null,
     owner_policy_override: null,
-    owner_order_quantity: 0,
+    owner_order_quantity: null,
     run_id: null,
     reason_code: null,
     comment: null,
-    reason: 'Владелец исключил товар из текущей закупки.',
+    reason: 'Владелец закрепил товар в ассортименте.',
     decided_at: '2026-07-31T04:03:19.435Z',
     decided_by: 'owner-web-ui',
     status: 'active',
@@ -84,7 +84,7 @@ test('supplier + SKU decision is migrated', () => {
   assert.equal(plan.migrated[0].oldKey, d.sku);
   assert.equal(plan.migrated[0].newKey, 'SUPPLIER:ЗООГРАД-ХАБАРОВСК ООО:SKU:00-00006177');
   assert.equal(plan.migrated[0].matchMethod, 'supplier_sku');
-  assert.equal(plan.migrated[0].newDecision.owner_decision, 'SKIP');
+  assert.equal(plan.migrated[0].newDecision.owner_decision, 'KEEP_CORE');
   assert.equal(plan.migrated[0].newDecision.status, 'active');
 });
 
@@ -116,7 +116,7 @@ test('supplier + productName decision is migrated on exact unique match', () => 
 
 test('duplicate productName for same supplier produces conflict, not migration', () => {
   const first = decision({ sku: rowIdKey('AAA') });
-  const second = decision({ sku: rowIdKey('BBB'), owner_decision: 'BUY', owner_order_quantity: 5 });
+  const second = decision({ sku: rowIdKey('BBB'), owner_decision: 'KEEP_OPTIONAL' });
   const history = decisionHistory([
     historyEntry({ stableItemKey: 'row:smartzapas:aaa:%d0%bb%d0%b8%d1%81%d1%82_1:6', sku: null, barcode: null, productName: 'Shared Name' }),
     historyEntry({ stableItemKey: 'row:smartzapas:bbb:%d0%bb%d0%b8%d1%81%d1%82_1:6', sku: null, barcode: null, productName: 'Shared Name' }),
@@ -158,8 +158,7 @@ test('existing different newKey produces conflict', () => {
   const existing = {
     ...decision(),
     sku: 'SUPPLIER:ЗООГРАД-ХАБАРОВСК ООО:SKU:00-00006177',
-    owner_decision: 'BUY',
-    owner_order_quantity: 7,
+    owner_decision: 'KEEP_OPTIONAL',
   };
   const old = decision();
   const h = historyEntry();
@@ -175,7 +174,7 @@ test('existing different newKey produces conflict', () => {
 });
 
 test('migration preserves decision, quantity, reason and timestamps in audit metadata', () => {
-  const d = decision({ owner_decision: 'BUY', owner_order_quantity: 3, reason_code: 'CUSTOMER_REQUEST' });
+  const d = decision({ owner_decision: 'OVERRIDE_POLICY', owner_policy_override: { target_stock: 10 }, reason_code: 'CUSTOMER_REQUEST' });
   const h = historyEntry();
   const plan = buildOwnerDecisionMigrationPlan(
     decisionsMemory([d]),
@@ -183,8 +182,8 @@ test('migration preserves decision, quantity, reason and timestamps in audit met
   );
 
   const migrated = plan.migrated[0].newDecision;
-  assert.equal(migrated.owner_decision, 'BUY');
-  assert.equal(migrated.owner_order_quantity, 3);
+  assert.equal(migrated.owner_decision, 'OVERRIDE_POLICY');
+  assert.deepEqual(migrated.owner_policy_override, { target_stock: 10 });
   assert.equal(migrated.reason_code, 'CUSTOMER_REQUEST');
   assert.equal(migrated.decided_at, d.decided_at);
   assert.equal(migrated.status, 'active');

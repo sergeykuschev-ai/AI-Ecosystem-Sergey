@@ -45,6 +45,9 @@ const {
   '../agents/purchasing/owner_learning/owner_learning_history'
 );
 const {
+  loadDecisionHistory,
+} = require('../agents/purchasing/owner_learning/owner_decision_history');
+const {
   buildOwnerRuleProposals,
   buildOwnerRuleProposalsMarkdown,
   unavailableOwnerRuleProposals,
@@ -91,6 +94,10 @@ const DEFAULT_OUTPUT_DIRECTORY = path.join(
 const DEFAULT_OWNER_DECISIONS_PATH = path.join(
   REPOSITORY_ROOT,
   'data/purchasing/miska-owner-decisions.json'
+);
+const DEFAULT_OWNER_DECISION_HISTORY_PATH = path.join(
+  REPOSITORY_ROOT,
+  'data/purchasing/owner-decision-history.json'
 );
 const DEFAULT_OWNER_LEARNING_HISTORY_PATH = path.join(
   DEFAULT_OUTPUT_DIRECTORY,
@@ -571,9 +578,23 @@ async function defaultExplanationContextBuilder(
     matrixResult.config,
     null
   );
+  let ownerDecisionHistory = null;
+  try {
+    ownerDecisionHistory = loadDecisionHistory({
+      filePath: DEFAULT_OWNER_DECISION_HISTORY_PATH,
+    });
+  } catch (historyError) {
+    console.warn(
+      `[OWNER_DECISION_HISTORY_LOAD_WARNING] ${historyError.message}`
+    );
+  }
   const ownerApplication = applyOwnerDecisions(
     matrixResult.draft,
-    ownerDecisions.store
+    ownerDecisions.store,
+    {
+      history: ownerDecisionHistory,
+      enableLegacyResolution: true,
+    }
   );
   const ownerReview = buildOwnerReviewModel(
     ownerApplication.draft,

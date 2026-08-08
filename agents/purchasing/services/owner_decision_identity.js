@@ -333,6 +333,14 @@ function buildOwnerDecisionMigrationPlan(decisionsMemory, decisionHistory) {
   const targets = [];
 
   for (const decision of decisions) {
+    if (decision?.owner_decision === 'BUY' || decision?.owner_decision === 'SKIP' || decision?.owner_decision === 'DEFER') {
+      result.skipped.push({
+        decision,
+        oldKey: decision?.sku,
+        reason: 'run-scoped-order-decision-not-migrated',
+      });
+      continue;
+    }
     const oldKey = decision?.sku;
 
     if (decision?.status !== 'active') {

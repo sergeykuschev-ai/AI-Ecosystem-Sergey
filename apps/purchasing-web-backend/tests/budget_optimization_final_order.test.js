@@ -30,6 +30,9 @@ const xlsxExporter = require('../../../shared/reporting/xlsx_exporter');
 const {
   optimizePurchasingBudget,
 } = require('../../../agents/purchasing/budget_optimizer/budget_optimizer');
+const {
+  buildFinalOrderState,
+} = require('../../../agents/purchasing/services/final_order');
 
 const REPOSITORY_ROOT = path.resolve(__dirname, '../../..');
 const RUN_ID = '34343434-3434-4344-8434-343434343434';
@@ -460,5 +463,171 @@ test('инвариант после завершения проверки: needs
       `${baseUrl}/api/v1/runs/${RUN_ID}/summary`
     );
     assert.equal(runSummary.response.status, 200);
+  }
+);
+
+test('OWNER BUY не сокращается при нехватке бюджета и возвращает BUDGET_CONFLICT',
+  () => {
+    const item = {
+      row_id: 'owner-buy-1',
+      sku: 'OWNER-BUY-1',
+      name: 'Owner buy item',
+      amounts: { unit_price: 5 },
+      owner_decision: { decision: 'BUY', quantity: 10 },
+    };
+    const finalOrder = buildFinalOrderState({
+      items: [item],
+    });
+    assert.equal(finalOrder.includedItems[0].protected, true);
+    assert.deepEqual(
+      finalOrder.includedItems[0].protectedReasons,
+      ['OWNER_BUY']
+    );
+
+    const result = optimizePurchasingBudget({
+      finalOrder,
+      targetBudget: 1,
+    });
+
+    assert.equal(result.status, 'BUDGET_TOO_LOW');
+    assert.ok(
+      result.warnings.includes('BUDGET_CONFLICT_PROTECTED_ITEMS'),
+      'должно быть предупреждение BUDGET_CONFLICT'
+    );
+    const line = result.items.find(
+      item => item.rowIdentity === 'owner-buy-1'
+    );
+    assert.ok(line, 'OWNER BUY должен остаться в результате');
+    assert.equal(line.originalQuantity, 10);
+    assert.equal(line.optimizedQuantity, 10);
+    assert.deepEqual(line.protectedReasons, ['OWNER_BUY']);
+  }
+);
+
+test('обязательный ассортимент не сокращается при нехватке бюджета и возвращает BUDGET_CONFLICT',
+  () => {
+    const item = {
+      row_id: 'mandatory-1',
+      sku: 'MANDATORY-1',
+      name: 'Mandatory item',
+      amounts: { unit_price: 5 },
+      workflow_status: 'auto_approved',
+      quantities: { approved_quantity: 10 },
+      matrix: { owner_review_required: false },
+      assortment_policy: { mandatory_assortment: true },
+    };
+    const finalOrder = buildFinalOrderState({
+      items: [item],
+    });
+    assert.equal(finalOrder.includedItems[0].protected, true);
+    assert.ok(
+      finalOrder.includedItems[0].protectedReasons
+        .includes('MANDATORY_ASSORTMENT')
+    );
+
+    const result = optimizePurchasingBudget({
+      finalOrder,
+      targetBudget: 1,
+    });
+
+    assert.equal(result.status, 'BUDGET_TOO_LOW');
+    assert.ok(
+      result.warnings.includes('BUDGET_CONFLICT_PROTECTED_ITEMS'),
+      'должно быть предупреждение BUDGET_CONFLICT'
+    );
+    const line = result.items.find(
+      item => item.rowIdentity === 'mandatory-1'
+    );
+    assert.ok(line, 'обязательная позиция должна остаться в результате');
+    assert.equal(line.originalQuantity, 10);
+    assert.equal(line.optimizedQuantity, 10);
+    assert.ok(line.protectedReasons.includes('MANDATORY_ASSORTMENT'));
+  }
+);
+
+test('результат оптимизации помечен как BUDGET_SIMULATION', () => {
+  const result = optimizePurchasingBudget({
+    finalOrder: {
+      reviewComplete: true,
+      includedItems: [{
+        rowId: 'sim-1',
+        sku: 'SIM-1',
+        name: 'Item',
+        quantity: 5,
+        price: 10,
+        source: 'auto',
+      }],
+    },
+    targetBudget: 1000,
+  });
+  assert.equal(result.resultType, 'BUDGET_SIMULATION');
+});
+
+function supplierSheetRows(sheet) {
+  const rows = [];
+  const rowRegex = /<row r="(\d+)">(.*?)<\/row>/g;
+  let match;
+  while ((match = rowRegex.exec(sheet)) !== null) {
+    const rowNumber = match[1];
+    const rowContent = match[2];
+    const skuMatch = rowContent.match(
+      /<c r="A\d+"[^>]*>.*?<is><t[^>]*>([^<]*)<\/t><\/is><\/c>/
+    );
+    if (!skuMatch) continue;
+    const quantityMatch = rowContent.match(
+      new RegExp(`<c r="C${rowNumber}"[^>]*><v>(\\d+)</v></c>`)
+    );
+    if (quantityMatch) {
+      rows.push({ sku: skuMatch[1], quantity: Number(quantityMatch[1]) });
+    }
+  }
+  return rows;
+}
+
+test('Supplier XLSX содержит те же количества, что и канонический финальный заказ',
+  async () => {
+    const itemsResult = await jsonResponse(
+      `${baseUrl}/api/v1/runs/${RUN_ID}/items?page_size=100`
+    );
+    const state = buildFinalOrderState({
+      items: itemsResult.body.data.items,
+    });
+    assert.equal(state.reviewComplete, true);
+    assert.ok(state.includedItems.length > 0);
+
+    const metadata = await jsonResponse(
+      `${baseUrl}/api/v1/runs/${RUN_ID}/supplier-order`
+    );
+    assert.equal(metadata.response.status, 200);
+    assert.equal(metadata.body.data.available, true);
+    assert.equal(metadata.body.data.itemCount, state.itemCount);
+    assert.equal(metadata.body.data.totalAmount, state.totalAmount);
+
+    const download = await fetch(
+      `${baseUrl}${metadata.body.data.downloadUrl}`
+    );
+    assert.equal(download.status, 200);
+    const sheet = strFromU8(
+      unzipSync(Buffer.from(await download.arrayBuffer()))[
+        'xl/worksheets/sheet1.xml'
+      ]
+    );
+
+    const rows = supplierSheetRows(sheet);
+    assert.equal(rows.length, state.includedItems.length);
+    for (let index = 0; index < state.includedItems.length; index += 1) {
+      const expected = state.includedItems[index];
+      const actual = rows[index];
+      assert.equal(
+        actual.sku,
+        expected.sku,
+        `SKU в строке ${index} не совпадает`
+      );
+      assert.equal(
+        actual.quantity,
+        expected.quantity,
+        `количество для ${expected.sku} в XLSX не совпадает с финальным заказом`
+      );
+    }
   }
 );

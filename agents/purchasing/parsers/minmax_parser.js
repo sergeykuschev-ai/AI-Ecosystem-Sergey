@@ -7,18 +7,78 @@ function normalize(value) {
   return clean(value).toLowerCase().replace(/ё/g, 'е');
 }
 
+function validateGrouping(integerPart, separator) {
+  const groups = integerPart.split(separator);
+  for (let i = 0; i < groups.length; i += 1) {
+    if (!/^\d+$/.test(groups[i])) return false;
+    if (i === 0) {
+      if (groups[i].length === 0 || groups[i].length > 3) return false;
+    } else if (groups[i].length !== 3) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function toNumber(value) {
   if (value === null || value === undefined || value === '') return null;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
 
-  const text = String(value)
-    .replace(/\s/g, '')
-    .replace(',', '.')
-    .replace(/[^\d.-]/g, '');
+  let text = String(value).trim();
+  if (text === '') return null;
 
-  if (text === '' || text === '-' || text === '.') return null;
+  let negative = false;
+  if (text.charAt(0) === '-') {
+    negative = true;
+    text = text.slice(1).trim();
+  } else if (text.charAt(0) === '+') {
+    text = text.slice(1).trim();
+  }
 
-  const num = Number(text);
-  return Number.isFinite(num) ? num : null;
+  if (text === '') return null;
+
+  // Treat spaces between digits as thousands separators and remove them.
+  text = text.replace(/(\d)\s+(?=\d)/g, '$1');
+
+  // After handling spaces, only digits and the two separator candidates remain.
+  if (!/^[\d.,]+$/.test(text)) return null;
+
+  const commaCount = (text.match(/,/g) || []).length;
+  const dotCount = (text.match(/\./g) || []).length;
+
+  let normalized = text;
+
+  if (commaCount > 0 && dotCount > 0) {
+    const lastDot = text.lastIndexOf('.');
+    const lastComma = text.lastIndexOf(',');
+
+    if (lastComma > lastDot) {
+      // Comma is the decimal separator; dots must form valid thousands groups.
+      if (!validateGrouping(text.slice(0, lastComma), '.')) return null;
+      normalized = text.replace(/\./g, '').replace(',', '.');
+    } else {
+      // Dot is the decimal separator; commas must form valid thousands groups.
+      if (!validateGrouping(text.slice(0, lastDot), ',')) return null;
+      normalized = text.replace(/,/g, '');
+    }
+  } else if (commaCount > 0) {
+    if (commaCount > 1) return null;
+
+    const idx = text.indexOf(',');
+    if (text.length - idx - 1 === 3) return null;
+
+    normalized = text.replace(',', '.');
+  } else if (dotCount > 0) {
+    if (dotCount > 1) return null;
+
+    const idx = text.indexOf('.');
+    if (text.length - idx - 1 === 3) return null;
+  }
+
+  const num = Number(normalized);
+  if (!Number.isFinite(num)) return null;
+
+  return negative ? -num : num;
 }
 
 function findKey(row, variants) {

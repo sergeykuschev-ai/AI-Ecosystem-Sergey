@@ -9,6 +9,9 @@ const {
   loadOwnerDecisions,
 } = require('../../../agents/purchasing/matrix_builder/owner_decisions');
 const {
+  loadDecisionHistory,
+} = require('../../../agents/purchasing/owner_learning/owner_decision_history');
+const {
   buildOwnerReviewModel,
   buildOwnerReviewReport,
 } = require(
@@ -62,6 +65,7 @@ const DEFAULT_DEPENDENCIES = Object.freeze({
   buildMatrix: buildMatrixDraftFromSmartZapasXlsx,
   loadOwnerDecisions,
   applyOwnerDecisions,
+  loadDecisionHistory,
   buildOwnerReview: buildOwnerReviewModel,
   buildOwnerReviewReport,
   buildExplanations: buildRecommendationExplanations,
@@ -366,9 +370,25 @@ async function runPurchasingWebOrchestrator(
       request.ownerDecisionsPath,
       { allowMissing: true }
     );
+    let ownerDecisionHistory = null;
+    try {
+      if (request.ownerDecisionHistoryPath) {
+        ownerDecisionHistory = dependencies.loadDecisionHistory({
+          filePath: request.ownerDecisionHistoryPath,
+        });
+      }
+    } catch (historyError) {
+      logger.warn(
+        `[OWNER_DECISION_HISTORY_LOAD_WARNING] ${historyError.message}`
+      );
+    }
     ownerApplication = dependencies.applyOwnerDecisions(
       matrixResult.draft,
-      ownerDecisions.store
+      ownerDecisions.store,
+      {
+        history: ownerDecisionHistory,
+        enableLegacyResolution: true,
+      }
     );
     ownerReview = dependencies.buildOwnerReview(
       ownerApplication.draft,

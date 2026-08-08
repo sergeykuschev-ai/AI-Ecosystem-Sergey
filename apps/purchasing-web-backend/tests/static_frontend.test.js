@@ -894,8 +894,8 @@ test('repeated optimization builds fresh supplier XLSX content', () => {
     unzipSync(second.supplierOrder.content)['xl/worksheets/sheet1.xml']
   );
 
-  assert.equal(first.supplierOrder.name, 'optimized-supplier-order.xlsx');
-  assert.equal(first.removedItems.name, 'optimized-removed-items.xlsx');
+  assert.equal(first.supplierOrder.name, 'budget-simulation-draft.xlsx');
+  assert.equal(first.removedItems.name, 'budget-simulation-removed-items.xlsx');
   assert.match(firstSheet, /<c r="E3" s="4"><v>100<\/v><\/c>/);
   assert.match(secondSheet, /<c r="E3" s="4"><v>50<\/v><\/c>/);
   assert.notDeepEqual(
@@ -930,8 +930,8 @@ test('repeated optimization builds fresh supplier CSV content', () => {
     }],
   }, csvExporter);
 
-  assert.equal(first.supplierOrder.name, 'optimized-supplier-order.csv');
-  assert.equal(first.removedItems.name, 'optimized-removed-items.csv');
+  assert.equal(first.supplierOrder.name, 'budget-simulation-draft.csv');
+  assert.equal(first.removedItems.name, 'budget-simulation-removed-items.csv');
   assert.match(first.supplierOrder.content, /ИТОГО;;;;100,00;;/);
   assert.match(second.supplierOrder.content, /ИТОГО;;;;50,00;;/);
   assert.notEqual(first.supplierOrder.content, second.supplierOrder.content);
@@ -1051,7 +1051,7 @@ test('generated CSV keeps its supplier filename during browser download', () => 
   };
 
   downloadGeneratedFile(file, documentObject, browserObject);
-  assert.equal(link.download, 'optimized-supplier-order.csv');
+  assert.equal(link.download, 'budget-simulation-draft.csv');
   assert.equal(link.href, 'blob:supplier-csv');
   assert.equal(link.clickCalled, true);
   assert.equal(link.removeCalled, true);
@@ -1102,7 +1102,7 @@ test('generated XLSX keeps its supplier filename during browser download',
 
     downloadGeneratedFile(file, documentObject, browserObject);
 
-    assert.equal(link.download, 'optimized-supplier-order.xlsx');
+    assert.equal(link.download, 'budget-simulation-draft.xlsx');
     assert.equal(link.href, 'blob:supplier-xlsx');
   }
 );

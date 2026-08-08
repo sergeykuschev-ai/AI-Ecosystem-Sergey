@@ -15,8 +15,8 @@
 
   const XLSX_CONTENT_TYPE =
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-  const SUPPLIER_ORDER_FILE_NAME = 'optimized-supplier-order.xlsx';
-  const REMOVED_ITEMS_FILE_NAME = 'optimized-removed-items.xlsx';
+  const SUPPLIER_ORDER_FILE_NAME = 'budget-simulation-draft.xlsx';
+  const REMOVED_ITEMS_FILE_NAME = 'budget-simulation-removed-items.xlsx';
   const SUPPLIER_SHEET_NAME = 'Заказ поставщику';
   const REMOVED_SHEET_NAME = 'Исключённые позиции';
   const EXPORTABLE_STATUSES = new Set(['OPTIMIZED', 'UNCHANGED']);
