@@ -88,6 +88,11 @@ function mapPurchasingItems(bundle) {
       name: product.name || null,
       brand: product.brand || matrix.brand || null,
       supplier: product.supplier || null,
+      category: product.category || matrix.category || null,
+      rollout_status: product.rolloutStatus || matrix.rollout_status || null,
+      review_after_days: product.reviewAfterDays ?? matrix.review_after_days ?? null,
+      first_rollout_test_awaiting: product.firstRolloutTestAwaiting === true,
+      test_review_date: null,
       decision: decision.decision || product.phase2Decision || null,
       workflow_status: product.workflowStatus || null,
       confidence: explanation.confidence_level ||
@@ -144,6 +149,9 @@ function mapPurchasingItems(bundle) {
         calculated_quantity: minmaxQuantity,
         minmax_quantity: minmaxQuantity,
         policy_quantity: policyQuantity,
+        rollout_recommended_quantity: finiteOrNull(
+          product.prePolicyFinalRecommendedQuantity
+        ),
         approved_quantity: approvedQuantity,
         provisional_quantity: provisionalQuantity,
         final_quantity: null,
@@ -158,6 +166,8 @@ function mapPurchasingItems(bundle) {
             : [],
           explanation: policy.explanation || null,
           assortment_status: policy.assortment_status || null,
+          rollout_status: policy.rollout_status || null,
+          review_after_days: policy.review_after_days ?? null,
           min_stock: finiteOrNull(policy.min_stock),
           max_stock: finiteOrNull(policy.max_stock),
           target_stock: finiteOrNull(policy.target_stock),
@@ -204,6 +214,8 @@ function mapPurchasingItems(bundle) {
       owner_decision: {
         status: matrix.owner_decision_status || 'none',
         decision: matrix.owner_order_decision || null,
+        original_decision: decision.original_decision || null,
+        review_date: decision.review_date || null,
         quantity: finiteOrNull(matrix.owner_order_quantity),
         decided_at: null,
         decided_by: null,

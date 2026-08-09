@@ -729,3 +729,63 @@ test('all rows bad returns all manual_review without throwing', () => {
   assert.ok(products.every(p => p.approved_quantity === 0));
   assert.equal(products.isolatedRowDiagnostics.length, 2);
 });
+
+test('First Category Rollout: TEST in FIRST_ROLLOUT is postponed and awaits owner decision', () => {
+  const result = apply({
+    minmax_qty: 5,
+    current_stock: 1,
+    rule: rule({ assortment_status: 'TEST', rollout_status: 'FIRST_ROLLOUT', review_after_days: 30 }),
+  });
+
+  assert.equal(result.policy_qty, 0);
+  assert.equal(result.policy_rule, 'FIRST_ROLLOUT_POSTPONE');
+  assert.equal(result.first_rollout_test_awaiting, true);
+  assert.equal(result.rollout_status, 'FIRST_ROLLOUT');
+  assert.equal(result.review_after_days, 30);
+  assert.ok(result.explanation.includes('FIRST_ROLLOUT'));
+});
+
+test('First Category Rollout: TEST in ACTIVE category follows normal rules', () => {
+  const result = apply({
+    minmax_qty: 5,
+    current_stock: 1,
+    rule: rule({ assortment_status: 'TEST', rollout_status: 'ACTIVE' }),
+  });
+
+  assert.equal(result.policy_qty, 5);
+  assert.notEqual(result.policy_rule, 'FIRST_ROLLOUT_POSTPONE');
+  assert.equal(result.first_rollout_test_awaiting, false);
+});
+
+test('First Category Rollout: CORE in FIRST_ROLLOUT is purchased automatically', () => {
+  const result = apply({
+    minmax_qty: 5,
+    current_stock: 1,
+    rule: rule({ assortment_status: 'CORE', rollout_status: 'FIRST_ROLLOUT' }),
+  });
+
+  assert.equal(result.policy_qty, 5);
+  assert.equal(result.first_rollout_test_awaiting, false);
+});
+
+test('First Category Rollout: OPTIONAL in FIRST_ROLLOUT is purchased automatically', () => {
+  const result = apply({
+    minmax_qty: 5,
+    current_stock: 1,
+    rule: rule({ assortment_status: 'OPTIONAL', rollout_status: 'FIRST_ROLLOUT' }),
+  });
+
+  assert.equal(result.policy_qty, 5);
+  assert.equal(result.first_rollout_test_awaiting, false);
+});
+
+test('First Category Rollout: TEST without rollout_status follows normal rules', () => {
+  const result = apply({
+    minmax_qty: 5,
+    current_stock: 1,
+    rule: rule({ assortment_status: 'TEST' }),
+  });
+
+  assert.equal(result.policy_qty, 5);
+  assert.equal(result.first_rollout_test_awaiting, false);
+});

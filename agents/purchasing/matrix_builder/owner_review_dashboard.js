@@ -59,6 +59,12 @@ function formatNumber(value, digits = 2) {
   return digits === 0 ? grouped : `${grouped},${fraction}`;
 }
 
+function roundCurrency(value) {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.round((value + Number.EPSILON) * 100) / 100
+    : 0;
+}
+
 function formatCurrency(value) {
   return typeof value === 'number' && Number.isFinite(value)
     ? `${formatNumber(value)} ₽`
@@ -449,6 +455,18 @@ function buildOwnerReviewModel(
   const placeholderDifferences = items.filter(item => item.placeholder_difference);
   const requiresConfirmation = items.filter(item => item.policy_requires_confirmation);
   const commercialItems = commercialReviewItems(items);
+  const testAwaitingItems = items.filter(item =>
+    item.first_rollout_test_awaiting === true &&
+    !item.owner_decision_excluded_from_review
+  );
+  const testAwaitingInvestment = roundCurrency(
+    testAwaitingItems.reduce((sum, item) => {
+      const qty = item.rollout_recommended_quantity ??
+        item.evidence?.rollout_recommended_quantity ?? 0;
+      const price = item.evidence?.purchase_price ?? 0;
+      return sum + qty * price;
+    }, 0)
+  );
   const qualityGroups = dataQualityGroups(items);
   const criticalLargeInventory = largeInventoryItems.filter(item =>
     item.inventory_value_review_level === 'critical'
@@ -505,6 +523,8 @@ function buildOwnerReviewModel(
       placeholder_differences: placeholderDifferences.length,
       requires_confirmation: requiresConfirmation.length,
       commercial_review: commercialItems.length,
+      test_awaiting_introduction: testAwaitingItems.length,
+      test_awaiting_investment: testAwaitingInvestment,
       owner_decision_sheet: decisionItems.length,
       data_quality: Object.fromEntries(
         Object.entries(qualityGroups).map(([name, groupItems]) => [name, groupItems.length])
@@ -536,6 +556,7 @@ function buildOwnerReviewModel(
       placeholder_differences: placeholderDifferences.map(item => item.rowIdentity),
       requires_confirmation: requiresConfirmation.map(item => item.rowIdentity),
       commercial_review: commercialItems.map(item => item.rowIdentity),
+      test_awaiting_introduction: testAwaitingItems.map(item => item.rowIdentity),
       data_quality: Object.fromEntries(
         Object.entries(qualityGroups).map(([name, groupItems]) => [
           name,
@@ -569,6 +590,8 @@ function buildOwnerReviewReport(
   const placeholderItems = sectionItems('placeholder_differences');
   const confirmationItems = sectionItems('requires_confirmation');
   const commercialItems = sectionItems('commercial_review');
+  const testAwaitingItems = sectionItems('test_awaiting_introduction');
+  const testAwaitingInvestment = model.summary.test_awaiting_investment;
   const decisionItems = sectionItems('owner_decision_sheet');
   const scoreByIdentity = new Map(model.items.map(item => [item.rowIdentity, item]));
   const qualityGroups = dataQualityGroups(items);
@@ -820,6 +843,36 @@ function buildOwnerReviewReport(
         itemKey(item), item.name, categoryText(item), item.suggested_role,
         item.suggested_priority, reasonSummary(item), recommendedAction(item),
       ])
+    ),
+    '',
+    '---',
+    '',
+    '## 8a. 🆕 TEST Products Awaiting Introduction',
+    '',
+    `Позиций: **${testAwaitingItems.length}**. ` +
+      'Инвестиция для одобрения: **' +
+      `${testAwaitingItems.length === 0 ? '0 ₽' : formatCurrency(testAwaitingInvestment)}**.`,
+    '',
+    ...markdownTable(
+      ['Артикул', 'Товар', 'Поставщик', 'Категория', 'Рекомендуемое кол-во', 'Закупочная цена', 'Инвестиция', 'Причина'],
+      testAwaitingItems.map(item => {
+        const qty = item.rollout_recommended_quantity ??
+          item.evidence?.rollout_recommended_quantity ?? null;
+        const price = item.evidence?.purchase_price ?? null;
+        const investment = qty !== null && price !== null
+          ? roundCurrency(qty * price)
+          : null;
+        return [
+          itemKey(item),
+          item.name,
+          item.supplier || 'нет данных',
+          item.category || 'нет данных',
+          qty !== null ? formatNumber(qty, 0) : 'нет данных',
+          formatCurrency(price),
+          formatCurrency(investment),
+          'TEST в FIRST_ROLLOUT',
+        ];
+      })
     ),
     '',
     '---',

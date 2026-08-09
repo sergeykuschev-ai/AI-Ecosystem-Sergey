@@ -108,6 +108,7 @@ test('29-30. DTO keeps MinMax, policy and approved quantities separate for Owner
     calculated_quantity: 5,
     minmax_quantity: 5,
     policy_quantity: 2,
+    rollout_recommended_quantity: null,
     approved_quantity: 2,
     provisional_quantity: null,
     final_quantity: 2,

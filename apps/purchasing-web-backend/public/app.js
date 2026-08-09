@@ -101,6 +101,9 @@
     SKIP: 'Пропустить',
     DEFER: 'Отложить',
     REVIEW: 'Проверить',
+    BUY_NOW: 'Купить сейчас',
+    POSTPONE: 'Отложить введение',
+    REMOVE_FROM_MATRIX: 'Убрать из матрицы',
   });
   const REASON_LABELS = Object.freeze({
     HIGH_STOCK: 'Высокий остаток',
@@ -627,6 +630,23 @@
     if (decision === 'DEFER') {
       return { label: 'Отложено', className: 'decision-defer' };
     }
+    if (decision === 'BUY_NOW') {
+      return {
+        label: `Купить сейчас ${formatQuantity(
+          item.owner_decision.quantity
+        )} шт.`,
+        className: 'decision-buy',
+      };
+    }
+    if (decision === 'POSTPONE') {
+      return {
+        label: `Отложено до ${item.owner_decision.review_date || '—'}`,
+        className: 'decision-defer',
+      };
+    }
+    if (decision === 'REMOVE_FROM_MATRIX') {
+      return { label: 'Убран из матрицы', className: 'decision-skip' };
+    }
     if (item?.owner_decision?.status === 'active') {
       return {
         label: 'Есть решение по ассортименту',
@@ -940,11 +960,18 @@
       ? String(Math.max(0, Math.round(initialQuantity)))
       : '0';
 
-    const actionDefinitions = [
-      ['BUY', 'Заказать', 'action-buy'],
-      ['SKIP', 'Не заказывать', 'action-skip'],
-      ['DEFER', 'Отложить', 'action-defer'],
-    ];
+    const isRolloutTest = item?.first_rollout_test_awaiting === true;
+    const actionDefinitions = isRolloutTest
+      ? [
+          ['BUY_NOW', 'Купить сейчас', 'action-buy'],
+          ['POSTPONE', 'Отложить', 'action-defer'],
+          ['REMOVE_FROM_MATRIX', 'Убрать из матрицы', 'action-skip'],
+        ]
+      : [
+          ['BUY', 'Заказать', 'action-buy'],
+          ['SKIP', 'Не заказывать', 'action-skip'],
+          ['DEFER', 'Отложить', 'action-defer'],
+        ];
     const actionGroup = documentObject.createElement('div');
     actionGroup.className = 'decision-action-group';
     const buttons = actionDefinitions.map(([decision, label, className]) => {
@@ -1037,13 +1064,14 @@
         typeof options.onDecision !== 'function'
       ) return;
       const decision = pendingDecision;
-      const requestedQuantity = decision === 'BUY'
+      const isBuyDecision = decision === 'BUY' || decision === 'BUY_NOW';
+      const requestedQuantity = isBuyDecision
         ? Number(quantity.value)
-        : decision === 'SKIP'
+        : decision === 'SKIP' || decision === 'REMOVE_FROM_MATRIX'
           ? 0
           : null;
       if (
-        decision === 'BUY' &&
+        isBuyDecision &&
         (!Number.isInteger(requestedQuantity) ||
           requestedQuantity < 0 ||
           requestedQuantity > 10000)
@@ -1083,7 +1111,10 @@
           comment: ownerComment || null,
         });
         item.owner_decision = result.item.owner_decision;
-        if (item.owner_decision.decision === 'BUY') {
+        if (
+          item.owner_decision.decision === 'BUY' ||
+          item.owner_decision.decision === 'BUY_NOW'
+        ) {
           quantity.value = String(item.owner_decision.quantity ?? 0);
         }
         pendingDecision = null;
@@ -1849,7 +1880,7 @@
       formatPercent(agreement.agreementRate);
 
     elements.historyDecisionDistribution.replaceChildren();
-    for (const decision of ['BUY', 'SKIP', 'DEFER', 'REVIEW']) {
+    for (const decision of ['BUY', 'SKIP', 'DEFER', 'REVIEW', 'BUY_NOW', 'POSTPONE', 'REMOVE_FROM_MATRIX']) {
       const row = documentObject.createElement('div');
       const term = documentObject.createElement('dt');
       const count = documentObject.createElement('dd');

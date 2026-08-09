@@ -121,6 +121,7 @@ function buildDraftItem({
   row,
   phase1Decision,
   phase2Decision,
+  workingOrderProduct,
   existingMatch,
   ambiguousIdentity,
   config,
@@ -265,6 +266,20 @@ function buildDraftItem({
     strategicCategories.length === 1 ? strategicCategories[0] : null
   );
 
+  const firstRolloutTestAwaiting = workingOrderProduct
+    ? workingOrderProduct.firstRolloutTestAwaiting === true
+    : false;
+  const rolloutStatus = workingOrderProduct?.rolloutStatus || null;
+  const reviewAfterDays = workingOrderProduct?.reviewAfterDays ?? null;
+  const rolloutRecommendedQuantity = workingOrderProduct
+    ? workingOrderProduct.prePolicyFinalRecommendedQuantity ?? null
+    : null;
+  if (firstRolloutTestAwaiting) {
+    reviewQueueMemberships.push('test_awaiting_introduction');
+    reasonCodes.push('FIRST_ROLLOUT_TEST_AWAITING_INTRODUCTION');
+    manualReviewReasons.push('FIRST_ROLLOUT_TEST_AWAITING_INTRODUCTION');
+  }
+
   return {
     rowIdentity: row.rowIdentity,
     source_row_number: row.rowNumber,
@@ -275,6 +290,11 @@ function buildDraftItem({
     normalized_name: normalizedName(row.name),
     brand: inferredBrand || null,
     category: inferredCategory,
+    rollout_status: rolloutStatus,
+    review_after_days: reviewAfterDays,
+    first_rollout_test_awaiting: firstRolloutTestAwaiting,
+    test_review_date: null,
+    rollout_recommended_quantity: finiteNumberOrNull(rolloutRecommendedQuantity),
     suggested_role: roleResult.role,
     suggested_priority: selectedPolicy.priority,
     suggested_minimum_shelf_stock: selectedPolicy.minimum_shelf_stock,
@@ -346,6 +366,7 @@ function buildDraftItem({
       phase2_decision: phase2Decision?.decision || null,
       phase1_quantity: finiteNumberOrNull(phase1Decision?.calculatedOrderQuantity),
       phase2_quantity: finiteNumberOrNull(phase2Decision?.calculatedOrderQuantity),
+      rollout_recommended_quantity: finiteNumberOrNull(rolloutRecommendedQuantity),
       strategic_group_matches: roleResult.strategicGroups.map(group => ({
         id: group.id,
         brand: group.brand,
@@ -473,6 +494,11 @@ function buildMatrixDraft({
   assertUsableAdapterResult(adapterResult);
   const phase1ByIdentity = decisionByIdentity(agentJson.phase1Decisions);
   const phase2ByIdentity = decisionByIdentity(agentJson.decisions);
+  const workingOrderByIdentity = new Map(
+    (agentJson.workingOrderProducts || [])
+      .filter(product => typeof product?.rowIdentity === 'string')
+      .map(product => [product.rowIdentity, product])
+  );
   const existingMatchResult = existingMatrix
     ? matchAssortmentMatrix(existingMatrix, adapterResult.rows)
     : null;
@@ -487,6 +513,7 @@ function buildMatrixDraft({
       row,
       phase1Decision: phase1ByIdentity.get(row.rowIdentity),
       phase2Decision: phase2ByIdentity.get(row.rowIdentity),
+      workingOrderProduct: workingOrderByIdentity.get(row.rowIdentity) || null,
       existingMatch,
       ambiguousIdentity: duplicateRows.has(row.rowIdentity) ||
         ambiguousRows.has(row.rowIdentity),

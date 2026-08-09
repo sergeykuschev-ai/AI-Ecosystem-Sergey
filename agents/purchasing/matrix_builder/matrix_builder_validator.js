@@ -109,6 +109,8 @@ const REASON_EXPLANATIONS = Object.freeze({
   large_inventory_units: 'Максимальный запас превышает порог в единицах.',
   approved_policy_conflict: 'Автоматическое предложение отличается от утверждённой политики.',
   placeholder_difference: 'Автоматическое предложение отличается от временной заглушки матрицы.',
+  FIRST_ROLLOUT_TEST_AWAITING_INTRODUCTION:
+    'Товар TEST в категории FIRST_ROLLOUT: требуется решение владельца перед первой закупкой.',
 });
 
 class MatrixBuilderError extends Error {

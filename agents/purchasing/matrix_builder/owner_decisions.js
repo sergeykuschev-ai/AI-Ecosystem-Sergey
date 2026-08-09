@@ -105,6 +105,18 @@ function optionalExpiresAt(value) {
   return isoTimestamp(value, 'expires_at');
 }
 
+function optionalIsoDate(value, field = 'original_decision_review_date') {
+  if (value === null || value === undefined) return null;
+  const normalized = nonEmptyString(value, field);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+    throw new OwnerDecisionError(`${field} должен иметь формат YYYY-MM-DD.`, 'INVALID_OWNER_DECISION');
+  }
+  if (!Number.isFinite(Date.parse(normalized))) {
+    throw new OwnerDecisionError(`${field} содержит некорректную дату.`, 'INVALID_OWNER_DECISION');
+  }
+  return normalized;
+}
+
 function addDaysToIsoTimestamp(isoTimestamp, days) {
   const date = new Date(isoTimestamp);
   date.setUTCDate(date.getUTCDate() + days);
@@ -267,6 +279,11 @@ function validateOwnerDecision(value) {
     idempotency_key: optionalString(value.idempotency_key, 'idempotency_key'),
     scope: optionalScope(value.scope),
     expires_at: optionalExpiresAt(value.expires_at),
+    original_decision: optionalString(value.original_decision, 'original_decision'),
+    original_decision_review_date: optionalIsoDate(
+      value.original_decision_review_date,
+      'original_decision_review_date'
+    ),
   };
 }
 

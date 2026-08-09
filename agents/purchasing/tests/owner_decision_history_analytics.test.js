@@ -108,6 +108,9 @@ test('empty history produces a complete zero analytics report', () => {
     SKIP: 0,
     DEFER: 0,
     REVIEW: 0,
+    BUY_NOW: 0,
+    POSTPONE: 0,
+    REMOVE_FROM_MATRIX: 0,
   });
   assert.equal(result.agreementAnalysis.agreementRate, null);
   assert.deepEqual(result.itemAnalytics, []);
@@ -123,12 +126,12 @@ test('one BUY entry is counted without inventing patterns', () => {
 });
 
 test('owner decision distribution keeps all supported decisions', () => {
-  const entries = ['BUY', 'SKIP', 'DEFER', 'REVIEW'].map(
+  const entries = ['BUY', 'SKIP', 'DEFER', 'REVIEW', 'BUY_NOW', 'POSTPONE', 'REMOVE_FROM_MATRIX'].map(
     (ownerDecision, index) => entry(index + 1, {
       stableItemKey: `sku:SKU-${index + 1}`,
       sku: `SKU-${index + 1}`,
       ownerDecision,
-      ownerQuantity: ownerDecision === 'BUY' ? 1 : 0,
+      ownerQuantity: ownerDecision === 'BUY' || ownerDecision === 'BUY_NOW' ? 1 : 0,
     })
   );
 
@@ -137,6 +140,9 @@ test('owner decision distribution keeps all supported decisions', () => {
     SKIP: 1,
     DEFER: 1,
     REVIEW: 1,
+    BUY_NOW: 1,
+    POSTPONE: 1,
+    REMOVE_FROM_MATRIX: 1,
   });
 });
 
@@ -183,6 +189,9 @@ test('item analytics merges runs by SKU and keeps the latest decision details', 
     SKIP: 1,
     DEFER: 0,
     REVIEW: 0,
+    BUY_NOW: 0,
+    POSTPONE: 0,
+    REMOVE_FROM_MATRIX: 0,
   });
   assert.equal(shared.reasonsByType.HIGH_STOCK, 1);
   assert.equal(shared.reasonsByType.CUSTOMER_REQUEST, 1);
@@ -291,6 +300,9 @@ test('item analytics aggregates identity, decisions, and quantities', () => {
     SKIP: 1,
     DEFER: 0,
     REVIEW: 0,
+    BUY_NOW: 0,
+    POSTPONE: 0,
+    REMOVE_FROM_MATRIX: 0,
   });
   assert.equal(item.agreements, 1);
   assert.equal(item.disagreements, 1);

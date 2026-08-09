@@ -32,7 +32,14 @@ const {
   applyPackagingRules,
   classifyItem,
 } = require('../../../agents/purchasing/services/final_order');
-const WEB_OWNER_DECISIONS = Object.freeze(['BUY', 'SKIP', 'DEFER']);
+const WEB_OWNER_DECISIONS = Object.freeze([
+  'BUY',
+  'SKIP',
+  'DEFER',
+  'BUY_NOW',
+  'POSTPONE',
+  'REMOVE_FROM_MATRIX',
+]);
 const MAX_OWNER_ORDER_QUANTITY = 10000;
 const MAX_OWNER_COMMENT_LENGTH = 1000;
 const OWNER_DECISION_ACTOR = 'owner-web-ui';
@@ -104,10 +111,10 @@ function validateWebDecision(input) {
     );
   }
   let quantity = input.quantity;
-  if (decision === 'SKIP') quantity = 0;
-  if (decision === 'DEFER') quantity = null;
+  if (decision === 'SKIP' || decision === 'REMOVE_FROM_MATRIX') quantity = 0;
+  if (decision === 'DEFER' || decision === 'POSTPONE') quantity = null;
   if (
-    decision === 'BUY' &&
+    (decision === 'BUY' || decision === 'BUY_NOW') &&
     (!Number.isInteger(quantity) ||
       quantity < 0 ||
       quantity > MAX_OWNER_ORDER_QUANTITY)
@@ -183,6 +190,8 @@ function decisionView(decision) {
   return {
     status: decision.status,
     decision: webDecision,
+    original_decision: decision.original_decision || null,
+    review_date: decision.original_decision_review_date || null,
     quantity: webDecision
       ? decision.owner_order_quantity ?? null
       : null,
@@ -355,10 +364,15 @@ class OwnerDecisionService {
       const decision = decisionKey
         ? active.get(decisionKey)
         : null;
-      return withFinalQuantity({
+      const mappedDecision = decisionView(decision);
+      const decorated = {
         ...item,
-        owner_decision: decisionView(decision),
-      });
+        owner_decision: mappedDecision,
+      };
+      if (mappedDecision.review_date) {
+        decorated.test_review_date = mappedDecision.review_date;
+      }
+      return withFinalQuantity(decorated);
     });
   }
 
@@ -388,20 +402,53 @@ class OwnerDecisionService {
         'Для товара не удалось определить безопасный ключ решения.'
       );
     }
+    const decidedAt = this.now();
+    const isRolloutItem = item.first_rollout_test_awaiting === true ||
+      item.assortment_policy?.rollout_status === 'FIRST_ROLLOUT';
+    const reviewAfterDays = item.assortment_policy?.review_after_days ??
+      item.review_after_days ??
+      DEFAULT_RUN_DECISION_TTL_DAYS;
+
+    const decisionMapping = {
+      BUY_NOW: { internal: 'BUY', original: 'BUY_NOW', canBePermanent: true },
+      POSTPONE: { internal: 'DEFER', original: 'POSTPONE', canBePermanent: false },
+      REMOVE_FROM_MATRIX: { internal: 'SKIP', original: 'REMOVE_FROM_MATRIX', canBePermanent: true },
+      BUY: { internal: 'BUY', original: null, canBePermanent: true },
+      SKIP: { internal: 'SKIP', original: null, canBePermanent: true },
+      DEFER: { internal: 'DEFER', original: null, canBePermanent: false },
+    };
+    const mapping = decisionMapping[validated.decision];
+    const internalDecision = mapping.internal;
+    const originalDecision = mapping.original;
+
+    const legacyReason = LEGACY_DECISION_REASONS[internalDecision];
+    const rolloutReason = originalDecision
+      ? `Владелец выбрал «${originalDecision}» для TEST в FIRST_ROLLOUT.`
+      : null;
     const reason = validated.reasonCode
       ? OWNER_REVIEW_REASON_LABELS[validated.reasonCode]
-      : LEGACY_DECISION_REASONS[validated.decision];
-    const decidedAt = this.now();
-    const canBePermanent = validated.decision === 'BUY' || validated.decision === 'SKIP';
-    const scope = canBePermanent && validated.permanent ? 'permanent' : 'run';
-    const expiresAt = scope === 'run'
-      ? addDaysToIsoTimestamp(decidedAt, DEFAULT_RUN_DECISION_TTL_DAYS)
-      : null;
+      : (isRolloutItem && rolloutReason ? rolloutReason : legacyReason);
+
+    const canBePermanent = mapping.canBePermanent;
+    const requestedPermanent = validated.permanent === true;
+    const scope = canBePermanent && requestedPermanent ? 'permanent' : 'run';
+    let expiresAt = null;
+    let originalDecisionReviewDate = null;
+    if (scope === 'run') {
+      const ttlDays = originalDecision === 'POSTPONE' && isRolloutItem
+        ? reviewAfterDays
+        : DEFAULT_RUN_DECISION_TTL_DAYS;
+      expiresAt = addDaysToIsoTimestamp(decidedAt, ttlDays);
+    }
+    if (originalDecision === 'POSTPONE' && isRolloutItem && expiresAt) {
+      originalDecisionReviewDate = expiresAt.slice(0, 10);
+    }
+
     let saved;
     try {
       saved = this.appendDecision(this.ownerDecisionsPath, {
         sku: decisionKey,
-        owner_decision: validated.decision,
+        owner_decision: internalDecision,
         owner_role_override: null,
         owner_policy_override: null,
         owner_order_quantity: validated.quantity,
@@ -415,6 +462,8 @@ class OwnerDecisionService {
         source_version: 'purchasing-web-owner-decisions-v1',
         scope,
         expires_at: expiresAt,
+        original_decision: originalDecision,
+        original_decision_review_date: originalDecisionReviewDate,
       }, { idempotencyKey });
     } catch (error) {
       throw new OwnerDecisionServiceError(
@@ -423,10 +472,14 @@ class OwnerDecisionService {
         { cause: error }
       );
     }
+    const savedItemView = decisionView(saved.decision);
     const savedItem = withFinalQuantity({
       ...item,
-      owner_decision: decisionView(saved.decision),
+      owner_decision: savedItemView,
     });
+    if (savedItemView.review_date) {
+      savedItem.test_review_date = savedItemView.review_date;
+    }
     if (saved.duplicate) {
       return {
         item: savedItem,
@@ -485,7 +538,7 @@ class OwnerDecisionService {
           ),
         },
         ownerDecision: {
-          decision: validated.decision,
+          decision: originalDecision || validated.decision,
           quantity: validated.quantity,
           decidedBy: saved.decision.decided_by,
           reasonCode: validated.reasonCode,

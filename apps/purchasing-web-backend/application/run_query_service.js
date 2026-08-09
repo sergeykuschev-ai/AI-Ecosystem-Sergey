@@ -37,6 +37,7 @@ const OWNER_REVIEW_SECTIONS = Object.freeze([
   'placeholder_differences',
   'requires_confirmation',
   'commercial_review',
+  'test_awaiting_introduction',
   'owner_decision_sheet',
 ]);
 
@@ -232,17 +233,27 @@ function ownerSectionItem(item) {
     source_row: item.source_row,
     sku: item.sku,
     name: item.name,
+    supplier: item.supplier || null,
+    category: item.category || null,
     matrix_role: item.matrix?.role || null,
     priority: item.matrix?.owner_review_priority || null,
     score: item.matrix?.owner_review_score ?? null,
     reasons: [...(item.matrix?.owner_review_reasons || [])],
     recommended_action: item.matrix?.recommended_action || null,
+    first_rollout_test_awaiting: item.first_rollout_test_awaiting === true,
+    rollout_status: item.rollout_status || null,
+    review_after_days: item.review_after_days ?? null,
+    test_review_date: item.test_review_date || null,
+    owner_decision: item.owner_decision || null,
     quantities: {
       minmax_quantity: item.quantities?.minmax_quantity ??
         item.quantities?.calculated_quantity ??
         null,
       policy_quantity: item.quantities?.policy_quantity ??
         item.quantities?.calculated_quantity ??
+        null,
+      rollout_recommended_quantity: item.quantities?.rollout_recommended_quantity ??
+        item.rollout_recommended_quantity ??
         null,
       final_quantity: item.quantities?.final_quantity ?? null,
     },

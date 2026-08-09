@@ -293,6 +293,9 @@ test('summarizes decisions, reasons, sources and repeated items', () => {
     SKIP: 1,
     DEFER: 1,
     REVIEW: 0,
+    BUY_NOW: 0,
+    POSTPONE: 0,
+    REMOVE_FROM_MATRIX: 0,
   });
   assert.equal(summary.decisionsByReason.TOO_MUCH_STOCK, 1);
   assert.equal(summary.decisionsByReason.STRATEGIC_ITEM, 1);

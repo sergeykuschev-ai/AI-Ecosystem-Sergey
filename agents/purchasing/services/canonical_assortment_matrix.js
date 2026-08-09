@@ -18,6 +18,16 @@ const SEASONALITY_TYPES = Object.freeze([
   'periods',
 ]);
 
+const ROLLOUT_STATUSES = Object.freeze([
+  'NEW',
+  'FIRST_ROLLOUT',
+  'MONITORING',
+  'ACTIVE',
+]);
+
+const DEFAULT_ROLLOUT_STATUS = 'ACTIVE';
+const DEFAULT_REVIEW_AFTER_DAYS = 30;
+
 class CanonicalAssortmentMatrixError extends Error {
   constructor(code, message, options = {}) {
     super(message, options.cause ? { cause: options.cause } : undefined);
@@ -186,6 +196,20 @@ function validateCanonicalItem(value, index) {
   const category = optionalString(value.category, `${prefix}.category`);
   const subcategory = optionalString(value.subcategory, `${prefix}.subcategory`);
 
+  const rolloutStatus = value.rollout_status === undefined || value.rollout_status === null
+    ? DEFAULT_ROLLOUT_STATUS
+    : validateEnum(
+        value.rollout_status,
+        ROLLOUT_STATUSES,
+        `${prefix}.rollout_status`
+      );
+  const reviewAfterDays = value.review_after_days === undefined || value.review_after_days === null
+    ? DEFAULT_REVIEW_AFTER_DAYS
+    : nonNegativeInteger(
+        value.review_after_days,
+        `${prefix}.review_after_days`
+      );
+
   const assortmentStatus = validateEnum(
     value.assortment_status,
     ASSORTMENT_STATUSES,
@@ -294,6 +318,8 @@ function validateCanonicalItem(value, index) {
     brand,
     category,
     subcategory,
+    rollout_status: rolloutStatus,
+    review_after_days: reviewAfterDays,
     assortment_status: assortmentStatus,
     mandatory_assortment: mandatoryAssortment,
     purchase_hold: purchaseHold,
@@ -400,6 +426,9 @@ function toAssortmentPolicyRule(item) {
     owner_comment: item.rule_reason || '',
     rule_source: 'canonical-matrix',
     updated_at: item.rule_changed_at,
+    category: item.category,
+    rollout_status: item.rollout_status,
+    review_after_days: item.review_after_days,
     canonical: {
       sku_id: item.sku_id,
       supplier: item.supplier,
@@ -407,6 +436,8 @@ function toAssortmentPolicyRule(item) {
       brand: item.brand,
       category: item.category,
       subcategory: item.subcategory,
+      rollout_status: item.rollout_status,
+      review_after_days: item.review_after_days,
       lead_time_days: item.lead_time_days,
       order_cycle_days: item.order_cycle_days,
       seasonality: item.seasonality,
@@ -425,6 +456,9 @@ module.exports = {
   ASSORTMENT_STATUSES,
   ONE_C_STATUSES,
   SEASONALITY_TYPES,
+  ROLLOUT_STATUSES,
+  DEFAULT_ROLLOUT_STATUS,
+  DEFAULT_REVIEW_AFTER_DAYS,
   CanonicalAssortmentMatrixError,
   currentSeasonalCoefficient,
   dateInPeriod,

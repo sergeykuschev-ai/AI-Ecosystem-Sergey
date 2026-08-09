@@ -27,6 +27,9 @@ const OWNER_DECISIONS = Object.freeze([
   'SKIP',
   'DEFER',
   'REVIEW',
+  'BUY_NOW',
+  'POSTPONE',
+  'REMOVE_FROM_MATRIX',
 ]);
 const OWNER_REVIEW_REASON_CODES = Object.freeze([
   'HIGH_STOCK',

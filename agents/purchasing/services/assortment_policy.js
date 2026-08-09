@@ -13,7 +13,15 @@ const POLICY_RULES = Object.freeze({
   PURCHASE_HOLD: 'PURCHASE_HOLD',
   MAX_STOCK: 'MAX_STOCK',
   MANDATORY_ASSORTMENT: 'MANDATORY_ASSORTMENT',
+  FIRST_ROLLOUT_POSTPONE: 'FIRST_ROLLOUT_POSTPONE',
 });
+
+const ROLLOUT_STATUSES = Object.freeze([
+  'NEW',
+  'FIRST_ROLLOUT',
+  'MONITORING',
+  'ACTIVE',
+]);
 
 class AssortmentPolicyError extends Error {
   constructor(code, message, options = {}) {
@@ -54,6 +62,16 @@ function optionalString(value, field, options = {}) {
   if (typeof value !== 'string') invalid(`${field} должен быть строкой.`);
   const normalized = value.trim();
   if (options.required && normalized === '') invalid(`${field} не должен быть пустым.`);
+  return normalized;
+}
+
+function optionalRolloutStatus(value, field) {
+  if (value === null || value === undefined || value === '') return null;
+  if (typeof value !== 'string') invalid(`${field} должен быть строкой.`);
+  const normalized = value.trim().toUpperCase();
+  if (!ROLLOUT_STATUSES.includes(normalized)) {
+    invalid(`${field} должен быть одним из: ${ROLLOUT_STATUSES.join(', ')}.`);
+  }
   return normalized;
 }
 
@@ -132,6 +150,16 @@ function validateAssortmentPolicyRule(value) {
       required: true,
     }),
     updated_at: validateTimestamp(value.updated_at, `updated_at для ${sku}`),
+    category: optionalString(value.category, `category для ${sku}`),
+    rollout_status: optionalRolloutStatus(
+      value.rollout_status,
+      `rollout_status для ${sku}`
+    ),
+    review_after_days: nullableNumber(
+      value.review_after_days,
+      `review_after_days для ${sku}`,
+      { integer: true }
+    ),
     canonical: value.canonical || null,
   };
 }
@@ -351,6 +379,7 @@ function applyAssortmentPolicy(input = {}) {
   let quantity = normalizedMinmax;
   let mandatoryMinimumGap = null;
   let mainRule = POLICY_RULES.NONE;
+  let firstRolloutTestAwaiting = false;
   let explanation = `Min/Max предложил ${normalizedMinmax ?? 'неопределённое количество'} шт. Политика не изменила рекомендацию.`;
 
   if (rule.assortment_status === 'EXIT') {
@@ -374,9 +403,28 @@ function applyAssortmentPolicy(input = {}) {
         ? `Min/Max предложил ${normalizedMinmax ?? 0} шт. Заказ отменён: действует полный временный запрет закупки.`
         : `Min/Max предложил ${normalizedMinmax ?? 0} шт. Заказ отменён: текущий остаток ${stock} шт., действует запрет до снижения остатка до ${rule.purchase_hold_until_stock} шт.`;
     } else {
-      if (quantity === null) warnings.push('MINMAX_QUANTITY_UNAVAILABLE');
+      firstRolloutTestAwaiting =
+        rule.assortment_status === 'TEST' &&
+        rule.rollout_status === 'FIRST_ROLLOUT';
+      if (firstRolloutTestAwaiting) {
+        quantity = 0;
+        mainRule = POLICY_RULES.FIRST_ROLLOUT_POSTPONE;
+        appliedRules.push(POLICY_RULES.FIRST_ROLLOUT_POSTPONE);
+        explanation = `Min/Max предложил ${normalizedMinmax ?? 0} шт. ` +
+          `Заказ отложён: товар TEST в категории со статусом FIRST_ROLLOUT, ` +
+          `требуется решение владельца.`;
+      }
 
-      if (quantity !== null && stock !== null && rule.max_stock !== null) {
+      if (quantity === null && !firstRolloutTestAwaiting) {
+        warnings.push('MINMAX_QUANTITY_UNAVAILABLE');
+      }
+
+      if (
+        !firstRolloutTestAwaiting &&
+        quantity !== null &&
+        stock !== null &&
+        rule.max_stock !== null
+      ) {
         const capped = Math.max(0, Math.min(quantity, rule.max_stock - stock));
         if (capped !== quantity) {
           quantity = capped;
@@ -389,6 +437,7 @@ function applyAssortmentPolicy(input = {}) {
       }
 
       if (
+        !firstRolloutTestAwaiting &&
         rule.mandatory_assortment &&
         stock !== null &&
         rule.min_stock !== null
@@ -408,7 +457,12 @@ function applyAssortmentPolicy(input = {}) {
         warnings.push('CURRENT_STOCK_REQUIRED_FOR_MANDATORY_ASSORTMENT');
       }
 
-      if (quantity !== null && stock !== null && rule.max_stock !== null) {
+      if (
+        !firstRolloutTestAwaiting &&
+        quantity !== null &&
+        stock !== null &&
+        rule.max_stock !== null
+      ) {
         const capped = Math.max(0, Math.min(quantity, rule.max_stock - stock));
         if (capped !== quantity) {
           quantity = capped;
@@ -435,6 +489,7 @@ function applyAssortmentPolicy(input = {}) {
       : null,
     policy_warnings: warnings,
     matched: true,
+    first_rollout_test_awaiting: firstRolloutTestAwaiting,
     rule: policyView(rule),
     canonical: rule.canonical,
     ...policyView(rule),
@@ -474,6 +529,7 @@ function applyAssortmentPolicyToProducts(products, store, runContext = {}) {
         ...product,
         minmaxRecommendedQuantity: result.minmax_qty,
         finalRecommendedQuantity: result.policy_qty,
+        prePolicyFinalRecommendedQuantity: product.finalRecommendedQuantity,
         mandatoryMinimumGap: result.mandatory_minimum_gap === null
           ? product.mandatoryMinimumGap
           : Math.max(product.mandatoryMinimumGap ?? 0, result.mandatory_minimum_gap),
@@ -481,6 +537,10 @@ function applyAssortmentPolicyToProducts(products, store, runContext = {}) {
         mandatoryAssortment: result.matched && result.mandatory_assortment
           ? true
           : product.mandatoryAssortment,
+        category: result.category || product.category || null,
+        rolloutStatus: result.rollout_status || product.rolloutStatus || null,
+        reviewAfterDays: result.review_after_days ?? product.reviewAfterDays ?? null,
+        firstRolloutTestAwaiting: result.first_rollout_test_awaiting === true,
       };
     } catch (error) {
       const reasonCodes = classifyAssortmentPolicyError(error, product);
@@ -503,6 +563,7 @@ module.exports = {
   AssortmentPolicyError,
   ORDER_MODES,
   POLICY_RULES,
+  ROLLOUT_STATUSES,
   applyAssortmentPolicy,
   applyAssortmentPolicyToProducts,
   buildRulesIndex,

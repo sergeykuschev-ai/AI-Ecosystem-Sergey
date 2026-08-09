@@ -153,7 +153,17 @@ function classifyItem(item) {
   }
   if (decision === 'SKIP') return { kind: 'excluded', reason: 'skipped' };
   if (decision === 'DEFER') {
-    return { kind: 'excluded', reason: 'deferred' };
+    const isRollout = item?.first_rollout_test_awaiting === true ||
+      item?.assortment_policy?.rollout_status === 'FIRST_ROLLOUT';
+    return { kind: 'excluded', reason: isRollout ? 'postponed_by_rollout' : 'deferred' };
+  }
+  const isFirstRolloutTestAwaiting = item?.first_rollout_test_awaiting === true ||
+    (
+      item?.assortment_policy?.assortment_status === 'TEST' &&
+      item?.assortment_policy?.rollout_status === 'FIRST_ROLLOUT'
+    );
+  if (isFirstRolloutTestAwaiting) {
+    return { kind: 'unresolved', reason: 'first_rollout_review_required' };
   }
   if (item?.matrix?.owner_review_required === true) {
     return { kind: 'unresolved', reason: 'review_required' };

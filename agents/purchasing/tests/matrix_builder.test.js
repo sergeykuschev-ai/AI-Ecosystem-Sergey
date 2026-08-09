@@ -153,6 +153,7 @@ function draftItem(sourceRow = row(), options = {}) {
     row: sourceRow,
     phase1Decision: phaseDecision(sourceRow),
     phase2Decision: phaseDecision(sourceRow),
+    workingOrderProduct: options.workingOrderProduct || null,
     existingMatch: options.existingMatch || null,
     ambiguousIdentity: options.ambiguousIdentity || false,
     config: CONFIG,
@@ -866,4 +867,45 @@ test('CLI forwards explicit report date without using system date as report date
   });
   assert.equal(receivedOptions.reportDate, '2026-07-19');
   assert.notEqual(receivedOptions.reportDate, '2026-08-20');
+});
+
+test('First Category Rollout: TEST product is queued in test_awaiting_introduction', () => {
+  const sourceRow = row({ article: 'TEST-1', name: 'TEST Shampoo 250 ml' });
+  const item = draftItem(sourceRow, {
+    workingOrderProduct: {
+      article: 'TEST-1',
+      category: 'Care',
+      rolloutStatus: 'FIRST_ROLLOUT',
+      reviewAfterDays: 30,
+      firstRolloutTestAwaiting: true,
+      prePolicyFinalRecommendedQuantity: 7,
+    },
+  });
+
+  assert.equal(item.first_rollout_test_awaiting, true);
+  assert.equal(item.rollout_status, 'FIRST_ROLLOUT');
+  assert.equal(item.review_after_days, 30);
+  assert.equal(item.rollout_recommended_quantity, 7);
+  assert.ok(item.review_queue_memberships.includes('test_awaiting_introduction'));
+  assert.ok(item.reason_codes.includes('FIRST_ROLLOUT_TEST_AWAITING_INTRODUCTION'));
+  assert.equal(item.evidence.rollout_recommended_quantity, 7);
+});
+
+test('First Category Rollout: ACTIVE category TEST product is not queued as awaiting introduction', () => {
+  const sourceRow = row({ article: 'TEST-2', name: 'TEST Conditioner' });
+  const item = draftItem(sourceRow, {
+    workingOrderProduct: {
+      article: 'TEST-2',
+      category: 'Care',
+      rolloutStatus: 'ACTIVE',
+      reviewAfterDays: null,
+      firstRolloutTestAwaiting: false,
+      prePolicyFinalRecommendedQuantity: null,
+    },
+  });
+
+  assert.equal(item.first_rollout_test_awaiting, false);
+  assert.equal(item.rollout_status, 'ACTIVE');
+  assert.equal(item.rollout_recommended_quantity, null);
+  assert.ok(!item.review_queue_memberships.includes('test_awaiting_introduction'));
 });
