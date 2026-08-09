@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE TABLE arthur_tasks (
+CREATE TABLE IF NOT EXISTS arthur_tasks (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id uuid NOT NULL REFERENCES arthur_profiles(id) ON DELETE CASCADE,
   domain text NOT NULL CHECK (domain IN ('personal','health','travel','content','business','purchasing','academy','finance','system')),
@@ -23,10 +23,10 @@ CREATE TABLE arthur_tasks (
   CHECK (status <> 'done' OR completed_at IS NOT NULL)
 );
 
-CREATE INDEX arthur_tasks_owner_status ON arthur_tasks(owner_id, status, due_at);
-CREATE INDEX arthur_tasks_waiting_check ON arthur_tasks(next_check_at) WHERE status = 'waiting';
+CREATE INDEX IF NOT EXISTS arthur_tasks_owner_status ON arthur_tasks(owner_id, status, due_at);
+CREATE INDEX IF NOT EXISTS arthur_tasks_waiting_check ON arthur_tasks(next_check_at) WHERE status = 'waiting';
 
-CREATE TABLE arthur_decisions (
+CREATE TABLE IF NOT EXISTS arthur_decisions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id uuid NOT NULL REFERENCES arthur_profiles(id) ON DELETE CASCADE,
   domain text NOT NULL CHECK (domain IN ('personal','health','travel','content','business','purchasing','academy','finance','system')),
@@ -42,9 +42,9 @@ CREATE TABLE arthur_decisions (
   CHECK (supersedes_decision_id IS NULL OR supersedes_decision_id <> id)
 );
 
-CREATE INDEX arthur_decisions_owner_domain ON arthur_decisions(owner_id, domain, created_at DESC);
+CREATE INDEX IF NOT EXISTS arthur_decisions_owner_domain ON arthur_decisions(owner_id, domain, created_at DESC);
 
-CREATE TABLE arthur_confirmations (
+CREATE TABLE IF NOT EXISTS arthur_confirmations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id uuid NOT NULL REFERENCES arthur_profiles(id) ON DELETE CASCADE,
   domain text NOT NULL CHECK (domain IN ('personal','health','travel','content','business','purchasing','academy','finance','system')),
@@ -68,8 +68,8 @@ CREATE TABLE arthur_confirmations (
   CHECK (status <> 'executed' OR executed_at IS NOT NULL)
 );
 
-CREATE INDEX arthur_confirmations_pending ON arthur_confirmations(owner_id, expires_at) WHERE status = 'pending';
-CREATE UNIQUE INDEX arthur_confirmations_one_pending_action
+CREATE INDEX IF NOT EXISTS arthur_confirmations_pending ON arthur_confirmations(owner_id, expires_at) WHERE status = 'pending';
+CREATE UNIQUE INDEX IF NOT EXISTS arthur_confirmations_one_pending_action
   ON arthur_confirmations(owner_id, skill_id, action_type, payload_fingerprint)
   WHERE status = 'pending';
 

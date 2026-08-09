@@ -19,23 +19,19 @@ services:
       - arthur_internal
 
   migrate:
-    image: postgres:16-alpine
+    build:
+      context: ../..
+      dockerfile: docker/arthur/Dockerfile
     restart: "no"
     depends_on:
       postgres:
         condition: service_healthy
     environment:
-      PGPASSWORD: ${ARTHUR_POSTGRES_PASSWORD:?ARTHUR_POSTGRES_PASSWORD is required}
-    volumes:
-      - ../../data/arthur/migrations:/migrations:ro
+      NODE_ENV: production
+      ARTHUR_DATABASE_URL: postgresql://arthur:${ARTHUR_POSTGRES_PASSWORD:?ARTHUR_POSTGRES_PASSWORD is required}@postgres:5432/arthur
     command:
-      - /bin/sh
-      - -ec
-      - |
-        for file in /migrations/*.up.sql; do
-          echo "Applying $${file}"
-          psql -h postgres -U arthur -d arthur -v ON_ERROR_STOP=1 -f "$${file}"
-        done
+      - node
+      - scripts/arthur/run-migrations.js
     networks:
       - arthur_internal
 

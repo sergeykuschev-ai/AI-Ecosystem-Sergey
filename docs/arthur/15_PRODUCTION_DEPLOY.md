@@ -24,7 +24,19 @@ ARTHUR_N8N_NETWORK=arthur_n8n
 
 Файл `.env` не добавлять в Git.
 
-## 2. Запустить безопасный deploy
+## 2. Миграции
+
+Миграции управляются `agents/arthur-core/runtime/run-migrations.js` и таблицей `arthur_migrations`:
+
+- каждая `.up.sql` миграция применяется только один раз;
+- повторный `docker compose up` пропускает уже применённые миграции;
+- SQL написан с `IF NOT EXISTS`, поэтому существующая production база безопасно базелинится;
+- при ошибке в миграции происходит `ROLLBACK`, частичные изменения не фиксируются;
+- не используйте ручной `psql -f` цикл — он не ведёт учёт и может повторно применить миграции.
+
+Если на production базе уже есть таблицы `arthur_profiles`, `arthur_memory` и другие, но нет `arthur_migrations`, первый запуск runner создаст `arthur_migrations`, зафиксирует существующее состояние и не будет повторно создавать таблицы.
+
+## 3. Запустить безопасный deploy
 
 Windows PowerShell:
 
@@ -41,12 +53,12 @@ sh scripts/arthur/deploy-production.sh
 Скрипт:
 
 1. проверяет наличие Docker, `.env` и контейнера `n8n`;
-2. поднимает PostgreSQL, миграции и Arthur Core;
+2. поднимает PostgreSQL, применяет миграции и Arthur Core;
 3. подключает существующий контейнер `n8n` к сети `arthur_n8n`;
 4. проверяет доступ к `/health` из отдельного контейнера в этой сети;
 5. не пересоздаёт и не останавливает n8n.
 
-## 3. Создать credential в n8n
+## 4. Создать credential в n8n
 
 В n8n создать credential типа **Header Auth**:
 
@@ -56,7 +68,7 @@ sh scripts/arthur/deploy-production.sh
 
 Токен хранится в защищённом credential n8n, а не в workflow JSON и не требует пересоздания контейнера n8n.
 
-## 4. Проверить профиль владельца
+## 5. Проверить профиль владельца
 
 До активации workflow выполнить защищённый запрос:
 
@@ -68,7 +80,7 @@ GET /v1/profiles/sergey
 Создание `sergey` изменяет production storage и выполняется только контролируемым запросом
 `POST /v1/profiles`; deploy-скрипт и importer профиль не создают.
 
-## 5. Импортировать workflow автоматически
+## 6. Импортировать workflow автоматически
 
 Подготовить локальное окружение по примеру `scripts/arthur/n8n-import.env.example`, затем выполнить:
 
@@ -83,7 +95,7 @@ ARTHUR_N8N_WORKFLOW=arthur-create-task-production node scripts/arthur/import-n8n
 назначает credential по его внутреннему ID и всегда оставляет workflow выключенным.
 Повторный запуск обновляет workflow с тем же именем и не создаёт дубликат.
 
-## 6. Проверить и активировать
+## 7. Проверить и активировать
 
 Отправить POST-запрос на production webhook n8n:
 

@@ -67,10 +67,10 @@ test('workflow constants expose canonical statuses', () => {
   assert.ok(CONFIRMATION_STATUSES.includes('executed'));
 });
 
-test('migration creates workflow tables and constraints', () => {
-  assert.match(sql, /CREATE TABLE arthur_tasks/);
-  assert.match(sql, /CREATE TABLE arthur_decisions/);
-  assert.match(sql, /CREATE TABLE arthur_confirmations/);
+test('migration creates workflow tables and constraints idempotently', () => {
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS arthur_tasks/);
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS arthur_decisions/);
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS arthur_confirmations/);
   assert.match(sql, /status <> 'waiting'/);
   assert.match(sql, /payload_fingerprint char\(64\)/);
   assert.match(sql, /arthur_confirmations_one_pending_action/);

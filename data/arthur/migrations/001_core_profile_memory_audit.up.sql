@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
-CREATE TABLE arthur_profiles (
+CREATE TABLE IF NOT EXISTS arthur_profiles (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   external_id text NOT NULL UNIQUE,
   name text NOT NULL CHECK (btrim(name) <> ''),
@@ -14,7 +14,7 @@ CREATE TABLE arthur_profiles (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE arthur_memory (
+CREATE TABLE IF NOT EXISTS arthur_memory (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id uuid NOT NULL REFERENCES arthur_profiles(id) ON DELETE CASCADE,
   domain text NOT NULL CHECK (domain IN ('personal','health','travel','content','business','purchasing','academy','finance','system')),
@@ -33,14 +33,14 @@ CREATE TABLE arthur_memory (
   CHECK (valid_to IS NULL OR valid_to > valid_from)
 );
 
-CREATE UNIQUE INDEX arthur_memory_one_active_key
+CREATE UNIQUE INDEX IF NOT EXISTS arthur_memory_one_active_key
   ON arthur_memory(owner_id, domain, key)
   WHERE status = 'active' AND valid_to IS NULL;
 
-CREATE INDEX arthur_memory_lookup
+CREATE INDEX IF NOT EXISTS arthur_memory_lookup
   ON arthur_memory(owner_id, domain, key, created_at DESC);
 
-CREATE TABLE arthur_audit_events (
+CREATE TABLE IF NOT EXISTS arthur_audit_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   actor_id text NOT NULL,
   actor_type text NOT NULL CHECK (actor_type IN ('user','system','skill','automation')),
@@ -57,9 +57,9 @@ CREATE TABLE arthur_audit_events (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX arthur_audit_entity_lookup
+CREATE INDEX IF NOT EXISTS arthur_audit_entity_lookup
   ON arthur_audit_events(entity_type, entity_id, created_at DESC);
-CREATE INDEX arthur_audit_correlation_lookup
+CREATE INDEX IF NOT EXISTS arthur_audit_correlation_lookup
   ON arthur_audit_events(correlation_id, created_at);
 
 CREATE OR REPLACE FUNCTION arthur_reject_audit_mutation()
@@ -69,10 +69,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS arthur_audit_no_update ON arthur_audit_events;
 CREATE TRIGGER arthur_audit_no_update
 BEFORE UPDATE ON arthur_audit_events
 FOR EACH ROW EXECUTE FUNCTION arthur_reject_audit_mutation();
 
+DROP TRIGGER IF EXISTS arthur_audit_no_delete ON arthur_audit_events;
 CREATE TRIGGER arthur_audit_no_delete
 BEFORE DELETE ON arthur_audit_events
 FOR EACH ROW EXECUTE FUNCTION arthur_reject_audit_mutation();

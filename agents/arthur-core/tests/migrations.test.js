@@ -17,10 +17,10 @@ const rollbackPath = path.join(
 const sql = fs.readFileSync(migrationPath, 'utf8');
 const rollback = fs.readFileSync(rollbackPath, 'utf8');
 
-test('initial migration creates profile, memory and append-only audit tables', () => {
-  assert.match(sql, /CREATE TABLE arthur_profiles/);
-  assert.match(sql, /CREATE TABLE arthur_memory/);
-  assert.match(sql, /CREATE TABLE arthur_audit_events/);
+test('initial migration creates profile, memory and append-only audit tables idempotently', () => {
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS arthur_profiles/);
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS arthur_memory/);
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS arthur_audit_events/);
   assert.match(sql, /arthur_memory_one_active_key/);
   assert.match(sql, /arthur_audit_no_update/);
   assert.match(sql, /arthur_audit_no_delete/);
