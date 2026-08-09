@@ -101,6 +101,7 @@ class ArthurTelegramGateway {
     this.logger.info('gateway_started', null, {
       allowedUserCount: this.config.allowedUserIds.size,
       pollTimeoutMs: this.config.pollTimeoutMs,
+      telegramProxyEnabled: this.telegram.proxyEnabled,
     });
 
     while (this.running && !this.shutdownRequested) {

@@ -1,5 +1,7 @@
 'use strict';
 
+const { EnvHttpProxyAgent } = require('undici');
+
 const DEFAULT_TIMEOUT_MS = 10000;
 const DEFAULT_MAX_RETRIES = 3;
 const DEFAULT_RETRY_DELAY_MS = 1000;
@@ -18,8 +20,29 @@ function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function createTelegramClient({ token, apiBaseUrl, timeoutMs, maxRetries, retryDelayMs, logger }) {
+function isProxyConfigured() {
+  return Boolean(process.env.HTTPS_PROXY || process.env.HTTP_PROXY);
+}
+
+function createProxyAgent() {
+  if (!isProxyConfigured()) {
+    return null;
+  }
+  return new EnvHttpProxyAgent();
+}
+
+function createTelegramClient({
+  token,
+  apiBaseUrl,
+  timeoutMs,
+  maxRetries,
+  retryDelayMs,
+  logger,
+  fetchImpl = fetch,
+}) {
   const baseUrl = `${apiBaseUrl}/bot${token}`;
+  const proxyAgent = createProxyAgent();
+  const proxyEnabled = proxyAgent !== null;
 
   async function call(method, payload = {}, options = {}) {
     const url = `${baseUrl}/${method}`;
@@ -34,14 +57,20 @@ function createTelegramClient({ token, apiBaseUrl, timeoutMs, maxRetries, retryD
       const timer = setTimeout(() => controller.abort(), attemptTimeoutMs);
 
       try {
-        const response = await fetch(url, {
+        const fetchOptions = {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body,
           signal: controller.signal,
-        });
+        };
+
+        if (proxyAgent) {
+          fetchOptions.dispatcher = proxyAgent;
+        }
+
+        const response = await fetchImpl(url, fetchOptions);
 
         clearTimeout(timer);
 
@@ -131,10 +160,13 @@ function createTelegramClient({ token, apiBaseUrl, timeoutMs, maxRetries, retryD
     call,
     getUpdates,
     sendMessage,
+    proxyEnabled,
   };
 }
 
 module.exports = {
   createTelegramClient,
   TelegramClientError,
+  isProxyConfigured,
+  createProxyAgent,
 };

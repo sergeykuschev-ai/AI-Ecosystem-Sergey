@@ -121,6 +121,18 @@ docker compose --env-file .env -f compose.yml up -d telegram-gateway
 
 Always pass `--env-file .env` when running `docker compose` from outside the `docker/arthur` directory.
 
+## Proxy support
+
+If the server requires a proxy for outbound Telegram API requests, add to `.env`:
+
+```bash
+HTTP_PROXY=http://host.docker.internal:8443
+HTTPS_PROXY=http://host.docker.internal:8443
+NO_PROXY=localhost,127.0.0.1,postgres,api,arthur-api
+```
+
+The Gateway uses `undici.EnvHttpProxyAgent` only for Telegram API calls. Arthur internal services are excluded by `NO_PROXY`. Proxy credentials are never logged.
+
 ## After reboot
 
 Because the service uses `restart: unless-stopped`, Docker Compose will start it automatically if the Docker daemon is configured to start on boot.
