@@ -26,6 +26,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    env_file:
+      - .env
     environment:
       NODE_ENV: production
       ARTHUR_DATABASE_URL: postgresql://arthur:${ARTHUR_POSTGRES_PASSWORD:?ARTHUR_POSTGRES_PASSWORD is required}@postgres:5432/arthur
@@ -43,6 +45,8 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+    env_file:
+      - .env
     environment:
       NODE_ENV: production
       ARTHUR_ALLOW_PRODUCTION: "true"
@@ -73,6 +77,8 @@ services:
       context: ../..
       dockerfile: docker/arthur/Dockerfile.telegram
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
       NODE_ENV: production
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?TELEGRAM_BOT_TOKEN is required}
@@ -96,12 +102,15 @@ services:
       start_period: 10s
     networks:
       - arthur_internal
+      - arthur_outbound
 
 networks:
   arthur_internal:
     internal: true
   arthur_n8n:
     name: ${ARTHUR_N8N_NETWORK:-arthur_n8n}
+  arthur_outbound:
+    driver: bridge
 
 volumes:
   arthur_postgres_data:

@@ -20,6 +20,15 @@ Telegram
 
 Telegram is **only a transport layer**. No business logic lives in the Gateway.
 
+## Network topology
+
+The Gateway is attached to two Docker networks:
+
+- `arthur_internal` — internal-only network for Arthur Core services (PostgreSQL, API). No outbound Internet access.
+- `arthur_outbound` — regular bridge network that allows outbound Internet access to `api.telegram.org`.
+
+PostgreSQL and Arthur API remain on `arthur_internal` only and are not exposed to the Internet. n8n continues to use `arthur_n8n`.
+
 ## Why long polling
 
 Webhook requires a public HTTPS endpoint and certificate management. Long polling:
@@ -107,8 +116,10 @@ The Gateway is a service in `docker/arthur/compose.yml`:
 cd docker/arthur
 cp .env.example .env
 # edit .env with real TELEGRAM_BOT_TOKEN and TELEGRAM_ALLOWED_USER_IDS
-docker compose up -d telegram-gateway
+docker compose --env-file .env -f compose.yml up -d telegram-gateway
 ```
+
+Always pass `--env-file .env` when running `docker compose` from outside the `docker/arthur` directory.
 
 ## After reboot
 
@@ -124,6 +135,24 @@ docker logs -f arthur-core-telegram-gateway-1
 
 ```bash
 curl http://127.0.0.1:8788/health
+```
+
+## Verify Telegram environment inside the container
+
+Linux/macOS:
+
+```bash
+cd docker/arthur
+docker compose exec telegram-gateway sh -c 'echo TELEGRAM_BOT_TOKEN_present=$([ -n "$TELEGRAM_BOT_TOKEN" ] && echo true || echo false)'
+docker compose exec telegram-gateway sh -c 'echo TELEGRAM_ALLOWED_USER_IDS_present=$([ -n "$TELEGRAM_ALLOWED_USER_IDS" ] && echo true || echo false)'
+```
+
+Windows PowerShell:
+
+```powershell
+cd docker/arthur
+docker compose exec telegram-gateway env | Select-String -Pattern 'TELEGRAM_BOT_TOKEN'
+docker compose exec telegram-gateway env | Select-String -Pattern 'TELEGRAM_ALLOWED_USER_IDS'
 ```
 
 ## Stop
