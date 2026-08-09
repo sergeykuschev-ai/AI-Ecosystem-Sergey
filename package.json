@@ -7,7 +7,7 @@
     "doc": "docs"
   },
   "scripts": {
-    "test": "node --test agents/purchasing/tests/*.test.js apps/purchasing-web-backend/tests/*.test.js agents/arthur-core/tests/*.test.js",
+    "test": "node --test agents/purchasing/tests/*.test.js apps/purchasing-web-backend/tests/*.test.js agents/arthur-core/tests/*.test.js agents/arthur-v1/tests/*.test.js",
     "test:arthur": "node --test agents/arthur-core/tests/*.test.js",
     "finance:update:miska": "node scripts/update-miska-financial-data.js",
     "finance:check:miska": "node scripts/update-miska-financial-data.js --check",
