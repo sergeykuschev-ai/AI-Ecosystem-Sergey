@@ -72,6 +72,35 @@ services:
         aliases:
           - arthur-api
 
+  telegram-gateway:
+    build:
+      context: ../..
+      dockerfile: docker/arthur/Dockerfile.telegram
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?TELEGRAM_BOT_TOKEN is required}
+      TELEGRAM_ALLOWED_USER_IDS: ${TELEGRAM_ALLOWED_USER_IDS:?TELEGRAM_ALLOWED_USER_IDS is required}
+      TELEGRAM_POLL_TIMEOUT_MS: ${TELEGRAM_POLL_TIMEOUT_MS:-30000}
+      TELEGRAM_API_TIMEOUT_MS: ${TELEGRAM_API_TIMEOUT_MS:-10000}
+      TELEGRAM_API_RETRY_ATTEMPTS: ${TELEGRAM_API_RETRY_ATTEMPTS:-3}
+      TELEGRAM_GATEWAY_HEALTH_PORT: ${TELEGRAM_GATEWAY_HEALTH_PORT:-8788}
+      TELEGRAM_GATEWAY_LOG_LEVEL: ${TELEGRAM_GATEWAY_LOG_LEVEL:-info}
+    ports:
+      - "127.0.0.1:${TELEGRAM_GATEWAY_HEALTH_PORT:-8788}:${TELEGRAM_GATEWAY_HEALTH_PORT:-8788}"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:${TELEGRAM_GATEWAY_HEALTH_PORT:-8788}/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - arthur_internal
+
 networks:
   arthur_internal:
     internal: true

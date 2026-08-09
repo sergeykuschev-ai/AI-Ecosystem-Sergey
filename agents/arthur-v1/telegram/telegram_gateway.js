@@ -1,0 +1,267 @@
+'use strict';
+
+const { createArthurV1 } = require('../index');
+const { createLogger } = require('../logging/logger');
+const { loadConfig, validateConfig } = require('./config');
+const { createTelegramClient } = require('./telegram_client');
+
+const COMMANDS = {
+  START: '/start',
+  HELP: '/help',
+  STATUS: '/status',
+};
+
+const HELP_TEXT = `Привет, я Артур — AI-ассистент бизнеса.
+
+Сейчас я умею отвечать на запросы по закупкам:
+• «Что сейчас с закупщиком?»
+• «Покажи спорные позиции.»
+• «Какой последний заказ?»
+• «Что мы решили по матрицам?»
+
+Команды:
+/start — приветствие
+/help — эта справка
+/status — статус Gateway и Артура`;
+
+function escapeHtml(text) {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function formatArthurResponse(response) {
+  const text = response?.answer?.text || 'Нет данных для ответа.';
+  const status = response?.status || 'unknown';
+
+  if (status === 'failed') {
+    return 'Артур временно недоступен. Попробуйте позже.';
+  }
+
+  if (status === 'partial') {
+    return `Ответ составлен на основе частичных данных:\n\n${text}`;
+  }
+
+  return text;
+}
+
+function buildArthurRequest({ update, userId, chatId, correlationId }) {
+  const message = update.message || update.edited_message;
+  const text = message?.text || '';
+
+  return {
+    message: text,
+    userId,
+    channel: 'telegram',
+    correlationId,
+    context: {
+      chatId,
+      telegramUpdateId: update.update_id,
+      telegramMessageId: message?.message_id,
+    },
+    metadata: {
+      source: 'telegram',
+      chatId,
+      updateId: update.update_id,
+    },
+  };
+}
+
+class ArthurTelegramGateway {
+  constructor(options = {}) {
+    this.config = options.config || loadConfig();
+    this.logger = options.logger || createLogger({ level: this.config.logLevel });
+    this.telegram = options.telegramClient || createTelegramClient({
+      token: this.config.token,
+      apiBaseUrl: this.config.apiBaseUrl,
+      timeoutMs: this.config.requestTimeoutMs,
+      maxRetries: this.config.maxRetries,
+      retryDelayMs: this.config.retryDelayMs,
+      logger: this.logger,
+    });
+    this.arthur = options.arthur || createArthurV1({ logger: this.logger });
+    this.running = false;
+    this.shutdownRequested = false;
+    this.offset = 0;
+    this.startedAt = null;
+    this.processedUpdates = 0;
+    this.lastError = null;
+  }
+
+  async start() {
+    const validation = validateConfig(this.config);
+    if (!validation.valid) {
+      validation.errors.forEach(error => this.logger.error('gateway_config_invalid', null, { error }));
+      throw new Error(`Invalid gateway configuration: ${validation.errors.join('; ')}`);
+    }
+
+    this.running = true;
+    this.startedAt = new Date().toISOString();
+    this.logger.info('gateway_started', null, {
+      allowedUserCount: this.config.allowedUserIds.size,
+      pollTimeoutMs: this.config.pollTimeoutMs,
+    });
+
+    while (this.running && !this.shutdownRequested) {
+      try {
+        const result = await this.telegram.getUpdates(this.offset, 100, this.config.pollTimeoutMs);
+        const updates = result?.result || [];
+
+        for (const update of updates) {
+          await this.handleUpdate(update);
+          if (update.update_id >= this.offset) {
+            this.offset = update.update_id + 1;
+          }
+        }
+
+        this.lastError = null;
+      } catch (error) {
+        this.lastError = {
+          code: error.code || error.name,
+          message: error.message,
+          timestamp: new Date().toISOString(),
+        };
+        this.logger.error('gateway_poll_error', null, {
+          errorCode: error.code || error.name,
+          errorMessage: error.message,
+        });
+
+        if (!this.shutdownRequested) {
+          await this.sleep(5000);
+        }
+      }
+    }
+
+    this.running = false;
+    this.logger.info('gateway_stopped', null, {});
+  }
+
+  async handleUpdate(update) {
+    const message = update.message || update.edited_message;
+    if (!message || !message.text) {
+      return;
+    }
+
+    const userId = String(message.from?.id);
+    const chatId = String(message.chat?.id);
+    const username = message.from?.username || null;
+
+    const correlationId = `tg-${message.message_id}-${userId}`;
+
+    this.logger.info('telegram_update_received', { correlationId, userId, channel: 'telegram' }, {
+      chatId,
+      updateId: update.update_id,
+      messageId: message.message_id,
+      username,
+      textLength: message.text.length,
+    });
+
+    if (!this.config.allowedUserIds.has(userId)) {
+      this.logger.warn('telegram_user_rejected', { correlationId, userId, channel: 'telegram' }, {
+        chatId,
+        username,
+      });
+      await this.sendText(chatId, 'Доступ запрещён. Обратитесь к администратору.', correlationId);
+      return;
+    }
+
+    try {
+      const text = message.text.trim();
+      let responseText;
+
+      if (text === COMMANDS.START) {
+        responseText = HELP_TEXT;
+      } else if (text === COMMANDS.HELP) {
+        responseText = HELP_TEXT;
+      } else if (text === COMMANDS.STATUS) {
+        responseText = this.buildStatusText();
+      } else {
+        const arthurRequest = buildArthurRequest({ update, userId, chatId, correlationId });
+        const arthurResponse = await this.arthur.handle(arthurRequest);
+        responseText = formatArthurResponse(arthurResponse);
+      }
+
+      await this.sendText(chatId, responseText, correlationId);
+      this.processedUpdates += 1;
+    } catch (error) {
+      this.logger.error('gateway_request_failed', { correlationId, userId, channel: 'telegram' }, {
+        chatId,
+        errorCode: error.code || error.name,
+        errorMessage: error.message,
+      });
+      await this.sendText(chatId, 'Артур временно недоступен. Попробую снова позже.', correlationId);
+    }
+  }
+
+  async sendText(chatId, text, correlationId) {
+    try {
+      await this.telegram.sendMessage(chatId, text);
+      this.logger.info('telegram_message_sent', { correlationId, channel: 'telegram' }, {
+        chatId,
+        textLength: text.length,
+      });
+    } catch (error) {
+      this.logger.error('telegram_send_failed', { correlationId, channel: 'telegram' }, {
+        chatId,
+        errorCode: error.code || error.name,
+        errorMessage: error.message,
+      });
+    }
+  }
+
+  buildStatusText() {
+    const now = new Date().toISOString();
+    const lines = [
+      '<b>Статус Артура</b>',
+      '',
+      `Gateway: ${this.running ? 'работает' : 'остановлен'}`,
+      `Запущен: ${this.startedAt ? escapeHtml(this.startedAt) : '—'}`,
+      `Обработано сообщений: ${this.processedUpdates}`,
+      `Последняя ошибка: ${this.lastError ? escapeHtml(this.lastError.message) : 'нет'}`,
+      `Время: ${escapeHtml(now)}`,
+    ];
+    return lines.join('\n');
+  }
+
+  sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  async stop() {
+    this.shutdownRequested = true;
+    this.logger.info('gateway_shutdown_requested', null, {});
+
+    const deadline = Date.now() + 10000;
+    while (this.running && Date.now() < deadline) {
+      await this.sleep(100);
+    }
+
+    if (this.running) {
+      this.logger.warn('gateway_shutdown_forced', null, {});
+      this.running = false;
+    }
+  }
+
+  getHealth() {
+    return {
+      status: this.running ? 'healthy' : 'stopped',
+      startedAt: this.startedAt,
+      processedUpdates: this.processedUpdates,
+      lastError: this.lastError,
+      configValid: validateConfig(this.config).valid,
+    };
+  }
+}
+
+function createTelegramGateway(options = {}) {
+  return new ArthurTelegramGateway(options);
+}
+
+module.exports = {
+  ArthurTelegramGateway,
+  createTelegramGateway,
+  buildArthurRequest,
+  formatArthurResponse,
+  HELP_TEXT,
+};
