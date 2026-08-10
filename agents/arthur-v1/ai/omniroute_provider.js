@@ -139,6 +139,7 @@ class OmniRouteProvider extends AIProvider {
       messages: [{ role: 'user', content: prompt }],
       temperature: options.temperature ?? 0.7,
       max_tokens: options.maxTokens || options.max_tokens || DEFAULT_MAX_TOKENS,
+      stream: false,
     };
     const data = await this._request('/chat/completions', body, options);
     return this._extractContent(data);
@@ -151,6 +152,7 @@ class OmniRouteProvider extends AIProvider {
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.3,
       max_tokens: DEFAULT_MAX_TOKENS,
+      stream: false,
     });
     const text = this._extractContent(data);
     return {

@@ -75,10 +75,11 @@ test('OmniRouteProvider generate returns content', async () => {
   const body = JSON.parse(calls[0].options.body);
   assert.equal(body.model, 'arthur-fast');
   assert.equal(body.messages[0].content, 'prompt');
+  assert.equal(body.stream, false);
 });
 
 test('OmniRouteProvider synthesize returns structured answer', async () => {
-  const { fetchImpl } = createFakeFetch([
+  const { fetchImpl, calls } = createFakeFetch([
     jsonResponse({
       choices: [{ message: { content: 'Synthesized answer' } }],
       usage: { prompt_tokens: 20, completion_tokens: 10 },
@@ -98,6 +99,8 @@ test('OmniRouteProvider synthesize returns structured answer', async () => {
   assert.equal(result.text, 'Synthesized answer');
   assert.equal(result.confidence, 'high');
   assert.deepEqual(result.usage, { prompt_tokens: 20, completion_tokens: 10 });
+  const body = JSON.parse(calls[0].options.body);
+  assert.equal(body.stream, false);
 });
 
 test('OmniRouteProvider extracts text from content parts array', async () => {
@@ -137,6 +140,39 @@ test('OmniRouteProvider rejects empty content', async () => {
     assert.equal(error.code, 'OMNIROUTE_INVALID_RESPONSE');
     return true;
   });
+});
+
+test('OmniRouteProvider forces stream:false even if caller requests stream:true', async () => {
+  const { fetchImpl, calls } = createFakeFetch([
+    jsonResponse({ choices: [{ message: { content: 'ok' } }] }),
+  ]);
+  const provider = createOmniRouteProvider({
+    baseUrl: 'http://omniroute:20128/v1',
+    apiKey: 'test-key',
+    fetchImpl,
+  });
+  await provider.generate('prompt', { stream: true });
+  const body = JSON.parse(calls[0].options.body);
+  assert.equal(body.stream, false);
+});
+
+test('OmniRouteProvider synthesize forces stream:false', async () => {
+  const { fetchImpl, calls } = createFakeFetch([
+    jsonResponse({ choices: [{ message: { content: 'ok' } }] }),
+  ]);
+  const provider = createOmniRouteProvider({
+    baseUrl: 'http://omniroute:20128/v1',
+    apiKey: 'test-key',
+    fetchImpl,
+  });
+  await provider.synthesize({
+    userMessage: 'hi',
+    skillOutputs: [],
+    failures: [],
+    executionStatus: 'success',
+  }, { correlationId: 'c1' });
+  const body = JSON.parse(calls[0].options.body);
+  assert.equal(body.stream, false);
 });
 
 test('OmniRouteProvider health returns healthy on OK response', async () => {
