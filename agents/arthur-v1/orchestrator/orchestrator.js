@@ -107,10 +107,11 @@ class ArthurOrchestrator {
 
   async getDiagnostics() {
     const providerHealth = this.aiProvider ? await this.aiProvider.health() : { healthy: false, provider: 'none' };
+    const envDiagnostics = getProviderDiagnostics();
     return {
       aiProviderEnabled: Boolean(this.aiProvider),
-      provider: providerHealth.provider || getProviderDiagnostics().provider,
-      model: providerHealth.model || null,
+      provider: providerHealth.provider || envDiagnostics.provider,
+      models: providerHealth.models || envDiagnostics.models,
       status: providerHealth.healthy ? 'healthy' : 'unavailable',
       skills: this.registry ? this.registry.list().map(s => s.id) : [],
     };

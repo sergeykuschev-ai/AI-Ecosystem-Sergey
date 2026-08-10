@@ -11,6 +11,30 @@ const COMMANDS = {
   STATUS: '/status',
 };
 
+const AI_PROVIDER_ERROR_CODES = Object.freeze([
+  'OMNIROUTE_REQUEST_FAILED',
+  'OMNIROUTE_UNAUTHORIZED',
+  'OMNIROUTE_RATE_LIMITED',
+  'OMNIROUTE_CONFIG_ERROR',
+  'OMNIROUTE_INVALID_RESPONSE',
+  'NOT_IMPLEMENTED',
+  'PROVIDER_NOT_FOUND',
+]);
+
+function isAIProviderError(error) {
+  if (!error || !error.code) return false;
+  return AI_PROVIDER_ERROR_CODES.some(code =>
+    error.code === code || error.code.startsWith('OMNIROUTE_HTTP_')
+  );
+}
+
+function formatErrorResponse(error) {
+  if (isAIProviderError(error)) {
+    return 'Глубокий AI-анализ сейчас недоступен. Детерминированные команды (/status, /help) продолжают работать.';
+  }
+  return 'Артур временно недоступен. Попробую снова позже.';
+}
+
 const HELP_TEXT = `Привет, я Артур — AI-ассистент бизнеса.
 
 Сейчас я умею отвечать на запросы по закупкам:
@@ -191,7 +215,7 @@ class ArthurTelegramGateway {
         errorCode: error.code || error.name,
         errorMessage: error.message,
       });
-      await this.sendText(chatId, 'Артур временно недоступен. Попробую снова позже.', correlationId);
+      await this.sendText(chatId, formatErrorResponse(error), correlationId);
     }
   }
 
@@ -216,7 +240,8 @@ class ArthurTelegramGateway {
     let aiStatus = 'unknown';
     try {
       const diagnostics = await this.arthur.getDiagnostics();
-      aiStatus = `${diagnostics.provider} (${diagnostics.status})`;
+      const fastModel = diagnostics.models?.fast || '—';
+      aiStatus = `${diagnostics.provider} (${diagnostics.status}) / ${fastModel}`;
     } catch (error) {
       aiStatus = 'unavailable';
     }

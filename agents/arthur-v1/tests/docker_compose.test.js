@@ -28,6 +28,8 @@ test('api service receives OmniRoute env vars', () => {
   assert.equal(env.OMNIROUTE_BASE_URL, '${OMNIROUTE_BASE_URL:-}');
   assert.equal(env.OMNIROUTE_API_KEY, '${OMNIROUTE_API_KEY:-}');
   assert.equal(env.OMNIROUTE_FAST_MODEL, '${OMNIROUTE_FAST_MODEL:-arthur-fast}');
+  assert.equal(env.OMNIROUTE_REASONING_MODEL, '${OMNIROUTE_REASONING_MODEL:-arthur-fast}');
+  assert.equal(env.OMNIROUTE_CODE_MODEL, '${OMNIROUTE_CODE_MODEL:-arthur-fast}');
 });
 
 test('postgres service does not receive OmniRoute env vars', () => {

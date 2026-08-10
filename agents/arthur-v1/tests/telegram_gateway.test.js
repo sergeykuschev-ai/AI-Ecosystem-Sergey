@@ -55,10 +55,13 @@ function createFakeTelegramClient(behavior = {}) {
   };
 }
 
-function createFakeArthur(responses = {}) {
+function createFakeArthur(responses = {}, options = {}) {
   return {
     async handle(request) {
       const key = request.message;
+      if (options.handleError) {
+        throw options.handleError;
+      }
       if (responses[key]) {
         return responses[key];
       }
@@ -66,6 +69,15 @@ function createFakeArthur(responses = {}) {
         status: 'success',
         answer: { text: `Arthur response to: ${key}`, confidence: 'high' },
         correlationId: request.correlationId || 'corr-test',
+      };
+    },
+    async getDiagnostics() {
+      return {
+        aiProviderEnabled: true,
+        provider: 'fake',
+        models: { fast: 'fake-model' },
+        status: 'healthy',
+        skills: ['purchasing'],
       };
     },
   };
@@ -384,4 +396,84 @@ test('correlationId includes telegram identifiers', async () => {
 test('config validation rejects missing token', () => {
   const config = loadConfig({ TELEGRAM_BOT_TOKEN: '', TELEGRAM_ALLOWED_USER_IDS: '111' });
   assert.equal(config.token, '');
+});
+
+test('AI provider error returns specific fallback message', async () => {
+  const telegram = createFakeTelegramClient({
+    updates: [{
+      update_id: 1,
+      message: {
+        message_id: 1,
+        from: { id: 111111 },
+        chat: { id: 111111 },
+        text: 'что думаешь о продажах?',
+      },
+    }],
+  });
+  const error = new Error('OmniRoute unavailable');
+  error.code = 'OMNIROUTE_REQUEST_FAILED';
+  const arthur = createFakeArthur({}, { handleError: error });
+  const gateway = createTestGateway({ telegramClient: telegram, arthur });
+
+  setTimeout(() => gateway.stop(), 200);
+  await gateway.start();
+
+  assert.equal(telegram.sent.length, 1);
+  assert.ok(telegram.sent[0].text.includes('Глубокий AI-анализ сейчас недоступен'));
+});
+
+test('non-AI error returns generic fallback message', async () => {
+  const telegram = createFakeTelegramClient({
+    updates: [{
+      update_id: 1,
+      message: {
+        message_id: 1,
+        from: { id: 111111 },
+        chat: { id: 111111 },
+        text: 'что думаешь о продажах?',
+      },
+    }],
+  });
+  const error = new Error('database error');
+  error.code = 'DATABASE_ERROR';
+  const arthur = createFakeArthur({}, { handleError: error });
+  const gateway = createTestGateway({ telegramClient: telegram, arthur });
+
+  setTimeout(() => gateway.stop(), 200);
+  await gateway.start();
+
+  assert.equal(telegram.sent.length, 1);
+  assert.ok(telegram.sent[0].text.includes('Артур временно недоступен'));
+});
+
+test('natural language request is forwarded to Arthur', async () => {
+  const telegram = createFakeTelegramClient({
+    updates: [{
+      update_id: 1,
+      message: {
+        message_id: 1,
+        from: { id: 111111 },
+        chat: { id: 111111 },
+        text: 'объясни почему упали продажи',
+      },
+    }],
+  });
+  let capturedRequest = null;
+  const arthur = {
+    async handle(request) {
+      capturedRequest = request;
+      return { status: 'success', answer: { text: 'AI analysis result', confidence: 'high' } };
+    },
+    async getDiagnostics() {
+      return { aiProviderEnabled: true, provider: 'omniroute', models: { fast: 'arthur-fast' }, status: 'healthy', skills: [] };
+    },
+  };
+  const gateway = createTestGateway({ telegramClient: telegram, arthur });
+
+  setTimeout(() => gateway.stop(), 200);
+  await gateway.start();
+
+  assert.ok(capturedRequest);
+  assert.equal(capturedRequest.message, 'объясни почему упали продажи');
+  assert.equal(telegram.sent[0].text, 'AI analysis result');
 });

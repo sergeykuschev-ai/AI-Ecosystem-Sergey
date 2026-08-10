@@ -112,7 +112,7 @@ test('OmniRouteProvider health returns healthy on OK response', async () => {
   const health = await provider.health();
   assert.equal(health.healthy, true);
   assert.equal(health.provider, 'omniroute');
-  assert.equal(health.model, 'arthur-fast');
+  assert.equal(health.models.fast, 'arthur-fast');
 });
 
 test('OmniRouteProvider health returns unhealthy on error', async () => {
@@ -229,19 +229,65 @@ test('OmniRouteProvider invalid response throws', async () => {
   });
 });
 
-test('OmniRouteProvider uses custom model from options', async () => {
+test('OmniRouteProvider uses fast model by default', async () => {
   const { fetchImpl, calls } = createFakeFetch([
     jsonResponse({ choices: [{ message: { content: 'ok' } }] }),
   ]);
   const provider = createOmniRouteProvider({
     baseUrl: 'http://omniroute:20128/v1',
     apiKey: 'test-key',
-    model: 'custom-model',
+    fastModel: 'arthur-fast',
     fetchImpl,
   });
   await provider.generate('prompt');
   const body = JSON.parse(calls[0].options.body);
-  assert.equal(body.model, 'custom-model');
+  assert.equal(body.model, 'arthur-fast');
+});
+
+test('OmniRouteProvider uses reasoning model for policy', async () => {
+  const { fetchImpl, calls } = createFakeFetch([
+    jsonResponse({ choices: [{ message: { content: 'ok' } }] }),
+  ]);
+  const provider = createOmniRouteProvider({
+    baseUrl: 'http://omniroute:20128/v1',
+    apiKey: 'test-key',
+    fastModel: 'fast-model',
+    reasoningModel: 'reasoning-model',
+    fetchImpl,
+  });
+  await provider.generate('prompt', { policy: 'reasoning' });
+  const body = JSON.parse(calls[0].options.body);
+  assert.equal(body.model, 'reasoning-model');
+});
+
+test('OmniRouteProvider uses code model for policy', async () => {
+  const { fetchImpl, calls } = createFakeFetch([
+    jsonResponse({ choices: [{ message: { content: 'ok' } }] }),
+  ]);
+  const provider = createOmniRouteProvider({
+    baseUrl: 'http://omniroute:20128/v1',
+    apiKey: 'test-key',
+    codeModel: 'code-model',
+    fetchImpl,
+  });
+  await provider.generate('prompt', { policy: 'code' });
+  const body = JSON.parse(calls[0].options.body);
+  assert.equal(body.model, 'code-model');
+});
+
+test('OmniRouteProvider explicit model overrides policy', async () => {
+  const { fetchImpl, calls } = createFakeFetch([
+    jsonResponse({ choices: [{ message: { content: 'ok' } }] }),
+  ]);
+  const provider = createOmniRouteProvider({
+    baseUrl: 'http://omniroute:20128/v1',
+    apiKey: 'test-key',
+    fastModel: 'fast-model',
+    fetchImpl,
+  });
+  await provider.generate('prompt', { model: 'explicit-model' });
+  const body = JSON.parse(calls[0].options.body);
+  assert.equal(body.model, 'explicit-model');
 });
 
 test('OmniRouteProvider reads config from environment', async () => {
@@ -249,13 +295,17 @@ test('OmniRouteProvider reads config from environment', async () => {
   process.env = {
     OMNIROUTE_BASE_URL: 'http://env-omniroute/v1',
     OMNIROUTE_API_KEY: 'env-key',
-    OMNIROUTE_FAST_MODEL: 'env-model',
+    OMNIROUTE_FAST_MODEL: 'env-fast',
+    OMNIROUTE_REASONING_MODEL: 'env-reasoning',
+    OMNIROUTE_CODE_MODEL: 'env-code',
   };
   try {
     const provider = createOmniRouteProvider();
     assert.equal(provider.baseUrl, 'http://env-omniroute/v1');
     assert.equal(provider.apiKey, 'env-key');
-    assert.equal(provider.model, 'env-model');
+    assert.equal(provider.models.fast, 'env-fast');
+    assert.equal(provider.models.reasoning, 'env-reasoning');
+    assert.equal(provider.models.code, 'env-code');
   } finally {
     process.env = originalEnv;
   }

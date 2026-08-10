@@ -30,7 +30,7 @@ test('factory returns OmniRouteProvider for omniroute', () => {
   });
   assert.ok(provider instanceof OmniRouteProvider);
   assert.equal(provider.baseUrl, 'http://omniroute:20128/v1');
-  assert.equal(provider.model, 'arthur-fast');
+  assert.equal(provider.models.fast, 'arthur-fast');
 });
 
 test('factory passes options override', () => {
@@ -38,8 +38,9 @@ test('factory passes options override', () => {
     ARTHUR_AI_PROVIDER: 'omniroute',
     OMNIROUTE_BASE_URL: 'http://omniroute:20128/v1',
     OMNIROUTE_API_KEY: 'key',
-  }, { model: 'override-model' });
-  assert.equal(provider.model, 'override-model');
+  }, { fastModel: 'override-fast', reasoningModel: 'override-reasoning' });
+  assert.equal(provider.models.fast, 'override-fast');
+  assert.equal(provider.models.reasoning, 'override-reasoning');
 });
 
 test('diagnostics reports fake provider', () => {
@@ -47,6 +48,7 @@ test('diagnostics reports fake provider', () => {
   assert.equal(diag.provider, SUPPORTED_PROVIDERS.FAKE);
   assert.equal(diag.configured, true);
   assert.equal(diag.baseUrl, null);
+  assert.equal(diag.models.fast, null);
 });
 
 test('diagnostics reports omniroute configured', () => {
@@ -55,11 +57,15 @@ test('diagnostics reports omniroute configured', () => {
     OMNIROUTE_BASE_URL: 'http://omniroute:20128/v1',
     OMNIROUTE_API_KEY: 'key',
     OMNIROUTE_FAST_MODEL: 'arthur-fast',
+    OMNIROUTE_REASONING_MODEL: 'arthur-fast',
+    OMNIROUTE_CODE_MODEL: 'arthur-fast',
   });
   assert.equal(diag.provider, SUPPORTED_PROVIDERS.OMNIRoute);
   assert.equal(diag.configured, true);
   assert.equal(diag.baseUrl, 'http://omniroute:20128/v1');
-  assert.equal(diag.model, 'arthur-fast');
+  assert.equal(diag.models.fast, 'arthur-fast');
+  assert.equal(diag.models.reasoning, 'arthur-fast');
+  assert.equal(diag.models.code, 'arthur-fast');
 });
 
 test('diagnostics reports omniroute not configured when missing key', () => {

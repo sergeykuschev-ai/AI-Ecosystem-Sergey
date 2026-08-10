@@ -152,10 +152,22 @@ Environment variables:
 
 - `ARTHUR_AI_PROVIDER` — `fake` (default) or `omniroute`.
 - `OMNIROUTE_BASE_URL` — base URL of the OmniRoute OpenAI-compatible API, e.g. `http://omniroute:20128/v1`.
-- `OMNIROUTE_API_KEY` — API key for OmniRoute. Never commit this value.
-- `OMNIROUTE_FAST_MODEL` — model or combo name, e.g. `arthur-fast`.
+- `OMNIROUTE_API_KEY` — API key for OmniRoute. Never commit this value. Use a dedicated inference key with minimal permissions.
+- `OMNIROUTE_FAST_MODEL` — default fast model/combo, e.g. `arthur-fast`.
+- `OMNIROUTE_REASONING_MODEL` — model/combo for reasoning tasks. Defaults to `OMNIROUTE_FAST_MODEL`.
+- `OMNIROUTE_CODE_MODEL` — model/combo for code/analysis tasks. Defaults to `OMNIROUTE_FAST_MODEL`.
 
 When `ARTHUR_AI_PROVIDER=omniroute`, the Orchestrator can route ambiguous natural-language requests through the LLM Planner. Deterministic commands bypass the LLM and use the rule-based planner directly.
+
+## Model Routing
+
+`OmniRouteProvider` supports three model policies:
+
+- `fast` → `OMNIROUTE_FAST_MODEL`
+- `reasoning` → `OMNIROUTE_REASONING_MODEL`
+- `code` → `OMNIROUTE_CODE_MODEL`
+
+The default policy is `fast`. Business logic can request a specific policy via `generate(prompt, { policy: 'reasoning' })` or override the model entirely via `generate(prompt, { model: 'custom/model' })`.
 
 ## Deterministic vs AI Planning
 
@@ -181,6 +193,15 @@ Ambiguous or unknown intents are sent to the LLM Planner when a real AI provider
 node --test agents/arthur-v1/tests/*.test.js
 npm test
 ```
+
+## Telegram Gateway Behavior
+
+- `/start` и `/help` — deterministic responses.
+- `/status` — показывает статус Gateway, AI provider и выбранную модель.
+- Natural-language запросы передаются в Orchestrator.
+- Если запрос требует AI, но OmniRoute недоступен, пользователь получает понятное сообщение:
+  "Глубокий AI-анализ сейчас недоступен. Детерминированные команды (/status, /help) продолжают работать."
+- При прочих ошибках — generic fallback: "Артур временно недоступен. Попробую снова позже."
 
 ## Current Limitations
 

@@ -5,7 +5,7 @@ const { ArthurError } = require('../errors/arthur_errors');
 
 const DEFAULT_TIMEOUT_MS = 30000;
 const DEFAULT_MAX_RETRIES = 2;
-const DEFAULT_MODEL = 'arthur-fast';
+const DEFAULT_FAST_MODEL = 'arthur-fast';
 const DEFAULT_MAX_TOKENS = 2048;
 
 class OmniRouteProvider extends AIProvider {
@@ -16,10 +16,21 @@ class OmniRouteProvider extends AIProvider {
     });
     this.baseUrl = (options.baseUrl || process.env.OMNIROUTE_BASE_URL || '').replace(/\/+$/, '');
     this.apiKey = options.apiKey || process.env.OMNIROUTE_API_KEY || '';
-    this.model = options.model || process.env.OMNIROUTE_FAST_MODEL || DEFAULT_MODEL;
+    this.models = {
+      fast: options.fastModel || process.env.OMNIROUTE_FAST_MODEL || DEFAULT_FAST_MODEL,
+      reasoning: options.reasoningModel || process.env.OMNIROUTE_REASONING_MODEL || DEFAULT_FAST_MODEL,
+      code: options.codeModel || process.env.OMNIROUTE_CODE_MODEL || DEFAULT_FAST_MODEL,
+    };
+    this.defaultModelPolicy = options.defaultModelPolicy || 'fast';
     this.timeoutMs = options.timeoutMs || DEFAULT_TIMEOUT_MS;
     this.maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
     this.fetchImpl = options.fetchImpl || fetch;
+  }
+
+  _resolveModel(options = {}) {
+    if (options.model) return options.model;
+    const policy = options.policy || this.defaultModelPolicy;
+    return this.models[policy] || this.models.fast;
   }
 
   _validateConfig() {
@@ -124,7 +135,7 @@ class OmniRouteProvider extends AIProvider {
 
   async generate(prompt, options = {}) {
     const body = {
-      model: options.model || this.model,
+      model: this._resolveModel(options),
       messages: [{ role: 'user', content: prompt }],
       temperature: options.temperature ?? 0.7,
       max_tokens: options.maxTokens || options.max_tokens || DEFAULT_MAX_TOKENS,
@@ -136,7 +147,7 @@ class OmniRouteProvider extends AIProvider {
   async synthesize(input, context) {
     const prompt = this._buildSynthesisPrompt(input);
     const data = await this._request('/chat/completions', {
-      model: this.model,
+      model: this._resolveModel(input),
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.3,
       max_tokens: DEFAULT_MAX_TOKENS,
@@ -166,14 +177,14 @@ class OmniRouteProvider extends AIProvider {
       return {
         healthy: response.ok,
         provider: this.name,
-        model: this.model,
+        models: this.models,
         baseUrl: this.baseUrl,
       };
     } catch (error) {
       return {
         healthy: false,
         provider: this.name,
-        model: this.model,
+        models: this.models,
         error: this._redactError(error).message,
       };
     }

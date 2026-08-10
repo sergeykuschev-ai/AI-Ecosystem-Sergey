@@ -20,7 +20,9 @@ function createAIProviderFromEnv(env = process.env, options = {}) {
     return createOmniRouteProvider({
       baseUrl: env.OMNIROUTE_BASE_URL,
       apiKey: env.OMNIROUTE_API_KEY,
-      model: env.OMNIROUTE_FAST_MODEL,
+      fastModel: env.OMNIROUTE_FAST_MODEL,
+      reasoningModel: env.OMNIROUTE_REASONING_MODEL,
+      codeModel: env.OMNIROUTE_CODE_MODEL,
       ...options,
     });
   }
@@ -36,7 +38,11 @@ function getProviderDiagnostics(env = process.env) {
       ? Boolean(env.OMNIROUTE_BASE_URL && env.OMNIROUTE_API_KEY)
       : true,
     baseUrl: env.OMNIROUTE_BASE_URL || null,
-    model: env.OMNIROUTE_FAST_MODEL || null,
+    models: {
+      fast: env.OMNIROUTE_FAST_MODEL || null,
+      reasoning: env.OMNIROUTE_REASONING_MODEL || null,
+      code: env.OMNIROUTE_CODE_MODEL || null,
+    },
   };
 }
 
