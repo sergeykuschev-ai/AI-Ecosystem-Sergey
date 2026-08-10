@@ -1,6 +1,7 @@
 'use strict';
 
 const { DataFabricationGuardError } = require('../errors/arthur_errors');
+const { buildSystemMessage } = require('../identity/arthur_identity');
 
 function createSources(stepResults) {
   return Object.entries(stepResults).map(([stepId, result]) => ({
@@ -26,6 +27,15 @@ class Synthesizer {
   constructor(options = {}) {
     this.aiProvider = options.aiProvider || null;
     this.logger = options.logger || null;
+    this.registry = options.registry || null;
+    this.skills = options.skills || null;
+  }
+
+  _getSkills() {
+    if (this.registry && typeof this.registry.list === 'function') {
+      return this.registry.list();
+    }
+    return this.skills || [];
   }
 
   async synthesize(request, executionResult, knowledgeResults) {
@@ -70,6 +80,7 @@ class Synthesizer {
       skillOutputs: successfulResults,
       failures: failedResults,
       executionStatus: executionResult.status,
+      systemMessage: buildSystemMessage({ skills: this._getSkills() }),
     };
 
     let answer;

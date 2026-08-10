@@ -7,6 +7,7 @@ const { INTENTS, detectIntent, isDeterministicIntent } = require('../planner/int
 const { createRuleBasedPlanBuilder } = require('../planner/plan_builder');
 const { createLLMPlanBuilder } = require('../planner/llm_plan_builder');
 const { getProviderDiagnostics } = require('../ai/provider_factory');
+const { buildDirectResponseSystemMessage, buildCapabilityContext } = require('../identity/arthur_identity');
 
 function createOrchestratorRequest(input = {}) {
   const ctx = createArthurContext(input);
@@ -62,6 +63,7 @@ class ArthurOrchestrator {
     this.synthesizer = createSynthesizer({
       aiProvider: this.aiProvider,
       logger: this.logger,
+      registry: this.registry,
     });
 
     if (!this.llmPlanBuilder && this.aiProvider && this.registry) {
@@ -117,6 +119,15 @@ class ArthurOrchestrator {
     };
   }
 
+  _getAvailableSkills() {
+    return this.registry ? this.registry.list() : [];
+  }
+
+  _buildSafeFallbackText(skills) {
+    const capabilityContext = buildCapabilityContext(skills);
+    return `Я не смог определить, какой навык нужен для этого запроса.\n\n${capabilityContext}\n\nПопробуйте уточнить запрос или используйте /help.`;
+  }
+
   async _respondDirectly(request, knowledgeResults, memorySnapshot, startTime) {
     if (this.logger) {
       this.logger.info('orchestrator_direct_response', request, {
@@ -124,12 +135,15 @@ class ArthurOrchestrator {
       });
     }
 
+    const skills = this._getAvailableSkills();
+    const systemMessage = buildDirectResponseSystemMessage({ skills });
+
     let answerText;
     let confidence = 'medium';
 
     if (this.aiProvider) {
       try {
-        answerText = await this.aiProvider.generate(request.message, { policy: 'fast' });
+        answerText = await this.aiProvider.generate(request.message, { policy: 'fast', system: systemMessage });
         confidence = 'medium';
       } catch (error) {
         if (this.logger) {
@@ -138,11 +152,11 @@ class ArthurOrchestrator {
             errorMessage: error.message,
           });
         }
-        answerText = 'Я не смог определить, какой навык нужен для этого запроса. Попробуйте уточнить или используйте /help.';
+        answerText = this._buildSafeFallbackText(skills);
         confidence = 'low';
       }
     } else {
-      answerText = 'Я не смог определить, какой навык нужен для этого запроса. Попробуйте уточнить или используйте /help.';
+      answerText = this._buildSafeFallbackText(skills);
       confidence = 'low';
     }
 

@@ -2,6 +2,7 @@
 
 const { PlanBuildError, ArthurError } = require('../errors/arthur_errors');
 const { createExecutionPlan, createStep } = require('./plan_builder');
+const { buildPlannerSystemMessage } = require('../identity/arthur_identity');
 
 const MAX_STEPS = 5;
 const MAX_TIMEOUT_MS = 30000;
@@ -159,10 +160,11 @@ class LLMPlanBuilder {
       ? this.registry.list()
       : [];
 
+    const systemMessage = buildPlannerSystemMessage({ skills: availableSkills });
     const prompt = buildPlanPrompt(input, availableSkills);
 
     try {
-      const response = await this.aiProvider.generate(prompt);
+      const response = await this.aiProvider.generate(prompt, { system: systemMessage });
       const parsed = parsePlanJson(response);
       const validated = validatePlan(parsed, availableSkills);
       return validated;

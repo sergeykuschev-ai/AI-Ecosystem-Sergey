@@ -133,10 +133,19 @@ class OmniRouteProvider extends AIProvider {
     );
   }
 
+  _buildMessages(prompt, systemMessage = null) {
+    const messages = [];
+    if (systemMessage) {
+      messages.push({ role: 'system', content: systemMessage });
+    }
+    messages.push({ role: 'user', content: prompt });
+    return messages;
+  }
+
   async generate(prompt, options = {}) {
     const body = {
       model: this._resolveModel(options),
-      messages: [{ role: 'user', content: prompt }],
+      messages: this._buildMessages(prompt, options.system),
       temperature: options.temperature ?? 0.7,
       max_tokens: options.maxTokens || options.max_tokens || DEFAULT_MAX_TOKENS,
       stream: false,
@@ -149,7 +158,7 @@ class OmniRouteProvider extends AIProvider {
     const prompt = this._buildSynthesisPrompt(input);
     const data = await this._request('/chat/completions', {
       model: this._resolveModel(input),
-      messages: [{ role: 'user', content: prompt }],
+      messages: this._buildMessages(prompt, input.systemMessage),
       temperature: 0.3,
       max_tokens: DEFAULT_MAX_TOKENS,
       stream: false,

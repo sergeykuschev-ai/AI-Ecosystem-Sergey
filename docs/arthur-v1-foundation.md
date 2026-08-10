@@ -8,6 +8,8 @@ Implemented foundation layer. All operations are read-only. No Telegram Gateway,
 
 Arthur v1.0 is a central orchestration layer for business modules. It turns natural-language requests from any channel into deterministic execution plans, runs the required skills, and synthesizes a single structured answer.
 
+Arthur has a stable identity and capability-awareness layer: it knows its name, role, the businesses it serves, and the skills that are actually registered. This context is passed to the AI provider for direct responses, planning, and synthesis so Arthur never invents capabilities or claims direct access to databases and accounts.
+
 Telegram, Web, and future interfaces are only clients. All business logic lives inside the existing agents in this repository.
 
 ## Architecture
@@ -49,6 +51,7 @@ Unified Response
 | `ai` | Provider-neutral AI abstraction with OmniRoute support | Implemented |
 | `context` | `requestId`, `correlationId`, `userId`, `channel`, `timestamp` | Implemented |
 | `logging` | Structured JSON logs with correlation | Implemented |
+| `identity` | Arthur identity, capability context, system prompts | Implemented |
 | `errors` | Typed errors and retry classification | Implemented |
 
 ## ExecutionPlan Schema
@@ -101,7 +104,7 @@ Skills must:
 5. Knowledge search is performed for known intents.
 6. Deterministic Plan Builder produces an `ExecutionPlan` for known intents; ambiguous requests are sent to the LLM Planner.
 7. Execution Engine runs steps sequentially or in parallel based on `dependsOn`.
-8. Synthesizer combines skill outputs, knowledge, and failures into one answer.
+8. Synthesizer combines skill outputs, knowledge, and failures into one answer, using the same identity/capability context.
 9. Memory stores the turn.
 10. Structured response is returned.
 
@@ -169,6 +172,19 @@ When `ARTHUR_AI_PROVIDER=omniroute`, the Orchestrator can route ambiguous natura
 
 The default policy is `fast`. Business logic can request a specific policy via `generate(prompt, { policy: 'reasoning' })` or override the model entirely via `generate(prompt, { model: 'custom/model' })`.
 
+## Identity and Capability Context
+
+The canonical identity lives in `agents/arthur-v1/identity/arthur_identity.js`.
+
+It provides:
+
+- `ARTHUR_IDENTITY` — name, role, known businesses, constraints;
+- `buildCapabilityContext(skills)` — human-readable list of registered skills and operations;
+- `buildSystemMessage({ skills, userName })` — system prompt for direct AI responses and synthesis;
+- `buildPlannerSystemMessage({ skills })` — system prompt for the LLM Planner.
+
+The Orchestrator reads the real skill registry, so capabilities are never hardcoded or hallucinated. When a new skill is registered, it automatically appears in Arthur's context.
+
 ## Deterministic vs AI Planning
 
 Deterministic intents (rule-based, no LLM):
@@ -181,11 +197,13 @@ Deterministic intents (rule-based, no LLM):
 
 Ambiguous or unknown intents are sent to the LLM Planner when a real AI provider is configured. The LLM Planner:
 
-1. receives available skills and operations;
+1. receives the identity context and available skills/operations;
 2. asks the model to produce a valid `ExecutionPlan`;
 3. validates the plan against the skill registry;
 4. rejects write operations, shell/sql/system tools, and unknown skills;
-5. falls back to `knowledge.search` if the LLM fails or returns an invalid plan.
+5. falls back to a safe direct AI response if the LLM fails or returns an invalid plan.
+
+If the AI provider is unavailable, deterministic commands continue to work. For AI-only requests the Orchestrator returns a safe fallback that references only registered skills.
 
 ## Running Tests
 
