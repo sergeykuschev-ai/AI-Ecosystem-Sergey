@@ -7,7 +7,7 @@ const { INTENTS, detectIntent, isDeterministicIntent } = require('../planner/int
 const { createRuleBasedPlanBuilder } = require('../planner/plan_builder');
 const { createLLMPlanBuilder } = require('../planner/llm_plan_builder');
 const { getProviderDiagnostics } = require('../ai/provider_factory');
-const { buildDirectResponseSystemMessage, buildCapabilityContext } = require('../identity/arthur_identity');
+const { buildDirectResponseSystemMessage } = require('../identity/arthur_identity');
 
 function createOrchestratorRequest(input = {}) {
   const ctx = createArthurContext(input);
@@ -124,14 +124,15 @@ class ArthurOrchestrator {
   }
 
   _buildSafeFallbackText(skills) {
-    const capabilityContext = buildCapabilityContext(skills);
-    return `Я не смог определить, какой навык нужен для этого запроса.\n\n${capabilityContext}\n\nПопробуйте уточнить запрос или используйте /help.`;
+    return 'Я временно не могу сформулировать ответ. Попробуйте позже.';
   }
 
-  async _respondDirectly(request, knowledgeResults, memorySnapshot, startTime) {
+  async _respondDirectly(request, knowledgeResults, memorySnapshot, startTime, reason = 'empty_plan') {
     if (this.logger) {
-      this.logger.info('orchestrator_direct_response', request, {
-        reason: 'empty_plan',
+      this.logger.info('conversation_fallback_used', request, {
+        reason,
+        intent: request.intent,
+        channel: request.channel,
       });
     }
 
@@ -240,7 +241,7 @@ class ArthurOrchestrator {
       }
 
       if (plan.steps.length === 0) {
-        return this._respondDirectly(request, knowledgeResults, memorySnapshot, startTime);
+        return this._respondDirectly(request, knowledgeResults, memorySnapshot, startTime, 'empty_plan');
       }
 
       const executionResult = await this.engine.execute(plan, this.registry, request);

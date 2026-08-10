@@ -29,7 +29,7 @@ function buildCapabilityContext(skills = []) {
   return `Подключённые skills:\n${lines.join('\n')}`;
 }
 
-function buildSystemMessage({ skills = [], userName = null } = {}) {
+function buildBaseIdentity({ skills = [], userName = null } = {}) {
   const capabilityContext = buildCapabilityContext(skills);
   const businessList = ARTHUR_IDENTITY.businesses
     .map(b => `- ${b.name}: ${b.description}`)
@@ -43,15 +43,25 @@ ${businessList}
 ${capabilityContext}
 
 Ограничения:
-${ARTHUR_IDENTITY.constraints.map(c => `- ${c}`).join('\n')}
+${ARTHUR_IDENTITY.constraints.map(c => `- ${c}`).join('\n')}${userName ? `\n\nПользователь: ${userName}` : ''}`;
+}
+
+function buildSystemMessage({ skills = [], userName = null } = {}) {
+  return `${buildBaseIdentity({ skills, userName })}
 
 Если пользователь спрашивает, что ты умеешь — отвечай только на основе подключённых skills.
 Если спрашивает про доступ к данным — уточняй, что доступ есть только через эти skills, и прямого доступа к БД/аккаунтам нет.
-Если запрос не соответствует ни одному skill — скажи, что не можешь помочь в этом, и предложи /help.${userName ? `\nПользователь: ${userName}` : ''}`;
+Если запрос требует данных от skill — используй только предоставленные этим skill данные, не придумывай их.
+Если запрос общий и не требует skill — отвечай естественно, коротко и по делу как персональный помощник.`;
 }
 
 function buildDirectResponseSystemMessage({ skills = [], userName = null } = {}) {
-  return buildSystemMessage({ skills, userName });
+  return `${buildBaseIdentity({ skills, userName })}
+
+Запрос пользователя не требует вызова подключённых skills. Отвечай естественно, как персональный AI-помощник Сергея.
+Если пользователь спрашивает, что ты умеешь или к каким данным есть доступ — отвечай на основе подключённых skills и ограничений выше, не заявляй о прямом доступе к БД.
+Если спрашивают про конкретную модель или provider — не раскрывай технические детали без runtime metadata; можешь сказать, что запрос обрабатывается через AI-шлюз Arthur/OmniRoute.
+Не придумывай бизнес-данные, которых не вернул skill.`;
 }
 
 function buildPlannerSystemMessage({ skills = [] } = {}) {

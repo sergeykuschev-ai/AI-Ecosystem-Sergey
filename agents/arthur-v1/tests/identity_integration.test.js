@@ -84,7 +84,197 @@ test('direct AI response receives system message with capabilities', async () =>
   assert.equal(response.answer.text, 'Я могу рассказать про закупщика Миски.');
   assert.ok(ai.captured.generateSystem);
   assert.ok(ai.captured.generateSystem.includes('purchasing'));
-  assert.ok(ai.captured.generateSystem.includes('только на основе подключённых skills'));
+  assert.ok(ai.captured.generateSystem.includes('подключённых skills'));
+  assert.ok(ai.captured.generateSystem.includes('Отвечай естественно'));
+});
+
+function createCapturingLogger() {
+  const records = [];
+  return {
+    records,
+    info: (event, request, meta = {}) => records.push({ level: 'info', event, request, meta }),
+    warn: (event, request, meta = {}) => records.push({ level: 'warn', event, request, meta }),
+    error: (event, request, meta = {}) => records.push({ level: 'error', event, request, meta }),
+  };
+}
+
+test('greeting returns direct AI response with identity context', async () => {
+  const registry = createSkillRegistry();
+  registry.register(fakeSkill('purchasing', { status: 'ok' }));
+
+  const ai = createCapturingAIProvider('Привет! Я Артур, готов помочь.');
+  const logger = createCapturingLogger();
+  const orchestrator = createOrchestrator({
+    registry,
+    deterministicPlanBuilder: createRuleBasedPlanBuilder(),
+    aiProvider: ai,
+    logger,
+  });
+
+  const response = await orchestrator.handle({
+    message: 'Привет, Артур',
+    channel: 'test',
+  });
+
+  assert.equal(response.status, 'success');
+  assert.deepEqual(response.modulesUsed, []);
+  assert.ok(response.diagnostics.directResponse);
+  assert.equal(response.answer.text, 'Привет! Я Артур, готов помочь.');
+  assert.ok(ai.captured.generateSystem.includes('Артур'));
+  assert.ok(ai.captured.generateSystem.includes('подключённых skills'));
+  assert.ok(logger.records.some(r => r.event === 'conversation_fallback_used' && r.meta.reason === 'empty_plan'));
+});
+
+test('generic business question returns direct AI response', async () => {
+  const registry = createSkillRegistry();
+  registry.register(fakeSkill('purchasing', { status: 'ok' }));
+
+  const ai = createCapturingAIProvider('Страховой запас защищает от непредсказуемых колебаний спроса.');
+  const orchestrator = createOrchestrator({
+    registry,
+    deterministicPlanBuilder: createRuleBasedPlanBuilder(),
+    aiProvider: ai,
+    logger: createSilentLogger(),
+  });
+
+  const response = await orchestrator.handle({
+    message: 'Объясни простыми словами, зачем магазину нужен страховой запас товара',
+    channel: 'test',
+  });
+
+  assert.equal(response.status, 'success');
+  assert.deepEqual(response.modulesUsed, []);
+  assert.ok(response.diagnostics.directResponse);
+  assert.equal(response.answer.text, 'Страховой запас защищает от непредсказуемых колебаний спроса.');
+});
+
+test('UNKNOWN intent returns direct AI response', async () => {
+  const registry = createSkillRegistry();
+  registry.register(fakeSkill('purchasing', { status: 'ok' }));
+
+  const ai = createCapturingAIProvider('Это обычный вопрос, отвечаю напрямую.');
+  const orchestrator = createOrchestrator({
+    registry,
+    deterministicPlanBuilder: createRuleBasedPlanBuilder({
+      intentDetector: () => 'unknown',
+    }),
+    aiProvider: ai,
+    logger: createSilentLogger(),
+  });
+
+  const response = await orchestrator.handle({
+    message: 'какая сегодня погода?',
+    channel: 'test',
+  });
+
+  assert.equal(response.status, 'success');
+  assert.deepEqual(response.modulesUsed, []);
+  assert.ok(response.diagnostics.directResponse);
+  assert.equal(response.answer.text, 'Это обычный вопрос, отвечаю напрямую.');
+});
+
+test('empty plan from LLM returns direct AI response', async () => {
+  const registry = createSkillRegistry();
+  registry.register(fakeSkill('purchasing', { status: 'ok' }));
+
+  const ai = {
+    async generate(prompt, options = {}) {
+      this.captured.generateSystem = options.system || null;
+      return 'Простой ответ без навыков.';
+    },
+    async synthesize() {
+      return { text: 'unused', confidence: 'low' };
+    },
+    async health() {
+      return { healthy: true };
+    },
+    captured: { generateSystem: null },
+  };
+
+  const llmPlanner = createLLMPlanBuilder({ aiProvider: ai, registry });
+  llmPlanner.build = async () => ({ version: 1, steps: [] });
+
+  const orchestrator = createOrchestrator({
+    registry,
+    deterministicPlanBuilder: createRuleBasedPlanBuilder(),
+    llmPlanBuilder: llmPlanner,
+    aiProvider: ai,
+    logger: createSilentLogger(),
+  });
+
+  const response = await orchestrator.handle({
+    message: 'расскажи анекдот',
+    channel: 'test',
+  });
+
+  assert.equal(response.status, 'success');
+  assert.deepEqual(response.modulesUsed, []);
+  assert.ok(response.diagnostics.directResponse);
+  assert.equal(response.answer.text, 'Простой ответ без навыков.');
+  assert.ok(ai.captured.generateSystem.includes('подключённых skills'));
+});
+
+test('hallucinated skill returns direct AI response without SKILL_NOT_FOUND error', async () => {
+  const registry = createSkillRegistry();
+  registry.register(fakeSkill('purchasing', { status: 'ok' }));
+
+  const ai = {
+    async generate() {
+      return JSON.stringify({
+        version: 1,
+        steps: [{ id: 'step_1', skill: 'analytics', operation: 'search', dependsOn: [] }],
+      });
+    },
+    async synthesize() {
+      return { text: 'fallback', confidence: 'low' };
+    },
+    async health() {
+      return { healthy: true };
+    },
+  };
+
+  const logger = createCapturingLogger();
+  const orchestrator = createOrchestrator({
+    registry,
+    deterministicPlanBuilder: createRuleBasedPlanBuilder(),
+    llmPlanBuilder: createLLMPlanBuilder({ aiProvider: ai, registry }),
+    aiProvider: ai,
+    logger,
+  });
+
+  const response = await orchestrator.handle({
+    message: 'анализ продаж',
+    channel: 'test',
+  });
+
+  assert.equal(response.status, 'success');
+  assert.deepEqual(response.modulesUsed, []);
+  assert.ok(response.diagnostics.directResponse);
+  assert.ok(!response.answer.text.includes('SKILL_NOT_FOUND'));
+  assert.ok(!response.answer.text.includes('не смог определить'));
+  assert.ok(logger.records.some(r => r.event === 'conversation_fallback_used'));
+});
+
+test('direct response system message does not claim unavailable fake skills', async () => {
+  const registry = createSkillRegistry();
+  registry.register(fakeSkill('purchasing', { status: 'ok' }));
+
+  const ai = createCapturingAIProvider('ok');
+  const orchestrator = createOrchestrator({
+    registry,
+    deterministicPlanBuilder: createRuleBasedPlanBuilder(),
+    aiProvider: ai,
+    logger: createSilentLogger(),
+  });
+
+  await orchestrator.handle({
+    message: 'что ты умеешь?',
+    channel: 'test',
+  });
+
+  assert.ok(ai.captured.generateSystem.includes('purchasing'));
+  assert.ok(!ai.captured.generateSystem.includes('calendar'));
+  assert.ok(!ai.captured.generateSystem.includes('documents'));
 });
 
 test('synthesizer receives system message with capabilities after skill execution', async () => {

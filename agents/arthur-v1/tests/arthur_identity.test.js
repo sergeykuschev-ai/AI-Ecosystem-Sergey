@@ -56,12 +56,15 @@ test('buildSystemMessage includes user name when provided', () => {
   assert.ok(message.includes('Пользователь: Сергей'));
 });
 
-test('buildDirectResponseSystemMessage delegates to buildSystemMessage', () => {
+test('buildDirectResponseSystemMessage builds conversational response prompt', () => {
   const message = buildDirectResponseSystemMessage({
     skills: [createFakeSkill('purchasing')],
   });
   assert.ok(message.includes('Артур'));
   assert.ok(message.includes('purchasing'));
+  assert.ok(message.includes('Отвечай естественно'));
+  assert.ok(message.includes('не требует вызова подключённых skills'));
+  assert.ok(message.includes('Не придумывай бизнес-данные'));
 });
 
 test('buildPlannerSystemMessage restricts to registered skills', () => {
