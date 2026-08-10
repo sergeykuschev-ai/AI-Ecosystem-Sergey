@@ -3,6 +3,10 @@
 const { validateContext, createArthurContext } = require('../context/arthur_context');
 const { createExecutionEngine } = require('./execution_engine');
 const { createSynthesizer } = require('./synthesizer');
+const { INTENTS, detectIntent, isDeterministicIntent } = require('../planner/intents');
+const { createRuleBasedPlanBuilder } = require('../planner/plan_builder');
+const { createLLMPlanBuilder } = require('../planner/llm_plan_builder');
+const { getProviderDiagnostics } = require('../ai/provider_factory');
 
 function createOrchestratorRequest(input = {}) {
   const ctx = createArthurContext(input);
@@ -45,6 +49,8 @@ class ArthurOrchestrator {
   constructor(options = {}) {
     this.registry = options.registry;
     this.planBuilder = options.planBuilder;
+    this.deterministicPlanBuilder = options.deterministicPlanBuilder || createRuleBasedPlanBuilder();
+    this.llmPlanBuilder = options.llmPlanBuilder || null;
     this.knowledge = options.knowledge || null;
     this.memory = options.memory || null;
     this.aiProvider = options.aiProvider || null;
@@ -57,6 +63,57 @@ class ArthurOrchestrator {
       aiProvider: this.aiProvider,
       logger: this.logger,
     });
+
+    if (!this.llmPlanBuilder && this.aiProvider && this.registry) {
+      this.llmPlanBuilder = createLLMPlanBuilder({
+        aiProvider: this.aiProvider,
+        registry: this.registry,
+      });
+    }
+  }
+
+  async _buildPlan(request) {
+    if (this.planBuilder) {
+      return this.planBuilder.build(request);
+    }
+
+    const intent = request.intent || detectIntent(request.message);
+
+    if (isDeterministicIntent(intent)) {
+      return this.deterministicPlanBuilder.build({
+        ...request,
+        intent,
+      });
+    }
+
+    if (this.llmPlanBuilder) {
+      try {
+        return await this.llmPlanBuilder.build(request);
+      } catch (error) {
+        if (this.logger) {
+          this.logger.warn('llm_plan_failed', request, {
+            errorCode: error.code || error.name,
+            errorMessage: error.message,
+          });
+        }
+      }
+    }
+
+    return this.deterministicPlanBuilder.build({
+      ...request,
+      intent: INTENTS.UNKNOWN,
+    });
+  }
+
+  async getDiagnostics() {
+    const providerHealth = this.aiProvider ? await this.aiProvider.health() : { healthy: false, provider: 'none' };
+    return {
+      aiProviderEnabled: Boolean(this.aiProvider),
+      provider: providerHealth.provider || getProviderDiagnostics().provider,
+      model: providerHealth.model || null,
+      status: providerHealth.healthy ? 'healthy' : 'unavailable',
+      skills: this.registry ? this.registry.list().map(s => s.id) : [],
+    };
   }
 
   async handle(input) {
@@ -84,11 +141,7 @@ class ArthurOrchestrator {
           })
         : { entries: [] };
 
-      const plan = this.planBuilder.build({
-        intent: request.intent,
-        entities: request.context?.entities || {},
-        message: request.message,
-      });
+      const plan = await this._buildPlan(request);
 
       if (this.logger) {
         this.logger.info('execution_plan_built', request, {

@@ -15,13 +15,17 @@ Telegram, Web, and future interfaces are only clients. All business logic lives 
 ```text
 Channel (Telegram / Web / CLI)
     ↓
-Arthur Gateway (not implemented in v1.0)
+Arthur Gateway
     ↓
-Arthur Router (not implemented in v1.0)
+Arthur Router
     ↓
 Arthur Orchestrator
     ↓
-Rule-based Plan Builder
+Deterministic Planner  ←  known commands / keywords
+    ↓
+LLM Planner            ←  ambiguous natural-language requests
+    ↓
+ExecutionPlan
     ↓
 Execution Engine
     ↓
@@ -38,11 +42,11 @@ Unified Response
 |--------|---------------|------------|
 | `registry` | Skill registration, validation, lookup | Implemented |
 | `orchestrator` | Request lifecycle, plan execution, response assembly | Implemented |
-| `planner` | Rule-based intent detection and plan building | Implemented |
+| `planner` | Rule-based intent detection + LLM plan builder | Implemented |
 | `skills/purchasing` | Read-only adapter over Purchasing Agent | Implemented |
 | `knowledge` | File-backed knowledge index and search | Implemented |
 | `memory` | Conversation context interface | Stub implemented |
-| `ai` | Provider-neutral AI abstraction | Implemented (fake provider) |
+| `ai` | Provider-neutral AI abstraction with OmniRoute support | Implemented |
 | `context` | `requestId`, `correlationId`, `userId`, `channel`, `timestamp` | Implemented |
 | `logging` | Structured JSON logs with correlation | Implemented |
 | `errors` | Typed errors and retry classification | Implemented |
@@ -67,7 +71,7 @@ Unified Response
 }
 ```
 
-The contract is stable. The rule-based builder can later be replaced with an LLM-based planner without changing the Orchestrator or Execution Engine.
+The contract is stable. The Orchestrator chooses between the deterministic rule-based builder and the LLM planner based on intent. Both produce the same `ExecutionPlan` shape, so the Execution Engine and skills do not change.
 
 ## Skill Contract
 
@@ -95,7 +99,7 @@ Skills must:
 3. `Orchestrator.handle(input)` builds a full request.
 4. Memory snapshot is loaded.
 5. Knowledge search is performed for known intents.
-6. Plan Builder produces an `ExecutionPlan`.
+6. Deterministic Plan Builder produces an `ExecutionPlan` for known intents; ambiguous requests are sent to the LLM Planner.
 7. Execution Engine runs steps sequentially or in parallel based on `dependsOn`.
 8. Synthesizer combines skill outputs, knowledge, and failures into one answer.
 9. Memory stores the turn.
@@ -142,6 +146,35 @@ Retry is applied only when `error.retryable === true`.
 4. Add intent mapping and plan builder if needed.
 5. Add unit tests in `agents/arthur-v1/tests/`.
 
+## AI Provider Configuration
+
+Environment variables:
+
+- `ARTHUR_AI_PROVIDER` — `fake` (default) or `omniroute`.
+- `OMNIROUTE_BASE_URL` — base URL of the OmniRoute OpenAI-compatible API, e.g. `http://omniroute:20128/v1`.
+- `OMNIROUTE_API_KEY` — API key for OmniRoute. Never commit this value.
+- `OMNIROUTE_FAST_MODEL` — model or combo name, e.g. `arthur-fast`.
+
+When `ARTHUR_AI_PROVIDER=omniroute`, the Orchestrator can route ambiguous natural-language requests through the LLM Planner. Deterministic commands bypass the LLM and use the rule-based planner directly.
+
+## Deterministic vs AI Planning
+
+Deterministic intents (rule-based, no LLM):
+
+- `purchasing.status`
+- `purchasing.owner_review`
+- `purchasing.final_order`
+- `purchasing.summary`
+- `knowledge.search`
+
+Ambiguous or unknown intents are sent to the LLM Planner when a real AI provider is configured. The LLM Planner:
+
+1. receives available skills and operations;
+2. asks the model to produce a valid `ExecutionPlan`;
+3. validates the plan against the skill registry;
+4. rejects write operations, shell/sql/system tools, and unknown skills;
+5. falls back to `knowledge.search` if the LLM fails or returns an invalid plan.
+
 ## Running Tests
 
 ```bash
@@ -151,19 +184,15 @@ npm test
 
 ## Current Limitations
 
-- Telegram Gateway is not implemented.
-- LLM-based planner is not implemented.
 - Only the purchasing skill exists.
-- AI Provider uses a deterministic fake implementation.
 - Memory is in-process only.
+- LLM planner validates plans but does not yet use real model reasoning for ambiguous requests when `ARTHUR_AI_PROVIDER=fake`.
 - All operations are read-only; no owner decision writes, no supplier order sending.
 
 ## Next Steps
 
-1. Implement Arthur Telegram Gateway.
-2. Add authentication and user identity mapping.
-3. Replace rule-based planner with LLM-based planner using the same ExecutionPlan contract.
-4. Add real AI provider with model routing.
-5. Implement additional skills: KPI, Sales, Tasks, Pricing, Inventory, Reports.
-6. Add persistent memory store.
-7. Add confirmation execution layer for write operations.
+1. Add authentication and user identity mapping to the Telegram Gateway.
+2. Implement additional skills: KPI, Sales, Tasks, Pricing, Inventory, Reports.
+3. Add persistent memory store.
+4. Add confirmation execution layer for write operations.
+5. Evaluate LLM plan quality against real OmniRoute model and tune prompts.

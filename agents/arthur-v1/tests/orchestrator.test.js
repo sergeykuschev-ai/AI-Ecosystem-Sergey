@@ -214,3 +214,186 @@ test('correlationId propagates through response', async () => {
   });
   assert.equal(response.correlationId, 'corr-123');
 });
+
+test('deterministic intent bypasses LLM planner', async () => {
+  const registry = createSkillRegistry();
+  registry.register(fakeSkill('purchasing', { status: 'ok' }));
+
+  let llmCalled = false;
+  const fakeAI = {
+    generate: async () => { llmCalled = true; return 'llm'; },
+    synthesize: async (input) => ({ text: 'ok', confidence: 'high' }),
+    health: async () => ({ healthy: true }),
+  };
+
+  const orchestrator = createOrchestrator({
+    registry,
+    deterministicPlanBuilder: createRuleBasedPlanBuilder(),
+    llmPlanBuilder: {
+      build: async () => {
+        llmCalled = true;
+        return { version: 1, steps: [] };
+      },
+    },
+    aiProvider: fakeAI,
+    logger: createLogger({ stdout: { write: () => {} }, stderr: { write: () => {} } }),
+  });
+
+  const response = await orchestrator.handle({
+    message: 'Что с закупками?',
+    channel: 'test',
+  });
+
+  assert.equal(response.status, 'success');
+  assert.equal(response.modulesUsed.includes('purchasing'), true);
+  assert.equal(llmCalled, false);
+});
+
+test('ambiguous intent invokes LLM planner', async () => {
+  const registry = createSkillRegistry();
+  registry.register(fakeSkill('purchasing', { status: 'ok' }));
+
+  const fakeAI = {
+    generate: async () => JSON.stringify({
+      version: 1,
+      steps: [{ id: 'step_1', skill: 'purchasing', operation: 'getStatus', dependsOn: [], timeoutMs: 1000 }],
+    }),
+    synthesize: async (input) => ({ text: 'LLM answer', confidence: 'high' }),
+    health: async () => ({ healthy: true }),
+  };
+
+  const orchestrator = createOrchestrator({
+    registry,
+    deterministicPlanBuilder: createRuleBasedPlanBuilder(),
+    llmPlanBuilder: {
+      build: async () => ({
+        version: 1,
+        steps: [{ id: 'step_1', skill: 'purchasing', operation: 'getStatus', dependsOn: [], timeoutMs: 1000 }],
+      }),
+    },
+    aiProvider: fakeAI,
+    logger: createLogger({ stdout: { write: () => {} }, stderr: { write: () => {} } }),
+  });
+
+  const response = await orchestrator.handle({
+    message: 'абракадабра',
+    channel: 'test',
+  });
+
+  assert.equal(response.status, 'success');
+  assert.equal(response.answer.text, 'LLM answer');
+});
+
+test('LLM planner failure falls back to knowledge search', async () => {
+  const registry = createSkillRegistry();
+  registry.register(fakeSkill('purchasing', { status: 'ok' }));
+  registry.register({
+    id: 'knowledge',
+    name: 'knowledge',
+    version: '1.0.0',
+    capabilities: [{ id: 'search', readOnly: true }],
+    execute: async () => ({ status: 'success', data: { summary: 'knowledge result' }, metadata: {} }),
+    health: async () => ({ healthy: true }),
+  });
+
+  const fakeAI = {
+    generate: async () => { throw new Error('LLM unavailable'); },
+    synthesize: async (input) => ({ text: 'fallback', confidence: 'low' }),
+    health: async () => ({ healthy: false }),
+  };
+
+  const orchestrator = createOrchestrator({
+    registry,
+    deterministicPlanBuilder: createRuleBasedPlanBuilder(),
+    llmPlanBuilder: {
+      build: async () => { throw new Error('LLM unavailable'); },
+    },
+    knowledge: {
+      search: async () => ({ entries: [] }),
+    },
+    aiProvider: fakeAI,
+    logger: createLogger({ stdout: { write: () => {} }, stderr: { write: () => {} } }),
+  });
+
+  const response = await orchestrator.handle({
+    message: 'абракадабра',
+    channel: 'test',
+  });
+
+  assert.equal(response.status, 'success');
+  assert.equal(response.modulesUsed.includes('knowledge'), true);
+});
+
+test('AI provider unavailable still returns deterministic response', async () => {
+  const registry = createSkillRegistry();
+  registry.register(fakeSkill('purchasing', { status: 'ok' }));
+
+  const brokenAI = {
+    generate: async () => { throw new Error('unavailable'); },
+    synthesize: async () => { throw new Error('unavailable'); },
+    health: async () => ({ healthy: false }),
+  };
+
+  const orchestrator = createOrchestrator({
+    registry,
+    deterministicPlanBuilder: createRuleBasedPlanBuilder(),
+    aiProvider: brokenAI,
+    logger: createLogger({ stdout: { write: () => {} }, stderr: { write: () => {} } }),
+  });
+
+  const response = await orchestrator.handle({
+    message: 'Что с закупками?',
+    channel: 'test',
+  });
+
+  assert.equal(response.status, 'success');
+  assert.equal(response.modulesUsed.includes('purchasing'), true);
+});
+
+test('multi-skill LLM plan executes sequentially by dependency', async () => {
+  const registry = createSkillRegistry();
+  const order = [];
+  registry.register({
+    ...fakeSkill('a'),
+    execute: async () => { order.push('a'); return { status: 'success', data: {}, metadata: {} }; },
+  });
+  registry.register({
+    ...fakeSkill('b'),
+    execute: async (input) => {
+      order.push('b');
+      assert.ok(input.context.step_1);
+      return { status: 'success', data: {}, metadata: {} };
+    },
+  });
+
+  const fakeAI = {
+    generate: async () => JSON.stringify({
+      version: 1,
+      steps: [
+        { id: 'step_1', skill: 'a', operation: 'op', dependsOn: [], timeoutMs: 1000 },
+        { id: 'step_2', skill: 'b', operation: 'op', dependsOn: ['step_1'], timeoutMs: 1000 },
+      ],
+    }),
+    synthesize: async () => ({ text: 'ok', confidence: 'high' }),
+    health: async () => ({ healthy: true }),
+  };
+
+  const orchestrator = createOrchestrator({
+    registry,
+    deterministicPlanBuilder: createRuleBasedPlanBuilder(),
+    llmPlanBuilder: {
+      build: async () => ({
+        version: 1,
+        steps: [
+          { id: 'step_1', skill: 'a', operation: 'op', dependsOn: [], timeoutMs: 1000 },
+          { id: 'step_2', skill: 'b', operation: 'op', dependsOn: ['step_1'], timeoutMs: 1000 },
+        ],
+      }),
+    },
+    aiProvider: fakeAI,
+    logger: createLogger({ stdout: { write: () => {} }, stderr: { write: () => {} } }),
+  });
+
+  await orchestrator.handle({ message: 'x', channel: 'test' });
+  assert.deepEqual(order, ['a', 'b']);
+});

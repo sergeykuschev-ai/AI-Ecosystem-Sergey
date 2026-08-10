@@ -74,7 +74,17 @@ class Synthesizer {
 
     let answer;
     if (this.aiProvider) {
-      answer = await this.aiProvider.synthesize(synthesisInput, context);
+      try {
+        answer = await this.aiProvider.synthesize(synthesisInput, context);
+      } catch (error) {
+        if (this.logger) {
+          this.logger.warn('synthesis_ai_provider_failed', context, {
+            errorCode: error.code || error.name,
+            errorMessage: error.message,
+          });
+        }
+        answer = this._fallbackSynthesize(synthesisInput);
+      }
     } else {
       answer = this._fallbackSynthesize(synthesisInput);
     }

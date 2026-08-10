@@ -46,6 +46,14 @@ const INTENT_KEYWORDS = Object.freeze({
   ],
 });
 
+const DETERMINISTIC_INTENTS = Object.freeze(new Set([
+  INTENTS.PURCHASING_STATUS,
+  INTENTS.PURCHASING_OWNER_REVIEW,
+  INTENTS.PURCHASING_FINAL_ORDER,
+  INTENTS.PURCHASING_SUMMARY,
+  INTENTS.KNOWLEDGE_SEARCH,
+]));
+
 function detectIntent(message) {
   if (!message || typeof message !== 'string') {
     return INTENTS.UNKNOWN;
@@ -63,8 +71,14 @@ function detectIntent(message) {
   return INTENTS.UNKNOWN;
 }
 
+function isDeterministicIntent(intent) {
+  return Boolean(intent && DETERMINISTIC_INTENTS.has(intent));
+}
+
 module.exports = {
   INTENTS,
   INTENT_KEYWORDS,
+  DETERMINISTIC_INTENTS,
   detectIntent,
+  isDeterministicIntent,
 };

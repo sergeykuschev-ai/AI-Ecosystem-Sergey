@@ -176,7 +176,7 @@ class ArthurTelegramGateway {
       } else if (text === COMMANDS.HELP) {
         responseText = HELP_TEXT;
       } else if (text === COMMANDS.STATUS) {
-        responseText = this.buildStatusText();
+        responseText = await this.buildStatusText();
       } else {
         const arthurRequest = buildArthurRequest({ update, userId, chatId, correlationId });
         const arthurResponse = await this.arthur.handle(arthurRequest);
@@ -211,12 +211,22 @@ class ArthurTelegramGateway {
     }
   }
 
-  buildStatusText() {
+  async buildStatusText() {
     const now = new Date().toISOString();
+    let aiStatus = 'unknown';
+    try {
+      const diagnostics = await this.arthur.getDiagnostics();
+      aiStatus = `${diagnostics.provider} (${diagnostics.status})`;
+    } catch (error) {
+      aiStatus = 'unavailable';
+    }
+
     const lines = [
       '<b>Статус Артура</b>',
       '',
       `Gateway: ${this.running ? 'работает' : 'остановлен'}`,
+      `AI provider: ${escapeHtml(aiStatus)}`,
+      `Proxy: ${this.telegram.proxyEnabled ? 'включён' : 'выключен'}`,
       `Запущен: ${this.startedAt ? escapeHtml(this.startedAt) : '—'}`,
       `Обработано сообщений: ${this.processedUpdates}`,
       `Последняя ошибка: ${this.lastError ? escapeHtml(this.lastError.message) : 'нет'}`,
