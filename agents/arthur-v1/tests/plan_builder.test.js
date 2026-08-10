@@ -36,19 +36,18 @@ test('purchasing.summary intent builds summary step', () => {
   assert.equal(plan.steps[0].operation, 'getSummary');
 });
 
-test('knowledge.search intent builds knowledge step', () => {
+test('knowledge.search intent returns empty plan because knowledge skill is not registered', () => {
   const builder = createRuleBasedPlanBuilder();
   const plan = builder.build({ message: 'матрица', intent: INTENTS.KNOWLEDGE_SEARCH });
-  assert.equal(plan.steps[0].skill, 'knowledge');
-  assert.equal(plan.steps[0].operation, 'search');
-  assert.equal(plan.steps[0].parameters.query, 'матрица');
+  assert.equal(plan.version, 1);
+  assert.deepEqual(plan.steps, []);
 });
 
-test('unknown intent falls back to knowledge search', () => {
+test('unknown intent returns empty plan instead of referencing missing skill', () => {
   const builder = createRuleBasedPlanBuilder();
   const plan = builder.build({ message: 'абракадабра' });
-  assert.equal(plan.steps[0].skill, 'knowledge');
-  assert.equal(plan.steps[0].operation, 'search');
+  assert.equal(plan.version, 1);
+  assert.deepEqual(plan.steps, []);
 });
 
 test('detectIntent recognizes purchasing status keywords', () => {

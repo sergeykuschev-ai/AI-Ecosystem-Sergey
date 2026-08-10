@@ -100,6 +100,45 @@ test('OmniRouteProvider synthesize returns structured answer', async () => {
   assert.deepEqual(result.usage, { prompt_tokens: 20, completion_tokens: 10 });
 });
 
+test('OmniRouteProvider extracts text from content parts array', async () => {
+  const { fetchImpl } = createFakeFetch([
+    jsonResponse({
+      choices: [{
+        message: {
+          content: [
+            { type: 'text', text: 'Hello ' },
+            { type: 'text', text: 'world' },
+          ],
+        },
+      }],
+    }),
+  ]);
+  const provider = createOmniRouteProvider({
+    baseUrl: 'http://omniroute:20128/v1',
+    apiKey: 'test-key',
+    fetchImpl,
+  });
+  const result = await provider.generate('prompt');
+  assert.equal(result, 'Hello world');
+});
+
+test('OmniRouteProvider rejects empty content', async () => {
+  const { fetchImpl } = createFakeFetch([
+    jsonResponse({
+      choices: [{ message: { content: '' } }],
+    }),
+  ]);
+  const provider = createOmniRouteProvider({
+    baseUrl: 'http://omniroute:20128/v1',
+    apiKey: 'test-key',
+    fetchImpl,
+  });
+  await assert.rejects(provider.generate('prompt'), (error) => {
+    assert.equal(error.code, 'OMNIROUTE_INVALID_RESPONSE');
+    return true;
+  });
+});
+
 test('OmniRouteProvider health returns healthy on OK response', async () => {
   const { fetchImpl } = createFakeFetch([
     { ok: true, status: 200, text: async () => JSON.stringify({ data: [] }) },

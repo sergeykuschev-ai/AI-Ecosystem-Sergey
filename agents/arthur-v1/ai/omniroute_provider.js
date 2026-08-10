@@ -190,12 +190,59 @@ class OmniRouteProvider extends AIProvider {
     }
   }
 
+  _describeResponseShape(data) {
+    const choice = data?.choices?.[0];
+    const message = choice?.message;
+    return {
+      hasChoices: Array.isArray(data?.choices),
+      choiceCount: data?.choices?.length ?? 0,
+      choiceKeys: choice ? Object.keys(choice) : [],
+      hasMessage: Boolean(message),
+      messageKeys: message ? Object.keys(message) : [],
+      contentType: message?.content === null ? 'null' : Array.isArray(message?.content) ? 'array' : typeof message?.content,
+      hasReasoningContent: 'reasoning_content' in (message || {}),
+    };
+  }
+
+  _extractTextFromContentParts(content) {
+    if (!Array.isArray(content)) return null;
+    const parts = content
+      .filter(part => part && (typeof part.text === 'string' || typeof part.content === 'string'))
+      .map(part => part.text || part.content);
+    if (parts.length === 0) return null;
+    return parts.join('').trim();
+  }
+
   _extractContent(data) {
-    const content = data?.choices?.[0]?.message?.content;
-    if (typeof content !== 'string') {
-      throw new ArthurError('OMNIROUTE_INVALID_RESPONSE', 'OmniRoute response missing content', { retryable: false });
+    const message = data?.choices?.[0]?.message;
+    if (!message) {
+      const shape = this._describeResponseShape(data);
+      throw new ArthurError(
+        'OMNIROUTE_INVALID_RESPONSE',
+        `OmniRoute response missing message: ${JSON.stringify(shape)}`,
+        { retryable: false }
+      );
     }
-    return content.trim();
+
+    const content = message.content;
+
+    if (typeof content === 'string' && content.length > 0) {
+      return content.trim();
+    }
+
+    if (Array.isArray(content)) {
+      const text = this._extractTextFromContentParts(content);
+      if (text && text.length > 0) {
+        return text;
+      }
+    }
+
+    const shape = this._describeResponseShape(data);
+    throw new ArthurError(
+      'OMNIROUTE_INVALID_RESPONSE',
+      `OmniRoute response missing usable content: ${JSON.stringify(shape)}`,
+      { retryable: false }
+    );
   }
 
   _buildSynthesisPrompt(input) {

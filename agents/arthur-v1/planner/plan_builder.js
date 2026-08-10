@@ -73,15 +73,7 @@ const PLAN_BUILDERS = {
     }),
   ]),
 
-  [INTENTS.KNOWLEDGE_SEARCH]: (input) => createExecutionPlan([
-    createStep({
-      id: 'step_1',
-      skill: 'knowledge',
-      operation: 'search',
-      parameters: { query: input.message, limit: 10 },
-      timeoutMs: 5000,
-    }),
-  ]),
+  [INTENTS.KNOWLEDGE_SEARCH]: () => createExecutionPlan([]),
 };
 
 class RuleBasedPlanBuilder {
@@ -97,15 +89,9 @@ class RuleBasedPlanBuilder {
 
     if (!builder) {
       if (intent === INTENTS.UNKNOWN) {
-        return createExecutionPlan([
-          createStep({
-            id: 'step_1',
-            skill: 'knowledge',
-            operation: 'search',
-            parameters: { query: message, limit: 5 },
-            timeoutMs: 5000,
-          }),
-        ]);
+        // Empty plan: Orchestrator will decide whether to call AI directly
+        // or return a safe fallback. Do not reference unregistered skills.
+        return createExecutionPlan([]);
       }
       throw new PlanBuildError(intent, 'no plan builder registered');
     }

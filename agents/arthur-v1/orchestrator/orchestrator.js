@@ -117,6 +117,80 @@ class ArthurOrchestrator {
     };
   }
 
+  async _respondDirectly(request, knowledgeResults, memorySnapshot, startTime) {
+    if (this.logger) {
+      this.logger.info('orchestrator_direct_response', request, {
+        reason: 'empty_plan',
+      });
+    }
+
+    let answerText;
+    let confidence = 'medium';
+
+    if (this.aiProvider) {
+      try {
+        answerText = await this.aiProvider.generate(request.message, { policy: 'fast' });
+        confidence = 'medium';
+      } catch (error) {
+        if (this.logger) {
+          this.logger.warn('direct_ai_response_failed', request, {
+            errorCode: error.code || error.name,
+            errorMessage: error.message,
+          });
+        }
+        answerText = 'Я не смог определить, какой навык нужен для этого запроса. Попробуйте уточнить или используйте /help.';
+        confidence = 'low';
+      }
+    } else {
+      answerText = 'Я не смог определить, какой навык нужен для этого запроса. Попробуйте уточнить или используйте /help.';
+      confidence = 'low';
+    }
+
+    const answer = {
+      text: answerText,
+      markdown: answerText,
+      sources: [],
+      confidence,
+      followUps: [],
+    };
+
+    const response = createOrchestratorResponse({
+      request,
+      status: 'success',
+      answer,
+      modulesUsed: [],
+      diagnostics: {
+        executionStatus: 'success',
+        errors: [],
+        knowledgeEntries: knowledgeResults?.entries?.length || 0,
+        memoryEntries: memorySnapshot.length,
+        directResponse: true,
+      },
+      executionTimeMs: Date.now() - startTime,
+    });
+
+    if (this.memory) {
+      await this.memory.store(request.userId, request.correlationId, {
+        request: request.message,
+        intent: request.intent,
+        answer: answer.text,
+        status: response.status,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    if (this.logger) {
+      this.logger.info('orchestrator_response_sent', request, {
+        status: response.status,
+        executionTimeMs: response.executionTimeMs,
+        modulesUsed: response.modulesUsed,
+        directResponse: true,
+      });
+    }
+
+    return response;
+  }
+
   async handle(input) {
     const startTime = Date.now();
     const request = createOrchestratorRequest(input);
@@ -149,6 +223,10 @@ class ArthurOrchestrator {
           stepCount: plan.steps.length,
           steps: plan.steps.map(s => ({ id: s.id, skill: s.skill, operation: s.operation })),
         });
+      }
+
+      if (plan.steps.length === 0) {
+        return this._respondDirectly(request, knowledgeResults, memorySnapshot, startTime);
       }
 
       const executionResult = await this.engine.execute(plan, this.registry, request);

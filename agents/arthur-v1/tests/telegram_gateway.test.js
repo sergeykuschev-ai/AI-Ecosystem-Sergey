@@ -477,3 +477,61 @@ test('natural language request is forwarded to Arthur', async () => {
   assert.equal(capturedRequest.message, 'объясни почему упали продажи');
   assert.equal(telegram.sent[0].text, 'AI analysis result');
 });
+
+test('Telegram natural-language greeting returns human-readable answer', async () => {
+  const telegram = createFakeTelegramClient({
+    updates: [{
+      update_id: 1,
+      message: {
+        message_id: 1,
+        from: { id: 111111 },
+        chat: { id: 111111 },
+        text: 'Привет',
+      },
+    }],
+  });
+  const arthur = {
+    async handle(request) {
+      return { status: 'success', answer: { text: 'Привет! Чем могу помочь?', confidence: 'high' } };
+    },
+    async getDiagnostics() {
+      return { aiProviderEnabled: true, provider: 'omniroute', models: { fast: 'arthur-fast' }, status: 'healthy', skills: [] };
+    },
+  };
+  const gateway = createTestGateway({ telegramClient: telegram, arthur });
+
+  setTimeout(() => gateway.stop(), 200);
+  await gateway.start();
+
+  assert.equal(telegram.sent.length, 1);
+  assert.equal(telegram.sent[0].text, 'Привет! Чем могу помочь?');
+});
+
+test('Telegram deterministic command still works when AI provider fails', async () => {
+  const telegram = createFakeTelegramClient({
+    updates: [{
+      update_id: 1,
+      message: {
+        message_id: 1,
+        from: { id: 111111 },
+        chat: { id: 111111 },
+        text: '/status',
+      },
+    }],
+  });
+  const arthur = {
+    async handle() {
+      throw Object.assign(new Error('OmniRoute down'), { code: 'OMNIROUTE_REQUEST_FAILED' });
+    },
+    async getDiagnostics() {
+      return { aiProviderEnabled: true, provider: 'omniroute', models: { fast: 'arthur-fast' }, status: 'unavailable', skills: [] };
+    },
+  };
+  const gateway = createTestGateway({ telegramClient: telegram, arthur });
+
+  setTimeout(() => gateway.stop(), 200);
+  await gateway.start();
+
+  assert.equal(telegram.sent.length, 1);
+  assert.ok(telegram.sent[0].text.includes('Статус Артура'));
+});

@@ -5,7 +5,7 @@ const { test } = require('node:test');
 
 const {
   createLLMPlanBuilder,
-  createKnowledgeFallbackPlan,
+  createEmptyFallbackPlan,
   parsePlanJson,
   validatePlan,
 } = require('../planner/llm_plan_builder');
@@ -23,12 +23,11 @@ function createFakeRegistry(skills) {
   };
 }
 
-test('LLMPlanBuilder returns knowledge fallback when no AI provider', async () => {
+test('LLMPlanBuilder returns empty fallback when no AI provider', async () => {
   const builder = createLLMPlanBuilder();
   const plan = await builder.build({ message: 'что-то непонятное' });
-  assert.equal(plan.steps.length, 1);
-  assert.equal(plan.steps[0].skill, 'knowledge');
-  assert.equal(plan.steps[0].operation, 'search');
+  assert.equal(plan.steps.length, 0);
+  assert.deepEqual(plan.steps, []);
 });
 
 test('LLMPlanBuilder parses and validates valid plan', async () => {
@@ -172,9 +171,8 @@ test('validatePlan rejects unknown dependency', () => {
   assert.throws(() => validatePlan(plan, registry.list()), PlanBuildError);
 });
 
-test('createKnowledgeFallbackPlan returns valid plan', () => {
-  const plan = createKnowledgeFallbackPlan('query');
+test('createEmptyFallbackPlan returns empty plan', () => {
+  const plan = createEmptyFallbackPlan();
   assert.equal(plan.version, 1);
-  assert.equal(plan.steps[0].skill, 'knowledge');
-  assert.equal(plan.steps[0].parameters.query, 'query');
+  assert.deepEqual(plan.steps, []);
 });

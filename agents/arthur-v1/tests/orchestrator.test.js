@@ -6,6 +6,7 @@ const { test } = require('node:test');
 const { createOrchestrator } = require('../orchestrator/orchestrator');
 const { createSkillRegistry } = require('../registry/skill_registry');
 const { createRuleBasedPlanBuilder } = require('../planner/plan_builder');
+const { createLLMPlanBuilder } = require('../planner/llm_plan_builder');
 const { createFakeAIProvider } = require('../ai/fake_provider');
 const { createLogger } = require('../logging/logger');
 
@@ -284,17 +285,9 @@ test('ambiguous intent invokes LLM planner', async () => {
   assert.equal(response.answer.text, 'LLM answer');
 });
 
-test('LLM planner failure falls back to knowledge search', async () => {
+test('LLM planner failure returns safe direct response without unregistered skill', async () => {
   const registry = createSkillRegistry();
   registry.register(fakeSkill('purchasing', { status: 'ok' }));
-  registry.register({
-    id: 'knowledge',
-    name: 'knowledge',
-    version: '1.0.0',
-    capabilities: [{ id: 'search', readOnly: true }],
-    execute: async () => ({ status: 'success', data: { summary: 'knowledge result' }, metadata: {} }),
-    health: async () => ({ healthy: true }),
-  });
 
   const fakeAI = {
     generate: async () => { throw new Error('LLM unavailable'); },
@@ -321,7 +314,9 @@ test('LLM planner failure falls back to knowledge search', async () => {
   });
 
   assert.equal(response.status, 'success');
-  assert.equal(response.modulesUsed.includes('knowledge'), true);
+  assert.deepEqual(response.modulesUsed, []);
+  assert.ok(response.answer.text.length > 0);
+  assert.ok(response.diagnostics.directResponse);
 });
 
 test('AI provider unavailable still returns deterministic response', async () => {
@@ -396,4 +391,60 @@ test('multi-skill LLM plan executes sequentially by dependency', async () => {
 
   await orchestrator.handle({ message: 'x', channel: 'test' });
   assert.deepEqual(order, ['a', 'b']);
+});
+test('natural-language greeting returns direct AI response without skill call', async () => {
+  const registry = createSkillRegistry();
+  registry.register(fakeSkill('purchasing', { status: 'ok' }));
+
+  const fakeAI = {
+    generate: async (prompt) => 'Привет! Чем могу помочь?',
+    synthesize: async () => ({ text: 'should not be called', confidence: 'high' }),
+    health: async () => ({ healthy: true }),
+  };
+
+  const orchestrator = createOrchestrator({
+    registry,
+    deterministicPlanBuilder: createRuleBasedPlanBuilder(),
+    llmPlanBuilder: createLLMPlanBuilder({ aiProvider: fakeAI, registry }),
+    aiProvider: fakeAI,
+    logger: createLogger({ stdout: { write: () => {} }, stderr: { write: () => {} } }),
+  });
+
+  const response = await orchestrator.handle({
+    message: 'Привет',
+    channel: 'test',
+  });
+
+  assert.equal(response.status, 'success');
+  assert.deepEqual(response.modulesUsed, []);
+  assert.equal(response.answer.text, 'Привет! Чем могу помочь?');
+  assert.ok(response.diagnostics.directResponse);
+});
+
+test('unknown intent never references missing knowledge skill', async () => {
+  const registry = createSkillRegistry();
+  registry.register(fakeSkill('purchasing', { status: 'ok' }));
+
+  const fakeAI = {
+    generate: async () => { throw new Error('LLM unavailable'); },
+    synthesize: async () => ({ text: 'fallback', confidence: 'low' }),
+    health: async () => ({ healthy: false }),
+  };
+
+  const orchestrator = createOrchestrator({
+    registry,
+    deterministicPlanBuilder: createRuleBasedPlanBuilder(),
+    llmPlanBuilder: createLLMPlanBuilder({ aiProvider: fakeAI, registry }),
+    aiProvider: fakeAI,
+    logger: createLogger({ stdout: { write: () => {} }, stderr: { write: () => {} } }),
+  });
+
+  const response = await orchestrator.handle({
+    message: 'что ты умеешь?',
+    channel: 'test',
+  });
+
+  assert.equal(response.status, 'success');
+  assert.deepEqual(response.modulesUsed, []);
+  assert.ok(!response.diagnostics.errors.some(e => e.message && e.message.includes('knowledge')));
 });

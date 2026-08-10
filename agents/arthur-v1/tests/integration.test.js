@@ -80,7 +80,7 @@ test('full flow: Покажи спорные позиции', async () => {
   assert.ok(response.answer.text.includes('проверку') || response.answer.text.includes('purchasing'));
 });
 
-test('full flow: unknown intent falls back to knowledge search', async () => {
+test('full flow: unknown intent returns direct AI response without calling missing knowledge skill', async () => {
   const orchestrator = createTestEnvironment();
   const response = await orchestrator.handle({
     message: 'абракадабра',
@@ -89,7 +89,9 @@ test('full flow: unknown intent falls back to knowledge search', async () => {
   });
 
   assert.equal(response.status, 'success');
-  assert.equal(response.modulesUsed.includes('knowledge'), true);
+  assert.deepEqual(response.modulesUsed, []);
+  assert.ok(response.answer.text.length > 0);
+  assert.ok(response.diagnostics.directResponse);
 });
 
 test('memory stores conversation entry after request', async () => {

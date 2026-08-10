@@ -21,16 +21,8 @@ const FORBIDDEN_OPERATIONS = Object.freeze([
   'create',
 ]);
 
-function createKnowledgeFallbackPlan(message) {
-  return createExecutionPlan([
-    createStep({
-      id: 'step_1',
-      skill: 'knowledge',
-      operation: 'search',
-      parameters: { query: message, limit: 5 },
-      timeoutMs: 5000,
-    }),
-  ]);
+function createEmptyFallbackPlan() {
+  return createExecutionPlan([]);
 }
 
 function buildPlanPrompt(input, availableSkills) {
@@ -51,7 +43,7 @@ ${skillsDescription}
 - Максимум ${MAX_STEPS} шагов.
 - timeoutMs не более ${MAX_TIMEOUT_MS}.
 - dependsOn может быть пустым [] или содержать только id предыдущих шагов.
-- НЕ придумывай данные. Если запрос не соответствует навыкам, верни пустой план или план с одним knowledge.search шагом.
+- НЕ придумывай данные. Если запрос не соответствует навыкам, верни пустой план {"version":1,"steps":[]}.
 
 ExecutionPlan schema:
 {
@@ -154,13 +146,13 @@ class LLMPlanBuilder {
   constructor(options = {}) {
     this.aiProvider = options.aiProvider;
     this.registry = options.registry || null;
-    this.fallbackBuilder = options.fallbackBuilder || createKnowledgeFallbackPlan;
+    this.fallbackBuilder = options.fallbackBuilder || createEmptyFallbackPlan;
     this.maxRetries = options.maxRetries ?? 0;
   }
 
   async build(input = {}) {
     if (!this.aiProvider) {
-      return this.fallbackBuilder(input.message);
+      return this.fallbackBuilder(input);
     }
 
     const availableSkills = this.registry
@@ -190,7 +182,7 @@ function createLLMPlanBuilder(options = {}) {
 module.exports = {
   LLMPlanBuilder,
   createLLMPlanBuilder,
-  createKnowledgeFallbackPlan,
+  createEmptyFallbackPlan,
   buildPlanPrompt,
   parsePlanJson,
   validatePlan,
