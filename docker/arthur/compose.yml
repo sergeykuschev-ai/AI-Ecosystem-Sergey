@@ -94,8 +94,11 @@ services:
       TELEGRAM_API_RETRY_ATTEMPTS: ${TELEGRAM_API_RETRY_ATTEMPTS:-3}
       TELEGRAM_GATEWAY_HEALTH_PORT: ${TELEGRAM_GATEWAY_HEALTH_PORT:-8788}
       TELEGRAM_GATEWAY_LOG_LEVEL: ${TELEGRAM_GATEWAY_LOG_LEVEL:-info}
+      PURCHASING_RUNS_ROOT: ${PURCHASING_RUNS_ROOT:-/opt/arthur/output/purchasing-web/runs}
     ports:
       - "127.0.0.1:${TELEGRAM_GATEWAY_HEALTH_PORT:-8788}:${TELEGRAM_GATEWAY_HEALTH_PORT:-8788}"
+    volumes:
+      - ../../output/purchasing-web/runs:/opt/arthur/output/purchasing-web/runs:ro
     healthcheck:
       test:
         - CMD

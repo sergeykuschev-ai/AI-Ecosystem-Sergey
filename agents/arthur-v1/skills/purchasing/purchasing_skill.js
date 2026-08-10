@@ -1,13 +1,9 @@
 'use strict';
 
-const path = require('node:path');
 const {
   UnsupportedOperationError,
 } = require('../../errors/arthur_errors');
-
-const { runOrderAgentFromSmartZapasXlsxWithDemand } = require(
-  '../../../purchasing/order_agent'
-);
+const { createRunResolver, PurchasingRunError } = require('./run_resolver');
 
 const CAPABILITIES = Object.freeze([
   { id: 'getStatus', readOnly: true },
@@ -16,94 +12,149 @@ const CAPABILITIES = Object.freeze([
   { id: 'getFinalOrder', readOnly: true },
 ]);
 
-const DEFAULT_FIXTURE_PATH = path.resolve(
-  __dirname,
-  '..',
-  '..',
-  '..',
-  '..',
-  'tests',
-  'fixtures',
-  'SmartZapas_synthetic.xlsx'
-);
-
-function resolveFilePath(parameters) {
-  return parameters.filePath || DEFAULT_FIXTURE_PATH;
+function buildNoRunResponse() {
+  return {
+    status: 'success',
+    data: {
+      summary: 'Нет доступной завершённой закупки.',
+      productCount: 0,
+      sourceRowsCount: 0,
+      reportWarnings: 0,
+      demandInputStatus: null,
+      run: null,
+    },
+  };
 }
 
-async function runPurchasingAgent(filePath) {
-  return runOrderAgentFromSmartZapasXlsxWithDemand(filePath, {}, {
-    assortmentMatrixPath: null,
-    canonicalAssortmentMatrixPath: null,
+function createResolver(parameters = {}) {
+  return createRunResolver({
+    runsRoot: parameters.runsRoot,
+    fsModule: parameters.fsModule,
   });
 }
 
+function resolveRunId(resolver, parameters = {}) {
+  return resolver.resolveRunId({ runId: parameters.runId });
+}
+
+function runMetadata(metadata) {
+  return {
+    run_id: metadata.run_id,
+    status: metadata.status,
+    completed_at: metadata.completed_at,
+    source_filename: metadata.source?.original_name || null,
+  };
+}
+
 async function getStatus(parameters) {
-  const filePath = resolveFilePath(parameters);
-  const result = await runPurchasingAgent(filePath);
-  const fields = result.additionalResultFields || {};
+  const resolver = createResolver(parameters);
+  const runId = resolveRunId(resolver, parameters);
+
+  if (!runId) {
+    return buildNoRunResponse();
+  }
+
+  const metadata = resolver.getRunMetadata(runId);
+  const summary = resolver.getRunSummary(runId);
 
   return {
     status: 'success',
     data: {
-      summary: `Закупка: ${fields.normalized_product_rows_count || 0} позиций`,
-      productCount: fields.normalized_product_rows_count || 0,
-      sourceRowsCount: result.sourceRowsCount || fields.sourceRowsCount || 0,
-      reportWarnings: (result.reportWarnings || []).length,
-      demandInputStatus: fields.demandInputStatus || null,
+      summary: `Закупка: ${summary.sku_count ?? 0} SKU, ${summary.source_rows_count ?? 0} строк`,
+      productCount: summary.sku_count ?? 0,
+      sourceRowsCount: summary.source_rows_count ?? 0,
+      reportWarnings: (summary.warnings || []).length,
+      demandInputStatus: null,
+      run: runMetadata(metadata),
     },
   };
 }
 
 async function getSummary(parameters) {
-  const filePath = resolveFilePath(parameters);
-  const result = await runPurchasingAgent(filePath);
-  const fields = result.additionalResultFields || {};
-  const summary = result.summary || {};
+  const resolver = createResolver(parameters);
+  const runId = resolveRunId(resolver, parameters);
+
+  if (!runId) {
+    return {
+      status: 'success',
+      data: {
+        summary: 'Нет доступной завершённой закупки.',
+        productCount: 0,
+        analyzerOrderSum: null,
+        workingOrderSum: null,
+        pendingReviewCount: null,
+        mustBuyCount: null,
+        recommendedCount: null,
+        postponedCount: null,
+        warnings: [],
+        run: null,
+      },
+    };
+  }
+
+  const metadata = resolver.getRunMetadata(runId);
+  const summary = resolver.getRunSummary(runId);
+  const amounts = summary.amounts || {};
+  const phase2 = summary.phase2 || {};
 
   return {
     status: 'success',
     data: {
-      summary: `Сводка закупки: ${fields.normalized_product_rows_count || 0} SKU`,
-      productCount: fields.normalized_product_rows_count || 0,
-      analyzerOrderSum: summary.analyzer_order_sum || null,
-      workingOrderSum: summary.auto_approved_sum || null,
-      pendingReviewCount: summary.pending_manual_review_count || null,
-      mustBuyCount: summary.must_buy_count || null,
-      recommendedCount: summary.recommended_count || null,
-      postponedCount: summary.postponed_count || null,
-      warnings: result.reportWarnings || [],
+      summary: `Сводка закупки: ${summary.sku_count ?? 0} SKU, ${summary.source_rows_count ?? 0} строк`,
+      productCount: summary.sku_count ?? 0,
+      analyzerOrderSum: amounts.analyzer_order_sum ?? null,
+      workingOrderSum: amounts.auto_approved_sum ?? null,
+      pendingReviewCount: phase2.manual_review ?? null,
+      mustBuyCount: phase2.must_buy ?? null,
+      recommendedCount: phase2.recommended ?? null,
+      postponedCount: phase2.postpone ?? null,
+      warnings: summary.warnings || [],
+      run: runMetadata(metadata),
     },
   };
 }
 
 async function getOwnerReview(parameters) {
-  const filePath = resolveFilePath(parameters);
-  const result = await runPurchasingAgent(filePath);
+  const resolver = createResolver(parameters);
+  const runId = resolveRunId(resolver, parameters);
 
-  const workingOrderProducts = result.additionalResultFields?.workingOrderProducts || [];
-  const ownerReviewItems = workingOrderProducts.filter(product =>
-    product.ownerReviewRequired === true ||
-    product.workflow_status === 'pending_manual_review'
-  );
+  if (!runId) {
+    return {
+      status: 'success',
+      data: {
+        summary: 'Нет доступной завершённой закупки.',
+        count: 0,
+        status: null,
+        items: [],
+        run: null,
+      },
+    };
+  }
+
+  const metadata = resolver.getRunMetadata(runId);
+  const ownerReview = resolver.getOwnerReview(runId);
+  const summary = ownerReview.summary || {};
+  const unmatched = ownerReview.owner_decisions?.unmatched_active_skus || [];
 
   return {
     status: 'success',
     data: {
-      summary: `На ручную проверку: ${ownerReviewItems.length} позиций`,
-      count: ownerReviewItems.length,
-      items: ownerReviewItems.slice(0, 20).map(product => ({
-        sku: product.sku || product.article || null,
-        name: product.name || null,
-        supplier: product.supplier || null,
-        workflowStatus: product.workflow_status || null,
-        reasonCodes: product.reason_codes || [],
+      summary: `На ручную проверку: ${summary.owner_action_required_total ?? 0} позиций`,
+      count: summary.owner_action_required_total ?? 0,
+      status: ownerReview.status || null,
+      items: unmatched.slice(0, 20).map(sku => ({
+        sku,
+        name: null,
+        supplier: null,
+        workflowStatus: 'pending_manual_review',
+        reasonCodes: [],
       })),
+      run: runMetadata(metadata),
     },
   };
 }
 
-async function getFinalOrder(parameters) {
+async function getFinalOrder() {
   return {
     status: 'success',
     data: {
@@ -117,17 +168,34 @@ async function getFinalOrder(parameters) {
 async function execute(input) {
   const { operation, parameters = {} } = input;
 
-  switch (operation) {
-    case 'getStatus':
-      return getStatus(parameters);
-    case 'getSummary':
-      return getSummary(parameters);
-    case 'getOwnerReview':
-      return getOwnerReview(parameters);
-    case 'getFinalOrder':
-      return getFinalOrder(parameters);
-    default:
-      throw new UnsupportedOperationError('purchasing', operation);
+  try {
+    switch (operation) {
+      case 'getStatus':
+        return getStatus(parameters);
+      case 'getSummary':
+        return getSummary(parameters);
+      case 'getOwnerReview':
+        return getOwnerReview(parameters);
+      case 'getFinalOrder':
+        return getFinalOrder();
+      default:
+        throw new UnsupportedOperationError('purchasing', operation);
+    }
+  } catch (error) {
+    if (error instanceof PurchasingRunError) {
+      return {
+        status: 'success',
+        data: {
+          summary: `Ошибка чтения данных закупки: ${error.message}`,
+          productCount: 0,
+          sourceRowsCount: 0,
+          reportWarnings: 0,
+          demandInputStatus: null,
+          run: null,
+        },
+      };
+    }
+    throw error;
   }
 }
 
@@ -148,5 +216,4 @@ const PurchasingSkill = {
 module.exports = {
   PurchasingSkill,
   CAPABILITIES,
-  DEFAULT_FIXTURE_PATH,
 };

@@ -64,3 +64,19 @@ test('internal network is marked internal', () => {
   const compose = loadCompose();
   assert.equal(compose.networks.arthur_internal.internal, true);
 });
+
+test('telegram-gateway receives PURCHASING_RUNS_ROOT env var', () => {
+  const compose = loadCompose();
+  const env = compose.services['telegram-gateway'].environment;
+  assert.equal(env.PURCHASING_RUNS_ROOT, '${PURCHASING_RUNS_ROOT:-/opt/arthur/output/purchasing-web/runs}');
+});
+
+test('telegram-gateway mounts purchasing runs read-only', () => {
+  const compose = loadCompose();
+  const volumes = compose.services['telegram-gateway'].volumes || [];
+  const runVolume = volumes.find(v =>
+    typeof v === 'string' && v.includes('output/purchasing-web/runs')
+  );
+  assert.ok(runVolume, 'purchasing runs volume not found');
+  assert.ok(runVolume.endsWith(':ro'), `expected read-only mount, got ${runVolume}`);
+});

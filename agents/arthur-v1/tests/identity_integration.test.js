@@ -3,11 +3,16 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
 
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+
 const { createOrchestrator } = require('../orchestrator/orchestrator');
 const { createSkillRegistry } = require('../registry/skill_registry');
 const { createRuleBasedPlanBuilder } = require('../planner/plan_builder');
 const { createLLMPlanBuilder } = require('../planner/llm_plan_builder');
 const { createLogger } = require('../logging/logger');
+const { PurchasingSkill } = require('../skills/purchasing/purchasing_skill');
 
 function createSilentLogger() {
   return createLogger({
@@ -194,4 +199,86 @@ test('deterministic purchasing command still routes to purchasing skill', async 
 
   assert.equal(response.status, 'success');
   assert.equal(response.modulesUsed.includes('purchasing'), true);
+});
+
+function createPurchasingRunDir(root, runId, overrides = {}) {
+  const dir = path.join(root, runId);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'run.json'), JSON.stringify({
+    run_id: runId,
+    status: 'completed',
+    completed_at: overrides.completedAt || '2026-08-04T00:31:58.041Z',
+    created_at: '2026-08-01T00:00:00.000Z',
+    source: overrides.source || { original_name: 'real-export.xlsx' },
+  }));
+  fs.writeFileSync(path.join(dir, 'summary.json'), JSON.stringify({
+    run_id: runId,
+    sku_count: overrides.skuCount ?? 602,
+    source_rows_count: overrides.sourceRowsCount ?? 700,
+    amounts: overrides.amounts || {},
+    phase2: overrides.phase2 || {},
+    warnings: overrides.warnings || [],
+  }));
+  fs.writeFileSync(path.join(dir, 'owner-review-compact.json'), JSON.stringify({
+    run_id: runId,
+    status: { code: 'orange', label: 'требуется проверка' },
+    summary: { owner_action_required_total: overrides.actionRequired ?? 63 },
+    owner_decisions: {
+      unmatched_active_skus: overrides.unmatched || [],
+    },
+  }));
+  return dir;
+}
+
+test('orchestrator returns real purchasing data from run registry', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'arthur-purchasing-integration-'));
+  const originalEnv = process.env.PURCHASING_RUNS_ROOT;
+  try {
+    process.env.PURCHASING_RUNS_ROOT = root;
+    createPurchasingRunDir(root, 'eb68a662-0fd4-43c0-b7c4-8aaf2e95f790', {
+      completedAt: '2026-08-04T00:31:58.041Z',
+      source: { original_name: 'Оникиенко Зооград 04.08.2026.xlsx' },
+      skuCount: 602,
+      sourceRowsCount: 700,
+      amounts: { analyzer_order_sum: 121841.6, auto_approved_sum: 0 },
+      phase2: { must_buy: 0, recommended: 0, manual_review: 602, postpone: 0, do_not_buy: 0 },
+    });
+
+    const registry = createSkillRegistry();
+    registry.register(PurchasingSkill);
+
+    const fakeAI = {
+      generate: async () => 'plan',
+      synthesize: async (input) => {
+        const outputs = input.skillOutputs || [];
+        const text = outputs.map(o => JSON.stringify(o.data)).join('\n');
+        return { text, markdown: text, confidence: 'high', followUps: [] };
+      },
+      health: async () => ({ healthy: true }),
+    };
+
+    const orchestrator = createOrchestrator({
+      registry,
+      deterministicPlanBuilder: createRuleBasedPlanBuilder(),
+      aiProvider: fakeAI,
+      logger: createSilentLogger(),
+    });
+
+    const response = await orchestrator.handle({
+      message: 'что с закупщиком?',
+      channel: 'test',
+    });
+
+    assert.equal(response.status, 'success');
+    assert.equal(response.modulesUsed.includes('purchasing'), true);
+    assert.ok(response.answer.text.includes('602'));
+    assert.ok(response.answer.text.includes('700'));
+  } finally {
+    if (originalEnv === undefined) {
+      delete process.env.PURCHASING_RUNS_ROOT;
+    } else {
+      process.env.PURCHASING_RUNS_ROOT = originalEnv;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });
