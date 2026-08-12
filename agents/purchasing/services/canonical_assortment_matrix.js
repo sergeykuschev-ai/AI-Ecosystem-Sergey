@@ -11,6 +11,7 @@ const ONE_C_STATUSES = Object.freeze([
   'CONFIRMED',
   'CHECK',
   'SEPARATE',
+  'PENDING_1C',
 ]);
 
 const SEASONALITY_TYPES = Object.freeze([

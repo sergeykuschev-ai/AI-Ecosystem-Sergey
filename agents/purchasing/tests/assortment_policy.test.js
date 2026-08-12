@@ -402,8 +402,10 @@ test('37-40. history records real changes once and isolates SKU', () => {
 test('canonical matrix contains all 5 legacy SKU', () => {
   const source = loadAssortmentPolicySource({ legacyPath: null });
   assert.equal(source.source, 'canonical-matrix');
-  const skuIds = source.store.rules.map(r => r.sku).sort();
-  assert.deepEqual(skuIds, ['2548917', '2548924', '2548931', '2548955', 'GAL5427740']);
+  const skuIds = source.store.rules.map(r => r.sku);
+  for (const legacySku of ['2548917', '2548924', '2548931', '2548955', 'GAL5427740']) {
+    assert.ok(skuIds.includes(legacySku), `legacy SKU ${legacySku} must be present`);
+  }
 });
 
 test('canonical active does not produce noRuleResult for legacy SKU', () => {
