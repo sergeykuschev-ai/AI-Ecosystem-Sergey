@@ -3,6 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { AsyncArthurCoreService } = require('../services/async-arthur-core-service');
+const { mapCommon } = require('../services/postgres-store');
 
 class TransactionalMemoryStore {
   constructor(state) {
@@ -150,6 +151,33 @@ test('new task completes atomically with completedAt and transition audit', asyn
   );
   assert.equal(store.state.audit[1].before.status, 'new');
   assert.equal(store.state.audit[1].after.status, 'done');
+});
+
+test('PostgreSQL Date dueAt is normalized before cancel transition and audit', async () => {
+  const { service, store } = createService();
+  const task = mapCommon({
+    id: '00000000-0000-4000-8000-000000000099',
+    owner_id: 'sergey',
+    title: 'Позвонить поставщику',
+    domain: 'personal',
+    status: 'new',
+    priority: 'normal',
+    due_at: new Date('2026-08-15T13:59:59.999Z'),
+    source_type: 'telegram',
+    created_at: new Date('2026-08-14T08:46:25.483Z'),
+    updated_at: new Date('2026-08-14T08:46:25.483Z'),
+  });
+  store.state.tasks.set(task.id, task);
+
+  const cancelled = await service.transitionTask('sergey', task.id, 'cancelled', {}, actor);
+
+  assert.equal(cancelled.status, 'cancelled');
+  assert.equal(cancelled.dueAt, '2026-08-15T13:59:59.999Z');
+  assert.equal(store.state.tasks.get(task.id).status, 'cancelled');
+  assert.equal(store.state.audit.length, 1);
+  assert.equal(store.state.audit[0].action, 'task.transition');
+  assert.equal(store.state.audit[0].before.status, 'new');
+  assert.equal(store.state.audit[0].after.status, 'cancelled');
 });
 
 test('task transition rejects a different owner and preserves identity fields', async () => {

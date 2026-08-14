@@ -29,7 +29,7 @@ function mapCommon(row) {
   const result = {};
   for (const [key, value] of Object.entries(row)) {
     const camel = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
-    result[camel] = value;
+    result[camel] = value instanceof Date ? value.toISOString() : value;
   }
   if (Object.prototype.hasOwnProperty.call(result, 'valueJson')) {
     result.value = result.valueJson;

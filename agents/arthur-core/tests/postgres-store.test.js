@@ -39,6 +39,21 @@ test('maps PostgreSQL rows to service records', () => {
   });
 });
 
+test('maps PostgreSQL Date values to ISO strings without changing strings or nullish values', () => {
+  const dueAt = new Date('2026-08-15T13:59:59.999Z');
+  const mapped = mapCommon({
+    due_at: dueAt,
+    created_at: '2026-08-14T08:46:25.483Z',
+    updated_at: null,
+    completed_at: undefined,
+  });
+
+  assert.equal(mapped.dueAt, '2026-08-15T13:59:59.999Z');
+  assert.equal(mapped.createdAt, '2026-08-14T08:46:25.483Z');
+  assert.equal(mapped.updatedAt, null);
+  assert.equal(mapped.completedAt, undefined);
+});
+
 test('profile upsert uses external id and parameterized SQL', async () => {
   const client = new FakeClient();
   client.rows.push({
