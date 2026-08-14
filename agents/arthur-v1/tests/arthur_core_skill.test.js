@@ -222,6 +222,63 @@ test('Telegram createTask intent executes the Core write without AI rewriting', 
   assert.equal(synthesisCalls, 0);
 });
 
+test('implicit Telegram task uses canonical owner and never sends Telegram user ID', async () => {
+  let createdBody;
+  const arthur = createArthurV1({
+    coreConfig: coreConfig(async (url, options) => {
+      assert.equal(new URL(url).pathname, '/v1/tasks');
+      createdBody = JSON.parse(options.body);
+      return jsonResponse(201, { data: { id: 'task-implicit', ...createdBody, status: 'new' } });
+    }),
+    clock: () => new Date('2026-08-13T00:00:00.000Z'),
+    aiProvider: capturingAIProvider(),
+    knowledgeDirectories: [],
+    logger: silentLogger(),
+  });
+
+  const response = await arthur.handle({
+    message: 'Позвонить поставщику завтра',
+    userId: 'sergey',
+    channel: 'telegram',
+    transport: { type: 'telegram', metadata: { userId: '111111', updateId: 43 } },
+  });
+
+  assert.equal(response.status, 'success');
+  assert.equal(createdBody.ownerId, 'sergey');
+  assert.equal(createdBody.sourceRef, 'telegram-update:43');
+  assert.equal(JSON.stringify(createdBody).includes('111111'), false);
+  assert.equal(response.answer.text, [
+    'Готово. Задача создана:',
+    'Позвонить поставщику',
+    'Срок: завтра',
+  ].join('\n'));
+});
+
+test('implicit task guard keeps ordinary conversation out of Core writes', async () => {
+  let coreCalls = 0;
+  const arthur = createArthurV1({
+    coreConfig: coreConfig(async () => {
+      coreCalls += 1;
+      throw new Error('Core must not be called');
+    }),
+    aiProvider: capturingAIProvider(),
+    knowledgeDirectories: [],
+    logger: silentLogger(),
+  });
+
+  const response = await arthur.handle({
+    message: 'Расскажи про Award',
+    userId: 'sergey',
+    channel: 'telegram',
+  });
+
+  assert.equal(response.status, 'success');
+  assert.equal(response.answer.text, 'Обычный разговор работает.');
+  assert.deepEqual(response.modulesUsed, []);
+  assert.equal(response.diagnostics.directResponse, true);
+  assert.equal(coreCalls, 0);
+});
+
 test('Telegram task list is compact, user-facing and bypasses AI rewriting', async () => {
   let synthesisCalls = 0;
   const tasks = [

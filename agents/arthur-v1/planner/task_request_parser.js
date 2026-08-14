@@ -5,10 +5,40 @@ const DATE_ONLY_HOUR = 23;
 const DATE_ONLY_MINUTE = 59;
 const DATE_ONLY_SECOND = 59;
 const DATE_ONLY_MILLISECOND = 999;
+const MAX_IMPLICIT_TASK_LENGTH = 160;
 
+const ARTHUR_ADDRESS_PREFIX = /^\s*артур\s*[,!:.-]?\s*/iu;
 const CREATE_TASK_PREFIX = /^\s*(?:артур\s*[,!:.-]?\s*)?(?:(?:создай|добавь|поставь|запиши)\s+(?:мне\s+)?задач(?:у|ку)|напомни\s+мне|надо\s+сделать|мне\s+нужно\s+сделать)\s*[:,-]?\s*/iu;
 const TIME_PATTERN = /(?:^|\s)в?\s*([01]?\d|2[0-3]):([0-5]\d)(?!\d)/iu;
 const DATE_PATTERN = /(?<![\p{L}\p{N}])(?:(?:до|на)\s+)?(?:(сегодня|завтра|послезавтра)|(в\s+)?(понедельник|понедельника|вторник|вторника|среду|среда|четверг|четверга|пятницу|пятница|субботу|суббота|воскресенье)|([0-3]?\d)\.([01]?\d)(?:\.(\d{4}))?|([0-3]?\d)\s+(января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)(?:\s+(\d{4})(?:\s+года)?)?)(?![\p{L}\p{N}])/giu;
+const IMPLICIT_TASK_DISCUSSION_PATTERN = /(?:—|--|(?<![\p{L}\p{N}])(?:было\s+бы|хорошая\s+идея|кажется|думаю|возможно|может\s+быть|стоит\s+ли|можно\s+ли)(?![\p{L}\p{N}]))/iu;
+
+// Keep implicit writes deliberately narrow: every accepted word is an
+// unambiguous action commonly used as a personal task in Arthur.
+const IMPLICIT_TASK_ACTIONS = Object.freeze(new Set([
+  'позвонить',
+  'проверить',
+  'купить',
+  'подготовить',
+  'написать',
+  'записаться',
+  'заказать',
+  'оплатить',
+  'отправить',
+  'забрать',
+  'получить',
+  'уточнить',
+  'согласовать',
+  'обсудить',
+  'встретиться',
+  'передать',
+  'договориться',
+  'заполнить',
+  'собрать',
+  'оформить',
+  'обновить',
+  'исправить',
+]));
 
 const MONTHS = Object.freeze({
   января: 1,
@@ -48,8 +78,64 @@ const PRIORITY_PATTERNS = Object.freeze([
   { pattern: /(?<![\p{L}\p{N}])обычн(?:ая|ый)(?:\s+приоритет)?(?![\p{L}\p{N}])/iu, priority: 'normal' },
 ]);
 
-function matchesCreateTaskIntent(message) {
+function matchesExplicitCreateTaskIntent(message) {
   return typeof message === 'string' && CREATE_TASK_PREFIX.test(message);
+}
+
+function trimImplicitMarker(text) {
+  return text.replace(/^[\s,.:;!—-]+/gu, '').trimStart();
+}
+
+function implicitActionCandidate(message) {
+  let remainder = message.replace(ARTHUR_ADDRESS_PREFIX, '').trim();
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    let markerRemoved = false;
+    const dateMatch = [...remainder.matchAll(DATE_PATTERN)][0];
+    if (dateMatch?.index === 0) {
+      remainder = trimImplicitMarker(remainder.slice(dateMatch[0].length));
+      markerRemoved = true;
+    }
+
+    const timeMatch = remainder.match(TIME_PATTERN);
+    if (timeMatch?.index === 0) {
+      remainder = trimImplicitMarker(remainder.slice(timeMatch[0].length));
+      markerRemoved = true;
+    }
+
+    const priorityMatch = PRIORITY_PATTERNS
+      .map(item => remainder.match(item.pattern))
+      .find(match => match?.index === 0);
+    if (priorityMatch) {
+      remainder = trimImplicitMarker(remainder.slice(priorityMatch[0].length));
+      markerRemoved = true;
+    }
+
+    if (!markerRemoved) break;
+  }
+
+  return remainder;
+}
+
+function matchesImplicitTaskIntent(message) {
+  if (typeof message !== 'string') return false;
+  const trimmed = message.trim();
+  if (!trimmed
+    || trimmed.length > MAX_IMPLICIT_TASK_LENGTH
+    || /[\r\n?？]/u.test(trimmed)
+    || /["'«»„“]/u.test(trimmed)
+    || IMPLICIT_TASK_DISCUSSION_PATTERN.test(trimmed)) {
+    return false;
+  }
+
+  const candidate = implicitActionCandidate(trimmed);
+  const words = candidate.match(/[\p{L}\p{N}]+/gu) || [];
+  if (words.length < 2) return false;
+  return IMPLICIT_TASK_ACTIONS.has(words[0].toLocaleLowerCase('ru-RU'));
+}
+
+function matchesCreateTaskIntent(message) {
+  return matchesExplicitCreateTaskIntent(message) || matchesImplicitTaskIntent(message);
 }
 
 function timezoneParts(value, timezone) {
@@ -217,7 +303,8 @@ function clarification(message) {
 }
 
 function parseCreateTaskRequest(message, options = {}) {
-  if (!matchesCreateTaskIntent(message)) {
+  const explicitIntent = matchesExplicitCreateTaskIntent(message);
+  if (!explicitIntent && !matchesImplicitTaskIntent(message)) {
     return clarification('Сформулируй задачу после команды «создай задачу».');
   }
 
@@ -225,7 +312,9 @@ function parseCreateTaskRequest(message, options = {}) {
   const now = options.now instanceof Date ? options.now : new Date(options.now || Date.now());
   if (Number.isNaN(now.getTime())) throw new TypeError('now must be a valid date');
   const currentDate = timezoneParts(now, timezone);
-  let remainder = message.replace(CREATE_TASK_PREFIX, '');
+  let remainder = explicitIntent
+    ? message.replace(CREATE_TASK_PREFIX, '')
+    : message.replace(ARTHUR_ADDRESS_PREFIX, '').trim();
 
   const priorityResult = extractPriority(remainder);
   if (priorityResult.error) return clarification(priorityResult.error);
@@ -283,6 +372,8 @@ function parseCreateTaskRequest(message, options = {}) {
 module.exports = {
   DEFAULT_OWNER_TIMEZONE,
   matchesCreateTaskIntent,
+  matchesExplicitCreateTaskIntent,
+  matchesImplicitTaskIntent,
   parseCreateTaskRequest,
   zonedDateTimeToIso,
 };

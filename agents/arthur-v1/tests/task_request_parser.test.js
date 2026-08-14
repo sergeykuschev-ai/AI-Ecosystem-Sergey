@@ -31,6 +31,88 @@ test('createTask intent recognizes the supported deterministic Russian commands'
   }
 });
 
+test('implicit task intent recognizes conservative action-first phrases', () => {
+  const messages = [
+    'Позвонить поставщику завтра',
+    'Завтра проверить цены Award',
+    'В пятницу позвонить Валте',
+    'Купить корм коту вечером',
+    'До 18 августа подготовить документы',
+    'Сегодня проверить задачи продавцов',
+    'Срочно позвонить Валте',
+    'Проверить отчёт до пятницы',
+    'Написать бухгалтеру',
+    'Записаться к врачу на следующей неделе',
+  ];
+
+  for (const message of messages) {
+    assert.equal(detectIntent(message), INTENTS.CORE_CREATE_TASK, message);
+  }
+});
+
+test('implicit task intent rejects questions, facts, discussion and noun-only messages', () => {
+  const messages = [
+    'Как позвонить поставщику завтра?',
+    'Стоит ли завтра звонить поставщику?',
+    'Я завтра позвоню поставщику',
+    'Я уже позвонил поставщику',
+    'Поставщик позвонит завтра',
+    'Что делать с поставщиком?',
+    'Расскажи про Award',
+    'Почему надо проверить цены?',
+    'Мне кажется, завтра будет дождь',
+    'Позвонить поставщику завтра — хорошая идея?',
+    'Проверить отчёт — хорошая идея',
+    'Проверить отчёт было бы полезно',
+    '«Позвонить поставщику завтра»',
+    'Артур, «Позвонить поставщику завтра»',
+    'Можно ли позвонить поставщику завтра?',
+    'Не забудь, что поставщик работает до 17:00',
+    'Что у меня по задачам?',
+    'Что у меня сегодня?',
+    'Кто я?',
+    'Валта',
+    'Отчёт',
+    'Корм',
+    'Япония',
+    'Миска',
+  ];
+
+  for (const message of messages) {
+    assert.notEqual(detectIntent(message), INTENTS.CORE_CREATE_TASK, message);
+  }
+});
+
+test('implicit tasks reuse existing date and priority parsing', () => {
+  const tomorrow = parse('Позвонить поставщику завтра');
+  assert.deepEqual(tomorrow.task, {
+    title: 'Позвонить поставщику',
+    dueAt: '2026-08-14T13:59:59.999Z',
+    dueLabel: 'завтра',
+  });
+
+  const dateFirst = parse('Завтра проверить цены Award');
+  assert.equal(dateFirst.task.title, 'Проверить цены Award');
+  assert.equal(dateFirst.task.dueAt, '2026-08-14T13:59:59.999Z');
+
+  const exactTime = parse('Завтра в 15:00 позвонить поставщику');
+  assert.equal(exactTime.task.title, 'Позвонить поставщику');
+  assert.equal(exactTime.task.dueAt, '2026-08-14T05:00:00.000Z');
+
+  const friday = parse('В пятницу позвонить Валте');
+  assert.equal(friday.task.title, 'Позвонить Валте');
+  assert.equal(friday.task.dueAt, '2026-08-14T13:59:59.999Z');
+
+  const urgent = parse('Срочно проверить отчёт');
+  assert.equal(urgent.task.title, 'Проверить отчёт');
+  assert.equal(urgent.task.priority, 'critical');
+
+  assert.deepEqual(parse('Написать бухгалтеру'), {
+    ok: true,
+    task: { title: 'Написать бухгалтеру' },
+  });
+});
+
 test('createTask parser extracts a title and leaves priority absent for the Core default', () => {
   const result = parse('создай задачу позвонить поставщику');
   assert.deepEqual(result, {

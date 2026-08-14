@@ -72,6 +72,9 @@ TELEGRAM_GATEWAY_LOG_LEVEL=info
 
 ## Supported natural-language requests
 
+- "Позвонить поставщику завтра"
+- "В пятницу проверить цены Award"
+- "Срочно написать бухгалтеру"
 - "Создай задачу позвонить поставщику завтра"
 - "Добавь задачу проверить цены Award в пятницу"
 - "Поставь мне задачу подготовить документы до 18 августа"
@@ -92,6 +95,13 @@ Task creation is deterministic and uses the existing `ArthurCoreSkill` and
 use domain `personal`, `sourceType=telegram`, and the Telegram update ID as
 `sourceRef` when it is available. Core writes the task and its `task.create`
 audit event atomically.
+
+Short task-like phrases without an explicit create command are accepted only
+by a conservative deterministic rule: after an optional date or priority the
+message must start with a supported action infinitive and include an object.
+Questions, quotes, declarative sentences, discussion-like phrasing, and
+noun-only messages remain ordinary conversation and never trigger a Core
+write.
 
 Dates are interpreted in `Asia/Vladivostok`. Exact times are stored as the
 specified local time. Because the current Core contract has `dueAt` but no
