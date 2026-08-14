@@ -12,6 +12,8 @@ const { createMemoryInterface } = require('../memory/memory_interface');
 const { createLogger } = require('../logging/logger');
 const { PurchasingSkill } = require('../skills/purchasing/purchasing_skill');
 
+const UUID_V4_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 function createSilentLogger() {
   return createLogger({ stdout: { write: () => {} }, stderr: { write: () => {} } });
 }
@@ -61,7 +63,7 @@ test('full flow: Что сейчас с закупщиком?', async () => {
 
   assert.equal(response.status, 'success');
   assert.equal(response.modulesUsed.includes('purchasing'), true);
-  assert.ok(response.correlationId.startsWith('arthur-test-'));
+  assert.match(response.correlationId, UUID_V4_PATTERN);
   assert.ok(response.answer.text.length > 0);
   assert.equal(response.answer.confidence, 'high');
   assert.ok(response.executionTimeMs > 0);
@@ -111,10 +113,48 @@ test('memory stores conversation entry after request', async () => {
     userId: 'sergey',
     channel: 'test',
     correlationId: 'corr-int-1',
+    conversationId: 'conversation-int-1',
   });
 
-  const history = await memory.load('sergey', 'corr-int-1');
+  const history = await memory.load('sergey', 'conversation-int-1');
   assert.equal(history.length, 1);
   assert.equal(history[0].request, 'Что с закупками?');
   assert.equal(history[0].answer, response.answer.text);
+});
+
+test('memory groups separate requests by conversationId instead of correlationId', async () => {
+  const registry = createSkillRegistry();
+  registry.register(PurchasingSkill);
+  const memory = createMemoryInterface();
+  const orchestrator = createOrchestrator({
+    registry,
+    planBuilder: createRuleBasedPlanBuilder(),
+    memory,
+    aiProvider: createFakeAIProvider(),
+    logger: createSilentLogger(),
+  });
+
+  await orchestrator.handle({
+    message: 'Что с закупками?',
+    userId: 'sergey',
+    channel: 'test',
+    correlationId: 'request-1',
+    conversationId: 'conversation-shared',
+  });
+  await orchestrator.handle({
+    message: 'Покажи сводку закупок',
+    userId: 'sergey',
+    channel: 'test',
+    correlationId: 'request-2',
+    conversationId: 'conversation-shared',
+  });
+
+  const history = await memory.load('sergey', 'conversation-shared');
+  assert.equal(history.length, 2);
+  assert.deepEqual(history.map(entry => entry.request), [
+    'Что с закупками?',
+    'Покажи сводку закупок',
+  ]);
+  assert.deepEqual(await memory.load('sergey', 'request-1'), []);
+  assert.deepEqual(await memory.load('sergey', 'request-2'), []);
 });

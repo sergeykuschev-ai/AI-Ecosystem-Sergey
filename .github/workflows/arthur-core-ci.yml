@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'agents/arthur-core/**'
+      - 'agents/arthur-v1/**'
       - 'data/arthur/**'
       - 'docker/arthur/**'
       - 'n8n/workflows/**'
@@ -75,8 +76,8 @@ jobs:
           NODE
           sh -n scripts/arthur/connect-n8n-network.sh
 
-      - name: Run all tests
-        run: npm test
+      - name: Run Arthur tests
+        run: npm run test:arthur
 
       - name: Apply Arthur Core migrations
         run: |
@@ -163,6 +164,9 @@ jobs:
           ARTHUR_POSTGRES_PASSWORD: ci-arthur-password
           ARTHUR_API_TOKEN: ci-n8n-token
           ARTHUR_N8N_NETWORK: arthur_n8n_ci
+          TELEGRAM_BOT_TOKEN: '123456:ci-placeholder-token'
+          TELEGRAM_ALLOWED_USER_IDS: '111111'
+          ARTHUR_OWNER_PROFILE_ID: sergey
         run: |
           COMPOSE="docker compose -f docker/arthur/compose.yml"
           trap '$COMPOSE down --volumes --remove-orphans || true' EXIT

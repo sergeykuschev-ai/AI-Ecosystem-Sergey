@@ -3,9 +3,16 @@
 const assert = require('node:assert/strict');
 const { test, describe } = require('node:test');
 
-const { createTelegramGateway, buildArthurRequest, formatArthurResponse } = require('../telegram/telegram_gateway');
-const { loadConfig } = require('../telegram/config');
+const {
+  createTelegramGateway,
+  buildArthurRequest,
+  createTelegramConversationId,
+  formatArthurResponse,
+} = require('../telegram/telegram_gateway');
+const { loadConfig, validateConfig } = require('../telegram/config');
 const { createLogger } = require('../logging/logger');
+
+const UUID_V4_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function createSilentLogger() {
   return createLogger({
@@ -87,6 +94,7 @@ function createTestGateway(options = {}) {
   const config = loadConfig({
     TELEGRAM_BOT_TOKEN: '123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11',
     TELEGRAM_ALLOWED_USER_IDS: '111111',
+    ARTHUR_OWNER_PROFILE_ID: 'owner-profile',
     TELEGRAM_POLL_TIMEOUT_MS: '1000',
     TELEGRAM_API_TIMEOUT_MS: '2000',
     TELEGRAM_API_RETRY_ATTEMPTS: '2',
@@ -112,14 +120,29 @@ test('buildArthurRequest normalizes Telegram update', () => {
     },
   };
 
-  const request = buildArthurRequest({ update, userId: '111111', chatId: '111111' });
+  const request = buildArthurRequest({
+    update,
+    userId: 'owner-profile',
+    telegramUserId: '111111',
+    chatId: '111111',
+  });
 
   assert.equal(request.message, 'Hello');
-  assert.equal(request.userId, '111111');
+  assert.equal(request.userId, 'owner-profile');
   assert.equal(request.channel, 'telegram');
-  assert.equal(request.context.chatId, '111111');
-  assert.equal(request.context.telegramUpdateId, 42);
-  assert.equal(request.context.telegramMessageId, 7);
+  assert.match(request.correlationId, UUID_V4_PATTERN);
+  assert.equal(request.conversationId, createTelegramConversationId('111111'));
+  assert.deepEqual(request.transport, {
+    type: 'telegram',
+    metadata: {
+      userId: '111111',
+      chatId: '111111',
+      messageId: 7,
+      updateId: 42,
+    },
+  });
+  assert.deepEqual(request.metadata, { source: 'telegram' });
+  assert.equal(request.context, undefined);
 });
 
 test('formatArthurResponse returns text on success', () => {
@@ -365,7 +388,7 @@ test('getHealth returns healthy status while running', async () => {
   assert.equal(health.configValid, true);
 });
 
-test('correlationId includes telegram identifiers', async () => {
+test('allowed Telegram identity maps to configured owner and UUID request identity', async () => {
   const telegram = createFakeTelegramClient({
     updates: [{
       update_id: 1,
@@ -390,12 +413,90 @@ test('correlationId includes telegram identifiers', async () => {
   await gateway.start();
 
   assert.ok(capturedRequest);
-  assert.ok(capturedRequest.correlationId.startsWith('tg-'));
+  assert.equal(capturedRequest.userId, 'owner-profile');
+  assert.notEqual(capturedRequest.userId, '111111');
+  assert.match(capturedRequest.correlationId, UUID_V4_PATTERN);
+  assert.equal(capturedRequest.transport.metadata.userId, '111111');
+  assert.equal(capturedRequest.transport.metadata.chatId, '111111');
+  assert.equal(capturedRequest.transport.metadata.messageId, 42);
+  assert.equal(capturedRequest.transport.metadata.updateId, 1);
+  assert.equal(capturedRequest.metadata.chatId, undefined);
+  assert.equal(capturedRequest.context, undefined);
 });
 
 test('config validation rejects missing token', () => {
-  const config = loadConfig({ TELEGRAM_BOT_TOKEN: '', TELEGRAM_ALLOWED_USER_IDS: '111' });
+  const config = loadConfig({
+    TELEGRAM_BOT_TOKEN: '',
+    TELEGRAM_ALLOWED_USER_IDS: '111',
+    ARTHUR_OWNER_PROFILE_ID: 'owner-profile',
+  });
   assert.equal(config.token, '');
+});
+
+test('production config requires one allowed Telegram user and owner profile', () => {
+  const multipleUsers = loadConfig({
+    NODE_ENV: 'production',
+    TELEGRAM_BOT_TOKEN: '123456:valid-token',
+    TELEGRAM_ALLOWED_USER_IDS: '111,222',
+    ARTHUR_OWNER_PROFILE_ID: 'owner-profile',
+  });
+  assert.match(validateConfig(multipleUsers).errors.join('; '), /exactly one user ID/);
+
+  const missingOwner = loadConfig({
+    NODE_ENV: 'production',
+    TELEGRAM_BOT_TOKEN: '123456:valid-token',
+    TELEGRAM_ALLOWED_USER_IDS: '111',
+  });
+  assert.match(validateConfig(missingOwner).errors.join('; '), /ARTHUR_OWNER_PROFILE_ID/);
+});
+
+test('same Telegram chat keeps conversationId while requests get unique UUIDs', async () => {
+  const capturedRequests = [];
+  const arthur = {
+    async handle(request) {
+      capturedRequests.push(request);
+      return { status: 'success', answer: { text: 'ok', confidence: 'high' } };
+    },
+  };
+  const gateway = createTestGateway({ arthur });
+
+  await gateway.handleUpdate({
+    update_id: 1,
+    message: {
+      message_id: 10,
+      from: { id: 111111 },
+      chat: { id: 555555 },
+      text: 'Первое сообщение',
+    },
+  });
+  await gateway.handleUpdate({
+    update_id: 2,
+    message: {
+      message_id: 11,
+      from: { id: 111111 },
+      chat: { id: 555555 },
+      text: 'Второе сообщение',
+    },
+  });
+  await gateway.handleUpdate({
+    update_id: 3,
+    message: {
+      message_id: 12,
+      from: { id: 111111 },
+      chat: { id: 777777 },
+      text: 'Другой чат',
+    },
+  });
+
+  assert.equal(capturedRequests.length, 3);
+  assert.equal(capturedRequests[0].conversationId, capturedRequests[1].conversationId);
+  assert.notEqual(capturedRequests[0].conversationId, capturedRequests[2].conversationId);
+  assert.notEqual(capturedRequests[0].correlationId, capturedRequests[1].correlationId);
+  for (const request of capturedRequests) {
+    assert.match(request.correlationId, UUID_V4_PATTERN);
+  }
+  assert.equal(capturedRequests[0].conversationId.includes('555555'), false);
+  assert.equal(capturedRequests[2].conversationId.includes('777777'), false);
 });
 
 test('AI provider error returns specific fallback message', async () => {

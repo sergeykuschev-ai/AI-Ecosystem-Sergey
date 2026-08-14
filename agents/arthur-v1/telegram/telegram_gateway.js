@@ -1,6 +1,9 @@
 'use strict';
 
+const crypto = require('node:crypto');
+
 const { createArthurV1 } = require('../index');
+const { generateCorrelationId } = require('../context/arthur_context');
 const { createLogger } = require('../logging/logger');
 const { loadConfig, validateConfig } = require('./config');
 const { createTelegramClient } = require('./telegram_client');
@@ -70,7 +73,23 @@ function formatArthurResponse(response) {
   return text;
 }
 
-function buildArthurRequest({ update, userId, chatId, correlationId }) {
+function createTelegramConversationId(chatId) {
+  const normalizedChatId = String(chatId || '').trim();
+  if (!normalizedChatId) {
+    throw new TypeError('Telegram chat ID is required');
+  }
+  const digest = crypto.createHash('sha256').update(normalizedChatId).digest('hex');
+  return `telegram-${digest}`;
+}
+
+function buildArthurRequest({
+  update,
+  userId,
+  telegramUserId,
+  chatId,
+  correlationId = generateCorrelationId(),
+  conversationId = createTelegramConversationId(chatId),
+}) {
   const message = update.message || update.edited_message;
   const text = message?.text || '';
 
@@ -79,15 +98,18 @@ function buildArthurRequest({ update, userId, chatId, correlationId }) {
     userId,
     channel: 'telegram',
     correlationId,
-    context: {
-      chatId,
-      telegramUpdateId: update.update_id,
-      telegramMessageId: message?.message_id,
+    conversationId,
+    transport: {
+      type: 'telegram',
+      metadata: {
+        userId: telegramUserId ?? String(message?.from?.id),
+        chatId,
+        messageId: message?.message_id,
+        updateId: update.update_id,
+      },
     },
     metadata: {
       source: 'telegram',
-      chatId,
-      updateId: update.update_id,
     },
   };
 }
@@ -168,24 +190,33 @@ class ArthurTelegramGateway {
       return;
     }
 
-    const userId = String(message.from?.id);
+    const telegramUserId = String(message.from?.id);
     const chatId = String(message.chat?.id);
     const username = message.from?.username || null;
 
-    const correlationId = `tg-${message.message_id}-${userId}`;
+    const correlationId = generateCorrelationId();
+    const conversationId = createTelegramConversationId(chatId);
 
-    this.logger.info('telegram_update_received', { correlationId, userId, channel: 'telegram' }, {
-      chatId,
-      updateId: update.update_id,
-      messageId: message.message_id,
-      username,
+    this.logger.info('telegram_update_received', { correlationId, conversationId, channel: 'telegram' }, {
+      transport: {
+        type: 'telegram',
+        userId: telegramUserId,
+        chatId,
+        updateId: update.update_id,
+        messageId: message.message_id,
+        username,
+      },
       textLength: message.text.length,
     });
 
-    if (!this.config.allowedUserIds.has(userId)) {
-      this.logger.warn('telegram_user_rejected', { correlationId, userId, channel: 'telegram' }, {
-        chatId,
-        username,
+    if (!this.config.allowedUserIds.has(telegramUserId)) {
+      this.logger.warn('telegram_user_rejected', { correlationId, conversationId, channel: 'telegram' }, {
+        transport: {
+          type: 'telegram',
+          userId: telegramUserId,
+          chatId,
+          username,
+        },
       });
       await this.sendText(chatId, 'Доступ запрещён. Обратитесь к администратору.', correlationId);
       return;
@@ -202,7 +233,14 @@ class ArthurTelegramGateway {
       } else if (text === COMMANDS.STATUS) {
         responseText = await this.buildStatusText();
       } else {
-        const arthurRequest = buildArthurRequest({ update, userId, chatId, correlationId });
+        const arthurRequest = buildArthurRequest({
+          update,
+          userId: this.config.ownerProfileId,
+          telegramUserId,
+          chatId,
+          correlationId,
+          conversationId,
+        });
         const arthurResponse = await this.arthur.handle(arthurRequest);
         responseText = formatArthurResponse(arthurResponse);
       }
@@ -210,8 +248,13 @@ class ArthurTelegramGateway {
       await this.sendText(chatId, responseText, correlationId);
       this.processedUpdates += 1;
     } catch (error) {
-      this.logger.error('gateway_request_failed', { correlationId, userId, channel: 'telegram' }, {
-        chatId,
+      this.logger.error('gateway_request_failed', {
+        correlationId,
+        conversationId,
+        userId: this.config.ownerProfileId,
+        channel: 'telegram',
+      }, {
+        transport: { type: 'telegram', userId: telegramUserId, chatId },
         errorCode: error.code || error.name,
         errorMessage: error.message,
       });
@@ -223,12 +266,12 @@ class ArthurTelegramGateway {
     try {
       await this.telegram.sendMessage(chatId, text);
       this.logger.info('telegram_message_sent', { correlationId, channel: 'telegram' }, {
-        chatId,
+        transport: { type: 'telegram', chatId },
         textLength: text.length,
       });
     } catch (error) {
       this.logger.error('telegram_send_failed', { correlationId, channel: 'telegram' }, {
-        chatId,
+        transport: { type: 'telegram', chatId },
         errorCode: error.code || error.name,
         errorMessage: error.message,
       });
@@ -298,6 +341,7 @@ module.exports = {
   ArthurTelegramGateway,
   createTelegramGateway,
   buildArthurRequest,
+  createTelegramConversationId,
   formatArthurResponse,
   HELP_TEXT,
 };

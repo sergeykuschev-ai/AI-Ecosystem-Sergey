@@ -10,6 +10,8 @@ const { createLLMPlanBuilder } = require('../planner/llm_plan_builder');
 const { createFakeAIProvider } = require('../ai/fake_provider');
 const { createLogger } = require('../logging/logger');
 
+const UUID_V4_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 function fakeSkill(id, data = {}) {
   return {
     id,
@@ -78,7 +80,7 @@ test('single skill execution returns success response', async () => {
   assert.equal(response.status, 'success');
   assert.equal(response.modulesUsed.includes('purchasing'), true);
   assert.equal(typeof response.answer.text, 'string');
-  assert.ok(response.correlationId.startsWith('arthur-test-'));
+  assert.match(response.correlationId, UUID_V4_PATTERN);
 });
 
 test('sequential execution waits for dependency', async () => {

@@ -71,6 +71,12 @@ test('telegram-gateway receives PURCHASING_RUNS_ROOT env var', () => {
   assert.equal(env.PURCHASING_RUNS_ROOT, '${PURCHASING_RUNS_ROOT:-/opt/arthur/output/purchasing-web/runs}');
 });
 
+test('telegram-gateway receives canonical owner profile ID env var', () => {
+  const compose = loadCompose();
+  const env = compose.services['telegram-gateway'].environment;
+  assert.equal(env.ARTHUR_OWNER_PROFILE_ID, '${ARTHUR_OWNER_PROFILE_ID:?ARTHUR_OWNER_PROFILE_ID is required}');
+});
+
 test('telegram-gateway mounts purchasing runs read-only', () => {
   const compose = loadCompose();
   const volumes = compose.services['telegram-gateway'].volumes || [];

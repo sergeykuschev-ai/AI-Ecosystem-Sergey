@@ -13,10 +13,12 @@ function parseAllowedUserIds(value) {
 function loadConfig(env = process.env) {
   const token = env.TELEGRAM_BOT_TOKEN || '';
   const allowedUserIds = parseAllowedUserIds(env.TELEGRAM_ALLOWED_USER_IDS);
+  const ownerProfileId = (env.ARTHUR_OWNER_PROFILE_ID || '').trim();
 
   return {
     token,
     allowedUserIds,
+    ownerProfileId,
     apiBaseUrl: env.TELEGRAM_API_BASE_URL || 'https://api.telegram.org',
     pollTimeoutMs: Number(env.TELEGRAM_POLL_TIMEOUT_MS) || 30000,
     requestTimeoutMs: Number(env.TELEGRAM_API_TIMEOUT_MS) || 10000,
@@ -39,6 +41,14 @@ function validateConfig(config) {
 
   if (config.allowedUserIds.size === 0) {
     errors.push('TELEGRAM_ALLOWED_USER_IDS is required');
+  }
+
+  if (config.isProduction && config.allowedUserIds.size !== 1) {
+    errors.push('TELEGRAM_ALLOWED_USER_IDS must contain exactly one user ID in production');
+  }
+
+  if (!config.ownerProfileId) {
+    errors.push('ARTHUR_OWNER_PROFILE_ID is required');
   }
 
   if (config.pollTimeoutMs < 1000 || config.pollTimeoutMs > 120000) {

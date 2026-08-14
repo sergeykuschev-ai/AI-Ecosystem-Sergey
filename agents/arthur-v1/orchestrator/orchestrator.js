@@ -14,6 +14,7 @@ function createOrchestratorRequest(input = {}) {
   return {
     requestId: ctx.requestId,
     correlationId: ctx.correlationId,
+    conversationId: ctx.conversationId,
     userId: input.userId || ctx.userId,
     channel: ctx.channel,
     message: input.message || '',
@@ -21,9 +22,11 @@ function createOrchestratorRequest(input = {}) {
     context: {
       ...(input.context || {}),
       userId: input.userId || ctx.userId,
+      conversationId: ctx.conversationId,
       channel: ctx.channel,
     },
-    metadata: input.metadata || {},
+    transport: ctx.transport,
+    metadata: ctx.metadata,
   };
 }
 
@@ -38,6 +41,7 @@ function createOrchestratorResponse({
   return {
     requestId: request.requestId,
     correlationId: request.correlationId,
+    conversationId: request.conversationId,
     status,
     answer,
     modulesUsed,
@@ -185,7 +189,7 @@ class ArthurOrchestrator {
     });
 
     if (this.memory) {
-      await this.memory.store(request.userId, request.correlationId, {
+      await this.memory.store(request.userId, request.conversationId, {
         request: request.message,
         intent: request.intent,
         answer: answer.text,
@@ -220,7 +224,7 @@ class ArthurOrchestrator {
 
     try {
       const memorySnapshot = this.memory
-        ? await this.memory.load(request.userId, request.correlationId)
+        ? await this.memory.load(request.userId, request.conversationId)
         : [];
 
       const knowledgeResults = this.knowledge && request.intent
@@ -271,7 +275,7 @@ class ArthurOrchestrator {
       });
 
       if (this.memory) {
-        await this.memory.store(request.userId, request.correlationId, {
+        await this.memory.store(request.userId, request.conversationId, {
           request: request.message,
           intent: request.intent,
           answer: answer.text,
