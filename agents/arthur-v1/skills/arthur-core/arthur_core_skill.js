@@ -12,6 +12,8 @@ const CAPABILITIES = Object.freeze([
   { id: 'getTaskBrief', readOnly: true },
 ]);
 
+const MAX_VISIBLE_TASKS = 10;
+
 function requireOwnerProfileId(value) {
   if (typeof value !== 'string' || value.trim() === '') {
     throw new TypeError('Arthur Core owner profile ID is required');
@@ -21,13 +23,15 @@ function requireOwnerProfileId(value) {
 
 function degradedResult(operation, error) {
   const notFound = error instanceof ArthurCoreNotFoundError;
+  const responseText = notFound
+    ? 'Данные владельца в Arthur Core не найдены.'
+    : 'Arthur Core временно недоступен. Попробуй запросить профиль или задачи позже.';
   return {
     status: 'success',
     data: {
       status: notFound ? 'not_found' : 'unavailable',
-      summary: notFound
-        ? 'Данные владельца в Arthur Core не найдены.'
-        : 'Arthur Core временно недоступен. Попробуйте запросить профиль или задачи позже.',
+      summary: responseText,
+      responseText,
       operation,
     },
     metadata: {
@@ -40,23 +44,49 @@ function degradedResult(operation, error) {
 
 function profileResult(profile) {
   const details = [profile.name, profile.timezone, profile.locale].filter(Boolean).join(', ');
+  const responseText = profile.name
+    ? `Ты — ${profile.name}.${profile.timezone ? ` Часовой пояс: ${profile.timezone}.` : ''}`
+    : 'Твой профиль получен.';
   return {
     status: 'success',
     data: {
       status: 'available',
       summary: details ? `Профиль владельца: ${details}.` : 'Профиль владельца получен.',
+      responseText,
       profile,
     },
     metadata: { source: 'arthur-core', endpoint: 'profile' },
   };
 }
 
+function activeTaskNoun(count) {
+  const mod100 = count % 100;
+  const mod10 = count % 10;
+  if (mod10 === 1 && mod100 !== 11) return 'активная задача';
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'активные задачи';
+  return 'активных задач';
+}
+
+function taskLines(tasks, limit = MAX_VISIBLE_TASKS) {
+  const visible = tasks.slice(0, limit);
+  const lines = visible.map((task, index) => `${index + 1}. ${task.title}`);
+  if (tasks.length > visible.length) lines.push(`Ещё: ${tasks.length - visible.length}.`);
+  return lines;
+}
+
+function formatTasksResponse(tasks) {
+  if (tasks.length === 0) return 'Активных задач сейчас нет.';
+  return [`У тебя ${tasks.length} ${activeTaskNoun(tasks.length)}:`, '', ...taskLines(tasks)].join('\n');
+}
+
 function tasksResult(tasks) {
+  const responseText = formatTasksResponse(tasks);
   return {
     status: 'success',
     data: {
       status: 'available',
       summary: `Задач получено: ${tasks.length}.`,
+      responseText,
       count: tasks.length,
       tasks,
     },
@@ -64,16 +94,52 @@ function tasksResult(tasks) {
   };
 }
 
-function briefResult(brief) {
+function formatTodayBrief(brief) {
+  const today = brief.today || [];
+  const lines = today.length === 0
+    ? ['На сегодня задач нет.']
+    : [`На сегодня: ${today.length}`, ...taskLines(today)];
+  lines.push('', `Просрочено: ${brief.overdue?.length || 0}`, `Ожидают: ${brief.waiting?.length || 0}`);
+  return lines.join('\n');
+}
+
+function formatOverdueBrief(brief) {
+  const overdue = brief.overdue || [];
+  const lines = overdue.length === 0
+    ? ['Просроченных задач нет.']
+    : [`Просрочено: ${overdue.length}`, ...taskLines(overdue)];
+  lines.push('', `На сегодня: ${brief.today?.length || 0}`, `Ожидают: ${brief.waiting?.length || 0}`);
+  return lines.join('\n');
+}
+
+function formatSummaryBrief(brief) {
+  return [
+    `На сегодня: ${brief.today?.length || 0}`,
+    `Просрочено: ${brief.overdue?.length || 0}`,
+    `Предстоящие ${brief.horizonHours || 24} ч: ${brief.upcoming?.length || 0}`,
+    `Ожидают: ${brief.waiting?.length || 0}`,
+  ].join('\n');
+}
+
+function formatBriefResponse(brief, view = 'summary') {
+  if (view === 'today') return formatTodayBrief(brief);
+  if (view === 'overdue') return formatOverdueBrief(brief);
+  return formatSummaryBrief(brief);
+}
+
+function briefResult(brief, parameters = {}) {
+  const today = brief.today?.length || 0;
   const overdue = brief.overdue?.length || 0;
   const upcoming = brief.upcoming?.length || 0;
   const waiting = brief.waiting?.length || 0;
+  const responseText = formatBriefResponse(brief, parameters.view);
   return {
     status: 'success',
     data: {
       ...brief,
       status: 'available',
-      summary: `Сводка задач: просрочено ${overdue}, предстоящих ${upcoming}, в ожидании ${waiting}.`,
+      summary: `Сводка задач: на сегодня ${today}, просрочено ${overdue}, предстоящих ${upcoming}, в ожидании ${waiting}.`,
+      responseText,
     },
     metadata: { source: 'arthur-core', endpoint: 'tasks/brief' },
   };
@@ -105,7 +171,10 @@ function createArthurCoreSkill({ client, ownerProfileId } = {}) {
           return tasksResult(await client.listTasks(configuredOwnerProfileId, parameters, context));
         }
         if (operation === 'getTaskBrief') {
-          return briefResult(await client.getTaskBrief(configuredOwnerProfileId, parameters, context));
+          return briefResult(
+            await client.getTaskBrief(configuredOwnerProfileId, parameters, context),
+            parameters
+          );
         }
         throw new UnsupportedOperationError('arthur-core', operation);
       } catch (error) {
@@ -126,4 +195,7 @@ module.exports = {
   createArthurCoreSkill,
   CAPABILITIES,
   degradedResult,
+  activeTaskNoun,
+  formatTasksResponse,
+  formatBriefResponse,
 };

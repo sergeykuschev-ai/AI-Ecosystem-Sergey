@@ -14,7 +14,10 @@ const {
   ArthurCoreTimeoutError,
   createArthurCoreClient,
 } = require('../skills/arthur-core/core_client');
-const { createArthurCoreSkill } = require('../skills/arthur-core/arthur_core_skill');
+const {
+  createArthurCoreSkill,
+  formatBriefResponse,
+} = require('../skills/arthur-core/arthur_core_skill');
 
 function jsonResponse(status, payload) {
   return {
@@ -111,7 +114,9 @@ test('getTaskBrief uses the existing Core brief endpoint', async () => {
   let capturedUrl;
   const brief = {
     generatedAt: '2026-08-14T00:00:00.000Z',
+    timezone: 'Asia/Vladivostok',
     horizonHours: 24,
+    today: [{ id: 'today', title: 'Позвонить поставщику' }],
     overdue: [{ id: 'overdue' }],
     upcoming: [],
     waiting: [],
@@ -132,7 +137,127 @@ test('getTaskBrief uses the existing Core brief endpoint', async () => {
   assert.equal(capturedUrl.searchParams.get('ownerId'), 'sergey');
   assert.equal(capturedUrl.searchParams.get('horizonHours'), '24');
   assert.equal(result.data.overdue[0].id, 'overdue');
+  assert.match(result.data.responseText, /На сегодня: 1/);
   assert.match(result.data.summary, /просрочено 1/);
+});
+
+test('Telegram task list is compact, user-facing and bypasses AI rewriting', async () => {
+  let synthesisCalls = 0;
+  const tasks = [
+    { id: 'task-1', title: 'Проверить договор', status: 'new', sourceType: 'n8n' },
+    { id: 'task-2', title: 'Позвонить поставщику', status: 'waiting', waitingFor: 'ответ' },
+  ];
+  const aiProvider = {
+    async generate() { return 'unused'; },
+    async synthesize() { synthesisCalls += 1; return { text: 'rewritten' }; },
+    async health() { return { healthy: true }; },
+  };
+  const arthur = createArthurV1({
+    coreConfig: coreConfig(async url => {
+      assert.equal(new URL(url).pathname, '/v1/tasks');
+      return jsonResponse(200, { data: tasks });
+    }),
+    aiProvider,
+    knowledgeDirectories: [],
+    logger: silentLogger(),
+  });
+
+  const response = await arthur.handle({
+    message: 'Что у меня по задачам?',
+    userId: 'sergey',
+    channel: 'telegram',
+  });
+
+  assert.equal(response.answer.text, [
+    'У тебя 2 активные задачи:',
+    '',
+    '1. Проверить договор',
+    '2. Позвонить поставщику',
+  ].join('\n'));
+  assert.doesNotMatch(response.answer.text, /sourceType|waitingFor|Arthur Core|purchasing|Вы|Ваш/);
+  assert.equal(synthesisCalls, 0);
+});
+
+test('Telegram task list has a concise empty state', async () => {
+  const arthur = createArthurV1({
+    coreConfig: coreConfig(async () => jsonResponse(200, { data: [] })),
+    aiProvider: createFakeAIProvider(),
+    knowledgeDirectories: [],
+    logger: silentLogger(),
+  });
+
+  const response = await arthur.handle({
+    message: 'Что у меня по задачам?',
+    userId: 'sergey',
+    channel: 'telegram',
+  });
+
+  assert.equal(response.answer.text, 'Активных задач сейчас нет.');
+});
+
+test('Telegram today brief has a concise empty state', () => {
+  const response = formatBriefResponse({ today: [], overdue: [], waiting: [] }, 'today');
+  assert.equal(response, ['На сегодня задач нет.', '', 'Просрочено: 0', 'Ожидают: 0'].join('\n'));
+});
+
+test('Telegram today and overdue requests use focused brief views', async () => {
+  const brief = {
+    generatedAt: '2026-08-14T00:00:00.000Z',
+    timezone: 'Asia/Vladivostok',
+    horizonHours: 24,
+    today: [{ id: 'today', title: 'Проверить отчёт' }],
+    overdue: [{ id: 'overdue', title: 'Оплатить счёт' }],
+    upcoming: [{ id: 'today', title: 'Проверить отчёт' }],
+    waiting: [],
+    total: 2,
+  };
+  const arthur = createArthurV1({
+    coreConfig: coreConfig(async url => {
+      assert.equal(new URL(url).pathname, '/v1/tasks/brief');
+      assert.equal(new URL(url).searchParams.has('view'), false);
+      return jsonResponse(200, { data: brief });
+    }),
+    aiProvider: createFakeAIProvider(),
+    knowledgeDirectories: [],
+    logger: silentLogger(),
+  });
+
+  const today = await arthur.handle({
+    message: 'Что у меня сегодня?', userId: 'sergey', channel: 'telegram',
+  });
+  const overdue = await arthur.handle({
+    message: 'Какие задачи просрочены?', userId: 'sergey', channel: 'telegram',
+  });
+
+  assert.equal(today.answer.text, [
+    'На сегодня: 1',
+    '1. Проверить отчёт',
+    '',
+    'Просрочено: 1',
+    'Ожидают: 0',
+  ].join('\n'));
+  assert.equal(overdue.answer.text, [
+    'Просрочено: 1',
+    '1. Оплатить счёт',
+    '',
+    'На сегодня: 1',
+    'Ожидают: 0',
+  ].join('\n'));
+});
+
+test('Core profile rendering addresses Sergey informally', async () => {
+  const arthur = createArthurV1({
+    coreConfig: coreConfig(async () => jsonResponse(200, {
+      data: { id: 'sergey', name: 'Сергей', timezone: 'Asia/Vladivostok', locale: 'ru-RU' },
+    })),
+    aiProvider: createFakeAIProvider(),
+    knowledgeDirectories: [],
+    logger: silentLogger(),
+  });
+
+  const response = await arthur.handle({ message: 'Кто я?', userId: 'sergey', channel: 'telegram' });
+  assert.equal(response.answer.text, 'Ты — Сергей. Часовой пояс: Asia/Vladivostok.');
+  assert.doesNotMatch(response.answer.text, /Вы|Ваш/);
 });
 
 test('401 and 403 produce typed authentication errors', async () => {

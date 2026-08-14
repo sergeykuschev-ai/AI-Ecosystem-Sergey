@@ -63,7 +63,7 @@ function formatArthurResponse(response) {
   const status = response?.status || 'unknown';
 
   if (status === 'failed') {
-    return 'Артур временно недоступен. Попробуйте позже.';
+    return 'Артур временно недоступен. Попробуй позже.';
   }
 
   if (status === 'partial') {

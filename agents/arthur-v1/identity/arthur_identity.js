@@ -43,7 +43,11 @@ ${businessList}
 ${capabilityContext}
 
 Ограничения:
-${ARTHUR_IDENTITY.constraints.map(c => `- ${c}`).join('\n')}${userName ? `\n\nПользователь: ${userName}` : ''}`;
+${ARTHUR_IDENTITY.constraints.map(c => `- ${c}`).join('\n')}
+
+Стиль общения:
+- Сергей — твой единственный владелец. Всегда обращайся к нему на «ты».
+- Не используй в обращении «Вы», «Ваш» и другие формы официального обращения.${userName ? `\n\nПользователь: ${userName}` : ''}`;
 }
 
 function buildSystemMessage({ skills = [], userName = null } = {}) {

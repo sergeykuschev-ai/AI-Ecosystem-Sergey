@@ -53,6 +53,15 @@ test('Arthur Core profile, tasks and brief intents build read-only Core steps', 
   }
 });
 
+test('task brief plan selects compact today and overdue views', () => {
+  const builder = createRuleBasedPlanBuilder();
+  const today = builder.build({ message: 'Что у меня сегодня?' });
+  const overdue = builder.build({ message: 'Какие задачи просрочены?' });
+
+  assert.equal(today.steps[0].parameters.view, 'today');
+  assert.equal(overdue.steps[0].parameters.view, 'overdue');
+});
+
 test('deterministic Core plan is empty when Core skill is not registered', () => {
   const builder = createRuleBasedPlanBuilder({ availableSkills: ['purchasing'] });
   const plan = builder.build({ message: 'покажи мой профиль' });

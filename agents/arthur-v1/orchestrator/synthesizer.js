@@ -84,7 +84,17 @@ class Synthesizer {
     };
 
     let answer;
-    if (this.aiProvider) {
+    const deterministicText = successfulResults.length === 1 && failedResults.length === 0
+      ? successfulResults[0].data?.responseText
+      : null;
+    if (typeof deterministicText === 'string' && deterministicText.trim() !== '') {
+      answer = {
+        text: deterministicText,
+        markdown: deterministicText,
+        confidence: 'high',
+        followUps: [],
+      };
+    } else if (this.aiProvider) {
       try {
         answer = await this.aiProvider.synthesize(synthesisInput, context);
       } catch (error) {

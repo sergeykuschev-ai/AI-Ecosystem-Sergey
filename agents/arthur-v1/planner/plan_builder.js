@@ -32,6 +32,13 @@ function createExecutionPlan(steps) {
   };
 }
 
+function taskBriefView(message = '') {
+  const normalized = message.toLowerCase();
+  if (normalized.includes('просроч')) return 'overdue';
+  if (normalized.includes('сегодня')) return 'today';
+  return 'summary';
+}
+
 const PLAN_BUILDERS = {
   [INTENTS.PURCHASING_STATUS]: (input) => createExecutionPlan([
     createStep({
@@ -97,7 +104,10 @@ const PLAN_BUILDERS = {
       id: 'step_1',
       skill: 'arthur-core',
       operation: 'getTaskBrief',
-      parameters: input.parameters || {},
+      parameters: {
+        ...(input.parameters || {}),
+        view: input.parameters?.view || taskBriefView(input.message),
+      },
       timeoutMs: 10000,
     }),
   ]),
@@ -147,4 +157,5 @@ module.exports = {
   createStep,
   INTENTS,
   detectIntent,
+  taskBriefView,
 };

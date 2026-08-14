@@ -45,6 +45,22 @@ function fakeRuntime() {
         const updated = { ...task, ...patch, status };
         tasks.set(id, updated);
         return updated;
+      },
+      async listTasks(ownerId) {
+        return [...tasks.values()].filter(task => task.ownerId === ownerId && task.status !== 'cancelled');
+      },
+      async taskBrief(ownerId) {
+        const active = [...tasks.values()].filter(task => task.ownerId === ownerId && task.status !== 'cancelled');
+        return {
+          generatedAt: '2026-08-14T00:00:00.000Z',
+          timezone: 'Asia/Vladivostok',
+          horizonHours: 24,
+          today: active,
+          overdue: [],
+          upcoming: active,
+          waiting: active.filter(task => task.status === 'waiting'),
+          total: active.length,
+        };
       }
     }
   };
@@ -99,6 +115,27 @@ test('task can be created, read and transitioned', async () => {
     });
     assert.equal(transitioned.status, 200);
     assert.equal(transitioned.body.data.status, 'in_progress');
+  });
+});
+
+test('task list and brief endpoints expose the active read model', async () => {
+  await withServer(fakeRuntime(), async baseUrl => {
+    await jsonRequest(`${baseUrl}/v1/tasks`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ownerId: 'sergey', domain: 'business', title: 'Проверить отчёт' })
+    });
+
+    const list = await jsonRequest(`${baseUrl}/v1/tasks?ownerId=sergey`);
+    const brief = await jsonRequest(`${baseUrl}/v1/tasks/brief?ownerId=sergey`);
+
+    assert.equal(list.status, 200);
+    assert.equal(list.body.meta.count, 1);
+    assert.equal(list.body.data[0].title, 'Проверить отчёт');
+    assert.equal(brief.status, 200);
+    assert.equal(brief.body.data.timezone, 'Asia/Vladivostok');
+    assert.equal(brief.body.data.today.length, 1);
+    assert.equal(brief.body.data.total, 1);
   });
 });
 

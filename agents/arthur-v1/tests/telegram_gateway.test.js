@@ -158,7 +158,9 @@ test('formatArthurResponse returns unavailable on failed', () => {
     status: 'failed',
     answer: { text: 'error', confidence: 'low' },
   };
-  assert.equal(formatArthurResponse(response), 'Артур временно недоступен. Попробуйте позже.');
+  const result = formatArthurResponse(response);
+  assert.equal(result, 'Артур временно недоступен. Попробуй позже.');
+  assert.doesNotMatch(result, /Вы|Ваш|Попробуйте/);
 });
 
 test('formatArthurResponse marks partial results', () => {

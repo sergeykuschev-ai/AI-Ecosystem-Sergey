@@ -49,6 +49,7 @@ test('buildSystemMessage includes identity, constraints and capabilities', () =>
   assert.ok(message.includes('purchasing'));
   assert.ok(message.includes('прямого доступа к базам данных'));
   assert.ok(message.includes('только на основе подключённых skills'));
+  assert.ok(message.includes('Всегда обращайся к нему на «ты»'));
 });
 
 test('buildSystemMessage includes user name when provided', () => {
