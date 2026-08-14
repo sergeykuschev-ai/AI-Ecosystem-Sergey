@@ -8,6 +8,8 @@ const { createKnowledgeService } = require('./knowledge/knowledge_service');
 const { createMemoryInterface } = require('./memory/memory_interface');
 const { createLogger } = require('./logging/logger');
 const { PurchasingSkill } = require('./skills/purchasing/purchasing_skill');
+const { createArthurCoreClient, validateCoreClientOptions } = require('./skills/arthur-core/core_client');
+const { createArthurCoreSkill } = require('./skills/arthur-core/arthur_core_skill');
 const { createFakeAIProvider } = require('./ai/fake_provider');
 const { createAIProviderFromEnv, getProviderDiagnostics } = require('./ai/provider_factory');
 
@@ -24,6 +26,19 @@ function createArthurV1(options = {}) {
   const registry = createSkillRegistry();
   registry.register(PurchasingSkill);
 
+  const coreConfig = options.coreConfig || {};
+  const coreValidation = validateCoreClientOptions(coreConfig);
+  const hasOwnerProfileId = typeof coreConfig.ownerProfileId === 'string'
+    && coreConfig.ownerProfileId.trim() !== '';
+
+  if (coreValidation.valid && hasOwnerProfileId) {
+    const client = options.coreClient || createArthurCoreClient(coreConfig);
+    registry.register(createArthurCoreSkill({
+      client,
+      ownerProfileId: coreConfig.ownerProfileId,
+    }));
+  }
+
   const knowledgeDirectories = options.knowledgeDirectories || [
     'docs',
     'knowledge',
@@ -34,7 +49,9 @@ function createArthurV1(options = {}) {
 
   return createOrchestrator({
     registry,
-    deterministicPlanBuilder: createRuleBasedPlanBuilder(),
+    deterministicPlanBuilder: createRuleBasedPlanBuilder({
+      availableSkills: registry.list().map(skill => skill.id),
+    }),
     llmPlanBuilder: createLLMPlanBuilder({
       aiProvider,
       registry,
@@ -63,4 +80,6 @@ module.exports = {
   createAIProviderFromEnv,
   getProviderDiagnostics,
   PurchasingSkill,
+  createArthurCoreClient,
+  createArthurCoreSkill,
 };

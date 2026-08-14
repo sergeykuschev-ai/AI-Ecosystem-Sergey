@@ -73,6 +73,35 @@ const PLAN_BUILDERS = {
     }),
   ]),
 
+  [INTENTS.CORE_PROFILE]: () => createExecutionPlan([
+    createStep({
+      id: 'step_1',
+      skill: 'arthur-core',
+      operation: 'getProfile',
+      timeoutMs: 10000,
+    }),
+  ]),
+
+  [INTENTS.CORE_TASKS]: (input) => createExecutionPlan([
+    createStep({
+      id: 'step_1',
+      skill: 'arthur-core',
+      operation: 'listTasks',
+      parameters: input.parameters || {},
+      timeoutMs: 10000,
+    }),
+  ]),
+
+  [INTENTS.CORE_TASK_BRIEF]: (input) => createExecutionPlan([
+    createStep({
+      id: 'step_1',
+      skill: 'arthur-core',
+      operation: 'getTaskBrief',
+      parameters: input.parameters || {},
+      timeoutMs: 10000,
+    }),
+  ]),
+
   [INTENTS.KNOWLEDGE_SEARCH]: () => createExecutionPlan([]),
 };
 
@@ -80,6 +109,9 @@ class RuleBasedPlanBuilder {
   constructor(options = {}) {
     this.intentDetector = options.intentDetector || detectIntent;
     this.builders = { ...PLAN_BUILDERS, ...(options.customBuilders || {}) };
+    this.availableSkills = options.availableSkills
+      ? new Set(options.availableSkills)
+      : null;
   }
 
   build(input = {}) {
@@ -96,7 +128,11 @@ class RuleBasedPlanBuilder {
       throw new PlanBuildError(intent, 'no plan builder registered');
     }
 
-    return builder({ ...input, intent });
+    const plan = builder({ ...input, intent });
+    if (this.availableSkills && plan.steps.some(step => !this.availableSkills.has(step.skill))) {
+      return createExecutionPlan([]);
+    }
+    return plan;
   }
 }
 

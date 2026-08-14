@@ -450,6 +450,27 @@ test('production config requires one allowed Telegram user and owner profile', (
   assert.match(validateConfig(missingOwner).errors.join('; '), /ARTHUR_OWNER_PROFILE_ID/);
 });
 
+test('Core URL and token must be configured together', () => {
+  const missingToken = loadConfig({
+    TELEGRAM_BOT_TOKEN: '123456:valid-token',
+    TELEGRAM_ALLOWED_USER_IDS: '111',
+    ARTHUR_OWNER_PROFILE_ID: 'owner-profile',
+    ARTHUR_CORE_BASE_URL: 'http://api:8787',
+  });
+  assert.match(validateConfig(missingToken).errors.join('; '), /configured together/);
+
+  const configured = loadConfig({
+    TELEGRAM_BOT_TOKEN: '123456:valid-token',
+    TELEGRAM_ALLOWED_USER_IDS: '111',
+    ARTHUR_OWNER_PROFILE_ID: 'owner-profile',
+    ARTHUR_CORE_BASE_URL: 'http://api:8787',
+    ARTHUR_CORE_TOKEN: 'core-token',
+    ARTHUR_CORE_TIMEOUT_MS: '2500',
+  });
+  assert.equal(validateConfig(configured).valid, true);
+  assert.equal(configured.coreTimeoutMs, 2500);
+});
+
 test('same Telegram chat keeps conversationId while requests get unique UUIDs', async () => {
   const capturedRequests = [];
   const arthur = {

@@ -126,7 +126,15 @@ class ArthurTelegramGateway {
       retryDelayMs: this.config.retryDelayMs,
       logger: this.logger,
     });
-    this.arthur = options.arthur || createArthurV1({ logger: this.logger });
+    this.arthur = options.arthur || createArthurV1({
+      logger: this.logger,
+      coreConfig: {
+        baseUrl: this.config.coreBaseUrl,
+        token: this.config.coreToken,
+        timeoutMs: this.config.coreTimeoutMs,
+        ownerProfileId: this.config.ownerProfileId,
+      },
+    });
     this.running = false;
     this.shutdownRequested = false;
     this.offset = 0;

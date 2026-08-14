@@ -5,6 +5,9 @@ const INTENTS = Object.freeze({
   PURCHASING_OWNER_REVIEW: 'purchasing.owner_review',
   PURCHASING_FINAL_ORDER: 'purchasing.final_order',
   PURCHASING_SUMMARY: 'purchasing.summary',
+  CORE_PROFILE: 'arthur_core.profile',
+  CORE_TASKS: 'arthur_core.tasks',
+  CORE_TASK_BRIEF: 'arthur_core.task_brief',
   KNOWLEDGE_SEARCH: 'knowledge.search',
   UNKNOWN: 'unknown',
 });
@@ -30,6 +33,24 @@ const INTENT_KEYWORDS = Object.freeze({
     'итоговый заказ',
     'final order',
   ],
+  [INTENTS.CORE_PROFILE]: [
+    'кто я',
+    'мой профиль',
+    'покажи мой профиль',
+  ],
+  [INTENTS.CORE_TASK_BRIEF]: [
+    'что у меня сегодня',
+    'задачи сегодня',
+    'какие задачи просрочены',
+    'просроченные задачи',
+    'сводка по задачам',
+    'сводку по задачам',
+  ],
+  [INTENTS.CORE_TASKS]: [
+    'что у меня по задачам',
+    'мои задачи',
+    'покажи задачи',
+  ],
   [INTENTS.PURCHASING_SUMMARY]: [
     'сводка',
     'summary',
@@ -51,6 +72,9 @@ const DETERMINISTIC_INTENTS = Object.freeze(new Set([
   INTENTS.PURCHASING_OWNER_REVIEW,
   INTENTS.PURCHASING_FINAL_ORDER,
   INTENTS.PURCHASING_SUMMARY,
+  INTENTS.CORE_PROFILE,
+  INTENTS.CORE_TASKS,
+  INTENTS.CORE_TASK_BRIEF,
 ]));
 
 function detectIntent(message) {

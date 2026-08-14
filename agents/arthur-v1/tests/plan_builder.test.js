@@ -36,6 +36,29 @@ test('purchasing.summary intent builds summary step', () => {
   assert.equal(plan.steps[0].operation, 'getSummary');
 });
 
+test('Arthur Core profile, tasks and brief intents build read-only Core steps', () => {
+  const builder = createRuleBasedPlanBuilder();
+  const scenarios = [
+    ['кто я', INTENTS.CORE_PROFILE, 'getProfile'],
+    ['что у меня по задачам', INTENTS.CORE_TASKS, 'listTasks'],
+    ['дай сводку по задачам', INTENTS.CORE_TASK_BRIEF, 'getTaskBrief'],
+  ];
+
+  for (const [message, intent, operation] of scenarios) {
+    assert.equal(detectIntent(message), intent);
+    const plan = builder.build({ message });
+    assert.equal(plan.steps.length, 1);
+    assert.equal(plan.steps[0].skill, 'arthur-core');
+    assert.equal(plan.steps[0].operation, operation);
+  }
+});
+
+test('deterministic Core plan is empty when Core skill is not registered', () => {
+  const builder = createRuleBasedPlanBuilder({ availableSkills: ['purchasing'] });
+  const plan = builder.build({ message: 'покажи мой профиль' });
+  assert.deepEqual(plan.steps, []);
+});
+
 test('knowledge.search intent returns empty plan because knowledge skill is not registered', () => {
   const builder = createRuleBasedPlanBuilder();
   const plan = builder.build({ message: 'матрица', intent: INTENTS.KNOWLEDGE_SEARCH });

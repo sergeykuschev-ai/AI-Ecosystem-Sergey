@@ -14,11 +14,16 @@ function loadConfig(env = process.env) {
   const token = env.TELEGRAM_BOT_TOKEN || '';
   const allowedUserIds = parseAllowedUserIds(env.TELEGRAM_ALLOWED_USER_IDS);
   const ownerProfileId = (env.ARTHUR_OWNER_PROFILE_ID || '').trim();
+  const coreBaseUrl = (env.ARTHUR_CORE_BASE_URL || '').trim();
+  const coreToken = (env.ARTHUR_CORE_TOKEN || '').trim();
 
   return {
     token,
     allowedUserIds,
     ownerProfileId,
+    coreBaseUrl,
+    coreToken,
+    coreTimeoutMs: Number(env.ARTHUR_CORE_TIMEOUT_MS) || 5000,
     apiBaseUrl: env.TELEGRAM_API_BASE_URL || 'https://api.telegram.org',
     pollTimeoutMs: Number(env.TELEGRAM_POLL_TIMEOUT_MS) || 30000,
     requestTimeoutMs: Number(env.TELEGRAM_API_TIMEOUT_MS) || 10000,
@@ -49,6 +54,27 @@ function validateConfig(config) {
 
   if (!config.ownerProfileId) {
     errors.push('ARTHUR_OWNER_PROFILE_ID is required');
+  }
+
+  const hasCoreBaseUrl = Boolean(config.coreBaseUrl);
+  const hasCoreToken = Boolean(config.coreToken);
+  if (hasCoreBaseUrl !== hasCoreToken) {
+    errors.push('ARTHUR_CORE_BASE_URL and ARTHUR_CORE_TOKEN must be configured together');
+  }
+
+  if (hasCoreBaseUrl) {
+    try {
+      const parsedCoreUrl = new URL(config.coreBaseUrl);
+      if (!['http:', 'https:'].includes(parsedCoreUrl.protocol)) {
+        errors.push('ARTHUR_CORE_BASE_URL must use http or https');
+      }
+    } catch {
+      errors.push('ARTHUR_CORE_BASE_URL must be a valid URL');
+    }
+  }
+
+  if (!Number.isInteger(config.coreTimeoutMs) || config.coreTimeoutMs < 100 || config.coreTimeoutMs > 60000) {
+    errors.push('ARTHUR_CORE_TIMEOUT_MS must be between 100 and 60000');
   }
 
   if (config.pollTimeoutMs < 1000 || config.pollTimeoutMs > 120000) {

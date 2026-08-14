@@ -77,6 +77,21 @@ test('telegram-gateway receives canonical owner profile ID env var', () => {
   assert.equal(env.ARTHUR_OWNER_PROFILE_ID, '${ARTHUR_OWNER_PROFILE_ID:?ARTHUR_OWNER_PROFILE_ID is required}');
 });
 
+test('telegram-gateway receives internal read-only Arthur Core configuration', () => {
+  const compose = loadCompose();
+  const gateway = compose.services['telegram-gateway'];
+  assert.equal(gateway.environment.ARTHUR_CORE_BASE_URL, '${ARTHUR_CORE_BASE_URL:-http://api:8787}');
+  assert.equal(gateway.environment.ARTHUR_CORE_TOKEN, '${ARTHUR_API_TOKEN:?ARTHUR_API_TOKEN is required}');
+  assert.equal(gateway.environment.ARTHUR_CORE_TIMEOUT_MS, '${ARTHUR_CORE_TIMEOUT_MS:-5000}');
+  assert.equal(gateway.depends_on.api.condition, 'service_healthy');
+});
+
+test('Arthur Core client token is not explicitly exposed to database or migration services', () => {
+  const compose = loadCompose();
+  assert.equal(compose.services.postgres.environment.ARTHUR_CORE_TOKEN, undefined);
+  assert.equal(compose.services.migrate.environment.ARTHUR_CORE_TOKEN, undefined);
+});
+
 test('telegram-gateway mounts purchasing runs read-only', () => {
   const compose = loadCompose();
   const volumes = compose.services['telegram-gateway'].volumes || [];
