@@ -3,6 +3,10 @@
 const { PlanBuildError } = require('../errors/arthur_errors');
 const { INTENTS, detectIntent } = require('./intents');
 const { DEFAULT_OWNER_TIMEZONE, parseCreateTaskRequest } = require('./task_request_parser');
+const {
+  TASK_MANAGEMENT_ACTIONS,
+  parseTaskManagementRequest,
+} = require('./task_management_parser');
 
 function createStep({
   id,
@@ -135,8 +139,46 @@ const PLAN_BUILDERS = {
     ]);
   },
 
+  [INTENTS.CORE_COMPLETE_TASK]: (input) => taskManagementPlan(
+    input,
+    TASK_MANAGEMENT_ACTIONS.COMPLETE,
+    'completeTask'
+  ),
+
+  [INTENTS.CORE_CANCEL_TASK]: (input) => taskManagementPlan(
+    input,
+    TASK_MANAGEMENT_ACTIONS.CANCEL,
+    'cancelTask'
+  ),
+
+  [INTENTS.CORE_RESCHEDULE_TASK]: (input) => taskManagementPlan(
+    input,
+    TASK_MANAGEMENT_ACTIONS.RESCHEDULE,
+    'rescheduleTask'
+  ),
+
   [INTENTS.KNOWLEDGE_SEARCH]: () => createExecutionPlan([]),
 };
+
+function taskManagementPlan(input, action, operation) {
+  const parsed = parseTaskManagementRequest(input.message, {
+    action,
+    now: input.now,
+    timezone: input.ownerTimezone,
+  });
+  const parameters = parsed.ok ? { ...parsed } : { clarification: parsed.clarification };
+  delete parameters.ok;
+  delete parameters.action;
+  return createExecutionPlan([
+    createStep({
+      id: 'step_1',
+      skill: 'arthur-core',
+      operation,
+      parameters,
+      timeoutMs: 10000,
+    }),
+  ]);
+}
 
 class RuleBasedPlanBuilder {
   constructor(options = {}) {

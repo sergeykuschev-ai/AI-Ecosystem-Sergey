@@ -49,7 +49,7 @@ Unified Response
 | `orchestrator` | Request lifecycle, plan execution, response assembly | Implemented |
 | `planner` | Rule-based intent detection + LLM plan builder | Implemented |
 | `skills/purchasing` | Read-only adapter over Purchasing Agent | Implemented |
-| `skills/arthur-core` | Profile/task reads and narrow internal task creation | Implemented |
+| `skills/arthur-core` | Profile/task reads and narrow internal task create/complete/cancel/reschedule | Implemented |
 | `knowledge` | File-backed knowledge index and search | Implemented |
 | `memory` | Conversation context interface | Stub implemented |
 | `ai` | Provider-neutral AI abstraction with OmniRoute support | Implemented |
@@ -230,7 +230,7 @@ npm test
 - Purchasing and Arthur Core skills are registered when their runtime configuration is valid.
 - Memory is in-process only.
 - LLM planner validates plans but does not yet use real model reasoning for ambiguous requests when `ARTHUR_AI_PROVIDER=fake`.
-- Only deterministic internal task creation is writable; task edit/complete/delete, owner decision writes, and supplier order sending remain disabled.
+- Only deterministic internal task create/complete/cancel/reschedule operations are writable. Physical task deletion, arbitrary edits, owner decision writes, and supplier order sending remain disabled.
 
 ## Next Steps
 

@@ -255,6 +255,18 @@ class ArthurCoreClient {
     });
   }
 
+  async transitionTask(ownerId, taskId, status, patch = {}, context = {}) {
+    return this._request(`/v1/tasks/${encodeURIComponent(taskId)}/transitions`, {
+      ...context,
+      method: 'POST',
+      body: {
+        ownerId,
+        status,
+        patch,
+      },
+    });
+  }
+
   async health() {
     try {
       const payload = await this._request('/health', {

@@ -1,0 +1,174 @@
+'use strict';
+
+const {
+  DEFAULT_OWNER_TIMEZONE,
+  parseTaskDueExpression,
+} = require('./task_request_parser');
+
+const TASK_MANAGEMENT_ACTIONS = Object.freeze({
+  COMPLETE: 'complete',
+  CANCEL: 'cancel',
+  RESCHEDULE: 'reschedule',
+});
+
+const PAST_ACTIONS = Object.freeze(new Map([
+  ['позвонил', 'позвонить'],
+  ['проверил', 'проверить'],
+  ['купил', 'купить'],
+  ['подготовил', 'подготовить'],
+  ['написал', 'написать'],
+  ['записался', 'записаться'],
+  ['заказал', 'заказать'],
+  ['оплатил', 'оплатить'],
+  ['отправил', 'отправить'],
+  ['забрал', 'забрать'],
+  ['получил', 'получить'],
+  ['уточнил', 'уточнить'],
+  ['согласовал', 'согласовать'],
+  ['обсудил', 'обсудить'],
+  ['встретился', 'встретиться'],
+  ['передал', 'передать'],
+  ['договорился', 'договориться'],
+  ['заполнил', 'заполнить'],
+  ['собрал', 'собрать'],
+  ['оформил', 'оформить'],
+  ['обновил', 'обновить'],
+  ['исправил', 'исправить'],
+]));
+
+const ARTHUR_ADDRESS_PREFIX = /^\s*артур\s*[,!:.-]?\s*/iu;
+const UNSAFE_CONTEXT = /[\r\n?？"'«»„“]/u;
+const DISCUSSION_PREFIX = /^\s*(?:как|почему|зачем|стоит\s+ли|можно\s+ли|следует\s+ли)(?![\p{L}\p{N}])/iu;
+
+function cleanReference(value) {
+  const cleaned = String(value || '')
+    .replace(/^[\s,.:;!?—-]+|[\s,.:;!?—-]+$/gu, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  if (!cleaned) return '';
+  return cleaned.charAt(0).toLocaleUpperCase('ru-RU') + cleaned.slice(1);
+}
+
+function canonicalTaskReference(value) {
+  let cleaned = cleanReference(value);
+  if (!cleaned) return '';
+
+  const callMatch = cleaned.match(/^звонок\s+(.+)$/iu);
+  if (callMatch) cleaned = `Позвонить ${callMatch[1]}`;
+
+  const firstWord = cleaned.match(/^[\p{L}-]+/u)?.[0];
+  const infinitive = firstWord && PAST_ACTIONS.get(firstWord.toLocaleLowerCase('ru-RU'));
+  if (infinitive) cleaned = `${infinitive}${cleaned.slice(firstWord.length)}`;
+  return cleanReference(cleaned);
+}
+
+function safeMessage(message) {
+  if (typeof message !== 'string') return '';
+  const trimmed = message.replace(ARTHUR_ADDRESS_PREFIX, '').trim();
+  if (!trimmed || UNSAFE_CONTEXT.test(trimmed) || DISCUSSION_PREFIX.test(trimmed)) return '';
+  return trimmed;
+}
+
+function completeMatch(message) {
+  const past = message.match(/^я\s+([\p{L}-]+)(?:\s+(.+))$/iu);
+  if (past && PAST_ACTIONS.has(past[1].toLocaleLowerCase('ru-RU')) && past[2]) {
+    return canonicalTaskReference(`${past[1]} ${past[2]}`);
+  }
+
+  const patterns = [
+    /^задача\s+(.+?)\s+(?:выполнена|завершена)$/iu,
+    /^(?:выполнил|завершил|закрой|заверши)\s+(?:задачу\s+)?(.+)$/iu,
+  ];
+  for (const pattern of patterns) {
+    const match = message.match(pattern);
+    if (match) return canonicalTaskReference(match[1]);
+  }
+  if (/^отметь\s+задачу\s+как\s+выполненную$/iu.test(message)) return null;
+  return undefined;
+}
+
+function cancelMatch(message) {
+  const match = message.match(/^(?:отмени|удали)\s+задачу\s+(.+)$/iu);
+  return match ? canonicalTaskReference(match[1]) : undefined;
+}
+
+function rescheduleMatch(message) {
+  const patterns = [
+    /^перенеси\s+(?:задачу\s+)?(.+)\s+на\s+(.+)$/iu,
+    /^(.+)\s+перенеси\s+на\s+(.+)$/iu,
+    /^измени\s+срок\s+задачи\s+(.+)\s+на\s+(.+)$/iu,
+  ];
+  for (const pattern of patterns) {
+    const match = message.match(pattern);
+    if (match) {
+      return {
+        title: canonicalTaskReference(match[1]),
+        dueExpression: cleanReference(match[2]),
+      };
+    }
+  }
+  return null;
+}
+
+function detectTaskManagementAction(message) {
+  const safe = safeMessage(message);
+  if (!safe) return null;
+  if (completeMatch(safe) !== undefined) return TASK_MANAGEMENT_ACTIONS.COMPLETE;
+  if (cancelMatch(safe) !== undefined) return TASK_MANAGEMENT_ACTIONS.CANCEL;
+  if (rescheduleMatch(safe)) return TASK_MANAGEMENT_ACTIONS.RESCHEDULE;
+  return null;
+}
+
+function clarification(message) {
+  return { ok: false, clarification: message };
+}
+
+function selector(title) {
+  return /^\d+$/u.test(title)
+    ? { taskNumber: Number(title) }
+    : { title };
+}
+
+function parseTaskManagementRequest(message, options = {}) {
+  const safe = safeMessage(message);
+  const action = options.action || detectTaskManagementAction(message);
+  if (!safe || !action) return clarification('Не понял, какую задачу нужно изменить.');
+
+  if (action === TASK_MANAGEMENT_ACTIONS.COMPLETE) {
+    const title = completeMatch(safe);
+    if (title === undefined) return clarification('Уточни, какую задачу отметить выполненной.');
+    return { ok: true, action, ...(title ? selector(title) : {}) };
+  }
+
+  if (action === TASK_MANAGEMENT_ACTIONS.CANCEL) {
+    const title = cancelMatch(safe);
+    if (!title) return clarification('Уточни, какую задачу отменить.');
+    return { ok: true, action, ...selector(title) };
+  }
+
+  if (action === TASK_MANAGEMENT_ACTIONS.RESCHEDULE) {
+    const match = rescheduleMatch(safe);
+    if (!match?.title) return clarification('Уточни, какую задачу перенести.');
+    const due = parseTaskDueExpression(match.dueExpression, {
+      now: options.now,
+      timezone: options.timezone || DEFAULT_OWNER_TIMEZONE,
+    });
+    if (!due.ok) return due;
+    return {
+      ok: true,
+      action,
+      ...selector(match.title),
+      dueAt: due.dueAt,
+      dueLabel: due.dueLabel,
+    };
+  }
+
+  return clarification('Не понял, какую задачу нужно изменить.');
+}
+
+module.exports = {
+  TASK_MANAGEMENT_ACTIONS,
+  canonicalTaskReference,
+  detectTaskManagementAction,
+  parseTaskManagementRequest,
+};

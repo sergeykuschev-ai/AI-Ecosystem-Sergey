@@ -11,9 +11,19 @@ const CAPABILITIES = Object.freeze([
   { id: 'listTasks', readOnly: true },
   { id: 'getTaskBrief', readOnly: true },
   { id: 'createTask', readOnly: false },
+  { id: 'completeTask', readOnly: false },
+  { id: 'cancelTask', readOnly: false },
+  { id: 'rescheduleTask', readOnly: false },
 ]);
 
 const MAX_VISIBLE_TASKS = 10;
+const TASK_SELECTION_LIMIT = 200;
+const DEFAULT_OWNER_TIMEZONE = 'Asia/Vladivostok';
+const TASK_MUTATION_OPERATIONS = Object.freeze(new Set([
+  'completeTask',
+  'cancelTask',
+  'rescheduleTask',
+]));
 
 function requireOwnerProfileId(value) {
   if (typeof value !== 'string' || value.trim() === '') {
@@ -28,6 +38,10 @@ function degradedResult(operation, error) {
     ? (notFound
         ? 'Не удалось создать задачу: профиль владельца в Arthur Core не найден.'
         : 'Не удалось создать задачу: Arthur Core временно недоступен. Попробуй позже.')
+    : TASK_MUTATION_OPERATIONS.has(operation)
+      ? (notFound
+          ? 'Не нашёл такую активную задачу.'
+          : 'Не удалось изменить задачу: Arthur Core временно недоступен. Попробуй позже.')
     : (notFound
         ? 'Данные владельца в Arthur Core не найдены.'
         : 'Arthur Core временно недоступен. Попробуй запросить профиль или задачи позже.');
@@ -167,6 +181,127 @@ function createdTaskResult(task, parameters = {}) {
   };
 }
 
+function normalizeTaskTitle(value) {
+  return String(value || '')
+    .normalize('NFKC')
+    .toLocaleLowerCase('ru-RU')
+    .replace(/ё/gu, 'е')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim()
+    .replace(/\s{2,}/g, ' ');
+}
+
+function normalizedDueAt(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? String(value) : date.toISOString();
+}
+
+function findDuplicateTask(tasks, parameters) {
+  const title = normalizeTaskTitle(parameters.title);
+  const dueAt = normalizedDueAt(parameters.dueAt);
+  return tasks.find(task => normalizeTaskTitle(task.title) === title
+    && (!dueAt || normalizedDueAt(task.dueAt) === dueAt));
+}
+
+function duplicateTaskResult(task, parameters = {}) {
+  const responseLines = ['Такая задача уже есть:', task.title || parameters.title];
+  if (parameters.dueLabel) responseLines.push(`Срок: ${parameters.dueLabel}`);
+  const responseText = responseLines.join('\n');
+  return {
+    status: 'success',
+    data: {
+      status: 'duplicate',
+      summary: `Задача уже существует: ${task.title || parameters.title}.`,
+      responseText,
+      task,
+    },
+    metadata: { source: 'arthur-core', writePerformed: false },
+  };
+}
+
+function selectTask(tasks, parameters = {}) {
+  if (Number.isInteger(parameters.taskNumber)) {
+    const task = tasks[parameters.taskNumber - 1];
+    return task ? { status: 'unique', task } : { status: 'not_found', tasks: [] };
+  }
+  if (!parameters.title) {
+    if (tasks.length === 1) return { status: 'unique', task: tasks[0] };
+    return tasks.length === 0
+      ? { status: 'not_found', tasks: [] }
+      : {
+          status: 'ambiguous',
+          tasks: tasks.map((task, index) => ({ ...task, selectionNumber: index + 1 })),
+        };
+  }
+  const normalized = normalizeTaskTitle(parameters.title);
+  const matches = tasks
+    .map((task, index) => ({ ...task, selectionNumber: index + 1 }))
+    .filter(task => normalizeTaskTitle(task.title) === normalized);
+  if (matches.length === 1) return { status: 'unique', task: matches[0] };
+  return matches.length === 0
+    ? { status: 'not_found', tasks: [] }
+    : { status: 'ambiguous', tasks: matches };
+}
+
+function formatTaskDue(task, timezone) {
+  if (!task.dueAt) return 'без срока';
+  const date = new Date(task.dueAt);
+  if (Number.isNaN(date.getTime())) return 'срок не указан';
+  return new Intl.DateTimeFormat('ru-RU', {
+    timeZone: timezone,
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date);
+}
+
+function taskSelectionResult(selection, timezone) {
+  if (selection.status === 'not_found') {
+    return taskClarificationResult('Не нашёл такую активную задачу.');
+  }
+  const visible = selection.tasks.slice(0, MAX_VISIBLE_TASKS);
+  const lines = [
+    `Нашёл ${selection.tasks.length} подходящие задачи:`,
+    '',
+    ...visible.map(task => `${task.selectionNumber}. ${task.title} — ${formatTaskDue(task, timezone)}`),
+    '',
+    'Уточни номер.',
+  ];
+  return taskClarificationResult(lines.join('\n'));
+}
+
+function taskMutationResult(task, operation, parameters = {}) {
+  let responseLines;
+  let status;
+  if (operation === 'completeTask') {
+    status = 'completed';
+    responseLines = ['Готово. Задача выполнена:', task.title];
+  } else if (operation === 'cancelTask') {
+    status = 'cancelled';
+    responseLines = ['Готово. Задача отменена:', task.title];
+  } else {
+    status = 'rescheduled';
+    const dueLabel = parameters.dueLabel || formatTaskDue(task, DEFAULT_OWNER_TIMEZONE);
+    responseLines = [
+      'Готово. Новый срок:',
+      task.title,
+      dueLabel.charAt(0).toLocaleUpperCase('ru-RU') + dueLabel.slice(1),
+    ];
+  }
+  const responseText = responseLines.join('\n');
+  return {
+    status: 'success',
+    data: {
+      status,
+      summary: responseText.replace(/\n/g, ' '),
+      responseText,
+      task,
+    },
+    metadata: { source: 'arthur-core', endpoint: 'tasks/transitions' },
+  };
+}
+
 function taskClarificationResult(responseText) {
   return {
     status: 'success',
@@ -179,8 +314,19 @@ function taskClarificationResult(responseText) {
   };
 }
 
-function createArthurCoreSkill({ client, ownerProfileId } = {}) {
-  const requiredClientMethods = ['getProfile', 'listTasks', 'getTaskBrief', 'createTask', 'health'];
+function createArthurCoreSkill({
+  client,
+  ownerProfileId,
+  ownerTimezone = DEFAULT_OWNER_TIMEZONE,
+} = {}) {
+  const requiredClientMethods = [
+    'getProfile',
+    'listTasks',
+    'getTaskBrief',
+    'createTask',
+    'transitionTask',
+    'health',
+  ];
   if (!client || requiredClientMethods.some(method => typeof client[method] !== 'function')) {
     throw new TypeError('Arthur Core client is required');
   }
@@ -189,7 +335,7 @@ function createArthurCoreSkill({ client, ownerProfileId } = {}) {
   return {
     id: 'arthur-core',
     name: 'Arthur Core',
-    version: '1.1.0',
+    version: '1.2.0',
     capabilities: CAPABILITIES,
 
     async execute(input = {}) {
@@ -227,10 +373,46 @@ function createArthurCoreSkill({ client, ownerProfileId } = {}) {
             sourceType: input.actor?.channel === 'telegram' ? 'telegram' : 'arthur',
             ...(parameters.sourceRef ? { sourceRef: parameters.sourceRef } : {}),
           };
+          const activeTasks = await client.listTasks(
+            configuredOwnerProfileId,
+            { limit: TASK_SELECTION_LIMIT },
+            context
+          );
+          const duplicate = findDuplicateTask(activeTasks, parameters);
+          if (duplicate) return duplicateTaskResult(duplicate, parameters);
           return createdTaskResult(
             await client.createTask(configuredOwnerProfileId, task, context),
             parameters
           );
+        }
+        if (TASK_MUTATION_OPERATIONS.has(operation)) {
+          if (parameters.clarification) {
+            return taskClarificationResult(parameters.clarification);
+          }
+          const activeTasks = await client.listTasks(
+            configuredOwnerProfileId,
+            { limit: TASK_SELECTION_LIMIT },
+            context
+          );
+          const selection = selectTask(activeTasks, parameters);
+          if (selection.status !== 'unique') {
+            return taskSelectionResult(selection, ownerTimezone);
+          }
+          const selectedTask = selection.task;
+          const nextStatus = operation === 'completeTask'
+            ? 'done'
+            : operation === 'cancelTask'
+              ? 'cancelled'
+              : selectedTask.status;
+          const patch = operation === 'rescheduleTask' ? { dueAt: parameters.dueAt } : {};
+          const task = await client.transitionTask(
+            configuredOwnerProfileId,
+            selectedTask.id,
+            nextStatus,
+            patch,
+            context
+          );
+          return taskMutationResult(task, operation, parameters);
         }
         throw new UnsupportedOperationError('arthur-core', operation);
       } catch (error) {
@@ -255,4 +437,8 @@ module.exports = {
   formatTasksResponse,
   formatBriefResponse,
   createdTaskResult,
+  duplicateTaskResult,
+  normalizeTaskTitle,
+  selectTask,
+  taskMutationResult,
 };

@@ -3,8 +3,8 @@
 const { TASK_STATUSES } = require('../shared/constants');
 
 const ALLOWED_TRANSITIONS = Object.freeze({
-  new: Object.freeze(['planned', 'in_progress', 'cancelled']),
-  planned: Object.freeze(['in_progress', 'waiting', 'needs_confirmation', 'cancelled']),
+  new: Object.freeze(['planned', 'in_progress', 'done', 'cancelled']),
+  planned: Object.freeze(['in_progress', 'waiting', 'needs_confirmation', 'done', 'cancelled']),
   in_progress: Object.freeze(['waiting', 'needs_confirmation', 'done', 'cancelled']),
   waiting: Object.freeze(['in_progress', 'needs_confirmation', 'done', 'cancelled']),
   needs_confirmation: Object.freeze(['in_progress', 'waiting', 'done', 'cancelled']),

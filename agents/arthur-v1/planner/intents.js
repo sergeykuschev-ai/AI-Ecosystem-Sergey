@@ -1,6 +1,10 @@
 'use strict';
 
 const { matchesCreateTaskIntent } = require('./task_request_parser');
+const {
+  TASK_MANAGEMENT_ACTIONS,
+  detectTaskManagementAction,
+} = require('./task_management_parser');
 
 const INTENTS = Object.freeze({
   PURCHASING_STATUS: 'purchasing.status',
@@ -11,6 +15,9 @@ const INTENTS = Object.freeze({
   CORE_TASKS: 'arthur_core.tasks',
   CORE_TASK_BRIEF: 'arthur_core.task_brief',
   CORE_CREATE_TASK: 'arthur_core.create_task',
+  CORE_COMPLETE_TASK: 'arthur_core.complete_task',
+  CORE_CANCEL_TASK: 'arthur_core.cancel_task',
+  CORE_RESCHEDULE_TASK: 'arthur_core.reschedule_task',
   KNOWLEDGE_SEARCH: 'knowledge.search',
   UNKNOWN: 'unknown',
 });
@@ -79,12 +86,23 @@ const DETERMINISTIC_INTENTS = Object.freeze(new Set([
   INTENTS.CORE_TASKS,
   INTENTS.CORE_TASK_BRIEF,
   INTENTS.CORE_CREATE_TASK,
+  INTENTS.CORE_COMPLETE_TASK,
+  INTENTS.CORE_CANCEL_TASK,
+  INTENTS.CORE_RESCHEDULE_TASK,
 ]));
+
+const TASK_MANAGEMENT_INTENTS = Object.freeze({
+  [TASK_MANAGEMENT_ACTIONS.COMPLETE]: INTENTS.CORE_COMPLETE_TASK,
+  [TASK_MANAGEMENT_ACTIONS.CANCEL]: INTENTS.CORE_CANCEL_TASK,
+  [TASK_MANAGEMENT_ACTIONS.RESCHEDULE]: INTENTS.CORE_RESCHEDULE_TASK,
+});
 
 function detectIntent(message) {
   if (!message || typeof message !== 'string') {
     return INTENTS.UNKNOWN;
   }
+  const taskAction = detectTaskManagementAction(message);
+  if (taskAction) return TASK_MANAGEMENT_INTENTS[taskAction];
   if (matchesCreateTaskIntent(message)) {
     return INTENTS.CORE_CREATE_TASK;
   }
@@ -109,6 +127,7 @@ module.exports = {
   INTENTS,
   INTENT_KEYWORDS,
   DETERMINISTIC_INTENTS,
+  TASK_MANAGEMENT_INTENTS,
   detectIntent,
   isDeterministicIntent,
 };

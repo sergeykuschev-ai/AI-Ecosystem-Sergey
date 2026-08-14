@@ -152,7 +152,13 @@ class PostgresArthurStore {
   }
 
   async getTask(id) {
-    return mapCommon(first(await this.client.query('SELECT * FROM arthur_tasks WHERE id=$1', [id])));
+    return mapCommon(first(await this.client.query(
+      `SELECT t.*, p.external_id AS owner_id
+       FROM arthur_tasks t
+       JOIN arthur_profiles p ON p.id=t.owner_id
+       WHERE t.id=$1`,
+      [id]
+    )));
   }
 
   async putDecision(record) {

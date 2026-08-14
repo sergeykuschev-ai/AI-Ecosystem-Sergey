@@ -17,8 +17,8 @@ const { createAIProviderFromEnv, getProviderDiagnostics } = require('./ai/provid
  * Arthur v1.0 public entry point.
  *
  * Returns a pre-configured orchestrator with the purchasing skill
- * and file-backed knowledge. The only write operation is creation of an
- * internal Arthur task for the configured canonical owner profile.
+ * and file-backed knowledge. Task writes are limited to creating, completing,
+ * cancelling and rescheduling internal tasks for the configured owner profile.
  *
  * AI provider is selected from environment via ARTHUR_AI_PROVIDER.
  * Deterministic intents bypass the LLM planner.
@@ -37,6 +37,7 @@ function createArthurV1(options = {}) {
     registry.register(createArthurCoreSkill({
       client,
       ownerProfileId: coreConfig.ownerProfileId,
+      ownerTimezone: coreConfig.ownerTimezone,
     }));
   }
 

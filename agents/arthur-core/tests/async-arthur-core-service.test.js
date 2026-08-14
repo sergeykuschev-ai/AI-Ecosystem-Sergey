@@ -134,6 +134,46 @@ test('task transition preserves external owner id and audit history', async () =
   );
 });
 
+test('new task completes atomically with completedAt and transition audit', async () => {
+  const { service, store } = createService();
+  const task = await service.createTask({
+    ownerId: 'sergey', title: 'Позвонить поставщику', domain: 'personal'
+  }, actor);
+
+  const completed = await service.transitionTask('sergey', task.id, 'done', {}, actor);
+
+  assert.equal(completed.status, 'done');
+  assert.equal(completed.completedAt, '2026-07-30T10:00:00.000Z');
+  assert.deepEqual(
+    store.state.audit.map(event => event.action),
+    ['task.create', 'task.transition']
+  );
+  assert.equal(store.state.audit[1].before.status, 'new');
+  assert.equal(store.state.audit[1].after.status, 'done');
+});
+
+test('task transition rejects a different owner and preserves identity fields', async () => {
+  const { service, store } = createService();
+  const task = await service.createTask({
+    ownerId: 'sergey', title: 'Проверить отчёт', domain: 'personal'
+  }, actor);
+
+  await assert.rejects(
+    service.transitionTask('telegram-user', task.id, 'cancelled', {}, actor),
+    /Task not found/
+  );
+  const rescheduled = await service.transitionTask('sergey', task.id, 'new', {
+    id: 'replacement-id',
+    ownerId: 'telegram-user',
+    dueAt: '2026-08-18T13:59:59.999Z'
+  }, actor);
+
+  assert.equal(rescheduled.id, task.id);
+  assert.equal(rescheduled.ownerId, 'sergey');
+  assert.equal(rescheduled.dueAt, '2026-08-18T13:59:59.999Z');
+  assert.equal(store.state.audit.at(-1).action, 'task.transition');
+});
+
 test('memory upsert archives previous version in the same transaction', async () => {
   const { service, store } = createService();
   const base = {

@@ -302,16 +302,77 @@ function clarification(message) {
   };
 }
 
+function temporalContext(options = {}) {
+  const timezone = options.timezone || DEFAULT_OWNER_TIMEZONE;
+  const now = options.now instanceof Date ? options.now : new Date(options.now || Date.now());
+  if (Number.isNaN(now.getTime())) throw new TypeError('now must be a valid date');
+  return { timezone, currentDate: timezoneParts(now, timezone) };
+}
+
+function extractDueDate(text, { timezone, currentDate, required = false } = {}) {
+  const dateMatches = [...text.matchAll(DATE_PATTERN)];
+  if (dateMatches.length > 1) {
+    return clarification('Указано несколько сроков. Уточни один срок задачи.');
+  }
+
+  const timeMatch = text.match(TIME_PATTERN);
+  if (timeMatch && dateMatches.length === 0) {
+    return clarification('Укажи дату вместе со временем задачи.');
+  }
+  if (dateMatches.length === 0) {
+    return required
+      ? clarification('Укажи новый срок задачи.')
+      : { ok: true, remainder: text };
+  }
+
+  let parsedDate;
+  try {
+    parsedDate = parseDateMatch(dateMatches[0], currentDate);
+  } catch (error) {
+    if (error instanceof RangeError) return clarification(error.message);
+    throw error;
+  }
+  const time = timeMatch
+    ? { hour: Number(timeMatch[1]), minute: Number(timeMatch[2]), second: 0, millisecond: 0 }
+    : {
+        hour: DATE_ONLY_HOUR,
+        minute: DATE_ONLY_MINUTE,
+        second: DATE_ONLY_SECOND,
+        millisecond: DATE_ONLY_MILLISECOND,
+      };
+  const dueAt = zonedDateTimeToIso({ ...parsedDate.date, ...time }, timezone);
+  const dueLabel = timeMatch
+    ? `${parsedDate.label} в ${timeMatch[1].padStart(2, '0')}:${timeMatch[2]}`
+    : parsedDate.label;
+  let remainder = text.replace(dateMatches[0][0], ' ');
+  if (timeMatch) remainder = remainder.replace(TIME_PATTERN, ' ');
+  return { ok: true, remainder, dueAt, dueLabel };
+}
+
+function parseTaskDueExpression(expression, options = {}) {
+  if (typeof expression !== 'string' || expression.trim() === '') {
+    return clarification('Укажи новый срок задачи.');
+  }
+  const context = temporalContext(options);
+  const parsed = extractDueDate(expression.trim(), { ...context, required: true });
+  if (!parsed.ok) return parsed;
+  if (cleanTitle(parsed.remainder)) {
+    return clarification('Не понял новый срок задачи. Уточни дату.');
+  }
+  return {
+    ok: true,
+    dueAt: parsed.dueAt,
+    dueLabel: parsed.dueLabel,
+  };
+}
+
 function parseCreateTaskRequest(message, options = {}) {
   const explicitIntent = matchesExplicitCreateTaskIntent(message);
   if (!explicitIntent && !matchesImplicitTaskIntent(message)) {
     return clarification('Сформулируй задачу после команды «создай задачу».');
   }
 
-  const timezone = options.timezone || DEFAULT_OWNER_TIMEZONE;
-  const now = options.now instanceof Date ? options.now : new Date(options.now || Date.now());
-  if (Number.isNaN(now.getTime())) throw new TypeError('now must be a valid date');
-  const currentDate = timezoneParts(now, timezone);
+  const context = temporalContext(options);
   let remainder = explicitIntent
     ? message.replace(CREATE_TASK_PREFIX, '')
     : message.replace(ARTHUR_ADDRESS_PREFIX, '').trim();
@@ -320,39 +381,9 @@ function parseCreateTaskRequest(message, options = {}) {
   if (priorityResult.error) return clarification(priorityResult.error);
   remainder = priorityResult.text;
 
-  const dateMatches = [...remainder.matchAll(DATE_PATTERN)];
-  if (dateMatches.length > 1) {
-    return clarification('Указано несколько сроков. Уточни один срок задачи.');
-  }
-
-  const timeMatch = remainder.match(TIME_PATTERN);
-  if (timeMatch && dateMatches.length === 0) {
-    return clarification('Укажи дату вместе со временем задачи.');
-  }
-
-  let dueAt;
-  let dueLabel;
-  if (dateMatches.length === 1) {
-    let parsedDate;
-    try {
-      parsedDate = parseDateMatch(dateMatches[0], currentDate);
-    } catch (error) {
-      if (error instanceof RangeError) return clarification(error.message);
-      throw error;
-    }
-    const time = timeMatch
-      ? { hour: Number(timeMatch[1]), minute: Number(timeMatch[2]), second: 0, millisecond: 0 }
-      : {
-          hour: DATE_ONLY_HOUR,
-          minute: DATE_ONLY_MINUTE,
-          second: DATE_ONLY_SECOND,
-          millisecond: DATE_ONLY_MILLISECOND,
-        };
-    dueAt = zonedDateTimeToIso({ ...parsedDate.date, ...time }, timezone);
-    dueLabel = timeMatch ? `${parsedDate.label} в ${timeMatch[1].padStart(2, '0')}:${timeMatch[2]}` : parsedDate.label;
-    remainder = remainder.replace(dateMatches[0][0], ' ');
-    if (timeMatch) remainder = remainder.replace(TIME_PATTERN, ' ');
-  }
+  const dueResult = extractDueDate(remainder, context);
+  if (!dueResult.ok) return dueResult;
+  remainder = dueResult.remainder;
 
   const title = cleanTitle(remainder);
   if (!title) {
@@ -363,7 +394,7 @@ function parseCreateTaskRequest(message, options = {}) {
     ok: true,
     task: {
       title,
-      ...(dueAt ? { dueAt, dueLabel } : {}),
+      ...(dueResult.dueAt ? { dueAt: dueResult.dueAt, dueLabel: dueResult.dueLabel } : {}),
       ...(priorityResult.priority ? { priority: priorityResult.priority } : {}),
     },
   };
@@ -375,5 +406,6 @@ module.exports = {
   matchesExplicitCreateTaskIntent,
   matchesImplicitTaskIntent,
   parseCreateTaskRequest,
+  parseTaskDueExpression,
   zonedDateTimeToIso,
 };

@@ -169,17 +169,26 @@ class AsyncArthurCoreService {
 
   async getTask(ownerId, id) {
     const record = await this.store.getTask(id);
-    return record ? { ...record, ownerId } : null;
+    return record && record.ownerId === ownerId ? record : null;
   }
 
   async transitionTask(ownerId, id, nextStatus, patch = {}, actorContext) {
     const context = this.context(actorContext);
     return this.store.transaction(async store => {
       const stored = await store.getTask(id);
-      if (!stored) throw new Error('Task not found');
-      const before = { ...stored, ownerId };
+      if (!stored || stored.ownerId !== ownerId) throw new Error('Task not found');
+      const before = { ...stored };
       assertTaskTransition(before.status, nextStatus, patch);
-      const after = { ...before, ...patch, status: nextStatus, updatedAt: this.now() };
+      const now = this.now();
+      const after = {
+        ...before,
+        ...patch,
+        id: before.id,
+        ownerId: before.ownerId,
+        status: nextStatus,
+        ...(nextStatus === 'done' && !patch.completedAt ? { completedAt: now } : {}),
+        updatedAt: now
+      };
       validateTask(after);
       await store.putTask(after);
       await this.audit(store, {

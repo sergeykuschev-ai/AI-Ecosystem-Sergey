@@ -117,7 +117,16 @@ class ArthurCoreService {
     const before = this.store.get('tasks', id);
     if (!before) throw new Error('Task not found');
     assertTaskTransition(before.status, nextStatus, patch);
-    const after = { ...before, ...patch, status: nextStatus, updatedAt: this.now() };
+    const now = this.now();
+    const after = {
+      ...before,
+      ...patch,
+      id: before.id,
+      ownerId: before.ownerId,
+      status: nextStatus,
+      ...(nextStatus === 'done' && !patch.completedAt ? { completedAt: now } : {}),
+      updatedAt: now
+    };
     validateTask(after);
     const context = this.context(actorContext);
     this.store.put('tasks', after);

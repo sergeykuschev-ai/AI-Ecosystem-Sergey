@@ -54,6 +54,21 @@ test('task transition enforces workflow rules and audits success', () => {
   assert.equal(service.listAudit({ entityId: task.id }).length, 3);
 });
 
+test('new task can transition directly to done with completedAt', () => {
+  const { service } = createService();
+  const task = service.createTask({
+    ownerId: 'sergey', title: 'Позвонить поставщику', domain: 'personal'
+  }, actor);
+  const completed = service.transitionTask(task.id, 'done', {}, actor);
+
+  assert.equal(completed.status, 'done');
+  assert.equal(completed.completedAt, '2026-07-30T10:00:00.000Z');
+  assert.deepEqual(
+    service.listAudit({ entityId: task.id }).map(event => event.action),
+    ['task.create', 'task.transition']
+  );
+});
+
 test('decision superseding preserves old decision and links replacement', () => {
   const { service, store } = createService();
   const first = service.createDecision({

@@ -144,6 +144,7 @@ test('getTaskBrief uses the existing Core brief endpoint', async () => {
 test('createTask posts only for canonical owner sergey and preserves Telegram audit context', async () => {
   let captured;
   const client = createArthurCoreClient(coreConfig(async (url, options) => {
+    if ((options.method || 'GET') === 'GET') return jsonResponse(200, { data: [] });
     const body = JSON.parse(options.body);
     captured = { url: new URL(url), options, body };
     return jsonResponse(201, {
@@ -194,6 +195,7 @@ test('Telegram createTask intent executes the Core write without AI rewriting', 
   const arthur = createArthurV1({
     coreConfig: coreConfig(async (url, options) => {
       assert.equal(new URL(url).pathname, '/v1/tasks');
+      if ((options.method || 'GET') === 'GET') return jsonResponse(200, { data: [] });
       const body = JSON.parse(options.body);
       createdBody = body;
       return jsonResponse(201, { data: { id: 'task-2', ...body, status: 'new', priority: 'normal' } });
@@ -227,6 +229,7 @@ test('implicit Telegram task uses canonical owner and never sends Telegram user 
   const arthur = createArthurV1({
     coreConfig: coreConfig(async (url, options) => {
       assert.equal(new URL(url).pathname, '/v1/tasks');
+      if ((options.method || 'GET') === 'GET') return jsonResponse(200, { data: [] });
       createdBody = JSON.parse(options.body);
       return jsonResponse(201, { data: { id: 'task-implicit', ...createdBody, status: 'new' } });
     }),
@@ -254,6 +257,224 @@ test('implicit Telegram task uses canonical owner and never sends Telegram user 
   ].join('\n'));
 });
 
+test('createTask blocks exact active duplicate with the same dueAt', async () => {
+  let createCalls = 0;
+  const existing = {
+    id: 'task-existing',
+    ownerId: 'sergey',
+    title: 'Позвонить поставщику',
+    status: 'new',
+    dueAt: '2026-08-14T13:59:59.999Z',
+  };
+  const client = createArthurCoreClient(coreConfig(async (url, options) => {
+    if ((options.method || 'GET') === 'GET') return jsonResponse(200, { data: [existing] });
+    createCalls += 1;
+    return jsonResponse(201, { data: {} });
+  }));
+  const skill = createArthurCoreSkill({ client, ownerProfileId: 'sergey' });
+
+  const result = await skill.execute({
+    operation: 'createTask',
+    parameters: {
+      title: '  позвонить   поставщику ',
+      dueAt: '2026-08-14T13:59:59.999Z',
+      dueLabel: 'завтра',
+    },
+  });
+
+  assert.equal(createCalls, 0);
+  assert.equal(result.data.status, 'duplicate');
+  assert.equal(result.metadata.writePerformed, false);
+  assert.equal(result.data.responseText, [
+    'Такая задача уже есть:',
+    'Позвонить поставщику',
+    'Срок: завтра',
+  ].join('\n'));
+});
+
+test('createTask allows the same title with a different dueAt', async () => {
+  let createdBody;
+  const client = createArthurCoreClient(coreConfig(async (url, options) => {
+    if ((options.method || 'GET') === 'GET') {
+      return jsonResponse(200, { data: [{
+        id: 'task-existing', title: 'Позвонить поставщику', status: 'new',
+        dueAt: '2026-08-14T13:59:59.999Z',
+      }] });
+    }
+    createdBody = JSON.parse(options.body);
+    return jsonResponse(201, { data: { id: 'task-new', ...createdBody, status: 'new' } });
+  }));
+  const skill = createArthurCoreSkill({ client, ownerProfileId: 'sergey' });
+
+  const result = await skill.execute({
+    operation: 'createTask',
+    parameters: {
+      title: 'Позвонить поставщику',
+      dueAt: '2026-08-15T13:59:59.999Z',
+      dueLabel: 'послезавтра',
+    },
+  });
+
+  assert.equal(createdBody.ownerId, 'sergey');
+  assert.equal(createdBody.dueAt, '2026-08-15T13:59:59.999Z');
+  assert.equal(result.data.status, 'created');
+});
+
+test('completeTask selects one canonical-owner task and posts done transition', async () => {
+  let transition;
+  const arthur = createArthurV1({
+    coreConfig: coreConfig(async (url, options) => {
+      const parsedUrl = new URL(url);
+      if ((options.method || 'GET') === 'GET') {
+        return jsonResponse(200, { data: [{
+          id: 'task-1', ownerId: 'sergey', title: 'Позвонить поставщику', status: 'new',
+        }] });
+      }
+      transition = { url: parsedUrl, method: options.method, body: JSON.parse(options.body) };
+      return jsonResponse(200, { data: {
+        id: 'task-1', ownerId: 'sergey', title: 'Позвонить поставщику', status: 'done',
+      } });
+    }),
+    aiProvider: capturingAIProvider(),
+    knowledgeDirectories: [],
+    logger: silentLogger(),
+  });
+
+  const response = await arthur.handle({
+    message: 'Я позвонил поставщику',
+    userId: 'sergey',
+    channel: 'telegram',
+    transport: { type: 'telegram', metadata: { userId: '111111' } },
+  });
+
+  assert.equal(transition.url.pathname, '/v1/tasks/task-1/transitions');
+  assert.equal(transition.method, 'POST');
+  assert.deepEqual(transition.body, { ownerId: 'sergey', status: 'done', patch: {} });
+  assert.equal(JSON.stringify(transition.body).includes('111111'), false);
+  assert.equal(response.answer.text, 'Готово. Задача выполнена:\nПозвонить поставщику');
+});
+
+test('cancelTask uses cancelled transition and never HTTP DELETE', async () => {
+  const methods = [];
+  let transitionBody;
+  const arthur = createArthurV1({
+    coreConfig: coreConfig(async (url, options) => {
+      const method = options.method || 'GET';
+      methods.push(method);
+      if (method === 'GET') {
+        return jsonResponse(200, { data: [{
+          id: 'task-2', ownerId: 'sergey', title: 'Проверить отчёт', status: 'planned',
+        }] });
+      }
+      transitionBody = JSON.parse(options.body);
+      return jsonResponse(200, { data: {
+        id: 'task-2', ownerId: 'sergey', title: 'Проверить отчёт', status: 'cancelled',
+      } });
+    }),
+    aiProvider: capturingAIProvider(),
+    knowledgeDirectories: [],
+    logger: silentLogger(),
+  });
+
+  const response = await arthur.handle({
+    message: 'Отмени задачу проверить отчёт',
+    userId: 'sergey',
+    channel: 'telegram',
+  });
+
+  assert.equal(methods.includes('DELETE'), false);
+  assert.equal(transitionBody.status, 'cancelled');
+  assert.equal(response.answer.text, 'Готово. Задача отменена:\nПроверить отчёт');
+});
+
+test('rescheduleTask keeps status and patches dueAt parsed in Vladivostok', async () => {
+  let transitionBody;
+  const arthur = createArthurV1({
+    coreConfig: coreConfig(async (url, options) => {
+      if ((options.method || 'GET') === 'GET') {
+        return jsonResponse(200, { data: [{
+          id: 'task-3', ownerId: 'sergey', title: 'Позвонить поставщику', status: 'new',
+        }] });
+      }
+      transitionBody = JSON.parse(options.body);
+      return jsonResponse(200, { data: {
+        id: 'task-3', ownerId: 'sergey', title: 'Позвонить поставщику',
+        status: transitionBody.status, dueAt: transitionBody.patch.dueAt,
+      } });
+    }, { ownerTimezone: 'Asia/Vladivostok' }),
+    clock: () => new Date('2026-08-13T00:00:00.000Z'),
+    aiProvider: capturingAIProvider(),
+    knowledgeDirectories: [],
+    logger: silentLogger(),
+  });
+
+  const response = await arthur.handle({
+    message: 'Перенеси задачу позвонить поставщику на пятницу',
+    userId: 'sergey',
+    channel: 'telegram',
+  });
+
+  assert.deepEqual(transitionBody, {
+    ownerId: 'sergey',
+    status: 'new',
+    patch: { dueAt: '2026-08-14T13:59:59.999Z' },
+  });
+  assert.equal(response.answer.text, 'Готово. Новый срок:\nПозвонить поставщику\nВ пятницу');
+});
+
+test('ambiguous exact task matches request clarification without a transition write', async () => {
+  let writeCalls = 0;
+  const client = createArthurCoreClient(coreConfig(async (url, options) => {
+    if ((options.method || 'GET') !== 'GET') writeCalls += 1;
+    return jsonResponse(200, { data: [
+      { id: 'other', title: 'Купить корм', status: 'new' },
+      { id: 'task-1', title: 'Позвонить поставщику', status: 'new', dueAt: '2026-08-14T13:59:59.999Z' },
+      { id: 'task-2', title: 'Позвонить поставщику', status: 'new', dueAt: '2026-08-15T13:59:59.999Z' },
+    ] });
+  }));
+  const skill = createArthurCoreSkill({
+    client,
+    ownerProfileId: 'sergey',
+    ownerTimezone: 'Asia/Vladivostok',
+  });
+
+  const result = await skill.execute({
+    operation: 'cancelTask',
+    parameters: { title: 'Позвонить поставщику' },
+  });
+
+  assert.equal(writeCalls, 0);
+  assert.equal(result.data.status, 'clarification_required');
+  assert.match(result.data.responseText, /Нашёл 2 подходящие задачи/);
+  assert.match(result.data.responseText, /2\. Позвонить поставщику — 14\.08\.2026/);
+  assert.match(result.data.responseText, /3\. Позвонить поставщику — 15\.08\.2026/);
+  assert.match(result.data.responseText, /Уточни номер/);
+  assert.doesNotMatch(result.data.responseText, /task-1|task-2/);
+});
+
+test('task number selects the same active-list ordinal shown in ambiguity response', async () => {
+  let transitionedPath;
+  const tasks = [
+    { id: 'other', title: 'Купить корм', status: 'new' },
+    { id: 'task-1', title: 'Позвонить поставщику', status: 'new' },
+    { id: 'task-2', title: 'Позвонить поставщику', status: 'new' },
+  ];
+  const client = createArthurCoreClient(coreConfig(async (url, options) => {
+    if ((options.method || 'GET') === 'GET') return jsonResponse(200, { data: tasks });
+    transitionedPath = new URL(url).pathname;
+    return jsonResponse(200, { data: { ...tasks[2], status: 'cancelled' } });
+  }));
+  const skill = createArthurCoreSkill({ client, ownerProfileId: 'sergey' });
+
+  const result = await skill.execute({
+    operation: 'cancelTask',
+    parameters: { taskNumber: 3 },
+  });
+
+  assert.equal(transitionedPath, '/v1/tasks/task-2/transitions');
+  assert.equal(result.data.status, 'cancelled');
+});
+
 test('implicit task guard keeps ordinary conversation out of Core writes', async () => {
   let coreCalls = 0;
   const arthur = createArthurV1({
@@ -276,6 +497,31 @@ test('implicit task guard keeps ordinary conversation out of Core writes', async
   assert.equal(response.answer.text, 'Обычный разговор работает.');
   assert.deepEqual(response.modulesUsed, []);
   assert.equal(response.diagnostics.directResponse, true);
+  assert.equal(coreCalls, 0);
+});
+
+test('task-management questions stay in conversation fallback without Core writes', async () => {
+  let coreCalls = 0;
+  const arthur = createArthurV1({
+    coreConfig: coreConfig(async () => {
+      coreCalls += 1;
+      throw new Error('Core must not be called');
+    }),
+    aiProvider: capturingAIProvider(),
+    knowledgeDirectories: [],
+    logger: silentLogger(),
+  });
+
+  for (const message of [
+    'Стоит ли отменить задачу?',
+    'Как выполнить задачу?',
+    'Почему перенесли задачу?',
+  ]) {
+    const response = await arthur.handle({ message, userId: 'sergey', channel: 'telegram' });
+    assert.equal(response.status, 'success');
+    assert.equal(response.diagnostics.directResponse, true);
+    assert.deepEqual(response.modulesUsed, []);
+  }
   assert.equal(coreCalls, 0);
 });
 
@@ -479,9 +725,10 @@ test('missing Core configuration does not register the skill or advertise capabi
   await arthur.handle({ message: 'что ты умеешь?', userId: 'sergey', channel: 'test' });
   assert.equal(aiProvider.generateSystem.includes('(id: arthur-core)'), false);
   assert.equal(aiProvider.generateSystem.includes('createTask'), false);
+  assert.equal(aiProvider.generateSystem.includes('completeTask'), false);
 });
 
-test('valid Core configuration registers and advertises the narrow createTask capability', async () => {
+test('valid Core configuration advertises only supported task-management writes', async () => {
   const aiProvider = capturingAIProvider();
   const arthur = createArthurV1({
     coreConfig: coreConfig(async () => jsonResponse(200, { ok: true, service: 'arthur-core' })),
@@ -494,7 +741,10 @@ test('valid Core configuration registers and advertises the narrow createTask ca
   assert.deepEqual(diagnostics.skills, ['purchasing', 'arthur-core']);
 
   await arthur.handle({ message: 'что ты умеешь?', userId: 'sergey', channel: 'test' });
-  assert.match(aiProvider.generateSystem, /\(id: arthur-core\): getProfile, listTasks, getTaskBrief, createTask/);
+  assert.match(
+    aiProvider.generateSystem,
+    /\(id: arthur-core\): getProfile, listTasks, getTaskBrief, createTask, completeTask, cancelTask, rescheduleTask/
+  );
 });
 
 test('Core 500 and timeout never confirm createTask as created', async () => {

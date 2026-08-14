@@ -29,6 +29,8 @@ const rollback = fs.readFileSync(rollbackPath, 'utf8');
 
 test('task transitions reject invalid terminal transitions', () => {
   assert.equal(canTransitionTask('new', 'planned'), true);
+  assert.equal(canTransitionTask('new', 'done'), true);
+  assert.equal(canTransitionTask('planned', 'done'), true);
   assert.equal(canTransitionTask('done', 'in_progress'), false);
   assert.throws(() => assertTaskTransition('cancelled', 'planned'), /Invalid task transition/);
 });

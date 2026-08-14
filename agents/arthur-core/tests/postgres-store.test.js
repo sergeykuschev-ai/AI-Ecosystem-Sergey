@@ -93,6 +93,18 @@ test('task and confirmation writes use upsert without changing payload fingerpri
   assert.equal(confirmation.payloadFingerprint, 'x'.repeat(64));
 });
 
+test('task lookup returns the canonical external owner id', async () => {
+  const client = new FakeClient();
+  client.rows.push({ id: 't1', owner_id: 'sergey', title: 'Проверить отчёт', status: 'new' });
+  const store = new PostgresArthurStore({ client });
+
+  const task = await store.getTask('t1');
+
+  assert.equal(task.ownerId, 'sergey');
+  assert.match(client.calls[0].text, /JOIN arthur_profiles/);
+  assert.deepEqual(client.calls[0].values, ['t1']);
+});
+
 test('transaction commits success and rolls back failure', async () => {
   const successClient = new FakeClient();
   const successStore = new PostgresArthurStore({ client: successClient });

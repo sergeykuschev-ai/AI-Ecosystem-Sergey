@@ -78,6 +78,9 @@ TELEGRAM_GATEWAY_LOG_LEVEL=info
 - "Создай задачу позвонить поставщику завтра"
 - "Добавь задачу проверить цены Award в пятницу"
 - "Поставь мне задачу подготовить документы до 18 августа"
+- "Я позвонил поставщику"
+- "Отмени задачу проверить отчёт"
+- "Перенеси задачу позвонить поставщику на пятницу"
 - "Что у меня по задачам?"
 - "Что у меня сегодня?"
 - "Артур, что сейчас с закупщиком?"
@@ -118,10 +121,30 @@ and Core applies its existing `normal` default.
 If Core returns an error or times out, Arthur says that the task could not be
 created and never sends a success confirmation.
 
+Before creating a task, Arthur reads active tasks and blocks only an exact
+normalized title duplicate with the same `dueAt` (or any matching title when
+the new request has no due date). Different due dates remain distinct tasks.
+
+### Task management rules
+
+Completion, cancellation and rescheduling use the existing Core transition
+endpoint. Completion stores status `done`; cancellation stores `cancelled` and
+never issues HTTP `DELETE`; rescheduling is a same-status transition with a
+validated `dueAt` patch. Every successful operation is stored with the
+existing atomic `task.transition` audit event.
+
+Arthur reads only active tasks for canonical owner `sergey`. Title matching is
+normalized exact matching, with a small deterministic mapping for supported
+phrases such as `позвонил` or `звонок` to `позвонить`. One match is changed;
+zero matches return not found; multiple matches return numbered titles and due
+dates without exposing task UUIDs. The number can be used in a repeated command
+such as `Отмени задачу 2`.
+
 ## Limited write scope
 
 Through Telegram you can only:
 - create one internal Arthur task for the canonical owner without a separate approval;
+- complete, cancel or reschedule one unambiguously selected internal task;
 - read the owner's active task list and task brief;
 - read purchasing status;
 - read owner review items;
@@ -129,7 +152,7 @@ Through Telegram you can only:
 - read knowledge search results.
 
 You cannot:
-- edit, complete, or delete tasks;
+- physically delete tasks or perform arbitrary task edits;
 - change Owner Decisions;
 - approve/reject items;
 - send supplier orders;
