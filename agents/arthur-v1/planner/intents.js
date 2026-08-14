@@ -1,5 +1,7 @@
 'use strict';
 
+const { matchesCreateTaskIntent } = require('./task_request_parser');
+
 const INTENTS = Object.freeze({
   PURCHASING_STATUS: 'purchasing.status',
   PURCHASING_OWNER_REVIEW: 'purchasing.owner_review',
@@ -8,6 +10,7 @@ const INTENTS = Object.freeze({
   CORE_PROFILE: 'arthur_core.profile',
   CORE_TASKS: 'arthur_core.tasks',
   CORE_TASK_BRIEF: 'arthur_core.task_brief',
+  CORE_CREATE_TASK: 'arthur_core.create_task',
   KNOWLEDGE_SEARCH: 'knowledge.search',
   UNKNOWN: 'unknown',
 });
@@ -75,11 +78,15 @@ const DETERMINISTIC_INTENTS = Object.freeze(new Set([
   INTENTS.CORE_PROFILE,
   INTENTS.CORE_TASKS,
   INTENTS.CORE_TASK_BRIEF,
+  INTENTS.CORE_CREATE_TASK,
 ]));
 
 function detectIntent(message) {
   if (!message || typeof message !== 'string') {
     return INTENTS.UNKNOWN;
+  }
+  if (matchesCreateTaskIntent(message)) {
+    return INTENTS.CORE_CREATE_TASK;
   }
   const normalized = message.toLowerCase();
 

@@ -165,12 +165,22 @@ class ArthurCoreClient {
     if (options.correlationId) {
       headers['x-correlation-id'] = options.correlationId;
     }
+    if (options.actorId) {
+      headers['x-arthur-actor-id'] = options.actorId;
+    }
+    if (options.actorType) {
+      headers['x-arthur-actor-type'] = options.actorType;
+    }
+    if (options.body !== undefined) {
+      headers['content-type'] = 'application/json';
+    }
 
     let response;
     try {
       response = await this.fetchImpl(url, {
-        method: 'GET',
+        method: options.method || 'GET',
         headers,
+        ...(options.body !== undefined ? { body: JSON.stringify(options.body) } : {}),
         signal: controller.signal,
       });
     } catch (error) {
@@ -225,6 +235,23 @@ class ArthurCoreClient {
       ...context,
       query: { ...filters, ownerId },
       allowedQueryKeys: ['ownerId', ...BRIEF_FILTERS],
+    });
+  }
+
+  async createTask(ownerId, task = {}, context = {}) {
+    return this._request('/v1/tasks', {
+      ...context,
+      method: 'POST',
+      body: {
+        ownerId,
+        title: task.title,
+        domain: task.domain,
+        ...(task.description ? { description: task.description } : {}),
+        ...(task.priority ? { priority: task.priority } : {}),
+        ...(task.dueAt ? { dueAt: task.dueAt } : {}),
+        ...(task.sourceType ? { sourceType: task.sourceType } : {}),
+        ...(task.sourceRef ? { sourceRef: task.sourceRef } : {}),
+      },
     });
   }
 

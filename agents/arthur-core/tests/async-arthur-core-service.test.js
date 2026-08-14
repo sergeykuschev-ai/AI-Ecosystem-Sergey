@@ -100,6 +100,8 @@ test('task and audit are committed atomically', async () => {
   }, actor);
 
   assert.equal(store.state.tasks.get(task.id).title, 'Проверить Min/Max');
+  assert.equal(task.priority, 'normal');
+  assert.equal(task.status, 'new');
   assert.deepEqual(store.state.audit.map(event => event.action), ['task.create']);
 });
 

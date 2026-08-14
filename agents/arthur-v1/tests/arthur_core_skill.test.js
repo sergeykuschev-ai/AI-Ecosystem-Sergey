@@ -141,6 +141,87 @@ test('getTaskBrief uses the existing Core brief endpoint', async () => {
   assert.match(result.data.summary, /просрочено 1/);
 });
 
+test('createTask posts only for canonical owner sergey and preserves Telegram audit context', async () => {
+  let captured;
+  const client = createArthurCoreClient(coreConfig(async (url, options) => {
+    const body = JSON.parse(options.body);
+    captured = { url: new URL(url), options, body };
+    return jsonResponse(201, {
+      data: { id: 'task-1', ...body, status: 'new', priority: body.priority || 'normal' },
+    });
+  }));
+  const skill = createArthurCoreSkill({ client, ownerProfileId: 'sergey' });
+
+  const result = await skill.execute({
+    operation: 'createTask',
+    correlationId: '00000000-0000-4000-8000-000000000002',
+    actor: { userId: '111111', channel: 'telegram' },
+    parameters: {
+      ownerId: '111111',
+      title: 'Позвонить поставщику',
+      dueAt: '2026-08-14T05:00:00.000Z',
+      dueLabel: 'завтра в 15:00',
+      sourceRef: 'telegram-update:42',
+    },
+  });
+
+  assert.equal(captured.url.pathname, '/v1/tasks');
+  assert.equal(captured.options.method, 'POST');
+  assert.equal(captured.body.ownerId, 'sergey');
+  assert.equal(captured.body.domain, 'personal');
+  assert.equal(captured.body.sourceType, 'telegram');
+  assert.equal(captured.body.sourceRef, 'telegram-update:42');
+  assert.equal(Object.hasOwn(captured.body, 'priority'), false);
+  assert.equal(JSON.stringify(captured.body).includes('111111'), false);
+  assert.equal(captured.options.headers['x-arthur-actor-id'], 'sergey');
+  assert.equal(captured.options.headers['x-arthur-actor-type'], 'user');
+  assert.equal(result.data.responseText, [
+    'Готово. Задача создана:',
+    'Позвонить поставщику',
+    'Срок: завтра в 15:00',
+  ].join('\n'));
+  assert.doesNotMatch(result.data.responseText, /task-1|sergey|status|UUID/);
+});
+
+test('Telegram createTask intent executes the Core write without AI rewriting', async () => {
+  let synthesisCalls = 0;
+  let createdBody;
+  const aiProvider = {
+    async generate() { return 'unused'; },
+    async synthesize() { synthesisCalls += 1; return { text: 'rewritten' }; },
+    async health() { return { healthy: true }; },
+  };
+  const arthur = createArthurV1({
+    coreConfig: coreConfig(async (url, options) => {
+      assert.equal(new URL(url).pathname, '/v1/tasks');
+      const body = JSON.parse(options.body);
+      createdBody = body;
+      return jsonResponse(201, { data: { id: 'task-2', ...body, status: 'new', priority: 'normal' } });
+    }),
+    clock: () => new Date('2026-08-13T00:00:00.000Z'),
+    aiProvider,
+    knowledgeDirectories: [],
+    logger: silentLogger(),
+  });
+
+  const response = await arthur.handle({
+    message: 'Артур, создай задачу позвонить поставщику завтра срочно',
+    userId: 'sergey',
+    channel: 'telegram',
+    transport: { type: 'telegram', metadata: { userId: '111111', updateId: 42 } },
+  });
+
+  assert.equal(response.status, 'success');
+  assert.equal(response.answer.text, [
+    'Готово. Задача создана:',
+    'Позвонить поставщику',
+    'Срок: завтра',
+  ].join('\n'));
+  assert.deepEqual(response.modulesUsed, ['arthur-core']);
+  assert.equal(createdBody.priority, 'critical');
+  assert.equal(synthesisCalls, 0);
+});
+
 test('Telegram task list is compact, user-facing and bypasses AI rewriting', async () => {
   let synthesisCalls = 0;
   const tasks = [
@@ -340,9 +421,10 @@ test('missing Core configuration does not register the skill or advertise capabi
 
   await arthur.handle({ message: 'что ты умеешь?', userId: 'sergey', channel: 'test' });
   assert.equal(aiProvider.generateSystem.includes('(id: arthur-core)'), false);
+  assert.equal(aiProvider.generateSystem.includes('createTask'), false);
 });
 
-test('valid Core configuration registers and advertises only read-only Core capabilities', async () => {
+test('valid Core configuration registers and advertises the narrow createTask capability', async () => {
   const aiProvider = capturingAIProvider();
   const arthur = createArthurV1({
     coreConfig: coreConfig(async () => jsonResponse(200, { ok: true, service: 'arthur-core' })),
@@ -355,7 +437,33 @@ test('valid Core configuration registers and advertises only read-only Core capa
   assert.deepEqual(diagnostics.skills, ['purchasing', 'arthur-core']);
 
   await arthur.handle({ message: 'что ты умеешь?', userId: 'sergey', channel: 'test' });
-  assert.match(aiProvider.generateSystem, /\(id: arthur-core\): getProfile, listTasks, getTaskBrief/);
+  assert.match(aiProvider.generateSystem, /\(id: arthur-core\): getProfile, listTasks, getTaskBrief, createTask/);
+});
+
+test('Core 500 and timeout never confirm createTask as created', async () => {
+  const scenarios = [
+    coreConfig(async () => jsonResponse(500, { error: { code: 'internal_error' } })),
+    coreConfig((url, options) => new Promise((resolve, reject) => {
+      options.signal.addEventListener('abort', () => reject(new Error('aborted')));
+    }), { timeoutMs: 100 }),
+  ];
+
+  for (const config of scenarios) {
+    const arthur = createArthurV1({
+      coreConfig: config,
+      clock: () => new Date('2026-08-13T00:00:00.000Z'),
+      aiProvider: createFakeAIProvider(),
+      knowledgeDirectories: [],
+      logger: silentLogger(),
+    });
+    const response = await arthur.handle({
+      message: 'создай задачу позвонить поставщику',
+      userId: 'sergey',
+      channel: 'telegram',
+    });
+    assert.match(response.answer.text, /Не удалось создать задачу/);
+    assert.doesNotMatch(response.answer.text, /Готово|Задача создана/);
+  }
 });
 
 test('Core outage returns a degraded task answer with one request', async () => {

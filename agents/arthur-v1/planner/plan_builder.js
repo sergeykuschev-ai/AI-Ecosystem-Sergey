@@ -2,6 +2,7 @@
 
 const { PlanBuildError } = require('../errors/arthur_errors');
 const { INTENTS, detectIntent } = require('./intents');
+const { DEFAULT_OWNER_TIMEZONE, parseCreateTaskRequest } = require('./task_request_parser');
 
 function createStep({
   id,
@@ -112,6 +113,28 @@ const PLAN_BUILDERS = {
     }),
   ]),
 
+  [INTENTS.CORE_CREATE_TASK]: (input) => {
+    const parsed = parseCreateTaskRequest(input.message, {
+      now: input.now,
+      timezone: input.ownerTimezone,
+    });
+    const updateId = input.transport?.metadata?.updateId;
+    return createExecutionPlan([
+      createStep({
+        id: 'step_1',
+        skill: 'arthur-core',
+        operation: 'createTask',
+        parameters: parsed.ok
+          ? {
+              ...parsed.task,
+              ...(updateId != null ? { sourceRef: `telegram-update:${updateId}` } : {}),
+            }
+          : { clarification: parsed.clarification },
+        timeoutMs: 10000,
+      }),
+    ]);
+  },
+
   [INTENTS.KNOWLEDGE_SEARCH]: () => createExecutionPlan([]),
 };
 
@@ -122,6 +145,8 @@ class RuleBasedPlanBuilder {
     this.availableSkills = options.availableSkills
       ? new Set(options.availableSkills)
       : null;
+    this.clock = options.clock || (() => new Date());
+    this.ownerTimezone = options.ownerTimezone || DEFAULT_OWNER_TIMEZONE;
   }
 
   build(input = {}) {
@@ -138,7 +163,12 @@ class RuleBasedPlanBuilder {
       throw new PlanBuildError(intent, 'no plan builder registered');
     }
 
-    const plan = builder({ ...input, intent });
+    const plan = builder({
+      ...input,
+      intent,
+      now: input.now || this.clock(),
+      ownerTimezone: input.ownerTimezone || this.ownerTimezone,
+    });
     if (this.availableSkills && plan.steps.some(step => !this.availableSkills.has(step.skill))) {
       return createExecutionPlan([]);
     }

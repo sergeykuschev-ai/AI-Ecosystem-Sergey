@@ -9,7 +9,7 @@ Arthur Telegram Gateway (long polling)
     ↓
 Arthur v1 Orchestrator
     ↓
-Skills (Purchasing, Knowledge)
+Skills (Arthur Core, Purchasing, Knowledge)
     ↓
 AI Provider / Synthesizer
     ↓
@@ -49,6 +49,9 @@ TELEGRAM_BOT_TOKEN=replace-with-real-bot-token
 
 # Comma-separated Telegram user IDs allowed to use Arthur
 TELEGRAM_ALLOWED_USER_IDS=replace-with-owner-telegram-user-id
+
+# Canonical Arthur Core profile; never use a Telegram user ID here
+ARTHUR_OWNER_PROFILE_ID=sergey
 ```
 
 Optional:
@@ -69,6 +72,11 @@ TELEGRAM_GATEWAY_LOG_LEVEL=info
 
 ## Supported natural-language requests
 
+- "Создай задачу позвонить поставщику завтра"
+- "Добавь задачу проверить цены Award в пятницу"
+- "Поставь мне задачу подготовить документы до 18 августа"
+- "Что у меня по задачам?"
+- "Что у меня сегодня?"
 - "Артур, что сейчас с закупщиком?"
 - "Покажи спорные позиции."
 - "Какой последний заказ?"
@@ -76,20 +84,53 @@ TELEGRAM_GATEWAY_LOG_LEVEL=info
 
 If data is unavailable, the response says so explicitly. No fabrication.
 
-## Read-only scope
+### Task creation rules
+
+Task creation is deterministic and uses the existing `ArthurCoreSkill` and
+`POST /v1/tasks`. The Core owner is always the configured canonical profile
+(`sergey` in production), never the Telegram user ID. Created Telegram tasks
+use domain `personal`, `sourceType=telegram`, and the Telegram update ID as
+`sourceRef` when it is available. Core writes the task and its `task.create`
+audit event atomically.
+
+Dates are interpreted in `Asia/Vladivostok`. Exact times are stored as the
+specified local time. Because the current Core contract has `dueAt` but no
+date-only field, a date without a time means the explicit end of that local
+calendar day (`23:59:59.999`). A weekday means the nearest strictly future
+occurrence. Invalid, missing, or conflicting task details cause a clarification
+response and no Core write.
+
+Explicit priority phrases map to the existing Core values: `срочно` →
+`critical`, `высокий приоритет` → `high`, `обычная` → `normal`, and
+`низкий приоритет` → `low`. If no priority is present, Arthur omits the field
+and Core applies its existing `normal` default.
+
+If Core returns an error or times out, Arthur says that the task could not be
+created and never sends a success confirmation.
+
+## Limited write scope
 
 Through Telegram you can only:
+- create one internal Arthur task for the canonical owner without a separate approval;
+- read the owner's active task list and task brief;
 - read purchasing status;
 - read owner review items;
 - read final order summary;
 - read knowledge search results.
 
 You cannot:
+- edit, complete, or delete tasks;
 - change Owner Decisions;
 - approve/reject items;
 - send supplier orders;
 - change matrices;
 - change budgets.
+
+The Gateway keeps the Telegram long-polling offset in process memory. It passes
+`update_id` to Core as `sourceRef`, but Core currently has no uniqueness
+constraint for that field. A crash after the task write and before the polling
+offset advances can therefore create a duplicate when Telegram retries the
+update. Persistent idempotency is outside this v1 change.
 
 ## Docker Compose
 
@@ -181,6 +222,9 @@ cd docker/arthur
 docker compose build telegram-gateway
 docker compose up -d telegram-gateway
 ```
+
+Task creation changes only require rebuilding/restarting `telegram-gateway`;
+the existing Core API already supports `POST /v1/tasks`.
 
 ## n8n compatibility
 

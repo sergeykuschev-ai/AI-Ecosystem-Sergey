@@ -2,7 +2,10 @@
 
 ## Status
 
-Implemented foundation layer. All operations are read-only. No Telegram Gateway, no writes to business systems, no real API secrets.
+Implemented foundation layer with Telegram Gateway and Arthur Core reads. The
+only enabled write is creation of one internal Arthur task for the configured
+canonical owner; business-system writes remain disabled. No real API secrets
+are stored in the repository.
 
 ## What is Arthur v1.0
 
@@ -46,6 +49,7 @@ Unified Response
 | `orchestrator` | Request lifecycle, plan execution, response assembly | Implemented |
 | `planner` | Rule-based intent detection + LLM plan builder | Implemented |
 | `skills/purchasing` | Read-only adapter over Purchasing Agent | Implemented |
+| `skills/arthur-core` | Profile/task reads and narrow internal task creation | Implemented |
 | `knowledge` | File-backed knowledge index and search | Implemented |
 | `memory` | Conversation context interface | Stub implemented |
 | `ai` | Provider-neutral AI abstraction with OmniRoute support | Implemented |
@@ -223,10 +227,10 @@ npm test
 
 ## Current Limitations
 
-- Only the purchasing skill exists.
+- Purchasing and Arthur Core skills are registered when their runtime configuration is valid.
 - Memory is in-process only.
 - LLM planner validates plans but does not yet use real model reasoning for ambiguous requests when `ARTHUR_AI_PROVIDER=fake`.
-- All operations are read-only; no owner decision writes, no supplier order sending.
+- Only deterministic internal task creation is writable; task edit/complete/delete, owner decision writes, and supplier order sending remain disabled.
 
 ## Next Steps
 

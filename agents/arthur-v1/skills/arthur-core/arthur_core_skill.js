@@ -10,6 +10,7 @@ const CAPABILITIES = Object.freeze([
   { id: 'getProfile', readOnly: true },
   { id: 'listTasks', readOnly: true },
   { id: 'getTaskBrief', readOnly: true },
+  { id: 'createTask', readOnly: false },
 ]);
 
 const MAX_VISIBLE_TASKS = 10;
@@ -23,9 +24,13 @@ function requireOwnerProfileId(value) {
 
 function degradedResult(operation, error) {
   const notFound = error instanceof ArthurCoreNotFoundError;
-  const responseText = notFound
-    ? 'Данные владельца в Arthur Core не найдены.'
-    : 'Arthur Core временно недоступен. Попробуй запросить профиль или задачи позже.';
+  const responseText = operation === 'createTask'
+    ? (notFound
+        ? 'Не удалось создать задачу: профиль владельца в Arthur Core не найден.'
+        : 'Не удалось создать задачу: Arthur Core временно недоступен. Попробуй позже.')
+    : (notFound
+        ? 'Данные владельца в Arthur Core не найдены.'
+        : 'Arthur Core временно недоступен. Попробуй запросить профиль или задачи позже.');
   return {
     status: 'success',
     data: {
@@ -145,8 +150,37 @@ function briefResult(brief, parameters = {}) {
   };
 }
 
+function createdTaskResult(task, parameters = {}) {
+  const title = task.title || parameters.title;
+  const responseLines = ['Готово. Задача создана:', title];
+  if (parameters.dueLabel) responseLines.push(`Срок: ${parameters.dueLabel}`);
+  const responseText = responseLines.join('\n');
+  return {
+    status: 'success',
+    data: {
+      status: 'created',
+      summary: `Задача создана: ${title}.`,
+      responseText,
+      task,
+    },
+    metadata: { source: 'arthur-core', endpoint: 'tasks' },
+  };
+}
+
+function taskClarificationResult(responseText) {
+  return {
+    status: 'success',
+    data: {
+      status: 'clarification_required',
+      summary: responseText,
+      responseText,
+    },
+    metadata: { source: 'arthur-core', writePerformed: false },
+  };
+}
+
 function createArthurCoreSkill({ client, ownerProfileId } = {}) {
-  const requiredClientMethods = ['getProfile', 'listTasks', 'getTaskBrief', 'health'];
+  const requiredClientMethods = ['getProfile', 'listTasks', 'getTaskBrief', 'createTask', 'health'];
   if (!client || requiredClientMethods.some(method => typeof client[method] !== 'function')) {
     throw new TypeError('Arthur Core client is required');
   }
@@ -155,13 +189,17 @@ function createArthurCoreSkill({ client, ownerProfileId } = {}) {
   return {
     id: 'arthur-core',
     name: 'Arthur Core',
-    version: '1.0.0',
+    version: '1.1.0',
     capabilities: CAPABILITIES,
 
     async execute(input = {}) {
       const operation = input.operation;
       const parameters = input.parameters || {};
-      const context = { correlationId: input.correlationId };
+      const context = {
+        correlationId: input.correlationId,
+        actorId: configuredOwnerProfileId,
+        actorType: 'user',
+      };
 
       try {
         if (operation === 'getProfile') {
@@ -173,6 +211,24 @@ function createArthurCoreSkill({ client, ownerProfileId } = {}) {
         if (operation === 'getTaskBrief') {
           return briefResult(
             await client.getTaskBrief(configuredOwnerProfileId, parameters, context),
+            parameters
+          );
+        }
+        if (operation === 'createTask') {
+          if (parameters.clarification) {
+            return taskClarificationResult(parameters.clarification);
+          }
+          const task = {
+            title: parameters.title,
+            domain: 'personal',
+            ...(parameters.description ? { description: parameters.description } : {}),
+            ...(parameters.priority ? { priority: parameters.priority } : {}),
+            ...(parameters.dueAt ? { dueAt: parameters.dueAt } : {}),
+            sourceType: input.actor?.channel === 'telegram' ? 'telegram' : 'arthur',
+            ...(parameters.sourceRef ? { sourceRef: parameters.sourceRef } : {}),
+          };
+          return createdTaskResult(
+            await client.createTask(configuredOwnerProfileId, task, context),
             parameters
           );
         }
@@ -198,4 +254,5 @@ module.exports = {
   activeTaskNoun,
   formatTasksResponse,
   formatBriefResponse,
+  createdTaskResult,
 };
