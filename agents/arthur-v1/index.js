@@ -49,8 +49,14 @@ function createArthurV1(options = {}) {
   const logger = options.logger || createLogger();
   const aiProvider = options.aiProvider || createAIProviderFromEnv(process.env, { logger });
 
+  const memory = options.memory || createMemoryInterface({
+    clock: options.clock,
+    pendingTaskClarificationTtlMs: options.pendingTaskClarificationTtlMs,
+  });
+
   return createOrchestrator({
     registry,
+    ownerProfileId: hasOwnerProfileId ? coreConfig.ownerProfileId : null,
     deterministicPlanBuilder: createRuleBasedPlanBuilder({
       availableSkills: registry.list().map(skill => skill.id),
       clock: options.clock,
@@ -65,7 +71,7 @@ function createArthurV1(options = {}) {
       files: options.knowledgeFiles || [],
       logger,
     }),
-    memory: options.memory || createMemoryInterface(),
+    memory,
     aiProvider,
     logger,
   });

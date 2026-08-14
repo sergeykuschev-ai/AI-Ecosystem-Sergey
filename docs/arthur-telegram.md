@@ -137,8 +137,26 @@ Arthur reads only active tasks for canonical owner `sergey`. Title matching is
 normalized exact matching, with a small deterministic mapping for supported
 phrases such as `позвонил` or `звонок` to `позвонить`. One match is changed;
 zero matches return not found; multiple matches return numbered titles and due
-dates without exposing task UUIDs. The number can be used in a repeated command
-such as `Отмени задачу 2`.
+dates without exposing task UUIDs.
+
+For an ambiguous task-management action, Arthur stores a transient pending
+clarification for the canonical owner and current `conversationId`. A following
+reply of `1`, `2`, `3`, `первая`, `вторая`, `третья` (including the accusative
+forms) resolves the displayed candidate by its stored task ID. Arthur reads the
+active task list again and verifies the stored title, status, and due date before
+calling the Core transition endpoint. It never performs another title search
+after the selection.
+
+The pending clarification expires after five minutes. An out-of-range number
+does not write and keeps the clarification active. `не надо`, `отмена`, or
+`отбой` clears the clarification without changing task status. Any other
+message clears the pending clarification and continues through normal intent
+routing, so task lists and ordinary conversation are not blocked.
+
+This state uses the existing in-memory conversation store in the single
+`telegram-gateway` instance. It is intentionally transient and is lost on a
+Gateway restart; the user must then repeat the original task-management
+command. No PostgreSQL table or scheduler is used for clarification state.
 
 ## Limited write scope
 

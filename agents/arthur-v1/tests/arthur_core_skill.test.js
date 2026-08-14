@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 
-const { createArthurV1 } = require('../index');
+const { createArthurV1, createMemoryInterface } = require('../index');
 const { createFakeAIProvider } = require('../ai/fake_provider');
 const {
   ArthurCoreAuthError,
@@ -63,6 +63,69 @@ function silentLogger() {
     warn() {},
     error() {},
   };
+}
+
+function createTaskContinuationHarness(options = {}) {
+  let tasks = (options.tasks || [
+    {
+      id: 'task-1', ownerId: 'sergey', title: 'Позвонить поставщику',
+      status: 'new', dueAt: '2026-08-15T13:59:59.999Z',
+    },
+    {
+      id: 'task-2', ownerId: 'sergey', title: 'Позвонить поставщику',
+      status: 'new', dueAt: '2026-08-15T13:59:59.999Z',
+    },
+  ]).map(task => ({ ...task }));
+  const writes = [];
+  const clock = options.clock || (() => new Date('2026-08-13T00:00:00.000Z'));
+  const memory = createMemoryInterface({
+    clock,
+    pendingTaskClarificationTtlMs: options.pendingTaskClarificationTtlMs,
+  });
+  const activeStatuses = new Set(['new', 'planned', 'in_progress', 'waiting', 'needs_confirmation']);
+  const fetchImpl = async (url, requestOptions = {}) => {
+    const parsedUrl = new URL(url);
+    const method = requestOptions.method || 'GET';
+    if (method === 'GET' && parsedUrl.pathname === '/v1/tasks') {
+      return jsonResponse(200, { data: tasks.filter(task => activeStatuses.has(task.status)) });
+    }
+    if (method === 'POST' && /\/v1\/tasks\/[^/]+\/transitions$/u.test(parsedUrl.pathname)) {
+      const taskId = decodeURIComponent(parsedUrl.pathname.split('/')[3]);
+      const body = JSON.parse(requestOptions.body);
+      const index = tasks.findIndex(task => task.id === taskId && activeStatuses.has(task.status));
+      if (index < 0) return jsonResponse(404, { error: { message: 'Task not found' } });
+      tasks[index] = { ...tasks[index], ...body.patch, status: body.status };
+      writes.push({ taskId, body });
+      return jsonResponse(200, { data: { ...tasks[index] } });
+    }
+    throw new Error(`Unexpected Core request: ${method} ${parsedUrl.pathname}`);
+  };
+  const arthur = createArthurV1({
+    coreConfig: coreConfig(fetchImpl, { ownerTimezone: 'Asia/Vladivostok' }),
+    clock,
+    memory,
+    aiProvider: capturingAIProvider(),
+    knowledgeDirectories: [],
+    logger: silentLogger(),
+  });
+  return {
+    arthur,
+    memory,
+    writes,
+    tasks: () => tasks.map(task => ({ ...task })),
+    updateTask(taskId, patch) {
+      tasks = tasks.map(task => task.id === taskId ? { ...task, ...patch } : task);
+    },
+  };
+}
+
+function taskMessage(arthur, message, conversationId = 'conversation-A') {
+  return arthur.handle({
+    message,
+    userId: 'sergey',
+    channel: 'telegram',
+    conversationId,
+  });
 }
 
 test('getProfile reads the configured owner and never uses Telegram user ID', async () => {
@@ -446,13 +509,14 @@ test('ambiguous exact task matches request clarification without a transition wr
   assert.equal(writeCalls, 0);
   assert.equal(result.data.status, 'clarification_required');
   assert.match(result.data.responseText, /Нашёл 2 подходящие задачи/);
-  assert.match(result.data.responseText, /2\. Позвонить поставщику — 14\.08\.2026/);
-  assert.match(result.data.responseText, /3\. Позвонить поставщику — 15\.08\.2026/);
+  assert.match(result.data.responseText, /1\. Позвонить поставщику — 14\.08\.2026/);
+  assert.match(result.data.responseText, /2\. Позвонить поставщику — 15\.08\.2026/);
   assert.match(result.data.responseText, /Уточни номер/);
   assert.doesNotMatch(result.data.responseText, /task-1|task-2/);
+  assert.deepEqual(result.data.pendingClarification.candidates.map(task => task.id), ['task-1', 'task-2']);
 });
 
-test('task number selects the same active-list ordinal shown in ambiguity response', async () => {
+test('explicit task number selects the active-list ordinal without pending clarification', async () => {
   let transitionedPath;
   const tasks = [
     { id: 'other', title: 'Купить корм', status: 'new' },
@@ -473,6 +537,143 @@ test('task number selects the same active-list ordinal shown in ambiguity respon
 
   assert.equal(transitionedPath, '/v1/tasks/task-2/transitions');
   assert.equal(result.data.status, 'cancelled');
+});
+
+test('cancel ambiguity stores candidates and numeric continuation changes only candidate one', async () => {
+  const harness = createTaskContinuationHarness();
+
+  const ambiguous = await taskMessage(harness.arthur, 'Отмени задачу позвонить поставщику');
+  const pending = await harness.memory.loadPendingTaskClarification('sergey', 'conversation-A');
+
+  assert.equal(harness.writes.length, 0);
+  assert.match(ambiguous.answer.text, /Нашёл 2 подходящие задачи/);
+  assert.equal(pending.action, 'cancel');
+  assert.equal(pending.operation, 'cancelTask');
+  assert.deepEqual(pending.candidates.map(task => task.id), ['task-1', 'task-2']);
+  assert.equal(pending.createdAt, '2026-08-13T00:00:00.000Z');
+  assert.equal(pending.expiresAt, '2026-08-13T00:05:00.000Z');
+  assert.equal(await harness.memory.loadPendingTaskClarification('111111', 'conversation-A'), null);
+
+  const resolved = await taskMessage(harness.arthur, '1');
+
+  assert.equal(resolved.answer.text, 'Готово. Задача отменена:\nПозвонить поставщику');
+  assert.deepEqual(harness.writes.map(write => write.taskId), ['task-1']);
+  assert.equal(harness.tasks().find(task => task.id === 'task-1').status, 'cancelled');
+  assert.equal(harness.tasks().find(task => task.id === 'task-2').status, 'new');
+  assert.equal(await harness.memory.loadPendingTaskClarification('sergey', 'conversation-A'), null);
+});
+
+test('Russian ordinal continuation selects candidate two', async () => {
+  const harness = createTaskContinuationHarness();
+  await taskMessage(harness.arthur, 'Отмени задачу позвонить поставщику');
+
+  await taskMessage(harness.arthur, 'вторая');
+
+  assert.deepEqual(harness.writes.map(write => write.taskId), ['task-2']);
+  assert.equal(harness.tasks().find(task => task.id === 'task-1').status, 'new');
+  assert.equal(harness.tasks().find(task => task.id === 'task-2').status, 'cancelled');
+});
+
+test('complete ambiguity resolves by stored candidate ID', async () => {
+  const harness = createTaskContinuationHarness();
+  await taskMessage(harness.arthur, 'Я позвонил поставщику');
+
+  const response = await taskMessage(harness.arthur, '1');
+
+  assert.equal(response.answer.text, 'Готово. Задача выполнена:\nПозвонить поставщику');
+  assert.deepEqual(harness.writes.map(write => write.taskId), ['task-1']);
+  assert.equal(harness.tasks().find(task => task.id === 'task-1').status, 'done');
+  assert.equal(harness.tasks().find(task => task.id === 'task-2').status, 'new');
+});
+
+test('reschedule ambiguity preserves dueAt and updates only candidate two', async () => {
+  const harness = createTaskContinuationHarness();
+  await taskMessage(harness.arthur, 'Перенеси задачу позвонить поставщику на пятницу');
+
+  const pending = await harness.memory.loadPendingTaskClarification('sergey', 'conversation-A');
+  assert.equal(pending.parameters.dueAt, '2026-08-14T13:59:59.999Z');
+
+  const response = await taskMessage(harness.arthur, '2');
+
+  assert.equal(response.answer.text, 'Готово. Новый срок:\nПозвонить поставщику\nВ пятницу');
+  assert.deepEqual(harness.writes.map(write => write.taskId), ['task-2']);
+  assert.equal(harness.tasks().find(task => task.id === 'task-1').dueAt, '2026-08-15T13:59:59.999Z');
+  assert.equal(harness.tasks().find(task => task.id === 'task-2').dueAt, '2026-08-14T13:59:59.999Z');
+});
+
+test('out-of-range clarification performs no write and keeps pending state', async () => {
+  const harness = createTaskContinuationHarness();
+  await taskMessage(harness.arthur, 'Отмени задачу позвонить поставщику');
+
+  const response = await taskMessage(harness.arthur, '3');
+
+  assert.equal(response.answer.text, 'Выбери номер от 1 до 2.');
+  assert.equal(harness.writes.length, 0);
+  assert.ok(await harness.memory.loadPendingTaskClarification('sergey', 'conversation-A'));
+});
+
+test('dialogue cancellation clears pending state without changing a task', async () => {
+  const harness = createTaskContinuationHarness();
+  await taskMessage(harness.arthur, 'Отмени задачу позвонить поставщику');
+
+  const response = await taskMessage(harness.arthur, 'не надо');
+
+  assert.equal(response.answer.text, 'Хорошо, отменил действие.');
+  assert.equal(harness.writes.length, 0);
+  assert.equal(await harness.memory.loadPendingTaskClarification('sergey', 'conversation-A'), null);
+});
+
+test('expired clarification never executes the old task action', async () => {
+  let nowMs = new Date('2026-08-13T00:00:00.000Z').getTime();
+  const harness = createTaskContinuationHarness({
+    clock: () => new Date(nowMs),
+    pendingTaskClarificationTtlMs: 5 * 60 * 1000,
+  });
+  await taskMessage(harness.arthur, 'Отмени задачу позвонить поставщику');
+  nowMs += (5 * 60 * 1000) + 1;
+
+  const response = await taskMessage(harness.arthur, '1');
+
+  assert.equal(response.answer.text, 'Обычный разговор работает.');
+  assert.equal(harness.writes.length, 0);
+  assert.equal(await harness.memory.loadPendingTaskClarification('sergey', 'conversation-A'), null);
+});
+
+test('pending task clarification is isolated by conversation and canonical owner', async () => {
+  const harness = createTaskContinuationHarness();
+  await taskMessage(harness.arthur, 'Отмени задачу позвонить поставщику', 'conversation-A');
+
+  await taskMessage(harness.arthur, '1', 'conversation-B');
+
+  assert.equal(harness.writes.length, 0);
+  assert.ok(await harness.memory.loadPendingTaskClarification('sergey', 'conversation-A'));
+  assert.equal(await harness.memory.loadPendingTaskClarification('sergey', 'conversation-B'), null);
+
+  await taskMessage(harness.arthur, '1', 'conversation-A');
+  assert.deepEqual(harness.writes.map(write => write.taskId), ['task-1']);
+});
+
+test('unrelated request clears pending state and continues through normal task routing', async () => {
+  const harness = createTaskContinuationHarness();
+  await taskMessage(harness.arthur, 'Отмени задачу позвонить поставщику');
+
+  const response = await taskMessage(harness.arthur, 'Что у меня по задачам?');
+
+  assert.match(response.answer.text, /У тебя 2 активные задачи/);
+  assert.equal(harness.writes.length, 0);
+  assert.equal(await harness.memory.loadPendingTaskClarification('sergey', 'conversation-A'), null);
+});
+
+test('changed candidate snapshot blocks continuation write', async () => {
+  const harness = createTaskContinuationHarness();
+  await taskMessage(harness.arthur, 'Отмени задачу позвонить поставщику');
+  harness.updateTask('task-1', { dueAt: '2026-08-16T13:59:59.999Z' });
+
+  const response = await taskMessage(harness.arthur, '1');
+
+  assert.match(response.answer.text, /задача уже изменилась или больше не активна/i);
+  assert.equal(harness.writes.length, 0);
+  assert.equal(await harness.memory.loadPendingTaskClarification('sergey', 'conversation-A'), null);
 });
 
 test('implicit task guard keeps ordinary conversation out of Core writes', async () => {

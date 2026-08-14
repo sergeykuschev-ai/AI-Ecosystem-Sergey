@@ -39,6 +39,19 @@ const PAST_ACTIONS = Object.freeze(new Map([
 const ARTHUR_ADDRESS_PREFIX = /^\s*артур\s*[,!:.-]?\s*/iu;
 const UNSAFE_CONTEXT = /[\r\n?？"'«»„“]/u;
 const DISCUSSION_PREFIX = /^\s*(?:как|почему|зачем|стоит\s+ли|можно\s+ли|следует\s+ли)(?![\p{L}\p{N}])/iu;
+const CLARIFICATION_SELECTIONS = Object.freeze(new Map([
+  ['первая', 1],
+  ['первую', 1],
+  ['вторая', 2],
+  ['вторую', 2],
+  ['третья', 3],
+  ['третью', 3],
+]));
+const CLARIFICATION_CANCEL_WORDS = Object.freeze(new Set([
+  'не надо',
+  'отмена',
+  'отбой',
+]));
 
 function cleanReference(value) {
   const cleaned = String(value || '')
@@ -166,9 +179,25 @@ function parseTaskManagementRequest(message, options = {}) {
   return clarification('Не понял, какую задачу нужно изменить.');
 }
 
+function parseTaskClarificationReply(message) {
+  if (typeof message !== 'string') return null;
+  const normalized = message
+    .trim()
+    .toLocaleLowerCase('ru-RU')
+    .replace(/[.!?]+$/u, '')
+    .trim();
+  if (CLARIFICATION_CANCEL_WORDS.has(normalized)) return { type: 'cancel' };
+  if (/^[1-9]\d*$/u.test(normalized)) {
+    return { type: 'selection', taskNumber: Number(normalized) };
+  }
+  const taskNumber = CLARIFICATION_SELECTIONS.get(normalized);
+  return taskNumber ? { type: 'selection', taskNumber } : null;
+}
+
 module.exports = {
   TASK_MANAGEMENT_ACTIONS,
   canonicalTaskReference,
   detectTaskManagementAction,
+  parseTaskClarificationReply,
   parseTaskManagementRequest,
 };

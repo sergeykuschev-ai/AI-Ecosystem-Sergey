@@ -4,7 +4,12 @@ const { validateContext, createArthurContext } = require('../context/arthur_cont
 const { createExecutionEngine } = require('./execution_engine');
 const { createSynthesizer } = require('./synthesizer');
 const { INTENTS, detectIntent, isDeterministicIntent } = require('../planner/intents');
-const { createRuleBasedPlanBuilder } = require('../planner/plan_builder');
+const {
+  createExecutionPlan,
+  createRuleBasedPlanBuilder,
+  createStep,
+} = require('../planner/plan_builder');
+const { parseTaskClarificationReply } = require('../planner/task_management_parser');
 const { createLLMPlanBuilder } = require('../planner/llm_plan_builder');
 const { getProviderDiagnostics } = require('../ai/provider_factory');
 const { buildDirectResponseSystemMessage } = require('../identity/arthur_identity');
@@ -58,6 +63,7 @@ class ArthurOrchestrator {
     this.llmPlanBuilder = options.llmPlanBuilder || null;
     this.knowledge = options.knowledge || null;
     this.memory = options.memory || null;
+    this.ownerProfileId = options.ownerProfileId || null;
     this.aiProvider = options.aiProvider || null;
     this.logger = options.logger || null;
     this.engine = createExecutionEngine({
@@ -129,6 +135,119 @@ class ArthurOrchestrator {
 
   _buildSafeFallbackText(skills) {
     return 'Я временно не могу сформулировать ответ. Попробуйте позже.';
+  }
+
+  async _respondWithText(request, text, memorySnapshot, startTime, reason) {
+    const answer = {
+      text,
+      markdown: text,
+      sources: [],
+      confidence: 'high',
+      followUps: [],
+    };
+    const response = createOrchestratorResponse({
+      request,
+      status: 'success',
+      answer,
+      modulesUsed: [],
+      diagnostics: {
+        executionStatus: 'success',
+        errors: [],
+        knowledgeEntries: 0,
+        memoryEntries: memorySnapshot.length,
+        directResponse: true,
+        reason,
+      },
+      executionTimeMs: Date.now() - startTime,
+    });
+
+    if (this.memory) {
+      await this.memory.store(request.userId, request.conversationId, {
+        request: request.message,
+        intent: request.intent,
+        answer: text,
+        status: response.status,
+        timestamp: new Date().toISOString(),
+      });
+    }
+    return response;
+  }
+
+  async _resolvePendingTaskClarification(request, memorySnapshot, startTime) {
+    if (!this.memory
+      || typeof this.memory.loadPendingTaskClarification !== 'function'
+      || typeof this.memory.clearPendingTaskClarification !== 'function') {
+      return null;
+    }
+    const ownerId = this.ownerProfileId || request.userId;
+    if (!ownerId) return null;
+    const pending = await this.memory.loadPendingTaskClarification(ownerId, request.conversationId);
+    if (!pending) return null;
+    if (pending.ownerId !== ownerId || pending.conversationId !== request.conversationId) {
+      await this.memory.clearPendingTaskClarification(ownerId, request.conversationId);
+      return null;
+    }
+
+    const reply = parseTaskClarificationReply(request.message);
+    if (!reply) {
+      await this.memory.clearPendingTaskClarification(ownerId, request.conversationId);
+      return null;
+    }
+    if (reply.type === 'cancel') {
+      await this.memory.clearPendingTaskClarification(ownerId, request.conversationId);
+      return {
+        response: await this._respondWithText(
+          request,
+          'Хорошо, отменил действие.',
+          memorySnapshot,
+          startTime,
+          'task_clarification_cancelled'
+        ),
+      };
+    }
+
+    const candidate = pending.candidates[reply.taskNumber - 1];
+    if (!candidate) {
+      return {
+        response: await this._respondWithText(
+          request,
+          `Выбери номер от 1 до ${pending.candidates.length}.`,
+          memorySnapshot,
+          startTime,
+          'task_clarification_invalid_selection'
+        ),
+      };
+    }
+
+    // Consume before the write so a repeated Telegram delivery cannot replay the mutation.
+    await this.memory.clearPendingTaskClarification(ownerId, request.conversationId);
+    return {
+      plan: createExecutionPlan([
+        createStep({
+          id: 'step_1',
+          skill: 'arthur-core',
+          operation: pending.operation,
+          parameters: {
+            ...pending.parameters,
+            taskId: candidate.id,
+            expectedTask: { ...candidate },
+          },
+          timeoutMs: 10000,
+        }),
+      ]),
+    };
+  }
+
+  async _storePendingTaskClarification(request, executionResult) {
+    if (!this.memory || typeof this.memory.storePendingTaskClarification !== 'function') return;
+    const ownerId = this.ownerProfileId || request.userId;
+    if (!ownerId) return;
+    const pending = Object.values(executionResult.stepResults || {})
+      .find(result => result.status === 'success' && result.data?.pendingClarification)
+      ?.data?.pendingClarification;
+    if (pending) {
+      await this.memory.storePendingTaskClarification(ownerId, request.conversationId, pending);
+    }
   }
 
   async _respondDirectly(request, knowledgeResults, memorySnapshot, startTime, reason = 'empty_plan') {
@@ -227,6 +346,13 @@ class ArthurOrchestrator {
         ? await this.memory.load(request.userId, request.conversationId)
         : [];
 
+      const continuation = await this._resolvePendingTaskClarification(
+        request,
+        memorySnapshot,
+        startTime
+      );
+      if (continuation?.response) return continuation.response;
+
       const knowledgeResults = this.knowledge && request.intent
         ? await this.knowledge.search({
             topic: request.intent,
@@ -235,7 +361,7 @@ class ArthurOrchestrator {
           })
         : { entries: [] };
 
-      const plan = await this._buildPlan(request);
+      const plan = continuation?.plan || await this._buildPlan(request);
 
       if (this.logger) {
         this.logger.info('execution_plan_built', request, {
@@ -249,6 +375,7 @@ class ArthurOrchestrator {
       }
 
       const executionResult = await this.engine.execute(plan, this.registry, request);
+      await this._storePendingTaskClarification(request, executionResult);
 
       const answer = await this.synthesizer.synthesize(
         request,

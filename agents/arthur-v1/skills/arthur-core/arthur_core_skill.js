@@ -24,6 +24,11 @@ const TASK_MUTATION_OPERATIONS = Object.freeze(new Set([
   'cancelTask',
   'rescheduleTask',
 ]));
+const TASK_ACTION_BY_OPERATION = Object.freeze({
+  completeTask: 'complete',
+  cancelTask: 'cancel',
+  rescheduleTask: 'reschedule',
+});
 
 function requireOwnerProfileId(value) {
   if (typeof value !== 'string' || value.trim() === '') {
@@ -221,6 +226,20 @@ function duplicateTaskResult(task, parameters = {}) {
 }
 
 function selectTask(tasks, parameters = {}) {
+  if (parameters.taskId) {
+    const task = tasks.find(candidate => candidate.id === parameters.taskId);
+    if (!task) return { status: 'stale', tasks: [] };
+    const expected = parameters.expectedTask;
+    if (expected && (
+      expected.id !== task.id
+      || normalizeTaskTitle(expected.title) !== normalizeTaskTitle(task.title)
+      || expected.status !== task.status
+      || normalizedDueAt(expected.dueAt) !== normalizedDueAt(task.dueAt)
+    )) {
+      return { status: 'stale', tasks: [] };
+    }
+    return { status: 'unique', task };
+  }
   if (Number.isInteger(parameters.taskNumber)) {
     const task = tasks[parameters.taskNumber - 1];
     return task ? { status: 'unique', task } : { status: 'not_found', tasks: [] };
@@ -236,8 +255,8 @@ function selectTask(tasks, parameters = {}) {
   }
   const normalized = normalizeTaskTitle(parameters.title);
   const matches = tasks
-    .map((task, index) => ({ ...task, selectionNumber: index + 1 }))
-    .filter(task => normalizeTaskTitle(task.title) === normalized);
+    .filter(task => normalizeTaskTitle(task.title) === normalized)
+    .map((task, index) => ({ ...task, selectionNumber: index + 1 }));
   if (matches.length === 1) return { status: 'unique', task: matches[0] };
   return matches.length === 0
     ? { status: 'not_found', tasks: [] }
@@ -256,9 +275,12 @@ function formatTaskDue(task, timezone) {
   }).format(date);
 }
 
-function taskSelectionResult(selection, timezone) {
+function taskSelectionResult(selection, timezone, operation, parameters = {}) {
   if (selection.status === 'not_found') {
     return taskClarificationResult('Не нашёл такую активную задачу.');
+  }
+  if (selection.status === 'stale') {
+    return taskClarificationResult('Эта задача уже изменилась или больше не активна. Повтори команду.');
   }
   const visible = selection.tasks.slice(0, MAX_VISIBLE_TASKS);
   const lines = [
@@ -268,7 +290,19 @@ function taskSelectionResult(selection, timezone) {
     '',
     'Уточни номер.',
   ];
-  return taskClarificationResult(lines.join('\n'));
+  return taskClarificationResult(lines.join('\n'), {
+    action: TASK_ACTION_BY_OPERATION[operation],
+    operation,
+    candidates: visible.map(task => ({
+      id: task.id,
+      title: task.title,
+      status: task.status,
+      dueAt: task.dueAt || null,
+    })),
+    parameters: operation === 'rescheduleTask'
+      ? { dueAt: parameters.dueAt, dueLabel: parameters.dueLabel }
+      : {},
+  });
 }
 
 function taskMutationResult(task, operation, parameters = {}) {
@@ -302,13 +336,14 @@ function taskMutationResult(task, operation, parameters = {}) {
   };
 }
 
-function taskClarificationResult(responseText) {
+function taskClarificationResult(responseText, pendingClarification = null) {
   return {
     status: 'success',
     data: {
       status: 'clarification_required',
       summary: responseText,
       responseText,
+      ...(pendingClarification ? { pendingClarification } : {}),
     },
     metadata: { source: 'arthur-core', writePerformed: false },
   };
@@ -396,7 +431,7 @@ function createArthurCoreSkill({
           );
           const selection = selectTask(activeTasks, parameters);
           if (selection.status !== 'unique') {
-            return taskSelectionResult(selection, ownerTimezone);
+            return taskSelectionResult(selection, ownerTimezone, operation, parameters);
           }
           const selectedTask = selection.task;
           const nextStatus = operation === 'completeTask'

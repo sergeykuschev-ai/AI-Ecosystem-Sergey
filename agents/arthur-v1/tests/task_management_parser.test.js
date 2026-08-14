@@ -6,6 +6,7 @@ const test = require('node:test');
 const {
   TASK_MANAGEMENT_ACTIONS,
   detectTaskManagementAction,
+  parseTaskClarificationReply,
   parseTaskManagementRequest,
 } = require('../planner/task_management_parser');
 const { INTENTS, detectIntent } = require('../planner/intents');
@@ -74,6 +75,31 @@ test('questions and speculative statements never become task writes', () => {
   for (const message of messages) {
     assert.equal(detectTaskManagementAction(message), null, message);
   }
+});
+
+test('task clarification replies accept numeric and Russian ordinal selections', () => {
+  const scenarios = [
+    ['1', 1],
+    ['2', 2],
+    ['3', 3],
+    ['первая', 1],
+    ['первую', 1],
+    ['вторая', 2],
+    ['вторую', 2],
+    ['третья', 3],
+    ['третью', 3],
+  ];
+  for (const [message, taskNumber] of scenarios) {
+    assert.deepEqual(parseTaskClarificationReply(message), { type: 'selection', taskNumber });
+  }
+});
+
+test('task clarification replies recognize dialogue cancellation only as exact short answers', () => {
+  for (const message of ['не надо', 'Отмена', 'отбой']) {
+    assert.deepEqual(parseTaskClarificationReply(message), { type: 'cancel' });
+  }
+  assert.equal(parseTaskClarificationReply('Отмени задачу проверить отчёт'), null);
+  assert.equal(parseTaskClarificationReply('Что у меня по задачам?'), null);
 });
 
 test('management intents build deterministic Arthur Core operations', () => {
