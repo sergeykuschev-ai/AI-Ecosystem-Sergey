@@ -152,62 +152,63 @@ test('timeout returns partial result', async () => {
   assert.equal(response.modulesUsed.includes('slow'), false);
 });
 
-test('deterministic mail sender timeout bypasses AI synthesis and returns a safe response', async () => {
-  const registry = createSkillRegistry();
-  registry.register({
-    id: 'mail',
-    name: 'mail',
-    version: '1.1.0',
-    capabilities: [{ id: 'findMessagesFromSender', readOnly: true }],
-    execute: async () => {
-      await new Promise(resolve => setTimeout(resolve, 30));
-      return { status: 'success', data: {}, metadata: {} };
-    },
-    health: async () => ({ healthy: true }),
-  });
+test('deterministic mail sender and important-summary timeouts bypass AI synthesis', async () => {
   let aiCalled = false;
-  const orchestrator = createOrchestrator({
-    registry,
-    planBuilder: {
-      build: () => ({
-        version: 1,
-        steps: [{
-          id: 'step_1',
-          skill: 'mail',
-          operation: 'findMessagesFromSender',
-          timeoutMs: 5,
-        }],
-      }),
-    },
-    aiProvider: {
-      async generate() {
-        aiCalled = true;
-        return 'unexpected';
+  for (const operation of ['findMessagesFromSender', 'summarizeImportantMail']) {
+    const registry = createSkillRegistry();
+    registry.register({
+      id: 'mail',
+      name: 'mail',
+      version: '1.2.0',
+      capabilities: [
+        { id: 'findMessagesFromSender', readOnly: true },
+        { id: 'summarizeImportantMail', readOnly: true },
+      ],
+      execute: async () => {
+        await new Promise(resolve => setTimeout(resolve, 30));
+        return { status: 'success', data: {}, metadata: {} };
       },
-      async synthesize() {
-        aiCalled = true;
-        return { text: 'unexpected', confidence: 'low' };
+      health: async () => ({ healthy: true }),
+    });
+    const orchestrator = createOrchestrator({
+      registry,
+      planBuilder: {
+        build: () => ({
+          version: 1,
+          steps: [{ id: 'step_1', skill: 'mail', operation, timeoutMs: 5 }],
+        }),
       },
-      async health() {
-        return { healthy: true, provider: 'test' };
+      aiProvider: {
+        async generate() {
+          aiCalled = true;
+          return 'unexpected';
+        },
+        async synthesize() {
+          aiCalled = true;
+          return { text: 'unexpected', confidence: 'low' };
+        },
+        async health() {
+          return { healthy: true, provider: 'test' };
+        },
       },
-    },
-    logger: createLogger({ stdout: { write: () => {} }, stderr: { write: () => {} } }),
-  });
+      logger: createLogger({ stdout: { write: () => {} }, stderr: { write: () => {} } }),
+    });
+    const response = await orchestrator.handle({
+      message: operation === 'findMessagesFromSender'
+        ? 'Пришёл ответ от Валты?'
+        : 'Что важного в почте Миски?',
+      userId: 'sergey',
+      channel: 'telegram',
+    });
 
-  const response = await orchestrator.handle({
-    message: 'Пришёл ответ от Валты?',
-    userId: 'sergey',
-    channel: 'telegram',
-  });
-
-  assert.equal(response.status, 'failed');
-  assert.equal(response.answer.safeUserFacingError, true);
-  assert.equal(
-    response.answer.text,
-    'Почта отвечает медленнее обычного. Не успел завершить поиск. Попробуй ещё раз.'
-  );
-  assert.equal(response.diagnostics.errors[0].errors[0].causeCode, 'SKILL_TIMEOUT');
+    assert.equal(response.status, 'failed');
+    assert.equal(response.answer.safeUserFacingError, true);
+    assert.equal(
+      response.answer.text,
+      'Почта отвечает медленнее обычного. Не успел завершить поиск. Попробуй ещё раз.'
+    );
+    assert.equal(response.diagnostics.errors[0].errors[0].causeCode, 'SKILL_TIMEOUT');
+  }
   assert.equal(aiCalled, false);
 });
 

@@ -255,6 +255,7 @@ test('MailSkill exposes only read-only mail capabilities and no write operations
     { id: 'listRecentMail', readOnly: true },
     { id: 'searchMail', readOnly: true },
     { id: 'findMessagesFromSender', readOnly: true },
+    { id: 'summarizeImportantMail', readOnly: true },
   ];
   assert.deepEqual(CAPABILITIES, expectedCapabilities);
   assert.deepEqual(skill.capabilities, expectedCapabilities);
@@ -269,7 +270,7 @@ test('MailSkill exposes only read-only mail capabilities and no write operations
 });
 
 test('searchMail applies a conservative sender filter', async () => {
-  const { skill, yandex } = createTestMail({
+  const { gmail, skill, yandex } = createTestMail({
     yandexMessages: [
       yandexMessage(),
       yandexMessage({
@@ -384,7 +385,7 @@ test('known company search passes the requested limit to the provider', async ()
 });
 
 test('known company search matches Valta in subject when From is an employee name', async () => {
-  const { skill, yandex } = createTestMail({
+  const { gmail, skill, yandex } = createTestMail({
     yandexMessages: [yandexMessage({
       messageId: 'valta-subject-1',
       sourceRef: 'yandex:valta-subject-1',
@@ -461,50 +462,176 @@ test('unknown sender search does not generate an address and uses bounded recent
   assert.doesNotMatch(JSON.stringify(result.metadata.sender), /@/);
 });
 
-test('important Miska summary scores suppliers, aggregates PayMaster and keeps counts', async () => {
-  const paymasterMessages = Array.from({ length: 4 }, (_, index) => yandexMessage({
+test('important Miska summary prioritizes Valta and aggregates PayMaster and Yandex ID', async () => {
+  const paymasterMessages = Array.from({ length: 9 }, (_, index) => yandexMessage({
     messageId: `paymaster-${index}`,
     sourceRef: `yandex:paymaster-${index}`,
     from: [{ name: 'PayMaster', address: 'notify@paymaster.example' }],
     subject: 'Оповещение о принятом платеже',
+    snippet: 'Платёж принят.',
     receivedAt: new Date(FIXED_NOW.getTime() - index * 60000).toISOString(),
   }));
-  const { skill } = createTestMail({
+  const { gmail, skill, yandex } = createTestMail({
     yandexMessages: [
-      yandexMessage({ subject: 'Новый прайс' }),
       yandexMessage({
-        messageId: 'reply-1',
-        sourceRef: 'yandex:reply-1',
-        from: [{ name: 'Premium Pet', address: null }],
-        subject: 'Подтвердите поставку',
+        messageId: 'valta-price',
+        sourceRef: 'yandex:valta-price',
+        from: [{ name: 'Анна Размовенко', address: null }],
+        subject: 'Валта прайс 14.08.26 общ.xlsx, ПРОМО...',
+        snippet: 'Прайс Валты и промо.',
+        isUnread: false,
+      }),
+      yandexMessage({
+        messageId: 'yandex-id',
+        sourceRef: 'yandex:yandex-id',
+        from: [{ name: 'Яндекс ID', address: null }],
+        subject: 'Вы создали пароль для приложения Arthur',
+        snippet: 'Системное уведомление безопасности.',
       }),
       ...paymasterMessages,
     ],
   });
   const result = await skill.execute({
-    operation: 'listRecentMail',
+    operation: 'summarizeImportantMail',
     parameters: {
       businessContext: 'miska',
       since: '2026-08-15T00:00:00.000Z',
       limit: 20,
-      view: 'important',
     },
   });
 
-  assert.match(result.data.responseText, /Валта/);
-  assert.match(result.data.responseText, /Premium Pet/);
-  assert.match(result.data.responseText, /PayMaster — 4 уведомлений/);
-  assert.match(result.data.responseText, /могут требовать твоего ответа/);
-  assert.deepEqual(result.metadata.aggregation.groups, [{
-    sender: 'PayMaster',
-    subject: 'Оповещение о принятом платеже',
-    count: 4,
-  }]);
-  assert.equal(result.metadata.aggregation.groupedMessageCount, 4);
-  assert.equal(result.metadata.importance.responseCandidateCount, 1);
+  assert.match(result.data.responseText, /ВАЖНО/);
+  assert.match(result.data.responseText, /Валта \/ Анна Размовенко/);
+  assert.match(result.data.responseText, /Письмо по теме: прайс и PROMO/);
+  assert.match(result.data.responseText, /PayMaster — 9 уведомлений о платежах/);
+  assert.match(result.data.responseText, /Яндекс ID — системное уведомление/);
+  assert.equal(result.metadata.aggregation.groups[0].count, 9);
+  assert.equal(result.metadata.aggregation.groups[0].importance, 'low');
+  assert.equal(result.metadata.aggregation.groups[0].reason, 'paymaster_notification');
+  assert.equal(result.metadata.aggregation.groupedMessageCount, 9);
+  assert.equal(result.metadata.importance.responseCandidateCount, 0);
+  assert.equal(yandex.calls.length, 1);
+  assert.equal(yandex.calls[0].operation, 'listRecentMail');
+  assert.equal(yandex.calls[0].limit, 20);
+  assert.equal(gmail.calls.length, 0);
   const paymasterScores = result.metadata.importance.scores
     .filter(item => item.messageId.startsWith('paymaster-'));
-  assert.ok(paymasterScores.every(item => item.score < 4));
+  assert.ok(paymasterScores.every(item => item.importance === 'low'));
+});
+
+test('important summary degrades deterministically when Yandex is unavailable', async () => {
+  const yandex = createFakeYandexAdapter({
+    error: Object.assign(new Error('provider timeout'), { code: 'MAIL_TIMEOUT' }),
+  });
+  const { skill } = createTestMail({ yandex });
+  const result = await skill.execute({
+    operation: 'summarizeImportantMail',
+    parameters: {
+      businessContext: 'miska',
+      since: '2026-08-15T00:00:00.000Z',
+    },
+  });
+
+  assert.equal(result.status, 'success');
+  assert.equal(result.data.status, 'unavailable');
+  assert.equal(result.metadata.degraded, true);
+  assert.deepEqual(result.data.warnings.map(item => item.code), ['MAIL_TIMEOUT']);
+  assert.match(result.data.responseText, /Не удалось проверить: Почта Миски/);
+  assert.doesNotMatch(result.data.responseText, /provider timeout|MAIL_TIMEOUT/);
+});
+
+test('important summary cannot mix in a personal mailbox context', async () => {
+  const { gmail, skill, yandex } = createTestMail();
+  await assert.rejects(
+    () => skill.execute({
+      operation: 'summarizeImportantMail',
+      parameters: { businessContext: 'personal' },
+    }),
+    /supports only businessContext=miska/
+  );
+  assert.equal(gmail.calls.length, 0);
+  assert.equal(yandex.calls.length, 0);
+});
+
+test('important summary includes read business mail and applies calendar-day boundaries', async () => {
+  const { skill } = createTestMail({
+    yandexMessages: [
+      yandexMessage({
+        messageId: 'yesterday-2359',
+        sourceRef: 'yandex:yesterday-2359',
+        subject: 'Валта заказ вчера',
+        receivedAt: '2026-08-14T13:59:00.000Z',
+        isUnread: false,
+      }),
+      yandexMessage({
+        messageId: 'today-0001',
+        sourceRef: 'yandex:today-0001',
+        subject: 'Валта прайс сегодня',
+        receivedAt: '2026-08-14T14:01:00.000Z',
+        isUnread: false,
+      }),
+    ],
+  });
+  const result = await skill.execute({
+    operation: 'summarizeImportantMail',
+    parameters: {
+      businessContext: 'miska',
+      since: '2026-08-14T14:00:00.000Z',
+      limit: 20,
+    },
+  });
+
+  assert.deepEqual(result.data.messages.map(item => item.messageId), ['today-0001']);
+  assert.equal(result.data.messages[0].isUnread, false);
+});
+
+test('important summary treats the last 24 hours as a rolling window', async () => {
+  const { skill } = createTestMail({
+    yandexMessages: [
+      yandexMessage({
+        messageId: 'inside-24h',
+        sourceRef: 'yandex:inside-24h',
+        subject: 'Валта заказ',
+        receivedAt: '2026-08-14T04:01:00.000Z',
+      }),
+      yandexMessage({
+        messageId: 'outside-24h',
+        sourceRef: 'yandex:outside-24h',
+        subject: 'Валта прайс',
+        receivedAt: '2026-08-14T03:59:00.000Z',
+      }),
+    ],
+  });
+  const result = await skill.execute({
+    operation: 'summarizeImportantMail',
+    parameters: {
+      businessContext: 'miska',
+      since: '2026-08-14T04:00:00.000Z',
+      limit: 20,
+    },
+  });
+
+  assert.deepEqual(result.data.messages.map(item => item.messageId), ['inside-24h']);
+  assert.match(result.data.responseText, /за последние 24 часа/);
+});
+
+test('important summary exposes a conservative truncation marker at the candidate hard limit', async () => {
+  const messages = Array.from({ length: 20 }, (_, index) => yandexMessage({
+    messageId: `bounded-${index}`,
+    sourceRef: `yandex:bounded-${index}`,
+    subject: `Рабочее письмо ${index}`,
+    receivedAt: new Date(FIXED_NOW.getTime() - index * 60000).toISOString(),
+  }));
+  const { skill } = createTestMail({ yandexMessages: messages });
+  const result = await skill.execute({
+    operation: 'summarizeImportantMail',
+    parameters: { businessContext: 'miska', since: '2026-08-15T00:00:00.000Z' },
+  });
+
+  assert.equal(result.data.count, 20);
+  assert.equal(result.metadata.candidateLimit, 20);
+  assert.equal(result.metadata.truncated, true);
+  assert.match(result.data.responseText, /ограничена последними 20 письмами/);
 });
 
 test('MailSkill output excludes provider raw payload, body, HTML, attachments and tokens', async () => {
@@ -600,7 +727,7 @@ test('sender and important mail intents stay deterministic and bypass AI', async
   assert.deepEqual(sender.modulesUsed, ['mail']);
   assert.match(sender.answer.text, /Последнее письмо/);
   assert.deepEqual(important.modulesUsed, ['mail']);
-  assert.match(important.answer.text, /По Миске сегодня/);
+  assert.match(important.answer.text, /Что важного в почте Миски сегодня/);
   assert.equal(aiCalled, false);
 });
 

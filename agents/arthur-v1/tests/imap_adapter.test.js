@@ -262,7 +262,9 @@ test('confirmed address-only company search stays an exact From criterion', () =
 });
 
 test('listRecentMail requires a bounded since filter and keeps EXAMINE read-only', async () => {
-  const client = createFakeClient({ unseenUids: [5001] });
+  const unseenUids = [5001];
+  const before = [...unseenUids];
+  const client = createFakeClient({ unseenUids });
   const { adapter } = createAdapter(client);
   await adapter.listRecentMail({ limit: 1, since: '2026-08-14T00:00:00.000Z' });
 
@@ -271,6 +273,10 @@ test('listRecentMail requires a bounded since filter and keeps EXAMINE read-only
   assert.deepEqual(client.calls.find(call => call.method === 'mailboxOpen').options, {
     readOnly: true,
   });
+  assert.deepEqual(unseenUids, before);
+  assert.equal(client.calls.some(call => [
+    'store', 'expunge', 'move', 'copy', 'append', 'markRead', 'markUnread',
+  ].includes(call.method)), false);
   await assert.rejects(() => adapter.listRecentMail({ limit: 1 }), /since is required/);
 });
 
@@ -435,6 +441,7 @@ test('real Yandex MailSkill registers only when enabled and both secret files ar
     { id: 'listRecentMail', readOnly: true },
     { id: 'searchMail', readOnly: true },
     { id: 'findMessagesFromSender', readOnly: true },
+    { id: 'summarizeImportantMail', readOnly: true },
   ]);
   assert.equal(skill.readOnly, true);
   const result = await skill.execute({ operation: 'listUnreadMail', parameters: {} });

@@ -134,7 +134,7 @@ test('subject search is deterministic and never accepts raw IMAP syntax', () => 
   assert.equal(plan.steps[0].parameters.query, undefined);
 });
 
-test('important Miska mail intent uses today in Asia/Vladivostok and deterministic view', () => {
+test('important Miska mail intent uses a calendar day and dedicated deterministic capability', () => {
   const now = new Date('2026-08-15T04:00:00.000Z');
   const builder = createRuleBasedPlanBuilder({
     availableSkills: ['mail'],
@@ -143,19 +143,36 @@ test('important Miska mail intent uses today in Asia/Vladivostok and determinist
   });
   for (const message of [
     'Что важного в почте по Миске сегодня?',
+    'Что важного в почте Миски?',
+    'Что важного по почте Миски сегодня?',
     'Что важного по Миске в почте?',
     'Есть важные письма по Миске?',
+    'Что важного пришло сегодня?',
   ]) {
     assert.equal(detectIntent(message), INTENTS.MAIL_IMPORTANT);
     const plan = builder.build({ message });
-    assert.equal(plan.steps[0].operation, 'listRecentMail');
+    assert.equal(plan.steps[0].operation, 'summarizeImportantMail');
     assert.deepEqual(plan.steps[0].parameters, {
       businessContext: 'miska',
       since: '2026-08-14T14:00:00.000Z',
       limit: 20,
-      view: 'important',
     });
+    assert.equal(plan.steps[0].timeoutMs, 30000);
   }
+});
+
+test('important mail distinguishes rolling 24-hour and 7-day windows from today', () => {
+  const now = new Date('2026-08-15T04:00:00.000Z');
+  const builder = createRuleBasedPlanBuilder({
+    availableSkills: ['mail'],
+    clock: () => now,
+    ownerTimezone: 'Asia/Vladivostok',
+  });
+  const last24 = builder.build({ message: 'Что важного в почте Миски за последние 24 часа?' });
+  const last7Days = builder.build({ message: 'Что важного в почте Миски за последние 7 дней?' });
+
+  assert.equal(last24.steps[0].parameters.since, '2026-08-14T04:00:00.000Z');
+  assert.equal(last7Days.steps[0].parameters.since, '2026-08-08T04:00:00.000Z');
 });
 
 test('deterministic Core plan is empty when Core skill is not registered', () => {

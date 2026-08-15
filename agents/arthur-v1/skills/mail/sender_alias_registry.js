@@ -162,6 +162,15 @@ class SenderAliasRegistry {
       addresses: entry.addresses,
     })) || null;
   }
+
+  findKnownCompany(message) {
+    return this.entries.find(entry => this.matchMessage(message, {
+      known: true,
+      query: entry.displayName,
+      aliases: entry.aliases,
+      addresses: entry.addresses,
+    }, { allowSubjectFallback: true })) || null;
+  }
 }
 
 function createSenderAliasRegistry(entries = DEFAULT_SENDER_ALIASES) {

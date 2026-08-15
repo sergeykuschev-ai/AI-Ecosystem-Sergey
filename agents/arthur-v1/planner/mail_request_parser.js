@@ -18,9 +18,10 @@ function mailBusinessContext(message) {
 
 function matchesImportantMailIntent(message) {
   const normalized = normalizedMessage(message);
-  return /(важн\p{L}*)/u.test(normalized)
-    && /(почт\p{L}*|письм\p{L}*)/u.test(normalized)
-    && /миск/u.test(normalized);
+  const important = /(важн\p{L}*)/u.test(normalized);
+  const explicitMailbox = /(почт\p{L}*|письм\p{L}*)/u.test(normalized) && /миск/u.test(normalized);
+  const receivedToday = /что\s+важн\p{L}*\s+пришл\p{L}*\s+сегодня/u.test(normalized);
+  return important && (explicitMailbox || receivedToday);
 }
 
 function extractSenderQuery(message) {
@@ -102,11 +103,18 @@ function sinceFromMessage(message, {
 function importantMailParameters(message, options = {}) {
   const now = options.now || new Date();
   const timezone = options.timezone || 'Asia/Vladivostok';
+  const normalized = normalizedMessage(message);
+  const hasRollingWindow = /(?:24\s*час|7\s*дн|недел\p{L}*)/u.test(normalized);
   return {
     businessContext: 'miska',
-    since: startOfTodayIso(now, timezone),
+    since: hasRollingWindow
+      ? sinceFromMessage(message, {
+          now,
+          timezone,
+          defaultWindowMs: DAY_MS,
+        })
+      : startOfTodayIso(now, timezone),
     limit: 20,
-    view: 'important',
   };
 }
 

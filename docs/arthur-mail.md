@@ -18,7 +18,8 @@ MailSkill exposes only these read-only capabilities:
 - `listUnreadMail({ mailboxId?, businessContext?, limit? })`;
 - `listRecentMail({ mailboxId?, businessContext?, limit?, since? })`;
 - `searchMail({ mailboxId?, businessContext?, from?, subject?, since?, unreadOnly?, limit? })`;
-- `findMessagesFromSender({ mailboxId?, businessContext?, sender, since?, limit? })`.
+- `findMessagesFromSender({ mailboxId?, businessContext?, sender, since?, limit? })`;
+- `summarizeImportantMail({ businessContext: "miska", since?, limit? })`.
 
 Search filters are converted to an ImapFlow criteria object inside the adapter.
 Raw IMAP commands or arbitrary query trees are rejected. Search is limited to
@@ -36,14 +37,32 @@ addresses. Unknown senders are matched conservatively by display name or a
 full subject phrase. Arthur never invents or automatically persists an address
 discovered in mail.
 
-The “important Miska mail today” view is deterministic. It scores current-day
-and unread messages, known aliases, business subject tokens, and conservative
-response-candidate wording. It does not use an AI importance classifier.
-Repeated messages are grouped by normalized sender plus normalized subject.
-Groups of three or more remain represented in metadata and appear as one noise
-line with their exact count. PayMaster-style repeated payment notifications are
-penalized so they do not outrank supplier or business-subject mail without
-additional positive signals.
+The `summarizeImportantMail` capability is a deterministic management summary
+for the Miska mailbox. `HIGH` means a known company alias, an allowed business
+topic (price list, price, order, supply, availability, contract, document,
+invoice, payment, debt, return, complaint, promotion, or confirmation), or
+explicit action wording. Ordinary work and single service notices are `MEDIUM`.
+Repeated automatic notifications, PayMaster payment notices, and newsletters
+are `LOW`. Unread state is only a ranking signal: read business mail inside the
+requested window is still included. No AI importance classifier is used.
+
+Repeated messages are grouped only by normalized sender identity plus exact
+normalized subject. Different subjects from the same supplier remain separate.
+Each group records its count, latest timestamp, importance, and deterministic
+reason. PayMaster-style repetitions appear as one line with the exact count
+rather than filling the Telegram response.
+
+The default important-mail window starts at 00:00 of the current calendar day
+in `Asia/Vladivostok`. “Last 24 hours” and “last 7 days” are rolling windows and
+are not treated as calendar-day aliases. At most 20 candidates are analyzed and
+at most 5 important and 5 other entries are rendered. If the candidate cap is
+reached, metadata and response text conservatively mark the summary as
+truncated.
+
+Summary text is constructed only from normalized `From`, `Subject`,
+`receivedAt`, and the existing bounded snippet. It never reads attachments or
+full message bodies and never claims that a reply is required; explicit action
+wording is presented only as something that may need attention.
 
 Subjects and snippets are untrusted input. Mail responses use bounded
 deterministic `responseText`; the synthesizer excludes message payloads,

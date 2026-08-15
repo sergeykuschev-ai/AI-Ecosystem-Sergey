@@ -105,11 +105,12 @@ test('business subject alone raises relevance without inventing a supplier ident
   assert.ok(result.signals.some(signal => signal.startsWith('business_subject:')));
 });
 
-test('repeated PayMaster notifications aggregate with exact count and stay below important threshold', () => {
-  const messages = Array.from({ length: 8 }, (_, index) => message({
+test('repeated PayMaster notifications aggregate with exact count and stay LOW', () => {
+  const messages = Array.from({ length: 9 }, (_, index) => message({
     messageId: `paymaster-${index}`,
     from: [{ name: 'PayMaster', address: 'notify@paymaster.example' }],
     subject: 'Оповещение о принятом платеже',
+    receivedAt: new Date(NOW.getTime() - index * 60000).toISOString(),
   }));
   const groups = groupRepeatedMessages(messages);
   const analysis = analyzeImportantMail(messages, {
@@ -119,10 +120,77 @@ test('repeated PayMaster notifications aggregate with exact count and stay below
   });
 
   assert.equal(groups.length, 1);
-  assert.equal(groups[0].count, 8);
-  assert.equal(groups[0].messageIds.length, 8);
+  assert.equal(groups[0].count, 9);
+  assert.equal(groups[0].messageIds.length, 9);
+  assert.equal(groups[0].normalizedSubject, 'оповещение о принятом платеже');
+  assert.equal(groups[0].latestReceivedAt, NOW.toISOString());
+  assert.equal(analysis.groups[0].importance, 'low');
+  assert.equal(analysis.groups[0].reason, 'paymaster_notification');
   assert.equal(analysis.important.length, 0);
   assert.ok(analysis.scored.every(item => item.analysis.score < 4));
+});
+
+test('Valta in Subject identifies the company and produces HIGH importance without a known From', () => {
+  const analysis = analyzeImportantMail([message({
+    messageId: 'valta-price',
+    from: [{ name: 'Анна Размовенко', address: null }],
+    subject: 'Валта прайс 14.08.26 общ.xlsx, ПРОМО...',
+    receivedAt: '2026-08-14T23:00:00.000Z',
+    isUnread: false,
+  })], {
+    now: NOW,
+    ownerTimezone: 'Asia/Vladivostok',
+    aliasRegistry: createSenderAliasRegistry(),
+  });
+
+  assert.equal(analysis.important.length, 1);
+  assert.equal(analysis.important[0].analysis.importance, 'high');
+  assert.equal(analysis.important[0].analysis.knownCompany, 'Валта');
+  assert.deepEqual(analysis.important[0].analysis.topics, ['прайс', 'PROMO']);
+  assert.ok(analysis.important[0].analysis.signals.includes('known_company_subject:valta'));
+});
+
+test('same sender with different business subjects remains two separate important entries', () => {
+  const analysis = analyzeImportantMail([
+    message({ messageId: 'valta-price', from: [{ name: 'Валта' }], subject: 'Валта прайс' }),
+    message({ messageId: 'valta-order', from: [{ name: 'Валта' }], subject: 'Валта заказ' }),
+  ], {
+    now: NOW,
+    ownerTimezone: 'Asia/Vladivostok',
+    aliasRegistry: createSenderAliasRegistry(),
+  });
+
+  assert.equal(analysis.groups.length, 0);
+  assert.deepEqual(
+    analysis.important.map(item => item.message.messageId).sort(),
+    ['valta-order', 'valta-price']
+  );
+});
+
+test('Yandex ID app-password notice stays below supplier business mail', () => {
+  const analysis = analyzeImportantMail([
+    message({
+      messageId: 'yandex-id',
+      from: [{ name: 'Яндекс ID', address: null }],
+      subject: 'Вы создали пароль для приложения Arthur',
+    }),
+    message({
+      messageId: 'valta-price',
+      from: [{ name: 'Анна Размовенко', address: null }],
+      subject: 'Валта прайс 14.08.26 общ.xlsx, ПРОМО...',
+    }),
+  ], {
+    now: NOW,
+    ownerTimezone: 'Asia/Vladivostok',
+    aliasRegistry: createSenderAliasRegistry(),
+  });
+
+  const yandex = analysis.scored.find(item => item.message.messageId === 'yandex-id');
+  const valta = analysis.scored.find(item => item.message.messageId === 'valta-price');
+  assert.equal(yandex.analysis.importance, 'medium');
+  assert.equal(yandex.analysis.reason, 'system_notification');
+  assert.equal(valta.analysis.importance, 'high');
+  assert.ok(valta.analysis.score > yandex.analysis.score);
 });
 
 test('response wording creates candidates while ordinary notification does not', () => {

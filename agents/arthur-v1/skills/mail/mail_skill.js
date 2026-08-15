@@ -2,7 +2,12 @@
 
 const { UnsupportedOperationError } = require('../../errors/arthur_errors');
 const { DEFAULT_MAX_SNIPPET_LENGTH, normalizeMailMessage } = require('./message_normalizer');
-const { analyzeImportantMail, groupRepeatedMessages, senderLabel } = require('./mail_analysis');
+const {
+  IMPORTANCE,
+  analyzeImportantMail,
+  groupRepeatedMessages,
+  senderLabel,
+} = require('./mail_analysis');
 const { createSenderAliasRegistry, normalizeMatchText } = require('./sender_alias_registry');
 
 const CAPABILITIES = Object.freeze([
@@ -10,11 +15,14 @@ const CAPABILITIES = Object.freeze([
   { id: 'listRecentMail', readOnly: true },
   { id: 'searchMail', readOnly: true },
   { id: 'findMessagesFromSender', readOnly: true },
+  { id: 'summarizeImportantMail', readOnly: true },
 ]);
 
 const DEFAULT_LIMIT = 10;
 const MAX_LIMIT = 20;
 const MAX_TELEGRAM_MESSAGES = 10;
+const IMPORTANT_CANDIDATE_LIMIT = 20;
+const IMPORTANT_DISPLAY_LIMIT = 5;
 const MAX_RESPONSE_LENGTH = 3500;
 const DEFAULT_OWNER_TIMEZONE = 'Asia/Vladivostok';
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -31,6 +39,7 @@ const OPERATION_PARAMETERS = Object.freeze({
   findMessagesFromSender: Object.freeze([
     'mailboxId', 'businessContext', 'limit', 'sender', 'since',
   ]),
+  summarizeImportantMail: Object.freeze(['businessContext', 'limit', 'since']),
 });
 
 function normalizeLimit(value) {
@@ -153,6 +162,108 @@ function appendWarnings(lines, warnings) {
   }
 }
 
+function importantWindowLabel(since, now, timeZone) {
+  const todayStart = dateKey(new Date(since), timeZone) === dateKey(now, timeZone)
+    && new Date(since).getTime() <= now.getTime();
+  if (todayStart) return 'сегодня';
+  const windowMs = now.getTime() - Date.parse(since);
+  if (Math.abs(windowMs - DAY_MS) < 60000) return 'за последние 24 часа';
+  if (Math.abs(windowMs - 7 * DAY_MS) < 60000) return 'за последние 7 дней';
+  return 'за выбранный период';
+}
+
+function joinTopics(topics) {
+  if (topics.length <= 1) return topics[0] || '';
+  return `${topics.slice(0, -1).join(', ')} и ${topics.at(-1)}`;
+}
+
+function importantSender(item) {
+  const sender = senderLabel(item.message);
+  const company = item.analysis.knownCompany;
+  if (!company || normalizeMatchText(company) === normalizeMatchText(sender)) return sender;
+  return `${company} / ${sender}`;
+}
+
+function importantGist(item) {
+  const topics = item.analysis.topics;
+  const subject = String(item.message.subject || '(без темы)').trim();
+  const gist = topics.length > 0
+    ? `Письмо по теме: ${joinTopics(topics)}.`
+    : `Тема: ${subject.slice(0, 140)}${subject.length > 140 ? '…' : ''}`;
+  return item.analysis.responseCandidate
+    ? `Возможно требует внимания: ${gist.charAt(0).toLocaleLowerCase('ru-RU')}${gist.slice(1)}`
+    : gist;
+}
+
+function appendImportantItems(lines, items, { now, timeZone }) {
+  items.slice(0, IMPORTANT_DISPLAY_LIMIT).forEach((item, index) => {
+    lines.push(`${index + 1}. ${importantSender(item)}`);
+    lines.push(`   ${importantGist(item)}`);
+    lines.push(`   ${formatReceivedAt(item.message.receivedAt, now, timeZone)}`);
+    if (index < Math.min(items.length, IMPORTANT_DISPLAY_LIMIT) - 1) lines.push('');
+  });
+}
+
+function formatOtherGroup(group) {
+  const sender = normalizeMatchText(group.sender);
+  const subject = normalizeMatchText(group.subject);
+  if (sender.includes('paymaster') && /платеж/u.test(subject)) {
+    return `${group.sender} — ${group.count} уведомлений о платежах.`;
+  }
+  return `${group.sender} — ${group.count} уведомлений: ${group.subject}`;
+}
+
+function formatOtherItem(item) {
+  const sender = senderLabel(item.message);
+  const subject = String(item.message.subject || '(без темы)').trim();
+  if (item.analysis.reason === 'system_notification') {
+    return `${sender} — системное уведомление: ${subject}`;
+  }
+  return `${sender} — ${subject}`;
+}
+
+function formatImportantSummary({ analysis, warnings, parameters, now, timeZone, truncated }) {
+  const importantGroups = analysis.groups.filter(group => group.importance === IMPORTANCE.HIGH);
+  const otherGroups = analysis.groups.filter(group => group.importance !== IMPORTANCE.HIGH);
+  const importantCount = analysis.important.length
+    + importantGroups.reduce((total, group) => total + group.count, 0);
+  const otherCount = analysis.other.length
+    + otherGroups.reduce((total, group) => total + group.count, 0);
+  const lines = [
+    `Что важного в почте Миски ${importantWindowLabel(parameters.since, now, timeZone)}:`,
+    '',
+    'ВАЖНО',
+  ];
+
+  if (analysis.important.length === 0 && importantGroups.length === 0) {
+    lines.push('Важных писем не нашёл.');
+  } else {
+    appendImportantItems(lines, analysis.important, { now, timeZone });
+    const remainingImportantSlots = Math.max(0, IMPORTANT_DISPLAY_LIMIT - analysis.important.length);
+    for (const group of importantGroups.slice(0, remainingImportantSlots)) {
+      lines.push(`• ${formatOtherGroup(group)}`);
+    }
+  }
+
+  if (analysis.other.length > 0 || otherGroups.length > 0) {
+    lines.push('', 'ОСТАЛЬНОЕ');
+    for (const group of otherGroups.slice(0, IMPORTANT_DISPLAY_LIMIT)) {
+      lines.push(`• ${formatOtherGroup(group)}`);
+    }
+    const remainingOtherSlots = Math.max(0, IMPORTANT_DISPLAY_LIMIT - otherGroups.length);
+    for (const item of analysis.other.slice(0, remainingOtherSlots)) {
+      lines.push(`• ${formatOtherItem(item)}`);
+    }
+  }
+
+  lines.push('', `Всего: важных — ${importantCount}, остальных — ${otherCount}.`);
+  if (truncated) {
+    lines.push(`Сводка ограничена последними ${parameters.limit} письмами за период.`);
+  }
+  appendWarnings(lines, warnings);
+  return truncateResponse(lines);
+}
+
 function formatResponse({ messages, mailboxes, warnings, parameters, now, timeZone }) {
   const noiseGroups = groupRepeatedMessages(messages);
   const groupedIds = new Set(noiseGroups.flatMap(group => group.messageIds));
@@ -168,19 +279,14 @@ function formatResponse({ messages, mailboxes, warnings, parameters, now, timeZo
 
 function formatRecentResponse({ messages, mailboxes, warnings, parameters, now, timeZone, analysis }) {
   if (parameters.view === 'important') {
-    const lines = ['По Миске сегодня:'];
-    const importantMessages = analysis.important.map(item => item.message);
-    if (importantMessages.length === 0) lines.push('', 'Важных писем не нашёл.');
-    else {
-      lines.push('');
-      appendMessages(lines, importantMessages, { mailboxes, now, timeZone });
-    }
-    if (analysis.responseCandidates.length > 0) {
-      lines.push('', `Нашёл ${analysis.responseCandidates.length} писем, которые могут требовать твоего ответа.`);
-    }
-    appendNoise(lines, analysis.noiseGroups);
-    appendWarnings(lines, warnings);
-    return truncateResponse(lines);
+    return formatImportantSummary({
+      analysis,
+      warnings,
+      parameters,
+      now,
+      timeZone,
+      truncated: messages.length >= parameters.limit,
+    });
   }
 
   const noiseGroups = analysis.noiseGroups;
@@ -241,7 +347,11 @@ function aggregationMetadata(noiseGroups) {
     groups: noiseGroups.map(group => ({
       sender: group.sender,
       subject: group.subject,
+      normalizedSubject: group.normalizedSubject,
       count: group.count,
+      latestReceivedAt: group.latestReceivedAt,
+      importance: group.importance || null,
+      reason: group.reason || null,
     })),
     groupedMessageCount: noiseGroups.reduce((total, group) => total + group.count, 0),
   };
@@ -399,6 +509,72 @@ function createMailSkill({
     });
   }
 
+  async function summarizeImportantMail(parameters = {}) {
+    assertAllowedParameters('summarizeImportantMail', parameters);
+    if (parameters.businessContext != null && parameters.businessContext !== 'miska') {
+      throw new TypeError('important mail summary supports only businessContext=miska');
+    }
+    const limit = normalizeLimit(parameters.limit ?? IMPORTANT_CANDIDATE_LIMIT);
+    const now = clock();
+    const since = normalizeSince(parameters.since, DEFAULT_RECENT_WINDOW_MS, now);
+    const normalized = { ...parameters, businessContext: 'miska', since, limit };
+    const mailboxes = selectMailboxes(normalized);
+    const { messages: collected, warnings } = await collect(
+      mailboxes,
+      'listRecentMail',
+      mailbox => ({ mailbox, limit, since })
+    );
+    const messages = collected
+      .filter(message => Date.parse(message.receivedAt) >= Date.parse(since))
+      .sort((left, right) => Date.parse(right.receivedAt) - Date.parse(left.receivedAt))
+      .slice(0, limit);
+    const truncated = collected.length >= limit;
+    const analysis = analyzeImportantMail(messages, {
+      now,
+      ownerTimezone,
+      aliasRegistry: senderAliasRegistry,
+    });
+    const groupedMessageCount = analysis.groups
+      .reduce((total, group) => total + group.count, 0);
+    const importantGroupCount = analysis.groups
+      .filter(group => group.importance === IMPORTANCE.HIGH)
+      .reduce((total, group) => total + group.count, 0);
+    const otherGroupCount = groupedMessageCount - importantGroupCount;
+    return finalize({
+      operation: 'summarizeImportantMail',
+      messages,
+      warnings,
+      mailboxes,
+      parameters: normalized,
+      responseText: formatImportantSummary({
+        analysis,
+        warnings,
+        parameters: normalized,
+        now,
+        timeZone: ownerTimezone,
+        truncated,
+      }),
+      metadata: {
+        candidateLimit: limit,
+        truncated,
+        aggregation: aggregationMetadata(analysis.groups),
+        importance: {
+          importantCount: analysis.important.length + importantGroupCount,
+          otherCount: analysis.other.length + otherGroupCount,
+          groupedMessageCount,
+          responseCandidateCount: analysis.responseCandidates.length,
+          scores: analysis.scored.map(item => ({
+            messageId: item.message.messageId,
+            score: item.analysis.score,
+            importance: item.analysis.importance,
+            reason: item.analysis.reason,
+            signals: [...item.analysis.signals],
+          })),
+        },
+      },
+    });
+  }
+
   async function searchMail(parameters = {}) {
     assertAllowedParameters('searchMail', parameters);
     const limit = normalizeLimit(parameters.limit);
@@ -525,12 +701,13 @@ function createMailSkill({
     listRecentMail,
     searchMail,
     findMessagesFromSender,
+    summarizeImportantMail,
   };
 
   return {
     id: 'mail',
     name: 'Arthur Mail',
-    version: '1.1.0',
+    version: '1.2.0',
     capabilities: CAPABILITIES,
     readOnly: true,
     async execute(input = {}) {
@@ -544,7 +721,7 @@ function createMailSkill({
       return {
         healthy: configured.length > 0,
         skill: 'mail',
-        version: '1.1.0',
+        version: '1.2.0',
         configuredMailboxes: configured.length,
       };
     },
@@ -559,6 +736,8 @@ module.exports = {
   DEFAULT_RECENT_WINDOW_MS,
   DEFAULT_SEARCH_WINDOW_MS,
   DEFAULT_SENDER_WINDOW_MS,
+  IMPORTANT_CANDIDATE_LIMIT,
+  IMPORTANT_DISPLAY_LIMIT,
   MAX_LIMIT,
   MAX_RESPONSE_LENGTH,
   MAX_TELEGRAM_MESSAGES,
@@ -566,6 +745,7 @@ module.exports = {
   assertAllowedParameters,
   createMailSkill,
   formatReceivedAt,
+  formatImportantSummary,
   formatResponse,
   normalizeLimit,
   normalizeSince,

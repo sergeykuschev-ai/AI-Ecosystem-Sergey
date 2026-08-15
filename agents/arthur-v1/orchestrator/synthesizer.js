@@ -60,7 +60,10 @@ function safeSkillDataForSynthesis(skill, data) {
 function deterministicMailFailure(failedResults) {
   if (failedResults.length !== 1) return null;
   const [failure] = failedResults;
-  if (failure.skill !== 'mail' || failure.operation !== 'findMessagesFromSender') {
+  if (failure.skill !== 'mail' || ![
+    'findMessagesFromSender',
+    'summarizeImportantMail',
+  ].includes(failure.operation)) {
     return null;
   }
   const causeCodes = (failure.errors || []).map(error => error.causeCode || error.code);
