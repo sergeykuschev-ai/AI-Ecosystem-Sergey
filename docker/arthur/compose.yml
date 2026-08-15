@@ -102,10 +102,32 @@ services:
       TELEGRAM_GATEWAY_HEALTH_PORT: ${TELEGRAM_GATEWAY_HEALTH_PORT:-8788}
       TELEGRAM_GATEWAY_LOG_LEVEL: ${TELEGRAM_GATEWAY_LOG_LEVEL:-info}
       PURCHASING_RUNS_ROOT: ${PURCHASING_RUNS_ROOT:-/opt/arthur/output/purchasing-web/runs}
+      ARTHUR_MAILBOX_MISKA_YANDEX_ENABLED: ${ARTHUR_MAILBOX_MISKA_YANDEX_ENABLED:-false}
+      ARTHUR_MAILBOX_MISKA_YANDEX_ID: ${ARTHUR_MAILBOX_MISKA_YANDEX_ID:-miska-yandex}
+      ARTHUR_MAILBOX_MISKA_YANDEX_PROVIDER: ${ARTHUR_MAILBOX_MISKA_YANDEX_PROVIDER:-yandex}
+      ARTHUR_MAILBOX_MISKA_YANDEX_ACCOUNT_TYPE: ${ARTHUR_MAILBOX_MISKA_YANDEX_ACCOUNT_TYPE:-work}
+      ARTHUR_MAILBOX_MISKA_YANDEX_BUSINESS_CONTEXT: ${ARTHUR_MAILBOX_MISKA_YANDEX_BUSINESS_CONTEXT:-miska}
+      ARTHUR_MAILBOX_MISKA_YANDEX_DISPLAY_NAME: ${ARTHUR_MAILBOX_MISKA_YANDEX_DISPLAY_NAME:-Почта Миски}
+      ARTHUR_MAILBOX_MISKA_YANDEX_IMAP_HOST: ${ARTHUR_MAILBOX_MISKA_YANDEX_IMAP_HOST:-imap.yandex.ru}
+      ARTHUR_MAILBOX_MISKA_YANDEX_IMAP_PORT: ${ARTHUR_MAILBOX_MISKA_YANDEX_IMAP_PORT:-993}
+      ARTHUR_MAILBOX_MISKA_YANDEX_IMAP_TLS: ${ARTHUR_MAILBOX_MISKA_YANDEX_IMAP_TLS:-true}
+      ARTHUR_MAILBOX_MISKA_YANDEX_IMAP_FOLDER: ${ARTHUR_MAILBOX_MISKA_YANDEX_IMAP_FOLDER:-INBOX}
+      ARTHUR_MAILBOX_MISKA_YANDEX_CONNECTION_TIMEOUT_MS: ${ARTHUR_MAILBOX_MISKA_YANDEX_CONNECTION_TIMEOUT_MS:-10000}
+      ARTHUR_MAILBOX_MISKA_YANDEX_SOCKET_TIMEOUT_MS: ${ARTHUR_MAILBOX_MISKA_YANDEX_SOCKET_TIMEOUT_MS:-30000}
+      ARTHUR_MAILBOX_MISKA_YANDEX_MAX_MESSAGE_BYTES: ${ARTHUR_MAILBOX_MISKA_YANDEX_MAX_MESSAGE_BYTES:-131072}
+      ARTHUR_MAILBOX_MISKA_YANDEX_USERNAME_SECRET_FILE: /run/secrets/arthur_mailbox_miska_yandex_username
+      ARTHUR_MAILBOX_MISKA_YANDEX_APP_PASSWORD_SECRET_FILE: /run/secrets/arthur_mailbox_miska_yandex_app_password
     ports:
       - "127.0.0.1:${TELEGRAM_GATEWAY_HEALTH_PORT:-8788}:${TELEGRAM_GATEWAY_HEALTH_PORT:-8788}"
     volumes:
       - ../../output/purchasing-web/runs:/opt/arthur/output/purchasing-web/runs:ro
+    secrets:
+      - source: arthur_mailbox_miska_yandex_username
+        target: arthur_mailbox_miska_yandex_username
+        mode: 0400
+      - source: arthur_mailbox_miska_yandex_app_password
+        target: arthur_mailbox_miska_yandex_app_password
+        mode: 0400
     healthcheck:
       test:
         - CMD
@@ -130,3 +152,9 @@ networks:
 
 volumes:
   arthur_postgres_data:
+
+secrets:
+  arthur_mailbox_miska_yandex_username:
+    file: ${ARTHUR_MAILBOX_MISKA_YANDEX_USERNAME_SECRET_SOURCE:-./secrets/miska-yandex-username.example}
+  arthur_mailbox_miska_yandex_app_password:
+    file: ${ARTHUR_MAILBOX_MISKA_YANDEX_APP_PASSWORD_SECRET_SOURCE:-./secrets/miska-yandex-app-password.example}

@@ -10,6 +10,32 @@ function parseAllowedUserIds(value) {
   );
 }
 
+function parseEnabled(value) {
+  return ['1', 'true', 'yes'].includes(String(value || '').trim().toLowerCase());
+}
+
+function loadYandexMailConfig(env = process.env) {
+  return {
+    enabled: parseEnabled(env.ARTHUR_MAILBOX_MISKA_YANDEX_ENABLED),
+    mailboxId: env.ARTHUR_MAILBOX_MISKA_YANDEX_ID || 'miska-yandex',
+    provider: env.ARTHUR_MAILBOX_MISKA_YANDEX_PROVIDER || 'yandex',
+    accountType: env.ARTHUR_MAILBOX_MISKA_YANDEX_ACCOUNT_TYPE || 'work',
+    businessContext: env.ARTHUR_MAILBOX_MISKA_YANDEX_BUSINESS_CONTEXT || 'miska',
+    displayName: env.ARTHUR_MAILBOX_MISKA_YANDEX_DISPLAY_NAME || 'Почта Миски',
+    host: env.ARTHUR_MAILBOX_MISKA_YANDEX_IMAP_HOST || 'imap.yandex.ru',
+    port: Number(env.ARTHUR_MAILBOX_MISKA_YANDEX_IMAP_PORT || 993),
+    tls: String(env.ARTHUR_MAILBOX_MISKA_YANDEX_IMAP_TLS || 'true').trim().toLowerCase() === 'true',
+    folder: env.ARTHUR_MAILBOX_MISKA_YANDEX_IMAP_FOLDER || 'INBOX',
+    connectionTimeoutMs: Number(
+      env.ARTHUR_MAILBOX_MISKA_YANDEX_CONNECTION_TIMEOUT_MS || 10000
+    ),
+    socketTimeoutMs: Number(env.ARTHUR_MAILBOX_MISKA_YANDEX_SOCKET_TIMEOUT_MS || 30000),
+    maxMessageBytes: Number(env.ARTHUR_MAILBOX_MISKA_YANDEX_MAX_MESSAGE_BYTES || 131072),
+    usernameSecretFile: env.ARTHUR_MAILBOX_MISKA_YANDEX_USERNAME_SECRET_FILE || '',
+    appPasswordSecretFile: env.ARTHUR_MAILBOX_MISKA_YANDEX_APP_PASSWORD_SECRET_FILE || '',
+  };
+}
+
 function loadConfig(env = process.env) {
   const token = env.TELEGRAM_BOT_TOKEN || '';
   const allowedUserIds = parseAllowedUserIds(env.TELEGRAM_ALLOWED_USER_IDS);
@@ -31,6 +57,7 @@ function loadConfig(env = process.env) {
     retryDelayMs: Number(env.TELEGRAM_API_RETRY_DELAY_MS) || 1000,
     healthPort: Number(env.TELEGRAM_GATEWAY_HEALTH_PORT) || 8788,
     logLevel: env.TELEGRAM_GATEWAY_LOG_LEVEL || 'info',
+    yandexMail: loadYandexMailConfig(env),
     isProduction: env.NODE_ENV === 'production',
   };
 }
@@ -97,6 +124,8 @@ function validateConfig(config) {
 
 module.exports = {
   loadConfig,
+  loadYandexMailConfig,
   validateConfig,
   parseAllowedUserIds,
+  parseEnabled,
 };

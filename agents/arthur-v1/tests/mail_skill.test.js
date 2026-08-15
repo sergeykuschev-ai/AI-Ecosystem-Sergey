@@ -5,6 +5,7 @@ const { test } = require('node:test');
 
 const { createArthurV1 } = require('../index');
 const { UnsupportedOperationError } = require('../errors/arthur_errors');
+const { createSynthesizer } = require('../orchestrator/synthesizer');
 const { createMailboxRegistry, DEFAULT_MAILBOXES } = require('../skills/mail/mailbox_registry');
 const {
   DEFAULT_MAX_SNIPPET_LENGTH,
@@ -342,4 +343,54 @@ test('production composition does not register fake MailSkill without explicit i
   const arthur = createArthurV1({ knowledgeDirectories: [] });
   const diagnostics = await arthur.getDiagnostics();
   assert.equal(diagnostics.skills.includes('mail'), false);
+});
+
+test('multi-skill synthesis never sends mail messages, addresses or snippets to AI', async () => {
+  let capturedInput;
+  const synthesizer = createSynthesizer({
+    aiProvider: {
+      async synthesize(input) {
+        capturedInput = input;
+        return { text: 'Безопасный ответ', confidence: 'high' };
+      },
+    },
+    skills: [],
+  });
+  await synthesizer.synthesize({
+    message: 'Покажи почту и закупки',
+    intent: 'combined',
+    context: { userId: 'sergey', channel: 'telegram' },
+  }, {
+    status: 'success',
+    stepResults: {
+      mail: {
+        status: 'success',
+        skill: 'mail',
+        operation: 'listUnreadMail',
+        data: {
+          status: 'available',
+          summary: 'Непрочитанных писем получено: 1.',
+          responseText: 'Непрочитанные письма: 1',
+          count: 1,
+          messages: [{
+            from: [{ address: 'private@example.invalid' }],
+            to: [{ address: 'owner@example.invalid' }],
+            snippet: 'private snippet',
+            raw: 'raw MIME',
+          }],
+          warnings: [],
+        },
+      },
+      purchasing: {
+        status: 'success',
+        skill: 'purchasing',
+        operation: 'getStatus',
+        data: { summary: 'Закупки доступны.' },
+      },
+    },
+  }, { entries: [] });
+
+  const serialized = JSON.stringify(capturedInput);
+  assert.match(serialized, /Непрочитанные письма: 1/);
+  assert.doesNotMatch(serialized, /private@example|owner@example|private snippet|raw MIME|messages/);
 });

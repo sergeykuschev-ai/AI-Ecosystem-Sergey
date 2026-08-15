@@ -7,6 +7,7 @@ const path = require('node:path');
 const yaml = require('js-yaml');
 
 const composePath = path.resolve(__dirname, '..', '..', '..', 'docker', 'arthur', 'compose.yml');
+const repositoryRoot = path.resolve(__dirname, '..', '..', '..');
 
 function loadCompose() {
   const content = fs.readFileSync(composePath, 'utf8');
@@ -100,4 +101,64 @@ test('telegram-gateway mounts purchasing runs read-only', () => {
   );
   assert.ok(runVolume, 'purchasing runs volume not found');
   assert.ok(runVolume.endsWith(':ro'), `expected read-only mount, got ${runVolume}`);
+});
+
+test('Yandex mail secret files are scoped only to telegram-gateway', () => {
+  const compose = loadCompose();
+  const gatewaySecrets = compose.services['telegram-gateway'].secrets || [];
+  assert.deepEqual(gatewaySecrets.map(secret => secret.source), [
+    'arthur_mailbox_miska_yandex_username',
+    'arthur_mailbox_miska_yandex_app_password',
+  ]);
+  assert.deepEqual(gatewaySecrets.map(secret => secret.target), [
+    'arthur_mailbox_miska_yandex_username',
+    'arthur_mailbox_miska_yandex_app_password',
+  ]);
+
+  for (const serviceName of ['api', 'postgres', 'migrate']) {
+    const service = compose.services[serviceName];
+    assert.equal(service.secrets, undefined, `${serviceName} must not mount mail secrets`);
+    const environmentKeys = Object.keys(service.environment || {});
+    assert.equal(
+      environmentKeys.some(key => key.startsWith('ARTHUR_MAILBOX_')),
+      false,
+      `${serviceName} must not receive mail configuration`
+    );
+  }
+});
+
+test('telegram-gateway receives non-secret Yandex config and secret file paths only', () => {
+  const compose = loadCompose();
+  const env = compose.services['telegram-gateway'].environment;
+  assert.equal(env.ARTHUR_MAILBOX_MISKA_YANDEX_ENABLED, '${ARTHUR_MAILBOX_MISKA_YANDEX_ENABLED:-false}');
+  assert.equal(env.ARTHUR_MAILBOX_MISKA_YANDEX_IMAP_HOST, '${ARTHUR_MAILBOX_MISKA_YANDEX_IMAP_HOST:-imap.yandex.ru}');
+  assert.equal(env.ARTHUR_MAILBOX_MISKA_YANDEX_IMAP_PORT, '${ARTHUR_MAILBOX_MISKA_YANDEX_IMAP_PORT:-993}');
+  assert.equal(env.ARTHUR_MAILBOX_MISKA_YANDEX_IMAP_TLS, '${ARTHUR_MAILBOX_MISKA_YANDEX_IMAP_TLS:-true}');
+  assert.equal(env.ARTHUR_MAILBOX_MISKA_YANDEX_IMAP_FOLDER, '${ARTHUR_MAILBOX_MISKA_YANDEX_IMAP_FOLDER:-INBOX}');
+  assert.equal(
+    env.ARTHUR_MAILBOX_MISKA_YANDEX_USERNAME_SECRET_FILE,
+    '/run/secrets/arthur_mailbox_miska_yandex_username'
+  );
+  assert.equal(
+    env.ARTHUR_MAILBOX_MISKA_YANDEX_APP_PASSWORD_SECRET_FILE,
+    '/run/secrets/arthur_mailbox_miska_yandex_app_password'
+  );
+  assert.equal(env.ARTHUR_MAILBOX_MISKA_YANDEX_USERNAME, undefined);
+  assert.equal(env.ARTHUR_MAILBOX_MISKA_YANDEX_APP_PASSWORD, undefined);
+});
+
+test('Docker build context excludes local mail secrets and credentials', () => {
+  const dockerIgnore = fs.readFileSync(path.join(repositoryRoot, '.dockerignore'), 'utf8');
+  const gitIgnore = fs.readFileSync(path.join(repositoryRoot, '.gitignore'), 'utf8');
+  assert.match(dockerIgnore, /^docker\/arthur\/secrets\/\*$/m);
+  assert.match(dockerIgnore, /^\.env$/m);
+  assert.match(dockerIgnore, /^\*\.key$/m);
+  assert.match(gitIgnore, /^docker\/arthur\/secrets\/\*$/m);
+});
+
+test('mail dependencies include IMAP and parser libraries without an SMTP transport dependency', () => {
+  const packageJson = JSON.parse(fs.readFileSync(path.join(repositoryRoot, 'package.json'), 'utf8'));
+  assert.equal(packageJson.dependencies.imapflow, '^1.7.1');
+  assert.equal(packageJson.dependencies.mailparser, '^3.9.15');
+  assert.equal(packageJson.dependencies.nodemailer, undefined);
 });

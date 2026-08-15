@@ -5,6 +5,7 @@ const crypto = require('node:crypto');
 const { createArthurV1 } = require('../index');
 const { generateCorrelationId } = require('../context/arthur_context');
 const { createLogger } = require('../logging/logger');
+const { createYandexMailSkillFromConfig } = require('../skills/mail/mail_runtime');
 const { loadConfig, validateConfig } = require('./config');
 const { createTelegramClient } = require('./telegram_client');
 
@@ -132,8 +133,12 @@ class ArthurTelegramGateway {
       retryDelayMs: this.config.retryDelayMs,
       logger: this.logger,
     });
+    const mailSkill = options.mailSkill === undefined
+      ? createYandexMailSkillFromConfig(this.config.yandexMail)
+      : options.mailSkill;
     this.arthur = options.arthur || createArthurV1({
       logger: this.logger,
+      mailSkill,
       coreConfig: {
         baseUrl: this.config.coreBaseUrl,
         token: this.config.coreToken,

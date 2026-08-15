@@ -12,7 +12,9 @@ const { createArthurCoreClient, validateCoreClientOptions } = require('./skills/
 const { createArthurCoreSkill } = require('./skills/arthur-core/arthur_core_skill');
 const { createMailSkill } = require('./skills/mail/mail_skill');
 const { createMailboxRegistry } = require('./skills/mail/mailbox_registry');
+const { createYandexMailSkillFromConfig } = require('./skills/mail/mail_runtime');
 const { normalizeMailMessage } = require('./skills/mail/message_normalizer');
+const { createIMAPAdapter } = require('./skills/mail/providers/imap_adapter');
 const { createFakeGmailAdapter } = require('./skills/mail/providers/fake_gmail_adapter');
 const { createFakeYandexAdapter } = require('./skills/mail/providers/fake_yandex_adapter');
 const { createFakeAIProvider } = require('./ai/fake_provider');
@@ -46,8 +48,8 @@ function createArthurV1(options = {}) {
     }));
   }
 
-  // Mail is opt-in. Stage 1 fake adapters are injected by tests and never
-  // registered in the production Telegram runtime by default.
+  // Mail is opt-in. Tests may inject fake adapters; the Telegram Gateway may
+  // inject the configured real adapter. No mail provider is registered by default.
   if (options.mailSkill) {
     registry.register(options.mailSkill);
   }
@@ -105,6 +107,8 @@ module.exports = {
   createArthurCoreSkill,
   createMailSkill,
   createMailboxRegistry,
+  createYandexMailSkillFromConfig,
+  createIMAPAdapter,
   normalizeMailMessage,
   createFakeGmailAdapter,
   createFakeYandexAdapter,

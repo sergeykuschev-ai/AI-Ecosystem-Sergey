@@ -23,6 +23,24 @@ function validateNoFabrication(answer, stepResults) {
   return answer;
 }
 
+function safeSkillDataForSynthesis(skill, data) {
+  if (skill !== 'mail' || !data || typeof data !== 'object') return data;
+  return {
+    status: data.status,
+    summary: data.summary,
+    responseText: data.responseText,
+    count: data.count,
+    warnings: Array.isArray(data.warnings)
+      ? data.warnings.map(warning => ({
+          mailboxId: warning.mailboxId,
+          displayName: warning.displayName,
+          provider: warning.provider,
+          code: warning.code,
+        }))
+      : [],
+  };
+}
+
 class Synthesizer {
   constructor(options = {}) {
     this.aiProvider = options.aiProvider || null;
@@ -56,7 +74,7 @@ class Synthesizer {
         stepId,
         skill: result.skill,
         operation: result.operation,
-        data: result.data,
+        data: safeSkillDataForSynthesis(result.skill, result.data),
       }));
 
     const failedResults = Object.entries(stepResults)
@@ -173,5 +191,6 @@ module.exports = {
   Synthesizer,
   createSynthesizer,
   createSources,
+  safeSkillDataForSynthesis,
   validateNoFabrication,
 };
