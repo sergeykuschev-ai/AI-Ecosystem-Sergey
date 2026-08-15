@@ -62,6 +62,30 @@ test('task brief plan selects compact today and overdue views', () => {
   assert.equal(overdue.steps[0].parameters.view, 'overdue');
 });
 
+test('unread mail phrases build the only Stage 1 MailSkill operation', () => {
+  const builder = createRuleBasedPlanBuilder({ availableSkills: ['purchasing', 'mail'] });
+  const scenarios = [
+    ['Покажи непрочитанные письма', {}],
+    ['Есть непрочитанные письма?', {}],
+    ['Покажи непрочитанные письма по Миске', { businessContext: 'miska' }],
+    ['Есть новые непрочитанные письма по Миске?', { businessContext: 'miska' }],
+  ];
+
+  for (const [message, parameters] of scenarios) {
+    assert.equal(detectIntent(message), INTENTS.MAIL_UNREAD);
+    const plan = builder.build({ message });
+    assert.equal(plan.steps.length, 1);
+    assert.equal(plan.steps[0].skill, 'mail');
+    assert.equal(plan.steps[0].operation, 'listUnreadMail');
+    assert.deepEqual(plan.steps[0].parameters, parameters);
+  }
+});
+
+test('unread mail plan is empty when MailSkill is not registered', () => {
+  const builder = createRuleBasedPlanBuilder({ availableSkills: ['purchasing'] });
+  assert.deepEqual(builder.build({ message: 'Покажи непрочитанные письма' }).steps, []);
+});
+
 test('deterministic Core plan is empty when Core skill is not registered', () => {
   const builder = createRuleBasedPlanBuilder({ availableSkills: ['purchasing'] });
   const plan = builder.build({ message: 'покажи мой профиль' });
@@ -90,6 +114,12 @@ test('detectIntent recognizes purchasing status keywords', () => {
 test('detectIntent recognizes owner review keywords', () => {
   assert.equal(detectIntent('спорные позиции'), INTENTS.PURCHASING_OWNER_REVIEW);
   assert.equal(detectIntent('на решение владельца'), INTENTS.PURCHASING_OWNER_REVIEW);
+});
+
+test('mail routing does not change task or purchasing intents', () => {
+  assert.equal(detectIntent('Что у меня по задачам?'), INTENTS.CORE_TASKS);
+  assert.equal(detectIntent('Что с закупками?'), INTENTS.PURCHASING_STATUS);
+  assert.equal(detectIntent('Покажи спорные позиции'), INTENTS.PURCHASING_OWNER_REVIEW);
 });
 
 test('detectIntent returns unknown for unrecognized message', () => {

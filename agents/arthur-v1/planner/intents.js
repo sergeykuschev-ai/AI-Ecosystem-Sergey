@@ -18,6 +18,7 @@ const INTENTS = Object.freeze({
   CORE_COMPLETE_TASK: 'arthur_core.complete_task',
   CORE_CANCEL_TASK: 'arthur_core.cancel_task',
   CORE_RESCHEDULE_TASK: 'arthur_core.reschedule_task',
+  MAIL_UNREAD: 'mail.unread',
   KNOWLEDGE_SEARCH: 'knowledge.search',
   UNKNOWN: 'unknown',
 });
@@ -77,6 +78,12 @@ const INTENT_KEYWORDS = Object.freeze({
   ],
 });
 
+function matchesUnreadMailIntent(message) {
+  if (typeof message !== 'string') return false;
+  const normalized = message.toLocaleLowerCase('ru-RU');
+  return normalized.includes('непрочитан') && normalized.includes('письм');
+}
+
 const DETERMINISTIC_INTENTS = Object.freeze(new Set([
   INTENTS.PURCHASING_STATUS,
   INTENTS.PURCHASING_OWNER_REVIEW,
@@ -89,6 +96,7 @@ const DETERMINISTIC_INTENTS = Object.freeze(new Set([
   INTENTS.CORE_COMPLETE_TASK,
   INTENTS.CORE_CANCEL_TASK,
   INTENTS.CORE_RESCHEDULE_TASK,
+  INTENTS.MAIL_UNREAD,
 ]));
 
 const TASK_MANAGEMENT_INTENTS = Object.freeze({
@@ -105,6 +113,9 @@ function detectIntent(message) {
   if (taskAction) return TASK_MANAGEMENT_INTENTS[taskAction];
   if (matchesCreateTaskIntent(message)) {
     return INTENTS.CORE_CREATE_TASK;
+  }
+  if (matchesUnreadMailIntent(message)) {
+    return INTENTS.MAIL_UNREAD;
   }
   const normalized = message.toLowerCase();
 
@@ -130,4 +141,5 @@ module.exports = {
   TASK_MANAGEMENT_INTENTS,
   detectIntent,
   isDeterministicIntent,
+  matchesUnreadMailIntent,
 };

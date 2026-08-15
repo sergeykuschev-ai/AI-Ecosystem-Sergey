@@ -44,6 +44,14 @@ function taskBriefView(message = '') {
   return 'summary';
 }
 
+function unreadMailParameters(message = '', parameters = {}) {
+  const normalized = message.toLocaleLowerCase('ru-RU');
+  return {
+    ...parameters,
+    ...(normalized.includes('по миске') ? { businessContext: 'miska' } : {}),
+  };
+}
+
 const PLAN_BUILDERS = {
   [INTENTS.PURCHASING_STATUS]: (input) => createExecutionPlan([
     createStep({
@@ -157,6 +165,16 @@ const PLAN_BUILDERS = {
     'rescheduleTask'
   ),
 
+  [INTENTS.MAIL_UNREAD]: (input) => createExecutionPlan([
+    createStep({
+      id: 'step_1',
+      skill: 'mail',
+      operation: 'listUnreadMail',
+      parameters: unreadMailParameters(input.message, input.parameters || {}),
+      timeoutMs: 10000,
+    }),
+  ]),
+
   [INTENTS.KNOWLEDGE_SEARCH]: () => createExecutionPlan([]),
 };
 
@@ -230,4 +248,5 @@ module.exports = {
   INTENTS,
   detectIntent,
   taskBriefView,
+  unreadMailParameters,
 };
