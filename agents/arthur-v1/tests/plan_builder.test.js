@@ -86,6 +86,77 @@ test('unread mail plan is empty when MailSkill is not registered', () => {
   assert.deepEqual(builder.build({ message: 'Покажи непрочитанные письма' }).steps, []);
 });
 
+test('recent mail phrases build bounded listRecentMail plans', () => {
+  const now = new Date('2026-08-15T04:00:00.000Z');
+  const builder = createRuleBasedPlanBuilder({
+    availableSkills: ['mail'],
+    clock: () => now,
+  });
+  const message = 'Покажи последние письма по Миске за 24 часа';
+  assert.equal(detectIntent(message), INTENTS.MAIL_RECENT);
+  const plan = builder.build({ message });
+
+  assert.equal(plan.steps[0].operation, 'listRecentMail');
+  assert.equal(plan.steps[0].parameters.businessContext, 'miska');
+  assert.equal(plan.steps[0].parameters.since, '2026-08-14T04:00:00.000Z');
+});
+
+test('sender questions deterministically route to findMessagesFromSender', () => {
+  const now = new Date('2026-08-15T04:00:00.000Z');
+  const builder = createRuleBasedPlanBuilder({ availableSkills: ['mail'], clock: () => now });
+  for (const [message, sender, limit] of [
+    ['Пришёл ответ от Валты?', 'Валты', 1],
+    ['Есть письма от Premium Pet?', 'Premium Pet', 1],
+    ['Покажи письма от Premium Pet', 'Premium Pet', 10],
+  ]) {
+    assert.equal(detectIntent(message), INTENTS.MAIL_SENDER);
+    const plan = builder.build({ message });
+    assert.equal(plan.steps[0].operation, 'findMessagesFromSender');
+    assert.equal(plan.steps[0].parameters.sender, sender);
+    assert.equal(plan.steps[0].parameters.businessContext, 'miska');
+    assert.equal(plan.steps[0].parameters.limit, limit);
+    assert.equal(plan.steps[0].parameters.since, '2026-08-08T04:00:00.000Z');
+  }
+});
+
+test('subject search is deterministic and never accepts raw IMAP syntax', () => {
+  const now = new Date('2026-08-15T04:00:00.000Z');
+  const builder = createRuleBasedPlanBuilder({ availableSkills: ['mail'], clock: () => now });
+  const message = 'Найди письма по Миске с темой Новый прайс';
+  assert.equal(detectIntent(message), INTENTS.MAIL_SEARCH);
+  const plan = builder.build({ message });
+
+  assert.equal(plan.steps[0].operation, 'searchMail');
+  assert.equal(plan.steps[0].parameters.subject, 'Новый прайс');
+  assert.equal(plan.steps[0].parameters.businessContext, 'miska');
+  assert.equal(plan.steps[0].parameters.raw, undefined);
+  assert.equal(plan.steps[0].parameters.query, undefined);
+});
+
+test('important Miska mail intent uses today in Asia/Vladivostok and deterministic view', () => {
+  const now = new Date('2026-08-15T04:00:00.000Z');
+  const builder = createRuleBasedPlanBuilder({
+    availableSkills: ['mail'],
+    clock: () => now,
+    ownerTimezone: 'Asia/Vladivostok',
+  });
+  for (const message of [
+    'Что важного в почте по Миске сегодня?',
+    'Что важного по Миске в почте?',
+    'Есть важные письма по Миске?',
+  ]) {
+    assert.equal(detectIntent(message), INTENTS.MAIL_IMPORTANT);
+    const plan = builder.build({ message });
+    assert.equal(plan.steps[0].operation, 'listRecentMail');
+    assert.deepEqual(plan.steps[0].parameters, {
+      businessContext: 'miska',
+      since: '2026-08-14T14:00:00.000Z',
+      limit: 20,
+      view: 'important',
+    });
+  }
+});
+
 test('deterministic Core plan is empty when Core skill is not registered', () => {
   const builder = createRuleBasedPlanBuilder({ availableSkills: ['purchasing'] });
   const plan = builder.build({ message: 'покажи мой профиль' });

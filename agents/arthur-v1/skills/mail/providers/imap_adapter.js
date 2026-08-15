@@ -2,6 +2,7 @@
 
 const { ImapFlow } = require('imapflow');
 const { simpleParser } = require('mailparser');
+const { normalizeMatchText } = require('../sender_alias_registry');
 
 const DEFAULT_FOLDER = 'INBOX';
 const DEFAULT_PORT = 993;
@@ -9,6 +10,7 @@ const DEFAULT_CONNECTION_TIMEOUT_MS = 10000;
 const DEFAULT_SOCKET_TIMEOUT_MS = 30000;
 const DEFAULT_MAX_MESSAGE_BYTES = 128 * 1024;
 const MAX_LIMIT = 20;
+const SEARCH_FILTER_KEYS = Object.freeze(['from', 'subject', 'since', 'unreadOnly']);
 
 function requireNonEmptyString(value, field) {
   if (typeof value !== 'string' || value.trim() === '') {
@@ -114,6 +116,67 @@ function stableMessageId(folder, uidValidity, uid) {
   return `${folder}:${String(uidValidity)}:${String(uid)}`;
 }
 
+function normalizeSearchFilters(filters = {}) {
+  if (!filters || typeof filters !== 'object' || Array.isArray(filters)) {
+    throw new TypeError('mail search filters must be an object');
+  }
+  const unknownKeys = Object.keys(filters).filter(key => !SEARCH_FILTER_KEYS.includes(key));
+  if (unknownKeys.length > 0) {
+    throw new TypeError(`unsupported mail search filter: ${unknownKeys[0]}`);
+  }
+  const normalized = {};
+  if (filters.from != null && filters.from !== '') {
+    normalized.from = requireNonEmptyString(filters.from, 'mail search from');
+  }
+  if (filters.subject != null && filters.subject !== '') {
+    normalized.subject = requireNonEmptyString(filters.subject, 'mail search subject');
+  }
+  if (filters.since != null && filters.since !== '') {
+    const since = new Date(filters.since);
+    if (Number.isNaN(since.getTime())) throw new TypeError('mail search since must be a valid date');
+    normalized.since = since.toISOString();
+  }
+  if (filters.unreadOnly != null) {
+    if (typeof filters.unreadOnly !== 'boolean') {
+      throw new TypeError('mail search unreadOnly must be a boolean');
+    }
+    normalized.unreadOnly = filters.unreadOnly;
+  }
+  return Object.freeze(normalized);
+}
+
+function buildSearchCriteria(filters = {}) {
+  const normalized = normalizeSearchFilters(filters);
+  const criteria = {};
+  if (normalized.from) criteria.from = normalized.from;
+  if (normalized.subject) criteria.subject = normalized.subject;
+  if (normalized.since) criteria.since = new Date(normalized.since);
+  if (normalized.unreadOnly === true) criteria.seen = false;
+  return criteria;
+}
+
+function messageMatchesFilters(message, filters = {}) {
+  const normalized = normalizeSearchFilters(filters);
+  if (normalized.unreadOnly === true && message.isUnread !== true) return false;
+  if (normalized.since && Date.parse(message.receivedAt) < Date.parse(normalized.since)) return false;
+  if (normalized.from) {
+    const normalizedFrom = normalizeMatchText(normalized.from);
+    const isEmail = normalized.from.includes('@');
+    const matches = (Array.isArray(message.from) ? message.from : []).some(sender => {
+      const address = String(sender?.address || '').trim().toLowerCase();
+      if (isEmail) return address === normalized.from.toLowerCase();
+      return normalizeMatchText(sender?.name).includes(normalizedFrom)
+        || normalizeMatchText(address).includes(normalizedFrom);
+    });
+    if (!matches) return false;
+  }
+  if (normalized.subject
+    && !normalizeMatchText(message.subject).includes(normalizeMatchText(normalized.subject))) {
+    return false;
+  }
+  return true;
+}
+
 async function parseFetchedMessage({
   client,
   message,
@@ -195,8 +258,10 @@ function createIMAPAdapter(options = {}) {
   const clientFactory = options.clientFactory || (config => new ImapFlow(config));
   const parseMessage = options.parseMessage || simpleParser;
 
-  async function listUnreadMail({ limit = 10 } = {}) {
+  async function readMessages({ limit = 10, filters = {} } = {}) {
     requirePositiveInteger(limit, 'limit', MAX_LIMIT);
+    const normalizedFilters = normalizeSearchFilters(filters);
+    const searchCriteria = buildSearchCriteria(normalizedFilters);
     const client = clientFactory({
       host,
       port,
@@ -224,9 +289,9 @@ function createIMAPAdapter(options = {}) {
         throw safeMailError('MAIL_PROTOCOL_ERROR', 'Mail provider did not return UIDVALIDITY.');
       }
 
-      const unseenUids = await client.search({ seen: false }, { uid: true });
-      if (!Array.isArray(unseenUids) || unseenUids.length === 0) return [];
-      const boundedUids = unseenUids.slice(-limit);
+      const matchedUids = await client.search(searchCriteria, { uid: true });
+      if (!Array.isArray(matchedUids) || matchedUids.length === 0) return [];
+      const boundedUids = matchedUids.slice(-limit);
       const fetched = await client.fetchAll(boundedUids, {
         uid: true,
         flags: true,
@@ -250,7 +315,10 @@ function createIMAPAdapter(options = {}) {
           parseMessage,
         }));
       }
-      return messages;
+      return messages
+        .filter(message => messageMatchesFilters(message, normalizedFilters))
+        .sort((left, right) => Date.parse(right.receivedAt) - Date.parse(left.receivedAt))
+        .slice(0, limit);
     } catch (error) {
       throw classifyMailError(error);
     } finally {
@@ -262,9 +330,27 @@ function createIMAPAdapter(options = {}) {
     }
   }
 
+  async function listUnreadMail({ limit = 10 } = {}) {
+    return readMessages({ limit, filters: { unreadOnly: true } });
+  }
+
+  async function listRecentMail({ limit = 10, since } = {}) {
+    if (since == null || since === '') throw new TypeError('recent mail since is required');
+    return readMessages({ limit, filters: { since } });
+  }
+
+  async function searchMail({ limit = 10, filters = {} } = {}) {
+    if (!filters || typeof filters !== 'object' || Object.keys(filters).length === 0) {
+      throw new TypeError('mail search requires at least one safe filter');
+    }
+    return readMessages({ limit, filters });
+  }
+
   return Object.freeze({
     provider,
     listUnreadMail,
+    listRecentMail,
+    searchMail,
   });
 }
 
@@ -275,10 +361,14 @@ module.exports = {
   DEFAULT_PORT,
   DEFAULT_SOCKET_TIMEOUT_MS,
   MAX_LIMIT,
+  SEARCH_FILTER_KEYS,
+  buildSearchCriteria,
   buildBoundedMimeSource,
   classifyMailError,
   createIMAPAdapter,
   findBodyPart,
+  messageMatchesFilters,
+  normalizeSearchFilters,
   readBoundedStream,
   selectBodyPart,
   stableMessageId,

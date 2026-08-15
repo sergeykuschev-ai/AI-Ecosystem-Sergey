@@ -5,6 +5,12 @@ const {
   TASK_MANAGEMENT_ACTIONS,
   detectTaskManagementAction,
 } = require('./task_management_parser');
+const {
+  matchesImportantMailIntent,
+  matchesRecentMailIntent,
+  matchesSearchMailIntent,
+  matchesSenderMailIntent,
+} = require('./mail_request_parser');
 
 const INTENTS = Object.freeze({
   PURCHASING_STATUS: 'purchasing.status',
@@ -19,6 +25,10 @@ const INTENTS = Object.freeze({
   CORE_CANCEL_TASK: 'arthur_core.cancel_task',
   CORE_RESCHEDULE_TASK: 'arthur_core.reschedule_task',
   MAIL_UNREAD: 'mail.unread',
+  MAIL_RECENT: 'mail.recent',
+  MAIL_SEARCH: 'mail.search',
+  MAIL_SENDER: 'mail.sender',
+  MAIL_IMPORTANT: 'mail.important',
   KNOWLEDGE_SEARCH: 'knowledge.search',
   UNKNOWN: 'unknown',
 });
@@ -97,6 +107,10 @@ const DETERMINISTIC_INTENTS = Object.freeze(new Set([
   INTENTS.CORE_CANCEL_TASK,
   INTENTS.CORE_RESCHEDULE_TASK,
   INTENTS.MAIL_UNREAD,
+  INTENTS.MAIL_RECENT,
+  INTENTS.MAIL_SEARCH,
+  INTENTS.MAIL_SENDER,
+  INTENTS.MAIL_IMPORTANT,
 ]));
 
 const TASK_MANAGEMENT_INTENTS = Object.freeze({
@@ -113,6 +127,18 @@ function detectIntent(message) {
   if (taskAction) return TASK_MANAGEMENT_INTENTS[taskAction];
   if (matchesCreateTaskIntent(message)) {
     return INTENTS.CORE_CREATE_TASK;
+  }
+  if (matchesImportantMailIntent(message)) {
+    return INTENTS.MAIL_IMPORTANT;
+  }
+  if (matchesSenderMailIntent(message)) {
+    return INTENTS.MAIL_SENDER;
+  }
+  if (matchesSearchMailIntent(message)) {
+    return INTENTS.MAIL_SEARCH;
+  }
+  if (matchesRecentMailIntent(message)) {
+    return INTENTS.MAIL_RECENT;
   }
   if (matchesUnreadMailIntent(message)) {
     return INTENTS.MAIL_UNREAD;
@@ -142,4 +168,8 @@ module.exports = {
   detectIntent,
   isDeterministicIntent,
   matchesUnreadMailIntent,
+  matchesImportantMailIntent,
+  matchesRecentMailIntent,
+  matchesSearchMailIntent,
+  matchesSenderMailIntent,
 };

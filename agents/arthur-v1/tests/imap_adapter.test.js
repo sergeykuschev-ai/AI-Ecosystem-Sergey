@@ -11,6 +11,7 @@ const { createYandexMailSkillFromConfig } = require('../skills/mail/mail_runtime
 const { createFakeGmailAdapter } = require('../skills/mail/providers/fake_gmail_adapter');
 const {
   DEFAULT_MAX_MESSAGE_BYTES,
+  buildSearchCriteria,
   createIMAPAdapter,
 } = require('../skills/mail/providers/imap_adapter');
 
@@ -172,12 +173,99 @@ test('HTML fallback is bounded and attachments, raw MIME and HTML stay private',
 
 test('IMAP adapter exposes no mutation or SMTP operations', () => {
   const { adapter } = createAdapter(createFakeClient());
-  assert.deepEqual(Object.keys(adapter), ['provider', 'listUnreadMail']);
+  assert.deepEqual(Object.keys(adapter), [
+    'provider',
+    'listUnreadMail',
+    'listRecentMail',
+    'searchMail',
+  ]);
   for (const operation of [
     'store', 'expunge', 'move', 'copy', 'append', 'send', 'reply', 'markRead', 'createTransport',
   ]) {
     assert.equal(adapter[operation], undefined);
   }
+});
+
+test('safe IMAP search maps only whitelisted from, subject, since and unread filters', async () => {
+  const client = createFakeClient({ unseenUids: [4001, 4002, 4003] });
+  const { adapter } = createAdapter(client);
+  const since = '2026-08-15T00:00:00.000Z';
+  const messages = await adapter.searchMail({
+    limit: 2,
+    filters: {
+      from: 'Валта',
+      subject: 'Новый прайс',
+      since,
+      unreadOnly: true,
+    },
+  });
+
+  const searchCall = client.calls.find(call => call.method === 'search');
+  assert.deepEqual(searchCall, {
+    method: 'search',
+    query: {
+      from: 'Валта',
+      subject: 'Новый прайс',
+      since: new Date(since),
+      seen: false,
+    },
+    options: { uid: true },
+  });
+  assert.deepEqual(
+    client.calls.find(call => call.method === 'mailboxOpen').options,
+    { readOnly: true }
+  );
+  assert.equal(messages.length, 2);
+  assert.deepEqual(messages.map(message => message.messageId), [
+    'INBOX:42:4002',
+    'INBOX:42:4003',
+  ]);
+});
+
+test('listRecentMail requires a bounded since filter and keeps EXAMINE read-only', async () => {
+  const client = createFakeClient({ unseenUids: [5001] });
+  const { adapter } = createAdapter(client);
+  await adapter.listRecentMail({ limit: 1, since: '2026-08-14T00:00:00.000Z' });
+
+  const searchCall = client.calls.find(call => call.method === 'search');
+  assert.deepEqual(searchCall.query, { since: new Date('2026-08-14T00:00:00.000Z') });
+  assert.deepEqual(client.calls.find(call => call.method === 'mailboxOpen').options, {
+    readOnly: true,
+  });
+  await assert.rejects(() => adapter.listRecentMail({ limit: 1 }), /since is required/);
+});
+
+test('raw or arbitrary IMAP criteria cannot cross the adapter boundary', async () => {
+  const client = createFakeClient();
+  const { adapter } = createAdapter(client);
+  assert.throws(
+    () => buildSearchCriteria({ raw: 'ALL OR STORE 1 +FLAGS \\Seen' }),
+    /unsupported mail search filter: raw/
+  );
+  await assert.rejects(
+    () => adapter.searchMail({ filters: { query: ['ALL'] } }),
+    /unsupported mail search filter: query/
+  );
+  assert.equal(client.calls.length, 0);
+});
+
+test('search opens read-only and leaves the unseen UID state unchanged', async () => {
+  const unseenUids = [6001, 6002];
+  const before = [...unseenUids];
+  const client = createFakeClient({ unseenUids });
+  const { adapter } = createAdapter(client);
+  await adapter.searchMail({
+    limit: 2,
+    filters: { since: '2026-08-14T00:00:00.000Z', unreadOnly: true },
+  });
+
+  assert.deepEqual(unseenUids, before);
+  assert.deepEqual(client.calls.find(call => call.method === 'mailboxOpen').options, {
+    readOnly: true,
+  });
+  assert.equal(client.calls.some(call => [
+    'store', 'expunge', 'move', 'copy', 'append', 'markRead',
+  ].includes(call.method)), false);
 });
 
 for (const scenario of [
@@ -299,7 +387,12 @@ test('real Yandex MailSkill registers only when enabled and both secret files ar
   assert.equal(config.folder, 'INBOX');
   assert.equal(adapterOptions.username, USERNAME);
   assert.equal(adapterOptions.password, PASSWORD);
-  assert.deepEqual(skill.capabilities, [{ id: 'listUnreadMail', readOnly: true }]);
+  assert.deepEqual(skill.capabilities, [
+    { id: 'listUnreadMail', readOnly: true },
+    { id: 'listRecentMail', readOnly: true },
+    { id: 'searchMail', readOnly: true },
+    { id: 'findMessagesFromSender', readOnly: true },
+  ]);
   assert.equal(skill.readOnly, true);
   const result = await skill.execute({ operation: 'listUnreadMail', parameters: {} });
   assert.equal(result.data.count, 0);

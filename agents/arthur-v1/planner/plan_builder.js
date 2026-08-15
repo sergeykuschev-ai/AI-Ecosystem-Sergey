@@ -7,6 +7,12 @@ const {
   TASK_MANAGEMENT_ACTIONS,
   parseTaskManagementRequest,
 } = require('./task_management_parser');
+const {
+  importantMailParameters,
+  recentMailParameters,
+  searchMailParameters,
+  senderMailParameters,
+} = require('./mail_request_parser');
 
 function createStep({
   id,
@@ -171,6 +177,70 @@ const PLAN_BUILDERS = {
       skill: 'mail',
       operation: 'listUnreadMail',
       parameters: unreadMailParameters(input.message, input.parameters || {}),
+      timeoutMs: 10000,
+    }),
+  ]),
+
+  [INTENTS.MAIL_RECENT]: (input) => createExecutionPlan([
+    createStep({
+      id: 'step_1',
+      skill: 'mail',
+      operation: 'listRecentMail',
+      parameters: {
+        ...recentMailParameters(input.message, {
+          now: input.now,
+          timezone: input.ownerTimezone,
+        }),
+        ...(input.parameters || {}),
+      },
+      timeoutMs: 10000,
+    }),
+  ]),
+
+  [INTENTS.MAIL_SEARCH]: (input) => createExecutionPlan([
+    createStep({
+      id: 'step_1',
+      skill: 'mail',
+      operation: 'searchMail',
+      parameters: {
+        ...searchMailParameters(input.message, {
+          now: input.now,
+          timezone: input.ownerTimezone,
+        }),
+        ...(input.parameters || {}),
+      },
+      timeoutMs: 10000,
+    }),
+  ]),
+
+  [INTENTS.MAIL_SENDER]: (input) => createExecutionPlan([
+    createStep({
+      id: 'step_1',
+      skill: 'mail',
+      operation: 'findMessagesFromSender',
+      parameters: {
+        ...senderMailParameters(input.message, {
+          now: input.now,
+          timezone: input.ownerTimezone,
+        }),
+        ...(input.parameters || {}),
+      },
+      timeoutMs: 10000,
+    }),
+  ]),
+
+  [INTENTS.MAIL_IMPORTANT]: (input) => createExecutionPlan([
+    createStep({
+      id: 'step_1',
+      skill: 'mail',
+      operation: 'listRecentMail',
+      parameters: {
+        ...importantMailParameters(input.message, {
+          now: input.now,
+          timezone: input.ownerTimezone,
+        }),
+        ...(input.parameters || {}),
+      },
       timeoutMs: 10000,
     }),
   ]),

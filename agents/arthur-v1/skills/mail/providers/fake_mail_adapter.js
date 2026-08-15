@@ -1,5 +1,7 @@
 'use strict';
 
+const { normalizeMatchText } = require('../sender_alias_registry');
+
 function cloneMessage(message) {
   return {
     ...message,
@@ -7,6 +9,28 @@ function cloneMessage(message) {
     to: Array.isArray(message.to) ? message.to.map(address => ({ ...address })) : message.to,
     labels: Array.isArray(message.labels) ? [...message.labels] : message.labels,
   };
+}
+
+function includesNormalized(value, query) {
+  const normalizedQuery = normalizeMatchText(query);
+  return normalizedQuery !== '' && normalizeMatchText(value).includes(normalizedQuery);
+}
+
+function filterMessages(messages, filters = {}) {
+  const since = filters.since ? Date.parse(filters.since) : null;
+  return messages.filter(message => {
+    if (filters.unreadOnly === true && message.isUnread !== true) return false;
+    if (since != null && Date.parse(message.receivedAt) < since) return false;
+    if (filters.from) {
+      const senderMatch = (Array.isArray(message.from) ? message.from : []).some(sender => (
+        includesNormalized(sender?.name, filters.from)
+        || includesNormalized(sender?.address, filters.from)
+      ));
+      if (!senderMatch) return false;
+    }
+    if (filters.subject && !includesNormalized(message.subject, filters.subject)) return false;
+    return true;
+  });
 }
 
 class FakeMailAdapter {
@@ -22,10 +46,37 @@ class FakeMailAdapter {
   }
 
   async listUnreadMail({ mailbox, limit } = {}) {
-    this.calls.push({ mailboxId: mailbox?.mailboxId || null, limit });
+    this.calls.push({ operation: 'listUnreadMail', mailboxId: mailbox?.mailboxId || null, limit });
     if (this.error) throw this.error;
-    return this.messages
-      .filter(message => message.isUnread === true)
+    return filterMessages(this.messages, { unreadOnly: true })
+      .slice(0, limit)
+      .map(cloneMessage);
+  }
+
+  async listRecentMail({ mailbox, limit, since } = {}) {
+    this.calls.push({
+      operation: 'listRecentMail',
+      mailboxId: mailbox?.mailboxId || null,
+      limit,
+      since,
+    });
+    if (this.error) throw this.error;
+    return filterMessages(this.messages, { since })
+      .sort((left, right) => Date.parse(right.receivedAt) - Date.parse(left.receivedAt))
+      .slice(0, limit)
+      .map(cloneMessage);
+  }
+
+  async searchMail({ mailbox, limit, filters = {} } = {}) {
+    this.calls.push({
+      operation: 'searchMail',
+      mailboxId: mailbox?.mailboxId || null,
+      limit,
+      filters: { ...filters },
+    });
+    if (this.error) throw this.error;
+    return filterMessages(this.messages, filters)
+      .sort((left, right) => Date.parse(right.receivedAt) - Date.parse(left.receivedAt))
       .slice(0, limit)
       .map(cloneMessage);
   }
@@ -34,4 +85,5 @@ class FakeMailAdapter {
 module.exports = {
   FakeMailAdapter,
   cloneMessage,
+  filterMessages,
 };

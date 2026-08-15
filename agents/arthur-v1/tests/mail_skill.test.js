@@ -247,10 +247,16 @@ test('provider failure returns available mailbox results and a bounded warning',
   assert.doesNotMatch(result.data.responseText, /secret|raw body|token=/);
 });
 
-test('MailSkill exposes only listUnreadMail and no write operations', async () => {
+test('MailSkill exposes only read-only mail capabilities and no write operations', async () => {
   const { skill } = createTestMail();
-  assert.deepEqual(CAPABILITIES, [{ id: 'listUnreadMail', readOnly: true }]);
-  assert.deepEqual(skill.capabilities, [{ id: 'listUnreadMail', readOnly: true }]);
+  const expectedCapabilities = [
+    { id: 'listUnreadMail', readOnly: true },
+    { id: 'listRecentMail', readOnly: true },
+    { id: 'searchMail', readOnly: true },
+    { id: 'findMessagesFromSender', readOnly: true },
+  ];
+  assert.deepEqual(CAPABILITIES, expectedCapabilities);
+  assert.deepEqual(skill.capabilities, expectedCapabilities);
   assert.equal(skill.readOnly, true);
   for (const operation of ['send', 'reply', 'delete', 'archive', 'move', 'markRead']) {
     assert.equal(skill.capabilities.some(capability => capability.id === operation), false);
@@ -259,6 +265,175 @@ test('MailSkill exposes only listUnreadMail and no write operations', async () =
       UnsupportedOperationError
     );
   }
+});
+
+test('searchMail applies a conservative sender filter', async () => {
+  const { skill, yandex } = createTestMail({
+    yandexMessages: [
+      yandexMessage(),
+      yandexMessage({
+        messageId: 'premium-1',
+        sourceRef: 'yandex:premium-1',
+        from: [{ name: 'Premium Pet', address: 'sales@premium.example' }],
+        subject: 'Подтверждение поставки',
+      }),
+    ],
+  });
+  const result = await skill.execute({
+    operation: 'searchMail',
+    parameters: {
+      businessContext: 'miska',
+      from: 'Валта',
+      since: '2026-08-14T00:00:00.000Z',
+    },
+  });
+
+  assert.equal(result.data.count, 1);
+  assert.equal(result.data.messages[0].subject, 'Новый прайс');
+  assert.deepEqual(yandex.calls[0].filters, {
+    from: 'Валта',
+    since: '2026-08-14T00:00:00.000Z',
+  });
+});
+
+test('searchMail applies subject, since, unreadOnly and global limit', async () => {
+  const { skill } = createTestMail({
+    yandexMessages: [
+      yandexMessage({ messageId: 'new-1', sourceRef: 'yandex:new-1', subject: 'Новый прайс август' }),
+      yandexMessage({
+        messageId: 'read-1',
+        sourceRef: 'yandex:read-1',
+        subject: 'Новый прайс июль',
+        isUnread: false,
+      }),
+      yandexMessage({
+        messageId: 'old-1',
+        sourceRef: 'yandex:old-1',
+        subject: 'Новый прайс старый',
+        receivedAt: '2026-07-01T00:00:00.000Z',
+      }),
+      yandexMessage({
+        messageId: 'other-1',
+        sourceRef: 'yandex:other-1',
+        subject: 'Договор',
+      }),
+    ],
+  });
+  const result = await skill.execute({
+    operation: 'searchMail',
+    parameters: {
+      businessContext: 'miska',
+      subject: 'Новый прайс',
+      since: '2026-08-01T00:00:00.000Z',
+      unreadOnly: true,
+      limit: 1,
+    },
+  });
+
+  assert.equal(result.data.count, 1);
+  assert.equal(result.data.messages[0].messageId, 'new-1');
+});
+
+test('MailSkill rejects raw IMAP parameters before calling a provider', async () => {
+  const { skill, yandex } = createTestMail();
+  await assert.rejects(
+    () => skill.execute({
+      operation: 'searchMail',
+      parameters: { businessContext: 'miska', raw: 'ALL' },
+    }),
+    /unsupported searchMail parameter: raw/
+  );
+  assert.equal(yandex.calls.length, 0);
+});
+
+test('findMessagesFromSender uses known text aliases without inventing an email', async () => {
+  const { skill, yandex } = createTestMail();
+  const result = await skill.execute({
+    operation: 'findMessagesFromSender',
+    parameters: {
+      sender: 'Валта',
+      since: '2026-08-08T04:00:00.000Z',
+      limit: 1,
+    },
+  });
+
+  assert.equal(result.data.count, 1);
+  assert.equal(result.metadata.sender.knownAlias, true);
+  assert.equal(result.metadata.sender.aliasId, 'valta');
+  assert.equal(result.metadata.sender.generatedAddress, false);
+  assert.equal(yandex.calls[0].filters.from, 'Валта');
+  assert.match(result.data.responseText, /Последнее письмо от Валта|Последнее письмо от Валты/);
+});
+
+test('unknown sender search does not generate an address and uses bounded recent candidates', async () => {
+  const { skill, yandex } = createTestMail({
+    yandexMessages: [yandexMessage({
+      messageId: 'unknown-1',
+      sourceRef: 'yandex:unknown-1',
+      from: [{ name: 'Отдел продаж', address: 'sales@example.invalid' }],
+      subject: 'Предложение Ромашка',
+    })],
+  });
+  const result = await skill.execute({
+    operation: 'findMessagesFromSender',
+    parameters: {
+      businessContext: 'miska',
+      sender: 'Ромашка',
+      since: '2026-08-08T04:00:00.000Z',
+    },
+  });
+
+  assert.equal(result.data.count, 1);
+  assert.equal(result.metadata.sender.knownAlias, false);
+  assert.equal(result.metadata.sender.generatedAddress, false);
+  assert.equal(yandex.calls[0].filters.from, undefined);
+  assert.doesNotMatch(JSON.stringify(result.metadata.sender), /@/);
+});
+
+test('important Miska summary scores suppliers, aggregates PayMaster and keeps counts', async () => {
+  const paymasterMessages = Array.from({ length: 4 }, (_, index) => yandexMessage({
+    messageId: `paymaster-${index}`,
+    sourceRef: `yandex:paymaster-${index}`,
+    from: [{ name: 'PayMaster', address: 'notify@paymaster.example' }],
+    subject: 'Оповещение о принятом платеже',
+    receivedAt: new Date(FIXED_NOW.getTime() - index * 60000).toISOString(),
+  }));
+  const { skill } = createTestMail({
+    yandexMessages: [
+      yandexMessage({ subject: 'Новый прайс' }),
+      yandexMessage({
+        messageId: 'reply-1',
+        sourceRef: 'yandex:reply-1',
+        from: [{ name: 'Premium Pet', address: null }],
+        subject: 'Подтвердите поставку',
+      }),
+      ...paymasterMessages,
+    ],
+  });
+  const result = await skill.execute({
+    operation: 'listRecentMail',
+    parameters: {
+      businessContext: 'miska',
+      since: '2026-08-15T00:00:00.000Z',
+      limit: 20,
+      view: 'important',
+    },
+  });
+
+  assert.match(result.data.responseText, /Валта/);
+  assert.match(result.data.responseText, /Premium Pet/);
+  assert.match(result.data.responseText, /PayMaster — 4 уведомлений/);
+  assert.match(result.data.responseText, /могут требовать твоего ответа/);
+  assert.deepEqual(result.metadata.aggregation.groups, [{
+    sender: 'PayMaster',
+    subject: 'Оповещение о принятом платеже',
+    count: 4,
+  }]);
+  assert.equal(result.metadata.aggregation.groupedMessageCount, 4);
+  assert.equal(result.metadata.importance.responseCandidateCount, 1);
+  const paymasterScores = result.metadata.importance.scores
+    .filter(item => item.messageId.startsWith('paymaster-'));
+  assert.ok(paymasterScores.every(item => item.score < 4));
 });
 
 test('MailSkill output excludes provider raw payload, body, HTML, attachments and tokens', async () => {
@@ -286,6 +461,7 @@ test('mail-enabled Arthur returns a deterministic bounded Telegram response with
   let synthesized = false;
   const arthur = createArthurV1({
     mailSkill: skill,
+    clock: () => FIXED_NOW,
     knowledgeDirectories: [],
     logger: SILENT_LOGGER,
     aiProvider: {
@@ -314,6 +490,47 @@ test('mail-enabled Arthur returns a deterministic bounded Telegram response with
   assert.match(response.answer.text, /Валта/);
   assert.match(response.answer.text, /Новый прайс/);
   assert.equal(synthesized, false);
+});
+
+test('sender and important mail intents stay deterministic and bypass AI', async () => {
+  const { skill } = createTestMail();
+  let aiCalled = false;
+  const arthur = createArthurV1({
+    mailSkill: skill,
+    clock: () => FIXED_NOW,
+    knowledgeDirectories: [],
+    logger: SILENT_LOGGER,
+    aiProvider: {
+      async generate() {
+        aiCalled = true;
+        throw new Error('AI planner must not receive deterministic mail requests');
+      },
+      async synthesize() {
+        aiCalled = true;
+        throw new Error('AI synthesizer must not receive deterministic mail responses');
+      },
+      async health() {
+        return { healthy: true, provider: 'test' };
+      },
+    },
+  });
+
+  const sender = await arthur.handle({
+    message: 'Пришёл ответ от Валты?',
+    userId: 'sergey',
+    channel: 'telegram',
+  });
+  const important = await arthur.handle({
+    message: 'Что важного в почте по Миске сегодня?',
+    userId: 'sergey',
+    channel: 'telegram',
+  });
+
+  assert.deepEqual(sender.modulesUsed, ['mail']);
+  assert.match(sender.answer.text, /Последнее письмо/);
+  assert.deepEqual(important.modulesUsed, ['mail']);
+  assert.match(important.answer.text, /По Миске сегодня/);
+  assert.equal(aiCalled, false);
 });
 
 test('Arthur keeps the available mailbox when the other fake provider fails', async () => {

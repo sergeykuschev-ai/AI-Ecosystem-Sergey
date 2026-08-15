@@ -1,21 +1,51 @@
-# Arthur Mail: Yandex IMAP setup
+# Arthur Mail: read-only search and Yandex IMAP setup
 
-Arthur Mail Stage 2A provides a provider-neutral, read-only IMAP adapter for
-the `miska-yandex` mailbox. The mailbox remains disabled by default. This stage
-does not contain credentials and does not perform a live Yandex connection.
+Arthur Mail provides a provider-neutral, read-only IMAP adapter for the
+`miska-yandex` mailbox. The repository contains no credentials, and the mailbox
+remains disabled by default in the checked-in configuration.
 
 ## Read-only boundary
 
 The adapter connects with TLS, validates the server certificate, and opens
 `INBOX` with `readOnly: true`, which makes ImapFlow use IMAP `EXAMINE` instead
-of a writable `SELECT`. It searches only for unseen messages and performs
-bounded `BODY.PEEK` reads. Only a bounded `text/plain` part is downloaded; when
+of a writable `SELECT`. It performs whitelisted `SEARCH` queries and bounded
+`BODY.PEEK` reads. Only a bounded `text/plain` part is downloaded; when
 plain text is absent, a bounded `text/html` part may be converted to plain text
 without executing HTML or scripts. Attachments are never requested.
 
-The adapter exposes only `listUnreadMail`. It does not expose or call `STORE`,
-`EXPUNGE`, `MOVE`, `COPY`, `APPEND`, SMTP, send, reply, archive, or mark-read
-operations.
+MailSkill exposes only these read-only capabilities:
+
+- `listUnreadMail({ mailboxId?, businessContext?, limit? })`;
+- `listRecentMail({ mailboxId?, businessContext?, limit?, since? })`;
+- `searchMail({ mailboxId?, businessContext?, from?, subject?, since?, unreadOnly?, limit? })`;
+- `findMessagesFromSender({ mailboxId?, businessContext?, sender, since?, limit? })`.
+
+Search filters are converted to an ImapFlow criteria object inside the adapter.
+Raw IMAP commands or arbitrary query trees are rejected. Search is limited to
+20 results; recent mail defaults to 24 hours, general search to 30 days, and
+sender lookup to 7 days. The adapter does not expose or call `STORE`, `EXPUNGE`,
+`MOVE`, `COPY`, `APPEND`, SMTP, send, reply, archive, or mark-read operations.
+
+## Sender aliases and deterministic summaries
+
+The provider-neutral sender alias registry initially contains text aliases for
+Valta, Premium Pet, Zoograd, and Onikienko. It contains no inferred email
+addresses. A confirmed address can be configured later and is then matched
+exactly; unknown senders are matched conservatively by display name or a full
+subject phrase.
+
+The “important Miska mail today” view is deterministic. It scores current-day
+and unread messages, known aliases, business subject tokens, and conservative
+response-candidate wording. It does not use an AI importance classifier.
+Repeated messages are grouped by normalized sender plus normalized subject.
+Groups of three or more remain represented in metadata and appear as one noise
+line with their exact count. PayMaster-style repeated payment notifications are
+penalized so they do not outrank supplier or business-subject mail without
+additional positive signals.
+
+Subjects and snippets are untrusted input. Mail responses use bounded
+deterministic `responseText`; the synthesizer excludes message payloads,
+addresses, snippets, raw MIME, and attachments from AI synthesis input.
 
 ## Configuration without credentials
 
@@ -43,9 +73,9 @@ The checked-in files under `docker/arthur/secrets/*.example` are invalid
 placeholders. Runtime registration rejects them. Real secret files are ignored
 by Git and excluded from the Docker build context.
 
-## Controlled connection: future stage
+## Controlled production connection
 
-Do not perform these steps as part of Stage 2A. For the controlled connection:
+For a controlled connection:
 
 1. Enable IMAP access in Yandex Mail settings.
 2. Create a dedicated Yandex app password of type **Mail**.

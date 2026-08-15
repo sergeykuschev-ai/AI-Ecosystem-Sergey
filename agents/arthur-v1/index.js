@@ -14,6 +14,8 @@ const { createMailSkill } = require('./skills/mail/mail_skill');
 const { createMailboxRegistry } = require('./skills/mail/mailbox_registry');
 const { createYandexMailSkillFromConfig } = require('./skills/mail/mail_runtime');
 const { normalizeMailMessage } = require('./skills/mail/message_normalizer');
+const { analyzeImportantMail } = require('./skills/mail/mail_analysis');
+const { createSenderAliasRegistry } = require('./skills/mail/sender_alias_registry');
 const { createIMAPAdapter } = require('./skills/mail/providers/imap_adapter');
 const { createFakeGmailAdapter } = require('./skills/mail/providers/fake_gmail_adapter');
 const { createFakeYandexAdapter } = require('./skills/mail/providers/fake_yandex_adapter');
@@ -110,6 +112,8 @@ module.exports = {
   createYandexMailSkillFromConfig,
   createIMAPAdapter,
   normalizeMailMessage,
+  analyzeImportantMail,
+  createSenderAliasRegistry,
   createFakeGmailAdapter,
   createFakeYandexAdapter,
 };
