@@ -257,7 +257,12 @@ function taskManagementPlan(input, action, operation) {
     now: input.now,
     timezone: input.ownerTimezone,
   });
-  const parameters = parsed.ok ? { ...parsed } : { clarification: parsed.clarification };
+  const parameters = parsed.ok
+    ? { ...parsed }
+    : {
+        clarification: parsed.clarification,
+        ...(parsed.pendingTaskSelection ? { pendingTaskSelection: true } : {}),
+      };
   delete parameters.ok;
   delete parameters.action;
   return createExecutionPlan([

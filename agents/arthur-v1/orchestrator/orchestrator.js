@@ -4,6 +4,7 @@ const { validateContext, createArthurContext } = require('../context/arthur_cont
 const { createExecutionEngine } = require('./execution_engine');
 const { createSynthesizer } = require('./synthesizer');
 const { INTENTS, detectIntent, isDeterministicIntent } = require('../planner/intents');
+const { matchesExplicitCreateTaskIntent } = require('../planner/task_request_parser');
 const {
   createExecutionPlan,
   createRuleBasedPlanBuilder,
@@ -12,7 +13,11 @@ const {
 const { parseTaskClarificationReply } = require('../planner/task_management_parser');
 const { parseMailTaskActionReply } = require('../planner/mail_task_action_parser');
 const { appendTaskProposal } = require('../skills/mail/mail_task_proposal');
-const { normalizeMatchText } = require('../skills/mail/sender_alias_registry');
+const {
+  createSenderAliasRegistry,
+  normalizeMatchText,
+  phraseMatches,
+} = require('../skills/mail/sender_alias_registry');
 const { createLLMPlanBuilder } = require('../planner/llm_plan_builder');
 const { getProviderDiagnostics } = require('../ai/provider_factory');
 const { buildDirectResponseSystemMessage } = require('../identity/arthur_identity');
@@ -56,6 +61,13 @@ function createOrchestratorResponse({
     diagnostics,
     executionTimeMs,
   };
+}
+
+function detectExplicitIndependentIntent(message) {
+  const intent = detectIntent(message);
+  if (!isDeterministicIntent(intent)) return null;
+  if (intent === INTENTS.CORE_CREATE_TASK && !matchesExplicitCreateTaskIntent(message)) return null;
+  return intent;
 }
 
 class ArthurOrchestrator {
@@ -192,11 +204,7 @@ class ArthurOrchestrator {
     }
 
     const reply = parseTaskClarificationReply(request.message);
-    if (!reply) {
-      await this.memory.clearPendingTaskClarification(ownerId, request.conversationId);
-      return null;
-    }
-    if (reply.type === 'cancel') {
+    if (reply?.type === 'cancel') {
       await this.memory.clearPendingTaskClarification(ownerId, request.conversationId);
       return {
         response: await this._respondWithText(
@@ -209,18 +217,51 @@ class ArthurOrchestrator {
       };
     }
 
-    const candidate = pending.candidates[reply.taskNumber - 1];
-    if (!candidate) {
+    if (detectExplicitIndependentIntent(request.message)) {
+      await this.memory.clearPendingTaskClarification(ownerId, request.conversationId);
+      return null;
+    }
+
+    if (!reply) {
       return {
         response: await this._respondWithText(
           request,
-          `Выбери номер от 1 до ${pending.candidates.length}.`,
+          'Напиши название задачи или выбери номер.',
+          memorySnapshot,
+          startTime,
+          'task_clarification_reference_required'
+        ),
+      };
+    }
+
+    const matches = this._selectPendingTaskCandidates(pending.candidates, reply);
+    if (matches.length === 0) {
+      const text = reply.type === 'selection'
+        ? `Выбери номер от 1 до ${pending.candidates.length}.`
+        : 'Не нашёл такую задачу среди предложенных. Напиши название или номер.';
+      return {
+        response: await this._respondWithText(
+          request,
+          text,
           memorySnapshot,
           startTime,
           'task_clarification_invalid_selection'
         ),
       };
     }
+    if (matches.length > 1) {
+      return {
+        response: await this._respondWithText(
+          request,
+          this._taskClarificationChoices(matches, pending.candidates),
+          memorySnapshot,
+          startTime,
+          'task_clarification_ambiguous_reference'
+        ),
+      };
+    }
+
+    const candidate = matches[0];
 
     // Consume before the write so a repeated Telegram delivery cannot replay the mutation.
     await this.memory.clearPendingTaskClarification(ownerId, request.conversationId);
@@ -239,6 +280,48 @@ class ArthurOrchestrator {
         }),
       ]),
     };
+  }
+
+  _selectPendingTaskCandidates(candidates, reply) {
+    if (reply.type === 'selection') {
+      const candidate = candidates[reply.taskNumber - 1];
+      return candidate ? [candidate] : [];
+    }
+    if (reply.type !== 'reference') return [];
+
+    const reference = normalizeMatchText(reply.reference);
+    if (!reference) return [];
+    const exact = candidates.filter(candidate => normalizeMatchText(candidate.title) === reference);
+    if (exact.length > 0) return exact;
+
+    const words = reference.split(' ').filter(Boolean);
+    if (words.length >= 2) {
+      const contained = candidates.filter(candidate => (
+        ` ${normalizeMatchText(candidate.title)} `.includes(` ${reference} `)
+      ));
+      if (contained.length > 0) return contained;
+    }
+
+    let resolved;
+    try {
+      resolved = createSenderAliasRegistry().resolve(reply.reference);
+    } catch {
+      return [];
+    }
+    if (!resolved.known) return [];
+    return candidates.filter(candidate => resolved.aliases.some(alias => (
+      phraseMatches(candidate.title, alias)
+    )));
+  }
+
+  _taskClarificationChoices(candidates, selectionSource = candidates) {
+    return [
+      `Нашёл ${candidates.length} подходящие задачи:`,
+      '',
+      ...candidates.map(candidate => `${selectionSource.indexOf(candidate) + 1}. ${candidate.title}`),
+      '',
+      'Уточни номер.',
+    ].join('\n');
   }
 
   _mailActionChoices(
@@ -639,4 +722,5 @@ module.exports = {
   createOrchestrator,
   createOrchestratorRequest,
   createOrchestratorResponse,
+  detectExplicitIndependentIntent,
 };

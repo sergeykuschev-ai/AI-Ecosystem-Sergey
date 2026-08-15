@@ -50,6 +50,7 @@ function createHarness(options = {}) {
   let nowMs = START.getTime();
   let tasks = (options.tasks || []).map(task => ({ ...task }));
   const createCalls = [];
+  const transitionCalls = [];
   const coreCalls = [];
   const clock = () => new Date(nowMs);
   const memory = createMemoryInterface({
@@ -87,8 +88,14 @@ function createHarness(options = {}) {
       createCalls.push({ ownerId, task: { ...task }, context: { ...context } });
       return { ...record };
     },
-    async transitionTask() {
-      throw new Error('transitionTask is not expected in mail-to-task tests');
+    async transitionTask(ownerId, taskId, status, patch, context) {
+      const index = tasks.findIndex(task => task.id === taskId
+        && task.ownerId === ownerId
+        && !['done', 'cancelled'].includes(task.status));
+      if (index < 0) throw new Error('Task not found');
+      tasks[index] = { ...tasks[index], ...patch, status };
+      transitionCalls.push({ ownerId, taskId, status, patch: { ...patch }, context: { ...context } });
+      return { ...tasks[index] };
     },
     async health() {
       return { healthy: true };
@@ -126,7 +133,9 @@ function createHarness(options = {}) {
     arthur,
     coreCalls,
     createCalls,
+    mailCalls: yandex.calls,
     memory,
+    transitionCalls,
     tasks: () => tasks.map(task => ({ ...task })),
     advance(ms) {
       nowMs += ms;
@@ -239,6 +248,103 @@ test('unrelated task question clears mail pending and follows normal routing', a
   assert.equal(harness.createCalls.length, 0);
   assert.equal(harness.coreCalls.filter(call => call.operation === 'listTasks').length, 1);
   assert.equal(await harness.memory.loadPendingMailAction('sergey', 'conversation-A'), null);
+});
+
+test('production regression: pasted active-task response resolves cancel before mail routing', async () => {
+  const harness = createHarness({
+    tasks: [{
+      id: 'task-valta',
+      ownerId: 'sergey',
+      title: 'Проверить письмо Валты',
+      status: 'new',
+      dueAt: null,
+    }],
+  });
+  const clarification = await request(harness.arthur, 'Отмени');
+  const response = await request(
+    harness.arthur,
+    'У тебя 1 активная задача:\n\n1. Проверить письмо Валты'
+  );
+
+  assert.match(clarification.answer.text, /Что именно отменить/);
+  assert.equal(response.answer.text, 'Готово. Задача отменена:\nПроверить письмо Валты');
+  assert.deepEqual(harness.transitionCalls.map(call => call.taskId), ['task-valta']);
+  assert.equal(harness.tasks()[0].status, 'cancelled');
+  assert.equal(harness.mailCalls.length, 0);
+  assert.equal(await harness.memory.loadPendingTaskClarification('sergey', 'conversation-A'), null);
+});
+
+test('exact task title continues pending cancel without running mail search', async () => {
+  const harness = createHarness({
+    tasks: [{
+      id: 'task-valta', ownerId: 'sergey', title: 'Проверить письмо Валты',
+      status: 'new', dueAt: null,
+    }],
+  });
+  await request(harness.arthur, 'Отмени');
+  await request(harness.arthur, 'Проверить письмо Валты');
+
+  assert.deepEqual(harness.transitionCalls.map(call => call.taskId), ['task-valta']);
+  assert.equal(harness.mailCalls.length, 0);
+});
+
+test('known company alias continues pending cancel and keeps ambiguity safe', async () => {
+  const unique = createHarness({
+    tasks: [{
+      id: 'task-valta', ownerId: 'sergey', title: 'Проверить письмо Валты',
+      status: 'new', dueAt: null,
+    }],
+  });
+  await request(unique.arthur, 'Отмени');
+  await request(unique.arthur, 'Валта');
+  assert.deepEqual(unique.transitionCalls.map(call => call.taskId), ['task-valta']);
+  assert.equal(unique.mailCalls.length, 0);
+
+  const ambiguous = createHarness({
+    tasks: [
+      { id: 'task-price', ownerId: 'sergey', title: 'Проверить прайс Валты', status: 'new' },
+      { id: 'task-order', ownerId: 'sergey', title: 'Проверить заказ Валты', status: 'new' },
+    ],
+  });
+  await request(ambiguous.arthur, 'Отмени');
+  const response = await request(ambiguous.arthur, 'Валта');
+  assert.match(response.answer.text, /Нашёл 2 подходящие задачи/);
+  assert.equal(ambiguous.transitionCalls.length, 0);
+  assert.equal(ambiguous.mailCalls.length, 0);
+  assert.ok(await ambiguous.memory.loadPendingTaskClarification('sergey', 'conversation-A'));
+});
+
+test('explicit independent mail command interrupts task clarification and follows mail routing', async () => {
+  const harness = createHarness({
+    tasks: [{
+      id: 'task-valta', ownerId: 'sergey', title: 'Проверить письмо Валты',
+      status: 'new', dueAt: null,
+    }],
+  });
+  await request(harness.arthur, 'Отмени');
+  const response = await request(harness.arthur, 'Что важного в почте Миски сегодня?');
+
+  assert.match(response.answer.text, /Что важного в почте Миски/);
+  assert.equal(harness.transitionCalls.length, 0);
+  assert.ok(harness.mailCalls.length > 0);
+  assert.equal(await harness.memory.loadPendingTaskClarification('sergey', 'conversation-A'), null);
+});
+
+test('unrelated conversational text cannot trigger either task or mail write while clarification is active', async () => {
+  const harness = createHarness({
+    tasks: [{
+      id: 'task-valta', ownerId: 'sergey', title: 'Проверить письмо Валты',
+      status: 'new', dueAt: null,
+    }],
+  });
+  await request(harness.arthur, 'Отмени');
+  const response = await request(harness.arthur, 'Расскажи про Валту');
+
+  assert.match(response.answer.text, /Не нашёл такую задачу среди предложенных/);
+  assert.equal(harness.transitionCalls.length, 0);
+  assert.equal(harness.createCalls.length, 0);
+  assert.equal(harness.mailCalls.length, 0);
+  assert.ok(await harness.memory.loadPendingTaskClarification('sergey', 'conversation-A'));
 });
 
 test('mail proposal confirmation is isolated by conversation and canonical owner', async () => {

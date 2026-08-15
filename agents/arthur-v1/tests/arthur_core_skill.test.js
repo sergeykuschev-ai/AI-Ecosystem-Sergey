@@ -601,6 +601,43 @@ test('reschedule ambiguity preserves dueAt and updates only candidate two', asyn
   assert.equal(harness.tasks().find(task => task.id === 'task-2').dueAt, '2026-08-14T13:59:59.999Z');
 });
 
+test('text references use the shared pending resolver for complete and reschedule', async () => {
+  const complete = createTaskContinuationHarness({
+    tasks: [
+      { id: 'task-report', ownerId: 'sergey', title: 'Проверить отчёт', status: 'new' },
+      { id: 'task-supplier', ownerId: 'sergey', title: 'Позвонить поставщику', status: 'new' },
+    ],
+  });
+  await complete.memory.storePendingTaskClarification('sergey', 'conversation-A', {
+    action: 'complete',
+    operation: 'completeTask',
+    candidates: complete.tasks(),
+    parameters: {},
+  });
+  const completed = await taskMessage(complete.arthur, 'Проверить отчёт');
+  assert.equal(completed.answer.text, 'Готово. Задача выполнена:\nПроверить отчёт');
+  assert.deepEqual(complete.writes.map(write => write.taskId), ['task-report']);
+
+  const reschedule = createTaskContinuationHarness({
+    tasks: [
+      { id: 'task-report', ownerId: 'sergey', title: 'Проверить отчёт', status: 'new' },
+      { id: 'task-supplier', ownerId: 'sergey', title: 'Позвонить поставщику', status: 'new' },
+    ],
+  });
+  await reschedule.memory.storePendingTaskClarification('sergey', 'conversation-A', {
+    action: 'reschedule',
+    operation: 'rescheduleTask',
+    candidates: reschedule.tasks(),
+    parameters: {
+      dueAt: '2026-08-14T13:59:59.999Z',
+      dueLabel: 'в пятницу',
+    },
+  });
+  const moved = await taskMessage(reschedule.arthur, 'Проверить отчёт');
+  assert.equal(moved.answer.text, 'Готово. Новый срок:\nПроверить отчёт\nВ пятницу');
+  assert.deepEqual(reschedule.writes.map(write => write.taskId), ['task-report']);
+});
+
 test('out-of-range clarification performs no write and keeps pending state', async () => {
   const harness = createTaskContinuationHarness();
   await taskMessage(harness.arthur, 'Отмени задачу позвонить поставщику');

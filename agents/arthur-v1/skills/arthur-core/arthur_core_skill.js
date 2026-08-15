@@ -349,6 +349,26 @@ function taskClarificationResult(responseText, pendingClarification = null) {
   };
 }
 
+function taskReferenceClarificationResult(responseText, tasks, operation, parameters = {}) {
+  const visible = tasks.slice(0, MAX_VISIBLE_TASKS);
+  if (visible.length === 0) {
+    return taskClarificationResult('Активных задач сейчас нет.');
+  }
+  return taskClarificationResult(responseText, {
+    action: TASK_ACTION_BY_OPERATION[operation],
+    operation,
+    candidates: visible.map(task => ({
+      id: task.id,
+      title: task.title,
+      status: task.status,
+      dueAt: task.dueAt || null,
+    })),
+    parameters: operation === 'rescheduleTask'
+      ? { dueAt: parameters.dueAt, dueLabel: parameters.dueLabel }
+      : {},
+  });
+}
+
 function createArthurCoreSkill({
   client,
   ownerProfileId,
@@ -422,6 +442,19 @@ function createArthurCoreSkill({
         }
         if (TASK_MUTATION_OPERATIONS.has(operation)) {
           if (parameters.clarification) {
+            if (parameters.pendingTaskSelection) {
+              const activeTasks = await client.listTasks(
+                configuredOwnerProfileId,
+                { limit: TASK_SELECTION_LIMIT },
+                context
+              );
+              return taskReferenceClarificationResult(
+                parameters.clarification,
+                activeTasks,
+                operation,
+                parameters
+              );
+            }
             return taskClarificationResult(parameters.clarification);
           }
           const activeTasks = await client.listTasks(
@@ -476,4 +509,5 @@ module.exports = {
   normalizeTaskTitle,
   selectTask,
   taskMutationResult,
+  taskReferenceClarificationResult,
 };

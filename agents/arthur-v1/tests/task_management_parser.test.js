@@ -32,7 +32,16 @@ test('complete task phrases produce canonical task references', () => {
     assert.equal(detectTaskManagementAction(message), TASK_MANAGEMENT_ACTIONS.COMPLETE);
     assert.deepEqual(parse(message), { ok: true, action: 'complete', title });
   }
-  assert.deepEqual(parse('Отметь задачу как выполненную'), { ok: true, action: 'complete' });
+  assert.deepEqual(parse('Отметь задачу как выполненную'), {
+    ok: false,
+    clarification: 'Что именно выполнить? Напиши название задачи.',
+    pendingTaskSelection: true,
+  });
+  assert.deepEqual(parse('Закрой задачу'), {
+    ok: false,
+    clarification: 'Что именно выполнить? Напиши название задачи.',
+    pendingTaskSelection: true,
+  });
 });
 
 test('cancel task phrases treat delete wording as cancellation', () => {
@@ -48,6 +57,12 @@ test('cancel task phrases treat delete wording as cancellation', () => {
     action: 'cancel',
     taskNumber: 2,
   });
+  assert.deepEqual(parse('Отмени'), {
+    ok: false,
+    clarification: 'Что именно отменить? Напиши название задачи.',
+    pendingTaskSelection: true,
+  });
+  assert.equal(detectIntent('Отмени'), INTENTS.CORE_CANCEL_TASK);
 });
 
 test('reschedule phrases reuse the existing Vladivostok date parser', () => {
@@ -102,6 +117,22 @@ test('task clarification replies recognize dialogue cancellation only as exact s
   assert.equal(parseTaskClarificationReply('Что у меня по задачам?'), null);
 });
 
+test('task clarification replies accept exact titles, aliases, and one pasted numbered task', () => {
+  assert.deepEqual(parseTaskClarificationReply('Проверить письмо Валты'), {
+    type: 'reference',
+    reference: 'Проверить письмо Валты',
+  });
+  assert.deepEqual(parseTaskClarificationReply('Валта'), {
+    type: 'reference',
+    reference: 'Валта',
+  });
+  assert.deepEqual(parseTaskClarificationReply('У тебя 1 активная задача:\n1. Проверить письмо Валты'), {
+    type: 'reference',
+    reference: 'Проверить письмо Валты',
+  });
+  assert.equal(parseTaskClarificationReply('1. Первая задача\n2. Вторая задача'), null);
+});
+
 test('management intents build deterministic Arthur Core operations', () => {
   const builder = createRuleBasedPlanBuilder({
     availableSkills: ['purchasing', 'arthur-core'],
@@ -112,6 +143,7 @@ test('management intents build deterministic Arthur Core operations', () => {
     ['Я позвонил поставщику', INTENTS.CORE_COMPLETE_TASK, 'completeTask'],
     ['Отмени задачу проверить отчёт', INTENTS.CORE_CANCEL_TASK, 'cancelTask'],
     ['Перенеси задачу позвонить поставщику на пятницу', INTENTS.CORE_RESCHEDULE_TASK, 'rescheduleTask'],
+    ['Отмени', INTENTS.CORE_CANCEL_TASK, 'cancelTask'],
   ];
   for (const [message, intent, operation] of scenarios) {
     assert.equal(detectIntent(message), intent);
@@ -119,4 +151,6 @@ test('management intents build deterministic Arthur Core operations', () => {
     assert.equal(plan.steps[0].skill, 'arthur-core');
     assert.equal(plan.steps[0].operation, operation);
   }
+  const cancelPrompt = builder.build({ message: 'Отмени' }).steps[0];
+  assert.equal(cancelPrompt.parameters.pendingTaskSelection, true);
 });

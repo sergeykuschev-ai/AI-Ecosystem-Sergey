@@ -139,19 +139,24 @@ phrases such as `позвонил` or `звонок` to `позвонить`. On
 zero matches return not found; multiple matches return numbered titles and due
 dates without exposing task UUIDs.
 
-For an ambiguous task-management action, Arthur stores a transient pending
+For an ambiguous task-management action, or a bounded command such as `Отмени`
+that still needs a task reference, Arthur stores a transient pending
 clarification for the canonical owner and current `conversationId`. A following
-reply of `1`, `2`, `3`, `первая`, `вторая`, `третья` (including the accusative
-forms) resolves the displayed candidate by its stored task ID. Arthur reads the
+reply may be a displayed number, a Russian ordinal, an exact task title, the
+single numbered title copied from Arthur's task list, or an unambiguous known
+company alias. Resolution always selects a stored candidate ID. Arthur reads the
 active task list again and verifies the stored title, status, and due date before
-calling the Core transition endpoint. It never performs another title search
-after the selection.
+calling the Core transition endpoint.
 
-The pending clarification expires after five minutes. An out-of-range number
-does not write and keeps the clarification active. `не надо`, `отмена`, or
-`отбой` clears the clarification without changing task status. Any other
-message clears the pending clarification and continues through normal intent
-routing, so task lists and ordinary conversation are not blocked.
+The pending clarification expires after five minutes. An invalid or ambiguous
+reference does not write and keeps the clarification active. `не надо`,
+`отмена`, or `отбой` clears the clarification without changing task status.
+While the clarification is active, ordinary names and task-title text are
+resolved before mail or fallback routing. A separate deterministic command,
+such as `Что важного в почте Миски сегодня?` or `Что у меня по задачам?`, clears
+the old clarification and follows its normal intent. An implicit task phrase is
+not treated as a separate create command in this context; an explicit create
+prefix is required to interrupt the clarification.
 
 This state uses the existing in-memory conversation store in the single
 `telegram-gateway` instance. It is intentionally transient and is lost on a

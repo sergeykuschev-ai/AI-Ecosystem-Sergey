@@ -88,6 +88,9 @@ function completeMatch(message) {
     return canonicalTaskReference(`${past[1]} ${past[2]}`);
   }
 
+  if (/^(?:(?:выполнил|завершил|закрой|заверши)(?:\s+задачу)?|отметь\s+задачу\s+как\s+выполненную)$/iu
+    .test(message)) return null;
+
   const patterns = [
     /^задача\s+(.+?)\s+(?:выполнена|завершена)$/iu,
     /^(?:выполнил|завершил|закрой|заверши)\s+(?:задачу\s+)?(.+)$/iu,
@@ -96,11 +99,11 @@ function completeMatch(message) {
     const match = message.match(pattern);
     if (match) return canonicalTaskReference(match[1]);
   }
-  if (/^отметь\s+задачу\s+как\s+выполненную$/iu.test(message)) return null;
   return undefined;
 }
 
 function cancelMatch(message) {
+  if (/^(?:отмени|удали)(?:\s+задачу)?$/iu.test(message)) return null;
   const match = message.match(/^(?:отмени|удали)\s+задачу\s+(.+)$/iu);
   return match ? canonicalTaskReference(match[1]) : undefined;
 }
@@ -132,8 +135,8 @@ function detectTaskManagementAction(message) {
   return null;
 }
 
-function clarification(message) {
-  return { ok: false, clarification: message };
+function clarification(message, metadata = {}) {
+  return { ok: false, clarification: message, ...metadata };
 }
 
 function selector(title) {
@@ -150,12 +153,21 @@ function parseTaskManagementRequest(message, options = {}) {
   if (action === TASK_MANAGEMENT_ACTIONS.COMPLETE) {
     const title = completeMatch(safe);
     if (title === undefined) return clarification('Уточни, какую задачу отметить выполненной.');
+    if (title === null) {
+      return clarification('Что именно выполнить? Напиши название задачи.', {
+        pendingTaskSelection: true,
+      });
+    }
     return { ok: true, action, ...(title ? selector(title) : {}) };
   }
 
   if (action === TASK_MANAGEMENT_ACTIONS.CANCEL) {
     const title = cancelMatch(safe);
-    if (!title) return clarification('Уточни, какую задачу отменить.');
+    if (!title) {
+      return clarification('Что именно отменить? Напиши название задачи.', {
+        pendingTaskSelection: true,
+      });
+    }
     return { ok: true, action, ...selector(title) };
   }
 
@@ -191,7 +203,21 @@ function parseTaskClarificationReply(message) {
     return { type: 'selection', taskNumber: Number(normalized) };
   }
   const taskNumber = CLARIFICATION_SELECTIONS.get(normalized);
-  return taskNumber ? { type: 'selection', taskNumber } : null;
+  if (taskNumber) return { type: 'selection', taskNumber };
+  if (detectTaskManagementAction(message)) return null;
+
+  const numberedReferences = [...message.matchAll(/^\s*\d+[.)]\s+(.+?)\s*$/gmu)]
+    .map(match => canonicalTaskReference(match[1]))
+    .filter(Boolean);
+  if (numberedReferences.length === 1) {
+    return { type: 'reference', reference: numberedReferences[0] };
+  }
+  if (numberedReferences.length > 1 || /[?？]/u.test(message)) return null;
+
+  const singleLine = message.trim();
+  if (!singleLine || /[\r\n]/u.test(singleLine) || singleLine.length > 160) return null;
+  const reference = canonicalTaskReference(singleLine.replace(/^задача\s+/iu, ''));
+  return reference ? { type: 'reference', reference } : null;
 }
 
 module.exports = {
