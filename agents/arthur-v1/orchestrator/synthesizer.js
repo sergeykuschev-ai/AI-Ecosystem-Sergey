@@ -3,6 +3,22 @@
 const { DataFabricationGuardError } = require('../errors/arthur_errors');
 const { buildSystemMessage } = require('../identity/arthur_identity');
 
+const MAIL_SENDER_TIMEOUT_RESPONSE =
+  'Почта отвечает медленнее обычного. Не успел завершить поиск. Попробуй ещё раз.';
+const MAIL_SENDER_UNAVAILABLE_RESPONSE =
+  'Почта временно недоступна. Попробуй ещё раз позже.';
+const CONTROLLED_MAIL_FAILURE_CODES = new Set([
+  'SKILL_TIMEOUT',
+  'MAIL_TIMEOUT',
+  'MAIL_AUTH_FAILED',
+  'MAIL_DNS_FAILED',
+  'MAIL_TLS_FAILED',
+  'MAIL_PROVIDER_UNAVAILABLE',
+  'MAIL_ADAPTER_UNAVAILABLE',
+  'MAIL_CONFIG_INVALID',
+  'MAIL_PROTOCOL_ERROR',
+]);
+
 function createSources(stepResults) {
   return Object.entries(stepResults).map(([stepId, result]) => ({
     stepId,
@@ -38,6 +54,28 @@ function safeSkillDataForSynthesis(skill, data) {
           code: warning.code,
         }))
       : [],
+  };
+}
+
+function deterministicMailFailure(failedResults) {
+  if (failedResults.length !== 1) return null;
+  const [failure] = failedResults;
+  if (failure.skill !== 'mail' || failure.operation !== 'findMessagesFromSender') {
+    return null;
+  }
+  const causeCodes = (failure.errors || []).map(error => error.causeCode || error.code);
+  if (!causeCodes.some(code => CONTROLLED_MAIL_FAILURE_CODES.has(code))) {
+    return null;
+  }
+  const text = causeCodes.includes('SKILL_TIMEOUT')
+    ? MAIL_SENDER_TIMEOUT_RESPONSE
+    : MAIL_SENDER_UNAVAILABLE_RESPONSE;
+  return {
+    text,
+    markdown: text,
+    confidence: 'low',
+    followUps: [],
+    safeUserFacingError: true,
   };
 }
 
@@ -102,10 +140,15 @@ class Synthesizer {
     };
 
     let answer;
+    const deterministicFailure = successfulResults.length === 0
+      ? deterministicMailFailure(failedResults)
+      : null;
     const deterministicText = successfulResults.length === 1 && failedResults.length === 0
       ? successfulResults[0].data?.responseText
       : null;
-    if (typeof deterministicText === 'string' && deterministicText.trim() !== '') {
+    if (deterministicFailure) {
+      answer = deterministicFailure;
+    } else if (typeof deterministicText === 'string' && deterministicText.trim() !== '') {
       answer = {
         text: deterministicText,
         markdown: deterministicText,
@@ -144,6 +187,7 @@ class Synthesizer {
       sources: createSources(stepResults),
       confidence: answer.confidence || 'medium',
       followUps: answer.followUps || [],
+      ...(deterministicFailure ? { safeUserFacingError: true } : {}),
     };
   }
 

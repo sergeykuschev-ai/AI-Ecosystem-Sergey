@@ -14,6 +14,8 @@ const {
   senderMailParameters,
 } = require('./mail_request_parser');
 
+const MAIL_SENDER_TIMEOUT_MS = 30000;
+
 function createStep({
   id,
   skill,
@@ -225,7 +227,7 @@ const PLAN_BUILDERS = {
         }),
         ...(input.parameters || {}),
       },
-      timeoutMs: 10000,
+      timeoutMs: MAIL_SENDER_TIMEOUT_MS,
     }),
   ]),
 
@@ -316,6 +318,7 @@ module.exports = {
   createExecutionPlan,
   createStep,
   INTENTS,
+  MAIL_SENDER_TIMEOUT_MS,
   detectIntent,
   taskBriefView,
   unreadMailParameters,

@@ -163,6 +163,19 @@ test('formatArthurResponse returns unavailable on failed', () => {
   assert.doesNotMatch(result, /Вы|Ваш|Попробуйте/);
 });
 
+test('formatArthurResponse preserves a safe deterministic mail error', () => {
+  const response = {
+    status: 'failed',
+    answer: {
+      text: 'Почта отвечает медленнее обычного. Не успел завершить поиск. Попробуй ещё раз.',
+      confidence: 'low',
+      safeUserFacingError: true,
+    },
+  };
+
+  assert.equal(formatArthurResponse(response), response.answer.text);
+});
+
 test('formatArthurResponse marks partial results', () => {
   const response = {
     status: 'partial',
@@ -568,6 +581,39 @@ test('non-AI error returns generic fallback message', async () => {
 
   assert.equal(telegram.sent.length, 1);
   assert.ok(telegram.sent[0].text.includes('Артур временно недоступен'));
+});
+
+test('Telegram sends the deterministic mail timeout response unchanged', async () => {
+  const telegram = createFakeTelegramClient({
+    updates: [{
+      update_id: 1,
+      message: {
+        message_id: 1,
+        from: { id: 111111 },
+        chat: { id: 111111 },
+        text: 'Пришёл ответ от Валты?',
+      },
+    }],
+  });
+  const timeoutText =
+    'Почта отвечает медленнее обычного. Не успел завершить поиск. Попробуй ещё раз.';
+  const arthur = createFakeArthur({
+    'Пришёл ответ от Валты?': {
+      status: 'failed',
+      answer: {
+        text: timeoutText,
+        confidence: 'low',
+        safeUserFacingError: true,
+      },
+    },
+  });
+  const gateway = createTestGateway({ telegramClient: telegram, arthur });
+
+  setTimeout(() => gateway.stop(), 200);
+  await gateway.start();
+
+  assert.equal(telegram.sent.length, 1);
+  assert.equal(telegram.sent[0].text, timeoutText);
 });
 
 test('natural language request is forwarded to Arthur', async () => {

@@ -179,6 +179,7 @@ async function executeStep(skill, step, context, stepResults, logger) {
     metadata: { durationMs, attempt: maxRetries },
     errors: [{
       code: wrappedError.code,
+      causeCode: wrappedError.cause?.code || wrappedError.cause?.name || null,
       message: wrappedError.message,
       retryable: wrappedError.retryable,
     }],

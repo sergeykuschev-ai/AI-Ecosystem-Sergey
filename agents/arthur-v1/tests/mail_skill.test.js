@@ -13,6 +13,7 @@ const {
 } = require('../skills/mail/message_normalizer');
 const {
   CAPABILITIES,
+  MAX_LIMIT,
   MAX_RESPONSE_LENGTH,
   createMailSkill,
 } = require('../skills/mail/mail_skill');
@@ -361,9 +362,25 @@ test('findMessagesFromSender uses known text aliases without inventing an email'
   assert.equal(result.metadata.sender.knownAlias, true);
   assert.equal(result.metadata.sender.aliasId, 'valta');
   assert.equal(result.metadata.sender.generatedAddress, false);
+  assert.equal(yandex.calls[0].limit, 1);
   assert.deepEqual(yandex.calls[0].filters.companyTerms, ['Валта', 'Валты', 'Валте']);
   assert.equal(yandex.calls[0].filters.unreadOnly, undefined);
   assert.match(result.data.responseText, /Последнее письмо от Валта|Последнее письмо от Валты/);
+});
+
+test('known company search passes the requested limit to the provider', async () => {
+  const { skill, yandex } = createTestMail();
+  await skill.execute({
+    operation: 'findMessagesFromSender',
+    parameters: {
+      businessContext: 'miska',
+      sender: 'Валта',
+      since: '2026-08-08T04:00:00.000Z',
+      limit: 3,
+    },
+  });
+
+  assert.equal(yandex.calls[0].limit, 3);
 });
 
 test('known company search matches Valta in subject when From is an employee name', async () => {
@@ -439,6 +456,7 @@ test('unknown sender search does not generate an address and uses bounded recent
   assert.equal(result.data.count, 1);
   assert.equal(result.metadata.sender.knownAlias, false);
   assert.equal(result.metadata.sender.generatedAddress, false);
+  assert.equal(yandex.calls[0].limit, MAX_LIMIT);
   assert.equal(yandex.calls[0].filters.from, undefined);
   assert.doesNotMatch(JSON.stringify(result.metadata.sender), /@/);
 });

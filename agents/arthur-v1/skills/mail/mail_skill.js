@@ -481,7 +481,11 @@ function createMailSkill({
     const { messages: collected, warnings } = await collect(
       mailboxes,
       'searchMail',
-      mailbox => ({ mailbox, limit: MAX_LIMIT, filters: adapterFilters })
+      mailbox => ({
+        mailbox,
+        limit: sender.known ? limit : MAX_LIMIT,
+        filters: adapterFilters,
+      })
     );
     const messages = collected
       .filter(message => Date.parse(message.receivedAt) >= Date.parse(since))

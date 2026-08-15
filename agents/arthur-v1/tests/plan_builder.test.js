@@ -116,6 +116,7 @@ test('sender questions deterministically route to findMessagesFromSender', () =>
     assert.equal(plan.steps[0].parameters.businessContext, 'miska');
     assert.equal(plan.steps[0].parameters.limit, limit);
     assert.equal(plan.steps[0].parameters.since, '2026-08-08T04:00:00.000Z');
+    assert.equal(plan.steps[0].timeoutMs, 30000);
   }
 });
 

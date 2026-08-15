@@ -73,6 +73,9 @@ function formatArthurResponse(response) {
   const status = response?.status || 'unknown';
 
   if (status === 'failed') {
+    if (response?.answer?.safeUserFacingError === true) {
+      return text;
+    }
     return 'Артур временно недоступен. Попробуй позже.';
   }
 
