@@ -476,7 +476,7 @@ function createMailSkill({
     };
     const mailboxes = selectMailboxes(normalized);
     const adapterFilters = sender.known
-      ? { from: sender.searchTerm, since }
+      ? { companyTerms: [...new Set([...sender.aliases, ...sender.addresses])], since }
       : { since };
     const { messages: collected, warnings } = await collect(
       mailboxes,
@@ -486,7 +486,7 @@ function createMailSkill({
     const messages = collected
       .filter(message => Date.parse(message.receivedAt) >= Date.parse(since))
       .filter(message => senderAliasRegistry.matchMessage(message, sender, {
-        allowSubjectFallback: !sender.known,
+        allowSubjectFallback: true,
       }))
       .sort((left, right) => Date.parse(right.receivedAt) - Date.parse(left.receivedAt))
       .slice(0, limit);

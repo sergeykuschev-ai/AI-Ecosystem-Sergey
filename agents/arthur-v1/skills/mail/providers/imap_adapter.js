@@ -10,7 +10,14 @@ const DEFAULT_CONNECTION_TIMEOUT_MS = 10000;
 const DEFAULT_SOCKET_TIMEOUT_MS = 30000;
 const DEFAULT_MAX_MESSAGE_BYTES = 128 * 1024;
 const MAX_LIMIT = 20;
-const SEARCH_FILTER_KEYS = Object.freeze(['from', 'subject', 'since', 'unreadOnly']);
+const MAX_COMPANY_TERMS = 10;
+const SEARCH_FILTER_KEYS = Object.freeze([
+  'from',
+  'subject',
+  'since',
+  'unreadOnly',
+  'companyTerms',
+]);
 
 function requireNonEmptyString(value, field) {
   if (typeof value !== 'string' || value.trim() === '') {
@@ -142,6 +149,18 @@ function normalizeSearchFilters(filters = {}) {
     }
     normalized.unreadOnly = filters.unreadOnly;
   }
+  if (filters.companyTerms != null) {
+    if (!Array.isArray(filters.companyTerms)
+      || filters.companyTerms.length === 0
+      || filters.companyTerms.length > MAX_COMPANY_TERMS) {
+      throw new TypeError(
+        `mail search companyTerms must contain between 1 and ${MAX_COMPANY_TERMS} strings`
+      );
+    }
+    normalized.companyTerms = Object.freeze([...new Set(filters.companyTerms.map(term => (
+      requireNonEmptyString(term, 'mail search company term')
+    )))].slice(0, MAX_COMPANY_TERMS));
+  }
   return Object.freeze(normalized);
 }
 
@@ -152,7 +171,28 @@ function buildSearchCriteria(filters = {}) {
   if (normalized.subject) criteria.subject = normalized.subject;
   if (normalized.since) criteria.since = new Date(normalized.since);
   if (normalized.unreadOnly === true) criteria.seen = false;
+  if (normalized.companyTerms) {
+    const alternatives = normalized.companyTerms.flatMap(term => [
+      { from: term },
+      ...(term.includes('@') ? [] : [{ subject: term }]),
+    ]);
+    if (alternatives.length === 1) Object.assign(criteria, alternatives[0]);
+    else criteria.or = alternatives;
+  }
   return criteria;
+}
+
+function companyTermMatchesMessage(message, term) {
+  const normalizedTerm = normalizeMatchText(term);
+  const isEmail = term.includes('@');
+  const senderMatches = (Array.isArray(message.from) ? message.from : []).some(sender => {
+    const address = String(sender?.address || '').trim().toLowerCase();
+    if (isEmail) return address === term.toLowerCase();
+    return normalizeMatchText(sender?.name).includes(normalizedTerm)
+      || normalizeMatchText(address).includes(normalizedTerm);
+  });
+  if (senderMatches) return true;
+  return !isEmail && normalizeMatchText(message.subject).includes(normalizedTerm);
 }
 
 function messageMatchesFilters(message, filters = {}) {
@@ -172,6 +212,10 @@ function messageMatchesFilters(message, filters = {}) {
   }
   if (normalized.subject
     && !normalizeMatchText(message.subject).includes(normalizeMatchText(normalized.subject))) {
+    return false;
+  }
+  if (normalized.companyTerms
+    && !normalized.companyTerms.some(term => companyTermMatchesMessage(message, term))) {
     return false;
   }
   return true;
@@ -359,6 +403,7 @@ module.exports = {
   DEFAULT_FOLDER,
   DEFAULT_MAX_MESSAGE_BYTES,
   DEFAULT_PORT,
+  MAX_COMPANY_TERMS,
   DEFAULT_SOCKET_TIMEOUT_MS,
   MAX_LIMIT,
   SEARCH_FILTER_KEYS,

@@ -361,8 +361,61 @@ test('findMessagesFromSender uses known text aliases without inventing an email'
   assert.equal(result.metadata.sender.knownAlias, true);
   assert.equal(result.metadata.sender.aliasId, 'valta');
   assert.equal(result.metadata.sender.generatedAddress, false);
-  assert.equal(yandex.calls[0].filters.from, 'Валта');
+  assert.deepEqual(yandex.calls[0].filters.companyTerms, ['Валта', 'Валты', 'Валте']);
+  assert.equal(yandex.calls[0].filters.unreadOnly, undefined);
   assert.match(result.data.responseText, /Последнее письмо от Валта|Последнее письмо от Валты/);
+});
+
+test('known company search matches Valta in subject when From is an employee name', async () => {
+  const { skill, yandex } = createTestMail({
+    yandexMessages: [yandexMessage({
+      messageId: 'valta-subject-1',
+      sourceRef: 'yandex:valta-subject-1',
+      from: [{ name: 'Анна Размовенко', address: null }],
+      subject: 'Валта прайс 14.08.26 общ.xlsx, ПРОМО...',
+      receivedAt: '2026-08-14T00:32:20.000Z',
+      isUnread: false,
+    })],
+  });
+  const result = await skill.execute({
+    operation: 'findMessagesFromSender',
+    parameters: {
+      businessContext: 'miska',
+      sender: 'Валта',
+      since: '2026-08-08T00:00:00.000Z',
+      limit: 10,
+    },
+  });
+
+  assert.equal(result.data.count, 1);
+  assert.equal(result.data.messages[0].messageId, 'valta-subject-1');
+  assert.equal(result.data.messages[0].isUnread, false);
+  assert.deepEqual(yandex.calls[0].filters, {
+    companyTerms: ['Валта', 'Валты', 'Валте'],
+    since: '2026-08-08T00:00:00.000Z',
+  });
+});
+
+test('known company search rejects a message when neither From nor Subject contains the alias', async () => {
+  const { skill } = createTestMail({
+    yandexMessages: [yandexMessage({
+      messageId: 'unrelated-subject-1',
+      sourceRef: 'yandex:unrelated-subject-1',
+      from: [{ name: 'Анна Размовенко', address: null }],
+      subject: 'Обновлённый прайс 14.08.26',
+      receivedAt: '2026-08-14T00:32:20.000Z',
+    })],
+  });
+  const result = await skill.execute({
+    operation: 'findMessagesFromSender',
+    parameters: {
+      businessContext: 'miska',
+      sender: 'Валта',
+      since: '2026-08-08T00:00:00.000Z',
+    },
+  });
+
+  assert.equal(result.data.count, 0);
 });
 
 test('unknown sender search does not generate an address and uses bounded recent candidates', async () => {

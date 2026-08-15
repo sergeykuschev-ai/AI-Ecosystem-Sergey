@@ -222,6 +222,45 @@ test('safe IMAP search maps only whitelisted from, subject, since and unread fil
   ]);
 });
 
+test('known company search uses bounded IMAP OR across From and Subject', async () => {
+  const client = createFakeClient({ unseenUids: [4501] });
+  const { adapter } = createAdapter(client);
+  const since = '2026-08-08T00:00:00.000Z';
+  const messages = await adapter.searchMail({
+    limit: 1,
+    filters: {
+      companyTerms: ['Валта', 'confirmed@valta.example'],
+      since,
+    },
+  });
+
+  const searchCall = client.calls.find(call => call.method === 'search');
+  assert.deepEqual(searchCall.query, {
+    since: new Date(since),
+    or: [
+      { from: 'Валта' },
+      { subject: 'Валта' },
+      { from: 'confirmed@valta.example' },
+    ],
+  });
+  assert.equal(searchCall.query.seen, undefined);
+  assert.deepEqual(client.calls.find(call => call.method === 'mailboxOpen').options, {
+    readOnly: true,
+  });
+  assert.equal(messages.length, 1);
+});
+
+test('confirmed address-only company search stays an exact From criterion', () => {
+  const since = '2026-08-08T00:00:00.000Z';
+  assert.deepEqual(buildSearchCriteria({
+    companyTerms: ['confirmed@valta.example'],
+    since,
+  }), {
+    since: new Date(since),
+    from: 'confirmed@valta.example',
+  });
+});
+
 test('listRecentMail requires a bounded since filter and keeps EXAMINE read-only', async () => {
   const client = createFakeClient({ unseenUids: [5001] });
   const { adapter } = createAdapter(client);
@@ -241,6 +280,10 @@ test('raw or arbitrary IMAP criteria cannot cross the adapter boundary', async (
   assert.throws(
     () => buildSearchCriteria({ raw: 'ALL OR STORE 1 +FLAGS \\Seen' }),
     /unsupported mail search filter: raw/
+  );
+  assert.throws(
+    () => buildSearchCriteria({ text: 'Валта' }),
+    /unsupported mail search filter: text/
   );
   await assert.rejects(
     () => adapter.searchMail({ filters: { query: ['ALL'] } }),

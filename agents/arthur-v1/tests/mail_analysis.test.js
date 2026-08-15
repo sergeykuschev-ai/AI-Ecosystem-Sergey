@@ -55,6 +55,25 @@ test('configured confirmed sender address matches exactly', () => {
   }), resolution), false);
 });
 
+test('known company alias can match Subject only when subject fallback is explicitly enabled', () => {
+  const registry = createSenderAliasRegistry();
+  const resolution = registry.resolve('Валта');
+  const valtaSubject = message({
+    from: [{ name: 'Анна Размовенко', address: null }],
+    subject: 'Валта прайс 14.08.26 общ.xlsx, ПРОМО...',
+    receivedAt: '2026-08-14T00:32:20.000Z',
+  });
+  const unrelatedSubject = message({
+    from: [{ name: 'Анна Размовенко', address: null }],
+    subject: 'Обновлённый прайс 14.08.26',
+    receivedAt: '2026-08-14T00:32:20.000Z',
+  });
+
+  assert.equal(registry.matchMessage(valtaSubject, resolution), false);
+  assert.equal(registry.matchMessage(valtaSubject, resolution, { allowSubjectFallback: true }), true);
+  assert.equal(registry.matchMessage(unrelatedSubject, resolution, { allowSubjectFallback: true }), false);
+});
+
 test('known supplier and business subject produce explainable positive signals', () => {
   const aliasRegistry = createSenderAliasRegistry();
   const result = scoreMailMessage(message({

@@ -29,6 +29,17 @@ function filterMessages(messages, filters = {}) {
       if (!senderMatch) return false;
     }
     if (filters.subject && !includesNormalized(message.subject, filters.subject)) return false;
+    if (filters.companyTerms) {
+      const companyMatch = filters.companyTerms.some(term => {
+        const senderMatch = (Array.isArray(message.from) ? message.from : []).some(sender => (
+          term.includes('@')
+            ? String(sender?.address || '').trim().toLowerCase() === term.toLowerCase()
+            : includesNormalized(sender?.name, term) || includesNormalized(sender?.address, term)
+        ));
+        return senderMatch || (!term.includes('@') && includesNormalized(message.subject, term));
+      });
+      if (!companyMatch) return false;
+    }
     return true;
   });
 }

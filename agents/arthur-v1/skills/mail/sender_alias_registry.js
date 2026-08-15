@@ -145,9 +145,11 @@ class SenderAliasRegistry {
     if (senders.some(sender => resolved.aliases.some(alias => phraseMatches(sender.name, alias)))) {
       return true;
     }
-    if (!resolved.known && allowSubjectFallback) {
-      const normalizedQuery = normalizeMatchText(resolved.query);
-      if (normalizedQuery.length >= 5 && phraseMatches(message?.subject, resolved.query)) return true;
+    if (allowSubjectFallback) {
+      const subjectAliases = resolved.known ? resolved.aliases : [resolved.query];
+      if (subjectAliases.some(alias => (
+        normalizeMatchText(alias).length >= 5 && phraseMatches(message?.subject, alias)
+      ))) return true;
     }
     return false;
   }

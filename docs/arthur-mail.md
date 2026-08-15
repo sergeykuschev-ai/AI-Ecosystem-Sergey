@@ -30,9 +30,11 @@ sender lookup to 7 days. The adapter does not expose or call `STORE`, `EXPUNGE`,
 
 The provider-neutral sender alias registry initially contains text aliases for
 Valta, Premium Pet, Zoograd, and Onikienko. It contains no inferred email
-addresses. A confirmed address can be configured later and is then matched
-exactly; unknown senders are matched conservatively by display name or a full
-subject phrase.
+addresses. Known company lookup uses a bounded IMAP `OR` across configured
+alias tokens in `From` and `Subject`, plus exact `From` matching for confirmed
+addresses. Unknown senders are matched conservatively by display name or a
+full subject phrase. Arthur never invents or automatically persists an address
+discovered in mail.
 
 The “important Miska mail today” view is deterministic. It scores current-day
 and unread messages, known aliases, business subject tokens, and conservative
