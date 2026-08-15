@@ -4,6 +4,7 @@ const DEFAULT_SENDER_ALIASES = Object.freeze([
   Object.freeze({
     aliasId: 'valta',
     displayName: 'Валта',
+    taskName: 'Валты',
     businessContext: 'miska',
     aliases: Object.freeze(['Валта', 'Валты', 'Валте']),
     addresses: Object.freeze([]),
@@ -11,6 +12,7 @@ const DEFAULT_SENDER_ALIASES = Object.freeze([
   Object.freeze({
     aliasId: 'premium-pet',
     displayName: 'Premium Pet',
+    taskName: 'Premium Pet',
     businessContext: 'miska',
     aliases: Object.freeze(['Premium Pet']),
     addresses: Object.freeze([]),
@@ -18,6 +20,7 @@ const DEFAULT_SENDER_ALIASES = Object.freeze([
   Object.freeze({
     aliasId: 'zoograd',
     displayName: 'Зооград',
+    taskName: 'Зоограда',
     businessContext: 'miska',
     aliases: Object.freeze(['Зооград', 'Зоограда']),
     addresses: Object.freeze([]),
@@ -25,6 +28,7 @@ const DEFAULT_SENDER_ALIASES = Object.freeze([
   Object.freeze({
     aliasId: 'onikienko',
     displayName: 'Оникиенко',
+    taskName: 'Оникиенко',
     businessContext: 'miska',
     aliases: Object.freeze(['Оникиенко']),
     addresses: Object.freeze([]),
@@ -67,6 +71,7 @@ function normalizeAliasEntry(entry) {
   return Object.freeze({
     aliasId: requireNonEmptyString(entry.aliasId, 'sender aliasId'),
     displayName: requireNonEmptyString(entry.displayName, 'sender alias displayName'),
+    taskName: requireNonEmptyString(entry.taskName || entry.displayName, 'sender alias taskName'),
     businessContext: requireNonEmptyString(entry.businessContext, 'sender alias businessContext'),
     aliases: Object.freeze(normalizedAliases),
     addresses: Object.freeze(normalizedAddresses),
@@ -128,6 +133,7 @@ class SenderAliasRegistry {
       query: senderQuery,
       aliasId: entry.aliasId,
       displayName: entry.displayName,
+      taskName: entry.taskName,
       businessContext: entry.businessContext,
       aliases: entry.aliases,
       addresses: entry.addresses,

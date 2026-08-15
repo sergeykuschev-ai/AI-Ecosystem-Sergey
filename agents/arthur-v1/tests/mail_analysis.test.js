@@ -34,6 +34,12 @@ test('default supplier aliases contain text names but no invented email addresse
     'Оникиенко',
   ]);
   assert.ok(DEFAULT_SENDER_ALIASES.every(entry => entry.addresses.length === 0));
+  assert.deepEqual(DEFAULT_SENDER_ALIASES.map(entry => entry.taskName), [
+    'Валты',
+    'Premium Pet',
+    'Зоограда',
+    'Оникиенко',
+  ]);
 });
 
 test('configured confirmed sender address matches exactly', () => {

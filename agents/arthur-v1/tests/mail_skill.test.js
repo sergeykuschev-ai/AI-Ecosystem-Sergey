@@ -726,8 +726,10 @@ test('sender and important mail intents stay deterministic and bypass AI', async
 
   assert.deepEqual(sender.modulesUsed, ['mail']);
   assert.match(sender.answer.text, /Последнее письмо/);
+  assert.doesNotMatch(sender.answer.text, /Создать задачу/);
   assert.deepEqual(important.modulesUsed, ['mail']);
   assert.match(important.answer.text, /Что важного в почте Миски сегодня/);
+  assert.doesNotMatch(important.answer.text, /Создать задачу/);
   assert.equal(aiCalled, false);
 });
 

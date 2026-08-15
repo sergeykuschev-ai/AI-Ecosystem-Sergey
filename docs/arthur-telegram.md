@@ -158,6 +158,21 @@ This state uses the existing in-memory conversation store in the single
 Gateway restart; the user must then repeat the original task-management
 command. No PostgreSQL table or scheduler is used for clarification state.
 
+Mail-to-task uses the same conversation-scoped pending-action store, not a
+separate dialogue engine. A successful Miska sender search or important-mail
+summary can offer a deterministic task proposal, but it never writes to Arthur
+Core immediately. The proposal is available only to canonical owner `sergey`
+in the same `conversationId` and expires after ten minutes.
+
+An exact positive reply (`да`, `создай`, `создать`, `сделай`, `ок`, `хорошо`,
+or `давай`) confirms one proposal. An exact negative reply (`нет`, `не надо`,
+`отмена`, or `не создавать`) clears it. Multiple messages require a displayed
+number or an unambiguous company selection such as `Создай по Валте`. Any
+unrelated request clears the pending mail proposal and follows normal routing.
+Only the confirmed continuation invokes the existing `arthur-core.createTask`
+capability and duplicate guard. The pending state and task contain no mail body,
+snippet, raw MIME, attachments, or credentials.
+
 ## Limited write scope
 
 Through Telegram you can only:

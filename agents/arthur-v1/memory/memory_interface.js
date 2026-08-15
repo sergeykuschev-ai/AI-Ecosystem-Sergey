@@ -1,14 +1,21 @@
 'use strict';
 
 const DEFAULT_PENDING_TASK_CLARIFICATION_TTL_MS = 5 * 60 * 1000;
+const DEFAULT_PENDING_MAIL_ACTION_TTL_MS = 10 * 60 * 1000;
+const PENDING_KINDS = Object.freeze({
+  MAIL_TASK_CREATION: 'mailTaskCreation',
+  TASK_CLARIFICATION: 'taskClarification',
+});
 
 class MemoryInterface {
   constructor(options = {}) {
     this._entries = options.store || new Map();
-    this._pendingTaskClarifications = options.pendingTaskStore || new Map();
+    this._pendingActions = options.pendingActionStore || options.pendingTaskStore || new Map();
     this._clock = options.clock || (() => new Date());
     this._pendingTaskClarificationTtlMs = options.pendingTaskClarificationTtlMs
       ?? DEFAULT_PENDING_TASK_CLARIFICATION_TTL_MS;
+    this._pendingMailActionTtlMs = options.pendingMailActionTtlMs
+      ?? DEFAULT_PENDING_MAIL_ACTION_TTL_MS;
   }
 
   async load(userId, conversationId) {
@@ -31,9 +38,8 @@ class MemoryInterface {
   }
 
   async storePendingTaskClarification(ownerId, conversationId, pending) {
-    const key = this._key(ownerId, conversationId);
-    const now = this._now();
-    const record = {
+    return this._storePendingAction(ownerId, conversationId, {
+      kind: PENDING_KINDS.TASK_CLARIFICATION,
       ownerId,
       conversationId,
       action: pending.action,
@@ -45,31 +51,88 @@ class MemoryInterface {
         dueAt: candidate.dueAt || null,
       })),
       parameters: { ...(pending.parameters || {}) },
-      createdAt: now.toISOString(),
-      expiresAt: new Date(now.getTime() + this._pendingTaskClarificationTtlMs).toISOString(),
-    };
-    this._pendingTaskClarifications.set(key, record);
-    return { ...record, candidates: record.candidates.map(candidate => ({ ...candidate })) };
+    }, this._pendingTaskClarificationTtlMs);
   }
 
   async loadPendingTaskClarification(ownerId, conversationId) {
-    const key = this._key(ownerId, conversationId);
-    const pending = this._pendingTaskClarifications.get(key);
-    if (!pending) return null;
-    if (new Date(pending.expiresAt).getTime() <= this._now().getTime()) {
-      this._pendingTaskClarifications.delete(key);
-      return null;
-    }
-    return {
-      ...pending,
-      candidates: pending.candidates.map(candidate => ({ ...candidate })),
-      parameters: { ...pending.parameters },
-    };
+    return this._loadPendingAction(ownerId, conversationId, PENDING_KINDS.TASK_CLARIFICATION);
   }
 
   async clearPendingTaskClarification(ownerId, conversationId) {
-    this._pendingTaskClarifications.delete(this._key(ownerId, conversationId));
+    this._clearPendingAction(ownerId, conversationId, PENDING_KINDS.TASK_CLARIFICATION);
     return true;
+  }
+
+  async storePendingMailAction(ownerId, conversationId, pending) {
+    const candidates = (pending.candidates || []).map(candidate => ({
+      mailboxId: candidate.mailboxId,
+      sourceRef: candidate.sourceRef,
+      title: candidate.title,
+      subject: candidate.subject,
+      sender: candidate.sender,
+      companyAliasId: candidate.companyAliasId || null,
+      companyDisplayName: candidate.companyDisplayName || null,
+      ...(candidate.dueAt ? { dueAt: candidate.dueAt } : {}),
+      ...(candidate.dueLabel ? { dueLabel: candidate.dueLabel } : {}),
+    }));
+    return this._storePendingAction(ownerId, conversationId, {
+      kind: PENDING_KINDS.MAIL_TASK_CREATION,
+      ownerId,
+      conversationId,
+      action: 'createTaskFromMail',
+      candidates,
+    }, this._pendingMailActionTtlMs);
+  }
+
+  async loadPendingMailAction(ownerId, conversationId) {
+    return this._loadPendingAction(
+      ownerId,
+      conversationId,
+      PENDING_KINDS.MAIL_TASK_CREATION,
+      { returnExpired: true }
+    );
+  }
+
+  async clearPendingMailAction(ownerId, conversationId) {
+    this._clearPendingAction(ownerId, conversationId, PENDING_KINDS.MAIL_TASK_CREATION);
+    return true;
+  }
+
+  _storePendingAction(ownerId, conversationId, pending, ttlMs) {
+    const now = this._now();
+    const record = {
+      ...pending,
+      ownerId,
+      conversationId,
+      createdAt: now.toISOString(),
+      expiresAt: new Date(now.getTime() + ttlMs).toISOString(),
+    };
+    this._pendingActions.set(this._key(ownerId, conversationId), record);
+    return this._clonePending(record);
+  }
+
+  _loadPendingAction(ownerId, conversationId, kind, { returnExpired = false } = {}) {
+    const key = this._key(ownerId, conversationId);
+    const pending = this._pendingActions.get(key);
+    if (!pending || pending.kind !== kind) return null;
+    if (new Date(pending.expiresAt).getTime() <= this._now().getTime()) {
+      this._pendingActions.delete(key);
+      return returnExpired ? { ...this._clonePending(pending), expired: true } : null;
+    }
+    return { ...this._clonePending(pending), expired: false };
+  }
+
+  _clearPendingAction(ownerId, conversationId, kind) {
+    const key = this._key(ownerId, conversationId);
+    if (this._pendingActions.get(key)?.kind === kind) this._pendingActions.delete(key);
+  }
+
+  _clonePending(pending) {
+    return {
+      ...pending,
+      candidates: (pending.candidates || []).map(candidate => ({ ...candidate })),
+      ...(pending.parameters ? { parameters: { ...pending.parameters } } : {}),
+    };
   }
 
   _now() {
@@ -89,7 +152,9 @@ function createMemoryInterface(options = {}) {
 }
 
 module.exports = {
+  DEFAULT_PENDING_MAIL_ACTION_TTL_MS,
   DEFAULT_PENDING_TASK_CLARIFICATION_TTL_MS,
+  PENDING_KINDS,
   MemoryInterface,
   createMemoryInterface,
 };

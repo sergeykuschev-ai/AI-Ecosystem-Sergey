@@ -10,6 +10,9 @@ const {
   createStep,
 } = require('../planner/plan_builder');
 const { parseTaskClarificationReply } = require('../planner/task_management_parser');
+const { parseMailTaskActionReply } = require('../planner/mail_task_action_parser');
+const { appendTaskProposal } = require('../skills/mail/mail_task_proposal');
+const { normalizeMatchText } = require('../skills/mail/sender_alias_registry');
 const { createLLMPlanBuilder } = require('../planner/llm_plan_builder');
 const { getProviderDiagnostics } = require('../ai/provider_factory');
 const { buildDirectResponseSystemMessage } = require('../identity/arthur_identity');
@@ -238,6 +241,149 @@ class ArthurOrchestrator {
     };
   }
 
+  _mailActionChoices(
+    candidates,
+    prefix = 'Нашёл несколько подходящих писем:',
+    selectionSource = candidates
+  ) {
+    return [
+      prefix,
+      '',
+      ...candidates.map(candidate => (
+        `${selectionSource.indexOf(candidate) + 1}. ${candidate.title}`
+      )),
+      '',
+      'Уточни номер.',
+    ].join('\n');
+  }
+
+  _selectMailActionCandidates(candidates, reply) {
+    if (reply.type === 'selection') {
+      const candidate = candidates[reply.selectionNumber - 1];
+      return candidate ? [candidate] : [];
+    }
+    if (reply.type !== 'target') return [...candidates];
+    if (reply.aliasId) {
+      return candidates.filter(candidate => candidate.companyAliasId === reply.aliasId);
+    }
+    const query = normalizeMatchText(reply.query);
+    if (query.length < 4) return [];
+    return candidates.filter(candidate => [
+      candidate.companyDisplayName,
+      candidate.sender,
+    ].some(value => {
+      const normalized = normalizeMatchText(value);
+      return normalized === query || ` ${normalized} `.includes(` ${query} `);
+    }));
+  }
+
+  async _resolvePendingMailAction(request, memorySnapshot, startTime) {
+    if (!this.memory
+      || typeof this.memory.loadPendingMailAction !== 'function'
+      || typeof this.memory.clearPendingMailAction !== 'function') {
+      return null;
+    }
+    const ownerId = this.ownerProfileId || request.userId;
+    if (!ownerId) return null;
+    const pending = await this.memory.loadPendingMailAction(ownerId, request.conversationId);
+    if (!pending) return null;
+    const reply = parseMailTaskActionReply(request.message);
+
+    if (pending.expired) {
+      if (!reply) return null;
+      return {
+        response: await this._respondWithText(
+          request,
+          'Это предложение уже устарело. Скажи, какую задачу создать.',
+          memorySnapshot,
+          startTime,
+          'mail_task_action_expired'
+        ),
+      };
+    }
+    if (pending.ownerId !== ownerId || pending.conversationId !== request.conversationId) {
+      await this.memory.clearPendingMailAction(ownerId, request.conversationId);
+      return null;
+    }
+    if (!reply) {
+      await this.memory.clearPendingMailAction(ownerId, request.conversationId);
+      return null;
+    }
+    if (reply.type === 'reject') {
+      await this.memory.clearPendingMailAction(ownerId, request.conversationId);
+      return {
+        response: await this._respondWithText(
+          request,
+          'Хорошо, задачу не создаю.',
+          memorySnapshot,
+          startTime,
+          'mail_task_action_rejected'
+        ),
+      };
+    }
+
+    if (reply.type === 'confirm' && pending.candidates.length !== 1) {
+      return {
+        response: await this._respondWithText(
+          request,
+          this._mailActionChoices(pending.candidates, 'Есть несколько вариантов:'),
+          memorySnapshot,
+          startTime,
+          'mail_task_action_ambiguous_confirmation'
+        ),
+      };
+    }
+
+    const matches = reply.type === 'confirm'
+      ? [...pending.candidates]
+      : this._selectMailActionCandidates(pending.candidates, reply);
+    if (matches.length === 0) {
+      const text = reply.type === 'selection'
+        ? `Выбери номер от 1 до ${pending.candidates.length}.`
+        : 'Не нашёл такое письмо среди предложенных. Уточни номер.';
+      return {
+        response: await this._respondWithText(
+          request,
+          text,
+          memorySnapshot,
+          startTime,
+          'mail_task_action_invalid_selection'
+        ),
+      };
+    }
+    if (matches.length > 1) {
+      return {
+        response: await this._respondWithText(
+          request,
+          this._mailActionChoices(matches, 'Нашёл несколько подходящих писем:', pending.candidates),
+          memorySnapshot,
+          startTime,
+          'mail_task_action_ambiguous_selection'
+        ),
+      };
+    }
+
+    const candidate = matches[0];
+    // Consume before the write so a repeated Telegram delivery cannot replay task creation.
+    await this.memory.clearPendingMailAction(ownerId, request.conversationId);
+    return {
+      plan: createExecutionPlan([
+        createStep({
+          id: 'step_1',
+          skill: 'arthur-core',
+          operation: 'createTask',
+          parameters: {
+            title: candidate.title,
+            sourceRef: candidate.sourceRef,
+            ...(candidate.dueAt ? { dueAt: candidate.dueAt } : {}),
+            ...(candidate.dueLabel ? { dueLabel: candidate.dueLabel } : {}),
+          },
+          timeoutMs: 10000,
+        }),
+      ]),
+    };
+  }
+
   async _storePendingTaskClarification(request, executionResult) {
     if (!this.memory || typeof this.memory.storePendingTaskClarification !== 'function') return;
     const ownerId = this.ownerProfileId || request.userId;
@@ -248,6 +394,30 @@ class ArthurOrchestrator {
     if (pending) {
       await this.memory.storePendingTaskClarification(ownerId, request.conversationId, pending);
     }
+  }
+
+  _canCreateTasks() {
+    const core = this.registry?.list().find(skill => skill.id === 'arthur-core');
+    return Boolean(core?.capabilities?.some(capability => (
+      capability.id === 'createTask' && capability.readOnly === false
+    )));
+  }
+
+  async _storePendingMailAction(request, executionResult) {
+    if (!this._canCreateTasks()
+      || !this.memory
+      || typeof this.memory.storePendingMailAction !== 'function') {
+      return;
+    }
+    const ownerId = this.ownerProfileId || request.userId;
+    if (!ownerId) return;
+    const result = Object.values(executionResult.stepResults || {})
+      .find(item => item.status === 'success' && item.skill === 'mail'
+        && item.data?.pendingMailAction);
+    const pending = result?.data?.pendingMailAction;
+    if (!pending) return;
+    await this.memory.storePendingMailAction(ownerId, request.conversationId, pending);
+    result.data.responseText = appendTaskProposal(result.data.responseText, pending.candidates);
   }
 
   async _respondDirectly(request, knowledgeResults, memorySnapshot, startTime, reason = 'empty_plan') {
@@ -346,12 +516,19 @@ class ArthurOrchestrator {
         ? await this.memory.load(request.userId, request.conversationId)
         : [];
 
-      const continuation = await this._resolvePendingTaskClarification(
+      const mailContinuation = await this._resolvePendingMailAction(
         request,
         memorySnapshot,
         startTime
       );
-      if (continuation?.response) return continuation.response;
+      if (mailContinuation?.response) return mailContinuation.response;
+
+      const taskContinuation = await this._resolvePendingTaskClarification(
+        request,
+        memorySnapshot,
+        startTime
+      );
+      if (taskContinuation?.response) return taskContinuation.response;
 
       const knowledgeResults = this.knowledge && request.intent
         ? await this.knowledge.search({
@@ -361,7 +538,7 @@ class ArthurOrchestrator {
           })
         : { entries: [] };
 
-      const plan = continuation?.plan || await this._buildPlan(request);
+      const plan = mailContinuation?.plan || taskContinuation?.plan || await this._buildPlan(request);
 
       if (this.logger) {
         this.logger.info('execution_plan_built', request, {
@@ -376,6 +553,7 @@ class ArthurOrchestrator {
 
       const executionResult = await this.engine.execute(plan, this.registry, request);
       await this._storePendingTaskClarification(request, executionResult);
+      await this._storePendingMailAction(request, executionResult);
 
       const answer = await this.synthesizer.synthesize(
         request,

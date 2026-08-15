@@ -68,6 +68,40 @@ Subjects and snippets are untrusted input. Mail responses use bounded
 deterministic `responseText`; the synthesizer excludes message payloads,
 addresses, snippets, raw MIME, and attachments from AI synthesis input.
 
+## Confirmed mail-to-task proposals
+
+Mail reads never create tasks. When both MailSkill and the existing Arthur Core
+`createTask` capability are registered, a successful sender lookup may propose
+one task, and an important-mail summary may offer a bounded choice of up to
+three important messages. `HIGH` importance is only a relevance signal and is
+never treated as write permission.
+
+Task titles are deterministic. The existing sender alias registry supplies the
+company label, while allowed subject topics select conservative actions such as
+`Проверить прайс Валты`. If no supported topic is present, Arthur proposes only
+`Проверить письмо <компании>` or `Проверить письмо от <отправителя>`. No LLM
+decides whether to create a task or generates the task title.
+
+The proposal is stored in the existing in-memory conversation pending-action
+store under the canonical owner plus `conversationId`. It contains only the
+mailbox ID, a mail `sourceRef`, bounded subject/display fields, and the proposed
+task title. It contains no message body, snippet, attachment, credentials, or
+raw MIME. Mail proposals expire after ten minutes and are intentionally lost if
+the single gateway restarts.
+
+Exact replies `да`, `создай`, `создать`, `сделай`, `ок`, `хорошо`, and `давай`
+confirm a single proposal. `нет`, `не надо`, `отмена`, and `не создавать`
+discard it without a write. Numbered selection is required for ambiguous mail;
+`Создай по Валте` may select one company from an important-mail summary. An
+unrelated request clears the proposal and continues through normal routing.
+
+Only confirmation creates the normal `arthur-core.createTask` plan. The Core
+skill keeps canonical owner isolation, its existing exact-title/due-date
+duplicate guard, audit behavior, and task defaults. The task receives a bounded
+`mail:<provider>:<provider source reference>` source reference when available;
+no schema change is required. Creating the task does not modify the source
+message or its unread state.
+
 ## Configuration without credentials
 
 Non-secret mailbox metadata is configured in `docker/arthur/.env`:

@@ -8,6 +8,10 @@ const {
   groupRepeatedMessages,
   senderLabel,
 } = require('./mail_analysis');
+const {
+  createMailTaskProposals,
+  pendingMailAction,
+} = require('./mail_task_proposal');
 const { createSenderAliasRegistry, normalizeMatchText } = require('./sender_alias_registry');
 
 const CAPABILITIES = Object.freeze([
@@ -408,6 +412,7 @@ function createMailSkill({
     parameters,
     responseText,
     metadata = {},
+    pendingAction = null,
   }) {
     return {
       status: 'success',
@@ -418,6 +423,7 @@ function createMailSkill({
         count: messages.length,
         messages,
         warnings,
+        ...(pendingAction ? { pendingMailAction: pendingAction } : {}),
       },
       metadata: {
         source: 'mail',
@@ -540,20 +546,26 @@ function createMailSkill({
       .filter(group => group.importance === IMPORTANCE.HIGH)
       .reduce((total, group) => total + group.count, 0);
     const otherGroupCount = groupedMessageCount - importantGroupCount;
+    const proposals = createMailTaskProposals(
+      analysis.important.map(item => item.message),
+      senderAliasRegistry
+    );
+    const responseText = formatImportantSummary({
+      analysis,
+      warnings,
+      parameters: normalized,
+      now,
+      timeZone: ownerTimezone,
+      truncated,
+    });
     return finalize({
       operation: 'summarizeImportantMail',
       messages,
       warnings,
       mailboxes,
       parameters: normalized,
-      responseText: formatImportantSummary({
-        analysis,
-        warnings,
-        parameters: normalized,
-        now,
-        timeZone: ownerTimezone,
-        truncated,
-      }),
+      responseText,
+      pendingAction: pendingMailAction(proposals),
       metadata: {
         candidateLimit: limit,
         truncated,
@@ -670,21 +682,24 @@ function createMailSkill({
       }))
       .sort((left, right) => Date.parse(right.receivedAt) - Date.parse(left.receivedAt))
       .slice(0, limit);
+    const proposals = createMailTaskProposals(messages, senderAliasRegistry);
+    const responseText = formatSenderResponse({
+      messages,
+      mailboxes,
+      warnings,
+      parameters: normalized,
+      now,
+      timeZone: ownerTimezone,
+      sender,
+    });
     return finalize({
       operation: 'findMessagesFromSender',
       messages,
       warnings,
       mailboxes,
       parameters: normalized,
-      responseText: formatSenderResponse({
-        messages,
-        mailboxes,
-        warnings,
-        parameters: normalized,
-        now,
-        timeZone: ownerTimezone,
-        sender,
-      }),
+      responseText,
+      pendingAction: pendingMailAction(proposals),
       metadata: {
         sender: {
           query: sender.query,
@@ -707,7 +722,7 @@ function createMailSkill({
   return {
     id: 'mail',
     name: 'Arthur Mail',
-    version: '1.2.0',
+    version: '1.3.0',
     capabilities: CAPABILITIES,
     readOnly: true,
     async execute(input = {}) {
@@ -721,7 +736,7 @@ function createMailSkill({
       return {
         healthy: configured.length > 0,
         skill: 'mail',
-        version: '1.2.0',
+        version: '1.3.0',
         configuredMailboxes: configured.length,
       };
     },

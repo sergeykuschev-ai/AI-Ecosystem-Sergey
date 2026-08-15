@@ -66,6 +66,7 @@ function createArthurV1(options = {}) {
 
   const memory = options.memory || createMemoryInterface({
     clock: options.clock,
+    pendingMailActionTtlMs: options.pendingMailActionTtlMs,
     pendingTaskClarificationTtlMs: options.pendingTaskClarificationTtlMs,
   });
 
