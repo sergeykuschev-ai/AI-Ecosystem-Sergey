@@ -53,6 +53,12 @@ const CLARIFICATION_CANCEL_WORDS = Object.freeze(new Set([
   'отбой',
 ]));
 
+const TASK_REFERENCE_STOP_WORDS = Object.freeze(new Set([
+  'от', 'по',
+  'задача', 'задачи', 'задачу', 'задач', 'задаче', 'задачей',
+  'номер', 'номера', 'номеру',
+]));
+
 function cleanReference(value) {
   const cleaned = String(value || '')
     .replace(/^[\s,.:;!?—-]+|[\s,.:;!?—-]+$/gu, '')
@@ -191,6 +197,67 @@ function parseTaskManagementRequest(message, options = {}) {
   return clarification('Не понял, какую задачу нужно изменить.');
 }
 
+function normalizeTaskReferenceText(value) {
+  return String(value || '')
+    .normalize('NFKC')
+    .toLocaleLowerCase('ru-RU')
+    .replace(/ё/gu, 'е')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim()
+    .replace(/\s{2,}/g, ' ');
+}
+
+function normalizeTaskReference(value) {
+  return normalizeTaskReferenceText(value)
+    .split(' ')
+    .filter(word => !TASK_REFERENCE_STOP_WORDS.has(word))
+    .join(' ');
+}
+
+function tokensInOrder(titleTokens, refTokens) {
+  let refIdx = 0;
+  for (const titleToken of titleTokens) {
+    if (titleToken === refTokens[refIdx]) {
+      refIdx += 1;
+      if (refIdx === refTokens.length) return true;
+    }
+  }
+  return false;
+}
+
+function commonPrefixLength(left, right) {
+  let index = 0;
+  while (index < left.length && index < right.length && left[index] === right[index]) {
+    index += 1;
+  }
+  return index;
+}
+
+function taskReferenceMatches(candidateTitle, referenceText, { lenient = false } = {}) {
+  const normalizedTitle = normalizeTaskReference(candidateTitle);
+  const normalizedReference = normalizeTaskReference(referenceText);
+  if (!normalizedReference) return false;
+  const titleTokens = normalizedTitle.split(' ').filter(Boolean);
+  const refTokens = normalizedReference.split(' ').filter(Boolean);
+  if (refTokens.length === 0) return false;
+
+  if (tokensInOrder(titleTokens, refTokens)) return true;
+
+  if (lenient) {
+    const significantRefTokens = refTokens.filter(token => token.length >= 4);
+    if (significantRefTokens.length === 0) return false;
+    return significantRefTokens.every(refToken => (
+      titleTokens.some(titleToken => (
+        titleToken.startsWith(refToken)
+        || refToken.startsWith(titleToken)
+        || commonPrefixLength(refToken, titleToken) >= 4
+      ))
+    ));
+  }
+
+  return false;
+}
+
 function parseTaskClarificationReply(message) {
   if (typeof message !== 'string') return null;
   const normalized = message
@@ -224,6 +291,8 @@ module.exports = {
   TASK_MANAGEMENT_ACTIONS,
   canonicalTaskReference,
   detectTaskManagementAction,
+  normalizeTaskReference,
   parseTaskClarificationReply,
   parseTaskManagementRequest,
+  taskReferenceMatches,
 };

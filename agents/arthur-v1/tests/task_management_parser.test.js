@@ -6,8 +6,10 @@ const test = require('node:test');
 const {
   TASK_MANAGEMENT_ACTIONS,
   detectTaskManagementAction,
+  normalizeTaskReference,
   parseTaskClarificationReply,
   parseTaskManagementRequest,
+  taskReferenceMatches,
 } = require('../planner/task_management_parser');
 const { INTENTS, detectIntent } = require('../planner/intents');
 const { createRuleBasedPlanBuilder } = require('../planner/plan_builder');
@@ -131,6 +133,35 @@ test('task clarification replies accept exact titles, aliases, and one pasted nu
     reference: 'Проверить письмо Валты',
   });
   assert.equal(parseTaskClarificationReply('1. Первая задача\n2. Вторая задача'), null);
+});
+
+test('normalizeTaskReference strips noise words without changing meaningful tokens', () => {
+  const scenarios = [
+    ['Проверить письмо от валты', 'проверить письмо валты'],
+    ['задачу проверить письмо Валты', 'проверить письмо валты'],
+    ['по задаче номер 1', '1'],
+    ['  Проверить   письмо   Валты  ', 'проверить письмо валты'],
+  ];
+  for (const [input, expected] of scenarios) {
+    assert.equal(normalizeTaskReference(input), expected, input);
+  }
+});
+
+test('taskReferenceMatches accepts stop-word variants and rejects unrelated text', () => {
+  const taskTitle = 'Проверить письмо Валты';
+
+  assert.equal(taskReferenceMatches(taskTitle, 'Проверить письмо от валты'), true);
+  assert.equal(taskReferenceMatches(taskTitle, 'проверить письмо валты'), true);
+  assert.equal(taskReferenceMatches(taskTitle, 'задачу проверить письмо Валты'), true);
+  assert.equal(taskReferenceMatches(taskTitle, 'Проверить письмо Валты'), true);
+  assert.equal(taskReferenceMatches(taskTitle, 'Позвонить Валте'), false);
+  assert.equal(taskReferenceMatches(taskTitle, 'Что важного в почте Миски сегодня'), false);
+
+  // Lenient mode allows partial references only when there is a single candidate.
+  assert.equal(taskReferenceMatches(taskTitle, 'Валта', { lenient: true }), true);
+  assert.equal(taskReferenceMatches(taskTitle, 'Валта', { lenient: false }), false);
+  assert.equal(taskReferenceMatches(taskTitle, 'проверить', { lenient: true }), true);
+  assert.equal(taskReferenceMatches(taskTitle, 'и', { lenient: true }), false);
 });
 
 test('management intents build deterministic Arthur Core operations', () => {

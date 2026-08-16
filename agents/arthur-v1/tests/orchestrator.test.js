@@ -9,6 +9,7 @@ const { createRuleBasedPlanBuilder } = require('../planner/plan_builder');
 const { createLLMPlanBuilder } = require('../planner/llm_plan_builder');
 const { createFakeAIProvider } = require('../ai/fake_provider');
 const { createLogger } = require('../logging/logger');
+const { createMemoryInterface } = require('../memory/memory_interface');
 
 const UUID_V4_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -63,6 +64,66 @@ function createTestOrchestrator(skills, planBuilder) {
     aiProvider: createFakeAIProvider(),
     logger: createLogger({ stdout: { write: () => {} }, stderr: { write: () => {} } }),
   });
+}
+
+function fakeArthurCoreSkill(tasks = []) {
+  return {
+    id: 'arthur-core',
+    name: 'Arthur Core',
+    version: '1.0.0',
+    capabilities: [
+      { id: 'getProfile', readOnly: true },
+      { id: 'listTasks', readOnly: true },
+      { id: 'getTaskBrief', readOnly: true },
+      { id: 'createTask', readOnly: false },
+      { id: 'completeTask', readOnly: false },
+      { id: 'cancelTask', readOnly: false },
+      { id: 'rescheduleTask', readOnly: false },
+    ],
+    execute: async (input) => {
+      const { operation, parameters } = input;
+      if (operation === 'cancelTask' && parameters.pendingTaskSelection) {
+        return {
+          status: 'success',
+          data: {
+            status: 'clarification_required',
+            summary: 'Что именно отменить?',
+            responseText: 'Что именно отменить? Напиши название задачи.',
+            pendingClarification: {
+              action: 'cancel',
+              operation: 'cancelTask',
+              candidates: tasks.map(task => ({
+                id: task.id,
+                title: task.title,
+                status: task.status,
+                dueAt: task.dueAt || null,
+              })),
+              parameters: {},
+            },
+          },
+          metadata: { source: 'arthur-core' },
+        };
+      }
+      if ((operation === 'cancelTask' || operation === 'completeTask') && parameters.taskId) {
+        const task = tasks.find(t => t.id === parameters.taskId);
+        const responseText = operation === 'cancelTask'
+          ? `Готово. Задача отменена:\n${task.title}`
+          : `Готово. Задача выполнена:\n${task.title}`;
+        return {
+          status: 'success',
+          data: {
+            status: operation === 'cancelTask' ? 'cancelled' : 'completed',
+            summary: responseText.replace(/\n/g, ' '),
+            responseText,
+            task,
+          },
+          metadata: { source: 'arthur-core' },
+        };
+      }
+      return { status: 'success', data: {}, metadata: {} };
+    },
+    health: async () => ({ healthy: true }),
+  };
 }
 
 test('single skill execution returns success response', async () => {
@@ -509,4 +570,150 @@ test('unknown intent never references missing knowledge skill', async () => {
   assert.equal(response.status, 'success');
   assert.deepEqual(response.modulesUsed, []);
   assert.ok(!response.diagnostics.errors.some(e => e.message && e.message.includes('knowledge')));
+});
+
+test('pending task clarification matches stop-word variants of a single active task', async () => {
+  const tasks = [{ id: 'task-1', title: 'Проверить письмо Валты', status: 'active' }];
+  const registry = createSkillRegistry();
+  registry.register(fakeArthurCoreSkill(tasks));
+  const memory = createMemoryInterface();
+  const orchestrator = createOrchestrator({
+    registry,
+    deterministicPlanBuilder: createRuleBasedPlanBuilder(),
+    memory,
+    logger: createLogger({ stdout: { write: () => {} }, stderr: { write: () => {} } }),
+  });
+
+  const first = await orchestrator.handle({
+    message: 'Отмени',
+    userId: 'sergey',
+    channel: 'test',
+    conversationId: 'task-clarification-test',
+  });
+  assert.equal(first.answer.text, 'Что именно отменить? Напиши название задачи.');
+
+  for (const reply of ['Проверить письмо от валты', 'проверить письмо валты', 'Валта']) {
+    const followUp = await orchestrator.handle({
+      message: reply,
+      userId: 'sergey',
+      channel: 'test',
+      conversationId: 'task-clarification-test',
+    });
+    assert.equal(followUp.answer.text, 'Готово. Задача отменена:\nПроверить письмо Валты', reply);
+
+    // Re-seed the pending clarification for the next reply check.
+    await orchestrator.handle({
+      message: 'Отмени',
+      userId: 'sergey',
+      channel: 'test',
+      conversationId: 'task-clarification-test',
+    });
+  }
+});
+
+test('pending task clarification treats short references as ambiguous when several tasks match', async () => {
+  const tasks = [
+    { id: 'task-1', title: 'Проверить письмо Валты', status: 'active' },
+    { id: 'task-2', title: 'Позвонить Валте', status: 'active' },
+  ];
+  const registry = createSkillRegistry();
+  registry.register(fakeArthurCoreSkill(tasks));
+  const memory = createMemoryInterface();
+  const orchestrator = createOrchestrator({
+    registry,
+    deterministicPlanBuilder: createRuleBasedPlanBuilder(),
+    memory,
+    logger: createLogger({ stdout: { write: () => {} }, stderr: { write: () => {} } }),
+  });
+
+  await orchestrator.handle({
+    message: 'Отмени',
+    userId: 'sergey',
+    channel: 'test',
+    conversationId: 'ambiguous-test',
+  });
+  const response = await orchestrator.handle({
+    message: 'Валта',
+    userId: 'sergey',
+    channel: 'test',
+    conversationId: 'ambiguous-test',
+  });
+  assert.match(response.answer.text, /Нашёл 2 подходящие задачи:/);
+  assert.match(response.answer.text, /Проверить письмо Валты/);
+  assert.match(response.answer.text, /Позвонить Валте/);
+});
+
+test('pending task clarification still accepts number and ordinal selections', async () => {
+  const tasks = [
+    { id: 'task-1', title: 'Проверить письмо Валты', status: 'active' },
+    { id: 'task-2', title: 'Позвонить Валте', status: 'active' },
+  ];
+  const registry = createSkillRegistry();
+  registry.register(fakeArthurCoreSkill(tasks));
+  const memory = createMemoryInterface();
+  const orchestrator = createOrchestrator({
+    registry,
+    deterministicPlanBuilder: createRuleBasedPlanBuilder(),
+    memory,
+    logger: createLogger({ stdout: { write: () => {} }, stderr: { write: () => {} } }),
+  });
+
+  for (const reply of ['1', 'первая', 'первую']) {
+    await orchestrator.handle({
+      message: 'Отмени',
+      userId: 'sergey',
+      channel: 'test',
+      conversationId: `number-test-${reply}`,
+    });
+    const response = await orchestrator.handle({
+      message: reply,
+      userId: 'sergey',
+      channel: 'test',
+      conversationId: `number-test-${reply}`,
+    });
+    assert.equal(response.answer.text, 'Готово. Задача отменена:\nПроверить письмо Валты', reply);
+  }
+});
+
+test('pending task clarification ignores unrelated explicit intents', async () => {
+  const tasks = [{ id: 'task-1', title: 'Проверить письмо Валты', status: 'active' }];
+  const registry = createSkillRegistry();
+  registry.register(fakeArthurCoreSkill(tasks));
+  registry.register({
+    ...fakeSkill('mail'),
+    capabilities: [
+      { id: 'findMessagesFromSender', readOnly: true },
+      { id: 'summarizeImportantMail', readOnly: true },
+    ],
+    execute: async (input) => ({
+      status: 'success',
+      data: {
+        responseText: `mail:${input.operation}`,
+        summary: `mail:${input.operation}`,
+      },
+      metadata: {},
+    }),
+  });
+  const memory = createMemoryInterface();
+  const orchestrator = createOrchestrator({
+    registry,
+    deterministicPlanBuilder: createRuleBasedPlanBuilder(),
+    memory,
+    logger: createLogger({ stdout: { write: () => {} }, stderr: { write: () => {} } }),
+  });
+
+  await orchestrator.handle({
+    message: 'Отмени',
+    userId: 'sergey',
+    channel: 'test',
+    conversationId: 'mail-intent-test',
+  });
+  const response = await orchestrator.handle({
+    message: 'Что важного в почте Миски сегодня?',
+    userId: 'sergey',
+    channel: 'test',
+    conversationId: 'mail-intent-test',
+  });
+  assert.equal(response.modulesUsed.includes('mail'), true);
+  assert.equal(response.answer.text, 'mail:summarizeImportantMail');
 });

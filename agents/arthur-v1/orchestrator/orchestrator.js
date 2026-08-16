@@ -10,7 +10,11 @@ const {
   createRuleBasedPlanBuilder,
   createStep,
 } = require('../planner/plan_builder');
-const { parseTaskClarificationReply } = require('../planner/task_management_parser');
+const {
+  normalizeTaskReference,
+  parseTaskClarificationReply,
+  taskReferenceMatches,
+} = require('../planner/task_management_parser');
 const { parseMailTaskActionReply } = require('../planner/mail_task_action_parser');
 const { appendTaskProposal } = require('../skills/mail/mail_task_proposal');
 const {
@@ -289,26 +293,30 @@ class ArthurOrchestrator {
     }
     if (reply.type !== 'reference') return [];
 
-    const reference = normalizeMatchText(reply.reference);
+    const reference = normalizeTaskReference(reply.reference);
     if (!reference) return [];
-    const exact = candidates.filter(candidate => normalizeMatchText(candidate.title) === reference);
-    if (exact.length > 0) return exact;
 
-    const words = reference.split(' ').filter(Boolean);
-    if (words.length >= 2) {
-      const contained = candidates.filter(candidate => (
-        ` ${normalizeMatchText(candidate.title)} `.includes(` ${reference} `)
-      ));
-      if (contained.length > 0) return contained;
-    }
+    const matches = candidates.filter(candidate => taskReferenceMatches(
+      candidate.title,
+      reply.reference,
+      { lenient: candidates.length === 1 }
+    ));
+    if (matches.length > 0) return matches;
 
     let resolved;
     try {
-      resolved = createSenderAliasRegistry().resolve(reply.reference);
+      resolved = createSenderAliasRegistry().resolve(reference);
     } catch {
-      return [];
+      resolved = null;
     }
-    if (!resolved.known) return [];
+    if (!resolved?.known) {
+      try {
+        resolved = createSenderAliasRegistry().resolve(reply.reference);
+      } catch {
+        resolved = null;
+      }
+    }
+    if (!resolved?.known) return [];
     return candidates.filter(candidate => resolved.aliases.some(alias => (
       phraseMatches(candidate.title, alias)
     )));
