@@ -14,6 +14,7 @@ const POLICY_RULES = Object.freeze({
   MAX_STOCK: 'MAX_STOCK',
   MANDATORY_ASSORTMENT: 'MANDATORY_ASSORTMENT',
   FIRST_ROLLOUT_POSTPONE: 'FIRST_ROLLOUT_POSTPONE',
+  TEST_START_STOCK: 'TEST_START_STOCK',
 });
 
 const ROLLOUT_STATUSES = Object.freeze([
@@ -415,7 +416,16 @@ function applyAssortmentPolicy(input = {}) {
           `требуется решение владельца.`;
       }
 
-      if (quantity === null && !firstRolloutTestAwaiting) {
+      const hasTestStartTarget =
+        rule.assortment_status === 'TEST' &&
+        rule.target_stock !== null &&
+        stock !== null;
+
+      if (
+        quantity === null &&
+        !firstRolloutTestAwaiting &&
+        !hasTestStartTarget
+      ) {
         warnings.push('MINMAX_QUANTITY_UNAVAILABLE');
       }
 
@@ -455,6 +465,36 @@ function applyAssortmentPolicy(input = {}) {
         }
       } else if (rule.mandatory_assortment && stock === null) {
         warnings.push('CURRENT_STOCK_REQUIRED_FOR_MANDATORY_ASSORTMENT');
+      }
+
+      if (
+        !firstRolloutTestAwaiting &&
+        rule.assortment_status === 'TEST' &&
+        rule.target_stock !== null &&
+        (quantity === null || quantity === 0) &&
+        stock !== null
+      ) {
+        const targetGap = Math.max(0, rule.target_stock - stock);
+        const headroom = rule.max_stock !== null
+          ? Math.max(0, rule.max_stock - stock)
+          : targetGap;
+        const startQty = Math.min(targetGap, headroom);
+        quantity = startQty;
+        if (startQty > 0) {
+          mainRule = POLICY_RULES.TEST_START_STOCK;
+          appliedRules.push(POLICY_RULES.TEST_START_STOCK);
+          explanation =
+            `Min/Max не предложил количество. Добавлено ${quantity} шт.: ` +
+            `стартовый запас TEST-политики, целевой остаток ${rule.target_stock} шт.`;
+        }
+      } else if (
+        !firstRolloutTestAwaiting &&
+        rule.assortment_status === 'TEST' &&
+        rule.target_stock !== null &&
+        (quantity === null || quantity === 0) &&
+        stock === null
+      ) {
+        warnings.push('CURRENT_STOCK_REQUIRED_FOR_TEST_START');
       }
 
       if (

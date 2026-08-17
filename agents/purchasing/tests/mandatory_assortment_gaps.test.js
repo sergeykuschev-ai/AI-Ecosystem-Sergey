@@ -389,3 +389,105 @@ test('Other Care shampoos remain unchanged', () => {
     assert.equal(rule.target_stock, expected.target, sku);
   }
 });
+
+
+const MONGE_TEST = [
+  { sku: '70005234', species: 'cats' },
+  { sku: '70011938', species: 'cats' },
+  { sku: '70011921', species: 'cats' },
+  { sku: '70011914', species: 'cats' },
+  { sku: '70011907', species: 'cats' },
+  { sku: '70004879', species: 'cats' },
+  { sku: '70004862', species: 'cats' },
+  { sku: '70005524', species: 'cats' },
+  { sku: '70011549', species: 'dogs' },
+  { sku: '70011532', species: 'dogs' },
+  { sku: '70011525', species: 'dogs' },
+  { sku: '70011518', species: 'dogs' },
+  { sku: '70011310', species: 'dogs' },
+  { sku: '70011167', species: 'dogs' },
+];
+
+test('Approved Monge items are TEST, not mandatory, supplied by Валта', () => {
+  for (const { sku, species } of MONGE_TEST) {
+    const rule = findRule(sku);
+    assert.equal(rule.assortment_status, 'TEST', sku);
+    assert.equal(rule.mandatory_assortment, false, sku);
+    assert.equal(rule.purchase_hold, false, sku);
+    assert.equal(rule.canonical.brand, 'Monge', sku);
+    assert.equal(rule.canonical.supplier, 'Валта', sku);
+    const expectedCategory = species === 'cats'
+      ? 'Сухой корм для кошек'
+      : 'Сухой корм для собак';
+    assert.equal(rule.canonical.category, expectedCategory, sku);
+    assert.equal(rule.min_stock, 0, sku);
+    assert.equal(rule.max_stock, 1, sku);
+    assert.equal(rule.target_stock, 1, sku);
+  }
+});
+
+test('Approved Monge TEST stock=0 yields start recommendation = 1', () => {
+  for (const { sku } of MONGE_TEST) {
+    const fromNoDemand = policyFor(sku, 0, null);
+    assert.equal(fromNoDemand.policy_qty, 1, `${sku}: null minmax`);
+    assert.equal(fromNoDemand.policy_rule, 'TEST_START_STOCK', `${sku}: null minmax`);
+
+    const fromZeroDemand = policyFor(sku, 0, 0);
+    assert.equal(fromZeroDemand.policy_qty, 1, `${sku}: zero minmax`);
+    assert.equal(fromZeroDemand.policy_rule, 'TEST_START_STOCK', `${sku}: zero minmax`);
+  }
+});
+
+test('Approved Monge TEST stock=1 does not force additional qty', () => {
+  for (const { sku } of MONGE_TEST) {
+    const result = policyFor(sku, 1, null);
+    assert.equal(result.policy_qty, 0, sku);
+    assert.equal(result.policy_rule, 'NONE', sku);
+  }
+});
+
+test('Approved Monge TEST missing from 1C is not silently lost', () => {
+  const src = source();
+  const products = applyAssortmentPolicyToProducts(
+    [{ article: 'OTHER', freeStock: 0, availableStock: 0, finalRecommendedQuantity: 0 }],
+    src.store
+  );
+  for (const { sku } of MONGE_TEST) {
+    assert.ok(
+      products.unmatchedActiveRules.some(d => d.sku === sku && d.code === 'UNMATCHED_ASSORTMENT_POLICY_RULE'),
+      `${sku} must emit UNMATCHED_ASSORTMENT_POLICY_RULE when absent from source`
+    );
+  }
+});
+
+test('Approved Monge purchase_hold still takes priority', () => {
+  for (const { sku } of MONGE_TEST) {
+    const rule = findRule(sku);
+    const heldRule = { ...rule, purchase_hold: true };
+    const result = applyAssortmentPolicy({ sku, current_stock: 0, minmax_qty: 0, rule: heldRule });
+    assert.equal(result.policy_qty, 0, sku);
+    assert.equal(result.policy_rule, 'PURCHASE_HOLD', sku);
+  }
+});
+
+test('Approved Monge EXIT still takes priority', () => {
+  for (const { sku } of MONGE_TEST) {
+    const rule = findRule(sku);
+    const exitRule = { ...rule, assortment_status: 'EXIT' };
+    const result = applyAssortmentPolicy({ sku, current_stock: 0, minmax_qty: 0, rule: exitRule });
+    assert.equal(result.policy_qty, 0, sku);
+    assert.equal(result.policy_rule, 'EXIT', sku);
+  }
+});
+
+test('Monge does not duplicate existing canonical SKUs', () => {
+  const src = source();
+  const allMonge = src.store.rules.filter(r => r.canonical && r.canonical.brand === 'Monge');
+  assert.equal(allMonge.length, MONGE_TEST.length);
+  const seen = new Set();
+  for (const rule of allMonge) {
+    assert.ok(!seen.has(rule.sku), `${rule.sku} appears only once`);
+    seen.add(rule.sku);
+    assert.ok(MONGE_TEST.some(m => m.sku === rule.sku), `${rule.sku} is one of the approved 14`);
+  }
+});
