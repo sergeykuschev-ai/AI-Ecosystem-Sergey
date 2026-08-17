@@ -717,3 +717,62 @@ test('pending task clarification ignores unrelated explicit intents', async () =
   assert.equal(response.modulesUsed.includes('mail'), true);
   assert.equal(response.answer.text, 'mail:summarizeImportantMail');
 });
+
+test('waiting task intent creates a Core task without mail skill involvement', async () => {
+  let created;
+  const registry = createSkillRegistry();
+  registry.register({
+    id: 'arthur-core',
+    name: 'Arthur Core',
+    version: '1.0.0',
+    capabilities: [
+      { id: 'getProfile', readOnly: true },
+      { id: 'listTasks', readOnly: true },
+      { id: 'createTask', readOnly: false },
+    ],
+    execute: async (input) => {
+      if (input.operation === 'createTask') {
+        created = input.parameters;
+        return {
+          status: 'success',
+          data: {
+            status: 'created',
+            summary: 'Ожидание создано.',
+            responseText: `Запомнил. Ждём ответ от ${input.parameters.waitingFor}${input.parameters.description ? ` по ${input.parameters.description.replace(/^topic: /, '')}` : ''}.`,
+            task: { id: 'waiting-1', ...input.parameters },
+          },
+          metadata: { source: 'arthur-core' },
+        };
+      }
+      if (input.operation === 'listTasks') {
+        return { status: 'success', data: [], metadata: {} };
+      }
+      return { status: 'success', data: {}, metadata: {} };
+    },
+    health: async () => ({ healthy: true }),
+  });
+  registry.register({
+    ...fakeSkill('mail'),
+    capabilities: [{ id: 'findMessagesFromSender', readOnly: true }],
+    execute: async () => ({ status: 'success', data: { responseText: 'mail called' }, metadata: {} }),
+  });
+
+  const orchestrator = createOrchestrator({
+    registry,
+    deterministicPlanBuilder: createRuleBasedPlanBuilder({ availableSkills: ['arthur-core', 'mail'] }),
+    logger: createLogger({ stdout: { write: () => {} }, stderr: { write: () => {} } }),
+  });
+
+  const response = await orchestrator.handle({
+    message: 'Жду ответ от Premium Pet по поставке',
+    userId: 'sergey',
+    channel: 'test',
+  });
+
+  assert.equal(response.status, 'success');
+  assert.deepEqual(response.modulesUsed, ['arthur-core']);
+  assert.equal(created.status, 'waiting');
+  assert.equal(created.waitingFor, 'Premium Pet');
+  assert.equal(created.description, 'topic: поставке');
+  assert.equal(response.answer.text, 'Запомнил. Ждём ответ от Premium Pet по поставке.');
+});

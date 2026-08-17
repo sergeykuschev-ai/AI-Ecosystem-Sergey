@@ -383,6 +383,124 @@ test('createTask allows the same title with a different dueAt', async () => {
   assert.equal(result.data.status, 'created');
 });
 
+test('createTask creates a waiting task with status, waitingFor and nextCheckAt', async () => {
+  const now = new Date('2026-08-13T00:00:00.000Z');
+  let createdBody;
+  const client = createArthurCoreClient(coreConfig(async (url, options) => {
+    if ((options.method || 'GET') === 'GET') return jsonResponse(200, { data: [] });
+    createdBody = JSON.parse(options.body);
+    return jsonResponse(201, {
+      data: { id: 'waiting-1', ...createdBody, status: 'waiting' },
+    });
+  }));
+  const skill = createArthurCoreSkill({ client, ownerProfileId: 'sergey', clock: () => now });
+
+  const result = await skill.execute({
+    operation: 'createTask',
+    parameters: {
+      title: 'Ждать ответ от Premium Pet по поставке',
+      status: 'waiting',
+      waitingFor: 'Premium Pet',
+      description: 'topic: поставке',
+    },
+  });
+
+  assert.equal(createdBody.status, 'waiting');
+  assert.equal(createdBody.waitingFor, 'Premium Pet');
+  assert.equal(createdBody.domain, 'personal');
+  assert.equal(createdBody.nextCheckAt, '2026-08-14T00:00:00.000Z');
+  assert.equal(result.data.status, 'created');
+  assert.equal(result.data.responseText, 'Запомнил. Ждём ответ от Premium Pet по поставке.');
+  assert.doesNotMatch(result.data.responseText, /2026|nextCheckAt|status|UUID/);
+});
+
+test('createTask preserves explicit nextCheckAt for waiting tasks', async () => {
+  let createdBody;
+  const client = createArthurCoreClient(coreConfig(async (url, options) => {
+    if ((options.method || 'GET') === 'GET') return jsonResponse(200, { data: [] });
+    createdBody = JSON.parse(options.body);
+    return jsonResponse(201, { data: { id: 'waiting-2', ...createdBody, status: 'waiting' } });
+  }));
+  const skill = createArthurCoreSkill({ client, ownerProfileId: 'sergey' });
+
+  await skill.execute({
+    operation: 'createTask',
+    parameters: {
+      title: 'Ждать ответ от Premium Pet',
+      status: 'waiting',
+      waitingFor: 'Premium Pet',
+      nextCheckAt: '2026-08-15T13:59:59.999Z',
+      dueLabel: 'пятница',
+    },
+  });
+
+  assert.equal(createdBody.nextCheckAt, '2026-08-15T13:59:59.999Z');
+});
+
+test('createTask blocks duplicate waiting task by company and topic', async () => {
+  let createCalls = 0;
+  const existing = {
+    id: 'waiting-existing',
+    ownerId: 'sergey',
+    title: 'Ждать ответ от Premium Pet по поставке',
+    status: 'waiting',
+    waitingFor: 'Premium Pet',
+    description: 'topic: поставке',
+  };
+  const client = createArthurCoreClient(coreConfig(async (url, options) => {
+    if ((options.method || 'GET') === 'GET') return jsonResponse(200, { data: [existing] });
+    createCalls += 1;
+    return jsonResponse(201, { data: {} });
+  }));
+  const skill = createArthurCoreSkill({ client, ownerProfileId: 'sergey' });
+
+  const result = await skill.execute({
+    operation: 'createTask',
+    parameters: {
+      title: 'Ждать ответ от Premium Pet по поставке',
+      status: 'waiting',
+      waitingFor: 'Premium Pet',
+      description: 'topic: поставке',
+    },
+  });
+
+  assert.equal(createCalls, 0);
+  assert.equal(result.data.status, 'duplicate');
+  assert.equal(result.metadata.writePerformed, false);
+  assert.equal(result.data.responseText, 'Такое ожидание уже есть:\nPremium Pet — по поставке.');
+});
+
+test('createTask allows waiting tasks with same company but different topic', async () => {
+  let createdBody;
+  const existing = {
+    id: 'waiting-existing',
+    ownerId: 'sergey',
+    title: 'Ждать ответ от Premium Pet по поставке',
+    status: 'waiting',
+    waitingFor: 'Premium Pet',
+    description: 'topic: поставка',
+  };
+  const client = createArthurCoreClient(coreConfig(async (url, options) => {
+    if ((options.method || 'GET') === 'GET') return jsonResponse(200, { data: [existing] });
+    createdBody = JSON.parse(options.body);
+    return jsonResponse(201, { data: { id: 'waiting-new', ...createdBody, status: 'waiting' } });
+  }));
+  const skill = createArthurCoreSkill({ client, ownerProfileId: 'sergey' });
+
+  const result = await skill.execute({
+    operation: 'createTask',
+    parameters: {
+      title: 'Ждать ответ от Premium Pet по заказу',
+      status: 'waiting',
+      waitingFor: 'Premium Pet',
+      description: 'topic: заказ',
+    },
+  });
+
+  assert.equal(result.data.status, 'created');
+  assert.equal(createdBody.description, 'topic: заказ');
+});
+
 test('completeTask selects one canonical-owner task and posts done transition', async () => {
   let transition;
   const arthur = createArthurV1({

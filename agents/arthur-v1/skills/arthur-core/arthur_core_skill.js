@@ -5,6 +5,12 @@ const {
   ArthurCoreClientError,
   ArthurCoreNotFoundError,
 } = require('./core_client');
+const {
+  defaultNextCheckAt,
+  formatDuplicateWaitingResponse,
+  formatWaitingResponse,
+  isDuplicateWaitingTask,
+} = require('../../planner/waiting_request_parser');
 
 const CAPABILITIES = Object.freeze([
   { id: 'getProfile', readOnly: true },
@@ -373,6 +379,7 @@ function createArthurCoreSkill({
   client,
   ownerProfileId,
   ownerTimezone = DEFAULT_OWNER_TIMEZONE,
+  clock = () => new Date(),
 } = {}) {
   const requiredClientMethods = [
     'getProfile',
@@ -419,12 +426,18 @@ function createArthurCoreSkill({
           if (parameters.clarification) {
             return taskClarificationResult(parameters.clarification);
           }
+          const isWaiting = parameters.status === 'waiting';
           const task = {
             title: parameters.title,
             domain: 'personal',
             ...(parameters.description ? { description: parameters.description } : {}),
             ...(parameters.priority ? { priority: parameters.priority } : {}),
             ...(parameters.dueAt ? { dueAt: parameters.dueAt } : {}),
+            ...(isWaiting ? {
+              status: 'waiting',
+              waitingFor: parameters.waitingFor,
+              nextCheckAt: parameters.nextCheckAt || defaultNextCheckAt(clock()),
+            } : {}),
             sourceType: input.actor?.channel === 'telegram' ? 'telegram' : 'arthur',
             ...(parameters.sourceRef ? { sourceRef: parameters.sourceRef } : {}),
           };
@@ -433,12 +446,41 @@ function createArthurCoreSkill({
             { limit: TASK_SELECTION_LIMIT },
             context
           );
-          const duplicate = findDuplicateTask(activeTasks, parameters);
-          if (duplicate) return duplicateTaskResult(duplicate, parameters);
-          return createdTaskResult(
-            await client.createTask(configuredOwnerProfileId, task, context),
-            parameters
-          );
+          if (isWaiting) {
+            const duplicate = activeTasks.find(existing => isDuplicateWaitingTask(existing, parameters));
+            if (duplicate) {
+              return {
+                status: 'success',
+                data: {
+                  status: 'duplicate',
+                  summary: `Ожидание уже существует: ${duplicate.waitingFor}.`,
+                  responseText: formatDuplicateWaitingResponse(duplicate),
+                  task: duplicate,
+                },
+                metadata: { source: 'arthur-core', writePerformed: false },
+              };
+            }
+          } else {
+            const duplicate = findDuplicateTask(activeTasks, parameters);
+            if (duplicate) return duplicateTaskResult(duplicate, parameters);
+          }
+          const created = await client.createTask(configuredOwnerProfileId, task, context);
+          if (isWaiting) {
+            return {
+              status: 'success',
+              data: {
+                status: 'created',
+                summary: `Ожидание создано: ${created.title}.`,
+                responseText: formatWaitingResponse({
+                  ...created,
+                  dueLabel: parameters.dueLabel,
+                }),
+                task: created,
+              },
+              metadata: { source: 'arthur-core', endpoint: 'tasks' },
+            };
+          }
+          return createdTaskResult(created, parameters);
         }
         if (TASK_MUTATION_OPERATIONS.has(operation)) {
           if (parameters.clarification) {

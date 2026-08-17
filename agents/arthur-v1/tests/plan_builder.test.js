@@ -214,3 +214,62 @@ test('mail routing does not change task or purchasing intents', () => {
 test('detectIntent returns unknown for unrecognized message', () => {
   assert.equal(detectIntent('погода сегодня'), INTENTS.UNKNOWN);
 });
+
+test('waiting task intent is detected before mail sender intent', () => {
+  const messages = [
+    'Жду ответ от Premium Pet',
+    'Жду ответ от Premium Pet по поставке',
+    'Запомни, что жду Валту',
+    'Жду от Зоограда подтверждение заказа',
+    'Жду ответ от Premium Pet до пятницы',
+  ];
+  for (const message of messages) {
+    assert.equal(detectIntent(message), INTENTS.CORE_WAITING_TASK, message);
+  }
+});
+
+test('waiting intent does not intercept mail arrival questions', () => {
+  assert.equal(detectIntent('Пришел ответ от Валты?'), INTENTS.MAIL_SENDER);
+  assert.equal(detectIntent('Есть письма от Premium Pet?'), INTENTS.MAIL_SENDER);
+});
+
+test('waiting task plan builds a createTask step with waiting fields', () => {
+  const builder = createRuleBasedPlanBuilder({
+    availableSkills: ['arthur-core'],
+    clock: () => new Date('2026-08-13T00:00:00.000Z'),
+    ownerTimezone: 'Asia/Vladivostok',
+  });
+  const plan = builder.build({
+    message: 'Жду ответ от Premium Pet по поставке',
+    transport: { metadata: { updateId: 43 } },
+  });
+
+  assert.equal(plan.steps.length, 1);
+  assert.equal(plan.steps[0].skill, 'arthur-core');
+  assert.equal(plan.steps[0].operation, 'createTask');
+  assert.equal(plan.steps[0].parameters.title, 'Ждать ответ от Premium Pet по поставке');
+  assert.equal(plan.steps[0].parameters.status, 'waiting');
+  assert.equal(plan.steps[0].parameters.waitingFor, 'Premium Pet');
+  assert.equal(plan.steps[0].parameters.description, 'topic: поставке');
+  assert.equal(plan.steps[0].parameters.sourceRef, 'telegram-update:43');
+});
+
+test('waiting task plan carries explicit nextCheckAt but not invented one', () => {
+  const builder = createRuleBasedPlanBuilder({
+    availableSkills: ['arthur-core'],
+    clock: () => new Date('2026-08-13T00:00:00.000Z'),
+    ownerTimezone: 'Asia/Vladivostok',
+  });
+  const withDate = builder.build({ message: 'Жду ответ от Premium Pet до пятницы' });
+  assert.equal(withDate.steps[0].parameters.nextCheckAt, '2026-08-14T13:59:59.999Z');
+  assert.equal(withDate.steps[0].parameters.dueLabel, 'в пятницу');
+
+  const withoutDate = builder.build({ message: 'Жду ответ от Premium Pet' });
+  assert.equal(withoutDate.steps[0].parameters.nextCheckAt, null);
+  assert.equal(withoutDate.steps[0].parameters.dueLabel, undefined);
+});
+
+test('waiting task plan is empty when Core skill is not registered', () => {
+  const builder = createRuleBasedPlanBuilder({ availableSkills: ['mail'] });
+  assert.deepEqual(builder.build({ message: 'Жду ответ от Premium Pet' }).steps, []);
+});

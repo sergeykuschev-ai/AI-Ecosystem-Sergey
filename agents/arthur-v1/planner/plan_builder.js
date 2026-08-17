@@ -13,6 +13,7 @@ const {
   searchMailParameters,
   senderMailParameters,
 } = require('./mail_request_parser');
+const { parseWaitingRequest } = require('./waiting_request_parser');
 
 const MAIL_SENDER_TIMEOUT_MS = 30000;
 const MAIL_IMPORTANT_TIMEOUT_MS = 30000;
@@ -136,6 +137,28 @@ const PLAN_BUILDERS = {
 
   [INTENTS.CORE_CREATE_TASK]: (input) => {
     const parsed = parseCreateTaskRequest(input.message, {
+      now: input.now,
+      timezone: input.ownerTimezone,
+    });
+    const updateId = input.transport?.metadata?.updateId;
+    return createExecutionPlan([
+      createStep({
+        id: 'step_1',
+        skill: 'arthur-core',
+        operation: 'createTask',
+        parameters: parsed.ok
+          ? {
+              ...parsed.task,
+              ...(updateId != null ? { sourceRef: `telegram-update:${updateId}` } : {}),
+            }
+          : { clarification: parsed.clarification },
+        timeoutMs: 10000,
+      }),
+    ]);
+  },
+
+  [INTENTS.CORE_WAITING_TASK]: (input) => {
+    const parsed = parseWaitingRequest(input.message, {
       now: input.now,
       timezone: input.ownerTimezone,
     });

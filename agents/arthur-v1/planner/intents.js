@@ -11,6 +11,7 @@ const {
   matchesSearchMailIntent,
   matchesSenderMailIntent,
 } = require('./mail_request_parser');
+const { matchesWaitingTaskIntent } = require('./waiting_request_parser');
 
 const INTENTS = Object.freeze({
   PURCHASING_STATUS: 'purchasing.status',
@@ -21,6 +22,7 @@ const INTENTS = Object.freeze({
   CORE_TASKS: 'arthur_core.tasks',
   CORE_TASK_BRIEF: 'arthur_core.task_brief',
   CORE_CREATE_TASK: 'arthur_core.create_task',
+  CORE_WAITING_TASK: 'arthur_core.waiting_task',
   CORE_COMPLETE_TASK: 'arthur_core.complete_task',
   CORE_CANCEL_TASK: 'arthur_core.cancel_task',
   CORE_RESCHEDULE_TASK: 'arthur_core.reschedule_task',
@@ -103,6 +105,7 @@ const DETERMINISTIC_INTENTS = Object.freeze(new Set([
   INTENTS.CORE_TASKS,
   INTENTS.CORE_TASK_BRIEF,
   INTENTS.CORE_CREATE_TASK,
+  INTENTS.CORE_WAITING_TASK,
   INTENTS.CORE_COMPLETE_TASK,
   INTENTS.CORE_CANCEL_TASK,
   INTENTS.CORE_RESCHEDULE_TASK,
@@ -127,6 +130,9 @@ function detectIntent(message) {
   if (taskAction) return TASK_MANAGEMENT_INTENTS[taskAction];
   if (matchesCreateTaskIntent(message)) {
     return INTENTS.CORE_CREATE_TASK;
+  }
+  if (matchesWaitingTaskIntent(message)) {
+    return INTENTS.CORE_WAITING_TASK;
   }
   if (matchesImportantMailIntent(message)) {
     return INTENTS.MAIL_IMPORTANT;
