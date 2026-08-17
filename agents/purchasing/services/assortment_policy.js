@@ -195,9 +195,28 @@ function policyIndex(store) {
 
 function buildRulesIndex(store) {
   if (store && store.schema_version === 'miska-canonical-assortment-matrix-v1') {
-    return new Map(
-      store.rules.map(rule => [normalizeSku(rule.sku), rule])
-    );
+    const index = new Map();
+    const duplicates = new Set();
+    for (const rule of store.rules) {
+      const businessKey = normalizeSku(rule.sku);
+      const internalKey = rule.internal_sku_id ? normalizeSku(rule.internal_sku_id) : null;
+      const keys = internalKey && internalKey !== businessKey
+        ? [businessKey, internalKey]
+        : [businessKey];
+      for (const key of keys) {
+        if (index.has(key)) {
+          duplicates.add(key);
+        } else {
+          index.set(key, rule);
+        }
+      }
+    }
+    if (duplicates.size > 0) {
+      throw new Error(
+        `Duplicate assortment policy keys: ${Array.from(duplicates).join(', ')}`
+      );
+    }
+    return index;
   }
   return policyIndex(store);
 }
@@ -217,6 +236,9 @@ function collectProductCandidateIds(product) {
   const candidates = [];
   if (product.article) {
     candidates.push({ type: 'article', value: normalizeSku(product.article) });
+  }
+  if (product.matchingHints?.article) {
+    candidates.push({ type: 'matchingHints.article', value: normalizeSku(product.matchingHints.article) });
   }
   if (product.matchingHints?.barcode) {
     candidates.push({ type: 'barcode', value: normalizeSku(product.matchingHints.barcode) });
@@ -450,7 +472,8 @@ function applyAssortmentPolicy(input = {}) {
         !firstRolloutTestAwaiting &&
         rule.mandatory_assortment &&
         stock !== null &&
-        rule.min_stock !== null
+        rule.min_stock !== null &&
+        (quantity === null || quantity === 0)
       ) {
         const replenishTo = rule.target_stock ?? rule.min_stock;
         mandatoryMinimumGap = stock < rule.min_stock

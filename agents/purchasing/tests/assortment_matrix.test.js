@@ -582,3 +582,117 @@ test('AWARD Urinary uses available free stock on the optional real workbook', {
   assert.equal(product.inventory_projection.below_matrix_minimum, false);
   assert.equal(decision.decision, 'must_buy');
 });
+
+const CANONICAL_MATRIX_PATH = path.join(
+  REPOSITORY_ROOT,
+  'data/purchasing/miska-canonical-assortment-matrix.json'
+);
+
+function canonicalMatrix(overrides = {}) {
+  return {
+    version: 1,
+    schema_version: 'miska-canonical-assortment-matrix-v1',
+    updated_at: '2026-08-16T00:00:00.000Z',
+    store: 'Миска',
+    items: [{
+      sku_id: 'FOOD-TEST-1',
+      supplier_sku: 'TEST-SKU-1',
+      supplier: 'Валта',
+      brand: 'AWARD',
+      category: 'Влажный корм для собак',
+      subcategory: 'Влажный корм',
+      assortment_status: 'CORE',
+      min_stock: 1,
+      max_stock: 3,
+      target_stock: null,
+      rollout_status: 'ACTIVE',
+      mandatory_assortment: false,
+      purchase_hold: false,
+      purchase_hold_until_stock: null,
+      min_display: null,
+      box_qty: 1,
+      order_mode: 'PIECE',
+      lead_time_days: 0,
+      order_cycle_days: 0,
+      seasonality: { type: 'year_round', coefficient: 1 },
+      test_start_date: null,
+      test_review_date: null,
+      rule_reason: 'Test canonical item',
+      rule_changed_at: '2026-08-16T00:00:00.000Z',
+      rule_changed_by: 'OWNER',
+      one_c_status: 'CONFIRMED',
+      price_date: null,
+      is_premium_pet: false,
+    }],
+    ...overrides,
+  };
+}
+
+test('loads canonical matrix as operational assortment matrix', () => {
+  const loaded = loadAssortmentMatrix(CANONICAL_MATRIX_PATH);
+  assert.equal(loaded.matrix.source, 'canonical');
+  assert.equal(loaded.matrix.schema_version, 'miska-assortment-matrix-v1');
+  assert.ok(loaded.matrix.items.length >= 295);
+
+  const awardWet = loaded.matrix.items.find(item => item.article === '2540416');
+  assert.ok(awardWet, '2540416 must be present in adapted matrix');
+  assert.equal(awardWet.priority, 'critical');
+  assert.equal(awardWet.minimum_shelf_stock, 1);
+  assert.equal(awardWet.target_stock, 3);
+  assert.equal(awardWet.policy_status, 'approved');
+  assert.equal(awardWet.allow_zero_stock, false);
+  assert.equal(awardWet.canonical_sku_id, 'FOOD-336');
+});
+
+test('canonical adapter maps supplier_sku to article', () => {
+  const filePath = path.join(TEMP_DIRECTORY, 'canonical-adapter.json');
+  fs.writeFileSync(filePath, `${JSON.stringify(canonicalMatrix(), null, 2)}\n`, 'utf8');
+
+  const loaded = loadAssortmentMatrix(filePath);
+  assert.equal(loaded.matrix.items.length, 1);
+  assert.equal(loaded.matrix.items[0].article, 'TEST-SKU-1');
+  assert.equal(loaded.matrix.items[0].priority, 'critical');
+  assert.equal(loaded.matrix.items[0].minimum_shelf_stock, 1);
+  assert.equal(loaded.matrix.items[0].target_stock, 3);
+});
+
+test('canonical adapter falls back to sku_id when supplier_sku missing', () => {
+  const filePath = path.join(TEMP_DIRECTORY, 'canonical-fallback.json');
+  const data = canonicalMatrix();
+  data.items[0].supplier_sku = '';
+  fs.writeFileSync(filePath, `${JSON.stringify(data, null, 2)}\n`, 'utf8');
+
+  const loaded = loadAssortmentMatrix(filePath);
+  assert.equal(loaded.matrix.items[0].article, 'FOOD-TEST-1');
+});
+
+test('canonical adapter rejects duplicate supplier_sku', () => {
+  const filePath = path.join(TEMP_DIRECTORY, 'canonical-dup.json');
+  const data = canonicalMatrix();
+  data.items.push({ ...data.items[0], sku_id: 'FOOD-TEST-2' });
+  fs.writeFileSync(filePath, `${JSON.stringify(data, null, 2)}\n`, 'utf8');
+
+  assert.throws(
+    () => loadAssortmentMatrix(filePath),
+    error => error instanceof AssortmentMatrixError &&
+      error.code === 'DUPLICATE_CANONICAL_ARTICLE'
+  );
+});
+
+test('canonical adapter maps EXIT to allow_zero_stock and placeholder', () => {
+  const filePath = path.join(TEMP_DIRECTORY, 'canonical-exit.json');
+  const data = canonicalMatrix();
+  data.items[0].assortment_status = 'EXIT';
+  fs.writeFileSync(filePath, `${JSON.stringify(data, null, 2)}\n`, 'utf8');
+
+  const loaded = loadAssortmentMatrix(filePath);
+  assert.equal(loaded.matrix.items[0].allow_zero_stock, true);
+  assert.equal(loaded.matrix.items[0].policy_status, 'placeholder');
+});
+
+test('legacy operational matrix still loads directly', () => {
+  const loaded = loadAssortmentMatrix(WORKING_MATRIX_PATH);
+  assert.equal(loaded.matrix.source, undefined);
+  assert.ok(loaded.matrix.items.length >= 20);
+  assert.equal(loaded.matrix.items[0].canonical_sku_id, undefined);
+});

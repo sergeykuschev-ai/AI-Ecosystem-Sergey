@@ -85,7 +85,7 @@ const DEFAULT_FINANCIAL_DATA_PATH = path.join(
 );
 const DEFAULT_ASSORTMENT_MATRIX_PATH = path.join(
   REPOSITORY_ROOT,
-  'data/purchasing/miska-assortment-matrix.json'
+  'data/purchasing/miska-canonical-assortment-matrix.json'
 );
 const DEFAULT_OUTPUT_DIRECTORY = path.join(
   REPOSITORY_ROOT,

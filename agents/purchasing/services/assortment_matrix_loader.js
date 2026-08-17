@@ -16,6 +16,16 @@ const ALLOWED_POLICY_STATUSES = Object.freeze([
   'requires_confirmation',
 ]);
 
+const CANONICAL_SCHEMA_VERSION = 'miska-canonical-assortment-matrix-v1';
+const OPERATIONAL_SCHEMA_VERSION = 'miska-assortment-matrix-v1';
+
+const ROLE_TO_PRIORITY = Object.freeze({
+  CORE: 'critical',
+  TEST: 'important',
+  OPTIONAL: 'standard',
+  EXIT: 'standard',
+});
+
 class AssortmentMatrixError extends Error {
   constructor(message, code, cause) {
     super(message, cause ? { cause } : undefined);
@@ -165,6 +175,113 @@ function validateAssortmentMatrix(value) {
   };
 }
 
+function canonicalItemToOperational(item) {
+  const article = typeof item.supplier_sku === 'string' && item.supplier_sku.trim() !== ''
+    ? item.supplier_sku.trim()
+    : (typeof item.sku_id === 'string' ? item.sku_id : null);
+  if (!article) {
+    throw new AssortmentMatrixError(
+      `Canonical item должен иметь supplier_sku или sku_id: ${JSON.stringify(item)}.`,
+      'INVALID_CANONICAL_ITEM'
+    );
+  }
+
+  const role = typeof item.assortment_status === 'string'
+    ? item.assortment_status.toUpperCase()
+    : 'OPTIONAL';
+  const priority = ROLE_TO_PRIORITY[role] || 'standard';
+  const policyStatus = role === 'EXIT'
+    ? 'placeholder'
+    : 'approved';
+
+  const minStock = typeof item.min_stock === 'number' && Number.isFinite(item.min_stock)
+    ? item.min_stock
+    : 0;
+  const targetStock = typeof item.target_stock === 'number' && Number.isFinite(item.target_stock)
+    ? item.target_stock
+    : (typeof item.max_stock === 'number' && Number.isFinite(item.max_stock)
+      ? item.max_stock
+      : minStock);
+
+  const name = typeof item.name === 'string' && item.name.trim() !== ''
+    ? item.name.trim()
+    : `${item.brand || 'Unknown'} ${item.sku_id || article}`;
+
+  return {
+    article,
+    name,
+    brand: typeof item.brand === 'string' ? item.brand : null,
+    category: typeof item.category === 'string' ? item.category : null,
+    priority,
+    policy_status: policyStatus,
+    minimum_shelf_stock: minStock,
+    target_stock: targetStock,
+    allow_zero_stock: role === 'EXIT',
+    notes: typeof item.rule_reason === 'string' && item.rule_reason.trim() !== ''
+      ? item.rule_reason.trim()
+      : `Canonical ${item.sku_id || article}`,
+    normalized_article: normalizedArticle(article),
+    normalized_name: normalizedName(name),
+    canonical_sku_id: item.sku_id,
+  };
+}
+
+function adaptCanonicalToAssortmentMatrix(canonical) {
+  if (!canonical || typeof canonical !== 'object' || Array.isArray(canonical)) {
+    throw new AssortmentMatrixError(
+      'Canonical assortment matrix должен быть объектом.',
+      'INVALID_CANONICAL_STRUCTURE'
+    );
+  }
+  if (canonical.schema_version !== CANONICAL_SCHEMA_VERSION) {
+    throw new AssortmentMatrixError(
+      `Неподдерживаемая schema_version canonical matrix: ${canonical.schema_version}.`,
+      'INVALID_CANONICAL_SCHEMA'
+    );
+  }
+  if (!Array.isArray(canonical.items)) {
+    throw new AssortmentMatrixError(
+      'Поле items canonical matrix должно быть массивом.',
+      'INVALID_CANONICAL_ITEMS'
+    );
+  }
+
+  const articleCounts = new Map();
+  const items = canonical.items.map((item, index) => {
+    try {
+      const operational = canonicalItemToOperational(item);
+      const count = (articleCounts.get(operational.article) || 0) + 1;
+      articleCounts.set(operational.article, count);
+      return operational;
+    } catch (error) {
+      throw new AssortmentMatrixError(
+        `Ошибка адаптации canonical item[${index}]: ${error.message}`,
+        error.code || 'CANONICAL_ADAPT_ERROR',
+        error
+      );
+    }
+  });
+
+  const duplicates = Array.from(articleCounts.entries()).filter(([, count]) => count > 1);
+  if (duplicates.length > 0) {
+    throw new AssortmentMatrixError(
+      `Duplicate supplier_sku/article в canonical matrix: ${duplicates.map(([a]) => a).join(', ')}.`,
+      'DUPLICATE_CANONICAL_ARTICLE'
+    );
+  }
+
+  return {
+    version: canonical.version || 1,
+    updated_at: canonical.updated_at
+      ? (canonical.updated_at.slice(0, 10))
+      : '1970-01-01',
+    store: canonical.store || 'Миска',
+    items,
+    schema_version: OPERATIONAL_SCHEMA_VERSION,
+    source: 'canonical',
+  };
+}
+
 function loadAssortmentMatrix(filePath) {
   const resolvedPath = path.resolve(filePath);
   let parsed;
@@ -190,8 +307,12 @@ function loadAssortmentMatrix(filePath) {
     );
   }
 
+  const matrix = parsed.schema_version === CANONICAL_SCHEMA_VERSION
+    ? adaptCanonicalToAssortmentMatrix(parsed)
+    : validateAssortmentMatrix(parsed);
+
   return {
-    matrix: validateAssortmentMatrix(parsed),
+    matrix,
     sourcePath: resolvedPath,
   };
 }

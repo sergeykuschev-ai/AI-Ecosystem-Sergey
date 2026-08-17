@@ -411,8 +411,12 @@ function currentSeasonalCoefficient(seasonality, date = new Date()) {
 }
 
 function toAssortmentPolicyRule(item) {
+  const businessSku = typeof item.supplier_sku === 'string' && item.supplier_sku.trim() !== ''
+    ? item.supplier_sku.trim()
+    : item.sku_id;
   return {
-    sku: item.sku_id,
+    sku: businessSku,
+    internal_sku_id: item.sku_id,
     assortment_status: item.assortment_status,
     min_stock: item.min_stock,
     max_stock: item.max_stock,

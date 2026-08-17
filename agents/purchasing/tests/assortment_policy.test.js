@@ -167,6 +167,50 @@ test('9. Mandatory CORE не превышает MAX', () => {
   assert.equal(result.projected_stock, 4);
 });
 
+test('9a. Mandatory min не поднимает положительную demand-рекомендацию', () => {
+  // Regression guard for SKU 540676: when demand already produced a positive
+  // quantity, the policy floor must not bump it above the demand-based need.
+  const result = apply({
+    current_stock: 4,
+    minmax_qty: 12,
+    rule: rule({
+      min_stock: 20,
+      max_stock: 26,
+      mandatory_assortment: true,
+    }),
+  });
+  assert.equal(result.policy_qty, 12);
+  assert.equal(result.policy_rule, 'NONE');
+  assert.equal(result.mandatory_minimum_gap, null);
+});
+
+test('9b. Mandatory min восстанавливает нулевую или неопределённую рекомендацию', () => {
+  const zeroResult = apply({
+    current_stock: 0,
+    minmax_qty: 0,
+    rule: rule({
+      min_stock: 1,
+      max_stock: 3,
+      mandatory_assortment: true,
+    }),
+  });
+  assert.equal(zeroResult.policy_qty, 1);
+  assert.equal(zeroResult.policy_rule, 'MANDATORY_ASSORTMENT');
+
+  const nullResult = apply({
+    current_stock: 0,
+    minmax_qty: null,
+    rule: rule({
+      min_stock: 2,
+      max_stock: 4,
+      target_stock: 3,
+      mandatory_assortment: true,
+    }),
+  });
+  assert.equal(nullResult.policy_qty, 3);
+  assert.equal(nullResult.policy_rule, 'MANDATORY_ASSORTMENT');
+});
+
 test('10. Purchase Hold имеет приоритет над mandatory', () => {
   const result = apply({
     current_stock: 0,
@@ -512,7 +556,6 @@ test('legacy and canonical policy produce identical quantities for all 5 SKU', (
 test('canonical matrix does not contain representative SKU', () => {
   const source = loadAssortmentPolicySource({ legacyPath: null });
   const representative = [
-    '7173648',
     '7173600',
     'CRF5421670',
     'PREM-001',
@@ -790,4 +833,155 @@ test('First Category Rollout: TEST without rollout_status follows normal rules',
 
   assert.equal(result.policy_qty, 5);
   assert.equal(result.first_rollout_test_awaiting, false);
+});
+
+test('canonical policy matches product by supplier_sku/article', () => {
+  const store = {
+    version: 1,
+    schema_version: 'miska-canonical-assortment-matrix-v1',
+    updated_at: UPDATED_AT,
+    rules: [{
+      sku: '2540416',
+      internal_sku_id: 'FOOD-336',
+      assortment_status: 'CORE',
+      min_stock: 1,
+      max_stock: 3,
+      target_stock: null,
+      order_mode: 'PIECE',
+      box_qty: null,
+      display_stock: false,
+      display_min_qty: null,
+      purchase_hold: false,
+      purchase_hold_until_stock: null,
+      mandatory_assortment: false,
+      owner_comment: '',
+      rule_source: 'canonical-matrix',
+      updated_at: UPDATED_AT,
+      category: 'Влажный корм для собак',
+      rollout_status: 'ACTIVE',
+      review_after_days: 30,
+      canonical: {
+        sku_id: 'FOOD-336',
+        supplier_sku: '2540416',
+      },
+    }],
+  };
+  const products = applyAssortmentPolicyToProducts([
+    { article: '2540416', freeStock: 0, availableStock: 0, finalRecommendedQuantity: 5, matchingHints: {} },
+  ], store);
+
+  assert.equal(products[0].assortmentPolicy.matched, true);
+  assert.equal(products[0].assortmentPolicy.assortment_status, 'CORE');
+  assert.equal(products[0].finalRecommendedQuantity, 3);
+});
+
+test('canonical policy matches product by internal sku_id when supplier_sku differs', () => {
+  const store = {
+    version: 1,
+    schema_version: 'miska-canonical-assortment-matrix-v1',
+    updated_at: UPDATED_AT,
+    rules: [{
+      sku: 'EXTERNAL-1',
+      internal_sku_id: 'FOOD-999',
+      assortment_status: 'CORE',
+      min_stock: 2,
+      max_stock: 6,
+      target_stock: null,
+      order_mode: 'PIECE',
+      box_qty: null,
+      display_stock: false,
+      display_min_qty: null,
+      purchase_hold: false,
+      purchase_hold_until_stock: null,
+      mandatory_assortment: false,
+      owner_comment: '',
+      rule_source: 'canonical-matrix',
+      updated_at: UPDATED_AT,
+      category: 'Тест',
+      rollout_status: 'ACTIVE',
+      review_after_days: 30,
+      canonical: {
+        sku_id: 'FOOD-999',
+        supplier_sku: 'EXTERNAL-1',
+      },
+    }],
+  };
+  const products = applyAssortmentPolicyToProducts([
+    { article: 'EXTERNAL-1', freeStock: 0, availableStock: 0, finalRecommendedQuantity: 10, matchingHints: {} },
+    { sku: 'FOOD-999', freeStock: 0, availableStock: 0, finalRecommendedQuantity: 10, matchingHints: {} },
+  ], store);
+
+  assert.equal(products[0].assortmentPolicy.matched, true);
+  assert.equal(products[1].assortmentPolicy.matched, true);
+  assert.equal(products[0].finalRecommendedQuantity, 6);
+  assert.equal(products[1].finalRecommendedQuantity, 6);
+});
+
+test('canonical policy matches product by matchingHints.article', () => {
+  const store = {
+    version: 1,
+    schema_version: 'miska-canonical-assortment-matrix-v1',
+    updated_at: UPDATED_AT,
+    rules: [{
+      sku: 'MH-ARTICLE-1',
+      internal_sku_id: 'FOOD-MH-1',
+      assortment_status: 'CORE',
+      min_stock: 1,
+      max_stock: 2,
+      target_stock: null,
+      order_mode: 'PIECE',
+      box_qty: null,
+      display_stock: false,
+      display_min_qty: null,
+      purchase_hold: false,
+      purchase_hold_until_stock: null,
+      mandatory_assortment: false,
+      owner_comment: '',
+      rule_source: 'canonical-matrix',
+      updated_at: UPDATED_AT,
+      category: 'Тест',
+      rollout_status: 'ACTIVE',
+      review_after_days: 30,
+      canonical: {
+        sku_id: 'FOOD-MH-1',
+        supplier_sku: 'MH-ARTICLE-1',
+      },
+    }],
+  };
+  const products = applyAssortmentPolicyToProducts([
+    { article: 'DIFFERENT', freeStock: 0, availableStock: 0, finalRecommendedQuantity: 5, matchingHints: { article: 'MH-ARTICLE-1' } },
+  ], store);
+
+  assert.equal(products[0].assortmentPolicy.matched, true);
+  assert.equal(products[0].finalRecommendedQuantity, 2);
+});
+
+test('canonical policy buildRulesIndex rejects duplicate supplier_sku', () => {
+  const store = {
+    version: 1,
+    schema_version: 'miska-canonical-assortment-matrix-v1',
+    updated_at: UPDATED_AT,
+    rules: [
+      { sku: 'DUP-1', internal_sku_id: 'FOOD-A', assortment_status: 'CORE', min_stock: 1, max_stock: 2, updated_at: UPDATED_AT },
+      { sku: 'DUP-1', internal_sku_id: 'FOOD-B', assortment_status: 'OPTIONAL', min_stock: 1, max_stock: 2, updated_at: UPDATED_AT },
+    ],
+  };
+  assert.throws(
+    () => applyAssortmentPolicyToProducts([], store),
+    /Duplicate assortment policy keys/
+  );
+});
+
+test('legacy operational policy store still works', () => {
+  const store = {
+    version: 1,
+    updated_at: UPDATED_AT,
+    rules: [rule({ sku: 'LEGACY-1' })],
+  };
+  const products = applyAssortmentPolicyToProducts([
+    { article: 'LEGACY-1', freeStock: 0, availableStock: 0, finalRecommendedQuantity: 5 },
+  ], store);
+
+  assert.equal(products[0].assortmentPolicy.matched, true);
+  assert.equal(products[0].finalRecommendedQuantity, 5);
 });

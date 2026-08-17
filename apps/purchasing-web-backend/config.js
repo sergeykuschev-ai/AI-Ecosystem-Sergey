@@ -55,7 +55,7 @@ const DEFAULT_SERVER_PATHS = Object.freeze({
   ),
   matrixPath: path.join(
     REPOSITORY_ROOT,
-    'data/purchasing/miska-assortment-matrix.json'
+    'data/purchasing/miska-canonical-assortment-matrix.json'
   ),
   ownerDecisionsPath: path.join(
     REPOSITORY_ROOT,
