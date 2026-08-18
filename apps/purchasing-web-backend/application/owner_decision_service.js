@@ -43,6 +43,12 @@ const WEB_OWNER_DECISIONS = Object.freeze([
 const MAX_OWNER_ORDER_QUANTITY = 10000;
 const MAX_OWNER_COMMENT_LENGTH = 1000;
 const OWNER_DECISION_ACTOR = 'owner-web-ui';
+
+function finiteNumber(value) {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? value
+    : null;
+}
 const OWNER_REVIEW_REASON_LABELS = Object.freeze({
   HIGH_STOCK: 'Высокий остаток',
   LOW_DEMAND: 'Низкий спрос',
@@ -224,6 +230,19 @@ function withFinalQuantity(item) {
   };
 }
 
+function pendingQuantity(item) {
+  const ownerDecision = item?.owner_decision?.decision || null;
+  if (ownerDecision === 'BUY') {
+    return finiteNumber(item?.owner_decision?.quantity);
+  }
+  if (ownerDecision !== null) return 0;
+  return finiteNumber(item?.quantities?.approved_quantity) ??
+    finiteNumber(item?.quantities?.provisional_quantity) ??
+    finiteNumber(item?.quantities?.calculated_quantity) ??
+    finiteNumber(item?.quantities?.analyzer_quantity) ??
+    null;
+}
+
 function ownerDecisionSummary(items) {
   // Semantics are aligned with the canonical FinalOrderState classifier:
   // - DEFER is a made decision (resolved): it leaves «Нужно решить» and the
@@ -231,8 +250,17 @@ function ownerDecisionSummary(items) {
   // - «Подтверждены» (confirmed) mirrors classifyItem(item).kind ===
   //   'included', i.e. owner BUY with quantity > 0 plus auto-approved
   //   positions — exactly the rows that enter the final/supplier order.
+  // - The legacy needs_decision counter is preserved for backward
+  //   compatibility and is split into pending_positive, pending_zero,
+  //   postponed and do_not_buy so the UI can distinguish the mixed bucket.
   const summary = {
     needs_decision: 0,
+    pending_positive: 0,
+    pending_zero: 0,
+    postponed: 0,
+    do_not_buy: 0,
+    warnings: 0,
+    safe_no_order: 0,
     confirmed: 0,
     confirmed_buy: 0,
     excluded: 0,
@@ -244,11 +272,56 @@ function ownerDecisionSummary(items) {
     else if (decision === 'SKIP') summary.excluded += 1;
     else if (decision === 'DEFER') summary.deferred += 1;
     if (classifyItem(item).kind === 'included') summary.confirmed += 1;
+
+    const actionClass = item.matrix?.owner_action_class || null;
+    const hasNoOwnerDecision = decision === null || decision === undefined;
+
     if (
-      item.matrix?.owner_review_required === true &&
-      (decision === null || decision === undefined)
+      actionClass === 'OWNER_ACTION_REQUIRED' &&
+      hasNoOwnerDecision
     ) {
       summary.needs_decision += 1;
+      const quantity = pendingQuantity(item);
+      if (quantity !== null && quantity > 0) {
+        summary.pending_positive += 1;
+      } else {
+        summary.pending_zero += 1;
+      }
+    } else if (actionClass === 'POSTPONED' && hasNoOwnerDecision) {
+      summary.postponed += 1;
+    } else if (actionClass === 'SAFE_NO_ORDER' && hasNoOwnerDecision) {
+      summary.do_not_buy += 1;
+      summary.safe_no_order += 1;
+    } else if (actionClass === 'WARNING_ONLY' && hasNoOwnerDecision) {
+      summary.warnings += 1;
+    } else if (
+      // Backward compatibility for runs created before owner_action_class.
+      actionClass === null &&
+      item.matrix?.owner_review_required === true &&
+      hasNoOwnerDecision
+    ) {
+      summary.needs_decision += 1;
+      const agentDecision = item.decision || null;
+      const workflowStatus = item.workflow_status || null;
+      if (
+        agentDecision === 'postpone' ||
+        workflowStatus === 'postponed'
+      ) {
+        summary.postponed += 1;
+      } else if (
+        agentDecision === 'do_not_buy' ||
+        workflowStatus === 'no_order_action' ||
+        workflowStatus === 'confidently_excluded'
+      ) {
+        summary.do_not_buy += 1;
+      } else {
+        const quantity = pendingQuantity(item);
+        if (quantity !== null && quantity > 0) {
+          summary.pending_positive += 1;
+        } else {
+          summary.pending_zero += 1;
+        }
+      }
     }
   }
   return summary;

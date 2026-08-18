@@ -176,6 +176,9 @@ function mapRunSummary(bundle) {
     owner_review: {
       action_required: ownerReview.owner_action_required_total ?? 0,
       top_priority: ownerReview.owner_action_displayed ?? 0,
+      warnings: ownerReview.warnings ?? 0,
+      safe_no_order: ownerReview.safe_no_order ?? 0,
+      postponed: ownerReview.postponed ?? 0,
       exit_approval: ownerReview.exit_approval ?? 0,
       commercial_review: ownerReview.commercial_review ?? 0,
     },

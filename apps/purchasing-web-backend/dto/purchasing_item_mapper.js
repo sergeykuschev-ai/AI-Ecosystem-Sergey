@@ -2,6 +2,9 @@ const {
   applyPackagingRules,
   classifyItem,
 } = require('../../../agents/purchasing/services/final_order');
+const {
+  classifyOwnerAction,
+} = require('../../../agents/purchasing/services/owner_action_classifier');
 
 function finiteOrNull(value) {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
@@ -226,6 +229,12 @@ function mapPurchasingItems(bundle) {
     };
 
     mapped.quantities.final_quantity = mapFinalQuantity(mapped);
+
+    const ownerActionClass = classifyOwnerAction(mapped);
+    mapped.matrix.owner_action_class = ownerActionClass;
+    mapped.matrix.owner_review_required =
+      ownerActionClass === 'OWNER_ACTION_REQUIRED';
+
     return mapped;
   });
 }

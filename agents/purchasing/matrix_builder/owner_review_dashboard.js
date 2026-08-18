@@ -1,6 +1,10 @@
 const {
   REASON_EXPLANATIONS,
 } = require('./matrix_builder_validator');
+const {
+  OWNER_ACTION_CLASSES,
+  classifyOwnerAction,
+} = require('../services/owner_action_classifier');
 
 const DEFAULT_OWNER_REVIEW_POLICY = Object.freeze({
   max_owner_action_items: 30,
@@ -428,20 +432,63 @@ function buildOwnerReviewModel(
   draft,
   manualReview = null,
   config = null,
-  ownerDecisionSummary = null
+  ownerDecisionSummary = null,
+  workingOrderProducts = null
 ) {
   const items = draft.items || [];
   const ownerPolicy = config?.owner_review_policy || DEFAULT_OWNER_REVIEW_POLICY;
+  const productsByIdentity = new Map((workingOrderProducts || [])
+    .filter(product => typeof product?.rowIdentity === 'string')
+    .map(product => [product.rowIdentity, product]));
   const scoredEntries = items
-    .map(item => ({ item, review: scoreOwnerReviewItem(item, ownerPolicy) }))
+    .map(item => {
+      const review = scoreOwnerReviewItem(item, ownerPolicy);
+      // Matrix Builder owner decisions (APPROVE_EXIT, REJECT_EXIT, DEFER, …)
+      // are internal operational states. We pass the legacy owner-action flag
+      // so the classifier can keep them in the operational owner-action list
+      // while the web UI still treats terminal BUY/SKIP/DEFER as resolved.
+      const classifierInput = {
+        ...item,
+        owner_action_required: review.owner_action_required,
+      };
+      if (item.owner_order_decision === 'DEFER') {
+        classifierInput.owner_order_decision = null;
+        classifierInput.owner_decision = null;
+      }
+      // Enrich the classifier input with the same runtime fields the web UI
+      // uses (workflow status, quantities, price) so the owner-action class
+      // matches the mapped item classification.
+      const product = productsByIdentity.get(item.rowIdentity);
+      if (product) {
+        classifierInput.decision = product.phase2Decision ??
+          classifierInput.decision ?? null;
+        classifierInput.workflow_status = product.workflowStatus ??
+          classifierInput.workflow_status ?? null;
+        const price = typeof product.priceNum === 'number' &&
+          Number.isFinite(product.priceNum)
+          ? product.priceNum
+          : (item.evidence?.purchase_price ?? null);
+        classifierInput.amounts = { unit_price: price };
+        classifierInput.quantities = {
+          approved_quantity: product.approvedOrderQuantity ?? null,
+          provisional_quantity: product.provisionalOrderQuantity ?? null,
+          calculated_quantity: product.finalRecommendedQuantity ??
+            product.minmaxRecommendedQuantity ?? null,
+          analyzer_quantity: product.analyzerCalculatedQuantity ?? null,
+        };
+      }
+      return {
+        item,
+        review,
+        owner_action_class: classifyOwnerAction(classifierInput),
+      };
+    })
     .sort(compareOwnerItems);
-  const allOwnerActionEntries = scoredEntries.filter(entry =>
-    entry.review.owner_action_required
-  );
-  const ownerActionEntries = allOwnerActionEntries.slice(
-    0,
-    ownerPolicy.max_owner_action_items
-  );
+  const ownerActionEntries = scoredEntries
+    .filter(entry =>
+      entry.owner_action_class === OWNER_ACTION_CLASSES.OWNER_ACTION_REQUIRED
+    )
+    .slice(0, ownerPolicy.max_owner_action_items);
   const ownerActionItems = ownerActionEntries.map(entry => entry.item);
   const exitItems = items.filter(item =>
     item.suggested_role === 'EXIT' && !item.owner_exit_approved
@@ -514,8 +561,22 @@ function buildOwnerReviewModel(
       excluded_skus: [],
     },
     summary: {
-      owner_action_required_total: allOwnerActionEntries.length,
+      owner_action_required_total: scoredEntries.filter(entry =>
+        entry.owner_action_class === OWNER_ACTION_CLASSES.OWNER_ACTION_REQUIRED
+      ).length,
       owner_action_displayed: ownerActionEntries.length,
+      warnings: scoredEntries.filter(entry =>
+        entry.owner_action_class === OWNER_ACTION_CLASSES.WARNING_ONLY
+      ).length,
+      safe_no_order: scoredEntries.filter(entry =>
+        entry.owner_action_class === OWNER_ACTION_CLASSES.SAFE_NO_ORDER
+      ).length,
+      postponed: scoredEntries.filter(entry =>
+        entry.owner_action_class === OWNER_ACTION_CLASSES.POSTPONED
+      ).length,
+      resolved: scoredEntries.filter(entry =>
+        entry.owner_action_class === OWNER_ACTION_CLASSES.RESOLVED
+      ).length,
       core_review: items.filter(item => item.suggested_role === 'CORE').length,
       exit_approval: exitItems.length,
       large_inventory_review: largeInventoryItems.length,
@@ -530,7 +591,7 @@ function buildOwnerReviewModel(
         Object.entries(qualityGroups).map(([name, groupItems]) => [name, groupItems.length])
       ),
     },
-    items: scoredEntries.map(({ item, review }) => ({
+    items: scoredEntries.map(({ item, review, owner_action_class }) => ({
       rowIdentity: item.rowIdentity,
       source_row_number: item.source_row_number,
       article: item.article,
@@ -540,6 +601,7 @@ function buildOwnerReviewModel(
       owner_review_priority: review.owner_review_priority,
       owner_review_reasons: review.owner_review_reasons,
       owner_action_required: review.owner_action_required,
+      owner_action_class: owner_action_class,
       recommended_action: recommendedAction(item),
       owner_decision_status: item.owner_decision_status || 'none',
       owner_decision_applied: item.owner_decision_applied === true,

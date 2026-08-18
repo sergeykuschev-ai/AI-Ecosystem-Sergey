@@ -202,6 +202,10 @@ function itemMatches(item, filters) {
     item.matrix?.owner_review_required !== filters.owner_review
   ) return false;
   if (
+    filters.owner_action_class !== null &&
+    item.matrix?.owner_action_class !== filters.owner_action_class
+  ) return false;
+  if (
     filters.policy_adjusted !== null &&
     item.assortment_policy?.adjusted !== filters.policy_adjusted
   ) return false;
@@ -354,6 +358,7 @@ class RunQueryService {
         ['missing', 'BUY', 'SKIP', 'DEFER', 'confirmed'],
         'owner_decision'
       ),
+      owner_action_class: query.owner_action_class || null,
     };
     const sort = enumQuery(
       query.sort || 'source_row',

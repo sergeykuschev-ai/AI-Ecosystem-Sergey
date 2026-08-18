@@ -220,6 +220,12 @@ test('1. initial state: auto-approved is confirmed, review rows are missing',
     assert.deepEqual(skuList(missing), ['TAB-SKU-1', 'TAB-SKU-2']);
     assert.deepEqual(missing.body.data.owner_decisions, {
       needs_decision: 2,
+      pending_positive: 2,
+      pending_zero: 0,
+      postponed: 0,
+      do_not_buy: 0,
+      warnings: 0,
+      safe_no_order: 0,
       confirmed: 1,
       confirmed_buy: 0,
       excluded: 0,
@@ -339,6 +345,12 @@ test('6. decisions survive a full reload (server restart)', async () => {
   assert.deepEqual(skuList(missing), []);
   assert.deepEqual(missing.body.data.owner_decisions, {
     needs_decision: 0,
+    pending_positive: 0,
+    pending_zero: 0,
+    postponed: 0,
+    do_not_buy: 0,
+    warnings: 0,
+    safe_no_order: 0,
     confirmed: 2,
     confirmed_buy: 1,
     excluded: 1,
@@ -354,12 +366,16 @@ test('7. active tab is not reset to «Все товары» after saving', async
   const requests = [];
   const summaryBefore = {
     needs_decision: 1,
+    pending_positive: 1,
+    pending_zero: 0,
+    postponed: 0,
+    do_not_buy: 0,
     confirmed: 0,
     confirmed_buy: 0,
     excluded: 0,
     deferred: 0,
   };
-  const summaryAfter = { ...summaryBefore, needs_decision: 0 };
+  const summaryAfter = { ...summaryBefore, needs_decision: 0, pending_positive: 0 };
   let decided = false;
   const undecidedItem = {
     row_id: 'tabs:app:row:1',

@@ -355,6 +355,8 @@ async function runPurchasingWebOrchestrator(
     );
   }
 
+  const agentJson = agentJsonFromResult(agentResult);
+
   let ownerApplication;
   let ownerReview;
   let ownerLearningReview;
@@ -394,7 +396,8 @@ async function runPurchasingWebOrchestrator(
       ownerApplication.draft,
       matrixResult.manualReview,
       matrixResult.config,
-      ownerApplication.summary
+      ownerApplication.summary,
+      agentJson.workingOrderProducts
     );
     ownerReviewReport = dependencies.buildOwnerReviewReport(
       ownerApplication.draft,

@@ -1482,6 +1482,13 @@ test('owner decision counters map updated API totals', () => {
   assert.deepEqual(initial, {
     all: '31',
     needsDecision: '17',
+    needsDecisionPositive: '—',
+    needsDecisionZero: '—',
+    postponed: '—',
+    doNotBuy: '—',
+    warnings: '—',
+    safeNoOrder: '—',
+    needsDecisionDetail: null,
     confirmedBuy: '8',
     excluded: '4',
   });

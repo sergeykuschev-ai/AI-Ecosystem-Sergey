@@ -70,6 +70,18 @@
     confirmed: Object.freeze({ owner_decision: 'confirmed' }),
     skip: Object.freeze({ owner_decision: 'SKIP' }),
     policy: Object.freeze({ policy_adjusted: 'true' }),
+    warnings: Object.freeze({
+      owner_action_class: 'WARNING_ONLY',
+      owner_decision: 'missing',
+    }),
+    do_not_order: Object.freeze({
+      owner_action_class: 'SAFE_NO_ORDER',
+      owner_decision: 'missing',
+    }),
+    postponed: Object.freeze({
+      owner_action_class: 'POSTPONED',
+      owner_decision: 'missing',
+    }),
   });
   const ITEM_SORTS = Object.freeze([
     'source_row',
@@ -484,9 +496,34 @@
   }
 
   function decisionCounterView(summary, totalItems) {
+    const pendingPositive = displayCount(summary?.pending_positive);
+    const pendingZero = displayCount(summary?.pending_zero);
+    const postponed = displayCount(summary?.postponed);
+    const doNotBuy = displayCount(summary?.do_not_buy);
+    const warnings = displayCount(summary?.warnings);
+    const safeNoOrder = displayCount(summary?.safe_no_order);
+    const needsDecisionDetail =
+      summary &&
+      (
+        summary.pending_positive > 0 ||
+        summary.pending_zero > 0 ||
+        summary.postponed > 0 ||
+        summary.do_not_buy > 0 ||
+        summary.warnings > 0 ||
+        summary.safe_no_order > 0
+      )
+        ? `нужно решить: +${pendingPositive} / 0: ${pendingZero} / отложено: ${postponed} / не заказывать: ${doNotBuy} / предупреждения: ${warnings}`
+        : null;
     return {
       all: displayCount(totalItems),
       needsDecision: displayCount(summary?.needs_decision),
+      needsDecisionPositive: pendingPositive,
+      needsDecisionZero: pendingZero,
+      postponed,
+      doNotBuy,
+      warnings,
+      safeNoOrder,
+      needsDecisionDetail,
       confirmedBuy: displayCount(
         summary?.confirmed ?? summary?.confirmed_buy
       ),
@@ -503,7 +540,29 @@
     // FinalOrderState: a deferred item leaves «Нужно решить» and stays
     // visible in «Все товары» with the «Отложено» status.
     const ownerDecision = item?.owner_decision?.decision || null;
+    const actionClass = item?.matrix?.owner_action_class || null;
+    if (actionClass !== null) {
+      return actionClass === 'OWNER_ACTION_REQUIRED' && ownerDecision === null;
+    }
     return item?.matrix?.owner_review_required === true &&
+      ownerDecision === null;
+  }
+
+  function warningOnlyView(item) {
+    const ownerDecision = item?.owner_decision?.decision || null;
+    return item?.matrix?.owner_action_class === 'WARNING_ONLY' &&
+      ownerDecision === null;
+  }
+
+  function safeNoOrderView(item) {
+    const ownerDecision = item?.owner_decision?.decision || null;
+    return item?.matrix?.owner_action_class === 'SAFE_NO_ORDER' &&
+      ownerDecision === null;
+  }
+
+  function postponedView(item) {
+    const ownerDecision = item?.owner_decision?.decision || null;
+    return item?.matrix?.owner_action_class === 'POSTPONED' &&
       ownerDecision === null;
   }
 
@@ -533,6 +592,9 @@
     if (filter === 'confirmed') return confirmedItemView(item);
     if (filter === 'skip') return decision === 'SKIP';
     if (filter === 'policy') return item?.assortment_policy?.adjusted === true;
+    if (filter === 'warnings') return warningOnlyView(item);
+    if (filter === 'do_not_order') return safeNoOrderView(item);
+    if (filter === 'postponed') return postponedView(item);
     return true;
   }
 
@@ -563,6 +625,16 @@
         label: 'Решение владельца сохранено',
         className: 'status-auto',
       };
+    }
+    const actionClass = item?.matrix?.owner_action_class || null;
+    if (actionClass === 'WARNING_ONLY') {
+      return { label: 'Предупреждение', className: 'status-warning' };
+    }
+    if (actionClass === 'SAFE_NO_ORDER') {
+      return { label: 'Не заказывать', className: 'status-skip' };
+    }
+    if (actionClass === 'POSTPONED') {
+      return { label: 'Отложено', className: 'status-defer' };
     }
     const statuses = {
       auto_approved: ['Агент рекомендует заказать', 'status-auto'],
@@ -656,6 +728,12 @@
     if (needsOwnerDecisionView(item)) {
       return { label: 'Решение не принято', className: 'decision-none' };
     }
+    if (item?.matrix?.owner_action_class === 'WARNING_ONLY') {
+      return { label: 'Предупреждение', className: 'decision-none' };
+    }
+    if (item?.matrix?.owner_action_class === 'SAFE_NO_ORDER') {
+      return { label: 'Не заказывать', className: 'decision-skip' };
+    }
     return { label: 'Решение не требуется', className: 'decision-none' };
   }
 
@@ -693,11 +771,17 @@
     ) {
       reasons.push('Продажи нерегулярны, поэтому нужен осторожный запас.');
     }
-    if (item?.matrix?.owner_review_required === true) {
+    const actionClass = item?.matrix?.owner_action_class || null;
+    if (actionClass === 'OWNER_ACTION_REQUIRED' ||
+      (actionClass === null && item?.matrix?.owner_review_required === true)) {
       reasons.push(
         'Агент не смог принять окончательное решение. ' +
         'Выберите действие вручную.'
       );
+    } else if (actionClass === 'WARNING_ONLY') {
+      reasons.push('Это информационное предупреждение; действие не требуется.');
+    } else if (actionClass === 'SAFE_NO_ORDER') {
+      reasons.push('Агент уверенно рекомендует не заказывать.');
     }
     return reasons.slice(0, 2).join(' ') ||
       technicalExplanation(item) ||
@@ -1018,6 +1102,14 @@
     learningFields.append(reasonSelect, comment, confirmationGroup);
     learningFields.hidden = true;
     controls.append(quantity, actionGroup, learningFields);
+
+    const actionClass = item?.matrix?.owner_action_class || null;
+    const requiresAction = actionClass === 'OWNER_ACTION_REQUIRED' ||
+      (actionClass === null && item?.matrix?.owner_review_required === true);
+    if (!requiresAction) {
+      controls.hidden = true;
+    }
+
     const saveMessage = documentObject.createElement('small');
     saveMessage.className = 'decision-save-message';
     let pendingDecision = null;
@@ -4461,6 +4553,9 @@
       decisionCounters: {
         all: documentObject.getElementById('decision-all'),
         needsDecision: documentObject.getElementById('decision-needs'),
+        warnings: documentObject.getElementById('decision-warnings'),
+        doNotBuy: documentObject.getElementById('decision-do-not-buy'),
+        postponed: documentObject.getElementById('decision-postponed'),
         confirmedBuy: documentObject.getElementById('decision-buy'),
         excluded: documentObject.getElementById('decision-skip'),
       },
@@ -5623,6 +5718,9 @@
         elements.decisionCounters
       )) {
         element.textContent = view[name];
+      }
+      if (elements.decisionCounters.needsDecision && view.needsDecisionDetail) {
+        elements.decisionCounters.needsDecision.title = view.needsDecisionDetail;
       }
     }
 

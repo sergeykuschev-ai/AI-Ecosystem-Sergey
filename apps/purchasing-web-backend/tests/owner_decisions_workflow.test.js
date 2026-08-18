@@ -145,6 +145,12 @@ test('pending decisions require an explicit Owner Review signal', () => {
     item(undefined, null),
   ]), {
     needs_decision: 1,
+    pending_positive: 0,
+    pending_zero: 1,
+    postponed: 0,
+    do_not_buy: 0,
+    warnings: 0,
+    safe_no_order: 0,
     confirmed: 0,
     confirmed_buy: 1,
     excluded: 1,
@@ -352,6 +358,12 @@ test('PUT saves BUY in append-only Owner Decisions Memory', async () => {
   assert.equal(saved.body.data.item.owner_decision.quantity, 7);
   assert.deepEqual(saved.body.data.owner_decisions, {
     needs_decision: 0,
+    pending_positive: 0,
+    pending_zero: 0,
+    postponed: 0,
+    do_not_buy: 0,
+    warnings: 0,
+    safe_no_order: 0,
     confirmed: 1,
     confirmed_buy: 1,
     excluded: 0,
@@ -665,6 +677,12 @@ test('missing decisions filter and counters are deterministic', async () => {
   // SKU-2 still lacks an owner decision (it never required one).
   assert.deepEqual(missing.body.data.owner_decisions, {
     needs_decision: 0,
+    pending_positive: 0,
+    pending_zero: 0,
+    postponed: 0,
+    do_not_buy: 0,
+    warnings: 0,
+    safe_no_order: 0,
     confirmed: 0,
     confirmed_buy: 0,
     excluded: 0,
@@ -783,6 +801,27 @@ test('PUT with permanent flag saves BUY as permanent without expiration', async 
     await once(isolatedServer, 'close');
     fs.rmSync(isolatedRoot, { recursive: true, force: true });
   }
+});
+
+test('pending buckets sum to needs_decision and stay non-negative', () => {
+  const items = [
+    { matrix: { owner_review_required: true }, quantities: { provisional_quantity: 3 } },
+    { matrix: { owner_review_required: true }, quantities: { provisional_quantity: 0 } },
+    { matrix: { owner_review_required: true }, decision: 'postpone', workflow_status: 'postponed' },
+    { matrix: { owner_review_required: true }, decision: 'do_not_buy', workflow_status: 'no_order_action' },
+    { matrix: { owner_review_required: false }, quantities: { approved_quantity: 2 } },
+  ];
+  const summary = ownerDecisionSummary(items);
+  assert.equal(summary.needs_decision, 4);
+  assert.equal(
+    summary.pending_positive + summary.pending_zero +
+      summary.postponed + summary.do_not_buy,
+    summary.needs_decision
+  );
+  assert.equal(summary.pending_positive, 1);
+  assert.equal(summary.pending_zero, 1);
+  assert.equal(summary.postponed, 1);
+  assert.equal(summary.do_not_buy, 1);
 });
 
 test('DEFER is always run-scoped regardless of permanent flag', async () => {
