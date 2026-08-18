@@ -26,7 +26,13 @@
     "target_cover_weeks": 2,
     "maximum_cover_weeks": 4,
     "minimum_policy_data_weeks": 8,
-    "large_policy_review_threshold_units": 50
+    "large_policy_review_threshold_units": 50,
+    "large_inventory_review": {
+      "enabled": true,
+      "days_multiplier_over_target": 2.5,
+      "value_threshold_rub": 10000,
+      "fallback_units_threshold": 50
+    }
   },
   "inventory_value_review": {
     "enabled": true,
