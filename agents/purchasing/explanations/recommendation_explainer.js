@@ -24,6 +24,8 @@ const FACT_FIELDS = Object.freeze([
   'line_sum',
   'matrix_role',
   'inventory_review_level',
+  'quantity_reason',
+  'ignored_analyzer_quantity',
 ]);
 
 const REASON_DESCRIPTIONS = Object.freeze({
@@ -49,6 +51,11 @@ const REASON_DESCRIPTIONS = Object.freeze({
   MANUAL_REVIEW_REQUIRED: 'Готовое решение требует ручной проверки.',
   ZERO_ORDER_RECOMMENDED: 'Утверждённое количество заказа равно нулю.',
   POSITIVE_ORDER_RECOMMENDED: 'Утверждено положительное количество заказа.',
+  QUANTITY_DEMAND_GAP: 'Количество рассчитано из потребности до целевого запаса.',
+  QUANTITY_MANDATORY_GAP: 'Количество рассчитано из обязательного минимума ассортимента.',
+  QUANTITY_SUFFICIENT_STOCK: 'Свободного остатка достаточно, положительный заказ не требуется.',
+  ANALYZER_QTY_IGNORED: 'Предварительный Min-Max qty отклонён: отсутствует demand gap.',
+  BOX_ROUNDING: 'Количество округлено до кратности упаковки.',
 });
 
 class RecommendationExplainerError extends Error {
@@ -227,6 +234,8 @@ function calculationFacts(product, decision, working, matrixItem) {
       : finiteOrNull(working?.approvedLineSum),
     matrix_role: matrixItem?.suggested_role || null,
     inventory_review_level: matrixItem?.inventory_value_review_level || null,
+    quantity_reason: product.quantityReason || null,
+    ignored_analyzer_quantity: finiteOrNull(product.ignoredAnalyzerQuantity),
   };
 }
 
@@ -372,8 +381,15 @@ function explanationSummary({
       details.push(
         `свободный остаток ${facts.free_stock} шт. ниже target ${facts.target} шт.`
       );
-    } else if (facts.preliminary_quantity !== null) {
-      details.push(`готовый предварительный расчёт ${facts.preliminary_quantity} шт.`);
+    } else if (facts.ignored_analyzer_quantity !== null) {
+      details.push(
+        `предварительный Min-Max qty ${facts.ignored_analyzer_quantity} шт. отклонён: ` +
+        `свободного остатка достаточно`
+      );
+    } else if (facts.quantity_reason === 'mandatory_assortment') {
+      details.push('обязательный минимум ассортимента');
+    } else if (facts.quantity_reason === 'demand_gap') {
+      details.push('расчётная потребность до целевого запаса');
     }
     if (facts.in_transit !== null) details.push(`в пути ${facts.in_transit} шт.`);
     const financeText = financialLimitDetected(financial)
@@ -479,6 +495,26 @@ function explainItem({ product, decision, phase1Decision, working, matrixItem, a
     ['approved_quantity', 'line_sum']
   );
   collector.add(
+    'QUANTITY_DEMAND_GAP',
+    facts.quantity_reason === 'demand_gap',
+    ['quantity_reason', 'calculated_need']
+  );
+  collector.add(
+    'QUANTITY_MANDATORY_GAP',
+    facts.quantity_reason === 'mandatory_assortment',
+    ['quantity_reason', 'minimum']
+  );
+  collector.add(
+    'QUANTITY_SUFFICIENT_STOCK',
+    facts.quantity_reason === 'sufficient_stock',
+    ['quantity_reason', 'free_stock', 'target']
+  );
+  collector.add(
+    'ANALYZER_QTY_IGNORED',
+    facts.ignored_analyzer_quantity !== null,
+    ['ignored_analyzer_quantity', 'preliminary_quantity']
+  );
+  collector.add(
     'MANUAL_REVIEW_REQUIRED',
     decision?.decision === 'manual_review',
     ['approved_quantity']
@@ -566,10 +602,13 @@ function buildRecommendationExplanations(agentResult, options = {}) {
         level,
         count(item => item.confidence_level === level),
       ])),
-      positive_order: count(item => item.recommended_quantity > 0),
-      zero_order: count(item => item.recommended_quantity === 0),
-      manual_review: count(item => item.recommendation_status === 'manual_review'),
-      exit: count(item => item.calculation_facts.matrix_role === 'EXIT'),
+      positive_order: count(item => item.final_recommendation === 'ORDER'),
+      zero_order: count(item =>
+        ['DO_NOT_ORDER', 'KEEP_IN_MATRIX'].includes(item.final_recommendation)
+      ),
+      manual_review: count(item => item.final_recommendation === 'MANUAL_REVIEW'),
+      exit: count(item => item.final_recommendation === 'EXIT'),
+      postponed: count(item => item.recommendation_status === 'postpone'),
       owner_decision_applied: count(item => item.owner_decision_influence.applied),
       owner_decision_conflicts: count(item => item.owner_decision_influence.conflict),
     },
@@ -661,6 +700,7 @@ function buildRecommendationExplanationsReport(explanations) {
       ['Zero order', explanations.summary.zero_order],
       ['Manual review', explanations.summary.manual_review],
       ['EXIT', explanations.summary.exit],
+      ['Postponed', explanations.summary.postponed],
       ['High confidence', explanations.summary.confidence.high],
       ['Medium confidence', explanations.summary.confidence.medium],
       ['Low confidence', explanations.summary.confidence.low],

@@ -35,6 +35,7 @@ function product(overrides = {}) {
     finalRecommendedQuantity: 6,
     minDisplayStock: 3,
     targetStock: 8,
+    quantityReason: 'demand_gap',
     warnings: [],
     ...overrides,
   };
@@ -347,4 +348,130 @@ test('Markdown report contains all required sections and owner-facing facts', ()
   ]) assert.ok(report.includes(heading), `Отсутствует ${heading}`);
   assert.ok(report.includes('SKU-1'));
   assert.ok(report.endsWith('\n'));
+});
+
+test('quantity reason codes are exposed for demand, mandatory gap and sufficient stock', () => {
+  const demandGap = explain().item;
+  assert.ok(reasonCodes(demandGap).includes('QUANTITY_DEMAND_GAP'));
+
+  const mandatory = explain({
+    product: product({
+      freeStock: 0,
+      demandCalculatedQuantity: 0,
+      finalRecommendedQuantity: 8,
+      minDisplayStock: 8,
+      targetStock: 8,
+      quantityReason: 'mandatory_assortment',
+    }),
+    decision: decision({
+      decision: 'must_buy',
+      approvedOrderQuantity: 8,
+      calculatedOrderQuantity: 8,
+      reasons: ['mandatory_critical_assortment_gap'],
+    }),
+    working: working({ approvedOrderQuantity: 8, approvedLineSum: 800 }),
+  }).item;
+  assert.ok(reasonCodes(mandatory).includes('QUANTITY_MANDATORY_GAP'));
+
+  const sufficient = explain({
+    product: product({
+      freeStock: 10,
+      availableStock: 10,
+      analyzerCalculatedQuantity: 5,
+      demandCalculatedQuantity: 0,
+      finalRecommendedQuantity: 0,
+      targetStock: 8,
+      quantityReason: 'sufficient_stock',
+      ignoredAnalyzerQuantity: 5,
+    }),
+    decision: decision({
+      decision: 'do_not_buy',
+      approvedOrderQuantity: 0,
+      calculatedOrderQuantity: 0,
+      reasons: ['final_recommended_quantity_not_positive'],
+    }),
+    working: working({ approvedOrderQuantity: 0, approvedLineSum: 0 }),
+  }).item;
+  assert.ok(reasonCodes(sufficient).includes('QUANTITY_SUFFICIENT_STOCK'));
+  assert.ok(reasonCodes(sufficient).includes('ANALYZER_QTY_IGNORED'));
+  assert.equal(sufficient.calculation_facts.ignored_analyzer_quantity, 5);
+});
+
+test('report summary buckets are mutually exclusive and sum to total SKU count', () => {
+  const matrixItems = [
+    matrixItem({ rowIdentity: 'row-1', suggested_role: 'OPTIONAL' }),
+    matrixItem({ rowIdentity: 'row-2', suggested_role: 'OPTIONAL' }),
+    matrixItem({ rowIdentity: 'row-3', suggested_role: 'OPTIONAL' }),
+    matrixItem({ rowIdentity: 'row-4', suggested_role: 'EXIT' }),
+  ];
+  const explanations = buildRecommendationExplanations([
+    { json: {
+      product_rows_count: 4,
+      demandProducts: [
+        product({ rowIdentity: 'row-1', finalRecommendedQuantity: 6 }),
+        product({
+          rowIdentity: 'row-2',
+          freeStock: 10,
+          availableStock: 10,
+          analyzerCalculatedQuantity: 0,
+          demandCalculatedQuantity: 0,
+          finalRecommendedQuantity: 0,
+          targetStock: 8,
+          quantityReason: 'sufficient_stock',
+        }),
+        product({
+          rowIdentity: 'row-3',
+          finalRecommendedQuantity: null,
+          salesStatus: 'missing',
+          quantityReason: 'incomplete_critical_data',
+        }),
+        product({
+          rowIdentity: 'row-4',
+          finalRecommendedQuantity: 0,
+        }),
+      ],
+      decisions: [
+        decision({ rowIdentity: 'row-1', decision: 'recommended', approvedOrderQuantity: 6 }),
+        decision({ rowIdentity: 'row-2', decision: 'do_not_buy', approvedOrderQuantity: 0 }),
+        decision({ rowIdentity: 'row-3', decision: 'manual_review', approvedOrderQuantity: null }),
+        decision({ rowIdentity: 'row-4', decision: 'do_not_buy', approvedOrderQuantity: 0 }),
+      ],
+      phase1Decisions: [],
+      workingOrderProducts: [
+        working({ rowIdentity: 'row-1', approvedOrderQuantity: 6 }),
+        working({ rowIdentity: 'row-2', approvedOrderQuantity: 0, approvedLineSum: 0 }),
+        working({ rowIdentity: 'row-3', approvedOrderQuantity: null, approvedLineSum: 0 }),
+        working({ rowIdentity: 'row-4', approvedOrderQuantity: 0, approvedLineSum: 0 }),
+      ],
+      financial_assessment: {
+        status: 'APPROVED',
+        advisory_only: true,
+        financially_permitted: true,
+        order_composition_changed: false,
+        safe_budget_excess: 0,
+        recommendation: 'OK',
+      },
+    } },
+  ], {
+    config: {
+      version: 'test-explainer-v1',
+      store: 'test',
+      confidence_policy: {
+        low_if_missing_any: [],
+        medium_if_missing_any: [],
+        use_decision_confidence_as_ceiling: false,
+      },
+    },
+    matrixDraft: { items: matrixItems },
+  });
+  const s = explanations.summary;
+  assert.equal(
+    s.positive_order + s.zero_order + s.manual_review + s.exit,
+    explanations.explained_sku_count,
+    'mutually exclusive buckets must sum to total SKU count'
+  );
+  assert.equal(s.positive_order, 1);
+  assert.equal(s.zero_order, 1);
+  assert.equal(s.manual_review, 1);
+  assert.equal(s.exit, 1);
 });

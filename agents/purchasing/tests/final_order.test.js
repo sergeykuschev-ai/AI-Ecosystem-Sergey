@@ -386,6 +386,20 @@ test('PIECE order_mode округляет дробное количество и
   assert.equal(entry.quantityDiagnostics[0].details.rounded_quantity, 3);
 });
 
+test('BOX order_mode округляет need 1 до кратности короба 12', () => {
+  const state = buildFinalOrderState({
+    items: [
+      policyItem({
+        sku: 'BOX-NEED-1',
+        quantities: { approved_quantity: 1 },
+        assortment_policy: { order_mode: 'BOX', box_qty: 12 },
+      }),
+    ],
+  });
+  assert.equal(state.includedItems[0].quantity, 12);
+  assert.equal(state.includedItems[0].orderMode, 'BOX');
+});
+
 test('OWNER_BUY не сокращается из-за кратности короба, округление вверх разрешено', () => {
   const state = buildFinalOrderState({
     items: [
