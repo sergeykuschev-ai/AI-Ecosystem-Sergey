@@ -731,13 +731,14 @@ test('flags declining sales and lowers decision confidence', () => {
   assert.equal(decliningDecision.confidence, 'medium');
 });
 
-test('keeps analyzer quantity when it is higher than demand', () => {
+test('rejects analyzer quantity when demand is zero and stock covers target', () => {
   const row = product({ freeStock: 100, orderQty: 12 });
   const demand = demandFor(row).products[0];
 
   assert.equal(demand.demandCalculatedQuantity, 0);
-  assert.equal(demand.finalRecommendedQuantity, 12);
-  assert.equal(demand.quantityReason, 'analyzer_maximum');
+  assert.equal(demand.finalRecommendedQuantity, 0);
+  assert.equal(demand.quantityReason, 'sufficient_stock');
+  assert.equal(demand.ignoredAnalyzerQuantity, 12);
 });
 
 test('uses demand quantity when it is higher than analyzer quantity', () => {
@@ -746,7 +747,8 @@ test('uses demand quantity when it is higher than analyzer quantity', () => {
 
   assert.equal(demand.demandCalculatedQuantity, 28);
   assert.equal(demand.finalRecommendedQuantity, 28);
-  assert.equal(demand.quantityReason, 'demand_maximum');
+  assert.equal(demand.quantityReason, 'demand_gap');
+  assert.equal(demand.ignoredAnalyzerQuantity, null);
 });
 
 test('uses mandatory gap when it is higher than analyzer and demand', () => {
@@ -759,7 +761,40 @@ test('uses mandatory gap when it is higher than analyzer and demand', () => {
   assert.equal(demand.demandCalculatedQuantity, 0);
   assert.equal(demand.mandatoryMinimumGap, 15);
   assert.equal(demand.finalRecommendedQuantity, 15);
-  assert.equal(demand.quantityReason, 'mandatory_gap_maximum');
+  assert.equal(demand.quantityReason, 'mandatory_assortment');
+  assert.equal(demand.ignoredAnalyzerQuantity, null);
+});
+
+test('preserves positive demand quantity when matrix minimum exceeds demand target', () => {
+  // Regression guard for SKU 540676: positive demand need (12) must not be
+  // overridden by a higher matrix minimum (20) when the demand target (16)
+  // is already below the minimum.
+  const row = product({ freeStock: 4, orderQty: 19 });
+  const demand = demandFor(row, {
+    sales: { sales7: 4, sales14: 8, sales30: 16 },
+    assortment: { mandatory: true, minDisplayStock: 20 },
+  }).products[0];
+
+  assert.equal(demand.targetStock, 16);
+  assert.equal(demand.demandCalculatedQuantity, 12);
+  assert.equal(demand.mandatoryMinimumGap, 0);
+  assert.equal(demand.finalRecommendedQuantity, 12);
+  assert.equal(demand.quantityReason, 'demand_gap');
+});
+
+test('applies mandatory gap for new items without active demand', () => {
+  // New CORE items with min_stock=1 and no sales history should still be
+  // ordered up to their minimum display stock.
+  const row = product({ freeStock: 0, orderQty: 0 });
+  const demand = demandFor(row, {
+    sales: { sales7: 0, sales14: 0, sales30: 0 },
+    assortment: { mandatory: true, minDisplayStock: 1 },
+  }).products[0];
+
+  assert.equal(demand.demandCalculatedQuantity, 0);
+  assert.equal(demand.mandatoryMinimumGap, 1);
+  assert.equal(demand.finalRecommendedQuantity, 1);
+  assert.equal(demand.quantityReason, 'mandatory_assortment');
 });
 
 test('produces deterministic demand products and final quantities', () => {
@@ -1010,7 +1045,9 @@ test('canonical available stock includes incoming stock so demand is zero when c
   assert.equal(demand.incomingStock, 10);
   assert.equal(demand.availableStock, 12);
   assert.equal(demand.demandCalculatedQuantity, 0);
-  assert.equal(demand.finalRecommendedQuantity, 3);
+  assert.equal(demand.finalRecommendedQuantity, 0);
+  assert.equal(demand.quantityReason, 'sufficient_stock');
+  assert.equal(demand.ignoredAnalyzerQuantity, 3);
 });
 
 test('canonical available stock subtracts reserve when not already excluded from free stock', () => {

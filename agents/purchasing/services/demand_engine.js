@@ -378,13 +378,66 @@ function valueFromRecord(record, field) {
   return record[field];
 }
 
-function demandQuantityReason(analyzerQuantity, demandQuantity, mandatoryGap) {
-  const maximum = Math.max(analyzerQuantity, demandQuantity, mandatoryGap);
-  const leaders = [];
-  if (analyzerQuantity === maximum) leaders.push('analyzer');
-  if (demandQuantity === maximum) leaders.push('demand');
-  if (mandatoryGap === maximum) leaders.push('mandatory_gap');
-  return leaders.length > 1 ? `equal_maximum:${leaders.join('+')}` : `${leaders[0]}_maximum`;
+function resolveFinalQuantity({
+  analyzerCalculatedQuantity,
+  demandCalculatedQuantity,
+  mandatoryMinimumGap,
+  availableStock,
+  targetStock,
+}) {
+  // analyzerCalculatedQuantity is intentionally not used as a fallback.
+  // The final quantity must come from demand-based need, mandatory gap, or
+  // an explicit override. Without demand we cannot validate the need, so the
+  // result stays incomplete/manual-review.
+  if (demandCalculatedQuantity === null) {
+    return {
+      quantity: null,
+      reason: 'incomplete_critical_data',
+      ignoredAnalyzerQuantity:
+        analyzerCalculatedQuantity !== null && analyzerCalculatedQuantity > 0
+          ? analyzerCalculatedQuantity
+          : null,
+    };
+  }
+
+  if (mandatoryMinimumGap !== null && mandatoryMinimumGap > 0) {
+    const quantity = Math.max(demandCalculatedQuantity, mandatoryMinimumGap);
+    return {
+      quantity,
+      reason: 'mandatory_assortment',
+      ignoredAnalyzerQuantity:
+        analyzerCalculatedQuantity !== null && analyzerCalculatedQuantity > quantity
+          ? analyzerCalculatedQuantity
+          : null,
+    };
+  }
+
+  if (
+    demandCalculatedQuantity === 0 &&
+    availableStock !== null &&
+    targetStock !== null &&
+    availableStock >= targetStock
+  ) {
+    const quantity = 0;
+    return {
+      quantity,
+      reason: 'sufficient_stock',
+      ignoredAnalyzerQuantity:
+        analyzerCalculatedQuantity !== null && analyzerCalculatedQuantity > quantity
+          ? analyzerCalculatedQuantity
+          : null,
+    };
+  }
+
+  const quantity = demandCalculatedQuantity;
+  return {
+    quantity,
+    reason: 'demand_gap',
+    ignoredAnalyzerQuantity:
+      analyzerCalculatedQuantity !== null && analyzerCalculatedQuantity > quantity
+        ? analyzerCalculatedQuantity
+        : null,
+  };
 }
 
 function isolatedDemandProduct(row, error, index) {
@@ -462,6 +515,7 @@ function isolatedDemandProduct(row, error, index) {
     stockAfterOrder: null,
     expectedCoverageAfterOrder: null,
     quantityReason: 'incomplete_critical_data',
+    ignoredAnalyzerQuantity: null,
     requiredData: [],
     warnings: ['data_invalid_row_isolated'],
     workflow_status: 'manual_review',
@@ -719,30 +773,37 @@ function calculateDemandProduct(row, sources, matches, context, config) {
     minDisplayStock !== null &&
     availableStock !== null
   ) {
+    const rawGap = Math.max(0, minDisplayStock - availableStock);
+    const activeDemand =
+      demandCalculatedQuantity !== null && demandCalculatedQuantity > 0;
+    const targetCoversMinimum =
+      targetStock !== null && targetStock >= minDisplayStock;
+    // Mandatory floor is applied:
+    // - when there is no active demand signal (it ensures minimum presence);
+    // - when the demand target already calls for stock at or above the minimum.
+    // When positive demand exists but the demand target is below the minimum,
+    // the demand-based quantity is preserved (quantity-fix safety).
     mandatoryMinimumGap = mandatoryAssortment
-      ? Math.max(0, minDisplayStock - availableStock)
+      ? (activeDemand && !targetCoversMinimum ? 0 : rawGap)
       : 0;
   }
 
   const canCalculateFinal =
-    analyzerCalculatedQuantity !== null &&
     demandCalculatedQuantity !== null &&
     mandatoryMinimumGap !== null &&
     resolvedStockStatus !== 'negative';
-  const finalRecommendedQuantity = canCalculateFinal
-    ? Math.max(
+  const resolvedQuantity = canCalculateFinal
+    ? resolveFinalQuantity({
       analyzerCalculatedQuantity,
       demandCalculatedQuantity,
-      mandatoryMinimumGap
-    )
-    : null;
-  const quantityReason = finalRecommendedQuantity === null
-    ? 'incomplete_critical_data'
-    : demandQuantityReason(
-      analyzerCalculatedQuantity,
-      demandCalculatedQuantity,
-      mandatoryMinimumGap
-    );
+      mandatoryMinimumGap,
+      availableStock,
+      targetStock,
+    })
+    : { quantity: null, reason: 'incomplete_critical_data', ignoredAnalyzerQuantity: null };
+  const finalRecommendedQuantity = resolvedQuantity.quantity;
+  const quantityReason = resolvedQuantity.reason;
+  const ignoredAnalyzerQuantity = resolvedQuantity.ignoredAnalyzerQuantity;
   const stockAfterOrder = finalRecommendedQuantity !== null && availableStock !== null
     ? availableStock + finalRecommendedQuantity
     : null;
@@ -857,6 +918,7 @@ function calculateDemandProduct(row, sources, matches, context, config) {
     stockAfterOrder,
     expectedCoverageAfterOrder,
     quantityReason,
+    ignoredAnalyzerQuantity,
     requiredData: Array.from(new Set(requiredData)),
     warnings: Array.from(new Set(warnings)),
   };
@@ -1173,7 +1235,7 @@ module.exports = {
   selectSalesRate,
   detectSalesTrend,
   stockStatus,
-  demandQuantityReason,
+  resolveFinalQuantity,
   calculateDemandProduct,
   summarizeDemandPlan,
   buildDemandPlan,
