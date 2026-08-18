@@ -784,7 +784,8 @@ function buildOwnerReviewReport(
         stockFormula(item),
         reasonSummary(item, 3, [
           'critical_inventory_value', 'large_inventory_value',
-          'large_inventory_units', 'growth_cap_applied',
+          'large_inventory_units', 'large_inventory_days',
+          'large_inventory_units_fallback', 'growth_cap_applied',
         ]),
       ])
     ),

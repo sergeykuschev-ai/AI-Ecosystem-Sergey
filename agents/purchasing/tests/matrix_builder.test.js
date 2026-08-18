@@ -27,6 +27,7 @@ const {
   loadMatrixBuilderConfig,
   validateDraftItem,
   validateMatrixDraft,
+  validateMatrixBuilderConfig,
 } = require('../matrix_builder/matrix_builder_validator');
 const {
   runMatrixBuilderCli,
@@ -908,4 +909,183 @@ test('First Category Rollout: ACTIVE category TEST product is not queued as awai
   assert.equal(item.rollout_status, 'ACTIVE');
   assert.equal(item.rollout_recommended_quantity, null);
   assert.ok(!item.review_queue_memberships.includes('test_awaiting_introduction'));
+});
+
+
+test('fast CORE pouch with units above 50 but normal days coverage is not large inventory', () => {
+  const sourceRow = row({
+    weeklySalesHistory: twelveWeeks(Array(12).fill(20)),
+    freeStock: 30,
+    priceNum: 44.75,
+  });
+  const item = draftItem(sourceRow, {
+    workingOrderProduct: {
+      article: sourceRow.article,
+      prePolicyFinalRecommendedQuantity: 10,
+    },
+  });
+  assert.equal(item.suggested_role, 'CORE');
+  assert.ok(item.suggested_maximum_stock > 50);
+  assert.ok(item.evidence.projected_days_of_stock !== null);
+  assert.ok(!item.reason_codes.includes('large_inventory_units'));
+  assert.ok(!item.reason_codes.includes('large_inventory_units_fallback'));
+  assert.ok(!item.reason_codes.includes('large_inventory_days'));
+  assert.ok(!item.review_queue_memberships.includes('large_inventory_review'));
+});
+
+test('overstock SKU with projected days far above target triggers large_inventory_days', () => {
+  const sourceRow = row({
+    weeklySalesHistory: twelveWeeks(Array(12).fill(1)),
+    freeStock: 200,
+    priceNum: 100,
+  });
+  const item = draftItem(sourceRow, {
+    workingOrderProduct: {
+      article: sourceRow.article,
+      prePolicyFinalRecommendedQuantity: 0,
+    },
+  });
+  assert.ok(item.evidence.projected_days_of_stock > item.evidence.target_days_of_stock * 1.5);
+  assert.ok(item.reason_codes.includes('large_inventory_days'));
+  assert.ok(item.review_queue_memberships.includes('large_inventory_review'));
+});
+
+test('high-value SKU with low units triggers large_inventory_value', () => {
+  const sourceRow = row({
+    weeklySalesHistory: twelveWeeks(Array(12).fill(2)),
+    freeStock: 5,
+    priceNum: 2500,
+  });
+  const item = draftItem(sourceRow, {
+    workingOrderProduct: {
+      article: sourceRow.article,
+      prePolicyFinalRecommendedQuantity: 10,
+    },
+  });
+  assert.ok(item.suggested_maximum_stock < 50);
+  assert.ok(item.evidence.projected_inventory_value >= 10000);
+  assert.ok(item.reason_codes.includes('large_inventory_value'));
+  assert.ok(item.review_queue_memberships.includes('large_inventory_review'));
+});
+
+test('no reliable velocity falls back to unit threshold', () => {
+  const sourceRow = row({
+    weeklySalesHistory: [week('2026-07-06', 0)],
+    freeStock: 60,
+    priceNum: 100,
+    reportedSalesQuantity: 0,
+  });
+  const item = draftItem(sourceRow, {
+    workingOrderProduct: {
+      article: sourceRow.article,
+      prePolicyFinalRecommendedQuantity: 0,
+    },
+  });
+  assert.equal(item.data_quality.stock_policy_status, 'insufficient_data');
+  assert.ok(item.reason_codes.includes('large_inventory_units_fallback'));
+  assert.ok(item.review_queue_memberships.includes('large_inventory_review'));
+});
+
+test('no reliable velocity with low units and value does not trigger large review', () => {
+  const sourceRow = row({
+    weeklySalesHistory: [week('2026-07-06', 0)],
+    freeStock: 5,
+    priceNum: 100,
+    reportedSalesQuantity: 0,
+  });
+  const item = draftItem(sourceRow, {
+    workingOrderProduct: {
+      article: sourceRow.article,
+      prePolicyFinalRecommendedQuantity: 0,
+    },
+  });
+  assert.equal(item.data_quality.stock_policy_status, 'insufficient_data');
+  assert.ok(!item.reason_codes.includes('large_inventory_units_fallback'));
+  assert.ok(!item.review_queue_memberships.includes('large_inventory_review'));
+});
+
+test('EXIT candidate is unaffected by large inventory value review', () => {
+  const sourceRow = row({
+    name: 'Влажный корм тестовый 100 г',
+    abc: 'C',
+    xyz: 'Z',
+    weeklySalesHistory: eightWeeks(Array(8).fill(0)),
+    reportedSalesQuantity: 0,
+    freeStock: 1,
+    priceNum: 5000,
+  });
+  const item = draftItem(sourceRow);
+  assert.equal(item.suggested_role, 'EXIT');
+  assert.ok(item.manual_review_required);
+  assert.ok(!item.reason_codes.includes('large_inventory_value'));
+  assert.ok(!item.reason_codes.includes('large_inventory_days'));
+});
+
+test('owner decision suppresses large inventory review', () => {
+  const sourceRow = row({
+    weeklySalesHistory: twelveWeeks(Array(12).fill(20)),
+    freeStock: 17,
+    priceNum: 44.75,
+  });
+  const item = draftItem(sourceRow, {
+    workingOrderProduct: {
+      article: sourceRow.article,
+      prePolicyFinalRecommendedQuantity: 140,
+      ownerDecisionApplied: true,
+    },
+  });
+  assert.equal(item.suggested_role, 'CORE');
+  assert.ok(!item.reason_codes.includes('large_inventory_units'));
+});
+
+test('legacy config without large_inventory_review remains loadable', () => {
+  const legacyConfig = validateMatrixBuilderConfig({
+    ...CONFIG,
+    stock_policy: {
+      ...CONFIG.stock_policy,
+      large_inventory_review: undefined,
+    },
+  });
+  assert.equal(legacyConfig.stock_policy.large_inventory_review.enabled, true);
+  assert.equal(
+    legacyConfig.stock_policy.large_inventory_review.fallback_units_threshold,
+    legacyConfig.stock_policy.large_policy_review_threshold_units
+  );
+});
+
+test('large inventory review preserves multiple reason codes', () => {
+  const sourceRow = row({
+    weeklySalesHistory: twelveWeeks(Array(12).fill(1)),
+    freeStock: 200,
+    priceNum: 1000,
+  });
+  const item = draftItem(sourceRow, {
+    workingOrderProduct: {
+      article: sourceRow.article,
+      prePolicyFinalRecommendedQuantity: 0,
+    },
+  });
+  assert.ok(item.reason_codes.includes('large_inventory_days'));
+  assert.ok(item.reason_codes.includes('large_inventory_value'));
+  assert.ok(item.explanation.includes('Запас после рекомендуемого заказа'));
+  assert.ok(item.explanation.includes('Стоимость'));
+});
+
+test('large inventory reason codes are exposed in evidence', () => {
+  const sourceRow = row({
+    weeklySalesHistory: twelveWeeks(Array(12).fill(1)),
+    freeStock: 200,
+    priceNum: 10,
+  });
+  const item = draftItem(sourceRow, {
+    workingOrderProduct: {
+      article: sourceRow.article,
+      prePolicyFinalRecommendedQuantity: 0,
+    },
+  });
+  assert.equal(item.evidence.large_inventory_review.large_inventory_days, true);
+  assert.equal(item.evidence.large_inventory_review.large_inventory_value, false);
+  assert.equal(typeof item.evidence.projected_inventory_value, 'number');
+  assert.equal(typeof item.evidence.projected_days_of_stock, 'number');
+  assert.equal(typeof item.evidence.target_days_of_stock, 'number');
 });

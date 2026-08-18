@@ -63,6 +63,8 @@ const REASON_CODES = Object.freeze([
   'large_inventory_value',
   'critical_inventory_value',
   'large_inventory_units',
+  'large_inventory_days',
+  'large_inventory_units_fallback',
   'approved_policy_conflict',
   'placeholder_difference',
 ]);
@@ -107,6 +109,8 @@ const REASON_EXPLANATIONS = Object.freeze({
   large_inventory_value: 'Стоимость максимального запаса превышает порог проверки.',
   critical_inventory_value: 'Стоимость максимального запаса превышает критический порог.',
   large_inventory_units: 'Максимальный запас превышает порог в единицах.',
+  large_inventory_days: 'Запас после рекомендуемого заказа превышает допустимое покрытие в днях.',
+  large_inventory_units_fallback: 'Нет надёжной скорости продаж; максимальный запас превышает порог в единицах.',
   approved_policy_conflict: 'Автоматическое предложение отличается от утверждённой политики.',
   placeholder_difference: 'Автоматическое предложение отличается от временной заглушки матрицы.',
   FIRST_ROLLOUT_TEST_AWAITING_INTRODUCTION:
@@ -191,6 +195,45 @@ function stringArray(value, fieldName) {
     );
   }
   return value.map(item => item.trim());
+}
+
+function validateLargeInventoryReviewConfig(value, legacyUnitThreshold) {
+  if (value === undefined || value === null) {
+    return {
+      enabled: true,
+      days_multiplier_over_target: 1.5,
+      value_threshold_rub: 10000,
+      fallback_units_threshold: legacyUnitThreshold ?? 50,
+    };
+  }
+  requireObject(value, 'stock_policy.large_inventory_review');
+  const enabled = typeof value.enabled === 'boolean'
+    ? value.enabled
+    : true;
+  const daysMultiplier = value.days_multiplier_over_target === undefined
+    ? 1.5
+    : requirePositiveNumber(
+      value.days_multiplier_over_target,
+      'stock_policy.large_inventory_review.days_multiplier_over_target'
+    );
+  const valueThreshold = value.value_threshold_rub === undefined
+    ? 10000
+    : requireNonNegativeNumber(
+      value.value_threshold_rub,
+      'stock_policy.large_inventory_review.value_threshold_rub'
+    );
+  const fallbackUnits = value.fallback_units_threshold === undefined
+    ? (legacyUnitThreshold ?? 50)
+    : requireNonNegativeNumber(
+      value.fallback_units_threshold,
+      'stock_policy.large_inventory_review.fallback_units_threshold'
+    );
+  return {
+    enabled,
+    days_multiplier_over_target: daysMultiplier,
+    value_threshold_rub: valueThreshold,
+    fallback_units_threshold: fallbackUnits,
+  };
 }
 
 function validateMatrixBuilderConfig(value) {
@@ -496,6 +539,10 @@ function validateMatrixBuilderConfig(value) {
       large_policy_review_threshold_units: requireNonNegativeNumber(
         stockPolicy.large_policy_review_threshold_units,
         'stock_policy.large_policy_review_threshold_units'
+      ),
+      large_inventory_review: validateLargeInventoryReviewConfig(
+        stockPolicy.large_inventory_review,
+        stockPolicy.large_policy_review_threshold_units
       ),
     },
     inventory_value_review: {

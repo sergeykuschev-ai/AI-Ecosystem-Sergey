@@ -110,6 +110,88 @@ function uniqueReasonCodes(values) {
   return Array.from(new Set(values.filter(Boolean)));
 }
 
+function evaluateLargeInventoryReview({
+  row,
+  stockPolicy,
+  selectedPolicy,
+  suggestedPolicy,
+  purchasePrice,
+  rolloutRecommendedQuantity,
+  config,
+}) {
+  const reviewConfig = config.stock_policy.large_inventory_review;
+  const fallbackThreshold = reviewConfig?.enabled
+    ? reviewConfig.fallback_units_threshold
+    : config.stock_policy.large_policy_review_threshold_units;
+  const result = {
+    large_inventory_days: false,
+    large_inventory_value: false,
+    large_inventory_units_fallback: false,
+    projected_stock: null,
+    projected_inventory_value: null,
+    projected_days_of_stock: null,
+    target_days_of_stock: null,
+    daily_velocity: null,
+  };
+
+  if (!reviewConfig || reviewConfig.enabled !== true) {
+    return result;
+  }
+
+  const freeStock = finiteNumberOrNull(row.freeStock) ?? 0;
+  const recommendedQty = finiteNumberOrNull(rolloutRecommendedQuantity) ?? 0;
+  const projectedStock = freeStock + recommendedQty;
+  result.projected_stock = projectedStock;
+
+  if (purchasePrice !== null) {
+    result.projected_inventory_value = Math.round(
+      (purchasePrice * projectedStock + Number.EPSILON) * 100
+    ) / 100;
+  }
+
+  const reliableVelocity =
+    stockPolicy.calculationStatus === 'calculated' &&
+    stockPolicy.effectiveAverage > 0;
+
+  if (reliableVelocity) {
+    const dailyVelocity = stockPolicy.effectiveAverage / 7;
+    result.daily_velocity = dailyVelocity;
+    const targetDays =
+      selectedPolicy.target_stock !== null && dailyVelocity > 0
+        ? selectedPolicy.target_stock / dailyVelocity
+        : null;
+    const projectedDays =
+      dailyVelocity > 0 ? projectedStock / dailyVelocity : null;
+    result.target_days_of_stock = targetDays;
+    result.projected_days_of_stock = projectedDays;
+
+    if (
+      reviewConfig.days_multiplier_over_target > 0 &&
+      targetDays !== null &&
+      targetDays > 0 &&
+      projectedDays !== null &&
+      projectedDays > targetDays * reviewConfig.days_multiplier_over_target
+    ) {
+      result.large_inventory_days = true;
+    }
+  } else if (
+    fallbackThreshold > 0 &&
+    projectedStock > fallbackThreshold
+  ) {
+    result.large_inventory_units_fallback = true;
+  }
+
+  if (
+    reviewConfig.value_threshold_rub > 0 &&
+    result.projected_inventory_value !== null &&
+    result.projected_inventory_value >= reviewConfig.value_threshold_rub
+  ) {
+    result.large_inventory_value = true;
+  }
+
+  return result;
+}
+
 function explainReasonCodes(reasonCodes) {
   return reasonCodes
     .map(code => REASON_EXPLANATIONS[code])
@@ -162,10 +244,6 @@ function buildDraftItem({
     row.freeStock !== null &&
     suggestedPolicy.target_stock !== null &&
     row.freeStock < suggestedPolicy.target_stock;
-  const largeSuggestedPolicy =
-    suggestedPolicy.maximum_stock !== null &&
-    suggestedPolicy.maximum_stock >
-      config.stock_policy.large_policy_review_threshold_units;
   const purchasePrice = finiteNumberOrNull(row.priceNum);
   const maximumStockValue = purchasePrice !== null &&
     selectedPolicy.maximum_stock !== null
@@ -181,6 +259,18 @@ function buildDraftItem({
         ? 'review'
         : null
     : null;
+  const rolloutRecommendedQuantity = workingOrderProduct
+    ? workingOrderProduct.prePolicyFinalRecommendedQuantity ?? null
+    : null;
+  const largeInventoryReview = evaluateLargeInventoryReview({
+    row,
+    stockPolicy,
+    selectedPolicy,
+    suggestedPolicy,
+    purchasePrice,
+    rolloutRecommendedQuantity,
+    config,
+  });
   const missingPurchasePrice = purchasePrice === null;
   const identityQueue = quality.reasons.some(reason =>
     ['missing_stable_identifier', 'ambiguous_identity'].includes(reason)
@@ -200,7 +290,10 @@ function buildDraftItem({
     ...(commercialQueue ? ['commercial_review'] : []),
     ...(roleResult.role === 'EXIT' ? ['exit_review'] : []),
     ...(approvedPolicyConflict ? ['policy_conflict'] : []),
-    ...(largeSuggestedPolicy || inventoryValueLevel
+    ...(largeInventoryReview.large_inventory_days ||
+      largeInventoryReview.large_inventory_value ||
+      largeInventoryReview.large_inventory_units_fallback ||
+      inventoryValueLevel
       ? ['large_inventory_review']
       : []),
     ...(insufficientDataQueue ? ['insufficient_data'] : []),
@@ -218,7 +311,11 @@ function buildDraftItem({
     ...(policyRequiresConfirmation
       ? ['policy_requires_confirmation']
       : []),
-    ...(largeSuggestedPolicy ? ['large_inventory_units'] : []),
+    ...(largeInventoryReview.large_inventory_days ? ['large_inventory_days'] : []),
+    ...(largeInventoryReview.large_inventory_value ? ['large_inventory_value'] : []),
+    ...(largeInventoryReview.large_inventory_units_fallback
+      ? ['large_inventory_units_fallback']
+      : []),
     ...(inventoryValueLevel === 'review' ? ['large_inventory_value'] : []),
     ...(inventoryValueLevel === 'critical' ? ['critical_inventory_value'] : []),
     ...(missingPurchasePrice ? ['missing_purchase_price'] : []),
@@ -229,7 +326,11 @@ function buildDraftItem({
     ) : []),
     ...(approvedPolicyConflict ? ['approved_policy_conflict'] : []),
     ...(policyRequiresConfirmation ? ['policy_requires_confirmation'] : []),
-    ...(largeSuggestedPolicy ? ['large_inventory_units'] : []),
+    ...(largeInventoryReview.large_inventory_days ? ['large_inventory_days'] : []),
+    ...(largeInventoryReview.large_inventory_value ? ['large_inventory_value'] : []),
+    ...(largeInventoryReview.large_inventory_units_fallback
+      ? ['large_inventory_units_fallback']
+      : []),
     ...(inventoryValueLevel === 'review' ? ['large_inventory_value'] : []),
     ...(inventoryValueLevel === 'critical' ? ['critical_inventory_value'] : []),
     ...(roleResult.role === 'EXIT'
@@ -271,9 +372,6 @@ function buildDraftItem({
     : false;
   const rolloutStatus = workingOrderProduct?.rolloutStatus || null;
   const reviewAfterDays = workingOrderProduct?.reviewAfterDays ?? null;
-  const rolloutRecommendedQuantity = workingOrderProduct
-    ? workingOrderProduct.prePolicyFinalRecommendedQuantity ?? null
-    : null;
   if (firstRolloutTestAwaiting) {
     reviewQueueMemberships.push('test_awaiting_introduction');
     reasonCodes.push('FIRST_ROLLOUT_TEST_AWAITING_INTRODUCTION');
@@ -315,6 +413,19 @@ function buildDraftItem({
     policy_conflict: approvedPolicyConflict,
     maximum_stock_value: maximumStockValue,
     inventory_value_review_level: inventoryValueLevel,
+    projected_inventory_value: largeInventoryReview.projected_inventory_value,
+    projected_days_of_stock: largeInventoryReview.projected_days_of_stock,
+    target_days_of_stock: largeInventoryReview.target_days_of_stock,
+    large_inventory_review: {
+      large_inventory_days: largeInventoryReview.large_inventory_days,
+      large_inventory_value: largeInventoryReview.large_inventory_value,
+      large_inventory_units_fallback: largeInventoryReview.large_inventory_units_fallback,
+      projected_stock: largeInventoryReview.projected_stock,
+      projected_inventory_value: largeInventoryReview.projected_inventory_value,
+      projected_days_of_stock: largeInventoryReview.projected_days_of_stock,
+      target_days_of_stock: largeInventoryReview.target_days_of_stock,
+      daily_velocity: largeInventoryReview.daily_velocity,
+    },
     recommended_action: preservedPolicy?.policy_status === 'approved'
       ? approvedPolicyConflict
         ? 'keep_approved_and_review_difference'
@@ -361,6 +472,11 @@ function buildDraftItem({
       purchase_price: purchasePrice,
       maximum_stock_value: maximumStockValue,
       inventory_value_review_level: inventoryValueLevel,
+      projected_inventory_value: largeInventoryReview.projected_inventory_value,
+      projected_days_of_stock: largeInventoryReview.projected_days_of_stock,
+      target_days_of_stock: largeInventoryReview.target_days_of_stock,
+      daily_velocity: largeInventoryReview.daily_velocity,
+      large_inventory_review: largeInventoryReview,
       supplier_order_sum: finiteNumberOrNull(row.supplierOrderSum),
       phase1_decision: phase1Decision?.decision || null,
       phase2_decision: phase2Decision?.decision || null,
