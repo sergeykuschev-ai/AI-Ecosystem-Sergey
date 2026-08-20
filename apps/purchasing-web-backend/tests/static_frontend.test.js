@@ -39,6 +39,7 @@ const {
   candidateViewState,
   candidateLifecycleActions,
   confidenceLabel,
+  createApplication,
   createCandidateCard,
   createMaterializedRuleCard,
   createRuleEffectivenessRow,
@@ -135,6 +136,13 @@ function fakeElement(tagName = 'div') {
     tagName,
     children: [],
     className: '',
+    classList: {
+      classes: new Set(),
+      toggle(name, force) {
+        if (force) this.classes.add(name);
+        else this.classes.delete(name);
+      },
+    },
     dataset: {},
     attributes: {},
     listeners: {},
@@ -157,6 +165,14 @@ function fakeElement(tagName = 'div') {
       this.listeners[name] ||= [];
       this.listeners[name].push(listener);
     },
+    querySelector() {
+      return null;
+    },
+    closest() {
+      return null;
+    },
+    showModal() {},
+    close() {},
     set innerHTML(value) {
       throw new Error(`Unsafe innerHTML assignment: ${value}`);
     },
@@ -168,6 +184,39 @@ function fakeDocument() {
     createElement(tagName) {
       return fakeElement(tagName);
     },
+  };
+}
+
+function fakeDocumentWithAllElements() {
+  const byId = new Map();
+  const statusSteps = ['selected', 'uploading', 'processing', 'completed', 'failed']
+    .map(state => {
+      const element = fakeElement();
+      element.dataset = { state };
+      return element;
+    });
+  const body = fakeElement('body');
+  body.append = function append(...children) {
+    this.children.push(...children);
+  };
+  return {
+    createElement(tagName) {
+      return fakeElement(tagName);
+    },
+    getElementById(id) {
+      if (!byId.has(id)) {
+        const element = fakeElement();
+        element.id = id;
+        byId.set(id, element);
+      }
+      return byId.get(id);
+    },
+    querySelectorAll(selector) {
+      if (selector === '.status-step') return statusSteps;
+      return [];
+    },
+    body,
+    addEventListener() {},
   };
 }
 
@@ -523,6 +572,11 @@ test('GET / serves the Russian frontend with secure headers', async () => {
     'Скачать заказ поставщику',
     'Скачать исключённые позиции',
     'Скачать optimized-order.json',
+    'Рабочий заказ',
+    'Бюджет позволяет заказ',
+    'Заказ Зооград',
+    'Другие поставщики',
+    'Операционный статус',
   ]) {
     assert.match(body, new RegExp(label));
   }
@@ -542,6 +596,16 @@ test('GET / serves the Russian frontend with secure headers', async () => {
   }
   for (const id of [
     'result-file-name',
+    'working-maximum-sum',
+    'working-maximum-lines',
+    'working-maximum-status',
+    'working-maximum-status-card',
+    'working-maximum-status-code',
+    'zoograd-working-maximum-sum',
+    'zoograd-working-maximum-lines',
+    'other-suppliers-working-maximum-sum',
+    'other-suppliers-working-maximum-lines',
+    'pending-review-lines',
     'financial-decision-card',
     'financial-status-code',
     'budget-deviation-card',
@@ -1187,55 +1251,68 @@ test('RUB and summary formatting preserve distinct monetary amounts', () => {
   assert.equal(formatRub(null), '—');
 
   const view = summaryView({
-    sku_count: 398,
+    sku_count: 588,
     amounts: {
-      analyzer_order_sum: 155458.05,
-      auto_approved_sum: 119949.24,
-      pending_review_sum: 89930.56,
-      working_maximum_sum: 4,
-      financially_assessed_sum: 5,
+      auto_approved_sum: 64471.54,
+      pending_review_sum: 12531.90,
+      pending_review_lines: 8,
+      working_maximum_sum: 77003.44,
+      working_maximum_lines: 105,
+      zoograd_working_maximum_sum: 67188.94,
+      zoograd_working_maximum_lines: 98,
+      other_suppliers_working_maximum_sum: 9814.50,
+      other_suppliers_working_maximum_lines: 7,
+      financially_assessed_sum: 77003.44,
     },
+    working_maximum_status:
+      'not_approved_not_ready_for_automatic_submission',
     financial: {
-      status: 'MANUAL_APPROVAL_REQUIRED',
-      reserve_surplus: -29355.53,
+      status: 'APPROVED',
+      reserve_surplus: 49099.08,
     },
-    warnings: ['Проверьте финансовый резерв.'],
+    warnings: [],
     critical_issues: [],
-    owner_review: { action_required: 206 },
+    owner_review: { action_required: 8 },
   }, {
     status: 'completed',
     source: {
-      original_name: 'Валта заказывать по нему 28.07.2026.xlsx',
+      original_name: 'SmartZapas_выгрузка_Зооград.xlsx',
     },
     started_at: '2026-07-23T00:00:00.000Z',
     completed_at: '2026-07-23T00:00:05.000Z',
   });
 
-  assert.equal(view.skuCount, '398');
-  assert.match(view.analyzerOrderSum, /155[\s\u00a0]458,05/);
-  assert.match(view.autoApprovedSum, /119[\s\u00a0]949,24/);
-  assert.match(view.pendingReviewSum, /89[\s\u00a0]930,56/);
-  assert.match(view.workingMaximumSum, /4,00/);
-  assert.match(view.financiallyAssessedSum, /5,00/);
+  assert.equal(view.skuCount, '588');
+  assert.match(view.autoApprovedSum, /64[\s\u00a0]471,54/);
+  assert.match(view.pendingReviewSum, /12[\s\u00a0]531,90/);
+  assert.equal(view.pendingReviewLines, '8 позиций для решения');
+  assert.match(view.workingMaximumSum, /77[\s\u00a0]003,44/);
+  assert.equal(view.workingMaximumLines, '105 SKU');
+  assert.equal(
+    view.workingMaximumStatus,
+    'Требуется решение по позициям'
+  );
+  assert.match(view.zoogradWorkingMaximumSum, /67[\s\u00a0]188,94/);
+  assert.equal(view.zoogradWorkingMaximumLines, '98 SKU');
+  assert.match(view.otherSuppliersWorkingMaximumSum, /9[\s\u00a0]814,50/);
+  assert.equal(view.otherSuppliersWorkingMaximumLines, '7 SKU');
+  assert.match(view.financiallyAssessedSum, /77[\s\u00a0]003,44/);
   assert.match(
     view.reserveSurplus,
-    /Превышение безопасного бюджета: 29[\s\u00a0]355,53/
+    /Запас бюджета после заказа: 49[\s\u00a0]099,08/
   );
-  assert.equal(view.financialStatus, 'Требуется решение владельца');
-  assert.equal(view.financialStatusCode, 'Код: MANUAL_APPROVAL_REQUIRED');
-  assert.equal(view.financialTone, 'warning');
+  assert.equal(view.financialStatus, 'Заказ одобрен');
+  assert.equal(view.financialStatusCode, 'Код: APPROVED');
+  assert.equal(view.financialTone, 'success');
+  assert.equal(view.workingMaximumTone, 'warning');
   assert.equal(view.runStatus, 'Расчёт завершён');
   assert.equal(view.runStatusCode, 'Код: completed');
   assert.equal(
     view.fileName,
-    'Валта заказывать по нему 28.07.2026.xlsx'
+    'SmartZapas_выгрузка_Зооград.xlsx'
   );
-  assert.deepEqual(view.attention, [{
-    text: 'Проверьте финансовый резерв.',
-    tone: 'warning',
-    technical: false,
-  }]);
-  assert.equal(view.ownerReviewCount, '206 позиций для решения');
+  assert.deepEqual(view.attention, []);
+  assert.equal(view.ownerReviewCount, '8 позиций для решения');
   assert.equal(view.calculationTime, '5 сек');
 });
 
@@ -3299,5 +3376,139 @@ test('effectiveness detail renders quality, codes and at most 20 safe events', (
   assert.doesNotMatch(
     serialized,
     /must-not-render|fingerprint|eventId/i
+  );
+});
+
+test('successful run flow renders completed status after 201+200+200', async () => {
+  const runId = '11111111-1111-4111-8111-111111111111';
+  const summaryPayload = {
+    amounts: {
+      working_maximum_sum: 77003.44,
+      working_maximum_lines: 105,
+      zoograd_working_maximum_sum: 67188.94,
+      zoograd_working_maximum_lines: 98,
+      other_suppliers_working_maximum_sum: 9814.50,
+      other_suppliers_working_maximum_lines: 7,
+      pending_review_sum: 12531.90,
+      pending_review_lines: 8,
+      auto_approved_sum: 64471.54,
+      financially_assessed_sum: 80788.62,
+    },
+    financial: {
+      status: 'APPROVED',
+      reserve_surplus: 49099.08,
+      maximum_safe_order_amount: 126102.52,
+    },
+    working_maximum_status: 'not_approved_not_ready_for_automatic_submission',
+    sku_count: 588,
+    warnings: [],
+    critical_issues: [],
+    owner_review: { action_required: 8 },
+  };
+  const statusPayload = {
+    status: 'completed',
+    run_id: runId,
+    source: { original_name: 'test.xlsx' },
+    started_at: new Date(Date.now() - 5000).toISOString(),
+    completed_at: new Date().toISOString(),
+    links: {
+      self: `/api/v1/runs/${runId}`,
+      summary: `/api/v1/runs/${runId}/summary`,
+      artifacts: `/api/v1/runs/${runId}/artifacts`,
+      items: `/api/v1/runs/${runId}/items`,
+    },
+  };
+  const artifactsPayload = {
+    artifacts: [
+      {
+        name: 'report.txt',
+        download_url: `/api/v1/runs/${runId}/artifacts/report.txt`,
+      },
+      {
+        name: 'result.json',
+        download_url: `/api/v1/runs/${runId}/artifacts/result.json`,
+      },
+    ],
+  };
+  const itemsPayload = {
+    items: [],
+    pagination: { page: 1, page_size: 25, total_items: 0, total_pages: 1 },
+  };
+
+  function mockFetch(url, options) {
+    if (url === '/api/v1/runs' && options?.method === 'POST') {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ data: statusPayload }),
+      });
+    }
+    if (url === `/api/v1/runs/${runId}/summary`) {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ data: summaryPayload }),
+      });
+    }
+    if (url === `/api/v1/runs/${runId}/artifacts`) {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ data: artifactsPayload }),
+      });
+    }
+    if (url ===
+      `/api/v1/runs/${runId}/items?page=1&page_size=25&sort=source_row&order=asc`) {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ data: itemsPayload }),
+      });
+    }
+    return Promise.resolve({
+      ok: false,
+      status: 404,
+      json: () => Promise.resolve({
+        error: true,
+        code: 'ROUTE_NOT_FOUND',
+      }),
+    });
+  }
+
+  const documentObject = fakeDocumentWithAllElements();
+  const app = createApplication(documentObject, mockFetch);
+  const fileInput = documentObject.getElementById('file-input');
+  const file = new File(
+    ['xlsx'],
+    'test.xlsx',
+    {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    }
+  );
+  fileInput.files = [file];
+  app.updateFileSelection();
+
+  await app.submitRun({ preventDefault: () => {} });
+
+  assert.equal(
+    documentObject.getElementById('status-pill').textContent,
+    'Готово'
+  );
+  assert.equal(
+    documentObject.getElementById('status-message').textContent,
+    'Расчёт завершён. Итоги и файлы готовы.'
+  );
+  assert.match(
+    documentObject.getElementById('working-maximum-sum').textContent,
+    /77[\s\u00a0]003,44/
+  );
+  assert.match(
+    documentObject.getElementById('zoograd-working-maximum-sum').textContent,
+    /67[\s\u00a0]188,94/
+  );
+  assert.match(
+    documentObject.getElementById('other-suppliers-working-maximum-sum')
+      .textContent,
+    /9[\s\u00a0]814,50/
+  );
+  assert.match(
+    documentObject.getElementById('pending-review-lines').textContent,
+    /8 позиций для решения/
   );
 });

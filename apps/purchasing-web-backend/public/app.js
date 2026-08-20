@@ -472,10 +472,11 @@
   });
 
   class FrontendError extends Error {
-    constructor(code) {
-      super(code);
+    constructor(code, message = '') {
+      super(message || code);
       this.name = 'FrontendError';
       this.code = code;
+      this.details = message || '';
     }
   }
 
@@ -1466,6 +1467,40 @@
     return runStatusView(status).label;
   }
 
+  function workingMaximumStatusView(status) {
+    const code = String(status || '').trim();
+    const normalized = code.toLowerCase();
+    const views = {
+      approved_ready_for_automatic_submission: {
+        label: 'Заказ утверждён и готов к отправке',
+        tone: 'success',
+      },
+      approved_with_pending_review: {
+        label: 'Заказ утверждён, есть позиции на проверке',
+        tone: 'warning',
+      },
+      not_approved_not_ready_for_automatic_submission: {
+        label: 'Требуется решение по позициям',
+        tone: 'warning',
+      },
+      rejected: {
+        label: 'Заказ отклонён',
+        tone: 'critical',
+      },
+    };
+    return {
+      ...(views[normalized] || {
+        label: 'Статус рабочего заказа не определён',
+        tone: 'neutral',
+      }),
+      code: code || null,
+    };
+  }
+
+  function workingMaximumStatusLabel(status) {
+    return workingMaximumStatusView(status).label;
+  }
+
   function budgetDeviationView(value) {
     if (typeof value !== 'number' || !Number.isFinite(value)) {
       return {
@@ -1523,16 +1558,46 @@
       summary?.financial?.reserve_surplus
     );
     const run = runStatusView(status?.status);
+    const workingMaximum = workingMaximumStatusView(
+      summary?.working_maximum_status
+    );
     const ownerReviewCount = displayCount(
       summary?.owner_review?.action_required
+    );
+    const pendingReviewLines = displayCount(
+      amounts.pending_review_lines
+    );
+    const workingMaximumLines = displayCount(
+      amounts.working_maximum_lines
+    );
+    const zoogradLines = displayCount(
+      amounts.zoograd_working_maximum_lines
+    );
+    const otherSuppliersLines = displayCount(
+      amounts.other_suppliers_working_maximum_lines
     );
     return {
       fileName: status?.source?.original_name || '—',
       skuCount: displayCount(summary?.sku_count),
-      analyzerOrderSum: formatRub(amounts.analyzer_order_sum),
       autoApprovedSum: formatRub(amounts.auto_approved_sum),
       pendingReviewSum: formatRub(amounts.pending_review_sum),
+      pendingReviewLines: `${pendingReviewLines} позиций для решения`,
       workingMaximumSum: formatRub(amounts.working_maximum_sum),
+      workingMaximumLines: `${workingMaximumLines} SKU`,
+      workingMaximumStatus: workingMaximum.label,
+      workingMaximumStatusCode:
+        workingMaximum.code
+          ? `Код: ${workingMaximum.code}`
+          : 'Код не указан',
+      workingMaximumTone: workingMaximum.tone,
+      zoogradWorkingMaximumSum: formatRub(
+        amounts.zoograd_working_maximum_sum
+      ),
+      zoogradWorkingMaximumLines: `${zoogradLines} SKU`,
+      otherSuppliersWorkingMaximumSum: formatRub(
+        amounts.other_suppliers_working_maximum_sum
+      ),
+      otherSuppliersWorkingMaximumLines: `${otherSuppliersLines} SKU`,
       financiallyAssessedSum: formatRub(
         amounts.financially_assessed_sum
       ),
@@ -1850,7 +1915,14 @@
       throw new FrontendError('RUN_FAILED');
     }
     if (!response.ok) {
-      throw new FrontendError(payload?.error?.code || 'RUN_FAILED');
+      const compact = payload?.error === true;
+      const code = compact
+        ? payload?.code
+        : payload?.error?.code;
+      const message = compact
+        ? payload?.message
+        : payload?.error?.message;
+      throw new FrontendError(code || 'RUN_FAILED', message || '');
     }
     return payload?.data;
   }
@@ -4565,14 +4637,32 @@
       summary: {
         fileName: documentObject.getElementById('result-file-name'),
         skuCount: documentObject.getElementById('sku-count'),
-        analyzerOrderSum:
-          documentObject.getElementById('analyzer-order-sum'),
         autoApprovedSum:
           documentObject.getElementById('auto-approved-sum'),
         pendingReviewSum:
           documentObject.getElementById('pending-review-sum'),
+        pendingReviewLines:
+          documentObject.getElementById('pending-review-lines'),
         workingMaximumSum:
           documentObject.getElementById('working-maximum-sum'),
+        workingMaximumLines:
+          documentObject.getElementById('working-maximum-lines'),
+        workingMaximumStatus:
+          documentObject.getElementById('working-maximum-status'),
+        workingMaximumStatusCode:
+          documentObject.getElementById('working-maximum-status-code'),
+        zoogradWorkingMaximumSum:
+          documentObject.getElementById('zoograd-working-maximum-sum'),
+        zoogradWorkingMaximumLines:
+          documentObject.getElementById('zoograd-working-maximum-lines'),
+        otherSuppliersWorkingMaximumSum:
+          documentObject.getElementById(
+            'other-suppliers-working-maximum-sum'
+          ),
+        otherSuppliersWorkingMaximumLines:
+          documentObject.getElementById(
+            'other-suppliers-working-maximum-lines'
+          ),
         financiallyAssessedSum:
           documentObject.getElementById('financially-assessed-sum'),
         financialStatus:
@@ -4593,6 +4683,8 @@
       budgetDeviationCard:
         documentObject.getElementById('budget-deviation-card'),
       runStatusCard: documentObject.getElementById('run-status-card'),
+      workingMaximumStatusCard:
+        documentObject.getElementById('working-maximum-status-card'),
       budgetOptimizerForm:
         documentObject.getElementById('budget-optimizer-form'),
       budgetOptimizerInput:
@@ -5431,29 +5523,45 @@
       }
       const view = finalOrderView(state);
       if (!view) return;
-      elements.summary.analyzerOrderSum.textContent = view.totalAmount;
-      elements.summary.skuCount.textContent = view.itemCount;
-      elements.summary.autoApprovedSum.textContent =
-        view.autoApprovedSum;
-      elements.summary.pendingReviewSum.textContent =
-        view.pendingReviewSum;
-      elements.summary.ownerReviewCount.textContent =
-        view.ownerReviewCount;
+      if (elements.summary.workingMaximumSum) {
+        elements.summary.workingMaximumSum.textContent = view.totalAmount;
+      }
+      if (elements.summary.workingMaximumLines) {
+        elements.summary.workingMaximumLines.textContent = view.itemCount;
+      }
+      if (elements.summary.autoApprovedSum) {
+        elements.summary.autoApprovedSum.textContent = view.autoApprovedSum;
+      }
+      if (elements.summary.pendingReviewSum) {
+        elements.summary.pendingReviewSum.textContent = view.pendingReviewSum;
+      }
+      if (elements.summary.ownerReviewCount) {
+        elements.summary.ownerReviewCount.textContent = view.ownerReviewCount;
+      }
       if (elements.initialRecommendation) {
         elements.initialRecommendation.textContent =
           view.initialRecommendation;
       }
       if (view.remainingBudget !== null) {
-        elements.summary.reserveSurplus.textContent =
-          formatRub(view.remainingBudget);
-        elements.budgetDeviationCard.dataset.tone =
-          view.remainingBudget < 0 ? 'error' : 'success';
+        if (elements.summary.reserveSurplus) {
+          elements.summary.reserveSurplus.textContent =
+            formatRub(view.remainingBudget);
+        }
+        if (elements.budgetDeviationCard) {
+          elements.budgetDeviationCard.dataset.tone =
+            view.remainingBudget < 0 ? 'error' : 'success';
+        }
       }
       if (view.runStatus) {
-        elements.summary.runStatus.textContent = view.runStatus;
-        elements.summary.runStatusCode.textContent =
-          view.runStatusCode;
-        elements.runStatusCard.dataset.tone = 'success';
+        if (elements.summary.runStatus) {
+          elements.summary.runStatus.textContent = view.runStatus;
+        }
+        if (elements.summary.runStatusCode) {
+          elements.summary.runStatusCode.textContent = view.runStatusCode;
+        }
+        if (elements.runStatusCard) {
+          elements.runStatusCard.dataset.tone = 'success';
+        }
       }
     }
 
@@ -5717,7 +5825,8 @@
       for (const [name, element] of Object.entries(
         elements.decisionCounters
       )) {
-        element.textContent = view[name];
+        if (!element) continue;
+        element.textContent = view[name] ?? '';
       }
       if (elements.decisionCounters.needsDecision && view.needsDecisionDetail) {
         elements.decisionCounters.needsDecision.title = view.needsDecisionDetail;
@@ -5936,23 +6045,37 @@
     function renderSummary(summary, status) {
       const view = summaryView(summary, status);
       for (const [name, element] of Object.entries(elements.summary)) {
-        element.textContent = view[name];
+        if (!element) continue;
+        element.textContent = view[name] ?? '';
       }
-      elements.financialDecisionCard.dataset.tone =
-        view.financialTone;
-      elements.budgetDeviationCard.dataset.tone = view.budgetTone;
-      elements.runStatusCard.dataset.tone = view.runTone;
+      if (elements.financialDecisionCard) {
+        elements.financialDecisionCard.dataset.tone = view.financialTone;
+      }
+      if (elements.budgetDeviationCard) {
+        elements.budgetDeviationCard.dataset.tone = view.budgetTone;
+      }
+      if (elements.runStatusCard) {
+        elements.runStatusCard.dataset.tone = view.runTone;
+      }
+      if (elements.workingMaximumStatusCard) {
+        elements.workingMaximumStatusCard.dataset.tone =
+          view.workingMaximumTone;
+      }
       renderAttention(view.attention);
-      elements.calculationTime.textContent =
-        `Время расчёта: ${view.calculationTime}`;
+      if (elements.calculationTime) {
+        elements.calculationTime.textContent =
+          `Время расчёта: ${view.calculationTime}`;
+      }
       const safeBudget =
         summary?.financial?.maximum_safe_order_amount;
-      elements.budgetOptimizerInput.value =
-        typeof safeBudget === 'number' &&
-        Number.isFinite(safeBudget) &&
-        safeBudget >= 0
-          ? safeBudget.toFixed(2)
-          : '';
+      if (elements.budgetOptimizerInput) {
+        elements.budgetOptimizerInput.value =
+          typeof safeBudget === 'number' &&
+          Number.isFinite(safeBudget) &&
+          safeBudget >= 0
+            ? safeBudget.toFixed(2)
+            : '';
+      }
       elements.results.hidden = false;
     }
 
@@ -6090,12 +6213,22 @@
         await activateItems(itemsUrl);
       } catch (error) {
         clearTimeout(processingHint);
+        console.error(
+          'submitRun failed:',
+          error?.message || error,
+          error?.stack || ''
+        );
         const codeValue = error instanceof FrontendError
           ? error.code
           : 'RUN_FAILED';
+        const apiMessage = error instanceof FrontendError
+          ? error.details
+          : '';
         renderStatus(
           'failed',
-          ERROR_MESSAGES[codeValue] || ERROR_MESSAGES.RUN_FAILED
+          apiMessage ||
+            ERROR_MESSAGES[codeValue] ||
+            ERROR_MESSAGES.RUN_FAILED
         );
       } finally {
         active = false;
