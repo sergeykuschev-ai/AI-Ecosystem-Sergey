@@ -342,6 +342,29 @@ function resolveIncomingStockSource(inTransitMode, sources, inTransitStatus) {
   return 'external_in_transit_data';
 }
 
+const ZOOGRAD_ALIASES = new Set([
+  'зооград',
+  'зооград/оникиенко',
+  'зооград-хабаровск ооо',
+  'рич стор ооо',
+  'оникиенко роман евгеньевич',
+  'хабаровск опт',
+]);
+
+function canonicalSupplierName(supplier) {
+  const normalized = normalize(supplier);
+  if (
+    ZOOGRAD_ALIASES.has(normalized) ||
+    normalized.includes('зооград') ||
+    normalized.includes('оникиенко') ||
+    normalized.includes('рич стор') ||
+    normalized.includes('хабаровск опт')
+  ) {
+    return 'зооград';
+  }
+  return normalized;
+}
+
 function supplierDeliveryCycle(row, inputs, config) {
   const supplier = normalize(row.supplier);
   const inputCycles = inputs.supplierDeliveryCycleDays || {};
@@ -1239,4 +1262,6 @@ module.exports = {
   calculateDemandProduct,
   summarizeDemandPlan,
   buildDemandPlan,
+  canonicalSupplierName,
+  ZOOGRAD_ALIASES,
 };

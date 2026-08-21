@@ -1,3 +1,8 @@
+const {
+  SUPPLIER_SCOPES,
+  matrixItemSupplierScope,
+} = require('./supplier_scope');
+
 const CRITICAL_MISSING_WARNING =
   'В отчёте поставщика отсутствуют обязательные critical-позиции. Требуется проверить наличие у поставщика или альтернативного поставщика.';
 const AVAILABLE_FREE_STOCK_FORMULA =
@@ -222,20 +227,51 @@ function controlDecision(product, decision, match) {
   return decision;
 }
 
-function missingMatrixItems(matrix, matchResult) {
-  return matchResult.itemResults
-    .filter(result => result.status !== 'matched')
-    .map(result => {
-      const item = matrix.items[result.itemIndex];
-      return {
-        article: item.article,
-        name: item.name,
-        priority: item.priority,
-        reason: result.status === 'ambiguous'
-          ? 'ambiguous_supplier_report_match'
-          : 'not_found_in_supplier_report',
-      };
-    });
+function classifyUnmatchedReason(status) {
+  if (status === 'ambiguous') return 'ambiguous_supplier_report_match';
+  return 'not_found_in_supplier_report';
+}
+
+function missingMatrixItems(matrix, matchResult, reportSupplierGroups) {
+  const scopeSet = reportSupplierGroups instanceof Set
+    ? reportSupplierGroups
+    : new Set();
+  const sameSupplierMissing = [];
+  const outOfScopeItems = [];
+  const supplierUnassignedItems = [];
+
+  for (const result of matchResult.itemResults) {
+    if (result.status === 'matched') continue;
+    const item = matrix.items[result.itemIndex];
+    const scope = matrixItemSupplierScope(item, scopeSet);
+    const base = {
+      article: item.article,
+      name: item.name,
+      priority: item.priority,
+    };
+    if (scope === SUPPLIER_SCOPES.OTHER_SUPPLIER) {
+      outOfScopeItems.push({
+        ...base,
+        reason: 'out_of_scope_for_supplier_report',
+      });
+    } else if (scope === SUPPLIER_SCOPES.SUPPLIER_UNASSIGNED) {
+      supplierUnassignedItems.push({
+        ...base,
+        reason: 'supplier_unassigned',
+      });
+    } else {
+      sameSupplierMissing.push({
+        ...base,
+        reason: classifyUnmatchedReason(result.status),
+      });
+    }
+  }
+
+  return {
+    missingMatrixItems: sameSupplierMissing,
+    outOfScopeMatrixItems: outOfScopeItems,
+    supplierUnassignedItems: supplierUnassignedItems,
+  };
 }
 
 function applyAssortmentMatrixControl({
@@ -246,6 +282,7 @@ function applyAssortmentMatrixControl({
   matchResult,
   source = 'file',
   inventoryModel = {},
+  reportSupplierGroups = new Set(),
 }) {
   const rowsByIdentity = new Map(
     analysis.productRows.map(row => [row.rowIdentity, row])
@@ -278,7 +315,11 @@ function applyAssortmentMatrixControl({
   const controlledByIdentity = new Map(
     controlledDecisions.map(decision => [decision.rowIdentity, decision])
   );
-  const missingItems = missingMatrixItems(matrix, matchResult);
+  const {
+    missingMatrixItems: missingItems,
+    outOfScopeMatrixItems,
+    supplierUnassignedItems,
+  } = missingMatrixItems(matrix, matchResult, reportSupplierGroups);
   const criticalBelowMinimum = products.filter(product =>
     product.assortment_matrix.matched &&
     product.assortment_matrix.priority === 'critical' &&
@@ -305,6 +346,8 @@ function applyAssortmentMatrixControl({
         result => result.status === 'matched'
       ).length,
       missing_matrix_items_count: missingItems.length,
+      out_of_scope_matrix_items_count: outOfScopeMatrixItems.length,
+      supplier_unassigned_matrix_items_count: supplierUnassignedItems.length,
       critical_items_count: matrix.items.filter(
         item => item.priority === 'critical'
       ).length,
@@ -319,6 +362,8 @@ function applyAssortmentMatrixControl({
       ).length,
     },
     missingMatrixItems: missingItems,
+    outOfScopeMatrixItems,
+    supplierUnassignedItems,
     criticalBelowMinimum,
     warnings,
   };

@@ -13,6 +13,8 @@ function buildAssortmentMatrixReport(controlResult) {
     `- Общее количество позиций в матрице: ${summary.total_matrix_items}`,
     `- Найдено в отчёте: ${summary.matched_matrix_items}`,
     `- Отсутствует или сопоставлено неоднозначно: ${summary.missing_matrix_items_count}`,
+    `- Вне зоны ответственности поставщика отчёта: ${summary.out_of_scope_matrix_items_count || 0}`,
+    `- Без назначенного поставщика: ${summary.supplier_unassigned_matrix_items_count || 0}`,
     `- Critical ниже минимального остатка: ${summary.critical_below_minimum_count}`,
     `- Позиции матрицы на ручной проверке: ${summary.manual_review_count}`,
     `- Проекция рассчитана: ${summary.inventory_projection_calculated_count}`,
@@ -26,6 +28,18 @@ function buildAssortmentMatrixReport(controlResult) {
     lines.push('Не найдено.');
   } else {
     controlResult.missingMatrixItems.forEach((item, index) => {
+      lines.push(
+        `${index + 1}. Артикул: ${display(item.article)} | ` +
+        `Товар: ${item.name} | Приоритет: ${item.priority} | Причина: ${item.reason}`
+      );
+    });
+  }
+
+  lines.push('', '## ПОЗИЦИИ БЕЗ НАЗНАЧЕННОГО ПОСТАВЩИКА', '');
+  if (controlResult.supplierUnassignedItems.length === 0) {
+    lines.push('Не найдено.');
+  } else {
+    controlResult.supplierUnassignedItems.forEach((item, index) => {
       lines.push(
         `${index + 1}. Артикул: ${display(item.article)} | ` +
         `Товар: ${item.name} | Приоритет: ${item.priority} | Причина: ${item.reason}`

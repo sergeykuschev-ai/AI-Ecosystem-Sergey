@@ -985,3 +985,130 @@ test('legacy operational policy store still works', () => {
   assert.equal(products[0].assortmentPolicy.matched, true);
   assert.equal(products[0].finalRecommendedQuantity, 5);
 });
+
+test('other supplier rule is not reported as unmatched', () => {
+  const store = {
+    version: 1,
+    schema_version: 'miska-canonical-assortment-matrix-v1',
+    updated_at: UPDATED_AT,
+    rules: [{
+      sku: 'VALTA-1',
+      internal_sku_id: 'FOOD-VALTA-1',
+      assortment_status: 'CORE',
+      min_stock: 1,
+      max_stock: 2,
+      target_stock: null,
+      order_mode: 'PIECE',
+      box_qty: null,
+      display_stock: false,
+      display_min_qty: null,
+      purchase_hold: false,
+      purchase_hold_until_stock: null,
+      mandatory_assortment: true,
+      owner_comment: '',
+      rule_source: 'canonical-matrix',
+      updated_at: UPDATED_AT,
+      category: 'Тест',
+      rollout_status: 'ACTIVE',
+      review_after_days: 30,
+      canonical: {
+        sku_id: 'FOOD-VALTA-1',
+        supplier: 'Валта',
+        supplier_sku: 'VALTA-1',
+      },
+    }],
+  };
+  const products = applyAssortmentPolicyToProducts(
+    [{ article: 'OTHER', freeStock: 0, availableStock: 0, finalRecommendedQuantity: 0 }],
+    store,
+    { reportSupplierGroups: new Set(['зооград']) }
+  );
+
+  assert.equal(products.unmatchedActiveRules.length, 0);
+});
+
+test('supplier-unassigned canonical rule emits SUPPLIER_UNASSIGNED_RULE', () => {
+  const store = {
+    version: 1,
+    schema_version: 'miska-canonical-assortment-matrix-v1',
+    updated_at: UPDATED_AT,
+    rules: [{
+      sku: 'UNASSIGNED-1',
+      internal_sku_id: 'FOOD-U-1',
+      assortment_status: 'CORE',
+      min_stock: 1,
+      max_stock: 2,
+      target_stock: null,
+      order_mode: 'PIECE',
+      box_qty: null,
+      display_stock: false,
+      display_min_qty: null,
+      purchase_hold: false,
+      purchase_hold_until_stock: null,
+      mandatory_assortment: true,
+      owner_comment: '',
+      rule_source: 'canonical-matrix',
+      updated_at: UPDATED_AT,
+      category: 'Тест',
+      rollout_status: 'ACTIVE',
+      review_after_days: 30,
+      canonical: {
+        sku_id: 'FOOD-U-1',
+        supplier: null,
+        supplier_sku: 'UNASSIGNED-1',
+      },
+    }],
+  };
+  const products = applyAssortmentPolicyToProducts(
+    [{ article: 'OTHER', freeStock: 0, availableStock: 0, finalRecommendedQuantity: 0 }],
+    store,
+    { reportSupplierGroups: new Set(['зооград']) }
+  );
+
+  assert.equal(products.unmatchedActiveRules.length, 1);
+  assert.equal(products.unmatchedActiveRules[0].code, 'SUPPLIER_UNASSIGNED_RULE');
+  assert.equal(products.unmatchedActiveRules[0].sku, 'UNASSIGNED-1');
+});
+
+test('same supplier unmatched rule emits UNMATCHED and MANDATORY', () => {
+  const store = {
+    version: 1,
+    schema_version: 'miska-canonical-assortment-matrix-v1',
+    updated_at: UPDATED_AT,
+    rules: [{
+      sku: 'ZOO-1',
+      internal_sku_id: 'FOOD-ZOO-1',
+      assortment_status: 'CORE',
+      min_stock: 1,
+      max_stock: 2,
+      target_stock: null,
+      order_mode: 'PIECE',
+      box_qty: null,
+      display_stock: false,
+      display_min_qty: null,
+      purchase_hold: false,
+      purchase_hold_until_stock: null,
+      mandatory_assortment: true,
+      owner_comment: '',
+      rule_source: 'canonical-matrix',
+      updated_at: UPDATED_AT,
+      category: 'Тест',
+      rollout_status: 'ACTIVE',
+      review_after_days: 30,
+      canonical: {
+        sku_id: 'FOOD-ZOO-1',
+        supplier: 'Зооград-Хабаровск ООО',
+        supplier_sku: 'ZOO-1',
+      },
+    }],
+  };
+  const products = applyAssortmentPolicyToProducts(
+    [{ article: 'OTHER', freeStock: 0, availableStock: 0, finalRecommendedQuantity: 0 }],
+    store,
+    { reportSupplierGroups: new Set(['зооград']) }
+  );
+
+  const codes = products.unmatchedActiveRules.map(d => d.code);
+  assert.ok(codes.includes('UNMATCHED_ASSORTMENT_POLICY_RULE'));
+  assert.ok(codes.includes('MANDATORY_SKU_MISSING_FROM_SOURCE'));
+});

@@ -25,6 +25,9 @@ const {
   applyAssortmentPolicyToProducts,
 } = require('./services/assortment_policy');
 const {
+  collectReportSupplierGroups,
+} = require('./services/supplier_scope');
+const {
   DEFAULT_CANONICAL_MATRIX_PATH,
   loadAssortmentPolicySource,
 } = require('./services/assortment_policy_store');
@@ -85,6 +88,7 @@ function runOrderAgentFromAdapterResultWithDemand(
 
   const rows = adapterResult.rows;
   const analysis = analyzeRows(rows);
+  const reportSupplierGroups = collectReportSupplierGroups(rows);
   const phase1DecisionResult = buildPurchasingDecisions(
     analysis,
     adapterResult.diagnostics
@@ -115,7 +119,11 @@ function runOrderAgentFromAdapterResultWithDemand(
   const policyProducts = applyAssortmentPolicyToProducts(
     demandResult.products,
     policy.store,
-    { runId: options.runId || null, currentDate: options.currentDate }
+    {
+      runId: options.runId || null,
+      currentDate: options.currentDate,
+      reportSupplierGroups,
+    }
   );
   const policyDemandResult = {
     ...demandResult,
@@ -136,6 +144,7 @@ function runOrderAgentFromAdapterResultWithDemand(
       matrix: assortmentContext.matrix,
       matchResult: assortmentContext.matchResult,
       inventoryModel: adapterResult.source.inventorySemantics,
+      reportSupplierGroups,
     });
     demandProducts = assortmentControl.products;
     phase2DecisionResult = {
@@ -158,6 +167,8 @@ function runOrderAgentFromAdapterResultWithDemand(
     detectedColumns: adapterResult.headerPaths,
     financialData: options.financialData,
     financialDataPath: options.financialDataPath,
+    proposedOrderAmount: workingOrderResult.summary.workingMaximumSum,
+    orderSummary: workingOrderResult.summary,
     additionalReportText: assortmentReport,
     additionalResultFields: {
       normalized_product_rows_count: rows.length,
@@ -189,6 +200,8 @@ function runOrderAgentFromAdapterResultWithDemand(
         ? {
           assortment_matrix_summary: assortmentControl.summary,
           missing_matrix_items: assortmentControl.missingMatrixItems,
+          out_of_scope_matrix_items: assortmentControl.outOfScopeMatrixItems,
+          supplier_unassigned_matrix_items: assortmentControl.supplierUnassignedItems,
           assortment_matrix_warnings: assortmentControl.warnings,
         }
         : {}),

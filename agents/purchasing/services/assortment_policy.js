@@ -24,6 +24,11 @@ const ROLLOUT_STATUSES = Object.freeze([
   'ACTIVE',
 ]);
 
+const {
+  SUPPLIER_SCOPES,
+  ruleSupplierScope,
+} = require('./supplier_scope');
+
 class AssortmentPolicyError extends Error {
   constructor(code, message, options = {}) {
     super(message, options.cause ? { cause: options.cause } : undefined);
@@ -268,11 +273,28 @@ function isActiveAssortmentRule(rule) {
   return rule && rule.assortment_status !== 'EXIT';
 }
 
-function buildUnmatchedActiveRuleDiagnostics(rules, matchedRuleSkus) {
+function buildUnmatchedActiveRuleDiagnostics(rules, matchedRuleSkus, reportSupplierGroups) {
   const diagnostics = [];
+  const scopeSet = reportSupplierGroups instanceof Set
+    ? reportSupplierGroups
+    : new Set();
+  const seenRules = new Set();
   for (const rule of rules.values()) {
     if (!isActiveAssortmentRule(rule)) continue;
+    if (seenRules.has(rule)) continue;
+    seenRules.add(rule);
     if (matchedRuleSkus.has(normalizeSku(rule.sku))) continue;
+    const scope = ruleSupplierScope(rule, scopeSet);
+    if (scope === SUPPLIER_SCOPES.OTHER_SUPPLIER) continue;
+    if (scope === SUPPLIER_SCOPES.SUPPLIER_UNASSIGNED) {
+      diagnostics.push({
+        code: 'SUPPLIER_UNASSIGNED_RULE',
+        sku: rule.sku,
+        assortmentStatus: rule.assortment_status,
+        severity: 'warning',
+      });
+      continue;
+    }
     diagnostics.push({
       code: 'UNMATCHED_ASSORTMENT_POLICY_RULE',
       sku: rule.sku,
@@ -615,7 +637,8 @@ function applyAssortmentPolicyToProducts(products, store, runContext = {}) {
   });
   resultProducts.unmatchedActiveRules = buildUnmatchedActiveRuleDiagnostics(
     rules,
-    matchedRuleSkus
+    matchedRuleSkus,
+    runContext.reportSupplierGroups
   );
   resultProducts.isolatedRowDiagnostics = isolatedRowDiagnostics;
   return resultProducts;

@@ -10,7 +10,7 @@ function product(overrides = {}) {
     rowNumber: overrides.rowNumber || 1,
     name: overrides.name || 'Synthetic product',
     article: Object.hasOwn(overrides, 'article') ? overrides.article : 'SYN-1',
-    supplier: 'Synthetic Supplier',
+    supplier: overrides.supplier || 'Synthetic Supplier',
     abc: overrides.abc || 'A',
     xyz: overrides.xyz || 'X',
     priceNum: overrides.priceNum ?? 10,
@@ -30,6 +30,7 @@ function product(overrides = {}) {
     targetStock: overrides.targetStock ?? 35,
     expectedCoverageAfterOrder: null,
     quantityReason: overrides.quantityReason || 'incomplete_critical_data',
+    assortmentPolicy: overrides.assortmentPolicy,
   };
 }
 
@@ -205,6 +206,151 @@ test('approved totals exclude pending values while working maximum includes them
   assert.deepEqual(
     products.map(item => item.analyzerCalculatedQuantity),
     analyzerQuantitiesBefore
+  );
+});
+
+test('confident foreign product is excluded from the working order', () => {
+  const sourceProduct = product({
+    name: 'ЩРН-45 EKF автоматический выключатель',
+    article: 'EKF-ЩРН-45',
+    analyzerCalculatedQuantity: 4,
+    finalRecommendedQuantity: 4,
+    freeStock: 2,
+    priceNum: 3560.66,
+    assortmentPolicy: { matched: false },
+  });
+  const result = buildWorkingOrder([sourceProduct], [decision(sourceProduct.rowIdentity, {
+    decision: 'recommended',
+    decisionBasis: 'phase2_calculated',
+    approvedOrderQuantity: 4,
+    reasons: ['valid_demand_with_abc_xyz_priority:A/Y'],
+  })]);
+  const line = result.products[0];
+
+  assert.equal(line.workflowStatus, 'confidently_excluded');
+  assert.equal(line.blockingReason, 'foreign_product');
+  assert.equal(line.approvalRequired, false);
+  assert.equal(line.approvedOrderQuantity, null);
+  assert.equal(line.provisionalOrderQuantity, null);
+  assert.equal(line.provisionalLineSum, 0);
+  assert.equal(result.summary.confidentlyExcludedLines, 1);
+  assert.equal(result.summary.confidentlyExcludedPhase1Value, 14242.64);
+  assert.equal(result.summary.autoApprovedLines, 0);
+  assert.equal(result.summary.workingMaximumLines, 0);
+});
+
+test('suspicious unmatched product is blocked from automatic approval', () => {
+  const sourceProduct = product({
+    name: 'Реле таймер модуль 220V',
+    article: 'ELEC-REL-001',
+    analyzerCalculatedQuantity: 4,
+    finalRecommendedQuantity: 4,
+    freeStock: 2,
+    priceNum: 500,
+    assortmentPolicy: { matched: false },
+  });
+  const result = buildWorkingOrder([sourceProduct], [decision(sourceProduct.rowIdentity, {
+    decision: 'recommended',
+    decisionBasis: 'phase2_calculated',
+    approvedOrderQuantity: 4,
+    reasons: ['valid_demand_with_abc_xyz_priority:A/Y'],
+  })]);
+  const line = result.products[0];
+
+  assert.equal(line.workflowStatus, 'pending_manual_review');
+  assert.equal(line.blockingReason, 'unmatched_product_no_assortment_policy');
+  assert.ok(line.decisionWarnings.includes('suspicious_unmatched_product'));
+  assert.equal(line.approvalRequired, true);
+  assert.equal(line.provisionalOrderQuantity, 4);
+  assert.equal(result.summary.autoApprovedLines, 0);
+  assert.equal(result.summary.pendingReviewLines, 1);
+});
+
+test('matched electrical product is not blocked by foreign filter', () => {
+  const sourceProduct = product({
+    name: 'ЩРН-45 EKF автоматический выключатель',
+    article: 'EKF-ЩРН-45',
+    analyzerCalculatedQuantity: 4,
+    finalRecommendedQuantity: 4,
+    freeStock: 2,
+    priceNum: 3560.66,
+    assortmentPolicy: { matched: true, policy_qty: 4 },
+  });
+  const result = buildWorkingOrder([sourceProduct], [decision(sourceProduct.rowIdentity, {
+    decision: 'recommended',
+    decisionBasis: 'phase2_calculated',
+    approvedOrderQuantity: 4,
+    reasons: ['valid_demand_with_abc_xyz_priority:A/Y'],
+  })]);
+  const line = result.products[0];
+
+  assert.equal(line.workflowStatus, 'auto_approved');
+  assert.notEqual(line.blockingReason, 'foreign_product');
+  assert.equal(line.approvedOrderQuantity, 4);
+});
+
+test('splits working maximum between Зооград and other suppliers', () => {
+  const products = [
+    product({
+      rowIdentity: 'zoograd-1',
+      name: 'Zoograd product one',
+      supplier: 'Зооград-Хабаровск ООО',
+      analyzerCalculatedQuantity: 2,
+      finalRecommendedQuantity: 2,
+      freeStock: 1,
+      priceNum: 10,
+    }),
+    product({
+      rowIdentity: 'zoograd-2',
+      name: 'Zoograd product two',
+      supplier: 'РИЧ СТОР ООО',
+      analyzerCalculatedQuantity: 3,
+      finalRecommendedQuantity: 3,
+      freeStock: 1,
+      priceNum: 20,
+    }),
+    product({
+      rowIdentity: 'other-1',
+      name: 'Other supplier product',
+      supplier: 'АО "Валта Пет Продуктс"',
+      analyzerCalculatedQuantity: 5,
+      finalRecommendedQuantity: 5,
+      freeStock: 1,
+      priceNum: 30,
+    }),
+  ];
+  const decisions = [
+    decision('zoograd-1', {
+      decision: 'must_buy',
+      decisionBasis: 'phase2_calculated',
+      approvedOrderQuantity: 2,
+      reasons: ['valid_demand_with_abc_xyz_priority:A/X'],
+    }),
+    decision('zoograd-2', {
+      decision: 'recommended',
+      decisionBasis: 'phase2_calculated',
+      approvedOrderQuantity: 3,
+      reasons: ['valid_demand_with_abc_xyz_priority:A/Y'],
+    }),
+    decision('other-1', {
+      decision: 'recommended',
+      decisionBasis: 'phase2_calculated',
+      approvedOrderQuantity: 5,
+      reasons: ['valid_demand_with_abc_xyz_priority:A/Y'],
+    }),
+  ];
+  const result = buildWorkingOrder(products, decisions);
+
+  assert.equal(result.summary.workingMaximumLines, 3);
+  assert.equal(result.summary.workingMaximumSum, 230);
+  assert.equal(result.summary.zoogradWorkingMaximumLines, 2);
+  assert.equal(result.summary.zoogradWorkingMaximumSum, 80);
+  assert.equal(result.summary.otherSuppliersWorkingMaximumLines, 1);
+  assert.equal(result.summary.otherSuppliersWorkingMaximumSum, 150);
+  assert.ok(result.products.every(p => p.canonicalSupplier === 'зооград' || p.supplier === 'АО "Валта Пет Продуктс"'));
+  assert.equal(
+    result.products.filter(p => p.canonicalSupplier === 'зооград').length,
+    2
   );
 });
 

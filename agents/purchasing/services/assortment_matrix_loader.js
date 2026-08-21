@@ -156,6 +156,7 @@ function validateAssortmentMatrix(value) {
       name,
       brand: optionalString(item.brand, `${prefix}.brand`),
       category: optionalString(item.category, `${prefix}.category`),
+      supplier: optionalString(item.supplier, `${prefix}.supplier`),
       priority,
       policy_status: policyStatus,
       minimum_shelf_stock: minimumShelfStock,
@@ -212,6 +213,9 @@ function canonicalItemToOperational(item) {
     name,
     brand: typeof item.brand === 'string' ? item.brand : null,
     category: typeof item.category === 'string' ? item.category : null,
+    supplier: typeof item.supplier === 'string' && item.supplier.trim() !== ''
+      ? item.supplier.trim()
+      : null,
     priority,
     policy_status: policyStatus,
     minimum_shelf_stock: minStock,

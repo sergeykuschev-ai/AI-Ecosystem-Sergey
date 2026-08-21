@@ -696,3 +696,143 @@ test('legacy operational matrix still loads directly', () => {
   assert.ok(loaded.matrix.items.length >= 20);
   assert.equal(loaded.matrix.items[0].canonical_sku_id, undefined);
 });
+
+function scopeMatrixItem(overrides = {}) {
+  return matrixItem({
+    article: 'SCOPE-1',
+    name: 'Scope test item',
+    priority: 'important',
+    ...overrides,
+  });
+}
+
+function scopeSourceRow(overrides = {}) {
+  return row({
+    rowNumber: 10,
+    article: 'SCOPE-1',
+    name: 'Scope test item',
+    ...overrides,
+  });
+}
+
+test('matrix item from other supplier is out of scope, not missing', () => {
+  const validatedMatrix = matrix([
+    scopeMatrixItem({ supplier: 'Валта' }),
+  ]);
+  const matchResult = matchAssortmentMatrix(validatedMatrix, []);
+  const result = applyAssortmentMatrixControl({
+    analysis: { productRows: [] },
+    demandProducts: [],
+    decisions: [],
+    matrix: validatedMatrix,
+    matchResult,
+    reportSupplierGroups: new Set(['зооград']),
+  });
+
+  assert.equal(result.summary.missing_matrix_items_count, 0);
+  assert.equal(result.summary.out_of_scope_matrix_items_count, 1);
+  assert.equal(result.summary.supplier_unassigned_matrix_items_count, 0);
+  assert.equal(result.missingMatrixItems.length, 0);
+  assert.equal(result.outOfScopeMatrixItems.length, 1);
+  assert.equal(result.outOfScopeMatrixItems[0].reason, 'out_of_scope_for_supplier_report');
+});
+
+test('matrix item from same supplier is missing when not matched', () => {
+  const validatedMatrix = matrix([
+    scopeMatrixItem({ supplier: 'Валта' }),
+  ]);
+  const matchResult = matchAssortmentMatrix(validatedMatrix, []);
+  const result = applyAssortmentMatrixControl({
+    analysis: { productRows: [] },
+    demandProducts: [],
+    decisions: [],
+    matrix: validatedMatrix,
+    matchResult,
+    reportSupplierGroups: new Set(['валта']),
+  });
+
+  assert.equal(result.summary.missing_matrix_items_count, 1);
+  assert.equal(result.summary.out_of_scope_matrix_items_count, 0);
+  assert.equal(result.missingMatrixItems[0].reason, 'not_found_in_supplier_report');
+});
+
+test('supplier-unassigned matrix item is tracked separately', () => {
+  const validatedMatrix = matrix([
+    scopeMatrixItem({ supplier: null }),
+  ]);
+  const matchResult = matchAssortmentMatrix(validatedMatrix, []);
+  const result = applyAssortmentMatrixControl({
+    analysis: { productRows: [] },
+    demandProducts: [],
+    decisions: [],
+    matrix: validatedMatrix,
+    matchResult,
+    reportSupplierGroups: new Set(['зооград']),
+  });
+
+  assert.equal(result.summary.missing_matrix_items_count, 0);
+  assert.equal(result.summary.out_of_scope_matrix_items_count, 0);
+  assert.equal(result.summary.supplier_unassigned_matrix_items_count, 1);
+  assert.equal(result.supplierUnassignedItems[0].reason, 'supplier_unassigned');
+});
+
+test('matched supplier-unassigned item is not flagged as missing', () => {
+  const validatedMatrix = matrix([
+    scopeMatrixItem({ article: 'MATCH-1', supplier: null }),
+  ]);
+  const sourceRow = scopeSourceRow({ article: 'MATCH-1' });
+  const matchResult = matchAssortmentMatrix(validatedMatrix, [sourceRow]);
+  const product = demandProduct(sourceRow, { finalQuantity: 0 });
+  const result = applyAssortmentMatrixControl({
+    analysis: { productRows: [sourceRow] },
+    demandProducts: [product],
+    decisions: [decisionFor(product)],
+    matrix: validatedMatrix,
+    matchResult,
+    reportSupplierGroups: new Set(['зооград']),
+  });
+
+  assert.equal(result.summary.matched_matrix_items, 1);
+  assert.equal(result.summary.missing_matrix_items_count, 0);
+  assert.equal(result.summary.supplier_unassigned_matrix_items_count, 0);
+});
+
+test('зооград alias row puts валта item out of scope', () => {
+  const validatedMatrix = matrix([
+    scopeMatrixItem({ article: 'ZOO-1', supplier: 'Валта' }),
+  ]);
+  const sourceRow = scopeSourceRow({ article: 'ZOO-1', supplier: 'Оникиенко Роман Евгеньевич' });
+  const matchResult = matchAssortmentMatrix(validatedMatrix, [sourceRow]);
+  const product = demandProduct(sourceRow, { finalQuantity: 0 });
+  const result = applyAssortmentMatrixControl({
+    analysis: { productRows: [sourceRow] },
+    demandProducts: [product],
+    decisions: [decisionFor(product)],
+    matrix: validatedMatrix,
+    matchResult,
+    reportSupplierGroups: new Set(['зооград']),
+  });
+
+  assert.equal(result.summary.matched_matrix_items, 1);
+  assert.equal(result.summary.missing_matrix_items_count, 0);
+  assert.equal(result.summary.out_of_scope_matrix_items_count, 0);
+});
+
+test('report shows supplier-unassigned section', () => {
+  const validatedMatrix = matrix([
+    scopeMatrixItem({ supplier: null }),
+  ]);
+  const matchResult = matchAssortmentMatrix(validatedMatrix, []);
+  const result = applyAssortmentMatrixControl({
+    analysis: { productRows: [] },
+    demandProducts: [],
+    decisions: [],
+    matrix: validatedMatrix,
+    matchResult,
+    reportSupplierGroups: new Set(['зооград']),
+  });
+  const report = buildAssortmentMatrixReport(result);
+
+  assert.ok(report.includes('ПОЗИЦИИ БЕЗ НАЗНАЧЕННОГО ПОСТАВЩИКА'));
+  assert.ok(report.includes('Без назначенного поставщика: 1'));
+});

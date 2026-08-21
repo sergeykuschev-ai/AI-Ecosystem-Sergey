@@ -701,6 +701,49 @@ test('supports exact normalized-name fallback without fuzzy matching', () => {
   assert.equal(result.matchesByRowIdentity.get(row.rowIdentity).method, 'normalized_name');
 });
 
+test('flags Happy Jungle parrot food spike and blocks automatic approval', () => {
+  const row = product({
+    name: 'Happy Jungle Корм д/попугаев волнистых 500гр',
+    supplier: 'Зооград-Хабаровск ООО',
+    article: 'HJ-PARROT-500',
+    abc: 'A',
+    xyz: 'X',
+    freeStock: 5,
+    orderQty: 5,
+    priceNum: 200,
+    weeklySales7: 11,
+    weeklySales14: 12,
+    weeklySales28: 16,
+    weeklySalesHistory: [
+      { periodStart: '2026-07-13', quantity: 11 },
+      { periodStart: '2026-07-06', quantity: 1 },
+      { periodStart: '2026-06-29', quantity: 4 },
+      { periodStart: '2026-06-22', quantity: 0 },
+    ],
+    weeklyPeriodsUsed: {
+      sales7: ['2026-07-13'],
+      sales14: ['2026-07-06', '2026-07-13'],
+      sales28: ['2026-06-22', '2026-06-29', '2026-07-06', '2026-07-13'],
+    },
+    salesPeriodSource: 'smartzapas_weekly_history',
+    salesPeriodConfidence: 'high',
+  });
+  const inputs = exactInputs(row);
+  delete inputs.salesData;
+  inputs.supplierDeliveryCycleDays = { 'зооград-хабаровск ооо': 7 };
+  const result = buildDemandPlan({ productRows: [row] }, inputs);
+  const demand = result.products[0];
+  const decision = buildPhase2PurchasingDecisions(result).decisions[0];
+
+  assert.equal(demand.salesTrend, 'spike');
+  assert.ok(demand.warnings.includes('short_term_sales_spike'));
+  assert.equal(demand.targetStock, 33);
+  assert.equal(demand.demandCalculatedQuantity, 28);
+  assert.equal(decision.decision, 'manual_review');
+  assert.equal(decision.approvedOrderQuantity, null);
+  assert.ok(decision.reasons.includes('sales_spike_quantity_requires_review'));
+});
+
 test('flags a short-term sales spike and reviews large quantities', () => {
   const row = product({ freeStock: 0, abc: 'A', xyz: 'X', priceNum: 300 });
   const demandResult = demandFor(row, {
@@ -1023,6 +1066,148 @@ test('real supplier зооград-хабаровск ооо resolves delivery c
   assert.equal(result.inputStatus.phase2ResultStatus, 'calculated');
   assert.deepEqual(result.inputStatus.unknownDeliveryCycleSuppliers, []);
   assert.equal(result.diagnostics.deliveryCycleDiagnostics.length, 0);
+});
+
+test('рич стор ооо keeps its own delivery cycle 7 days', () => {
+  const row = product({
+    supplier: 'рич стор ооо',
+    freeStock: 0,
+    orderQty: 2,
+  });
+  const result = demandFor(row);
+  const demand = result.products[0];
+
+  assert.equal(demand.supplierDeliveryCycleDays, 7);
+  assert.equal(demand.demandCalculatedQuantity, 21);
+  assert.equal(demand.finalRecommendedQuantity, 21);
+});
+
+test('оникиенко роман евгеньевич uses its own delivery cycle 21 days', () => {
+  const row = product({
+    supplier: 'оникиенко роман евгеньевич',
+    freeStock: 0,
+    orderQty: 2,
+  });
+  const result = demandFor(row);
+  const demand = result.products[0];
+
+  assert.equal(demand.supplierDeliveryCycleDays, 21);
+  assert.equal(demand.targetCoverageDays, 35);
+  assert.equal(demand.demandCalculatedQuantity, 35);
+  assert.equal(demand.finalRecommendedQuantity, 35);
+});
+
+test('zoograd supplier aliases keep distinct delivery cycles', () => {
+  const rows = [
+    { supplier: 'зооград-хабаровск ооо', expectedCycle: 14 },
+    { supplier: 'рич стор ооо', expectedCycle: 7 },
+    { supplier: 'оникиенко роман евгеньевич', expectedCycle: 21 },
+  ];
+  const results = rows.map(({ supplier, expectedCycle }) => {
+    const row = product({
+      supplier,
+      freeStock: 3,
+      orderQty: 2,
+    });
+    const plan = demandFor(row);
+    const demand = plan.products[0];
+    assert.equal(demand.supplierDeliveryCycleDays, expectedCycle, `${supplier} cycle`);
+    return demand;
+  });
+
+  // Same group (зооград) but different cycles => different demand.
+  assert.ok(results[0].targetCoverageDays > results[1].targetCoverageDays);
+  assert.ok(results[2].targetCoverageDays > results[0].targetCoverageDays);
+});
+
+test('хабаровск опт belongs to зооград group but has unknown delivery cycle', () => {
+  const row = product({
+    supplier: 'Хабаровск ОПТ',
+    freeStock: 0,
+    orderQty: 2,
+  });
+  const result = demandFor(row);
+  const demand = result.products[0];
+
+  assert.equal(demand.supplier, 'Хабаровск ОПТ');
+  assert.equal(demand.supplierDeliveryCycleDays, null);
+  assert.ok(demand.requiredData.includes('supplier_delivery_cycle_days'));
+  assert.equal(result.inputStatus.phase2ResultStatus, 'preliminary');
+  assert.deepEqual(result.inputStatus.unknownDeliveryCycleSuppliers, ['Хабаровск ОПТ']);
+});
+
+test('supplier group normalization preserves original supplier display name in output', () => {
+  const row = product({
+    supplier: 'рич стор ооо',
+    freeStock: 0,
+    orderQty: 2,
+  });
+  const result = demandFor(row);
+  const demand = result.products[0];
+
+  assert.equal(demand.supplier, 'рич стор ооо');
+  assert.deepEqual(result.inputStatus.unknownDeliveryCycleSuppliers, []);
+});
+
+test('shorter exact cycle does not inflate demand for irregular sales', () => {
+  const row = product({
+    supplier: 'зооград-хабаровск ооо',
+    freeStock: 0,
+    orderQty: 10,
+    weeklySales7: 1,
+    weeklySales14: 1,
+    weeklySales28: 1,
+  });
+  const shortCyclePlan = buildDemandPlan(
+    { productRows: [row] },
+    {
+      ...exactInputs(row),
+      supplierDeliveryCycleDays: { 'зооград-хабаровск ооо': 7 },
+    }
+  );
+  const longCyclePlan = buildDemandPlan(
+    { productRows: [row] },
+    {
+      ...exactInputs(row),
+      supplierDeliveryCycleDays: { 'зооград-хабаровск ооо': 21 },
+    }
+  );
+
+  const shortCycle = shortCyclePlan.products[0];
+  const longCycle = longCyclePlan.products[0];
+
+  assert.equal(shortCycle.supplierDeliveryCycleDays, 7);
+  assert.equal(longCycle.supplierDeliveryCycleDays, 21);
+  assert.ok(
+    shortCycle.targetCoverageDays <= longCycle.targetCoverageDays,
+    'shorter cycle should not increase target coverage days'
+  );
+  assert.ok(
+    shortCycle.targetStock <= longCycle.targetStock,
+    'shorter cycle should not increase target stock'
+  );
+  assert.ok(
+    shortCycle.demandCalculatedQuantity <= longCycle.demandCalculatedQuantity,
+    'shorter cycle should not increase demand quantity'
+  );
+});
+
+test('оникиенко cycle does not inflate optional assortment demand with zero sales', () => {
+  const row = product({
+    supplier: 'оникиенко роман евгеньевич',
+    freeStock: 5,
+    orderQty: 10,
+    weeklySales7: 0,
+    weeklySales14: 0,
+    weeklySales28: 0,
+  });
+  const result = demandFor(row);
+  const demand = result.products[0];
+
+  assert.equal(demand.supplierDeliveryCycleDays, 21);
+  assert.equal(demand.mandatoryAssortment, false);
+  assert.equal(demand.demandCalculatedQuantity, 0);
+  assert.equal(demand.finalRecommendedQuantity, 0);
 });
 
 test('canonical available stock includes incoming stock so demand is zero when covered', () => {
