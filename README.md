@@ -82,3 +82,26 @@ and the server does not send or change purchase orders.
 See [the Purchasing Web Backend v1 guide](docs/purchasing-web-backend-v1.md)
 for API contracts, upload limits, artifact security, retention, errors, and
 local-version constraints.
+
+## Business KPI Web v1
+
+Start the local Business KPI application:
+
+```bash
+npm run business-kpi:web
+```
+
+The server listens on `127.0.0.1:3220`. Without a database URL it runs in an
+explicit `LOCAL_DEV` mode with an in-memory Miska store and synthetic sellers.
+The browser supports manual shift create, view, edit, and archive operations;
+backend KPI calculation; dashboard and seller aggregation; audited monthly
+plan changes; effective-dated settings; atomic historical XLSX dry-run/import
+with reconciliation; import history; and a simple monthly XLSX backup export.
+PostgreSQL storage and migrations are available through an isolated
+`docker/business-kpi/compose.test.yml` stack for server verification. It uses
+its own `business_kpi_test` database, network, and persistent volume and does
+not reuse the Arthur production database.
+
+See [the Business KPI Web v1 guide](docs/business-kpi/README.md) for the
+manual input contract, formulas, routes, permissions, storage model, Excel
+status, Docker profile, and local verification procedure.

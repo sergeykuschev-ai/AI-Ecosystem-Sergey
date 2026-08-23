@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Business KPI — ежедневные показатели магазинов">
+    <title>Business KPI · Артур</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <a class="brand" href="#dashboard" aria-label="Business KPI — главная">
+          <span class="brand-mark" aria-hidden="true">A</span>
+          <span><strong>Артур</strong><small>Business KPI</small></span>
+        </a>
+        <nav class="primary-nav" aria-label="Разделы Business KPI">
+          <a href="#dashboard" data-route="dashboard">Dashboard</a>
+          <a href="#shifts" data-route="shifts">Смены</a>
+          <a href="#months" data-route="months">Месяцы</a>
+          <a href="#year" data-route="year">Год</a>
+          <a href="#sellers" data-route="sellers">Продавцы</a>
+          <a href="#bonuses" data-route="bonuses">Премии</a>
+          <a href="#settings" data-route="settings">Настройки</a>
+          <a href="#import-export" data-route="import-export">Импорт / экспорт</a>
+        </nav>
+        <div class="sidebar-note">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span id="runtime-mode">Проверяем режим…</span>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <header class="topbar">
+          <label class="compact-field">Магазин
+            <select id="store-filter" aria-label="Магазин"></select>
+          </label>
+          <label class="compact-field">Месяц
+            <input id="period-filter" type="month" aria-label="Месяц">
+          </label>
+          <div class="profile" aria-label="Текущая роль">
+            <span class="avatar" aria-hidden="true">DEV</span>
+            <span><strong>Локальный владелец</strong><small>OWNER · dev/local</small></span>
+          </div>
+        </header>
+
+        <section class="page-heading" aria-labelledby="page-title">
+          <div>
+            <p class="eyebrow">Business KPI</p>
+            <h1 id="page-title">Dashboard</h1>
+            <p id="page-description">Сводка показателей выбранного месяца.</p>
+          </div>
+          <button class="primary-button" id="open-shift-form" type="button">
+            + Добавить смену
+          </button>
+        </section>
+
+        <div class="notice" id="global-message" role="status" hidden></div>
+
+        <section class="route-panel" data-panel="dashboard">
+          <div class="metric-grid" aria-label="Ключевые показатели">
+            <article class="metric-card"><span>План</span><strong id="metric-plan">—</strong><small id="metric-status">NO_DATA</small></article>
+            <article class="metric-card accent"><span>Выручка</span><strong id="metric-revenue">—</strong><small id="metric-forecast">Прогноз —</small></article>
+            <article class="metric-card"><span>Выполнение</span><strong id="metric-completion">—</strong><small id="metric-remaining">До плана —</small></article>
+            <article class="metric-card"><span>Чеки</span><strong id="metric-receipts">—</strong><small>Все смены месяца</small></article>
+            <article class="metric-card"><span>Средний чек</span><strong id="metric-average-check">—</strong><small>Выручка / чеки</small></article>
+            <article class="metric-card"><span>Товаров в чеке</span><strong id="metric-items">—</strong><small>Единицы / чеки</small></article>
+            <article class="metric-card"><span>QR %</span><strong id="metric-qr">—</strong><small>QR / выручка</small></article>
+            <article class="metric-card"><span>Количество смен</span><strong id="metric-shifts">—</strong><small id="metric-days">Дней с данными —</small></article>
+          </div>
+          <div class="forecast-strip" aria-label="Прогноз месяца">
+            <span>Средняя выручка в день с данными <strong id="metric-daily-average">—</strong></span>
+            <span>Осталось календарных дней <strong id="metric-days-remaining">—</strong></span>
+            <span id="metric-required">Нужно в день —</span>
+          </div>
+        </section>
+
+        <section class="route-panel" data-panel="shifts" hidden>
+          <article class="content-card">
+            <div class="card-heading">
+              <div><p class="eyebrow">Журнал</p><h2>Смены</h2></div>
+              <label class="compact-field">Продавец
+                <select id="employee-filter"><option value="">Все продавцы</option></select>
+              </label>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Дата</th><th>Продавец</th><th>Источник</th><th>Выручка</th><th>Чеки</th><th>Ср. чек</th><th>Товаров/чек</th><th>KPI</th><th></th></tr></thead>
+                <tbody id="shifts-table"></tbody>
+              </table>
+            </div>
+            <p class="empty-copy" id="shifts-empty" hidden>За выбранный период смен пока нет.</p>
+          </article>
+        </section>
+
+        <section class="route-panel" data-panel="sellers" hidden>
+          <article class="content-card">
+            <div class="card-heading"><div><p class="eyebrow">Команда</p><h2>Продавцы</h2></div></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Продавец</th><th>Смены</th><th>Выручка</th><th>На смену</th><th>Чеки</th><th>Ср. чек</th><th>Товаров/чек</th><th>QR %</th><th>KPI</th><th>Уровень</th><th>Бонус</th></tr></thead>
+                <tbody id="sellers-table"></tbody>
+              </table>
+            </div>
+            <p class="empty-copy" id="sellers-empty" hidden>Нет данных для расчёта продавцов.</p>
+          </article>
+        </section>
+
+        <section class="route-panel" data-panel="settings" hidden>
+          <div class="settings-grid">
+            <article class="content-card">
+              <p class="eyebrow">План месяца</p>
+              <h2>План выручки</h2>
+              <form id="plan-form" class="inline-form">
+                <label>Сумма, ₽<input id="plan-input" type="number" min="0" step="0.01" required></label>
+                <label>Причина изменения<input id="plan-reason" type="text" maxlength="300" placeholder="Например: утверждён новый план"></label>
+                <button class="primary-button" type="submit">Сохранить план</button>
+              </form>
+            </article>
+            <article class="content-card">
+              <p class="eyebrow">Действующая версия</p>
+              <h2>Нормативы KPI</h2>
+              <dl class="settings-list" id="settings-list"></dl>
+              <p class="field-help">Frontend только отображает настройки. Источник — versioned kpi_settings.</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="route-panel" data-panel="import-export" hidden>
+          <div class="import-grid">
+            <article class="content-card">
+              <p class="eyebrow">Безопасный импорт</p>
+              <h2>Загрузить исторический XLSX</h2>
+              <label class="dropzone" id="import-dropzone">
+                <input id="import-file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+                <strong>Перетащите XLSX сюда</strong>
+                <span>или нажмите, чтобы выбрать файл</span>
+                <small id="selected-import-file">Файл не выбран</small>
+              </label>
+              <div class="import-actions">
+                <button class="secondary-button" id="dry-run-import" type="button" disabled>Проверить (dry-run)</button>
+                <button class="primary-button" id="commit-import" type="button" hidden>Импортировать</button>
+              </div>
+              <p class="field-help">Сначала выполняется проверка без записи. Один workbook импортируется одной транзакцией.</p>
+            </article>
+            <article class="content-card" id="import-report" hidden>
+              <p class="eyebrow">Validation report</p>
+              <h2>Предпросмотр</h2>
+              <dl class="settings-list import-summary">
+                <dt>Месяц / формат</dt><dd id="import-detected">—</dd>
+                <dt>Магазин</dt><dd id="import-store">—</dd>
+                <dt>Строк валидно / найдено</dt><dd id="import-rows">—</dd>
+                <dt>Выручка</dt><dd id="import-revenue">—</dd>
+                <dt>Чеки</dt><dd id="import-receipts">—</dd>
+                <dt>Payment breakdown</dt><dd id="import-payments">—</dd>
+              </dl>
+              <p id="import-issues-empty" class="field-help">Ошибок и предупреждений нет.</p>
+              <ul id="import-issues" class="issue-list"></ul>
+            </article>
+          </div>
+          <article class="content-card import-history">
+            <div class="card-heading">
+              <div><p class="eyebrow">История</p><h2>Import runs</h2></div>
+              <button class="secondary-button" id="export-month" type="button">Экспортировать выбранный месяц</button>
+            </div>
+            <div class="table-wrap"><table>
+              <thead><tr><th>Запущен</th><th>Файл</th><th>Месяц</th><th>Статус</th><th>Импорт / строк</th><th>Reconciliation</th></tr></thead>
+              <tbody id="import-runs-table"></tbody>
+            </table></div>
+            <p class="empty-copy" id="import-runs-empty">Импортов пока нет.</p>
+          </article>
+        </section>
+
+        <section class="route-panel" data-panel="placeholder" hidden>
+          <article class="content-card empty-state">
+            <span class="empty-icon" aria-hidden="true">↗</span>
+            <h2 id="placeholder-title">Раздел готовится</h2>
+            <p id="placeholder-description">Функция будет добавлена следующим безопасным этапом.</p>
+          </article>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="shift-dialog">
+      <form id="shift-form" novalidate>
+        <div class="dialog-heading">
+          <div><p class="eyebrow">Ежедневный ввод</p><h2 id="shift-form-title">Новая смена</h2></div>
+          <button class="icon-button" id="close-shift-form" type="button" aria-label="Закрыть">×</button>
+        </div>
+        <input id="shift-id" type="hidden">
+        <p id="shift-provenance" class="provenance" hidden></p>
+        <div class="form-grid">
+          <label>Дата<input id="shift-date" name="shiftDate" type="date" required></label>
+          <label>Магазин<select id="shift-store" name="storeId" required></select></label>
+          <label>Продавец<select id="shift-employee" name="employeeId" required></select></label>
+          <label>Часть дня<select id="shift-key" name="shiftKey"><option value="main">Основная смена</option><option value="morning">Утро</option><option value="evening">Вечер</option></select></label>
+          <label>Наличные, ₽<input id="shift-cash" name="cash" type="number" min="0" step="0.01" inputmode="decimal" required></label>
+          <label>Эквайринг, ₽<input id="shift-acquiring" name="acquiring" type="number" min="0" step="0.01" inputmode="decimal" required></label>
+          <label>QR внутри эквайринга, ₽<input id="shift-qr" name="qr" type="number" min="0" step="0.01" inputmode="decimal" required><small>Не может быть больше эквайринга</small></label>
+          <label>Количество чеков<input id="shift-receipts" name="receipts" type="number" min="0" step="1" inputmode="numeric" required></label>
+          <label>Продано товарных единиц<input id="shift-items" name="itemsSold" type="number" min="0" step="1" inputmode="numeric" required></label>
+          <label>Чеки с допродажей<input id="shift-upsells" name="upsellReceipts" type="number" min="0" step="1" inputmode="numeric" required></label>
+          <label>Лакомства, ₽<input id="shift-treats-revenue" name="treatsRevenue" type="number" min="0" step="0.01" inputmode="decimal" required></label>
+          <label>Чеки с лакомствами<input id="shift-treats-receipts" name="treatsReceipts" type="number" min="0" step="1" inputmode="numeric" required></label>
+          <label class="wide">Комментарий<textarea id="shift-comment" name="comment" rows="3" maxlength="1000"></textarea></label>
+        </div>
+        <p class="inline-error" id="shift-error" role="alert" hidden></p>
+        <div class="calculation-preview" aria-live="polite">
+          <span>Выручка <strong id="preview-revenue">—</strong></span>
+          <span>Средний чек <strong id="preview-average">—</strong></span>
+          <span>Товаров/чек <strong id="preview-items">—</strong></span>
+        </div>
+        <section id="shift-audit-section" class="audit-section" hidden>
+          <h3>История изменений</h3>
+          <ol id="shift-audit-list"></ol>
+        </section>
+        <div class="dialog-actions">
+          <button class="danger-button" id="archive-shift" type="button" hidden>Архивировать</button>
+          <span></span>
+          <button class="secondary-button" id="cancel-shift" type="button">Отмена</button>
+          <button class="primary-button" id="save-shift" type="submit">Сохранить смену</button>
+        </div>
+      </form>
+    </dialog>
+  </body>
+</html>

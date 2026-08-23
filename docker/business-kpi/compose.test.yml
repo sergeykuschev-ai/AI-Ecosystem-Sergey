@@ -1,0 +1,110 @@
+name: business-kpi-test
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${BUSINESS_KPI_TEST_DB_USER:?BUSINESS_KPI_TEST_DB_USER is required}
+      POSTGRES_PASSWORD: ${BUSINESS_KPI_TEST_DB_PASSWORD:?BUSINESS_KPI_TEST_DB_PASSWORD is required}
+      POSTGRES_DB: ${BUSINESS_KPI_TEST_DB_NAME:-business_kpi_test}
+    volumes:
+      - business_kpi_test_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - business_kpi_test_internal
+
+  business-kpi-migrate:
+    build:
+      context: ../..
+      dockerfile: docker/business-kpi/Dockerfile
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: test
+      BUSINESS_KPI_STORAGE_MODE: ${BUSINESS_KPI_TEST_STORAGE_MODE:-postgresql}
+      BUSINESS_KPI_DATABASE_URL: postgresql://${BUSINESS_KPI_TEST_DB_USER:?BUSINESS_KPI_TEST_DB_USER is required}:${BUSINESS_KPI_TEST_DB_PASSWORD:?BUSINESS_KPI_TEST_DB_PASSWORD is required}@postgres:5432/${BUSINESS_KPI_TEST_DB_NAME:-business_kpi_test}
+    command:
+      - node
+      - apps/business-kpi-web/storage/run-migrations.js
+    networks:
+      - business_kpi_test_internal
+
+  business-kpi-web:
+    build:
+      context: ../..
+      dockerfile: docker/business-kpi/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      business-kpi-migrate:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: test
+      BUSINESS_KPI_STORAGE_MODE: ${BUSINESS_KPI_TEST_STORAGE_MODE:-postgresql}
+      BUSINESS_KPI_DATABASE_URL: postgresql://${BUSINESS_KPI_TEST_DB_USER:?BUSINESS_KPI_TEST_DB_USER is required}:${BUSINESS_KPI_TEST_DB_PASSWORD:?BUSINESS_KPI_TEST_DB_PASSWORD is required}@postgres:5432/${BUSINESS_KPI_TEST_DB_NAME:-business_kpi_test}
+      BUSINESS_KPI_DEV_MODE: "true"
+      BUSINESS_KPI_SEED_REFERENCE_DATA: "false"
+      BUSINESS_KPI_HTTP_HOST: 0.0.0.0
+      BUSINESS_KPI_HTTP_PORT: 3220
+    ports:
+      - "127.0.0.1:${BUSINESS_KPI_TEST_WEB_PORT:-3220}:3220"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:3220/health').then(async r=>{const b=await r.json();if(!r.ok||b.data?.storage?.healthy!==true)process.exit(1)}).catch(()=>process.exit(1))
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    networks:
+      - business_kpi_test_internal
+      - business_kpi_test_edge
+
+  business-kpi-test:
+    profiles:
+      - integration
+    build:
+      context: ../..
+      dockerfile: docker/business-kpi/Dockerfile
+    depends_on:
+      business-kpi-web:
+        condition: service_healthy
+    environment:
+      NODE_ENV: test
+      BUSINESS_KPI_STORAGE_MODE: postgresql
+      BUSINESS_KPI_DATABASE_URL: postgresql://${BUSINESS_KPI_TEST_DB_USER:?BUSINESS_KPI_TEST_DB_USER is required}:${BUSINESS_KPI_TEST_DB_PASSWORD:?BUSINESS_KPI_TEST_DB_PASSWORD is required}@postgres:5432/${BUSINESS_KPI_TEST_DB_NAME:-business_kpi_test}
+      BUSINESS_KPI_TEST_DATABASE_NAME: ${BUSINESS_KPI_TEST_DB_NAME:-business_kpi_test}
+      BUSINESS_KPI_TEST_BASE_URL: http://business-kpi-web:3220
+      BUSINESS_KPI_REAL_XLSX_ROOT: /test-inputs
+    volumes:
+      - type: bind
+        source: ${BUSINESS_KPI_TEST_XLSX_ROOT:?BUSINESS_KPI_TEST_XLSX_ROOT is required}
+        target: /test-inputs
+        read_only: true
+    command:
+      - npm
+      - run
+      - test:business-kpi:postgres
+    networks:
+      - business_kpi_test_internal
+
+networks:
+  business_kpi_test_internal:
+    name: business_kpi_test_internal
+    internal: true
+  business_kpi_test_edge:
+    name: business_kpi_test_edge
+
+volumes:
+  business_kpi_test_postgres_data:
+    name: business_kpi_test_postgres_data
