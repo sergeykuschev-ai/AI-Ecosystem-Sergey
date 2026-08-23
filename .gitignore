@@ -3,6 +3,7 @@ npm-debug.log*
 .env
 .env.*
 !.env.example
+!docker/business-kpi/.env.test.example
 *.key
 *.pem
 *.xlsx

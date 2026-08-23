@@ -7,8 +7,13 @@
     "doc": "docs"
   },
   "scripts": {
-    "test": "node --test agents/purchasing/tests/*.test.js apps/purchasing-web-backend/tests/*.test.js agents/arthur-core/tests/*.test.js agents/arthur-v1/tests/*.test.js",
+    "test": "node --test agents/purchasing/tests/*.test.js apps/purchasing-web-backend/tests/*.test.js agents/arthur-core/tests/*.test.js agents/arthur-v1/tests/*.test.js agents/business-kpi/tests/*.test.js apps/business-kpi-web/tests/*.test.js",
     "test:arthur": "node --test agents/arthur-core/tests/*.test.js agents/arthur-v1/tests/*.test.js",
+    "test:business-kpi": "node --test agents/business-kpi/tests/*.test.js apps/business-kpi-web/tests/*.test.js",
+    "test:business-kpi:integration": "node --test apps/business-kpi-web/tests/http.test.js apps/business-kpi-web/tests/workbook_import_service.test.js",
+    "test:business-kpi:postgres": "node apps/business-kpi-web/tests/postgres/run_postgres_tests.js",
+    "business-kpi:web": "node apps/business-kpi-web/server.js",
+    "business-kpi:migrate": "node apps/business-kpi-web/storage/run-migrations.js",
     "finance:update:miska": "node scripts/update-miska-financial-data.js",
     "finance:check:miska": "node scripts/update-miska-financial-data.js --check",
     "purchasing:run": "node scripts/run-purchasing-agent.js",
