@@ -64,6 +64,15 @@ test('frontend shell exposes every planned section', async () => {
   assert.match(response.headers.get('content-security-policy'), /default-src/);
 });
 
+test('static handler serves UX v2 formatters script', async () => {
+  const response = await fetch(`${baseUrl}/formatters.js`);
+  const body = await response.text();
+
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get('content-type'), /text\/javascript/);
+  assert.match(body, /formatMoney|formatPercent|NA_TEXT/);
+});
+
 test('unknown API routes return a versioned error contract', async () => {
   const response = await fetch(`${baseUrl}/api/v1/unknown`);
   const body = await response.json();
