@@ -54,6 +54,7 @@ test('migration files are ordered and checksummed deterministically', () => {
   assert.deepEqual(listMigrationFiles(migrationsRoot), [
     '001_initial_schema.up.sql',
     '002_historical_xlsx_import.up.sql',
+    '003_auth_sessions.up.sql',
   ]);
   assert.equal(computeChecksum(sql), computeChecksum(sql));
   assert.equal(computeChecksum(sql).length, 64);
