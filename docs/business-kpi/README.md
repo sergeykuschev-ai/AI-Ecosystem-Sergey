@@ -1,9 +1,32 @@
-# Business KPI Web v1
+# Business KPI Web v1 / UX v2
 
 Business KPI Web is the local daily-entry application for store shifts and
 seller KPI analytics. Manual web entry is the primary workflow. Excel is a
 secondary historical import, reconciliation, and backup-export channel. 1C is
 not connected in this stage.
+
+## UX v2 highlights
+
+- Fully Russian UI with no technical enum labels, `null`, or dev badges in the
+  user-facing shell.
+- Unified `н/д` formatting for missing historical data; `0` is never shown
+  when the source fact is unknown.
+- Management dashboard with plan, fact, completion, forecast, required daily
+  revenue, today block, sellers-of-the-month table, and daily revenue chart.
+- Shifts table with source / data-status filters, sorting, clickable rows, and
+  readable date/status labels.
+- Implemented Months and Year analytics pages with year selector, plan vs fact,
+  average-check trend, and month-over-month change.
+- Seller detail card with per-seller shift list and KPI / average-check /
+  revenue charts.
+- Bonuses page with transparent formula breakdown and clear "insufficient data"
+  states.
+- Settings page supports creating a new effective-dated KPI settings version
+  with live weight-sum validation (must equal 100) and required reason field.
+- Improved new-shift form grouped into sections, live preview, client-side
+  validation, and a save summary dialog.
+- Import/export UX: "Проверить файл", dry-run report with rows read/valid,
+  revenue, receipts, warnings/errors, and import history.
 
 ## Local quick start
 

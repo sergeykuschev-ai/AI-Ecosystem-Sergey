@@ -1,0 +1,277 @@
+'use strict';
+
+const assert = require('node:assert/strict');
+const { once } = require('node:events');
+const { after, before, test } = require('node:test');
+
+const {
+  createBusinessKpiWebServer,
+} = require('../server');
+const { loadConfig } = require('../config');
+const {
+  DEV_EMPLOYEES,
+  DEV_STORE,
+} = require('../storage/in_memory_business_kpi_store');
+
+let server;
+let baseUrl;
+
+before(async () => {
+  server = createBusinessKpiWebServer({ config: loadConfig({}) });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  baseUrl = `http://127.0.0.1:${server.address().port}`;
+});
+
+after(async () => {
+  server.close();
+  await once(server, 'close');
+});
+
+function ownerHeaders() {
+  return { 'X-Business-KPI-Role': 'OWNER' };
+}
+
+async function createShift(input) {
+  const response = await fetch(`${baseUrl}/api/business-kpi/shifts`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      storeId: DEV_STORE.id,
+      employeeId: DEV_EMPLOYEES[0].id,
+      shiftDate: '2026-08-20',
+      shiftKey: 'main',
+      cash: 10000,
+      acquiring: 14000,
+      qr: 2400,
+      receipts: 20,
+      itemsSold: 50,
+      upsellReceipts: 6,
+      treatsRevenue: 1200,
+      treatsReceipts: 4,
+      comment: 'UX v2 test',
+      ...input,
+    }),
+  });
+  return (await response.json()).data;
+}
+
+test('dashboard includes dataStatus and today aggregate', async () => {
+  const response = await fetch(
+    `${baseUrl}/api/business-kpi/dashboard?store=${DEV_STORE.id}&year=2026&month=8`
+  );
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.ok(['NO_DATA', 'PARTIAL', 'COMPLETE'].includes(body.data.month.dataStatus));
+  assert.ok(Object.hasOwn(body.data.month, 'dataStatus'));
+});
+
+test('today endpoint returns current date aggregate', async () => {
+  const response = await fetch(`${baseUrl}/api/business-kpi/today?store=${DEV_STORE.id}`);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.match(body.data.date, /^\d{4}-\d{2}-\d{2}$/);
+  assert.ok(Array.isArray(body.data.shifts));
+  assert.ok(Object.hasOwn(body.data.aggregate, 'dataStatus'));
+});
+
+test('months endpoint returns 12 months with plan, fact and dataStatus', async () => {
+  const response = await fetch(
+    `${baseUrl}/api/business-kpi/months?store=${DEV_STORE.id}&year=2026`
+  );
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.data.items.length, 12);
+  const august = body.data.items[7];
+  assert.equal(august.month, 8);
+  assert.ok(Object.hasOwn(august, 'planCompletion'));
+  assert.ok(Object.hasOwn(august, 'dataStatus'));
+  assert.ok(Object.hasOwn(august, 'changeFromPreviousMonth'));
+});
+
+test('year endpoint returns YTD and completed month ranking', async () => {
+  const response = await fetch(
+    `${baseUrl}/api/business-kpi/year?store=${DEV_STORE.id}&year=2026`
+  );
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.ok(Object.hasOwn(body.data.ytd, 'revenue'));
+  assert.ok(Object.hasOwn(body.data.ytd, 'planCompletion'));
+  assert.ok(Array.isArray(body.data.months));
+  assert.ok(Object.hasOwn(body.data, 'bests'));
+  assert.ok(Object.hasOwn(body.data, 'worsts'));
+  assert.ok(Object.hasOwn(body.data, 'hasConfirmedFuturePlans'));
+});
+
+test('bonuses endpoint exposes bonus details per seller', async () => {
+  const response = await fetch(
+    `${baseUrl}/api/business-kpi/bonuses?store=${DEV_STORE.id}&year=2026&month=8`
+  );
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.ok(Array.isArray(body.data.items));
+  assert.ok(Object.hasOwn(body.data, 'dataStatus'));
+  assert.ok(Object.hasOwn(body.data, 'planCompletion'));
+});
+
+test('settings version creation requires weights to sum to 100', async () => {
+  const response = await fetch(`${baseUrl}/api/business-kpi/settings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...ownerHeaders() },
+    body: JSON.stringify({
+      storeId: DEV_STORE.id,
+      effectiveFrom: '2026-09-01',
+      reason: 'test',
+      settings: {
+        targets: {
+          averageCheck: 1200,
+          itemsPerReceipt: 2.5,
+          upsellReceiptShare: 0.3,
+          treatsRevenue: 1200,
+          treatsReceiptShare: 0.2,
+          qrShare: null,
+          shiftRevenue: 24000,
+          sellerShifts: 15,
+        },
+        weights: { shiftPlan: 30, averageCheck: 20, itemsPerReceipt: 15, upsell: 20, treats: 16 },
+        fees: { acquiring: 0.022, qr: 0.007 },
+        payment: { qrIncludedInAcquiring: true },
+        levels: [{ name: 'Отлично', minimumScore: 95, bonusBase: 7000 }],
+        qrCoefficientTiers: [{ upperExclusive: null, coefficient: 1 }],
+      },
+    }),
+  });
+  const body = await response.json();
+  assert.equal(response.status, 422);
+  assert.equal(body.error.code, 'VALIDATION_ERROR');
+  assert.match(body.error.message, /100/);
+});
+
+test('settings version creation succeeds with valid weights', async () => {
+  const response = await fetch(`${baseUrl}/api/business-kpi/settings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...ownerHeaders() },
+    body: JSON.stringify({
+      storeId: DEV_STORE.id,
+      effectiveFrom: '2026-09-01',
+      reason: 'test valid',
+      settings: {
+        targets: {
+          averageCheck: 1200,
+          itemsPerReceipt: 2.5,
+          upsellReceiptShare: 0.3,
+          treatsRevenue: 1200,
+          treatsReceiptShare: 0.2,
+          qrShare: null,
+          shiftRevenue: 24000,
+          sellerShifts: 15,
+        },
+        weights: { shiftPlan: 30, averageCheck: 20, itemsPerReceipt: 15, upsell: 20, treats: 15 },
+        fees: { acquiring: 0.022, qr: 0.007 },
+        payment: { qrIncludedInAcquiring: true },
+        levels: [
+          { name: 'Отлично', minimumScore: 95, bonusBase: 7000 },
+          { name: 'Без премии', minimumScore: 0, bonusBase: 0 },
+        ],
+        qrCoefficientTiers: [{ upperExclusive: null, coefficient: 1 }],
+      },
+    }),
+  });
+  const body = await response.json();
+  assert.equal(response.status, 201);
+  assert.equal(body.data.version, 2);
+});
+
+test('shift validation rejects qr above acquiring', async () => {
+  const response = await fetch(`${baseUrl}/api/business-kpi/shifts`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      storeId: DEV_STORE.id,
+      employeeId: DEV_EMPLOYEES[0].id,
+      shiftDate: '2026-08-21',
+      shiftKey: 'main',
+      cash: 1000,
+      acquiring: 1000,
+      qr: 1001,
+      receipts: 1,
+      itemsSold: 1,
+      upsellReceipts: 0,
+      treatsRevenue: 0,
+      treatsReceipts: 0,
+    }),
+  });
+  const body = await response.json();
+  assert.equal(response.status, 422);
+  assert.equal(body.error.code, 'VALIDATION_ERROR');
+  assert.match(body.error.message, /QR/);
+});
+
+test('shift validation rejects upsell receipts above total receipts', async () => {
+  const response = await fetch(`${baseUrl}/api/business-kpi/shifts`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      storeId: DEV_STORE.id,
+      employeeId: DEV_EMPLOYEES[0].id,
+      shiftDate: '2026-08-22',
+      shiftKey: 'main',
+      cash: 1000,
+      acquiring: 1000,
+      qr: 0,
+      receipts: 1,
+      itemsSold: 1,
+      upsellReceipts: 2,
+      treatsRevenue: 0,
+      treatsReceipts: 0,
+    }),
+  });
+  const body = await response.json();
+  assert.equal(response.status, 422);
+  assert.equal(body.error.code, 'VALIDATION_ERROR');
+});
+
+test('shift validation rejects negative values', async () => {
+  const response = await fetch(`${baseUrl}/api/business-kpi/shifts`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      storeId: DEV_STORE.id,
+      employeeId: DEV_EMPLOYEES[0].id,
+      shiftDate: '2026-08-23',
+      shiftKey: 'main',
+      cash: -1,
+      acquiring: 1000,
+      qr: 0,
+      receipts: 1,
+      itemsSold: 1,
+      upsellReceipts: 0,
+      treatsRevenue: 0,
+      treatsReceipts: 0,
+    }),
+  });
+  const body = await response.json();
+  assert.equal(response.status, 422);
+});
+
+test('frontend formatters module maps null to unavailable text', () => {
+  const formatters = require('../public/formatters.js');
+  assert.equal(formatters.formatMoney(null), 'н/д');
+  assert.equal(formatters.formatPercent(null), 'н/д');
+  assert.equal(formatters.formatInteger(null), 'н/д');
+  assert.equal(formatters.formatNumber(null), 'н/д');
+  assert.equal(formatters.uiDataStatus('NO_DATA').label, 'Нет данных');
+  assert.equal(formatters.uiDataStatus('PARTIAL').label, 'Частичные данные');
+  assert.equal(formatters.uiDataStatus('COMPLETE').label, 'Полные данные');
+  assert.equal(formatters.uiMonthStatus('IN_PROGRESS').label, 'Месяц идёт');
+  assert.equal(formatters.uiImportStatus('COMPLETED'), 'Успешно');
+  assert.equal(formatters.sourceLabel('excel_import'), 'Импорт из Excel');
+  assert.equal(formatters.sourceLabel('web_manual'), 'Ручной ввод');
+});
+
+test('frontend app does not compute kpiScore with assignment', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const js = fs.readFileSync(path.join(__dirname, '../public/app.js'), 'utf8');
+  assert.doesNotMatch(js, /kpiScore\s*=/);
+});

@@ -50,7 +50,7 @@ test('frontend shell exposes every planned section', async () => {
 
   assert.equal(response.status, 200);
   for (const label of [
-    'Dashboard',
+    'Главная',
     'Смены',
     'Месяцы',
     'Год',

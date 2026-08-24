@@ -17,6 +17,44 @@ const { ApplicationError } = require('./application_error');
 const { StorageConflictError } = require('../storage/storage_errors');
 const { exportMonthWorkbook } = require('../xlsx/month_exporter');
 
+const DATA_STATUS = Object.freeze({
+  NO_DATA: 'NO_DATA',
+  PARTIAL: 'PARTIAL',
+  COMPLETE: 'COMPLETE',
+});
+
+function resolveDataStatus(monthAggregate) {
+  if (monthAggregate.shiftsCount === 0) return DATA_STATUS.NO_DATA;
+  const partial = !monthAggregate.paymentBreakdownAvailable ||
+    monthAggregate.calculatedShifts.some(
+      item => item.metrics.kpiStatus !== 'COMPLETE'
+    );
+  return partial ? DATA_STATUS.PARTIAL : DATA_STATUS.COMPLETE;
+}
+
+function sumYearTotals(months) {
+  let revenue = 0;
+  let receipts = 0;
+  let itemsSold = 0;
+  let shiftsCount = 0;
+  let dataDays = 0;
+  let plan = 0;
+  let planCount = 0;
+  for (const month of months) {
+    if (month.dataStatus === DATA_STATUS.NO_DATA) continue;
+    revenue += month.revenue || 0;
+    receipts += month.receipts || 0;
+    itemsSold += month.itemsSold || 0;
+    shiftsCount += month.shiftsCount || 0;
+    dataDays += month.dataDays || 0;
+    if (month.plan !== null && month.plan !== undefined) {
+      plan += month.plan;
+      planCount += 1;
+    }
+  }
+  return { revenue, receipts, itemsSold, shiftsCount, dataDays, plan, planCount };
+}
+
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const SHIFT_KEYS = new Set(['main', 'morning', 'evening']);
 const WRITE_ROLES = new Set(['OWNER', 'MANAGER']);
@@ -539,11 +577,202 @@ class BusinessKpiService {
       asOf: this.now(),
     });
     return {
-      month: { ...month, calculatedShifts: undefined },
+      month: {
+        ...month,
+        calculatedShifts: undefined,
+        dataStatus: resolveDataStatus(month),
+      },
       days: aggregateDays(month),
       sellers: aggregateSellers(month, settingsRecord?.settings || null),
       settingsVersion: settingsRecord?.version || null,
       settingsStatus: settingsRecord ? 'CONFIRMED' : 'UNRESOLVED',
+    };
+  }
+
+  async getToday(input) {
+    const storeRecord = await this.store.getStore(input.storeId);
+    if (!storeRecord?.active) {
+      throw new ApplicationError('STORE_NOT_FOUND', 'Магазин не найден.', 404);
+    }
+    const today = this.now().toISOString().slice(0, 10);
+    const shifts = await this.store.listShifts({
+      storeId: input.storeId,
+      dateFrom: today,
+      dateTo: today,
+    });
+    const decorated = await Promise.all(
+      shifts.map(shift => this.decorateShift(this.store, shift))
+    );
+    const totalRevenue = decorated.reduce(
+      (sum, shift) => sum + (shift.metrics?.revenue || 0),
+      0
+    );
+    const totalReceipts = decorated.reduce(
+      (sum, shift) => sum + (shift.receipts || 0),
+      0
+    );
+    const totalItems = decorated.reduce(
+      (sum, shift) =>
+        sum + (shift.itemsSold === null || shift.itemsSold === undefined
+          ? 0
+          : shift.itemsSold),
+      0
+    );
+    const totalQr = decorated.reduce(
+      (sum, shift) => sum + (shift.qr === null || shift.qr === undefined ? 0 : shift.qr),
+      0
+    );
+    return {
+      date: today,
+      shifts: decorated,
+      aggregate: {
+        shiftsCount: decorated.length,
+        revenue: totalRevenue,
+        receipts: totalReceipts,
+        averageCheck: totalReceipts > 0 ? totalRevenue / totalReceipts : null,
+        itemsSold: totalItems,
+        itemsPerReceipt: totalItems > 0 && totalReceipts > 0 ? totalItems / totalReceipts : null,
+        qr: totalQr,
+        qrShare: totalRevenue > 0 ? totalQr / totalRevenue : null,
+        dataStatus: decorated.length === 0
+          ? DATA_STATUS.NO_DATA
+          : (decorated.every(s => s.metrics?.kpiStatus === 'COMPLETE')
+            ? DATA_STATUS.COMPLETE
+            : DATA_STATUS.PARTIAL),
+      },
+    };
+  }
+
+  async listMonths(input) {
+    const storeRecord = await this.store.getStore(input.storeId);
+    if (!storeRecord?.active) {
+      throw new ApplicationError('STORE_NOT_FOUND', 'Магазин не найден.', 404);
+    }
+    const months = [];
+    let previousRevenue = null;
+    for (let month = 1; month <= 12; month += 1) {
+      const firstDay = `${input.year}-${String(month).padStart(2, '0')}-01`;
+      const [shifts, planRecord, settingsRecord] = await Promise.all([
+        this.store.listShifts({
+          storeId: input.storeId,
+          year: input.year,
+          month,
+        }),
+        this.store.getMonthlyPlan(input.storeId, input.year, month),
+        this.store.getEffectiveSettings(input.storeId, firstDay),
+      ]);
+      const aggregate = aggregateMonth(shifts, {
+        year: input.year,
+        month,
+        plan: planRecord?.revenuePlan ?? null,
+        settings: settingsRecord?.settings || null,
+        asOf: this.now(),
+      });
+      const dataStatus = resolveDataStatus(aggregate);
+      const change = previousRevenue !== null && dataStatus !== DATA_STATUS.NO_DATA
+        ? aggregate.revenue - previousRevenue
+        : null;
+      previousRevenue = dataStatus === DATA_STATUS.NO_DATA ? previousRevenue : aggregate.revenue;
+      months.push({
+        year: input.year,
+        month,
+        plan: aggregate.plan,
+        revenue: aggregate.revenue,
+        planCompletion: aggregate.planCompletion,
+        receipts: aggregate.receipts,
+        averageCheck: aggregate.averageCheck,
+        itemsPerReceipt: aggregate.itemsPerReceipt,
+        qr: aggregate.qr,
+        qrShare: aggregate.qrShare,
+        shiftsCount: aggregate.shiftsCount,
+        dataDays: aggregate.dataDays,
+        dataStatus,
+        forecast: aggregate.forecast,
+        changeFromPreviousMonth: change,
+      });
+    }
+    return months;
+  }
+
+  async getYearSummary(input) {
+    const storeRecord = await this.store.getStore(input.storeId);
+    if (!storeRecord?.active) {
+      throw new ApplicationError('STORE_NOT_FOUND', 'Магазин не найден.', 404);
+    }
+    const months = await this.listMonths(input);
+    const totals = sumYearTotals(months);
+    const completedMonths = months.filter(
+      m => m.dataStatus !== DATA_STATUS.NO_DATA
+    );
+    const sortedByRevenue = [...completedMonths].sort(
+      (left, right) => right.revenue - left.revenue
+    );
+    const sortedByCompletion = [...completedMonths].sort(
+      (left, right) => (right.planCompletion || 0) - (left.planCompletion || 0)
+    );
+    const averageCheck = totals.receipts > 0 ? totals.revenue / totals.receipts : null;
+    const itemsPerReceipt = totals.itemsSold > 0 && totals.receipts > 0
+      ? totals.itemsSold / totals.receipts
+      : null;
+    const planCompletion = totals.plan > 0 ? totals.revenue / totals.plan : null;
+    const now = this.now();
+    const currentYear = now.getUTCFullYear();
+    const currentMonth = now.getUTCMonth() + 1;
+    const hasConfirmedFuturePlans = months.some(
+      m => (input.year < currentYear) ||
+        (input.year === currentYear && m.month > currentMonth && m.plan !== null)
+    );
+    return {
+      year: input.year,
+      months,
+      ytd: {
+        revenue: totals.revenue,
+        plan: totals.plan,
+        planCount: totals.planCount,
+        planCompletion,
+        receipts: totals.receipts,
+        averageCheck,
+        itemsSold: totals.itemsSold,
+        itemsPerReceipt,
+        shiftsCount: totals.shiftsCount,
+        dataDays: totals.dataDays,
+      },
+      bests: {
+        revenue: sortedByRevenue[0] || null,
+        completion: sortedByCompletion[0] || null,
+      },
+      worsts: {
+        revenue: sortedByRevenue[sortedByRevenue.length - 1] || null,
+        completion: sortedByCompletion[sortedByCompletion.length - 1] || null,
+      },
+      hasConfirmedFuturePlans,
+    };
+  }
+
+  async getBonuses(input) {
+    const storeRecord = await this.store.getStore(input.storeId);
+    if (!storeRecord?.active) {
+      throw new ApplicationError('STORE_NOT_FOUND', 'Магазин не найден.', 404);
+    }
+    const dashboard = await this.getDashboard(input);
+    const items = dashboard.sellers.map(seller => ({
+      employeeId: seller.employeeId,
+      employeeName: seller.employeeName,
+      shiftsCount: seller.shiftsCount,
+      revenuePerShift: seller.revenuePerShift,
+      averageKpi: seller.averageKpi,
+      kpiLevel: seller.kpiLevel,
+      qrShare: seller.qrShare,
+      bonus: seller.bonus,
+      bonusStatus: seller.bonusStatus,
+      bonusDetails: seller.bonusDetails,
+    }));
+    return {
+      year: input.year,
+      month: input.month,
+      planCompletion: dashboard.month.planCompletion,
+      dataStatus: dashboard.month.dataStatus,
+      items,
     };
   }
 
@@ -568,6 +797,82 @@ class BusinessKpiService {
       throw new ApplicationError('SETTINGS_NOT_FOUND', 'Настройки KPI не найдены.', 404);
     }
     return record;
+  }
+
+  async listSettingsVersions(storeId, date) {
+    requireString(storeId, 'storeId');
+    const storeRecord = await this.store.getStore(storeId);
+    if (!storeRecord?.active) {
+      throw new ApplicationError('STORE_NOT_FOUND', 'Магазин не найден.', 404);
+    }
+    return this.store.listSettingsVersions(storeId, date || null);
+  }
+
+  async createSettingsVersion(input, actor, options = {}) {
+    requireRole(actor, OWNER_ROLES);
+    requireString(input.storeId, 'storeId');
+    requireDate(input.effectiveFrom, 'effectiveFrom');
+    if (!input.reason || typeof input.reason !== 'string' || !input.reason.trim()) {
+      throw new ApplicationError(
+        'VALIDATION_ERROR',
+        'Причина изменения настроек обязательна.',
+        422,
+        { details: { field: 'reason' } }
+      );
+    }
+    const storeRecord = await this.store.getStore(input.storeId);
+    if (!storeRecord?.active) {
+      throw new ApplicationError('STORE_NOT_FOUND', 'Магазин не найден.', 404);
+    }
+    const settings = input.settings;
+    if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
+      throw new ApplicationError(
+        'VALIDATION_ERROR',
+        'Настройки KPI должны быть объектом.',
+        422
+      );
+    }
+    const weights = settings.weights || {};
+    const weightSum = Object.values(weights).reduce(
+      (sum, value) => sum + (typeof value === 'number' && Number.isFinite(value) ? value : 0),
+      0
+    );
+    if (Math.abs(weightSum - 100) > 0.001) {
+      throw new ApplicationError(
+        'VALIDATION_ERROR',
+        `Сумма весов KPI должна быть 100 (сейчас ${weightSum}).`,
+        422,
+        { details: { weightSum } }
+      );
+    }
+    const now = this.now().toISOString();
+    return this.store.transaction(async store => {
+      const maxVersion = await store.getMaxSettingsVersion(input.storeId);
+      const record = await store.createSettingsVersion({
+        id: this.uuid(),
+        storeId: input.storeId,
+        version: maxVersion + 1,
+        effectiveFrom: input.effectiveFrom,
+        effectiveTo: null,
+        settings,
+        source: 'web_manual',
+        createdAt: now,
+      });
+      await store.appendAudit(auditRecord(
+        'SETTINGS_VERSION_CREATED',
+        record.id,
+        actor,
+        null,
+        record,
+        {
+          entityType: 'kpi_settings',
+          reason: input.reason,
+          correlationId: options.correlationId,
+          now,
+        }
+      ));
+      return record;
+    });
   }
 
   async updateMonthlyPlan(input, actor, options = {}) {

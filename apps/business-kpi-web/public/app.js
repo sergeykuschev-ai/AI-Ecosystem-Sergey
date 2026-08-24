@@ -1,23 +1,20 @@
 'use strict';
 
 const ROUTES = Object.freeze({
-  dashboard: ['Dashboard', 'Сводка показателей выбранного месяца.'],
+  dashboard: ['Главная', 'Управленческая сводка выбранного месяца.'],
   shifts: ['Смены', 'Создание, просмотр и безопасное редактирование смен.'],
   months: ['Месяцы', 'Помесячная динамика и статусы данных.'],
   year: ['Год', 'Годовая динамика KPI.'],
   sellers: ['Продавцы', 'Агрегаты сотрудников без средних от средних.'],
-  bonuses: ['Премии', 'Расчёт премий по подтверждённой формуле Excel.'],
+  bonuses: ['Премии', 'Расчёт премий.'],
   settings: ['Настройки', 'План месяца и действующие нормативы KPI.'],
   'import-export': ['Импорт / экспорт', 'Исторический Excel-import остаётся вторичным каналом.'],
 });
-const PLACEHOLDER_ROUTES = new Set(['months', 'year', 'bonuses']);
-const money = new Intl.NumberFormat('ru-RU', {
-  style: 'currency', currency: 'RUB', maximumFractionDigits: 2,
-});
-const number = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 });
-const percent = new Intl.NumberFormat('ru-RU', {
-  style: 'percent', maximumFractionDigits: 1,
-});
+
+const MONTH_NAMES = [
+  'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+  'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь',
+];
 
 const state = {
   stores: [],
@@ -26,12 +23,15 @@ const state = {
   dashboard: null,
   importFile: null,
   importRun: null,
+  months: [],
+  yearSummary: null,
+  bonuses: null,
+  today: null,
+  settings: null,
+  selectedSeller: null,
 };
 
 function element(id) { return document.getElementById(id); }
-function displayMoney(value) { return value === null || value === undefined ? '—' : money.format(value); }
-function displayNumber(value) { return value === null || value === undefined ? '—' : number.format(value); }
-function displayPercent(value) { return value === null || value === undefined ? '—' : percent.format(value); }
 
 async function api(path, options = {}) {
   const isFormData = options.body instanceof FormData;
@@ -69,6 +69,10 @@ function period() {
 
 function selectedStoreId() { return element('store-filter').value; }
 
+function selectedYear() {
+  return Number(element('year-filter').value) || new Date().getFullYear();
+}
+
 function fillSelect(select, items, label, selected) {
   select.replaceChildren();
   for (const item of items) {
@@ -78,6 +82,13 @@ function fillSelect(select, items, label, selected) {
     option.selected = item.id === selected;
     select.append(option);
   }
+}
+
+function setPill(id, status) {
+  const pill = element(id);
+  const info = uiDataStatus(status);
+  pill.textContent = info.label;
+  pill.className = classNames('status-pill', info.tone);
 }
 
 async function loadReferenceData(preferredStore) {
@@ -97,22 +108,86 @@ async function loadReferenceData(preferredStore) {
 
 function renderDashboard(data) {
   const month = data.month;
-  element('metric-plan').textContent = displayMoney(month.plan);
-  element('metric-status').textContent = month.status;
-  element('metric-revenue').textContent = displayMoney(month.revenue);
-  element('metric-forecast').textContent = `Прогноз ${displayMoney(month.forecast.projectedRevenue)}`;
-  element('metric-completion').textContent = displayPercent(month.planCompletion);
-  element('metric-remaining').textContent = `До плана ${displayMoney(month.forecast.remainingToPlan)}`;
-  element('metric-receipts').textContent = displayNumber(month.receipts);
-  element('metric-shifts').textContent = displayNumber(month.shiftsCount);
-  element('metric-average-check').textContent = displayMoney(month.averageCheck);
-  element('metric-items').textContent = displayNumber(month.itemsPerReceipt);
-  element('metric-qr').textContent = displayPercent(month.qrShare);
-  element('metric-days').textContent = `Дней с данными ${displayNumber(month.dataDays)}`;
-  element('metric-daily-average').textContent = displayMoney(month.forecast.averageRevenuePerDataDay);
-  element('metric-days-remaining').textContent = displayNumber(month.forecast.remainingCalendarDays);
-  element('metric-required').textContent = `Нужно в день ${displayMoney(month.forecast.requiredAveragePerRemainingDay)}`;
-  element('plan-input').value = month.plan ?? '';
+  element('metric-plan').textContent = formatMoney(month.plan);
+  const statusInfo = uiMonthStatus(month.status);
+  const statusEl = element('metric-status');
+  statusEl.textContent = statusInfo.label;
+  statusEl.className = statusInfo.tone;
+  element('metric-revenue').textContent = formatMoney(month.revenue);
+  element('metric-forecast').textContent = `Прогноз ${formatMoney(month.forecast.projectedRevenue)}`;
+  element('metric-completion').textContent = formatPercent(month.planCompletion);
+  element('metric-remaining').textContent = `До плана ${formatMoney(month.forecast.remainingToPlan)}`;
+  element('metric-projected-revenue').textContent = formatMoney(month.forecast.projectedRevenue);
+  const projectedCompletion = month.plan && month.forecast.projectedRevenue !== null
+    ? month.forecast.projectedRevenue / month.plan
+    : null;
+  element('metric-projected-completion').textContent = `Прогноз выполнения ${formatPercent(projectedCompletion)}`;
+  element('metric-remaining-to-plan').textContent = formatMoney(month.forecast.remainingToPlan);
+  element('metric-days-remaining').textContent = `Осталось дней ${formatInteger(month.forecast.remainingCalendarDays)}`;
+  element('metric-required-per-day').textContent = formatMoney(month.forecast.requiredAveragePerRemainingDay);
+  element('metric-daily-average').textContent = formatMoney(month.forecast.averageRevenuePerDataDay);
+  element('metric-receipts').textContent = formatInteger(month.receipts);
+  element('metric-shifts').textContent = formatInteger(month.shiftsCount);
+  element('metric-average-check').textContent = formatMoney(month.averageCheck);
+  element('metric-items').textContent = formatNumber(month.itemsPerReceipt);
+  element('metric-qr').textContent = formatPercent(month.qrShare);
+  element('metric-qr-amount').textContent = formatMoney(month.qr);
+  element('metric-days').textContent = `Дней с данными ${formatInteger(month.dataDays)}`;
+  element('plan-input').value = moneyInput(month.plan);
+
+  renderToday(data.today);
+  renderDashboardSellers(data.sellers);
+  renderChart('dashboard-chart', month.days || data.days, 'revenue', 'plan', month.plan);
+}
+
+function renderToday(data) {
+  if (!data) {
+    element('today-grid').hidden = true;
+    element('today-shifts-wrap').hidden = true;
+    element('today-empty').hidden = false;
+    setPill('today-status', 'NO_DATA');
+    return;
+  }
+  element('today-grid').hidden = false;
+  element('today-shifts-wrap').hidden = data.shifts.length === 0;
+  element('today-empty').hidden = data.shifts.length !== 0;
+  setPill('today-status', data.aggregate.dataStatus);
+  element('today-revenue').textContent = formatMoney(data.aggregate.revenue);
+  element('today-receipts').textContent = formatInteger(data.aggregate.receipts);
+  element('today-average-check').textContent = formatMoney(data.aggregate.averageCheck);
+  element('today-items').textContent = formatNumber(data.aggregate.itemsPerReceipt);
+  element('today-qr').textContent = formatPercent(data.aggregate.qrShare);
+  element('today-shifts').textContent = formatInteger(data.aggregate.shiftsCount);
+  const body = element('today-shifts-table');
+  body.replaceChildren();
+  for (const shift of data.shifts) {
+    const row = document.createElement('tr');
+    appendCell(row, shift.employeeName || NA_TEXT);
+    appendCell(row, shiftKeyLabel(shift.shiftKey));
+    appendCell(row, formatMoney(shift.metrics?.revenue), 'numeric');
+    appendCell(row, formatInteger(shift.receipts), 'numeric');
+    appendCell(row, formatMoney(shift.metrics?.averageCheck), 'numeric');
+    appendCell(row, kpiLabel(shift.metrics?.kpiScore, shift.metrics?.kpiLevel));
+    body.append(row);
+  }
+}
+
+function renderDashboardSellers(items) {
+  const body = element('dashboard-sellers-table');
+  body.replaceChildren();
+  element('dashboard-sellers-empty').hidden = items.length !== 0;
+  for (const seller of items) {
+    const row = document.createElement('tr');
+    appendCell(row, seller.employeeName || NA_TEXT);
+    appendCell(row, formatInteger(seller.shiftsCount), 'numeric');
+    appendCell(row, formatMoney(seller.revenuePerShift), 'numeric');
+    appendCell(row, formatMoney(seller.averageCheck), 'numeric');
+    appendCell(row, formatNumber(seller.itemsPerReceipt), 'numeric');
+    appendCell(row, formatPercent(seller.qrShare), 'numeric');
+    appendCell(row, kpiLabel(seller.averageKpi, seller.kpiLevel));
+    appendCell(row, seller.bonusStatus === 'COMPLETE' ? formatMoney(seller.bonus) : NA_TEXT, 'numeric');
+    body.append(row);
+  }
 }
 
 async function loadDashboard() {
@@ -122,8 +197,8 @@ async function loadDashboard() {
   state.dashboard = await api(
     `/api/business-kpi/dashboard?store=${encodeURIComponent(store)}&year=${year}&month=${month}`
   );
-  renderDashboard(state.dashboard);
-  renderSellers(state.dashboard.sellers);
+  state.today = await api(`/api/business-kpi/today?store=${encodeURIComponent(store)}`);
+  renderDashboard({ ...state.dashboard, today: state.today });
 }
 
 function appendCell(row, value, className) {
@@ -137,24 +212,63 @@ function renderShifts(items) {
   const body = element('shifts-table');
   body.replaceChildren();
   element('shifts-empty').hidden = items.length !== 0;
-  for (const shift of items) {
+  const sourceFilter = element('source-filter').value;
+  const statusFilter = element('data-status-filter').value;
+  const sort = element('shifts-sort').value;
+  let filtered = items.filter(shift => {
+    if (sourceFilter && shift.source !== sourceFilter) return false;
+    if (statusFilter) {
+      const status = shift.metrics?.kpiStatus === 'COMPLETE' && shift.metrics?.paymentBreakdownAvailable !== false
+        ? 'COMPLETE'
+        : (shift.receipts === 0 && shift.metrics?.revenue === 0 ? 'NO_DATA' : 'PARTIAL');
+      if (status !== statusFilter) return false;
+    }
+    return true;
+  });
+  filtered.sort((left, right) => {
+    switch (sort) {
+      case 'date-asc': return left.shiftDate.localeCompare(right.shiftDate);
+      case 'date-desc': return right.shiftDate.localeCompare(left.shiftDate);
+      case 'revenue-asc': return (left.metrics?.revenue || 0) - (right.metrics?.revenue || 0);
+      case 'revenue-desc': return (right.metrics?.revenue || 0) - (left.metrics?.revenue || 0);
+      case 'avg-asc': return (left.metrics?.averageCheck || 0) - (right.metrics?.averageCheck || 0);
+      case 'avg-desc': return (right.metrics?.averageCheck || 0) - (left.metrics?.averageCheck || 0);
+      case 'kpi-asc': return (left.metrics?.kpiScore || 0) - (right.metrics?.kpiScore || 0);
+      case 'kpi-desc': return (right.metrics?.kpiScore || 0) - (left.metrics?.kpiScore || 0);
+      default: return 0;
+    }
+  });
+  for (const shift of filtered) {
     const row = document.createElement('tr');
-    appendCell(row, shift.shiftDate);
-    appendCell(row, shift.employeeName || '—');
-    appendCell(row, shift.source === 'excel_import' ? 'Excel import' : 'Ручной ввод');
-    appendCell(row, displayMoney(shift.metrics?.revenue), 'numeric');
-    appendCell(row, displayNumber(shift.receipts), 'numeric');
-    appendCell(row, displayMoney(shift.metrics?.averageCheck), 'numeric');
-    appendCell(row, displayNumber(shift.metrics?.itemsPerReceipt), 'numeric');
-    appendCell(row, shift.metrics ? `${number.format(shift.metrics.kpiScore)} · ${shift.metrics.kpiLevel}` : '—');
+    row.className = 'clickable-row';
+    const status = shift.metrics?.kpiStatus === 'COMPLETE' && shift.metrics?.paymentBreakdownAvailable !== false
+      ? 'COMPLETE'
+      : (shift.receipts === 0 && shift.metrics?.revenue === 0 ? 'NO_DATA' : 'PARTIAL');
+    appendCell(row, formatDate(shift.shiftDate));
+    appendCell(row, shift.employeeName || NA_TEXT);
+    appendCell(row, sourceLabel(shift.source));
+    appendCell(row, formatMoney(shift.metrics?.revenue), 'numeric');
+    appendCell(row, formatInteger(shift.receipts), 'numeric');
+    appendCell(row, formatMoney(shift.metrics?.averageCheck), 'numeric');
+    appendCell(row, formatNumber(shift.metrics?.itemsPerReceipt), 'numeric');
+    appendCell(row, formatPercent(shift.metrics?.qrShare), 'numeric');
+    appendCell(row, kpiLabel(shift.metrics?.kpiScore, shift.metrics?.kpiLevel));
+    const statusInfo = uiDataStatus(status);
+    const statusCell = document.createElement('td');
+    statusCell.innerHTML = `<span class="status-pill ${statusInfo.tone}">${statusInfo.label}</span>`;
+    row.append(statusCell);
     const actionCell = document.createElement('td');
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'table-button';
     button.textContent = 'Открыть';
-    button.addEventListener('click', () => openShiftById(shift.id));
+    button.addEventListener('click', event => {
+      event.stopPropagation();
+      openShiftById(shift.id);
+    });
     actionCell.append(button);
     row.append(actionCell);
+    row.addEventListener('click', () => openShiftById(shift.id));
     body.append(row);
   }
 }
@@ -179,43 +293,250 @@ function renderSellers(items) {
   element('sellers-empty').hidden = items.length !== 0;
   for (const seller of items) {
     const row = document.createElement('tr');
-    appendCell(row, seller.employeeName || '—');
-    appendCell(row, seller.shiftsCount, 'numeric');
-    appendCell(row, displayMoney(seller.revenue), 'numeric');
-    appendCell(row, displayMoney(seller.revenuePerShift), 'numeric');
-    appendCell(row, seller.receipts, 'numeric');
-    appendCell(row, displayMoney(seller.averageCheck), 'numeric');
-    appendCell(row, displayNumber(seller.itemsPerReceipt), 'numeric');
-    appendCell(row, displayPercent(seller.qrShare), 'numeric');
-    appendCell(row, displayNumber(seller.averageKpi), 'numeric');
-    appendCell(row, seller.kpiLevel);
-    appendCell(row, displayMoney(seller.bonus), 'numeric');
+    row.className = 'clickable-row';
+    appendCell(row, seller.employeeName || NA_TEXT);
+    appendCell(row, formatInteger(seller.shiftsCount), 'numeric');
+    appendCell(row, formatMoney(seller.revenue), 'numeric');
+    appendCell(row, formatMoney(seller.revenuePerShift), 'numeric');
+    appendCell(row, formatInteger(seller.receipts), 'numeric');
+    appendCell(row, formatMoney(seller.averageCheck), 'numeric');
+    appendCell(row, formatNumber(seller.itemsPerReceipt), 'numeric');
+    appendCell(row, formatPercent(seller.qrShare), 'numeric');
+    appendCell(row, kpiLabel(seller.averageKpi, seller.kpiLevel));
+    appendCell(row, seller.kpiLevel || NA_TEXT);
+    appendCell(row, seller.bonusStatus === 'COMPLETE' ? formatMoney(seller.bonus) : NA_TEXT, 'numeric');
+    row.addEventListener('click', () => openSellerDetail(seller));
     body.append(row);
   }
 }
 
+async function openSellerDetail(seller) {
+  state.selectedSeller = seller;
+  const detail = element('seller-detail-card');
+  detail.hidden = false;
+  element('seller-detail-name').textContent = seller.employeeName || NA_TEXT;
+  detail.scrollIntoView({ behavior: 'smooth' });
+  const metrics = element('seller-metrics');
+  metrics.replaceChildren();
+  const metricItems = [
+    ['Смены', formatInteger(seller.shiftsCount)],
+    ['Выручка', formatMoney(seller.revenue)],
+    ['На смену', formatMoney(seller.revenuePerShift)],
+    ['Средний чек', formatMoney(seller.averageCheck)],
+    ['QR %', formatPercent(seller.qrShare)],
+    ['KPI', kpiLabel(seller.averageKpi, seller.kpiLevel)],
+    ['Уровень', seller.kpiLevel || NA_TEXT],
+    ['Премия', seller.bonusStatus === 'COMPLETE' ? formatMoney(seller.bonus) : NA_TEXT],
+  ];
+  for (const [label, value] of metricItems) {
+    const div = document.createElement('div');
+    div.className = 'metric';
+    div.innerHTML = `<small>${label}</small><strong>${value}</strong>`;
+    metrics.append(div);
+  }
+  const store = selectedStoreId();
+  const { year, month } = period();
+  const shifts = await api(
+    `/api/business-kpi/shifts?store=${encodeURIComponent(store)}&year=${year}&month=${month}&employee=${encodeURIComponent(seller.employeeId)}`
+  );
+  const rows = shifts.items.sort((a, b) => a.shiftDate.localeCompare(b.shiftDate));
+  const body = element('seller-shifts-table');
+  body.replaceChildren();
+  for (const shift of rows) {
+    const row = document.createElement('tr');
+    appendCell(row, formatDate(shift.shiftDate));
+    appendCell(row, formatMoney(shift.metrics?.revenue), 'numeric');
+    appendCell(row, formatInteger(shift.receipts), 'numeric');
+    appendCell(row, formatMoney(shift.metrics?.averageCheck), 'numeric');
+    appendCell(row, formatNumber(shift.metrics?.itemsPerReceipt), 'numeric');
+    appendCell(row, formatPercent(shift.metrics?.qrShare), 'numeric');
+    appendCell(row, kpiLabel(shift.metrics?.kpiScore, shift.metrics?.kpiLevel));
+    body.append(row);
+  }
+  renderSellerCharts(rows);
+}
+
+function renderSellerCharts(rows) {
+  const dates = rows.map(r => formatDate(r.shiftDate));
+  renderLineChart('seller-chart-kpi', dates, [rows.map(r => r.metrics?.kpiScore)], ['KPI'], ['#205c46']);
+  renderLineChart('seller-chart-average', dates, [rows.map(r => r.metrics?.averageCheck)], ['Средний чек'], ['#a8641f']);
+  renderLineChart('seller-chart-revenue', dates, [rows.map(r => r.metrics?.revenue)], ['Выручка'], ['#205c46']);
+}
+
+function renderMonths(data) {
+  state.months = data.items;
+  element('months-year-label').textContent = String(data.year);
+  const body = element('months-table');
+  body.replaceChildren();
+  element('months-empty').hidden = data.items.some(m => m.dataStatus !== 'NO_DATA');
+  const labels = [];
+  const revenue = [];
+  const plan = [];
+  const average = [];
+  for (const month of data.items) {
+    labels.push(MONTH_NAMES[month.month - 1]);
+    revenue.push(month.revenue);
+    plan.push(month.plan);
+    average.push(month.averageCheck);
+    const row = document.createElement('tr');
+    appendCell(row, MONTH_NAMES[month.month - 1]);
+    appendCell(row, formatMoney(month.plan), 'numeric');
+    appendCell(row, formatMoney(month.revenue), 'numeric');
+    appendCell(row, formatPercent(month.planCompletion), 'numeric');
+    appendCell(row, formatInteger(month.receipts), 'numeric');
+    appendCell(row, formatMoney(month.averageCheck), 'numeric');
+    appendCell(row, formatNumber(month.itemsPerReceipt), 'numeric');
+    appendCell(row, month.qrShare === null ? NA_TEXT : formatPercent(month.qrShare), 'numeric');
+    appendCell(row, formatInteger(month.shiftsCount), 'numeric');
+    const statusInfo = uiDataStatus(month.dataStatus);
+    const statusCell = document.createElement('td');
+    statusCell.innerHTML = `<span class="status-pill ${statusInfo.tone}">${statusInfo.label}</span>`;
+    row.append(statusCell);
+    const change = month.changeFromPreviousMonth;
+    appendCell(row, change === null ? '—' : `${change >= 0 ? '+' : ''}${formatMoney(change)}`, 'numeric');
+    body.append(row);
+  }
+  renderBarChart('months-chart-revenue', labels, [
+    { label: 'План', values: plan, color: '#cbd3ca' },
+    { label: 'Факт', values: revenue, color: '#205c46' },
+  ]);
+  renderLineChart('months-chart-average', labels, [average], ['Средний чек'], ['#a8641f']);
+}
+
+async function loadMonths() {
+  const store = selectedStoreId();
+  if (!store) return;
+  const year = selectedYear();
+  renderMonths(await api(
+    `/api/business-kpi/months?store=${encodeURIComponent(store)}&year=${year}`
+  ));
+}
+
+function renderYear(data) {
+  state.yearSummary = data;
+  element('year-revenue').textContent = formatMoney(data.ytd.revenue);
+  element('year-plan').textContent = formatMoney(data.ytd.plan);
+  element('year-completion').textContent = formatPercent(data.ytd.planCompletion);
+  element('year-receipts').textContent = formatInteger(data.ytd.receipts);
+  element('year-average-check').textContent = formatMoney(data.ytd.averageCheck);
+  element('year-shifts').textContent = formatInteger(data.ytd.shiftsCount);
+  element('year-best-revenue').textContent = data.bests.revenue
+    ? `${MONTH_NAMES[data.bests.revenue.month - 1]} · ${formatMoney(data.bests.revenue.revenue)}`
+    : NA_TEXT;
+  element('year-worst-revenue').textContent = data.worsts.revenue
+    ? `${MONTH_NAMES[data.worsts.revenue.month - 1]} · ${formatMoney(data.worsts.revenue.revenue)}`
+    : NA_TEXT;
+  element('year-best-completion').textContent = data.bests.completion
+    ? `${MONTH_NAMES[data.bests.completion.month - 1]} · ${formatPercent(data.bests.completion.planCompletion)}`
+    : NA_TEXT;
+  element('year-worst-completion').textContent = data.worsts.completion
+    ? `${MONTH_NAMES[data.worsts.completion.month - 1]} · ${formatPercent(data.worsts.completion.planCompletion)}`
+    : NA_TEXT;
+  element('year-table-year-label').textContent = String(data.year);
+  const body = element('year-months-table');
+  body.replaceChildren();
+  const labels = [];
+  const revenue = [];
+  const plan = [];
+  const average = [];
+  const changes = [];
+  for (const month of data.months) {
+    if (month.dataStatus === 'NO_DATA') continue;
+    labels.push(MONTH_NAMES[month.month - 1]);
+    revenue.push(month.revenue);
+    plan.push(month.plan);
+    average.push(month.averageCheck);
+    changes.push(month.changeFromPreviousMonth || 0);
+    const row = document.createElement('tr');
+    appendCell(row, MONTH_NAMES[month.month - 1]);
+    appendCell(row, formatMoney(month.plan), 'numeric');
+    appendCell(row, formatMoney(month.revenue), 'numeric');
+    appendCell(row, formatPercent(month.planCompletion), 'numeric');
+    appendCell(row, formatInteger(month.receipts), 'numeric');
+    appendCell(row, formatMoney(month.averageCheck), 'numeric');
+    appendCell(row, formatInteger(month.shiftsCount), 'numeric');
+    const change = month.changeFromPreviousMonth;
+    appendCell(row, change === null ? '—' : `${change >= 0 ? '+' : ''}${formatMoney(change)}`, 'numeric');
+    body.append(row);
+  }
+  renderBarChart('year-chart-revenue', labels, [
+    { label: 'План', values: plan, color: '#cbd3ca' },
+    { label: 'Факт', values: revenue, color: '#205c46' },
+  ]);
+  renderLineChart('year-chart-average', labels, [average], ['Средний чек'], ['#a8641f']);
+  renderBarChart('year-chart-mom', labels, [
+    { label: 'Δ к прошлому месяцу', values: changes, color: '#205c46' },
+  ]);
+}
+
+async function loadYear() {
+  const store = selectedStoreId();
+  if (!store) return;
+  const year = selectedYear();
+  renderYear(await api(
+    `/api/business-kpi/year?store=${encodeURIComponent(store)}&year=${year}`
+  ));
+}
+
+function renderBonuses(data) {
+  state.bonuses = data;
+  setPill('bonuses-status', data.dataStatus);
+  const body = element('bonuses-table');
+  body.replaceChildren();
+  element('bonuses-empty').hidden = data.items.length !== 0;
+  for (const item of data.items) {
+    const row = document.createElement('tr');
+    appendCell(row, item.employeeName || NA_TEXT);
+    appendCell(row, formatInteger(item.shiftsCount), 'numeric');
+    appendCell(row, item.bonusDetails
+      ? formatInteger(item.bonusDetails.shiftCoefficient === null ? null : Math.round(state.settings?.targets?.sellerShifts || 0))
+      : NA_TEXT, 'numeric');
+    appendCell(row, item.bonusDetails ? formatNumber(item.bonusDetails.shiftCoefficient) : NA_TEXT, 'numeric');
+    appendCell(row, kpiLabel(item.averageKpi, item.kpiLevel), 'numeric');
+    appendCell(row, item.kpiLevel || NA_TEXT);
+    appendCell(row, item.bonusDetails ? formatMoney(item.bonusDetails.bonusBase) : NA_TEXT, 'numeric');
+    appendCell(row, formatPercent(item.qrShare), 'numeric');
+    appendCell(row, item.bonusDetails ? formatNumber(item.bonusDetails.qrCoefficient) : NA_TEXT, 'numeric');
+    appendCell(row, data.planCompletion !== null && data.planCompletion >= 1 ? 'Да' : 'Нет');
+    appendCell(row, item.bonusStatus === 'COMPLETE' ? formatMoney(item.bonus) : NA_TEXT, 'numeric');
+    body.append(row);
+  }
+}
+
+async function loadBonuses() {
+  const store = selectedStoreId();
+  if (!store) return;
+  const { year, month } = period();
+  renderBonuses(await api(
+    `/api/business-kpi/bonuses?store=${encodeURIComponent(store)}&year=${year}&month=${month}`
+  ));
+}
+
 function renderSettings(record) {
+  state.settings = record.settings;
   const list = element('settings-list');
   list.replaceChildren();
+  const settings = record.settings;
   const entries = [
     ['Версия', record.version],
-    ['Действует с', record.effectiveFrom],
-    ['Цель среднего чека', displayMoney(record.settings.targets.averageCheck)],
-    ['Цель товаров в чеке', displayNumber(record.settings.targets.itemsPerReceipt)],
-    ['Цель допродаж', displayPercent(record.settings.targets.upsellReceiptShare)],
-    ['Цель лакомств за смену', displayMoney(record.settings.targets.treatsRevenue)],
-    ['Цель чеков с лакомствами', displayPercent(record.settings.targets.treatsReceiptShare)],
-    ['Цель QR share', record.settings.targets.qrShare === null ? 'Не задана в Excel (unresolved)' : displayPercent(record.settings.targets.qrShare)],
-    ['Цель смены', displayMoney(record.settings.targets.shiftRevenue)],
-    ['Норма смен продавца', displayNumber(record.settings.targets.sellerShifts)],
-    ['Эквайринг', displayPercent(record.settings.fees.acquiring)],
-    ['QR комиссия', displayPercent(record.settings.fees.qr)],
-    ['Вес плана смены', displayNumber(record.settings.weights.shiftPlan)],
-    ['Вес среднего чека', displayNumber(record.settings.weights.averageCheck)],
-    ['Вес товаров в чеке', displayNumber(record.settings.weights.itemsPerReceipt)],
-    ['Вес допродаж', displayNumber(record.settings.weights.upsell)],
-    ['Вес лакомств', displayNumber(record.settings.weights.treats)],
-    ['Уровни / bonus base', record.settings.levels.map(level => `${level.minimumScore}+ → ${level.name}: ${displayMoney(level.bonusBase)}`).join('; ')],
+    ['Действует с', formatDate(record.effectiveFrom)],
+    ['Цель среднего чека', formatMoney(settings.targets.averageCheck)],
+    ['Цель товаров в чеке', formatNumber(settings.targets.itemsPerReceipt)],
+    ['Цель допродаж', formatPercent(settings.targets.upsellReceiptShare)],
+    ['Цель лакомств за смену', formatMoney(settings.targets.treatsRevenue)],
+    ['Цель чеков с лакомствами', formatPercent(settings.targets.treatsReceiptShare)],
+    ['Цель QR', settings.targets.qrShare === null ? NA_TEXT : formatPercent(settings.targets.qrShare)],
+    ['Цель смены', formatMoney(settings.targets.shiftRevenue)],
+    ['Норма смен продавца', formatInteger(settings.targets.sellerShifts)],
+    ['Комиссия эквайринга', formatPercent(settings.fees.acquiring)],
+    ['Комиссия QR', formatPercent(settings.fees.qr)],
+    ['QR входит в эквайринг', settings.payment.qrIncludedInAcquiring ? 'Да' : 'Нет'],
+    ['Вес плана смены', formatInteger(settings.weights.shiftPlan)],
+    ['Вес среднего чека', formatInteger(settings.weights.averageCheck)],
+    ['Вес товаров в чеке', formatInteger(settings.weights.itemsPerReceipt)],
+    ['Вес допродаж', formatInteger(settings.weights.upsell)],
+    ['Вес лакомств', formatInteger(settings.weights.treats)],
+    ['Уровни', settings.levels.map(level => `${level.minimumScore}+ → ${level.name}: ${formatMoney(level.bonusBase)}`).join('; ')],
   ];
   for (const [name, value] of entries) {
     const term = document.createElement('dt');
@@ -224,14 +545,178 @@ function renderSettings(record) {
     detail.textContent = value;
     list.append(term, detail);
   }
+  populateSettingsEditor(record.settings);
+}
+
+function populateSettingsEditor(settings) {
+  element('settings-average-check').value = settings.targets.averageCheck ?? '';
+  element('settings-items-per-receipt').value = settings.targets.itemsPerReceipt ?? '';
+  element('settings-upsell-share').value = settings.targets.upsellReceiptShare ?? '';
+  element('settings-treats-revenue').value = settings.targets.treatsRevenue ?? '';
+  element('settings-treats-share').value = settings.targets.treatsReceiptShare ?? '';
+  element('settings-qr-share').value = settings.targets.qrShare ?? '';
+  element('settings-shift-revenue').value = settings.targets.shiftRevenue ?? '';
+  element('settings-seller-shifts').value = settings.targets.sellerShifts ?? '';
+  element('settings-acquiring-fee').value = settings.fees.acquiring ?? '';
+  element('settings-qr-fee').value = settings.fees.qr ?? '';
+  element('settings-qr-included').value = String(settings.payment.qrIncludedInAcquiring);
+  element('settings-weight-shift').value = settings.weights.shiftPlan ?? '';
+  element('settings-weight-average').value = settings.weights.averageCheck ?? '';
+  element('settings-weight-items').value = settings.weights.itemsPerReceipt ?? '';
+  element('settings-weight-upsell').value = settings.weights.upsell ?? '';
+  element('settings-weight-treats').value = settings.weights.treats ?? '';
+  renderSettingsLevels(settings.levels);
+  renderSettingsQrTiers(settings.qrCoefficientTiers);
+  updateWeightSum();
+}
+
+function renderSettingsLevels(levels) {
+  const container = element('settings-levels');
+  container.replaceChildren();
+  for (const level of levels) {
+    const div = document.createElement('div');
+    div.className = 'form-grid three';
+    div.innerHTML = `
+      <label>Название<input type="text" class="level-name" value="${level.name}" required></label>
+      <label>Минимальный KPI<input type="number" class="level-score" min="0" max="100" step="0.01" value="${level.minimumScore}" required></label>
+      <label>База премии, ₽<input type="number" class="level-base" min="0" step="0.01" value="${level.bonusBase}" required></label>
+    `;
+    container.append(div);
+  }
+}
+
+function renderSettingsQrTiers(tiers) {
+  const container = element('settings-qr-tiers');
+  container.replaceChildren();
+  for (const tier of tiers) {
+    const div = document.createElement('div');
+    div.className = 'form-grid three';
+    div.innerHTML = `
+      <label>Верхняя граница QR (не включая)<input type="number" class="qr-upper" min="0" max="1" step="0.001" value="${tier.upperExclusive === null ? '' : tier.upperExclusive}"></label>
+      <label>Коэффициент<input type="number" class="qr-coef" min="0" step="0.001" value="${tier.coefficient}" required></label>
+    `;
+    container.append(div);
+  }
+}
+
+function readSettingsForm() {
+  return {
+    targets: {
+      averageCheck: Number(element('settings-average-check').value),
+      itemsPerReceipt: Number(element('settings-items-per-receipt').value),
+      upsellReceiptShare: Number(element('settings-upsell-share').value),
+      treatsRevenue: Number(element('settings-treats-revenue').value),
+      treatsReceiptShare: Number(element('settings-treats-share').value),
+      qrShare: element('settings-qr-share').value === '' ? null : Number(element('settings-qr-share').value),
+      shiftRevenue: Number(element('settings-shift-revenue').value),
+      sellerShifts: Number(element('settings-seller-shifts').value),
+    },
+    weights: {
+      shiftPlan: Number(element('settings-weight-shift').value),
+      averageCheck: Number(element('settings-weight-average').value),
+      itemsPerReceipt: Number(element('settings-weight-items').value),
+      upsell: Number(element('settings-weight-upsell').value),
+      treats: Number(element('settings-weight-treats').value),
+    },
+    fees: {
+      acquiring: Number(element('settings-acquiring-fee').value),
+      qr: Number(element('settings-qr-fee').value),
+    },
+    payment: {
+      qrIncludedInAcquiring: element('settings-qr-included').value === 'true',
+    },
+    levels: Array.from(element('settings-levels').children).map(div => ({
+      name: div.querySelector('.level-name').value,
+      minimumScore: Number(div.querySelector('.level-score').value),
+      bonusBase: Number(div.querySelector('.level-base').value),
+    })),
+    qrCoefficientTiers: Array.from(element('settings-qr-tiers').children).map(div => ({
+      upperExclusive: div.querySelector('.qr-upper').value === '' ? null : Number(div.querySelector('.qr-upper').value),
+      coefficient: Number(div.querySelector('.qr-coef').value),
+    })),
+  };
+}
+
+function updateWeightSum() {
+  const weights = readSettingsForm().weights;
+  const sum = Object.values(weights).reduce((a, b) => a + (Number.isFinite(b) ? b : 0), 0);
+  const status = element('settings-weight-status');
+  status.textContent = `Сумма весов: ${sum} / 100`;
+  status.className = classNames('status-pill', Math.abs(sum - 100) > 0.001 ? 'warn' : '');
+  return sum;
 }
 
 async function loadSettings() {
   const { year, month } = period();
   const date = `${year}-${String(month).padStart(2, '0')}-01`;
-  renderSettings(await api(
-    `/api/business-kpi/settings?store=${encodeURIComponent(selectedStoreId())}&date=${date}`
-  ));
+  const store = selectedStoreId();
+  renderSettings(await api(`/api/business-kpi/settings?store=${encodeURIComponent(store)}&date=${date}`));
+  await loadSettingsVersions();
+}
+
+async function loadSettingsVersions() {
+  const store = selectedStoreId();
+  const { year, month } = period();
+  const date = `${year}-${String(month).padStart(2, '0')}-01`;
+  const data = await api(`/api/business-kpi/settings/versions?store=${encodeURIComponent(store)}&date=${date}`);
+  const body = element('settings-versions-table');
+  body.replaceChildren();
+  element('settings-versions-empty').hidden = data.items.length !== 0;
+  for (const version of data.items) {
+    const row = document.createElement('tr');
+    appendCell(row, version.version, 'numeric');
+    appendCell(row, formatDate(version.effectiveFrom));
+    appendCell(row, version.source);
+    const actionCell = document.createElement('td');
+    const useBtn = document.createElement('button');
+    useBtn.type = 'button';
+    useBtn.className = 'table-button';
+    useBtn.textContent = 'Загрузить';
+    useBtn.addEventListener('click', () => {
+      populateSettingsEditor(version.settings);
+      element('settings-effective-from').value = version.effectiveFrom;
+    });
+    actionCell.append(useBtn);
+    row.append(actionCell);
+    body.append(row);
+  }
+}
+
+async function saveSettings(event) {
+  event.preventDefault();
+  const errorBox = element('settings-error');
+  errorBox.hidden = true;
+  const sum = updateWeightSum();
+  if (Math.abs(sum - 100) > 0.001) {
+    errorBox.textContent = `Сумма весов KPI должна быть 100 (сейчас ${sum}).`;
+    errorBox.hidden = false;
+    return;
+  }
+  const store = selectedStoreId();
+  const effectiveFrom = element('settings-effective-from').value;
+  const reason = element('settings-reason').value;
+  if (!reason.trim()) {
+    errorBox.textContent = 'Укажите причину изменения настроек.';
+    errorBox.hidden = false;
+    return;
+  }
+  try {
+    await api('/api/business-kpi/settings', {
+      method: 'POST',
+      body: JSON.stringify({
+        storeId: store,
+        effectiveFrom,
+        reason,
+        settings: readSettingsForm(),
+      }),
+    });
+    element('settings-reason').value = '';
+    showMessage('Новая версия настроек KPI создана.');
+    await loadSettings();
+  } catch (error) {
+    errorBox.textContent = error.message;
+    errorBox.hidden = false;
+  }
 }
 
 async function renderRoute() {
@@ -246,23 +731,22 @@ async function renderRoute() {
     else link.removeAttribute('aria-current');
   });
   document.querySelectorAll('.route-panel').forEach(panel => { panel.hidden = true; });
-  const panelName = PLACEHOLDER_ROUTES.has(routeId) ? 'placeholder' : routeId;
-  document.querySelector(`[data-panel="${panelName}"]`).hidden = false;
+  document.querySelector(`[data-panel="${routeId}"]`).hidden = false;
   element('open-shift-form').hidden = routeId !== 'dashboard' && routeId !== 'shifts';
-  if (PLACEHOLDER_ROUTES.has(routeId)) {
-    element('placeholder-title').textContent = title;
-    element('placeholder-description').textContent = description;
-  }
+  element('month-filter-field').hidden = routeId === 'year';
+  element('year-filter-field').hidden = routeId !== 'year' && routeId !== 'months';
+  element('seller-detail-card').hidden = true;
   try {
     if (routeId === 'dashboard') await loadDashboard();
     if (routeId === 'shifts') await loadShifts();
+    if (routeId === 'months') await loadMonths();
+    if (routeId === 'year') await loadYear();
     if (routeId === 'sellers') {
       await loadDashboard();
       renderSellers(state.dashboard.sellers);
     }
-    if (routeId === 'settings') {
-      await Promise.all([loadDashboard(), loadSettings()]);
-    }
+    if (routeId === 'bonuses') await loadBonuses();
+    if (routeId === 'settings') await loadSettings();
     if (routeId === 'import-export') await loadImportRuns();
   } catch (error) {
     showMessage(error.message, 'error');
@@ -292,6 +776,28 @@ function shiftPayload() {
   };
 }
 
+function validateShiftInput(payload) {
+  const errors = [];
+  if (payload.cash !== null && payload.cash < 0) errors.push('Наличные не могут быть отрицательными.');
+  if (payload.acquiring !== null && payload.acquiring < 0) errors.push('Эквайринг не может быть отрицательным.');
+  if (payload.qr !== null && payload.qr < 0) errors.push('QR не может быть отрицательным.');
+  if (payload.receipts !== null && payload.receipts < 0) errors.push('Чеки не могут быть отрицательными.');
+  if (payload.itemsSold !== null && payload.itemsSold < 0) errors.push('Товарные единицы не могут быть отрицательными.');
+  if (payload.upsellReceipts !== null && payload.upsellReceipts < 0) errors.push('Чеки с допродажей не могут быть отрицательными.');
+  if (payload.treatsRevenue !== null && payload.treatsRevenue < 0) errors.push('Лакомства не могут быть отрицательными.');
+  if (payload.treatsReceipts !== null && payload.treatsReceipts < 0) errors.push('Чеки с лакомствами не могут быть отрицательными.');
+  if (payload.qr !== null && payload.acquiring !== null && payload.qr > payload.acquiring) {
+    errors.push('QR не может быть больше эквайринга, который уже включает QR.');
+  }
+  if (payload.upsellReceipts !== null && payload.receipts !== null && payload.upsellReceipts > payload.receipts) {
+    errors.push('Чеки с допродажей не могут превышать общее количество чеков.');
+  }
+  if (payload.treatsReceipts !== null && payload.receipts !== null && payload.treatsReceipts > payload.receipts) {
+    errors.push('Чеки с лакомствами не могут превышать общее количество чеков.');
+  }
+  return errors;
+}
+
 function updatePreview() {
   if (element('shift-cash').readOnly) return;
   const cash = numberInput('shift-cash');
@@ -299,22 +805,44 @@ function updatePreview() {
   const qr = numberInput('shift-qr');
   const receipts = numberInput('shift-receipts');
   const items = numberInput('shift-items');
+  const upsells = numberInput('shift-upsells');
+  const treatsRevenue = numberInput('shift-treats-revenue');
+  const treatsReceipts = numberInput('shift-treats-receipts');
   const revenue = cash === null || acquiring === null ? null : cash + acquiring;
   const error = element('shift-error');
-  if (qr !== null && acquiring !== null && qr > acquiring) {
-    error.textContent = 'QR не может быть больше эквайринга.';
+  const payload = shiftPayload();
+  const errors = validateShiftInput(payload);
+  if (errors.length > 0) {
+    error.textContent = errors[0];
     error.hidden = false;
   } else if (error.dataset.server !== 'true') {
     error.hidden = true;
   }
-  element('preview-revenue').textContent = displayMoney(revenue);
+  element('preview-revenue').textContent = formatMoney(revenue);
   element('preview-average').textContent = receipts > 0 && revenue !== null
-    ? displayMoney(revenue / receipts)
-    : '—';
-  element('preview-items').textContent = receipts > 0 && items !== null ? displayNumber(items / receipts) : '—';
+    ? formatMoney(revenue / receipts)
+    : UNAVAILABLE;
+  element('preview-items').textContent = receipts > 0 && items !== null
+    ? formatNumber(items / receipts)
+    : UNAVAILABLE;
+  element('preview-qr').textContent = revenue !== null && revenue > 0 && qr !== null
+    ? formatPercent(qr / revenue)
+    : UNAVAILABLE;
+  element('preview-upsells').textContent = receipts > 0 && upsells !== null
+    ? formatPercent(upsells / receipts)
+    : UNAVAILABLE;
+  element('preview-treats').textContent = receipts > 0 && treatsReceipts !== null
+    ? formatPercent(treatsReceipts / receipts)
+    : UNAVAILABLE;
+  element('preview-kpi').textContent = UNAVAILABLE;
 }
 
-function setFormValue(id, value) { element(id).value = value ?? ''; }
+function setFormValue(id, value) {
+  const el = element(id);
+  if (value === null || value === undefined) el.value = '';
+  else if (el.type === 'number') el.value = String(value);
+  else el.value = value;
+}
 
 function renderAudit(items = []) {
   const section = element('shift-audit-section');
@@ -324,7 +852,7 @@ function renderAudit(items = []) {
   for (const item of items) {
     const row = document.createElement('li');
     const occurred = new Date(item.occurredAt).toLocaleString('ru-RU');
-    row.textContent = `${occurred} · ${item.action} · ${item.actorId}${item.reason ? ` · ${item.reason}` : ''}`;
+    row.textContent = `${occurred} · ${item.action}${item.reason ? ` · ${item.reason}` : ''}`;
     list.append(row);
   }
 }
@@ -347,44 +875,57 @@ function openShiftDialog(shift = null) {
   element('shift-form-title').textContent = shift ? 'Редактирование смены' : 'Новая смена';
   element('shift-provenance').hidden = !shift;
   element('shift-provenance').textContent = shift
-    ? `Источник: ${shift.source === 'excel_import' ? 'Excel import' : 'Ручной ввод'}${shift.override ? ' · есть ручной override' : ''}`
+    ? `Источник: ${sourceLabel(shift.source)}${shift.override ? ' · есть ручной override' : ''}`
     : '';
   const historical = shift?.revenueSource === 'historical_total';
   for (const id of ['shift-cash', 'shift-acquiring', 'shift-qr']) {
     element(id).readOnly = historical;
-    element(id).required = !historical;
-  }
-  for (const [id, field] of [
-    ['shift-items', 'itemsSold'],
-    ['shift-upsells', 'upsellReceipts'],
-    ['shift-treats-revenue', 'treatsRevenue'],
-    ['shift-treats-receipts', 'treatsReceipts'],
-  ]) {
-    element(id).required = !shift || shift[field] !== null;
   }
   element('archive-shift').hidden = !shift;
   setFormValue('shift-date', shift?.shiftDate || new Date().toISOString().slice(0, 10));
   setFormValue('shift-store', shift?.storeId || selectedStoreId());
   setFormValue('shift-employee', shift?.employeeId || state.employees[0]?.id);
   setFormValue('shift-key', shift?.shiftKey || 'main');
-  setFormValue('shift-cash', historical ? null : shift?.cash ?? 0);
-  setFormValue('shift-acquiring', historical ? null : shift?.acquiring ?? 0);
-  setFormValue('shift-qr', historical ? null : shift?.qr ?? 0);
-  setFormValue('shift-receipts', shift?.receipts ?? 0);
-  setFormValue('shift-items', shift && shift.itemsSold === null ? null : shift?.itemsSold ?? 0);
-  setFormValue('shift-upsells', shift && shift.upsellReceipts === null ? null : shift?.upsellReceipts ?? 0);
-  setFormValue('shift-treats-revenue', shift && shift.treatsRevenue === null ? null : shift?.treatsRevenue ?? 0);
-  setFormValue('shift-treats-receipts', shift && shift.treatsReceipts === null ? null : shift?.treatsReceipts ?? 0);
+  setFormValue('shift-cash', historical ? null : shift?.cash);
+  setFormValue('shift-acquiring', historical ? null : shift?.acquiring);
+  setFormValue('shift-qr', historical ? null : shift?.qr);
+  setFormValue('shift-receipts', shift?.receipts);
+  setFormValue('shift-items', shift?.itemsSold);
+  setFormValue('shift-upsells', shift?.upsellReceipts);
+  setFormValue('shift-treats-revenue', shift?.treatsRevenue);
+  setFormValue('shift-treats-receipts', shift?.treatsReceipts);
   setFormValue('shift-comment', shift?.comment || '');
   renderAudit(shift?.audit || []);
   updatePreview();
   if (historical) {
-    element('preview-revenue').textContent = displayMoney(shift.metrics?.revenue);
-    element('preview-average').textContent = displayMoney(shift.metrics?.averageCheck);
-    element('preview-items').textContent = displayNumber(shift.metrics?.itemsPerReceipt);
+    element('preview-revenue').textContent = formatMoney(shift.metrics?.revenue);
+    element('preview-average').textContent = formatMoney(shift.metrics?.averageCheck);
+    element('preview-items').textContent = formatNumber(shift.metrics?.itemsPerReceipt);
   }
   dialog.showModal();
   element('shift-date').focus();
+}
+
+function showShiftSummary(shift) {
+  const dialog = element('shift-summary-dialog');
+  const grid = element('shift-summary-grid');
+  grid.replaceChildren();
+  const items = [
+    ['Дата', formatDate(shift.shiftDate)],
+    ['Продавец', shift.employeeName || NA_TEXT],
+    ['Магазин', state.stores.find(s => s.id === shift.storeId)?.name || NA_TEXT],
+    ['Источник', sourceLabel(shift.source)],
+    ['Выручка', formatMoney(shift.metrics?.revenue)],
+    ['Чеки', formatInteger(shift.receipts)],
+    ['Средний чек', formatMoney(shift.metrics?.averageCheck)],
+    ['KPI', kpiLabel(shift.metrics?.kpiScore, shift.metrics?.kpiLevel)],
+  ];
+  for (const [label, value] of items) {
+    const div = document.createElement('div');
+    div.innerHTML = `<small>${label}</small><strong>${value}</strong>`;
+    grid.append(div);
+  }
+  dialog.showModal();
 }
 
 function renderImportRun(run) {
@@ -395,11 +936,12 @@ function renderImportRun(run) {
   if (!report) return;
   element('import-detected').textContent = report.detected
     ? `${String(report.detected.month).padStart(2, '0')}.${report.detected.year} · ${report.detected.version}`
-    : '—';
-  element('import-store').textContent = report.store?.name || '—';
-  element('import-rows').textContent = `${report.rows?.valid ?? 0} / ${report.rows?.read ?? 0}`;
-  element('import-revenue').textContent = displayMoney(report.totals?.revenue);
-  element('import-receipts').textContent = displayNumber(report.totals?.receipts);
+    : UNAVAILABLE;
+  element('import-store').textContent = report.store?.name || UNAVAILABLE;
+  element('import-rows-read').textContent = formatInteger(report.rows?.read);
+  element('import-rows-valid').textContent = formatInteger(report.rows?.valid);
+  element('import-revenue').textContent = formatMoney(report.totals?.revenue);
+  element('import-receipts').textContent = formatInteger(report.totals?.receipts);
   element('import-payments').textContent = report.paymentBreakdownAvailable ? 'Доступна' : 'Недоступна';
   const issues = [...(report.errors || []), ...(report.warnings || [])];
   const list = element('import-issues');
@@ -419,12 +961,15 @@ function renderImportRuns(items) {
   body.replaceChildren();
   for (const run of items) {
     const row = document.createElement('tr');
-    appendCell(row, new Date(run.startedAt).toLocaleString('ru-RU'));
-    appendCell(row, run.originalFilename || '—');
-    appendCell(row, run.detectedYear ? `${String(run.detectedMonth).padStart(2, '0')}.${run.detectedYear}` : '—');
-    appendCell(row, run.status);
-    appendCell(row, `${run.rowsImported} / ${run.rowsRead}`, 'numeric');
-    appendCell(row, run.reconciliationStatus);
+    appendCell(row, formatDateTime(run.startedAt));
+    const fileCell = document.createElement('td');
+    fileCell.title = run.originalFilename || '';
+    fileCell.textContent = shortenFilename(run.originalFilename);
+    row.append(fileCell);
+    appendCell(row, run.detectedYear ? `${String(run.detectedMonth).padStart(2, '0')}.${run.detectedYear}` : UNAVAILABLE);
+    appendCell(row, uiImportStatus(run.status));
+    appendCell(row, `${formatInteger(run.rowsImported)} / ${formatInteger(run.rowsRead)}`, 'numeric');
+    appendCell(row, run.reconciliationStatus || UNAVAILABLE);
     body.append(row);
   }
   element('import-runs-empty').hidden = items.length !== 0;
@@ -438,7 +983,8 @@ async function loadImportRuns() {
 function selectImportFile(file) {
   state.importFile = file || null;
   state.importRun = null;
-  element('selected-import-file').textContent = file ? file.name : 'Файл не выбран';
+  element('selected-import-file').textContent = file ? shortenFilename(file.name) : 'Файл не выбран';
+  element('selected-import-file').title = file ? file.name : '';
   element('dry-run-import').disabled = !file;
   element('import-report').hidden = true;
 }
@@ -452,7 +998,7 @@ async function dryRunImport() {
   try {
     const run = await api('/api/business-kpi/imports/dry-run', { method: 'POST', body });
     renderImportRun(run);
-    showMessage(run.duplicate ? 'Этот файл уже импортирован: повторная запись не создана.' : 'Dry-run завершён. Проверьте отчёт перед импортом.');
+    showMessage(run.duplicate ? 'Этот файл уже импортирован: повторная запись не создана.' : 'Проверка завершена. Проверьте отчёт перед импортом.');
     await loadImportRuns();
   } catch (error) {
     showMessage(error.message, 'error');
@@ -467,7 +1013,7 @@ async function commitImport() {
   try {
     const run = await api(`/api/business-kpi/imports/${state.importRun.id}/commit`, { method: 'POST' });
     renderImportRun(run);
-    showMessage('Исторические смены импортированы атомарно. Reconciliation: PASS.');
+    showMessage('Исторические смены импортированы атомарно. Сверка: успешно.');
     const { year, month } = run.report.detected;
     element('period-filter').value = `${year}-${String(month).padStart(2, '0')}`;
     await Promise.all([loadImportRuns(), loadDashboard(), loadShifts()]);
@@ -487,18 +1033,27 @@ function exportSelectedMonth() {
 
 async function saveShift(event) {
   event.preventDefault();
-  if (!event.currentTarget.reportValidity()) return;
+  const payload = shiftPayload();
+  const errors = validateShiftInput(payload);
+  if (errors.length > 0) {
+    const errorBox = element('shift-error');
+    errorBox.textContent = errors[0];
+    errorBox.dataset.server = 'false';
+    errorBox.hidden = false;
+    return;
+  }
   const id = element('shift-id').value;
   const errorBox = element('shift-error');
   element('save-shift').disabled = true;
   try {
-    await api(id ? `/api/business-kpi/shifts/${id}` : '/api/business-kpi/shifts', {
+    const result = await api(id ? `/api/business-kpi/shifts/${id}` : '/api/business-kpi/shifts', {
       method: id ? 'PATCH' : 'POST',
-      body: JSON.stringify(shiftPayload()),
+      body: JSON.stringify(payload),
     });
     element('shift-dialog').close();
     showMessage(id ? 'Смена обновлена. KPI пересчитаны.' : 'Смена создана. Dashboard обновлён.');
     await Promise.all([loadDashboard(), loadShifts()]);
+    if (!id) showShiftSummary(result);
   } catch (error) {
     errorBox.textContent = error.message;
     errorBox.dataset.server = 'true';
@@ -543,14 +1098,228 @@ async function savePlan(event) {
   }
 }
 
+function populateYearFilter() {
+  const select = element('year-filter');
+  const current = new Date().getFullYear();
+  select.replaceChildren();
+  for (let y = current + 1; y >= current - 3; y -= 1) {
+    const option = document.createElement('option');
+    option.value = String(y);
+    option.textContent = String(y);
+    option.selected = y === current;
+    select.append(option);
+  }
+}
+
+function renderChart(containerId, days, valueKey, planKey, planValue) {
+  const container = element(containerId);
+  if (!container || days.length === 0) {
+    if (container) container.innerHTML = '<p class="empty-copy">Нет данных для графика.</p>';
+    return;
+  }
+  const labels = days.map(d => d.date.slice(8, 10));
+  const values = days.map(d => d[valueKey] || 0);
+  let cumulative = 0;
+  const cumulativeValues = values.map(v => { cumulative += v; return cumulative; });
+  const planValues = planValue !== null && planValue !== undefined
+    ? days.map((_, i) => (planValue / days.length) * (i + 1))
+    : [];
+  renderLineChart(containerId, labels, [values, cumulativeValues, planValues], ['Выручка', 'Накопительный факт', 'Накопительный план'], ['#205c46', '#a8641f', '#cbd3ca']);
+}
+
+function renderLineChart(containerId, labels, series, names, colors) {
+  const container = element(containerId);
+  if (!container) return;
+  if (!labels.length) {
+    container.innerHTML = '<p class="empty-copy">Нет данных для графика.</p>';
+    return;
+  }
+  const width = 600;
+  const height = 240;
+  const padding = { top: 20, right: 20, bottom: 40, left: 50 };
+  const allValues = series.flat().filter(v => v !== null && v !== undefined);
+  const max = allValues.length ? Math.max(...allValues) : 0;
+  const min = 0;
+  const range = max - min || 1;
+  const xStep = (width - padding.left - padding.right) / (labels.length - 1 || 1);
+  const yScale = (height - padding.top - padding.bottom) / range;
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  function x(i) { return padding.left + i * xStep; }
+  function y(v) { return height - padding.bottom - (v - min) * yScale; }
+  for (let i = 0; i <= 4; i += 1) {
+    const value = min + (range * i) / 4;
+    const yy = y(value);
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', padding.left);
+    line.setAttribute('x2', width - padding.right);
+    line.setAttribute('y1', yy);
+    line.setAttribute('y2', yy);
+    line.setAttribute('stroke', '#e8ece6');
+    svg.append(line);
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', padding.left - 8);
+    text.setAttribute('y', yy + 4);
+    text.setAttribute('text-anchor', 'end');
+    text.setAttribute('font-size', '10');
+    text.setAttribute('fill', '#68736f');
+    text.textContent = formatMoney(value).replace(' ₽', '');
+    svg.append(text);
+  }
+  for (let i = 0; i < labels.length; i += Math.max(1, Math.floor(labels.length / 8))) {
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', x(i));
+    text.setAttribute('y', height - 10);
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('font-size', '10');
+    text.setAttribute('fill', '#68736f');
+    text.textContent = labels[i];
+    svg.append(text);
+  }
+  series.forEach((serie, idx) => {
+    if (!serie.length) return;
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    let d = '';
+    for (let i = 0; i < serie.length; i += 1) {
+      if (serie[i] === null || serie[i] === undefined) continue;
+      d += `${i === 0 ? 'M' : 'L'} ${x(i)} ${y(serie[i])}`;
+    }
+    path.setAttribute('d', d);
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', colors[idx] || '#205c46');
+    path.setAttribute('stroke-width', idx === 0 ? '2' : '1.5');
+    path.setAttribute('stroke-dasharray', idx === 2 ? '4 2' : '');
+    svg.append(path);
+  });
+  const legend = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  names.forEach((name, idx) => {
+    if (!series[idx]?.length) return;
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('x', width - padding.right - 120);
+    rect.setAttribute('y', padding.top + idx * 16);
+    rect.setAttribute('width', 10);
+    rect.setAttribute('height', 10);
+    rect.setAttribute('fill', colors[idx] || '#205c46');
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', width - padding.right - 105);
+    text.setAttribute('y', padding.top + idx * 16 + 9);
+    text.setAttribute('font-size', '10');
+    text.setAttribute('fill', '#68736f');
+    text.textContent = name;
+    g.append(rect, text);
+    legend.append(g);
+  });
+  svg.append(legend);
+  container.replaceChildren(svg);
+}
+
+function renderBarChart(containerId, labels, series) {
+  const container = element(containerId);
+  if (!container) return;
+  if (!labels.length) {
+    container.innerHTML = '<p class="empty-copy">Нет данных для графика.</p>';
+    return;
+  }
+  const width = 600;
+  const height = 240;
+  const padding = { top: 20, right: 20, bottom: 40, left: 50 };
+  const allValues = series.flatMap(s => s.values).filter(v => v !== null && v !== undefined);
+  const max = allValues.length ? Math.max(...allValues) : 0;
+  const min = Math.min(0, ...allValues);
+  const range = max - min || 1;
+  const plotWidth = width - padding.left - padding.right;
+  const plotHeight = height - padding.top - padding.bottom;
+  const groupWidth = plotWidth / labels.length;
+  const barWidth = groupWidth / (series.length + 1);
+  const yScale = plotHeight / range;
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  function x(i) { return padding.left + i * groupWidth + groupWidth / 2 - (series.length * barWidth) / 2; }
+  function y(v) { return height - padding.bottom - (v - min) * yScale; }
+  const zeroY = y(0);
+  const zeroLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+  zeroLine.setAttribute('x1', padding.left);
+  zeroLine.setAttribute('x2', width - padding.right);
+  zeroLine.setAttribute('y1', zeroY);
+  zeroLine.setAttribute('y2', zeroY);
+  zeroLine.setAttribute('stroke', '#dfe4dc');
+  svg.append(zeroLine);
+  for (let i = 0; i <= 4; i += 1) {
+    const value = min + (range * i) / 4;
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', padding.left - 8);
+    text.setAttribute('y', y(value) + 4);
+    text.setAttribute('text-anchor', 'end');
+    text.setAttribute('font-size', '10');
+    text.setAttribute('fill', '#68736f');
+    text.textContent = formatMoney(value).replace(' ₽', '');
+    svg.append(text);
+  }
+  for (let i = 0; i < labels.length; i += 1) {
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', padding.left + i * groupWidth + groupWidth / 2);
+    text.setAttribute('y', height - 10);
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('font-size', '10');
+    text.setAttribute('fill', '#68736f');
+    text.textContent = labels[i];
+    svg.append(text);
+  }
+  series.forEach((serie, sIdx) => {
+    serie.values.forEach((value, i) => {
+      if (value === null || value === undefined) return;
+      const bar = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      const bx = x(i) + sIdx * barWidth;
+      const by = y(value);
+      bar.setAttribute('x', bx);
+      bar.setAttribute('y', Math.min(by, zeroY));
+      bar.setAttribute('width', barWidth - 2);
+      bar.setAttribute('height', Math.abs(zeroY - by));
+      bar.setAttribute('fill', serie.color);
+      bar.setAttribute('rx', 2);
+      svg.append(bar);
+    });
+  });
+  const legend = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  series.forEach((serie, idx) => {
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('x', width - padding.right - 80);
+    rect.setAttribute('y', padding.top + idx * 16);
+    rect.setAttribute('width', 10);
+    rect.setAttribute('height', 10);
+    rect.setAttribute('fill', serie.color);
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', width - padding.right - 65);
+    text.setAttribute('y', padding.top + idx * 16 + 9);
+    text.setAttribute('font-size', '10');
+    text.setAttribute('fill', '#68736f');
+    text.textContent = serie.label;
+    g.append(rect, text);
+    legend.append(g);
+  });
+  svg.append(legend);
+  container.replaceChildren(svg);
+}
+
 async function initialize() {
   const now = new Date();
   element('period-filter').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  populateYearFilter();
   try {
     const health = await api('/health');
-    element('runtime-mode').textContent = health.mode === 'LOCAL_DEV'
-      ? `LOCAL_DEV · ${health.storage.configured ? 'PostgreSQL' : 'память процесса'}`
-      : health.mode;
+    const runtime = element('runtime-mode');
+    const runtimeNote = element('runtime-note');
+    if (health.mode === 'LOCAL_DEV') {
+      runtime.textContent = 'Работает';
+      runtimeNote.hidden = false;
+    } else {
+      runtime.textContent = 'Работает';
+      runtimeNote.hidden = false;
+    }
     await loadReferenceData();
     await renderRoute();
   } catch (error) {
@@ -564,17 +1333,29 @@ element('store-filter').addEventListener('change', async () => {
   await renderRoute();
 });
 element('period-filter').addEventListener('change', renderRoute);
+element('year-filter').addEventListener('change', renderRoute);
 element('employee-filter').addEventListener('change', loadShifts);
+element('source-filter').addEventListener('change', () => renderShifts(state.shifts));
+element('data-status-filter').addEventListener('change', () => renderShifts(state.shifts));
+element('shifts-sort').addEventListener('change', () => renderShifts(state.shifts));
 element('open-shift-form').addEventListener('click', () => openShiftDialog());
 element('close-shift-form').addEventListener('click', () => element('shift-dialog').close());
 element('cancel-shift').addEventListener('click', () => element('shift-dialog').close());
 element('archive-shift').addEventListener('click', archiveShift);
 element('shift-form').addEventListener('submit', saveShift);
-element('shift-form').addEventListener('input', event => {
+element('shift-form').addEventListener('input', () => {
   element('shift-error').dataset.server = 'false';
-  updatePreview(event);
+  updatePreview();
+});
+element('shift-dialog').addEventListener('keydown', event => {
+  if (event.key === 'Escape') element('shift-dialog').close();
+});
+element('close-seller-detail').addEventListener('click', () => {
+  element('seller-detail-card').hidden = true;
 });
 element('plan-form').addEventListener('submit', savePlan);
+element('settings-form').addEventListener('submit', saveSettings);
+element('settings-form').addEventListener('input', updateWeightSum);
 element('import-file').addEventListener('change', event => selectImportFile(event.target.files[0]));
 element('import-dropzone').addEventListener('dragover', event => {
   event.preventDefault();
@@ -589,4 +1370,6 @@ element('import-dropzone').addEventListener('drop', event => {
 element('dry-run-import').addEventListener('click', dryRunImport);
 element('commit-import').addEventListener('click', commitImport);
 element('export-month').addEventListener('click', exportSelectedMonth);
+element('close-shift-summary').addEventListener('click', () => element('shift-summary-dialog').close());
+element('shift-summary-ok').addEventListener('click', () => element('shift-summary-dialog').close());
 initialize();
