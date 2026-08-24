@@ -447,6 +447,44 @@ class PostgresBusinessKpiStore {
     return record;
   }
 
+  async getMaxSettingsVersion(storeId) {
+    const result = await this.client.query(
+      `SELECT MAX(version) AS max_version
+       FROM business_kpi.kpi_settings
+       WHERE store_id = $1`,
+      [storeId]
+    );
+    return result.rows[0]?.max_version === null
+      ? 0
+      : Number(result.rows[0].max_version);
+  }
+
+  async listSettingsVersions(storeId, date) {
+    const values = [storeId];
+    let dateFilter = '';
+    if (date) {
+      values.push(date);
+      dateFilter = 'AND effective_from <= $2 AND (effective_to IS NULL OR effective_to >= $2)';
+    }
+    const result = await this.client.query(
+      `SELECT id, store_id, version, effective_from, effective_to,
+              settings_json, source, created_at
+       FROM business_kpi.kpi_settings
+       WHERE store_id = $1 ${dateFilter}
+       ORDER BY version DESC`,
+      values
+    );
+    return result.rows.map(row => ({
+      id: row.id,
+      storeId: row.store_id,
+      version: Number(row.version),
+      effectiveFrom: dateText(row.effective_from),
+      effectiveTo: dateText(row.effective_to),
+      source: row.source,
+      settings: row.settings_json,
+    }));
+  }
+
   async getMonthlyPlan(storeId, year, month) {
     const result = await this.client.query(
       `SELECT id, store_id, plan_year, plan_month, revenue_plan, source,

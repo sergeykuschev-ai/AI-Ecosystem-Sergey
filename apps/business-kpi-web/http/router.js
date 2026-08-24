@@ -294,6 +294,75 @@ function createRouter(options) {
       }
 
       if (request.method === 'GET' &&
+          url.pathname === '/api/business-kpi/today') {
+        const storeId = url.searchParams.get('store');
+        if (!storeId) {
+          throw new ApplicationError(
+            'VALIDATION_ERROR',
+            'store обязателен.',
+            422
+          );
+        }
+        success(response, await businessKpiService.getToday({ storeId }));
+        return;
+      }
+
+      if (request.method === 'GET' &&
+          url.pathname === '/api/business-kpi/months') {
+        const storeId = url.searchParams.get('store');
+        const year = positiveInteger(url.searchParams.get('year'), 'year', {
+          min: 2000,
+          max: 2200,
+          optional: true,
+        });
+        if (!storeId) {
+          throw new ApplicationError(
+            'VALIDATION_ERROR',
+            'store обязателен.',
+            422
+          );
+        }
+        success(response, {
+          year,
+          items: await businessKpiService.listMonths({ storeId, year }),
+        });
+        return;
+      }
+
+      if (request.method === 'GET' &&
+          url.pathname === '/api/business-kpi/year') {
+        const storeId = url.searchParams.get('store');
+        const year = positiveInteger(url.searchParams.get('year'), 'year', {
+          min: 2000,
+          max: 2200,
+          optional: true,
+        });
+        if (!storeId) {
+          throw new ApplicationError(
+            'VALIDATION_ERROR',
+            'store обязателен.',
+            422
+          );
+        }
+        success(response, await businessKpiService.getYearSummary({ storeId, year }));
+        return;
+      }
+
+      if (request.method === 'GET' &&
+          url.pathname === '/api/business-kpi/bonuses') {
+        const period = periodFromUrl(url);
+        if (!period.storeId) {
+          throw new ApplicationError(
+            'VALIDATION_ERROR',
+            'store обязателен.',
+            422
+          );
+        }
+        success(response, await businessKpiService.getBonuses(period));
+        return;
+      }
+
+      if (request.method === 'GET' &&
           url.pathname === '/api/business-kpi/sellers') {
         const period = periodFromUrl(url);
         if (!period.storeId) {
@@ -358,15 +427,39 @@ function createRouter(options) {
         return;
       }
 
+      if (url.pathname === '/api/business-kpi/settings') {
+        if (request.method === 'GET') {
+          const storeId = url.searchParams.get('store');
+          const date = url.searchParams.get('date') ||
+            new Date().toISOString().slice(0, 10);
+          if (!storeId) {
+            throw new ApplicationError('VALIDATION_ERROR', 'store обязателен.', 422);
+          }
+          success(response, await businessKpiService.getSettings(storeId, date));
+          return;
+        }
+        if (request.method === 'POST') {
+          const body = await readJson(request);
+          const actor = actorFromRequest(request, devMode);
+          const created = await businessKpiService.createSettingsVersion(body, actor, {
+            correlationId: requestId,
+            reason: body.reason || request.headers['x-change-reason'],
+          });
+          success(response, created, 201);
+          return;
+        }
+      }
+
       if (request.method === 'GET' &&
-          url.pathname === '/api/business-kpi/settings') {
+          url.pathname === '/api/business-kpi/settings/versions') {
         const storeId = url.searchParams.get('store');
-        const date = url.searchParams.get('date') ||
-          new Date().toISOString().slice(0, 10);
+        const date = url.searchParams.get('date') || null;
         if (!storeId) {
           throw new ApplicationError('VALIDATION_ERROR', 'store обязателен.', 422);
         }
-        success(response, await businessKpiService.getSettings(storeId, date));
+        success(response, {
+          items: await businessKpiService.listSettingsVersions(storeId, date),
+        });
         return;
       }
 

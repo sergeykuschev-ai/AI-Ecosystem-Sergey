@@ -235,6 +235,24 @@ class InMemoryBusinessKpiStore {
     return clone(record);
   }
 
+  async getMaxSettingsVersion(storeId) {
+    const versions = this.settings
+      .filter(item => item.storeId === storeId)
+      .map(item => item.version);
+    return versions.length ? Math.max(...versions) : 0;
+  }
+
+  async listSettingsVersions(storeId, date) {
+    let candidates = this.settings.filter(item => item.storeId === storeId);
+    if (date) {
+      candidates = candidates.filter(
+        item => item.effectiveFrom <= date &&
+          (!item.effectiveTo || item.effectiveTo >= date)
+      );
+    }
+    return clone(candidates.sort((left, right) => right.version - left.version));
+  }
+
   async getMonthlyPlan(storeId, year, month) {
     return clone(this.plans.find(plan =>
       plan.storeId === storeId && plan.year === year && plan.month === month

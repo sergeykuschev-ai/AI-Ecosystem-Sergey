@@ -6,6 +6,7 @@
     <meta name="description" content="Business KPI — ежедневные показатели магазинов">
     <title>Business KPI · Артур</title>
     <link rel="stylesheet" href="/styles.css">
+    <script src="/formatters.js" defer></script>
     <script src="/app.js" defer></script>
   </head>
   <body>
@@ -16,7 +17,7 @@
           <span><strong>Артур</strong><small>Business KPI</small></span>
         </a>
         <nav class="primary-nav" aria-label="Разделы Business KPI">
-          <a href="#dashboard" data-route="dashboard">Dashboard</a>
+          <a href="#dashboard" data-route="dashboard">Главная</a>
           <a href="#shifts" data-route="shifts">Смены</a>
           <a href="#months" data-route="months">Месяцы</a>
           <a href="#year" data-route="year">Год</a>
@@ -25,30 +26,35 @@
           <a href="#settings" data-route="settings">Настройки</a>
           <a href="#import-export" data-route="import-export">Импорт / экспорт</a>
         </nav>
-        <div class="sidebar-note">
+        <div class="sidebar-note" id="runtime-note" hidden>
           <span class="status-dot" aria-hidden="true"></span>
-          <span id="runtime-mode">Проверяем режим…</span>
+          <span id="runtime-mode">Работает</span>
         </div>
       </aside>
 
       <main class="main-content">
         <header class="topbar">
-          <label class="compact-field">Магазин
-            <select id="store-filter" aria-label="Магазин"></select>
-          </label>
-          <label class="compact-field">Месяц
-            <input id="period-filter" type="month" aria-label="Месяц">
-          </label>
-          <div class="profile" aria-label="Текущая роль">
-            <span class="avatar" aria-hidden="true">DEV</span>
-            <span><strong>Локальный владелец</strong><small>OWNER · dev/local</small></span>
+          <div class="topbar-filters">
+            <label class="compact-field">Магазин
+              <select id="store-filter" aria-label="Магазин"></select>
+            </label>
+            <label class="compact-field" id="month-filter-field">Месяц
+              <input id="period-filter" type="month" aria-label="Месяц">
+            </label>
+            <label class="compact-field" id="year-filter-field" hidden>Год
+              <select id="year-filter" aria-label="Год"></select>
+            </label>
+          </div>
+          <div class="profile" aria-label="Текущая роль" id="user-profile" hidden>
+            <span class="avatar" aria-hidden="true">В</span>
+            <span><strong>Владелец</strong><small>Администратор</small></span>
           </div>
         </header>
 
         <section class="page-heading" aria-labelledby="page-title">
           <div>
             <p class="eyebrow">Business KPI</p>
-            <h1 id="page-title">Dashboard</h1>
+            <h1 id="page-title">Главная</h1>
             <p id="page-description">Сводка показателей выбранного месяца.</p>
           </div>
           <button class="primary-button" id="open-shift-form" type="button">
@@ -58,35 +64,144 @@
 
         <div class="notice" id="global-message" role="status" hidden></div>
 
+        <!-- Главная -->
         <section class="route-panel" data-panel="dashboard">
-          <div class="metric-grid" aria-label="Ключевые показатели">
-            <article class="metric-card"><span>План</span><strong id="metric-plan">—</strong><small id="metric-status">NO_DATA</small></article>
-            <article class="metric-card accent"><span>Выручка</span><strong id="metric-revenue">—</strong><small id="metric-forecast">Прогноз —</small></article>
-            <article class="metric-card"><span>Выполнение</span><strong id="metric-completion">—</strong><small id="metric-remaining">До плана —</small></article>
-            <article class="metric-card"><span>Чеки</span><strong id="metric-receipts">—</strong><small>Все смены месяца</small></article>
-            <article class="metric-card"><span>Средний чек</span><strong id="metric-average-check">—</strong><small>Выручка / чеки</small></article>
-            <article class="metric-card"><span>Товаров в чеке</span><strong id="metric-items">—</strong><small>Единицы / чеки</small></article>
-            <article class="metric-card"><span>QR %</span><strong id="metric-qr">—</strong><small>QR / выручка</small></article>
-            <article class="metric-card"><span>Количество смен</span><strong id="metric-shifts">—</strong><small id="metric-days">Дней с данными —</small></article>
+          <div class="metric-grid dashboard-metrics" aria-label="Ключевые показатели месяца">
+            <article class="metric-card">
+              <span>План</span>
+              <strong id="metric-plan">—</strong>
+              <small id="metric-status">—</small>
+            </article>
+            <article class="metric-card accent">
+              <span>Выручка</span>
+              <strong id="metric-revenue">—</strong>
+              <small id="metric-forecast">Прогноз —</small>
+            </article>
+            <article class="metric-card">
+              <span>Выполнение</span>
+              <strong id="metric-completion">—</strong>
+              <small id="metric-remaining">До плана —</small>
+            </article>
+            <article class="metric-card">
+              <span>Прогноз конца месяца</span>
+              <strong id="metric-projected-revenue">—</strong>
+              <small id="metric-projected-completion">Прогноз выполнения —</small>
+            </article>
+            <article class="metric-card">
+              <span>Осталось до плана</span>
+              <strong id="metric-remaining-to-plan">—</strong>
+              <small id="metric-days-remaining">Осталось дней —</small>
+            </article>
+            <article class="metric-card">
+              <span>Нужно в день</span>
+              <strong id="metric-required-per-day">—</strong>
+              <small>Средняя выручка в день с данными <strong id="metric-daily-average">—</strong></small>
+            </article>
+            <article class="metric-card">
+              <span>Чеки</span>
+              <strong id="metric-receipts">—</strong>
+              <small>Все смены месяца</small>
+            </article>
+            <article class="metric-card">
+              <span>Средний чек</span>
+              <strong id="metric-average-check">—</strong>
+              <small>Выручка / чеки</small>
+            </article>
+            <article class="metric-card">
+              <span>Товаров в чеке</span>
+              <strong id="metric-items">—</strong>
+              <small>Единицы / чеки</small>
+            </article>
+            <article class="metric-card">
+              <span>QR %</span>
+              <strong id="metric-qr">—</strong>
+              <small>QR / выручка</small>
+            </article>
+            <article class="metric-card">
+              <span>Сумма QR</span>
+              <strong id="metric-qr-amount">—</strong>
+              <small>Без двойного учёта</small>
+            </article>
+            <article class="metric-card">
+              <span>Количество смен</span>
+              <strong id="metric-shifts">—</strong>
+              <small id="metric-days">Дней с данными —</small>
+            </article>
           </div>
-          <div class="forecast-strip" aria-label="Прогноз месяца">
-            <span>Средняя выручка в день с данными <strong id="metric-daily-average">—</strong></span>
-            <span>Осталось календарных дней <strong id="metric-days-remaining">—</strong></span>
-            <span id="metric-required">Нужно в день —</span>
+
+          <div class="two-column">
+            <article class="content-card">
+              <div class="card-heading">
+                <div><p class="eyebrow">Текущий день</p><h2>Сегодня</h2></div>
+                <span class="status-pill" id="today-status">—</span>
+              </div>
+              <div class="today-grid" id="today-grid">
+                <span class="metric"><small>Выручка</small><strong id="today-revenue">—</strong></span>
+                <span class="metric"><small>Чеки</small><strong id="today-receipts">—</strong></span>
+                <span class="metric"><small>Средний чек</small><strong id="today-average-check">—</strong></span>
+                <span class="metric"><small>Товаров/чек</small><strong id="today-items">—</strong></span>
+                <span class="metric"><small>QR %</small><strong id="today-qr">—</strong></span>
+                <span class="metric"><small>Смен</small><strong id="today-shifts">—</strong></span>
+              </div>
+              <div class="table-wrap" id="today-shifts-wrap">
+                <table>
+                  <thead><tr><th>Продавец</th><th>Часть дня</th><th>Выручка</th><th>Чеки</th><th>Ср. чек</th><th>KPI</th></tr></thead>
+                  <tbody id="today-shifts-table"></tbody>
+                </table>
+              </div>
+              <p class="empty-copy" id="today-empty" hidden>За сегодня смен пока нет.</p>
+            </article>
+
+            <article class="content-card">
+              <div class="card-heading"><div><p class="eyebrow">Команда</p><h2>Продавцы месяца</h2></div></div>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>Продавец</th><th>Смены</th><th>На смену</th><th>Ср. чек</th><th>Товаров/чек</th><th>QR %</th><th>KPI</th><th>Премия</th></tr></thead>
+                  <tbody id="dashboard-sellers-table"></tbody>
+                </table>
+              </div>
+              <p class="empty-copy" id="dashboard-sellers-empty" hidden>Нет данных для расчёта продавцов.</p>
+            </article>
           </div>
+
+          <article class="content-card chart-card">
+            <div class="card-heading"><div><p class="eyebrow">Динамика</p><h2>Выручка по дням</h2></div></div>
+            <div class="chart-container" id="dashboard-chart"></div>
+          </article>
         </section>
 
+        <!-- Смены -->
         <section class="route-panel" data-panel="shifts" hidden>
           <article class="content-card">
             <div class="card-heading">
               <div><p class="eyebrow">Журнал</p><h2>Смены</h2></div>
-              <label class="compact-field">Продавец
-                <select id="employee-filter"><option value="">Все продавцы</option></select>
-              </label>
+              <div class="filter-row">
+                <label class="compact-field">Продавец
+                  <select id="employee-filter"><option value="">Все продавцы</option></select>
+                </label>
+                <label class="compact-field">Источник
+                  <select id="source-filter"><option value="">Все</option><option value="web_manual">Ручной ввод</option><option value="excel_import">Импорт из Excel</option></select>
+                </label>
+                <label class="compact-field">Статус данных
+                  <select id="data-status-filter"><option value="">Все</option><option value="COMPLETE">Полные</option><option value="PARTIAL">Частичные</option><option value="NO_DATA">Нет данных</option></select>
+                </label>
+                <label class="compact-field">Сортировка
+                  <select id="shifts-sort">
+                    <option value="date-desc">Дата ↓</option>
+                    <option value="date-asc">Дата ↑</option>
+                    <option value="revenue-desc">Выручка ↓</option>
+                    <option value="revenue-asc">Выручка ↑</option>
+                    <option value="avg-desc">Средний чек ↓</option>
+                    <option value="avg-asc">Средний чек ↑</option>
+                    <option value="kpi-desc">KPI ↓</option>
+                    <option value="kpi-asc">KPI ↑</option>
+                  </select>
+                </label>
+              </div>
             </div>
             <div class="table-wrap">
               <table>
-                <thead><tr><th>Дата</th><th>Продавец</th><th>Источник</th><th>Выручка</th><th>Чеки</th><th>Ср. чек</th><th>Товаров/чек</th><th>KPI</th><th></th></tr></thead>
+                <thead><tr><th>Дата</th><th>Продавец</th><th>Источник</th><th>Выручка</th><th>Чеки</th><th>Ср. чек</th><th>Товаров/чек</th><th>QR %</th><th>KPI</th><th>Статус</th><th></th></tr></thead>
                 <tbody id="shifts-table"></tbody>
               </table>
             </div>
@@ -94,6 +209,77 @@
           </article>
         </section>
 
+        <!-- Месяцы -->
+        <section class="route-panel" data-panel="months" hidden>
+          <article class="content-card">
+            <div class="card-heading"><div><p class="eyebrow">Помесячная динамика</p><h2>Месяцы <span id="months-year-label"></span></h2></div></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Месяц</th><th>План</th><th>Факт</th><th>Выполнение</th><th>Чеки</th><th>Ср. чек</th><th>Товаров/чек</th><th>QR</th><th>Смены</th><th>Статус</th><th>Изменение</th></tr></thead>
+                <tbody id="months-table"></tbody>
+              </table>
+            </div>
+            <p class="empty-copy" id="months-empty" hidden>За выбранный год данных нет.</p>
+          </article>
+          <div class="two-column">
+            <article class="content-card chart-card">
+              <div class="card-heading"><div><p class="eyebrow">План vs факт</p><h2>Выручка по месяцам</h2></div></div>
+              <div class="chart-container" id="months-chart-revenue"></div>
+            </article>
+            <article class="content-card chart-card">
+              <div class="card-heading"><div><p class="eyebrow">Тренд</p><h2>Средний чек по месяцам</h2></div></div>
+              <div class="chart-container" id="months-chart-average"></div>
+            </article>
+          </div>
+        </section>
+
+        <!-- Год -->
+        <section class="route-panel" data-panel="year" hidden>
+          <div class="metric-grid year-metrics" aria-label="Итоги года">
+            <article class="metric-card"><span>Выручка YTD</span><strong id="year-revenue">—</strong></article>
+            <article class="metric-card"><span>План YTD</span><strong id="year-plan">—</strong></article>
+            <article class="metric-card"><span>Выполнение YTD</span><strong id="year-completion">—</strong></article>
+            <article class="metric-card"><span>Чеки YTD</span><strong id="year-receipts">—</strong></article>
+            <article class="metric-card"><span>Средний чек YTD</span><strong id="year-average-check">—</strong></article>
+            <article class="metric-card"><span>Смен YTD</span><strong id="year-shifts">—</strong></article>
+          </div>
+          <div class="two-column">
+            <article class="content-card">
+              <div class="card-heading"><div><p class="eyebrow">Завершённые месяцы</p><h2>Лучший и худший</h2></div></div>
+              <div class="best-worst-grid" id="year-best-worst">
+                <div><small>Лучший по выручке</small><strong id="year-best-revenue">—</strong></div>
+                <div><small>Худший по выручке</small><strong id="year-worst-revenue">—</strong></div>
+                <div><small>Лучшее выполнение плана</small><strong id="year-best-completion">—</strong></div>
+                <div><small>Худшее выполнение плана</small><strong id="year-worst-completion">—</strong></div>
+              </div>
+            </article>
+            <article class="content-card">
+              <div class="card-heading"><div><p class="eyebrow">Динамика</p><h2>Month-over-month</h2></div></div>
+              <div class="chart-container" id="year-chart-mom"></div>
+            </article>
+          </div>
+          <article class="content-card">
+            <div class="card-heading"><div><p class="eyebrow">Детализация</p><h2>Месяцы <span id="year-table-year-label"></span></h2></div></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Месяц</th><th>План</th><th>Факт</th><th>Выполнение</th><th>Чеки</th><th>Ср. чек</th><th>Смены</th><th>Изменение</th></tr></thead>
+                <tbody id="year-months-table"></tbody>
+              </table>
+            </div>
+          </article>
+          <div class="two-column">
+            <article class="content-card chart-card">
+              <div class="card-heading"><div><p class="eyebrow">План vs факт</p><h2>Годовая динамика</h2></div></div>
+              <div class="chart-container" id="year-chart-revenue"></div>
+            </article>
+            <article class="content-card chart-card">
+              <div class="card-heading"><div><p class="eyebrow">Тренд</p><h2>Средний чек</h2></div></div>
+              <div class="chart-container" id="year-chart-average"></div>
+            </article>
+          </div>
+        </section>
+
+        <!-- Продавцы -->
         <section class="route-panel" data-panel="sellers" hidden>
           <article class="content-card">
             <div class="card-heading"><div><p class="eyebrow">Команда</p><h2>Продавцы</h2></div></div>
@@ -105,16 +291,69 @@
             </div>
             <p class="empty-copy" id="sellers-empty" hidden>Нет данных для расчёта продавцов.</p>
           </article>
+          <article class="content-card" id="seller-detail-card" hidden>
+            <div class="card-heading">
+              <div><p class="eyebrow">Детализация</p><h2 id="seller-detail-name">Продавец</h2></div>
+              <button class="icon-button" id="close-seller-detail" type="button" aria-label="Закрыть">×</button>
+            </div>
+            <div class="seller-metrics" id="seller-metrics"></div>
+            <div class="two-column">
+              <div class="chart-container" id="seller-chart-kpi"></div>
+              <div class="chart-container" id="seller-chart-average"></div>
+            </div>
+            <div class="chart-container wide" id="seller-chart-revenue"></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Дата</th><th>Выручка</th><th>Чеки</th><th>Ср. чек</th><th>Товаров/чек</th><th>QR %</th><th>KPI</th></tr></thead>
+                <tbody id="seller-shifts-table"></tbody>
+              </table>
+            </div>
+          </article>
         </section>
 
+        <!-- Премии -->
+        <section class="route-panel" data-panel="bonuses" hidden>
+          <article class="content-card">
+            <div class="card-heading">
+              <div><p class="eyebrow">Расчёт премии</p><h2>Премии продавцов</h2></div>
+              <span class="status-pill" id="bonuses-status">—</span>
+            </div>
+            <p class="field-help" id="bonuses-formula">
+              Итоговая премия = база премии × коэффициент смен × QR-коэффициент.
+              QR-коэффициент применяется полностью, если средний KPI ≥ 75 и план магазина выполнен.
+              Иначе QR-коэффициент не выше 1.
+            </p>
+            <div class="table-wrap">
+              <table>
+                <thead><tr>
+                  <th>Продавец</th>
+                  <th>Смены</th>
+                  <th>Норма смен</th>
+                  <th>Коэф. смен</th>
+                  <th>Средний KPI</th>
+                  <th>Уровень</th>
+                  <th>База премии</th>
+                  <th>QR %</th>
+                  <th>QR-коэф.</th>
+                  <th>План магазина</th>
+                  <th>Итоговая премия</th>
+                </tr></thead>
+                <tbody id="bonuses-table"></tbody>
+              </table>
+            </div>
+            <p class="empty-copy" id="bonuses-empty" hidden>Недостаточно данных для расчёта премий.</p>
+          </article>
+        </section>
+
+        <!-- Настройки -->
         <section class="route-panel" data-panel="settings" hidden>
           <div class="settings-grid">
             <article class="content-card">
-              <p class="eyebrow">План месяца</p>
+              <p class="eyebrow">План магазина</p>
               <h2>План выручки</h2>
               <form id="plan-form" class="inline-form">
                 <label>Сумма, ₽<input id="plan-input" type="number" min="0" step="0.01" required></label>
-                <label>Причина изменения<input id="plan-reason" type="text" maxlength="300" placeholder="Например: утверждён новый план"></label>
+                <label>Причина изменения<input id="plan-reason" type="text" maxlength="300" placeholder="Например: утверждён новый план" required></label>
                 <button class="primary-button" type="submit">Сохранить план</button>
               </form>
             </article>
@@ -122,11 +361,78 @@
               <p class="eyebrow">Действующая версия</p>
               <h2>Нормативы KPI</h2>
               <dl class="settings-list" id="settings-list"></dl>
-              <p class="field-help">Frontend только отображает настройки. Источник — versioned kpi_settings.</p>
             </article>
           </div>
+
+          <article class="content-card">
+            <div class="card-heading">
+              <div><p class="eyebrow">Новая версия</p><h2>Изменить нормативы KPI</h2></div>
+              <span class="status-pill" id="settings-weight-status">Сумма весов: 0 / 100</span>
+            </div>
+            <form id="settings-form" class="settings-editor">
+              <fieldset>
+                <legend>A. Цели продавца</legend>
+                <div class="form-grid three">
+                  <label>Цель среднего чека, ₽<input id="settings-average-check" type="number" min="0" step="0.01" required></label>
+                  <label>Цель товаров в чеке<input id="settings-items-per-receipt" type="number" min="0" step="0.01" required></label>
+                  <label>Цель допродаж, доля чеков<input id="settings-upsell-share" type="number" min="0" max="1" step="0.01" required></label>
+                  <label>Цель лакомств за смену, ₽<input id="settings-treats-revenue" type="number" min="0" step="0.01" required></label>
+                  <label>Цель чеков с лакомствами<input id="settings-treats-share" type="number" min="0" max="1" step="0.01" required></label>
+                  <label>Цель QR, доля (необязательно)<input id="settings-qr-share" type="number" min="0" max="1" step="0.01"></label>
+                  <label>Цель смены, ₽<input id="settings-shift-revenue" type="number" min="0" step="0.01" required></label>
+                  <label>Норма смен продавца<input id="settings-seller-shifts" type="number" min="0" step="1" required></label>
+                </div>
+              </fieldset>
+              <fieldset>
+                <legend>B. Платежи</legend>
+                <div class="form-grid three">
+                  <label>Комиссия эквайринга, доля<input id="settings-acquiring-fee" type="number" min="0" max="1" step="0.001" required></label>
+                  <label>Комиссия QR, доля<input id="settings-qr-fee" type="number" min="0" max="1" step="0.001" required></label>
+                  <label>QR входит в эквайринг
+                    <select id="settings-qr-included"><option value="true">Да</option><option value="false">Нет</option></select>
+                  </label>
+                </div>
+              </fieldset>
+              <fieldset>
+                <legend>C. Веса KPI (сумма = 100)</legend>
+                <div class="form-grid three">
+                  <label>Вес плана смены<input id="settings-weight-shift" type="number" min="0" max="100" step="1" required></label>
+                  <label>Вес среднего чека<input id="settings-weight-average" type="number" min="0" max="100" step="1" required></label>
+                  <label>Вес товаров в чеке<input id="settings-weight-items" type="number" min="0" max="100" step="1" required></label>
+                  <label>Вес допродаж<input id="settings-weight-upsell" type="number" min="0" max="100" step="1" required></label>
+                  <label>Вес лакомств<input id="settings-weight-treats" type="number" min="0" max="100" step="1" required></label>
+                </div>
+              </fieldset>
+              <fieldset>
+                <legend>D. Уровни премирования</legend>
+                <div id="settings-levels"></div>
+              </fieldset>
+              <fieldset>
+                <legend>E. QR tiers</legend>
+                <div id="settings-qr-tiers"></div>
+              </fieldset>
+              <label>Действует с<input id="settings-effective-from" type="date" required></label>
+              <label>Причина изменения (обязательно)<input id="settings-reason" type="text" maxlength="300" required></label>
+              <p class="inline-error" id="settings-error" role="alert" hidden></p>
+              <div class="dialog-actions">
+                <button class="primary-button" type="submit">Создать версию настроек</button>
+              </div>
+            </form>
+          </article>
+
+          <article class="content-card">
+            <div class="card-heading"><div><p class="eyebrow">История</p><h2>Версии настроек</h2></div></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Версия</th><th>Действует с</th><th>Источник</th><th>Действия</th></tr></thead>
+                <tbody id="settings-versions-table"></tbody>
+              </table>
+            </div>
+            <p class="empty-copy" id="settings-versions-empty" hidden>Версий настроек пока нет.</p>
+          </article>
         </section>
 
+        <!-- Импорт / экспорт -->
         <section class="route-panel" data-panel="import-export" hidden>
           <div class="import-grid">
             <article class="content-card">
@@ -139,18 +445,19 @@
                 <small id="selected-import-file">Файл не выбран</small>
               </label>
               <div class="import-actions">
-                <button class="secondary-button" id="dry-run-import" type="button" disabled>Проверить (dry-run)</button>
+                <button class="secondary-button" id="dry-run-import" type="button" disabled>Проверить файл</button>
                 <button class="primary-button" id="commit-import" type="button" hidden>Импортировать</button>
               </div>
               <p class="field-help">Сначала выполняется проверка без записи. Один workbook импортируется одной транзакцией.</p>
             </article>
             <article class="content-card" id="import-report" hidden>
-              <p class="eyebrow">Validation report</p>
+              <p class="eyebrow">Отчёт о проверке</p>
               <h2>Предпросмотр</h2>
               <dl class="settings-list import-summary">
                 <dt>Месяц / формат</dt><dd id="import-detected">—</dd>
                 <dt>Магазин</dt><dd id="import-store">—</dd>
-                <dt>Строк валидно / найдено</dt><dd id="import-rows">—</dd>
+                <dt>Строк найдено</dt><dd id="import-rows-read">—</dd>
+                <dt>Строк валидно</dt><dd id="import-rows-valid">—</dd>
                 <dt>Выручка</dt><dd id="import-revenue">—</dd>
                 <dt>Чеки</dt><dd id="import-receipts">—</dd>
                 <dt>Payment breakdown</dt><dd id="import-payments">—</dd>
@@ -161,22 +468,14 @@
           </div>
           <article class="content-card import-history">
             <div class="card-heading">
-              <div><p class="eyebrow">История</p><h2>Import runs</h2></div>
+              <div><p class="eyebrow">История</p><h2>История импортов</h2></div>
               <button class="secondary-button" id="export-month" type="button">Экспортировать выбранный месяц</button>
             </div>
             <div class="table-wrap"><table>
-              <thead><tr><th>Запущен</th><th>Файл</th><th>Месяц</th><th>Статус</th><th>Импорт / строк</th><th>Reconciliation</th></tr></thead>
+              <thead><tr><th>Запущен</th><th>Файл</th><th>Месяц</th><th>Статус</th><th>Импорт / строк</th><th>Сверка</th></tr></thead>
               <tbody id="import-runs-table"></tbody>
             </table></div>
-            <p class="empty-copy" id="import-runs-empty">Импортов пока нет.</p>
-          </article>
-        </section>
-
-        <section class="route-panel" data-panel="placeholder" hidden>
-          <article class="content-card empty-state">
-            <span class="empty-icon" aria-hidden="true">↗</span>
-            <h2 id="placeholder-title">Раздел готовится</h2>
-            <p id="placeholder-description">Функция будет добавлена следующим безопасным этапом.</p>
+            <p class="empty-copy" id="import-runs-empty" hidden>Импортов пока нет.</p>
           </article>
         </section>
       </main>
@@ -190,26 +489,46 @@
         </div>
         <input id="shift-id" type="hidden">
         <p id="shift-provenance" class="provenance" hidden></p>
-        <div class="form-grid">
-          <label>Дата<input id="shift-date" name="shiftDate" type="date" required></label>
-          <label>Магазин<select id="shift-store" name="storeId" required></select></label>
-          <label>Продавец<select id="shift-employee" name="employeeId" required></select></label>
-          <label>Часть дня<select id="shift-key" name="shiftKey"><option value="main">Основная смена</option><option value="morning">Утро</option><option value="evening">Вечер</option></select></label>
-          <label>Наличные, ₽<input id="shift-cash" name="cash" type="number" min="0" step="0.01" inputmode="decimal" required></label>
-          <label>Эквайринг, ₽<input id="shift-acquiring" name="acquiring" type="number" min="0" step="0.01" inputmode="decimal" required></label>
-          <label>QR внутри эквайринга, ₽<input id="shift-qr" name="qr" type="number" min="0" step="0.01" inputmode="decimal" required><small>Не может быть больше эквайринга</small></label>
-          <label>Количество чеков<input id="shift-receipts" name="receipts" type="number" min="0" step="1" inputmode="numeric" required></label>
-          <label>Продано товарных единиц<input id="shift-items" name="itemsSold" type="number" min="0" step="1" inputmode="numeric" required></label>
-          <label>Чеки с допродажей<input id="shift-upsells" name="upsellReceipts" type="number" min="0" step="1" inputmode="numeric" required></label>
-          <label>Лакомства, ₽<input id="shift-treats-revenue" name="treatsRevenue" type="number" min="0" step="0.01" inputmode="decimal" required></label>
-          <label>Чеки с лакомствами<input id="shift-treats-receipts" name="treatsReceipts" type="number" min="0" step="1" inputmode="numeric" required></label>
+        <fieldset>
+          <legend>A. Основное</legend>
+          <div class="form-grid">
+            <label>Дата<input id="shift-date" name="shiftDate" type="date" required></label>
+            <label>Магазин<select id="shift-store" name="storeId" required></select></label>
+            <label>Продавец<select id="shift-employee" name="employeeId" required></select></label>
+            <label>Часть дня<select id="shift-key" name="shiftKey"><option value="main">Основная смена</option><option value="morning">Утро</option><option value="evening">Вечер</option></select></label>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>B. Продажи</legend>
+          <div class="form-grid">
+            <label>Наличные, ₽<input id="shift-cash" name="cash" type="number" min="0" step="0.01" inputmode="decimal"></label>
+            <label>Эквайринг, ₽<input id="shift-acquiring" name="acquiring" type="number" min="0" step="0.01" inputmode="decimal"></label>
+            <label>QR внутри эквайринга, ₽<input id="shift-qr" name="qr" type="number" min="0" step="0.01" inputmode="decimal"><small>QR уже входит в сумму эквайринга</small></label>
+            <label>Количество чеков<input id="shift-receipts" name="receipts" type="number" min="0" step="1" inputmode="numeric" required></label>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>C. KPI смены</legend>
+          <div class="form-grid">
+            <label>Продано товарных единиц<input id="shift-items" name="itemsSold" type="number" min="0" step="1" inputmode="numeric"></label>
+            <label>Чеки с допродажей<input id="shift-upsells" name="upsellReceipts" type="number" min="0" step="1" inputmode="numeric"></label>
+            <label>Лакомства, ₽<input id="shift-treats-revenue" name="treatsRevenue" type="number" min="0" step="0.01" inputmode="decimal"></label>
+            <label>Чеки с лакомствами<input id="shift-treats-receipts" name="treatsReceipts" type="number" min="0" step="1" inputmode="numeric"></label>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>D. Комментарий</legend>
           <label class="wide">Комментарий<textarea id="shift-comment" name="comment" rows="3" maxlength="1000"></textarea></label>
-        </div>
+        </fieldset>
         <p class="inline-error" id="shift-error" role="alert" hidden></p>
         <div class="calculation-preview" aria-live="polite">
           <span>Выручка <strong id="preview-revenue">—</strong></span>
           <span>Средний чек <strong id="preview-average">—</strong></span>
           <span>Товаров/чек <strong id="preview-items">—</strong></span>
+          <span>QR % <strong id="preview-qr">—</strong></span>
+          <span>Допродажи % <strong id="preview-upsells">—</strong></span>
+          <span>Лакомства % <strong id="preview-treats">—</strong></span>
+          <span>Предварительный KPI <strong id="preview-kpi">—</strong></span>
         </div>
         <section id="shift-audit-section" class="audit-section" hidden>
           <h3>История изменений</h3>
@@ -222,6 +541,19 @@
           <button class="primary-button" id="save-shift" type="submit">Сохранить смену</button>
         </div>
       </form>
+    </dialog>
+
+    <dialog id="shift-summary-dialog">
+      <div class="summary-content">
+        <div class="dialog-heading">
+          <div><p class="eyebrow">Смена сохранена</p><h2>Сводка смены</h2></div>
+          <button class="icon-button" id="close-shift-summary" type="button" aria-label="Закрыть">×</button>
+        </div>
+        <div class="summary-grid" id="shift-summary-grid"></div>
+        <div class="dialog-actions">
+          <button class="primary-button" id="shift-summary-ok" type="button">Понятно</button>
+        </div>
+      </div>
     </dialog>
   </body>
 </html>
