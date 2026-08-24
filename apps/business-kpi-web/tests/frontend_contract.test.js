@@ -84,3 +84,23 @@ test('portal branding is MISKA and multi-business ready', () => {
   assert.match(css, /--brand-accent:/);
   assert.match(css, /--brand-primary-dark:/);
 });
+
+test('shifts KPI badge is rendered as HTML, not escaped raw markup', () => {
+  assert.match(javascript, /function appendKpiCell\(/);
+  assert.match(javascript, /appendKpiCell\(row, shift\.metrics\?\.kpiScore, shift\.metrics\?\.kpiLevel, 'numeric'\)/);
+  assert.doesNotMatch(javascript, /appendCell\(row, kpiWithBadge\(/);
+});
+
+test('official MISKA logo asset is referenced and stored in repository', () => {
+  assert.match(html, /assets\/miska-logo\.jpg/);
+  assert.ok(fs.existsSync(path.join(publicRoot, 'assets', 'miska-logo.jpg')), 'logo asset exists in public/assets');
+});
+
+test('sellers table preserves all business columns', () => {
+  for (const label of [
+    'Продавец', 'Смены', 'На смену', 'Цель на смену', 'Средний чек', 'Цель ср. чек',
+    'Товаров в чеке', 'Цель товаров', 'Доля QR', 'KPI', 'Уровень', 'Бонус',
+  ]) {
+    assert.match(html, new RegExp(label));
+  }
+});

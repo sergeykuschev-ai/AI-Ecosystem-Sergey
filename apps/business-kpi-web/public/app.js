@@ -157,10 +157,10 @@ function renderDashboard(data) {
   const completionStatusEl = element('metric-completion-status');
   const forecast = month.forecast.projectedRevenue;
   const plan = month.plan;
-  if (forecast !== null && plan !== null && forecast > plan) {
-    completionStatusEl.textContent = 'Идём выше плана';
-  } else if (month.revenue !== null && plan !== null && month.revenue >= plan) {
-    completionStatusEl.textContent = 'В темпе';
+  if (month.revenue !== null && plan !== null && month.revenue >= plan) {
+    completionStatusEl.textContent = 'План выполнен';
+  } else if (forecast !== null && plan !== null && forecast > plan) {
+    completionStatusEl.textContent = 'Прогноз выполнения выше плана';
   } else {
     completionStatusEl.textContent = 'Есть риск невыполнения';
   }
@@ -362,6 +362,13 @@ function appendCell(row, value, className) {
   row.append(cell);
 }
 
+function appendKpiCell(row, score, level, className) {
+  const cell = document.createElement('td');
+  if (className) cell.className = className;
+  cell.innerHTML = kpiWithBadge(score, level);
+  row.append(cell);
+}
+
 function renderShifts(items) {
   const body = element('shifts-table');
   body.replaceChildren();
@@ -412,7 +419,7 @@ function renderShifts(items) {
     appendCell(row, formatMoney(shift.metrics?.averageCheck), 'numeric');
     appendCell(row, formatNumber(shift.metrics?.itemsPerReceipt), 'numeric');
     appendCell(row, formatPercent(shift.metrics?.qrShare), 'numeric');
-    appendCell(row, kpiWithBadge(shift.metrics?.kpiScore, shift.metrics?.kpiLevel));
+    appendKpiCell(row, shift.metrics?.kpiScore, shift.metrics?.kpiLevel, 'numeric');
     const statusInfo = uiDataStatus(status);
     const statusCell = document.createElement('td');
     statusCell.innerHTML = `<span class="status-pill ${statusInfo.tone}">${statusInfo.label}</span>`;
