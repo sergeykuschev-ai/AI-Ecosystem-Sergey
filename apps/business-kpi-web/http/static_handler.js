@@ -9,6 +9,7 @@ const STATIC_FILES = Object.freeze({
   '/styles.css': ['styles.css', 'text/css; charset=utf-8'],
   '/app.js': ['app.js', 'text/javascript; charset=utf-8'],
   '/formatters.js': ['formatters.js', 'text/javascript; charset=utf-8'],
+  '/assets/miska-logo.jpg': ['assets/miska-logo.jpg', 'image/jpeg'],
 });
 
 function createStaticHandler(publicRoot) {

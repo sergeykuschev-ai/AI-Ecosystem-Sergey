@@ -8,6 +8,7 @@ const test = require('node:test');
 const publicRoot = path.join(__dirname, '../public');
 const html = fs.readFileSync(path.join(publicRoot, 'index.html'), 'utf8');
 const javascript = fs.readFileSync(path.join(publicRoot, 'app.js'), 'utf8');
+const { STATIC_FILES } = require('../http/static_handler');
 
 test('manual shift form contains every confirmed primary Excel Input field', () => {
   for (const name of [
@@ -91,9 +92,11 @@ test('shifts KPI badge is rendered as HTML, not escaped raw markup', () => {
   assert.doesNotMatch(javascript, /appendCell\(row, kpiWithBadge\(/);
 });
 
-test('official MISKA logo asset is referenced and stored in repository', () => {
+test('official MISKA logo asset is referenced, stored, and served by static handler', () => {
   assert.match(html, /assets\/miska-logo\.jpg/);
   assert.ok(fs.existsSync(path.join(publicRoot, 'assets', 'miska-logo.jpg')), 'logo asset exists in public/assets');
+  assert.ok(STATIC_FILES['/assets/miska-logo.jpg'], 'logo route is registered in static handler');
+  assert.equal(STATIC_FILES['/assets/miska-logo.jpg'][1], 'image/jpeg');
 });
 
 test('sellers table preserves all business columns', () => {
