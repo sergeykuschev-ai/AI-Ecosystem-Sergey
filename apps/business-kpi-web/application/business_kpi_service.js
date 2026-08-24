@@ -779,24 +779,40 @@ class BusinessKpiService {
       throw new ApplicationError('STORE_NOT_FOUND', 'Магазин не найден.', 404);
     }
     const months = await this.listMonths(input);
+    const now = this.now();
+    const currentYear = now.getUTCFullYear();
+    const currentMonth = now.getUTCMonth() + 1;
+    const isCurrentMonth = m => m.year === currentYear && m.month === currentMonth;
+
+    const dataMonths = months.filter(m => m.dataStatus !== DATA_STATUS.NO_DATA);
+    const completedMonths = dataMonths.filter(m => !isCurrentMonth(m));
+    const currentMonthData = dataMonths.find(isCurrentMonth) || null;
+
     const totals = sumYearTotals(months);
-    const completedMonths = months.filter(
-      m => m.dataStatus !== DATA_STATUS.NO_DATA
-    );
+    const completedTotals = sumYearTotals(completedMonths);
+
+    const averageCheck = totals.receipts > 0 ? totals.revenue / totals.receipts : null;
+    const itemsPerReceipt = totals.itemsSold > 0 && totals.receipts > 0
+      ? totals.itemsSold / totals.receipts
+      : null;
+    const planCompletion = totals.plan > 0 ? totals.revenue / totals.plan : null;
+
+    const completedAverageCheck = completedTotals.receipts > 0
+      ? completedTotals.revenue / completedTotals.receipts
+      : null;
+    const completedItemsPerReceipt = completedTotals.itemsSold > 0 && completedTotals.receipts > 0
+      ? completedTotals.itemsSold / completedTotals.receipts
+      : null;
+    const completedPlanCompletion = completedTotals.plan > 0
+      ? completedTotals.revenue / completedTotals.plan
+      : null;
+
     const sortedByRevenue = [...completedMonths].sort(
       (left, right) => right.revenue - left.revenue
     );
     const sortedByCompletion = [...completedMonths].sort(
       (left, right) => (right.planCompletion || 0) - (left.planCompletion || 0)
     );
-    const averageCheck = totals.receipts > 0 ? totals.revenue / totals.receipts : null;
-    const itemsPerReceipt = totals.itemsSold > 0 && totals.receipts > 0
-      ? totals.itemsSold / totals.receipts
-      : null;
-    const planCompletion = totals.plan > 0 ? totals.revenue / totals.plan : null;
-    const now = this.now();
-    const currentYear = now.getUTCFullYear();
-    const currentMonth = now.getUTCMonth() + 1;
     const hasConfirmedFuturePlans = months.some(
       m => (input.year < currentYear) ||
         (input.year === currentYear && m.month > currentMonth && m.plan !== null)
@@ -804,6 +820,7 @@ class BusinessKpiService {
     return {
       year: input.year,
       months,
+      currentMonth: currentMonthData,
       ytd: {
         revenue: totals.revenue,
         plan: totals.plan,
@@ -816,6 +833,27 @@ class BusinessKpiService {
         shiftsCount: totals.shiftsCount,
         dataDays: totals.dataDays,
       },
+      ytdCompleted: {
+        revenue: completedTotals.revenue,
+        plan: completedTotals.plan,
+        planCount: completedTotals.planCount,
+        planCompletion: completedPlanCompletion,
+        receipts: completedTotals.receipts,
+        averageCheck: completedAverageCheck,
+        itemsSold: completedTotals.itemsSold,
+        itemsPerReceipt: completedItemsPerReceipt,
+        shiftsCount: completedTotals.shiftsCount,
+        dataDays: completedTotals.dataDays,
+      },
+      currentMonthSummary: currentMonthData
+        ? {
+          month: currentMonthData.month,
+          revenue: currentMonthData.revenue,
+          plan: currentMonthData.plan,
+          planCompletion: currentMonthData.planCompletion,
+          forecast: currentMonthData.forecast,
+        }
+        : null,
       bests: {
         revenue: sortedByRevenue[0] || null,
         completion: sortedByCompletion[0] || null,

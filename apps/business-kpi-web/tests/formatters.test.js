@@ -7,6 +7,8 @@ const {
   percentInput,
   percentValue,
   formatPercent,
+  formatMoneyAxis,
+  UNAVAILABLE,
 } = require('../public/formatters');
 
 test('percentInput converts backend ratio to UI percentage', () => {
@@ -35,4 +37,17 @@ test('formatPercent and percentInput round-trip for typical values', () => {
     const back = percentValue(String(input));
     assert.ok(Math.abs(back - value) < 0.0001, `round-trip failed for ${value}: ${back}`);
   }
+});
+
+test('formatMoneyAxis produces readable Y-axis labels', () => {
+  assert.equal(formatMoneyAxis(null), UNAVAILABLE);
+  assert.equal(formatMoneyAxis(0), '0 ₽');
+  assert.equal(formatMoneyAxis(500), '500 ₽');
+  assert.equal(formatMoneyAxis(999), '999 ₽');
+  assert.equal(formatMoneyAxis(1_000), '1 тыс. ₽');
+  assert.equal(formatMoneyAxis(1_500), '2 тыс. ₽');
+  assert.equal(formatMoneyAxis(999_999), '1 000 тыс. ₽');
+  assert.equal(formatMoneyAxis(1_000_000), '1 млн ₽');
+  assert.equal(formatMoneyAxis(2_500_000), '3 млн ₽');
+  assert.equal(formatMoneyAxis(1_234_567_890), '1 235 млн ₽');
 });
