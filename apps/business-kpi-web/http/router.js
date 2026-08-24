@@ -197,11 +197,12 @@ function createRouter(options) {
     businessKpiService,
     workbookImportService,
     devMode,
+    cookieSecure,
     healthService,
     staticHandler,
   } = options;
 
-  const auth = createAuthMiddleware({ authService, devMode });
+  const auth = createAuthMiddleware({ authService, devMode, cookieSecure });
 
   return async function route(request, response) {
     const requestId = crypto.randomUUID();
@@ -254,6 +255,7 @@ function createRouter(options) {
           displayName: actor.displayName,
           role: actor.role,
           storeId: actor.storeId,
+          employeeId: actor.employeeId || null,
         }});
         return;
       }

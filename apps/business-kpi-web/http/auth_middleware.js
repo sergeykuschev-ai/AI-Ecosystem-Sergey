@@ -39,7 +39,7 @@ function generateCsrfToken() {
 }
 
 function createAuthMiddleware(options) {
-  const { authService, devMode = false } = options;
+  const { authService, devMode = false, cookieSecure = false } = options;
 
   async function resolveActor(request) {
     const cookies = parseCookies(request.headers.cookie);
@@ -86,22 +86,34 @@ function createAuthMiddleware(options) {
 
   function setSessionCookies(response, sessionToken, csrfToken, maxAgeMs) {
     const maxAgeSeconds = Math.floor(maxAgeMs / 1000);
-    setCookie(response, SESSION_COOKIE, sessionToken, {
+    const cookieOptions = {
       httpOnly: true,
       sameSite: 'Lax',
       path: '/',
       maxAge: maxAgeSeconds,
-    });
+      secure: cookieSecure,
+    };
+    setCookie(response, SESSION_COOKIE, sessionToken, cookieOptions);
     setCookie(response, CSRF_COOKIE, csrfToken, {
       sameSite: 'Lax',
       path: '/',
       maxAge: maxAgeSeconds,
+      secure: cookieSecure,
     });
   }
 
   function clearSessionCookies(response) {
-    clearCookie(response, SESSION_COOKIE, { httpOnly: true, sameSite: 'Lax', path: '/' });
-    clearCookie(response, CSRF_COOKIE, { sameSite: 'Lax', path: '/' });
+    clearCookie(response, SESSION_COOKIE, {
+      httpOnly: true,
+      sameSite: 'Lax',
+      path: '/',
+      secure: cookieSecure,
+    });
+    clearCookie(response, CSRF_COOKIE, {
+      sameSite: 'Lax',
+      path: '/',
+      secure: cookieSecure,
+    });
   }
 
   return {

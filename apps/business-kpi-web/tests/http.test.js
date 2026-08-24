@@ -18,7 +18,12 @@ let server;
 let baseUrl;
 
 before(async () => {
-  server = createBusinessKpiWebServer({ config: loadConfig({}) });
+  server = createBusinessKpiWebServer({
+    config: loadConfig({
+      BUSINESS_KPI_DEV_MODE: 'true',
+      BUSINESS_KPI_SEED_REFERENCE_DATA: 'true',
+    }),
+  });
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
   baseUrl = `http://127.0.0.1:${server.address().port}`;

@@ -44,6 +44,7 @@ function createBusinessKpiWebServer(options = {}) {
     businessKpiService,
     workbookImportService,
     devMode: config.devMode,
+    cookieSecure: config.cookieSecure,
     healthService,
     staticHandler,
   });

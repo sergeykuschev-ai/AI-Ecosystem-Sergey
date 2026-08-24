@@ -74,9 +74,10 @@ function loadConfig(env = process.env) {
     databaseUrl,
     databaseSchema: DATABASE_SCHEMA,
     storageMode,
+    // Fail-closed: dev auth bypass and CSRF skip are opt-in only.
     devMode: resolveBoolean(
       env.BUSINESS_KPI_DEV_MODE,
-      (env.NODE_ENV || 'development') !== 'production',
+      false,
       'BUSINESS_KPI_DEV_MODE'
     ),
     host: resolveHttpHost(env.BUSINESS_KPI_HTTP_HOST),
@@ -84,8 +85,14 @@ function loadConfig(env = process.env) {
     publicRoot: DEFAULT_PUBLIC_ROOT,
     seedReferenceData: resolveBoolean(
       env.BUSINESS_KPI_SEED_REFERENCE_DATA,
-      (env.NODE_ENV || 'development') !== 'production',
+      false,
       'BUSINESS_KPI_SEED_REFERENCE_DATA'
+    ),
+    // Opt-in Secure cookie flag for HTTPS / trusted reverse proxy deployments.
+    cookieSecure: resolveBoolean(
+      env.BUSINESS_KPI_COOKIE_SECURE,
+      false,
+      'BUSINESS_KPI_COOKIE_SECURE'
     ),
   });
 }
