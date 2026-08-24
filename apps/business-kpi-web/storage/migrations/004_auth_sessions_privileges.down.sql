@@ -1,0 +1,2 @@
+-- Privileges are not revoked automatically because other objects may depend on them.
+-- This migration intentionally leaves the grant in place to avoid breaking auth.

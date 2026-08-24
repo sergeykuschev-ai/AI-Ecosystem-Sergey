@@ -49,9 +49,10 @@ function hashToken(token) {
 }
 
 class AuthService {
-  constructor({ store, now = () => new Date() }) {
+  constructor({ store, now = () => new Date(), uuid = require('node:crypto').randomUUID }) {
     this.store = store;
     this.now = now;
+    this.uuid = uuid;
   }
 
   async createUser({ id, externalId, displayName, role, storeId, password }) {
@@ -89,6 +90,7 @@ class AuthService {
     const tokenHash = hashToken(token);
     const expiresAt = new Date(this.now().getTime() + SESSION_TTL_MS);
     await this.store.createSession({
+      id: this.uuid(),
       userId: user.id,
       tokenHash,
       expiresAt,
