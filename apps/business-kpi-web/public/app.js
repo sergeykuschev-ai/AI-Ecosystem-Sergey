@@ -11,6 +11,27 @@ const ROUTES = Object.freeze({
   'import-export': ['Импорт / экспорт', 'Исторический Excel-import остаётся вторичным каналом.'],
 });
 
+/* Business context.
+   The portal is currently branded for MISKA only, but the architecture is
+   multi-business ready: a future business switch can replace this object
+   and the CSS theme tokens without touching module components. */
+const BUSINESS_CONTEXT = Object.freeze({
+  id: 'miska',
+  name: 'МИСКА',
+  shortName: 'МИСКА',
+  portalName: 'Business Portal',
+  moduleName: 'KPI',
+});
+
+const THEME_COLORS = Object.freeze({
+  primary: 'var(--brand-primary)',
+  primarySoft: 'var(--brand-primary-soft)',
+  accent: 'var(--brand-secondary-accent)',
+  border: 'var(--border)',
+  borderStrong: 'var(--border-strong)',
+  textSecondary: 'var(--text-secondary)',
+});
+
 const MONTH_NAMES = [
   'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
   'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь',
@@ -246,7 +267,7 @@ function renderDashboardPlanChart(days, planValue) {
   const planValues = planValue !== null && planValue !== undefined
     ? days.map((_, i) => (planValue / days.length) * (i + 1))
     : [];
-  renderLineChart('dashboard-chart-plan', labels, [cumulativeValues, planValues], ['Накопительный факт', 'Накопительный план'], ['#205c46', '#cbd3ca'], formatMoneyAxis, formatMoney);
+  renderLineChart('dashboard-chart-plan', labels, [cumulativeValues, planValues], ['Накопительный факт', 'Накопительный план'], [THEME_COLORS.primary, THEME_COLORS.borderStrong], formatMoneyAxis, formatMoney);
 }
 
 function renderDashboardRevenueChart(days) {
@@ -257,7 +278,7 @@ function renderDashboardRevenueChart(days) {
   }
   const labels = days.map(d => d.date.slice(8, 10));
   const values = days.map(d => d.revenue || 0);
-  renderBarChart('dashboard-chart-revenue', labels, [{ label: 'Выручка', values, color: '#205c46' }], formatMoneyAxis);
+  renderBarChart('dashboard-chart-revenue', labels, [{ label: 'Выручка', values, color: THEME_COLORS.primary }], formatMoneyAxis);
 }
 
 function renderToday(data) {
@@ -545,12 +566,12 @@ async function openSellerDetail(seller) {
 
 function renderSellerCharts(rows) {
   const dates = rows.map(r => formatDate(r.shiftDate));
-  renderLineChart('seller-chart-kpi', dates, [rows.map(r => r.metrics?.kpiScore)], ['KPI'], ['#205c46']);
-  renderLineChart('seller-chart-average', dates, [rows.map(r => r.metrics?.averageCheck)], ['Средний чек'], ['#a8641f'], formatMoneyAxis, formatMoney);
-  renderLineChart('seller-chart-items', dates, [rows.map(r => r.metrics?.itemsPerReceipt)], ['Товаров в чеке'], ['#205c46']);
-  renderLineChart('seller-chart-qr', dates, [rows.map(r => r.metrics?.qrShare)], ['Доля QR'], ['#205c46'], formatPercentAxis, formatPercent);
-  renderBarChart('seller-chart-revenue', dates, [{ label: 'Выручка', values: rows.map(r => r.metrics?.revenue), color: '#205c46' }], formatMoneyAxis);
-  renderLineChart('seller-chart-revenue-per-shift', dates, [rows.map(r => r.metrics?.revenue)], ['Выручка за смену'], ['#a8641f'], formatMoneyAxis, formatMoney);
+  renderLineChart('seller-chart-kpi', dates, [rows.map(r => r.metrics?.kpiScore)], ['KPI'], [THEME_COLORS.primary]);
+  renderLineChart('seller-chart-average', dates, [rows.map(r => r.metrics?.averageCheck)], ['Средний чек'], [THEME_COLORS.accent], formatMoneyAxis, formatMoney);
+  renderLineChart('seller-chart-items', dates, [rows.map(r => r.metrics?.itemsPerReceipt)], ['Товаров в чеке'], [THEME_COLORS.primary]);
+  renderLineChart('seller-chart-qr', dates, [rows.map(r => r.metrics?.qrShare)], ['Доля QR'], [THEME_COLORS.primary], formatPercentAxis, formatPercent);
+  renderBarChart('seller-chart-revenue', dates, [{ label: 'Выручка', values: rows.map(r => r.metrics?.revenue), color: THEME_COLORS.primary }], formatMoneyAxis);
+  renderLineChart('seller-chart-revenue-per-shift', dates, [rows.map(r => r.metrics?.revenue)], ['Выручка за смену'], [THEME_COLORS.accent], formatMoneyAxis, formatMoney);
 }
 
 function renderMonths(data) {
@@ -601,10 +622,10 @@ function renderMonths(data) {
     body.append(row);
   }
   renderBarChart('months-chart-revenue', labels, [
-    { label: 'План', values: plan, color: '#cbd3ca' },
-    { label: 'Факт', values: revenue, color: '#205c46' },
+    { label: 'План', values: plan, color: THEME_COLORS.borderStrong },
+    { label: 'Факт', values: revenue, color: THEME_COLORS.primary },
   ], formatMoneyAxis);
-  renderLineChart('months-chart-average', labels, [average], ['Средний чек'], ['#a8641f'], formatMoneyAxis, formatMoney);
+  renderLineChart('months-chart-average', labels, [average], ['Средний чек'], [THEME_COLORS.accent], formatMoneyAxis, formatMoney);
 }
 
 async function loadMonths() {
@@ -689,12 +710,12 @@ function renderYear(data) {
     body.append(row);
   }
   renderBarChart('year-chart-revenue', labels, [
-    { label: 'План', values: plan, color: '#cbd3ca' },
-    { label: 'Факт', values: revenue, color: '#205c46' },
+    { label: 'План', values: plan, color: THEME_COLORS.borderStrong },
+    { label: 'Факт', values: revenue, color: THEME_COLORS.primary },
   ], formatMoneyAxis);
-  renderLineChart('year-chart-average', labels, [average], ['Средний чек'], ['#a8641f'], formatMoneyAxis, formatMoney);
+  renderLineChart('year-chart-average', labels, [average], ['Средний чек'], [THEME_COLORS.accent], formatMoneyAxis, formatMoney);
   renderBarChart('year-chart-mom', labels, [
-    { label: 'Δ к прошлому месяцу', values: changes, color: '#205c46' },
+    { label: 'Δ к прошлому месяцу', values: changes, color: THEME_COLORS.primary },
   ], formatMoneyAxis);
 }
 
@@ -1596,14 +1617,14 @@ function renderLineChart(containerId, labels, series, names, colors, axisFormatt
     line.setAttribute('x2', width - padding.right);
     line.setAttribute('y1', yy);
     line.setAttribute('y2', yy);
-    line.setAttribute('stroke', '#e8ece6');
+    line.setAttribute('stroke', THEME_COLORS.border);
     svg.append(line);
     const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     text.setAttribute('x', padding.left - 8);
     text.setAttribute('y', yy + 4);
     text.setAttribute('text-anchor', 'end');
     text.setAttribute('font-size', '10');
-    text.setAttribute('fill', '#68736f');
+    text.setAttribute('fill', THEME_COLORS.textSecondary);
     text.textContent = formatter(value);
     svg.append(text);
   }
@@ -1613,7 +1634,7 @@ function renderLineChart(containerId, labels, series, names, colors, axisFormatt
     text.setAttribute('y', height - 10);
     text.setAttribute('text-anchor', 'middle');
     text.setAttribute('font-size', '10');
-    text.setAttribute('fill', '#68736f');
+    text.setAttribute('fill', THEME_COLORS.textSecondary);
     text.textContent = labels[i];
     svg.append(text);
   }
@@ -1627,7 +1648,7 @@ function renderLineChart(containerId, labels, series, names, colors, axisFormatt
     }
     path.setAttribute('d', d);
     path.setAttribute('fill', 'none');
-    path.setAttribute('stroke', colors[idx] || '#205c46');
+    path.setAttribute('stroke', colors[idx] || THEME_COLORS.primary);
     path.setAttribute('stroke-width', idx === 0 ? '2' : '1.5');
     path.setAttribute('stroke-dasharray', idx === 2 ? '4 2' : '');
     svg.append(path);
@@ -1638,7 +1659,7 @@ function renderLineChart(containerId, labels, series, names, colors, axisFormatt
       point.setAttribute('cx', x(i));
       point.setAttribute('cy', y(serie[i]));
       point.setAttribute('r', 3);
-      point.setAttribute('fill', colors[idx] || '#205c46');
+      point.setAttribute('fill', colors[idx] || THEME_COLORS.primary);
       const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
       title.textContent = `${labels[i]}: ${tipFormatter(serie[i])}`;
       point.append(title);
@@ -1654,12 +1675,12 @@ function renderLineChart(containerId, labels, series, names, colors, axisFormatt
     rect.setAttribute('y', padding.top + idx * 16);
     rect.setAttribute('width', 10);
     rect.setAttribute('height', 10);
-    rect.setAttribute('fill', colors[idx] || '#205c46');
+    rect.setAttribute('fill', colors[idx] || THEME_COLORS.primary);
     const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     text.setAttribute('x', width - padding.right - 105);
     text.setAttribute('y', padding.top + idx * 16 + 9);
     text.setAttribute('font-size', '10');
-    text.setAttribute('fill', '#68736f');
+    text.setAttribute('fill', THEME_COLORS.textSecondary);
     text.textContent = name;
     g.append(rect, text);
     legend.append(g);
@@ -1703,7 +1724,7 @@ function renderBarChart(containerId, labels, series, axisFormatter = null) {
   zeroLine.setAttribute('x2', width - padding.right);
   zeroLine.setAttribute('y1', zeroY);
   zeroLine.setAttribute('y2', zeroY);
-  zeroLine.setAttribute('stroke', '#dfe4dc');
+  zeroLine.setAttribute('stroke', THEME_COLORS.border);
   svg.append(zeroLine);
   for (let i = 0; i <= 4; i += 1) {
     const value = min + (range * i) / 4;
@@ -1712,7 +1733,7 @@ function renderBarChart(containerId, labels, series, axisFormatter = null) {
     text.setAttribute('y', y(value) + 4);
     text.setAttribute('text-anchor', 'end');
     text.setAttribute('font-size', '10');
-    text.setAttribute('fill', '#68736f');
+    text.setAttribute('fill', THEME_COLORS.textSecondary);
     text.textContent = formatter(value);
     svg.append(text);
   }
@@ -1722,7 +1743,7 @@ function renderBarChart(containerId, labels, series, axisFormatter = null) {
     text.setAttribute('y', height - 10);
     text.setAttribute('text-anchor', 'middle');
     text.setAttribute('font-size', '10');
-    text.setAttribute('fill', '#68736f');
+    text.setAttribute('fill', THEME_COLORS.textSecondary);
     text.textContent = labels[i];
     svg.append(text);
   }
@@ -1757,7 +1778,7 @@ function renderBarChart(containerId, labels, series, axisFormatter = null) {
     text.setAttribute('x', width - padding.right - 65);
     text.setAttribute('y', padding.top + idx * 16 + 9);
     text.setAttribute('font-size', '10');
-    text.setAttribute('fill', '#68736f');
+    text.setAttribute('fill', THEME_COLORS.textSecondary);
     text.textContent = serie.label;
     g.append(rect, text);
     legend.append(g);
@@ -1770,6 +1791,7 @@ async function initialize() {
   const now = new Date();
   element('period-filter').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   populateYearFilter();
+  document.title = `${BUSINESS_CONTEXT.name} · ${BUSINESS_CONTEXT.moduleName}`;
   try {
     const health = await api('/health');
     const runtime = element('runtime-mode');

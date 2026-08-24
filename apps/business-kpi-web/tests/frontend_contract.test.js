@@ -71,3 +71,16 @@ test('import/export UI requires dry-run before commit and exposes run history', 
   assert.match(javascript, /dragover/);
   assert.match(javascript, /drop/);
 });
+
+test('portal branding is MISKA and multi-business ready', () => {
+  const css = fs.readFileSync(path.join(publicRoot, 'styles.css'), 'utf8');
+  assert.doesNotMatch(html, /Артур Business KPI/);
+  assert.doesNotMatch(html, /Ампер|Вентиль|Метиз/);
+  assert.match(html, /<title>МИСКА · KPI<\/title>/);
+  assert.match(html, /МИСКА/);
+  assert.match(javascript, /BUSINESS_CONTEXT/);
+  assert.match(javascript, /id:\s*['"]miska['"]/);
+  assert.match(css, /--brand-primary:/);
+  assert.match(css, /--brand-accent:/);
+  assert.match(css, /--brand-primary-dark:/);
+});

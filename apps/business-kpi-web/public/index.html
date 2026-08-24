@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Business KPI — ежедневные показатели магазинов">
-    <title>Business KPI · Артур</title>
+    <meta name="description" content="Business Portal МИСКА — ежедневные KPI магазинов">
+    <title>МИСКА · KPI</title>
     <link rel="stylesheet" href="/styles.css">
     <script src="/formatters.js" defer></script>
     <script src="/app.js" defer></script>
@@ -12,11 +12,15 @@
   <body>
     <div class="app-shell">
       <aside class="sidebar">
-        <a class="brand" href="#dashboard" aria-label="Business KPI — главная">
-          <span class="brand-mark" aria-hidden="true">A</span>
-          <span><strong>Артур</strong><small>Business KPI</small></span>
+        <a class="brand" href="#dashboard" aria-label="МИСКА — главная">
+          <svg class="brand-mark" viewBox="0 0 42 42" aria-hidden="true">
+            <rect width="42" height="42" rx="13" fill="var(--brand-accent)"/>
+            <path d="M11 20c0 5.5 4.5 10 10 10s10-4.5 10-10H11z" fill="var(--brand-primary-dark)"/>
+            <path d="M13 18c2-3 7-3 8 0" stroke="var(--brand-primary-dark)" stroke-width="2" fill="none" stroke-linecap="round"/>
+          </svg>
+          <span><strong>МИСКА</strong><small>Business Portal</small></span>
         </a>
-        <nav class="primary-nav" aria-label="Разделы Business KPI">
+        <nav class="primary-nav" aria-label="Разделы KPI">
           <a href="#dashboard" data-route="dashboard">Главная</a>
           <a href="#shifts" data-route="shifts">Смены</a>
           <a href="#months" data-route="months">Месяцы</a>
@@ -53,7 +57,7 @@
 
         <section class="page-heading" aria-labelledby="page-title">
           <div>
-            <p class="eyebrow">Business KPI</p>
+            <p class="eyebrow">KPI</p>
             <h1 id="page-title">Главная</h1>
             <p id="page-description">Сводка показателей выбранного месяца.</p>
           </div>
