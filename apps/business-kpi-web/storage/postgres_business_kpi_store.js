@@ -55,6 +55,22 @@ function mapShift(row) {
   };
 }
 
+function mapUser(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    externalId: row.external_id,
+    displayName: row.display_name,
+    role: row.role,
+    storeId: row.store_id,
+    passwordHash: row.password_hash,
+    active: row.active,
+    lastLoginAt: row.last_login_at ? new Date(row.last_login_at).toISOString() : null,
+    failedLoginAttempts: Number(row.failed_login_attempts),
+    lockedUntil: row.locked_until ? new Date(row.locked_until).toISOString() : null,
+  };
+}
+
 function mapImportRun(row) {
   if (!row) return null;
   return {
@@ -522,6 +538,158 @@ class PostgresBusinessKpiStore {
     return { ...record, id: result.rows[0].id };
   }
 
+  async createUser(record) {
+    const result = await this.client.query(
+      `INSERT INTO business_kpi.users
+       (id, external_id, display_name, role, store_id, password_hash, active, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+       RETURNING id`,
+      [record.id, record.externalId, record.displayName, record.role, record.storeId,
+        record.passwordHash, record.active !== false, record.createdAt || new Date().toISOString(),
+        record.updatedAt || new Date().toISOString()]
+    );
+    return { ...record, id: result.rows[0].id };
+  }
+
+  async getUserById(id) {
+    const result = await this.client.query(
+      `SELECT id, external_id, display_name, role, store_id, password_hash,
+              active, last_login_at, failed_login_attempts, locked_until
+       FROM business_kpi.users WHERE id = $1`,
+      [id]
+    );
+    return mapUser(result.rows[0]);
+  }
+
+  async getUserByExternalId(externalId) {
+    const result = await this.client.query(
+      `SELECT id, external_id, display_name, role, store_id, password_hash,
+              active, last_login_at, failed_login_attempts, locked_until
+       FROM business_kpi.users WHERE external_id = $1`,
+      [externalId]
+    );
+    return mapUser(result.rows[0]);
+  }
+
+  async updateUserPasswordHash(userId, passwordHash) {
+    await this.client.query(
+      `UPDATE business_kpi.users
+       SET password_hash = $2, updated_at = $3
+       WHERE id = $1`,
+      [userId, passwordHash, new Date().toISOString()]
+    );
+  }
+
+  async updateUserLastLogin(userId, lastLoginAt) {
+    await this.client.query(
+      `UPDATE business_kpi.users
+       SET last_login_at = $2, failed_login_attempts = 0, locked_until = NULL, updated_at = $3
+       WHERE id = $1`,
+      [userId, lastLoginAt instanceof Date ? lastLoginAt.toISOString() : lastLoginAt,
+        new Date().toISOString()]
+    );
+  }
+
+  async incrementFailedLogins(userId, maxAttempts, lockoutMs) {
+    const now = new Date();
+    const lockedUntil = new Date(now.getTime() + lockoutMs).toISOString();
+    await this.client.query(
+      `UPDATE business_kpi.users
+       SET failed_login_attempts = failed_login_attempts + 1,
+           locked_until = CASE WHEN failed_login_attempts + 1 >= $2 THEN $3 ELSE locked_until END,
+           updated_at = $4
+       WHERE id = $1`,
+      [userId, maxAttempts, lockedUntil, now.toISOString()]
+    );
+  }
+
+  async resetFailedLogins(userId) {
+    await this.client.query(
+      `UPDATE business_kpi.users
+       SET failed_login_attempts = 0, locked_until = NULL, updated_at = $2
+       WHERE id = $1`,
+      [userId, new Date().toISOString()]
+    );
+  }
+
+  async getEmployeeByUserId(userId) {
+    const result = await this.client.query(
+      `SELECT id, store_id, employee_code, display_name, active, user_id
+       FROM business_kpi.employees WHERE user_id = $1`,
+      [userId]
+    );
+    const row = result.rows[0];
+    return row ? {
+      id: row.id,
+      storeId: row.store_id,
+      employeeCode: row.employee_code,
+      displayName: row.display_name,
+      active: row.active,
+      userId: row.user_id,
+    } : null;
+  }
+
+  async createSession(record) {
+    const result = await this.client.query(
+      `INSERT INTO business_kpi.user_sessions
+       (id, user_id, token_hash, expires_at, ip_address, user_agent, created_at, last_used_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+       RETURNING id`,
+      [record.id, record.userId, record.tokenHash,
+        record.expiresAt instanceof Date ? record.expiresAt.toISOString() : record.expiresAt,
+        record.ipAddress || null, record.userAgent || null,
+        new Date().toISOString(), new Date().toISOString()]
+    );
+    return { ...record, id: result.rows[0].id };
+  }
+
+  async getSessionByTokenHash(tokenHash) {
+    const result = await this.client.query(
+      `SELECT id, user_id, token_hash, expires_at, created_at, last_used_at
+       FROM business_kpi.user_sessions WHERE token_hash = $1`,
+      [tokenHash]
+    );
+    const row = result.rows[0];
+    return row ? {
+      id: row.id,
+      userId: row.user_id,
+      tokenHash: row.token_hash,
+      expiresAt: new Date(row.expires_at).toISOString(),
+      createdAt: new Date(row.created_at).toISOString(),
+      lastUsedAt: new Date(row.last_used_at).toISOString(),
+    } : null;
+  }
+
+  async touchSession(sessionId, lastUsedAt) {
+    await this.client.query(
+      `UPDATE business_kpi.user_sessions
+       SET last_used_at = $2
+       WHERE id = $1`,
+      [sessionId, lastUsedAt instanceof Date ? lastUsedAt.toISOString() : lastUsedAt]
+    );
+  }
+
+  async deleteSessionByTokenHash(tokenHash) {
+    await this.client.query(
+      `DELETE FROM business_kpi.user_sessions WHERE token_hash = $1`,
+      [tokenHash]
+    );
+  }
+
+  async deleteUserSessions(userId) {
+    await this.client.query(
+      `DELETE FROM business_kpi.user_sessions WHERE user_id = $1`,
+      [userId]
+    );
+  }
+
+  async deleteExpiredSessions(before) {
+    await this.client.query(
+      `DELETE FROM business_kpi.user_sessions WHERE expires_at <= $1`,
+      [before instanceof Date ? before.toISOString() : before]
+    );
+  }
+
   async ensureDevReferenceData() {
     await this.client.query(
       `INSERT INTO business_kpi.stores (id, code, name, timezone)
@@ -572,4 +740,5 @@ module.exports = {
   dateText,
   mapImportRun,
   mapShift,
+  mapUser,
 };

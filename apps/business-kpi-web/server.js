@@ -2,6 +2,7 @@
 
 const http = require('node:http');
 
+const { AuthService } = require('./application/auth_service');
 const { BusinessKpiService } = require('./application/business_kpi_service');
 const { HealthService } = require('./application/health_service');
 const { WorkbookImportService } = require('./application/workbook_import_service');
@@ -35,9 +36,11 @@ function createBusinessKpiWebServer(options = {}) {
       now: options.now,
       uuid: options.uuid,
     });
+  const authService = options.authService || new AuthService({ store });
   const staticHandler = options.staticHandler ||
     createStaticHandler(config.publicRoot);
   const route = createRouter({
+    authService,
     businessKpiService,
     workbookImportService,
     devMode: config.devMode,

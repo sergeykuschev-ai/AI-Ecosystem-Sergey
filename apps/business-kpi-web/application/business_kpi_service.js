@@ -14,6 +14,7 @@ const {
   METRIC_CONTRACT_VERSION,
 } = require('../../../agents/business-kpi/rules/metric_contract');
 const { ApplicationError } = require('./application_error');
+const { PERMISSIONS, hasPermission } = require('./permissions');
 const { StorageConflictError } = require('../storage/storage_errors');
 const { exportMonthWorkbook } = require('../xlsx/month_exporter');
 
@@ -264,6 +265,44 @@ function auditRecord(action, entityId, actor, oldValue, newValue, options) {
   };
 }
 
+async function linkedEmployeeId(store, actor) {
+  if (!actor || actor.role !== 'SELLER') return null;
+  const employee = await store.getEmployeeByUserId(actor.id);
+  return employee?.id || null;
+}
+
+function requireShiftWritePermission({ actor, permission, oldShift, linkedEmployeeId }) {
+  if (!actor || !actor.role) {
+    throw new ApplicationError('AUTH_REQUIRED', 'Требуется аутентификация.', 401);
+  }
+  if (!hasPermission(actor.role, permission)) {
+    throw new ApplicationError('FORBIDDEN', 'Недостаточно прав для этой операции.', 403);
+  }
+  if (actor.role === 'SELLER') {
+    if (!linkedEmployeeId) {
+      throw new ApplicationError(
+        'FORBIDDEN',
+        'Учётная запись продавца не связана с сотрудником.',
+        403
+      );
+    }
+    if (oldShift && oldShift.source !== 'web_manual') {
+      throw new ApplicationError(
+        'FORBIDDEN',
+        'Нельзя редактировать смены, созданные импортом или другой системой.',
+        403
+      );
+    }
+    if (oldShift && oldShift.employeeId !== linkedEmployeeId) {
+      throw new ApplicationError(
+        'FORBIDDEN',
+        'Нельзя редактировать чужую смену.',
+        403
+      );
+    }
+  }
+}
+
 function validateKpiSettings(settings) {
   const errors = [];
   const requireNumber = (value, name, min = null, max = null) => {
@@ -409,7 +448,6 @@ class BusinessKpiService {
   }
 
   async createShift(input, actor, options = {}) {
-    requireRole(actor, WRITE_ROLES);
     const normalized = normalizeShiftInput(input);
     const source = options.source || 'web_manual';
     if (!SHIFT_SOURCES.has(source)) {
@@ -419,9 +457,31 @@ class BusinessKpiService {
         422
       );
     }
+    const canCreateAny = hasPermission(actor?.role, PERMISSIONS.SHIFT_CREATE);
+    const canCreateOwn = hasPermission(actor?.role, PERMISSIONS.SHIFT_CREATE_OWN);
+    if (!canCreateAny && !canCreateOwn) {
+      throw new ApplicationError('FORBIDDEN', 'Недостаточно прав для создания смены.', 403);
+    }
     const now = this.now().toISOString();
     try {
       return await this.store.transaction(async store => {
+        if (actor.role === 'SELLER') {
+          const employeeId = await linkedEmployeeId(store, actor);
+          if (!employeeId) {
+            throw new ApplicationError(
+              'FORBIDDEN',
+              'Учётная запись продавца не связана с сотрудником.',
+              403
+            );
+          }
+          if (normalized.employeeId !== employeeId) {
+            throw new ApplicationError(
+              'FORBIDDEN',
+              'Можно создавать смену только за себя.',
+              403
+            );
+          }
+        }
         const { employee, settingsRecord } = await this.requireReferences(
           store,
           normalized
@@ -523,7 +583,6 @@ class BusinessKpiService {
   }
 
   async updateShift(id, patch, actor, options = {}) {
-    requireRole(actor, WRITE_ROLES);
     const now = this.now().toISOString();
     try {
       return await this.store.transaction(async store => {
@@ -531,6 +590,16 @@ class BusinessKpiService {
         if (!oldShift) {
           throw new ApplicationError('SHIFT_NOT_FOUND', 'Смена не найдена.', 404);
         }
+        const permission = hasPermission(actor?.role, PERMISSIONS.SHIFT_EDIT_ANY)
+          ? PERMISSIONS.SHIFT_EDIT_ANY
+          : PERMISSIONS.SHIFT_EDIT_OWN;
+        const employeeId = await linkedEmployeeId(store, actor);
+        requireShiftWritePermission({
+          actor,
+          permission,
+          oldShift,
+          linkedEmployeeId: employeeId,
+        });
         rejectDerivedAndUnknownFields(patch);
         const historical = oldShift.revenueSource === 'historical_total';
         if (historical && ['cash', 'acquiring', 'qr'].some(
@@ -605,13 +674,22 @@ class BusinessKpiService {
   }
 
   async archiveShift(id, actor, options = {}) {
-    requireRole(actor, OWNER_ROLES);
     const now = this.now().toISOString();
     return this.store.transaction(async store => {
       const oldShift = await store.getShift(id);
       if (!oldShift) {
         throw new ApplicationError('SHIFT_NOT_FOUND', 'Смена не найдена.', 404);
       }
+      const permission = hasPermission(actor?.role, PERMISSIONS.SHIFT_ARCHIVE_ANY)
+        ? PERMISSIONS.SHIFT_ARCHIVE_ANY
+        : PERMISSIONS.SHIFT_ARCHIVE_OWN;
+      const employeeId = await linkedEmployeeId(store, actor);
+      requireShiftWritePermission({
+        actor,
+        permission,
+        oldShift,
+        linkedEmployeeId: employeeId,
+      });
       const archived = await store.archiveShift(id, {
         archivedAt: now,
         archivedBy: actor.id,
@@ -634,7 +712,7 @@ class BusinessKpiService {
     });
   }
 
-  async getDashboard(input) {
+  async getDashboard(input, actor) {
     const storeRecord = await this.store.getStore(input.storeId);
     if (!storeRecord?.active) {
       throw new ApplicationError('STORE_NOT_FOUND', 'Магазин не найден.', 404);
@@ -655,6 +733,8 @@ class BusinessKpiService {
       settings: settingsRecord?.settings || null,
       asOf: this.now(),
     });
+    const sellers = aggregateSellers(month, settingsRecord?.settings || null);
+    const redactedSellers = await this.redactSellerBonuses(sellers, actor);
     return {
       month: {
         ...month,
@@ -662,10 +742,27 @@ class BusinessKpiService {
         dataStatus: resolveDataStatus(month),
       },
       days: aggregateDays(month),
-      sellers: aggregateSellers(month, settingsRecord?.settings || null),
+      sellers: redactedSellers,
       settingsVersion: settingsRecord?.version || null,
       settingsStatus: settingsRecord ? 'CONFIRMED' : 'UNRESOLVED',
     };
+  }
+
+  async redactSellerBonuses(sellers, actor) {
+    if (!actor || actor.role !== 'SELLER') return sellers;
+    const canSeeAll = hasPermission(actor.role, PERMISSIONS.BONUS_READ_ALL_AMOUNTS);
+    const canSeeOwn = hasPermission(actor.role, PERMISSIONS.BONUS_READ_OWN_AMOUNT);
+    if (canSeeAll || !canSeeOwn) return sellers;
+    const ownEmployeeId = await linkedEmployeeId(this.store, actor);
+    return sellers.map(seller => {
+      if (seller.employeeId === ownEmployeeId) return seller;
+      return {
+        ...seller,
+        bonus: null,
+        bonusStatus: 'ACCESS_DENIED',
+        bonusDetails: null,
+      };
+    });
   }
 
   async getToday(input) {
@@ -866,24 +963,33 @@ class BusinessKpiService {
     };
   }
 
-  async getBonuses(input) {
+  async getBonuses(input, actor) {
     const storeRecord = await this.store.getStore(input.storeId);
     if (!storeRecord?.active) {
       throw new ApplicationError('STORE_NOT_FOUND', 'Магазин не найден.', 404);
     }
-    const dashboard = await this.getDashboard(input);
-    const items = dashboard.sellers.map(seller => ({
-      employeeId: seller.employeeId,
-      employeeName: seller.employeeName,
-      shiftsCount: seller.shiftsCount,
-      revenuePerShift: seller.revenuePerShift,
-      averageKpi: seller.averageKpi,
-      kpiLevel: seller.kpiLevel,
-      qrShare: seller.qrShare,
-      bonus: seller.bonus,
-      bonusStatus: seller.bonusStatus,
-      bonusDetails: seller.bonusDetails,
-    }));
+    const dashboard = await this.getDashboard(input, actor);
+    const canSeeAllAmounts = hasPermission(actor?.role, PERMISSIONS.BONUS_READ_ALL_AMOUNTS);
+    const canSeeOwnAmount = hasPermission(actor?.role, PERMISSIONS.BONUS_READ_OWN_AMOUNT);
+    const ownEmployeeId = canSeeOwnAmount && actor?.role === 'SELLER'
+      ? await linkedEmployeeId(this.store, actor)
+      : null;
+    const items = dashboard.sellers.map(seller => {
+      const isOwnSeller = seller.employeeId === ownEmployeeId;
+      const canSeeAmount = canSeeAllAmounts || (canSeeOwnAmount && isOwnSeller);
+      return {
+        employeeId: seller.employeeId,
+        employeeName: seller.employeeName,
+        shiftsCount: seller.shiftsCount,
+        revenuePerShift: seller.revenuePerShift,
+        averageKpi: seller.averageKpi,
+        kpiLevel: seller.kpiLevel,
+        qrShare: seller.qrShare,
+        bonus: canSeeAmount ? seller.bonus : null,
+        bonusStatus: canSeeAmount ? seller.bonusStatus : 'ACCESS_DENIED',
+        bonusDetails: canSeeAmount ? seller.bonusDetails : null,
+      };
+    });
     return {
       year: input.year,
       month: input.month,
@@ -1047,14 +1153,14 @@ class BusinessKpiService {
     });
   }
 
-  async exportMonth(input) {
+  async exportMonth(input, actor) {
     const storeRecord = await this.store.getStore(input.storeId);
     if (!storeRecord?.active) {
       throw new ApplicationError('STORE_NOT_FOUND', 'Магазин не найден.', 404);
     }
     const [shifts, dashboard] = await Promise.all([
       this.listShifts({ storeId: input.storeId, year: input.year, month: input.month }),
-      this.getDashboard(input),
+      this.getDashboard(input, actor),
     ]);
     return exportMonthWorkbook({
       ...input,

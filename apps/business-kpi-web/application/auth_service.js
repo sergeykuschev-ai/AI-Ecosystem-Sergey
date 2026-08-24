@@ -54,9 +54,10 @@ class AuthService {
     this.now = now;
   }
 
-  async createUser({ externalId, displayName, role, storeId, password }) {
+  async createUser({ id, externalId, displayName, role, storeId, password }) {
     const passwordHash = await hashPassword(password);
     return this.store.createUser({
+      id,
       externalId,
       displayName,
       role,

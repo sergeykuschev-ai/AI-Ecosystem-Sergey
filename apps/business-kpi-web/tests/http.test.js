@@ -159,7 +159,7 @@ test('manual API shift flows through storage, KPI, dashboard, update, and audit'
 
   const forbiddenDelete = await fetch(
     `${baseUrl}/api/business-kpi/shifts/${created.id}`,
-    { method: 'DELETE', headers: { 'X-Business-KPI-Role': 'MANAGER' } }
+    { method: 'DELETE', headers: { 'X-Business-KPI-Role': 'SELLER' } }
   );
   assert.equal(forbiddenDelete.status, 403);
 

@@ -61,6 +61,8 @@ class InMemoryBusinessKpiStore {
     const seed = options.seed !== false;
     this.stores = seed ? [clone(DEV_STORE)] : [];
     this.employees = seed ? clone(DEV_EMPLOYEES) : [];
+    this.users = [];
+    this.sessions = [];
     this.shifts = [];
     this.audit = [];
     this.kpiResults = [];
@@ -83,6 +85,8 @@ class InMemoryBusinessKpiStore {
     const snapshot = clone({
       stores: this.stores,
       employees: this.employees,
+      users: this.users,
+      sessions: this.sessions,
       shifts: this.shifts,
       audit: this.audit,
       kpiResults: this.kpiResults,
@@ -268,6 +272,85 @@ class InMemoryBusinessKpiStore {
     if (index >= 0) this.plans[index] = clone(record);
     else this.plans.push(clone(record));
     return clone(record);
+  }
+
+  async createUser(record) {
+    const user = { ...clone(record), active: record.active !== false };
+    this.users.push(user);
+    return clone(user);
+  }
+
+  async getUserById(id) {
+    return clone(this.users.find(user => user.id === id) || null);
+  }
+
+  async getUserByExternalId(externalId) {
+    return clone(this.users.find(user => user.externalId === externalId) || null);
+  }
+
+  async updateUserPasswordHash(userId, passwordHash) {
+    const user = this.users.find(u => u.id === userId);
+    if (user) user.passwordHash = passwordHash;
+  }
+
+  async updateUserLastLogin(userId, lastLoginAt) {
+    const user = this.users.find(u => u.id === userId);
+    if (user) {
+      user.lastLoginAt = lastLoginAt instanceof Date ? lastLoginAt.toISOString() : lastLoginAt;
+      user.failedLoginAttempts = 0;
+      user.lockedUntil = null;
+    }
+  }
+
+  async incrementFailedLogins(userId, maxAttempts, lockoutMs) {
+    const user = this.users.find(u => u.id === userId);
+    if (!user) return;
+    user.failedLoginAttempts = (user.failedLoginAttempts || 0) + 1;
+    if (user.failedLoginAttempts >= maxAttempts) {
+      user.lockedUntil = new Date(Date.now() + lockoutMs).toISOString();
+    }
+  }
+
+  async resetFailedLogins(userId) {
+    const user = this.users.find(u => u.id === userId);
+    if (user) {
+      user.failedLoginAttempts = 0;
+      user.lockedUntil = null;
+    }
+  }
+
+  async getEmployeeByUserId(userId) {
+    return clone(this.employees.find(employee => employee.userId === userId) || null);
+  }
+
+  async createSession(record) {
+    const session = clone(record);
+    this.sessions.push(session);
+    return clone(session);
+  }
+
+  async getSessionByTokenHash(tokenHash) {
+    return clone(this.sessions.find(session => session.tokenHash === tokenHash) || null);
+  }
+
+  async touchSession(sessionId, lastUsedAt) {
+    const session = this.sessions.find(s => s.id === sessionId);
+    if (session) {
+      session.lastUsedAt = lastUsedAt instanceof Date ? lastUsedAt.toISOString() : lastUsedAt;
+    }
+  }
+
+  async deleteSessionByTokenHash(tokenHash) {
+    this.sessions = this.sessions.filter(session => session.tokenHash !== tokenHash);
+  }
+
+  async deleteUserSessions(userId) {
+    this.sessions = this.sessions.filter(session => session.userId !== userId);
+  }
+
+  async deleteExpiredSessions(before) {
+    const threshold = before instanceof Date ? before.toISOString() : before;
+    this.sessions = this.sessions.filter(session => session.expiresAt > threshold);
   }
 
   async close() {}
