@@ -375,10 +375,10 @@
                 <div class="form-grid three">
                   <label>Цель среднего чека, ₽<input id="settings-average-check" type="number" min="0" step="0.01" required></label>
                   <label>Цель товаров в чеке<input id="settings-items-per-receipt" type="number" min="0" step="0.01" required></label>
-                  <label>Цель допродаж, доля чеков<input id="settings-upsell-share" type="number" min="0" max="1" step="0.01" required></label>
+                  <label>Цель допродаж, %<input id="settings-upsell-share" class="percent-input" type="number" min="0" max="100" step="0.1" required></label>
                   <label>Цель лакомств за смену, ₽<input id="settings-treats-revenue" type="number" min="0" step="0.01" required></label>
-                  <label>Цель чеков с лакомствами<input id="settings-treats-share" type="number" min="0" max="1" step="0.01" required></label>
-                  <label>Цель QR, доля (необязательно)<input id="settings-qr-share" type="number" min="0" max="1" step="0.01"></label>
+                  <label>Цель чеков с лакомствами, %<input id="settings-treats-share" class="percent-input" type="number" min="0" max="100" step="0.1" required></label>
+                  <label>Цель QR, % (необязательно)<input id="settings-qr-share" class="percent-input" type="number" min="0" max="100" step="0.1"></label>
                   <label>Цель смены, ₽<input id="settings-shift-revenue" type="number" min="0" step="0.01" required></label>
                   <label>Норма смен продавца<input id="settings-seller-shifts" type="number" min="0" step="1" required></label>
                 </div>
@@ -386,8 +386,8 @@
               <fieldset>
                 <legend>B. Платежи</legend>
                 <div class="form-grid three">
-                  <label>Комиссия эквайринга, доля<input id="settings-acquiring-fee" type="number" min="0" max="1" step="0.001" required></label>
-                  <label>Комиссия QR, доля<input id="settings-qr-fee" type="number" min="0" max="1" step="0.001" required></label>
+                  <label>Комиссия эквайринга, %<input id="settings-acquiring-fee" class="percent-input" type="number" min="0" max="100" step="0.01" required></label>
+                  <label>Комиссия QR, %<input id="settings-qr-fee" class="percent-input" type="number" min="0" max="100" step="0.01" required></label>
                   <label>QR входит в эквайринг
                     <select id="settings-qr-included"><option value="true">Да</option><option value="false">Нет</option></select>
                   </label>
@@ -552,6 +552,23 @@
         <div class="summary-grid" id="shift-summary-grid"></div>
         <div class="dialog-actions">
           <button class="primary-button" id="shift-summary-ok" type="button">Понятно</button>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="settings-confirm-dialog">
+      <div class="summary-content">
+        <div class="dialog-heading">
+          <div><p class="eyebrow">Подтверждение</p><h2>Создать новую версию нормативов?</h2></div>
+          <button class="icon-button" id="close-settings-confirm" type="button" aria-label="Закрыть">×</button>
+        </div>
+        <div class="confirm-body">
+          <p id="settings-confirm-message"></p>
+          <div class="confirm-diff" id="settings-confirm-diff"></div>
+        </div>
+        <div class="dialog-actions">
+          <button class="secondary-button" id="cancel-settings-confirm" type="button">Отмена</button>
+          <button class="primary-button" id="confirm-settings-create" type="button">Создать версию</button>
         </div>
       </div>
     </dialog>

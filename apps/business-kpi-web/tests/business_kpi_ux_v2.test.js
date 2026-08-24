@@ -182,6 +182,103 @@ test('settings version creation succeeds with valid weights', async () => {
   assert.equal(body.data.version, 2);
 });
 
+function buildValidSettings(patch = {}) {
+  return {
+    targets: {
+      averageCheck: 1200,
+      itemsPerReceipt: 2.5,
+      upsellReceiptShare: 0.3,
+      treatsRevenue: 1200,
+      treatsReceiptShare: 0.2,
+      qrShare: null,
+      shiftRevenue: 24000,
+      sellerShifts: 15,
+    },
+    weights: { shiftPlan: 30, averageCheck: 20, itemsPerReceipt: 15, upsell: 20, treats: 15 },
+    fees: { acquiring: 0.022, qr: 0.007 },
+    payment: { qrIncludedInAcquiring: true },
+    levels: [
+      { name: 'Отлично', minimumScore: 95, bonusBase: 7000 },
+      { name: 'Без премии', minimumScore: 0, bonusBase: 0 },
+    ],
+    qrCoefficientTiers: [
+      { upperExclusive: 0.1, coefficient: 0.95 },
+      { upperExclusive: 0.15, coefficient: 1 },
+      { upperExclusive: 0.2, coefficient: 1.025 },
+      { upperExclusive: 0.25, coefficient: 1.05 },
+      { upperExclusive: null, coefficient: 1.075 },
+    ],
+    ...patch,
+  };
+}
+
+test('settings version creation rejects invalid QR tiers', async () => {
+  const response = await fetch(`${baseUrl}/api/business-kpi/settings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...ownerHeaders() },
+    body: JSON.stringify({
+      storeId: DEV_STORE.id,
+      effectiveFrom: '2026-10-01',
+      reason: 'test invalid qr tiers',
+      settings: buildValidSettings({
+        qrCoefficientTiers: [
+          { upperExclusive: 0.2, coefficient: 0.95 },
+          { upperExclusive: 0.15, coefficient: 1 },
+          { upperExclusive: null, coefficient: 1 },
+        ],
+      }),
+    }),
+  });
+  const body = await response.json();
+  assert.equal(response.status, 422);
+  assert.equal(body.error.code, 'VALIDATION_ERROR');
+  assert.match(body.error.message, /возрастанию/);
+});
+
+test('settings version creation rejects percentage above 100%', async () => {
+  const response = await fetch(`${baseUrl}/api/business-kpi/settings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...ownerHeaders() },
+    body: JSON.stringify({
+      storeId: DEV_STORE.id,
+      effectiveFrom: '2026-10-01',
+      reason: 'test percentage overflow',
+      settings: buildValidSettings({ targets: { ...buildValidSettings().targets, upsellReceiptShare: 1.5 } }),
+    }),
+  });
+  const body = await response.json();
+  assert.equal(response.status, 422);
+  assert.equal(body.error.code, 'VALIDATION_ERROR');
+  assert.match(body.error.message, /допродаж/);
+});
+
+test('historical shift keeps KPI calculated by settings version effective on shift date', async () => {
+  const augustShift = await createShift({ shiftDate: '2026-08-20' });
+  assert.equal(augustShift.settingsVersion, 1);
+
+  const createResponse = await fetch(`${baseUrl}/api/business-kpi/settings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...ownerHeaders() },
+    body: JSON.stringify({
+      storeId: DEV_STORE.id,
+      effectiveFrom: '2026-09-01',
+      reason: 'new targets for september',
+      settings: buildValidSettings({ targets: { ...buildValidSettings().targets, averageCheck: 5000 } }),
+    }),
+  });
+  assert.equal(createResponse.status, 201);
+
+  const augustResponse = await fetch(
+    `${baseUrl}/api/business-kpi/shifts/${augustShift.id}`
+  );
+  const augustBody = await augustResponse.json();
+  assert.equal(augustBody.data.settingsVersion, 1);
+
+  const septemberShift = await createShift({ shiftDate: '2026-09-02' });
+  assert.equal(septemberShift.settingsVersion, 3);
+
+});
+
 test('shift validation rejects qr above acquiring', async () => {
   const response = await fetch(`${baseUrl}/api/business-kpi/shifts`, {
     method: 'POST',

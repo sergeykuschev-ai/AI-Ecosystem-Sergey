@@ -551,14 +551,14 @@ function renderSettings(record) {
 function populateSettingsEditor(settings) {
   element('settings-average-check').value = settings.targets.averageCheck ?? '';
   element('settings-items-per-receipt').value = settings.targets.itemsPerReceipt ?? '';
-  element('settings-upsell-share').value = settings.targets.upsellReceiptShare ?? '';
+  element('settings-upsell-share').value = percentInput(settings.targets.upsellReceiptShare);
   element('settings-treats-revenue').value = settings.targets.treatsRevenue ?? '';
-  element('settings-treats-share').value = settings.targets.treatsReceiptShare ?? '';
-  element('settings-qr-share').value = settings.targets.qrShare ?? '';
+  element('settings-treats-share').value = percentInput(settings.targets.treatsReceiptShare);
+  element('settings-qr-share').value = percentInput(settings.targets.qrShare);
   element('settings-shift-revenue').value = settings.targets.shiftRevenue ?? '';
   element('settings-seller-shifts').value = settings.targets.sellerShifts ?? '';
-  element('settings-acquiring-fee').value = settings.fees.acquiring ?? '';
-  element('settings-qr-fee').value = settings.fees.qr ?? '';
+  element('settings-acquiring-fee').value = percentInput(settings.fees.acquiring);
+  element('settings-qr-fee').value = percentInput(settings.fees.qr);
   element('settings-qr-included').value = String(settings.payment.qrIncludedInAcquiring);
   element('settings-weight-shift').value = settings.weights.shiftPlan ?? '';
   element('settings-weight-average').value = settings.weights.averageCheck ?? '';
@@ -588,14 +588,27 @@ function renderSettingsLevels(levels) {
 function renderSettingsQrTiers(tiers) {
   const container = element('settings-qr-tiers');
   container.replaceChildren();
-  for (const tier of tiers) {
+  let previousPercent = 0;
+  for (let index = 0; index < tiers.length; index += 1) {
+    const tier = tiers[index];
+    const upperPercent = tier.upperExclusive === null ? null : percentInput(tier.upperExclusive);
+    const isLast = index === tiers.length - 1;
+    const rangeLabel = isLast
+      ? `от ${formatPercent(previousPercent / 100)} и выше`
+      : (index === 0
+        ? `до ${formatPercent(tier.upperExclusive)}`
+        : `${formatPercent(previousPercent / 100)} – ${formatPercent(tier.upperExclusive)}`);
     const div = document.createElement('div');
-    div.className = 'form-grid three';
+    div.className = 'form-grid qr-tier-row';
+    div.dataset.index = index;
     div.innerHTML = `
-      <label>Верхняя граница QR (не включая)<input type="number" class="qr-upper" min="0" max="1" step="0.001" value="${tier.upperExclusive === null ? '' : tier.upperExclusive}"></label>
+      <span class="qr-tier-range">${rangeLabel}</span>
+      <label>Верхняя граница, %<input type="number" class="qr-upper" min="0" max="100" step="0.1" value="${upperPercent === null ? '' : upperPercent}" ${isLast ? '' : 'required'}></label>
+      <span class="qr-tier-times">→ ×</span>
       <label>Коэффициент<input type="number" class="qr-coef" min="0" step="0.001" value="${tier.coefficient}" required></label>
     `;
     container.append(div);
+    if (upperPercent !== null) previousPercent = upperPercent;
   }
 }
 
@@ -604,10 +617,10 @@ function readSettingsForm() {
     targets: {
       averageCheck: Number(element('settings-average-check').value),
       itemsPerReceipt: Number(element('settings-items-per-receipt').value),
-      upsellReceiptShare: Number(element('settings-upsell-share').value),
+      upsellReceiptShare: percentValue(element('settings-upsell-share').value),
       treatsRevenue: Number(element('settings-treats-revenue').value),
-      treatsReceiptShare: Number(element('settings-treats-share').value),
-      qrShare: element('settings-qr-share').value === '' ? null : Number(element('settings-qr-share').value),
+      treatsReceiptShare: percentValue(element('settings-treats-share').value),
+      qrShare: percentValue(element('settings-qr-share').value),
       shiftRevenue: Number(element('settings-shift-revenue').value),
       sellerShifts: Number(element('settings-seller-shifts').value),
     },
@@ -619,8 +632,8 @@ function readSettingsForm() {
       treats: Number(element('settings-weight-treats').value),
     },
     fees: {
-      acquiring: Number(element('settings-acquiring-fee').value),
-      qr: Number(element('settings-qr-fee').value),
+      acquiring: percentValue(element('settings-acquiring-fee').value),
+      qr: percentValue(element('settings-qr-fee').value),
     },
     payment: {
       qrIncludedInAcquiring: element('settings-qr-included').value === 'true',
@@ -631,10 +644,112 @@ function readSettingsForm() {
       bonusBase: Number(div.querySelector('.level-base').value),
     })),
     qrCoefficientTiers: Array.from(element('settings-qr-tiers').children).map(div => ({
-      upperExclusive: div.querySelector('.qr-upper').value === '' ? null : Number(div.querySelector('.qr-upper').value),
+      upperExclusive: percentValue(div.querySelector('.qr-upper').value),
       coefficient: Number(div.querySelector('.qr-coef').value),
     })),
   };
+}
+
+function validateSettingsForm() {
+  const errors = [];
+  const s = readSettingsForm();
+
+  function checkFinite(value, name) {
+    if (!Number.isFinite(value)) errors.push(`${name}: введите корректное число.`);
+    else if (value < 0) errors.push(`${name}: значение не может быть отрицательным.`);
+  }
+
+  checkFinite(s.targets.averageCheck, 'Цель среднего чека');
+  checkFinite(s.targets.itemsPerReceipt, 'Цель товаров в чеке');
+  checkFinite(s.targets.upsellReceiptShare, 'Цель допродаж');
+  if (Number.isFinite(s.targets.upsellReceiptShare) && s.targets.upsellReceiptShare > 1) {
+    errors.push('Цель допродаж не может превышать 100%.');
+  }
+  checkFinite(s.targets.treatsRevenue, 'Цель лакомств за смену');
+  checkFinite(s.targets.treatsReceiptShare, 'Цель чеков с лакомствами');
+  if (Number.isFinite(s.targets.treatsReceiptShare) && s.targets.treatsReceiptShare > 1) {
+    errors.push('Цель чеков с лакомствами не может превышать 100%.');
+  }
+  if (s.targets.qrShare !== null) {
+    checkFinite(s.targets.qrShare, 'Цель QR');
+    if (Number.isFinite(s.targets.qrShare) && s.targets.qrShare > 1) {
+      errors.push('Цель QR не может превышать 100%.');
+    }
+  }
+  checkFinite(s.targets.shiftRevenue, 'Цель смены');
+  checkFinite(s.targets.sellerShifts, 'Норма смен продавца');
+
+  checkFinite(s.fees.acquiring, 'Комиссия эквайринга');
+  if (Number.isFinite(s.fees.acquiring) && s.fees.acquiring > 1) {
+    errors.push('Комиссия эквайринга не может превышать 100%.');
+  }
+  checkFinite(s.fees.qr, 'Комиссия QR');
+  if (Number.isFinite(s.fees.qr) && s.fees.qr > 1) {
+    errors.push('Комиссия QR не может превышать 100%.');
+  }
+
+  Object.entries(s.weights).forEach(([key, value]) => {
+    checkFinite(value, `Вес ${key}`);
+    if (Number.isFinite(value) && value > 100) errors.push(`Вес ${key} не может превышать 100.`);
+  });
+  const weightSum = Object.values(s.weights).reduce((a, b) => a + (Number.isFinite(b) ? b : 0), 0);
+  if (Math.abs(weightSum - 100) > 0.001) {
+    errors.push(`Сумма весов KPI должна быть 100 (сейчас ${weightSum}).`);
+  }
+
+  for (let i = 0; i < s.levels.length; i += 1) {
+    const level = s.levels[i];
+    if (!level.name.trim()) errors.push(`Уровень ${i + 1}: название обязательно.`);
+    checkFinite(level.minimumScore, `Уровень ${i + 1}: минимальный KPI`);
+    if (Number.isFinite(level.minimumScore) && level.minimumScore > 100) {
+      errors.push(`Уровень ${i + 1}: минимальный KPI не может превышать 100.`);
+    }
+    checkFinite(level.bonusBase, `Уровень ${i + 1}: база премии`);
+  }
+
+  let previousUpper = -1;
+  for (let i = 0; i < s.qrCoefficientTiers.length; i += 1) {
+    const tier = s.qrCoefficientTiers[i];
+    const isLast = i === s.qrCoefficientTiers.length - 1;
+    if (!isLast) {
+      checkFinite(tier.upperExclusive, `QR tier ${i + 1}: верхняя граница`);
+      if (Number.isFinite(tier.upperExclusive)) {
+        if (tier.upperExclusive > 1) errors.push(`QR tier ${i + 1}: граница не может превышать 100%.`);
+        if (tier.upperExclusive <= previousUpper) {
+          errors.push(`QR tier ${i + 1}: границы должны идти по возрастанию.`);
+        }
+      }
+      previousUpper = tier.upperExclusive;
+    }
+    checkFinite(tier.coefficient, `QR tier ${i + 1}: коэффициент`);
+  }
+
+  const effectiveFrom = element('settings-effective-from').value;
+  if (!effectiveFrom) errors.push('Укажите дату начала действия версии.');
+  if (!element('settings-reason').value.trim()) errors.push('Укажите причину изменения настроек.');
+
+  return errors;
+}
+
+function updateQrTierRanges() {
+  const rows = Array.from(element('settings-qr-tiers').children);
+  let previousPercent = 0;
+  rows.forEach((row, index) => {
+    const upperInput = row.querySelector('.qr-upper');
+    const rangeLabel = row.querySelector('.qr-tier-range');
+    const upperPercent = upperInput.value === '' ? null : Number(upperInput.value);
+    const isLast = index === rows.length - 1;
+    if (isLast) {
+      rangeLabel.textContent = `от ${formatPercent(previousPercent / 100)} и выше`;
+    } else if (index === 0) {
+      rangeLabel.textContent = upperPercent === null ? 'до —' : `до ${formatPercent(upperPercent / 100)}`;
+    } else {
+      rangeLabel.textContent = upperPercent === null
+        ? `${formatPercent(previousPercent / 100)} – —`
+        : `${formatPercent(previousPercent / 100)} – ${formatPercent(upperPercent / 100)}`;
+    }
+    if (upperPercent !== null) previousPercent = upperPercent;
+  });
 }
 
 function updateWeightSum() {
@@ -682,41 +797,108 @@ async function loadSettingsVersions() {
   }
 }
 
-async function saveSettings(event) {
-  event.preventDefault();
+let pendingSettingsPayload = null;
+
+function formatSettingsDiff(current, next) {
+  const diffs = [];
+  const fmt = (v) => (v === null || v === undefined ? 'не задано' : v);
+  const fmtPct = (v) => (Number.isFinite(v) ? `${(v * 100).toFixed(1).replace(/\.0$/, '')}%` : fmt(v));
+  const fmtMoney = (v) => (Number.isFinite(v) ? `${v.toFixed(2).replace(/\.(\d+)0+$/, '.$1')} ₽` : fmt(v));
+
+  if (current.targets.averageCheck !== next.targets.averageCheck) {
+    diffs.push(`Цель среднего чека: ${fmtMoney(current.targets.averageCheck)} → ${fmtMoney(next.targets.averageCheck)}`);
+  }
+  if (current.targets.itemsPerReceipt !== next.targets.itemsPerReceipt) {
+    diffs.push(`Цель товаров в чеке: ${fmt(current.targets.itemsPerReceipt)} → ${fmt(next.targets.itemsPerReceipt)}`);
+  }
+  if (current.targets.upsellReceiptShare !== next.targets.upsellReceiptShare) {
+    diffs.push(`Цель допродаж: ${fmtPct(current.targets.upsellReceiptShare)} → ${fmtPct(next.targets.upsellReceiptShare)}`);
+  }
+  if (current.targets.treatsRevenue !== next.targets.treatsRevenue) {
+    diffs.push(`Цель лакомств за смену: ${fmtMoney(current.targets.treatsRevenue)} → ${fmtMoney(next.targets.treatsRevenue)}`);
+  }
+  if (current.targets.treatsReceiptShare !== next.targets.treatsReceiptShare) {
+    diffs.push(`Цель чеков с лакомствами: ${fmtPct(current.targets.treatsReceiptShare)} → ${fmtPct(next.targets.treatsReceiptShare)}`);
+  }
+  if (current.targets.shiftRevenue !== next.targets.shiftRevenue) {
+    diffs.push(`Цель смены: ${fmtMoney(current.targets.shiftRevenue)} → ${fmtMoney(next.targets.shiftRevenue)}`);
+  }
+  if (current.targets.sellerShifts !== next.targets.sellerShifts) {
+    diffs.push(`Норма смен: ${fmt(current.targets.sellerShifts)} → ${fmt(next.targets.sellerShifts)}`);
+  }
+  if (current.fees.acquiring !== next.fees.acquiring) {
+    diffs.push(`Комиссия эквайринга: ${fmtPct(current.fees.acquiring)} → ${fmtPct(next.fees.acquiring)}`);
+  }
+  if (current.fees.qr !== next.fees.qr) {
+    diffs.push(`Комиссия QR: ${fmtPct(current.fees.qr)} → ${fmtPct(next.fees.qr)}`);
+  }
+
+  const weightKeys = ['shiftPlan', 'averageCheck', 'itemsPerReceipt', 'upsell', 'treats'];
+  weightKeys.forEach((key) => {
+    if (current.weights[key] !== next.weights[key]) {
+      diffs.push(`Вес ${key}: ${fmt(current.weights[key])} → ${fmt(next.weights[key])}`);
+    }
+  });
+
+  return diffs;
+}
+
+function showSettingsConfirm(payload) {
+  pendingSettingsPayload = payload;
+  const dialog = element('settings-confirm-dialog');
+  element('settings-confirm-message').textContent =
+    `Новая версия нормативов начнёт действовать с ${formatDate(payload.effectiveFrom)}. Исторические расчёты до этой даты не изменятся.`;
+  const diffs = formatSettingsDiff(state.settings, payload.settings);
+  const diffContainer = element('settings-confirm-diff');
+  if (diffs.length === 0) {
+    diffContainer.innerHTML = '<p>Изменённых параметров нет.</p>';
+  } else {
+    diffContainer.innerHTML = '<ul>' + diffs.map(d => `<li>${d}</li>`).join('') + '</ul>';
+  }
+  dialog.showModal();
+}
+
+async function submitSettingsFromDialog() {
+  const dialog = element('settings-confirm-dialog');
+  dialog.close();
+  if (!pendingSettingsPayload) return;
   const errorBox = element('settings-error');
   errorBox.hidden = true;
-  const sum = updateWeightSum();
-  if (Math.abs(sum - 100) > 0.001) {
-    errorBox.textContent = `Сумма весов KPI должна быть 100 (сейчас ${sum}).`;
-    errorBox.hidden = false;
-    return;
-  }
-  const store = selectedStoreId();
-  const effectiveFrom = element('settings-effective-from').value;
-  const reason = element('settings-reason').value;
-  if (!reason.trim()) {
-    errorBox.textContent = 'Укажите причину изменения настроек.';
-    errorBox.hidden = false;
-    return;
-  }
   try {
     await api('/api/business-kpi/settings', {
       method: 'POST',
-      body: JSON.stringify({
-        storeId: store,
-        effectiveFrom,
-        reason,
-        settings: readSettingsForm(),
-      }),
+      body: JSON.stringify(pendingSettingsPayload),
     });
     element('settings-reason').value = '';
+    pendingSettingsPayload = null;
     showMessage('Новая версия настроек KPI создана.');
     await loadSettings();
   } catch (error) {
     errorBox.textContent = error.message;
     errorBox.hidden = false;
   }
+}
+
+async function saveSettings(event) {
+  event.preventDefault();
+  const errorBox = element('settings-error');
+  errorBox.hidden = true;
+  updateWeightSum();
+  const errors = validateSettingsForm();
+  if (errors.length > 0) {
+    errorBox.innerHTML = errors.map(e => `• ${e}`).join('<br>');
+    errorBox.hidden = false;
+    return;
+  }
+  const store = selectedStoreId();
+  const effectiveFrom = element('settings-effective-from').value;
+  const reason = element('settings-reason').value;
+  showSettingsConfirm({
+    storeId: store,
+    effectiveFrom,
+    reason,
+    settings: readSettingsForm(),
+  });
 }
 
 async function renderRoute() {
@@ -1355,7 +1537,18 @@ element('close-seller-detail').addEventListener('click', () => {
 });
 element('plan-form').addEventListener('submit', savePlan);
 element('settings-form').addEventListener('submit', saveSettings);
-element('settings-form').addEventListener('input', updateWeightSum);
+element('settings-form').addEventListener('input', () => {
+  updateWeightSum();
+  if (event.target.closest('#settings-qr-tiers')) {
+    updateQrTierRanges();
+  }
+});
+element('confirm-settings-create').addEventListener('click', submitSettingsFromDialog);
+element('cancel-settings-confirm').addEventListener('click', () => element('settings-confirm-dialog').close());
+element('close-settings-confirm').addEventListener('click', () => element('settings-confirm-dialog').close());
+element('settings-confirm-dialog').addEventListener('keydown', event => {
+  if (event.key === 'Escape') event.currentTarget.close();
+});
 element('import-file').addEventListener('change', event => selectImportFile(event.target.files[0]));
 element('import-dropzone').addEventListener('dragover', event => {
   event.preventDefault();

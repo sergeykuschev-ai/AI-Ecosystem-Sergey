@@ -264,6 +264,85 @@ function auditRecord(action, entityId, actor, oldValue, newValue, options) {
   };
 }
 
+function validateKpiSettings(settings) {
+  const errors = [];
+  const requireNumber = (value, name, min = null, max = null) => {
+    if (typeof value !== 'number' || Number.isNaN(value) || !Number.isFinite(value)) {
+      errors.push(`${name} должно быть числом.`);
+      return false;
+    }
+    if (min !== null && value < min) {
+      errors.push(`${name} не может быть меньше ${min}.`);
+      return false;
+    }
+    if (max !== null && value > max) {
+      errors.push(`${name} не может быть больше ${max}.`);
+      return false;
+    }
+    return true;
+  };
+
+  const targets = settings.targets || {};
+  requireNumber(targets.averageCheck, 'Цель среднего чека', 0);
+  requireNumber(targets.itemsPerReceipt, 'Цель товаров в чеке', 0);
+  requireNumber(targets.upsellReceiptShare, 'Цель допродаж', 0, 1);
+  requireNumber(targets.treatsRevenue, 'Цель лакомств за смену', 0);
+  requireNumber(targets.treatsReceiptShare, 'Цель чеков с лакомствами', 0, 1);
+  if (targets.qrShare !== null) {
+    requireNumber(targets.qrShare, 'Цель QR', 0, 1);
+  }
+  requireNumber(targets.shiftRevenue, 'Цель смены', 0);
+  requireNumber(targets.sellerShifts, 'Норма смен продавца', 0);
+
+  const weights = settings.weights || {};
+  const weightKeys = ['shiftPlan', 'averageCheck', 'itemsPerReceipt', 'upsell', 'treats'];
+  let weightSum = 0;
+  for (const key of weightKeys) {
+    if (requireNumber(weights[key], `Вес ${key}`, 0, 100)) {
+      weightSum += weights[key];
+    }
+  }
+  if (Math.abs(weightSum - 100) > 0.001) {
+    errors.push(`Сумма весов KPI должна быть 100 (сейчас ${weightSum}).`);
+  }
+
+  const fees = settings.fees || {};
+  requireNumber(fees.acquiring, 'Комиссия эквайринга', 0, 1);
+  requireNumber(fees.qr, 'Комиссия QR', 0, 1);
+
+  if (typeof settings.payment?.qrIncludedInAcquiring !== 'boolean') {
+    errors.push('Укажите, входит ли QR в эквайринг.');
+  }
+
+  const levels = settings.levels || [];
+  for (let i = 0; i < levels.length; i += 1) {
+    const level = levels[i];
+    if (typeof level.name !== 'string' || !level.name.trim()) {
+      errors.push(`Уровень ${i + 1}: название обязательно.`);
+    }
+    requireNumber(level.minimumScore, `Уровень ${i + 1}: минимальный KPI`, 0, 100);
+    requireNumber(level.bonusBase, `Уровень ${i + 1}: база премии`, 0);
+  }
+
+  const tiers = settings.qrCoefficientTiers || [];
+  let previousUpper = -1;
+  for (let i = 0; i < tiers.length; i += 1) {
+    const tier = tiers[i];
+    const isLast = i === tiers.length - 1;
+    if (!isLast) {
+      if (requireNumber(tier.upperExclusive, `QR tier ${i + 1}: верхняя граница`, 0, 1)) {
+        if (tier.upperExclusive <= previousUpper) {
+          errors.push(`QR tier ${i + 1}: границы должны идти по возрастанию.`);
+        }
+      }
+      previousUpper = tier.upperExclusive;
+    }
+    requireNumber(tier.coefficient, `QR tier ${i + 1}: коэффициент`, 0);
+  }
+
+  return errors;
+}
+
 class BusinessKpiService {
   constructor(options) {
     this.store = options.store;
@@ -832,17 +911,13 @@ class BusinessKpiService {
         422
       );
     }
-    const weights = settings.weights || {};
-    const weightSum = Object.values(weights).reduce(
-      (sum, value) => sum + (typeof value === 'number' && Number.isFinite(value) ? value : 0),
-      0
-    );
-    if (Math.abs(weightSum - 100) > 0.001) {
+    const validationErrors = validateKpiSettings(settings);
+    if (validationErrors.length > 0) {
       throw new ApplicationError(
         'VALIDATION_ERROR',
-        `Сумма весов KPI должна быть 100 (сейчас ${weightSum}).`,
+        validationErrors.join(' '),
         422,
-        { details: { weightSum } }
+        { details: { errors: validationErrors } }
       );
     }
     const now = this.now().toISOString();

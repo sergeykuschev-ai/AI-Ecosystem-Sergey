@@ -136,6 +136,18 @@ function moneyInput(value) {
   return Number(value).toFixed(2);
 }
 
+function percentInput(value) {
+  if (value === null || value === undefined || value === '') return '';
+  return Number((Number(value) * 100).toFixed(3));
+}
+
+function percentValue(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number(value);
+  if (Number.isNaN(parsed)) return NaN;
+  return Math.round((parsed / 100) * 1000000) / 1000000;
+}
+
 function classNames(...parts) {
   return parts.filter(Boolean).join(' ');
 }
@@ -158,6 +170,8 @@ if (typeof module !== 'undefined' && module.exports) {
     kpiLabel,
     shortenFilename,
     moneyInput,
+    percentInput,
+    percentValue,
     classNames,
     isUnavailable,
   };

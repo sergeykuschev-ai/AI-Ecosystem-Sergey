@@ -461,3 +461,15 @@ dialog::backdrop { background: rgba(11, 27, 21, 0.55); backdrop-filter: blur(3px
   .best-worst-grid { grid-template-columns: 1fr; }
   .summary-grid { grid-template-columns: 1fr; }
 }
+
+.percent-input { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Ctext x='12' y='16' text-anchor='middle' font-size='14' fill='%2347534e'%3E%25%3C/text%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; padding-right: 30px; }
+
+.qr-tier-row { display: grid; grid-template-columns: 1.2fr 1fr auto 1fr; gap: 10px; align-items: end; }
+.qr-tier-range { color: var(--green); font-weight: 700; font-size: 15px; padding-bottom: 8px; }
+.qr-tier-times { color: var(--muted); font-weight: 700; padding-bottom: 10px; text-align: center; }
+
+.confirm-body { color: var(--text); line-height: 1.55; }
+.confirm-body p { margin-top: 0; }
+.confirm-diff { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-top: 12px; }
+.confirm-diff ul { margin: 0; padding-left: 18px; }
+.confirm-diff li { margin-bottom: 6px; }
