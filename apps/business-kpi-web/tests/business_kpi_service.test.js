@@ -11,6 +11,9 @@ const {
   DEV_STORE,
   InMemoryBusinessKpiStore,
 } = require('../storage/in_memory_business_kpi_store');
+const {
+  MISKA_AUGUST_2026_SETTINGS,
+} = require('../../../agents/business-kpi/rules/reference_settings');
 
 const OWNER = Object.freeze({ id: 'owner-test', role: 'OWNER' });
 const MANAGER = Object.freeze({ id: 'manager-test', role: 'MANAGER' });
@@ -172,4 +175,58 @@ test('server-derived fields and invalid QR are rejected at the boundary', async 
     error => error.code === 'VALIDATION_ERROR' && /QR/.test(error.message)
   );
   assert.equal(store.shifts.length, 0);
+});
+
+test('year summary excludes current month from best/worst and splits YTD', async () => {
+  const { service } = fixture();
+
+  await service.createSettingsVersion({
+    storeId: DEV_STORE.id,
+    effectiveFrom: '2026-05-01',
+    reason: 'тестовые нормативы',
+    settings: {
+      ...MISKA_AUGUST_2026_SETTINGS,
+      version: undefined,
+      effectiveFrom: undefined,
+      effectiveTo: undefined,
+      source: undefined,
+      unresolved: undefined,
+    },
+  }, OWNER);
+
+  const baseShift = {
+    storeId: DEV_STORE.id,
+    employeeId: DEV_EMPLOYEES[0].id,
+    shiftKey: 'main',
+    cash: 10000,
+    acquiring: 14000,
+    qr: 2400,
+    receipts: 20,
+    itemsSold: 50,
+    upsellReceipts: 6,
+    treatsRevenue: 1200,
+    treatsReceipts: 4,
+  };
+
+  await service.createShift({ ...baseShift, shiftDate: '2026-05-10' }, OWNER);
+  await service.createShift({ ...baseShift, shiftDate: '2026-06-10', cash: 8000, acquiring: 11200, qr: 1920 }, OWNER);
+  await service.createShift({ ...baseShift, shiftDate: '2026-07-10', cash: 12000, acquiring: 16800, qr: 2880 }, OWNER);
+  await service.createShift({ ...baseShift, shiftDate: '2026-08-10', cash: 6000, acquiring: 8400, qr: 1440 }, OWNER);
+
+  const summary = await service.getYearSummary({ storeId: DEV_STORE.id, year: 2026 });
+  const completedRevenues = summary.months
+    .filter(m => m.month <= 7 && m.dataStatus !== 'NO_DATA')
+    .map(m => m.revenue);
+
+  assert.equal(summary.bests.revenue.month, 7);
+  assert.equal(summary.worsts.revenue.month, 6);
+  assert.ok(!completedRevenues.includes(summary.bests.revenue.revenue) || summary.bests.revenue.month !== 8);
+
+  assert.ok(summary.ytdCompleted.revenue > 0);
+  assert.ok(summary.currentMonthSummary);
+  assert.equal(summary.currentMonthSummary.month, 8);
+  assert.equal(
+    summary.ytdCompleted.revenue + summary.currentMonthSummary.revenue,
+    summary.ytd.revenue
+  );
 });

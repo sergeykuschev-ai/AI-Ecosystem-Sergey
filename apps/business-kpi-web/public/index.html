@@ -66,7 +66,7 @@
 
         <!-- Главная -->
         <section class="route-panel" data-panel="dashboard">
-          <div class="metric-grid dashboard-metrics" aria-label="Ключевые показатели месяца">
+          <div class="metric-grid dashboard-metrics" aria-label="Управленческая сводка">
             <article class="metric-card">
               <span>План</span>
               <strong id="metric-plan">—</strong>
@@ -75,18 +75,22 @@
             <article class="metric-card accent">
               <span>Выручка</span>
               <strong id="metric-revenue">—</strong>
-              <small id="metric-forecast">Прогноз —</small>
+              <small id="metric-revenue-note">Фактическая выручка</small>
             </article>
             <article class="metric-card">
               <span>Выполнение</span>
               <strong id="metric-completion">—</strong>
-              <small id="metric-remaining">До плана —</small>
+              <div class="progress-bar" id="metric-completion-bar" aria-hidden="true"><span></span></div>
+              <small id="metric-completion-status">—</small>
             </article>
             <article class="metric-card">
               <span>Прогноз конца месяца</span>
               <strong id="metric-projected-revenue">—</strong>
-              <small id="metric-projected-completion">Прогноз выполнения —</small>
+              <small id="metric-projected-vs-plan">—</small>
             </article>
+          </div>
+
+          <div class="metric-grid pace-metrics" aria-label="Темп выполнения">
             <article class="metric-card">
               <span>Осталось до плана</span>
               <strong id="metric-remaining-to-plan">—</strong>
@@ -95,8 +99,16 @@
             <article class="metric-card">
               <span>Нужно в день</span>
               <strong id="metric-required-per-day">—</strong>
-              <small>Средняя выручка в день с данными <strong id="metric-daily-average">—</strong></small>
+              <small>Текущий средний дневной темп <strong id="metric-daily-average">—</strong></small>
             </article>
+            <article class="metric-card" id="metric-pace-card">
+              <span>Темп vs плану</span>
+              <strong id="metric-pace-delta">—</strong>
+              <small id="metric-pace-note">—</small>
+            </article>
+          </div>
+
+          <div class="metric-grid operational-metrics" aria-label="Операционные KPI">
             <article class="metric-card">
               <span>Чеки</span>
               <strong id="metric-receipts">—</strong>
@@ -113,12 +125,12 @@
               <small>Единицы / чеки</small>
             </article>
             <article class="metric-card">
-              <span>QR %</span>
+              <span>Доля QR</span>
               <strong id="metric-qr">—</strong>
               <small>QR / выручка</small>
             </article>
             <article class="metric-card">
-              <span>Сумма QR</span>
+              <span>Оплачено через QR</span>
               <strong id="metric-qr-amount">—</strong>
               <small>Без двойного учёта</small>
             </article>
@@ -128,6 +140,12 @@
               <small id="metric-days">Дней с данными —</small>
             </article>
           </div>
+
+          <article class="content-card attention-card">
+            <div class="card-heading"><div><p class="eyebrow">Контроль качества</p><h2>Что требует внимания</h2></div></div>
+            <ul class="attention-list" id="attention-list"><li>Критичных отклонений нет</li></ul>
+            <p class="field-help" id="partial-data-note" hidden>Нет данных за часть смен</p>
+          </article>
 
           <div class="two-column">
             <article class="content-card">
@@ -139,8 +157,8 @@
                 <span class="metric"><small>Выручка</small><strong id="today-revenue">—</strong></span>
                 <span class="metric"><small>Чеки</small><strong id="today-receipts">—</strong></span>
                 <span class="metric"><small>Средний чек</small><strong id="today-average-check">—</strong></span>
-                <span class="metric"><small>Товаров/чек</small><strong id="today-items">—</strong></span>
-                <span class="metric"><small>QR %</small><strong id="today-qr">—</strong></span>
+                <span class="metric"><small>Товаров в чеке</small><strong id="today-items">—</strong></span>
+                <span class="metric"><small>Доля QR</small><strong id="today-qr">—</strong></span>
                 <span class="metric"><small>Смен</small><strong id="today-shifts">—</strong></span>
               </div>
               <div class="table-wrap" id="today-shifts-wrap">
@@ -156,7 +174,7 @@
               <div class="card-heading"><div><p class="eyebrow">Команда</p><h2>Продавцы месяца</h2></div></div>
               <div class="table-wrap">
                 <table>
-                  <thead><tr><th>Продавец</th><th>Смены</th><th>На смену</th><th>Ср. чек</th><th>Товаров/чек</th><th>QR %</th><th>KPI</th><th>Премия</th></tr></thead>
+                  <thead><tr><th>Продавец</th><th>Смены</th><th>На смену</th><th>Ср. чек</th><th>Товаров в чеке</th><th>Доля QR</th><th>KPI</th><th>Премия</th></tr></thead>
                   <tbody id="dashboard-sellers-table"></tbody>
                 </table>
               </div>
@@ -164,10 +182,16 @@
             </article>
           </div>
 
-          <article class="content-card chart-card">
-            <div class="card-heading"><div><p class="eyebrow">Динамика</p><h2>Выручка по дням</h2></div></div>
-            <div class="chart-container" id="dashboard-chart"></div>
-          </article>
+          <div class="two-column">
+            <article class="content-card chart-card">
+              <div class="card-heading"><div><p class="eyebrow">План vs факт</p><h2>Выполнение плана</h2></div></div>
+              <div class="chart-container" id="dashboard-chart-plan"></div>
+            </article>
+            <article class="content-card chart-card">
+              <div class="card-heading"><div><p class="eyebrow">Динамика</p><h2>Выручка по дням</h2></div></div>
+              <div class="chart-container" id="dashboard-chart-revenue"></div>
+            </article>
+          </div>
         </section>
 
         <!-- Смены -->
@@ -199,9 +223,10 @@
                 </label>
               </div>
             </div>
+            <p class="field-help" id="shifts-quality-summary">—</p>
             <div class="table-wrap">
-              <table>
-                <thead><tr><th>Дата</th><th>Продавец</th><th>Источник</th><th>Выручка</th><th>Чеки</th><th>Ср. чек</th><th>Товаров/чек</th><th>QR %</th><th>KPI</th><th>Статус</th><th></th></tr></thead>
+              <table class="sticky-first-column">
+                <thead><tr><th>Дата</th><th>Продавец</th><th>Источник</th><th>Выручка</th><th>Чеки</th><th>Ср. чек</th><th>Товаров в чеке</th><th>Доля QR</th><th>KPI</th><th>Статус</th><th class="action-column"></th></tr></thead>
                 <tbody id="shifts-table"></tbody>
               </table>
             </div>
@@ -215,7 +240,7 @@
             <div class="card-heading"><div><p class="eyebrow">Помесячная динамика</p><h2>Месяцы <span id="months-year-label"></span></h2></div></div>
             <div class="table-wrap">
               <table>
-                <thead><tr><th>Месяц</th><th>План</th><th>Факт</th><th>Выполнение</th><th>Чеки</th><th>Ср. чек</th><th>Товаров/чек</th><th>QR</th><th>Смены</th><th>Статус</th><th>Изменение</th></tr></thead>
+                <thead><tr><th>Месяц</th><th>План</th><th>Факт</th><th>Прогноз</th><th>Выполнение</th><th>Чеки</th><th>Ср. чек</th><th>Товаров в чеке</th><th>Доля QR</th><th>Смены</th><th>Статус</th><th>Изменение</th></tr></thead>
                 <tbody id="months-table"></tbody>
               </table>
             </div>
@@ -243,6 +268,28 @@
             <article class="metric-card"><span>Средний чек YTD</span><strong id="year-average-check">—</strong></article>
             <article class="metric-card"><span>Смен YTD</span><strong id="year-shifts">—</strong></article>
           </div>
+
+          <div class="two-column">
+            <article class="content-card">
+              <div class="card-heading"><div><p class="eyebrow">Завершённые месяцы</p><h2>YTD завершённых месяцев</h2></div></div>
+              <div class="metric-grid year-completed-metrics" aria-label="YTD завершённых месяцев">
+                <article class="metric-card"><span>Выручка</span><strong id="year-completed-revenue">—</strong></article>
+                <article class="metric-card"><span>План</span><strong id="year-completed-plan">—</strong></article>
+                <article class="metric-card"><span>Выполнение</span><strong id="year-completed-completion">—</strong></article>
+                <article class="metric-card"><span>Средний чек</span><strong id="year-completed-average-check">—</strong></article>
+              </div>
+            </article>
+            <article class="content-card" id="year-current-month-card" hidden>
+              <div class="card-heading"><div><p class="eyebrow">Текущий месяц</p><h2 id="year-current-month-name">—</h2></div></div>
+              <div class="metric-grid year-current-metrics" aria-label="Текущий месяц">
+                <article class="metric-card"><span>Факт</span><strong id="year-current-revenue">—</strong></article>
+                <article class="metric-card"><span>План</span><strong id="year-current-plan">—</strong></article>
+                <article class="metric-card"><span>Выполнение</span><strong id="year-current-completion">—</strong></article>
+                <article class="metric-card"><span>Прогноз</span><strong id="year-current-forecast">—</strong></article>
+              </div>
+            </article>
+          </div>
+
           <div class="two-column">
             <article class="content-card">
               <div class="card-heading"><div><p class="eyebrow">Завершённые месяцы</p><h2>Лучший и худший</h2></div></div>
@@ -254,14 +301,14 @@
               </div>
             </article>
             <article class="content-card">
-              <div class="card-heading"><div><p class="eyebrow">Динамика</p><h2>Month-over-month</h2></div></div>
+              <div class="card-heading"><div><p class="eyebrow">Динамика</p><h2>Изменение выручки к предыдущему месяцу</h2></div></div>
               <div class="chart-container" id="year-chart-mom"></div>
             </article>
           </div>
           <article class="content-card">
             <div class="card-heading"><div><p class="eyebrow">Детализация</p><h2>Месяцы <span id="year-table-year-label"></span></h2></div></div>
             <div class="table-wrap">
-              <table>
+              <table class="sticky-first-column">
                 <thead><tr><th>Месяц</th><th>План</th><th>Факт</th><th>Выполнение</th><th>Чеки</th><th>Ср. чек</th><th>Смены</th><th>Изменение</th></tr></thead>
                 <tbody id="year-months-table"></tbody>
               </table>
@@ -284,8 +331,8 @@
           <article class="content-card">
             <div class="card-heading"><div><p class="eyebrow">Команда</p><h2>Продавцы</h2></div></div>
             <div class="table-wrap">
-              <table>
-                <thead><tr><th>Продавец</th><th>Смены</th><th>Выручка</th><th>На смену</th><th>Чеки</th><th>Ср. чек</th><th>Товаров/чек</th><th>QR %</th><th>KPI</th><th>Уровень</th><th>Бонус</th></tr></thead>
+              <table class="sticky-first-column">
+                <thead><tr><th>Продавец</th><th>Смены</th><th>На смену</th><th>Цель на смену</th><th>Ср. чек</th><th>Цель ср. чек</th><th>Товаров в чеке</th><th>Цель товаров</th><th>Доля QR</th><th>KPI</th><th>Уровень</th><th class="action-column">Бонус</th></tr></thead>
                 <tbody id="sellers-table"></tbody>
               </table>
             </div>
@@ -301,10 +348,15 @@
               <div class="chart-container" id="seller-chart-kpi"></div>
               <div class="chart-container" id="seller-chart-average"></div>
             </div>
+            <div class="two-column">
+              <div class="chart-container" id="seller-chart-items"></div>
+              <div class="chart-container" id="seller-chart-qr"></div>
+            </div>
             <div class="chart-container wide" id="seller-chart-revenue"></div>
+            <div class="chart-container wide" id="seller-chart-revenue-per-shift"></div>
             <div class="table-wrap">
-              <table>
-                <thead><tr><th>Дата</th><th>Выручка</th><th>Чеки</th><th>Ср. чек</th><th>Товаров/чек</th><th>QR %</th><th>KPI</th></tr></thead>
+              <table class="sticky-first-column">
+                <thead><tr><th>Дата</th><th>Выручка</th><th>Чеки</th><th>Ср. чек</th><th>Товаров в чеке</th><th>Доля QR</th><th>KPI</th></tr></thead>
                 <tbody id="seller-shifts-table"></tbody>
               </table>
             </div>
@@ -324,19 +376,18 @@
               Иначе QR-коэффициент не выше 1.
             </p>
             <div class="table-wrap">
-              <table>
+              <table class="sticky-first-column">
                 <thead><tr>
                   <th>Продавец</th>
-                  <th>Смены</th>
-                  <th>Норма смен</th>
-                  <th>Коэф. смен</th>
                   <th>Средний KPI</th>
                   <th>Уровень</th>
                   <th>База премии</th>
-                  <th>QR %</th>
-                  <th>QR-коэф.</th>
-                  <th>План магазина</th>
+                  <th>Смены / норма</th>
+                  <th>Коэффициент смен</th>
+                  <th>Доля QR</th>
+                  <th>QR-коэффициент</th>
                   <th>Итоговая премия</th>
+                  <th class="action-column">Подробнее</th>
                 </tr></thead>
                 <tbody id="bonuses-table"></tbody>
               </table>

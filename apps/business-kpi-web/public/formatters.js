@@ -37,6 +37,18 @@ function formatMoney(value, compact = false) {
   return (compact ? compactMoneyFormatter : moneyFormatter).format(value);
 }
 
+function formatMoneyAxis(value) {
+  if (isUnavailable(value)) return UNAVAILABLE;
+  const fmt = (n) => Math.round(n).toLocaleString('ru-RU').replace(/\u00A0/g, ' ');
+  if (value >= 1_000_000) {
+    return `${fmt(value / 1_000_000)} млн ₽`;
+  }
+  if (value >= 1_000) {
+    return `${fmt(value / 1_000)} тыс. ₽`;
+  }
+  return `${fmt(value)} ₽`;
+}
+
 function formatNumber(value) {
   if (isUnavailable(value)) return UNAVAILABLE;
   return numberFormatter.format(value);
@@ -157,6 +169,7 @@ if (typeof module !== 'undefined' && module.exports) {
     UNAVAILABLE,
     NA_TEXT,
     formatMoney,
+    formatMoneyAxis,
     formatNumber,
     formatInteger,
     formatPercent,

@@ -106,6 +106,19 @@ async function loadReferenceData(preferredStore) {
   }
 }
 
+async function loadEffectiveSettings() {
+  const store = selectedStoreId();
+  if (!store) return;
+  const { year, month } = period();
+  const date = `${year}-${String(month).padStart(2, '0')}-01`;
+  try {
+    const record = await api(`/api/business-kpi/settings?store=${encodeURIComponent(store)}&date=${date}`);
+    state.settings = record.settings;
+  } catch (error) {
+    state.settings = null;
+  }
+}
+
 function renderDashboard(data) {
   const month = data.month;
   element('metric-plan').textContent = formatMoney(month.plan);
@@ -114,18 +127,54 @@ function renderDashboard(data) {
   statusEl.textContent = statusInfo.label;
   statusEl.className = statusInfo.tone;
   element('metric-revenue').textContent = formatMoney(month.revenue);
-  element('metric-forecast').textContent = `Прогноз ${formatMoney(month.forecast.projectedRevenue)}`;
+  element('metric-revenue-note').textContent = 'Фактическая выручка';
   element('metric-completion').textContent = formatPercent(month.planCompletion);
-  element('metric-remaining').textContent = `До плана ${formatMoney(month.forecast.remainingToPlan)}`;
-  element('metric-projected-revenue').textContent = formatMoney(month.forecast.projectedRevenue);
-  const projectedCompletion = month.plan && month.forecast.projectedRevenue !== null
-    ? month.forecast.projectedRevenue / month.plan
-    : null;
-  element('metric-projected-completion').textContent = `Прогноз выполнения ${formatPercent(projectedCompletion)}`;
+
+  const completionBar = element('metric-completion-bar').querySelector('span');
+  const completionPct = Math.min(100, Math.max(0, (month.planCompletion || 0) * 100));
+  completionBar.style.width = `${completionPct}%`;
+  const completionStatusEl = element('metric-completion-status');
+  const forecast = month.forecast.projectedRevenue;
+  const plan = month.plan;
+  if (forecast !== null && plan !== null && forecast > plan) {
+    completionStatusEl.textContent = 'Идём выше плана';
+  } else if (month.revenue !== null && plan !== null && month.revenue >= plan) {
+    completionStatusEl.textContent = 'В темпе';
+  } else {
+    completionStatusEl.textContent = 'Есть риск невыполнения';
+  }
+
+  element('metric-projected-revenue').textContent = formatMoney(forecast);
+  const projectedVsPlanEl = element('metric-projected-vs-plan');
+  if (forecast !== null && plan !== null) {
+    const diff = forecast - plan;
+    projectedVsPlanEl.textContent = diff >= 0
+      ? `Прогноз выше плана на ${formatMoney(diff)}`
+      : `Прогноз ниже плана на ${formatMoney(Math.abs(diff))}`;
+  } else {
+    projectedVsPlanEl.textContent = 'Прогноз выполнения —';
+  }
+
   element('metric-remaining-to-plan').textContent = formatMoney(month.forecast.remainingToPlan);
   element('metric-days-remaining').textContent = `Осталось дней ${formatInteger(month.forecast.remainingCalendarDays)}`;
   element('metric-required-per-day').textContent = formatMoney(month.forecast.requiredAveragePerRemainingDay);
   element('metric-daily-average').textContent = formatMoney(month.forecast.averageRevenuePerDataDay);
+
+  const required = month.forecast.requiredAveragePerRemainingDay;
+  const current = month.forecast.averageRevenuePerDataDay;
+  const paceDeltaEl = element('metric-pace-delta');
+  const paceNoteEl = element('metric-pace-note');
+  if (required !== null && required > 0 && current !== null) {
+    const delta = (current / required - 1) * 100;
+    paceDeltaEl.textContent = `${Math.abs(delta).toFixed(1)}%`;
+    paceNoteEl.textContent = delta >= 0
+      ? `Темп выше необходимого на ${Math.abs(delta).toFixed(1)}%`
+      : `Темп ниже необходимого на ${Math.abs(delta).toFixed(1)}%`;
+  } else {
+    paceDeltaEl.textContent = UNAVAILABLE;
+    paceNoteEl.textContent = 'Недостаточно данных для сравнения темпов';
+  }
+
   element('metric-receipts').textContent = formatInteger(month.receipts);
   element('metric-shifts').textContent = formatInteger(month.shiftsCount);
   element('metric-average-check').textContent = formatMoney(month.averageCheck);
@@ -135,9 +184,80 @@ function renderDashboard(data) {
   element('metric-days').textContent = `Дней с данными ${formatInteger(month.dataDays)}`;
   element('plan-input').value = moneyInput(month.plan);
 
+  renderAttention(month, data.sellers || []);
+  element('partial-data-note').hidden = month.dataStatus !== 'PARTIAL';
   renderToday(data.today);
   renderDashboardSellers(data.sellers);
-  renderChart('dashboard-chart', month.days || data.days, 'revenue', 'plan', month.plan);
+  renderDashboardPlanChart(month.days || data.days, month.plan);
+  renderDashboardRevenueChart(month.days || data.days);
+}
+
+function renderAttention(month, sellers) {
+  const list = element('attention-list');
+  list.replaceChildren();
+  const items = [];
+  const targets = state.settings?.targets;
+
+  if (month.dataStatus === 'PARTIAL') {
+    items.push('Нет данных за часть смен — проверьте журнал смен.');
+  }
+  if (targets?.averageCheck && month.averageCheck !== null && month.averageCheck < targets.averageCheck) {
+    items.push(`Средний чек ${formatMoney(month.averageCheck)} ниже цели ${formatMoney(targets.averageCheck)}.`);
+  }
+  if (targets?.itemsPerReceipt && month.itemsPerReceipt !== null && month.itemsPerReceipt < targets.itemsPerReceipt) {
+    items.push(`Товаров в чеке ${formatNumber(month.itemsPerReceipt)} ниже цели ${formatNumber(targets.itemsPerReceipt)}.`);
+  }
+  if (targets?.qrShare !== null && targets?.qrShare !== undefined && month.qrShare !== null && month.qrShare < targets.qrShare) {
+    items.push(`Доля QR ${formatPercent(month.qrShare)} ниже цели ${formatPercent(targets.qrShare)}.`);
+  }
+  if (month.forecast.requiredAveragePerRemainingDay !== null && month.forecast.requiredAveragePerRemainingDay > 0 &&
+      month.forecast.averageRevenuePerDataDay !== null &&
+      month.forecast.averageRevenuePerDataDay < month.forecast.requiredAveragePerRemainingDay) {
+    items.push('Текущий дневной темп ниже требуемого для выполнения плана.');
+  }
+  const lowKpiSeller = sellers.find(seller => seller.averageKpi !== null && seller.averageKpi < 75);
+  if (lowKpiSeller) {
+    items.push(`Продавец ${lowKpiSeller.employeeName || '—'} имеет средний KPI ниже 75.`);
+  }
+
+  if (items.length === 0) {
+    const li = document.createElement('li');
+    li.textContent = 'Критичных отклонений нет';
+    list.append(li);
+  } else {
+    const limit = Math.min(5, Math.max(3, items.length));
+    for (const text of items.slice(0, limit)) {
+      const li = document.createElement('li');
+      li.textContent = text;
+      list.append(li);
+    }
+  }
+}
+
+function renderDashboardPlanChart(days, planValue) {
+  const container = element('dashboard-chart-plan');
+  if (!container || days.length === 0) {
+    if (container) container.innerHTML = '<p class="empty-copy">Нет данных для графика.</p>';
+    return;
+  }
+  const labels = days.map(d => d.date.slice(8, 10));
+  let cumulative = 0;
+  const cumulativeValues = days.map(d => { cumulative += d.revenue || 0; return cumulative; });
+  const planValues = planValue !== null && planValue !== undefined
+    ? days.map((_, i) => (planValue / days.length) * (i + 1))
+    : [];
+  renderLineChart('dashboard-chart-plan', labels, [cumulativeValues, planValues], ['Накопительный факт', 'Накопительный план'], ['#205c46', '#cbd3ca'], formatMoneyAxis, formatMoney);
+}
+
+function renderDashboardRevenueChart(days) {
+  const container = element('dashboard-chart-revenue');
+  if (!container || days.length === 0) {
+    if (container) container.innerHTML = '<p class="empty-copy">Нет данных для графика.</p>';
+    return;
+  }
+  const labels = days.map(d => d.date.slice(8, 10));
+  const values = days.map(d => d.revenue || 0);
+  renderBarChart('dashboard-chart-revenue', labels, [{ label: 'Выручка', values, color: '#205c46' }], formatMoneyAxis);
 }
 
 function renderToday(data) {
@@ -186,8 +306,21 @@ function renderDashboardSellers(items) {
     appendCell(row, formatPercent(seller.qrShare), 'numeric');
     appendCell(row, kpiLabel(seller.averageKpi, seller.kpiLevel));
     appendCell(row, seller.bonusStatus === 'COMPLETE' ? formatMoney(seller.bonus) : NA_TEXT, 'numeric');
+    if (seller.missingFields && seller.missingFields.length > 0) {
+      row.title = `Недостающие поля: ${seller.missingFields.map(russianMissingField).join(', ')}`;
+    }
     body.append(row);
   }
+}
+
+function russianMissingField(key) {
+  const map = {
+    itemsSold: 'продано единиц',
+    upsellReceipts: 'чеки с допродажей',
+    treatsRevenue: 'выручка лакомств',
+    treatsReceipts: 'чеки с лакомствами',
+  };
+  return map[key] || key;
 }
 
 async function loadDashboard() {
@@ -215,13 +348,21 @@ function renderShifts(items) {
   const sourceFilter = element('source-filter').value;
   const statusFilter = element('data-status-filter').value;
   const sort = element('shifts-sort').value;
+
+  const quality = { total: items.length, complete: 0, partial: 0, noData: 0 };
+  for (const shift of items) {
+    const status = resolveShiftDataStatus(shift);
+    if (status === 'COMPLETE') quality.complete += 1;
+    else if (status === 'PARTIAL') quality.partial += 1;
+    else quality.noData += 1;
+  }
+  element('shifts-quality-summary').textContent =
+    `${quality.total} смен, ${quality.complete} полных, ${quality.partial} частичных`;
+
   let filtered = items.filter(shift => {
     if (sourceFilter && shift.source !== sourceFilter) return false;
     if (statusFilter) {
-      const status = shift.metrics?.kpiStatus === 'COMPLETE' && shift.metrics?.paymentBreakdownAvailable !== false
-        ? 'COMPLETE'
-        : (shift.receipts === 0 && shift.metrics?.revenue === 0 ? 'NO_DATA' : 'PARTIAL');
-      if (status !== statusFilter) return false;
+      if (resolveShiftDataStatus(shift) !== statusFilter) return false;
     }
     return true;
   });
@@ -241,9 +382,7 @@ function renderShifts(items) {
   for (const shift of filtered) {
     const row = document.createElement('tr');
     row.className = 'clickable-row';
-    const status = shift.metrics?.kpiStatus === 'COMPLETE' && shift.metrics?.paymentBreakdownAvailable !== false
-      ? 'COMPLETE'
-      : (shift.receipts === 0 && shift.metrics?.revenue === 0 ? 'NO_DATA' : 'PARTIAL');
+    const status = resolveShiftDataStatus(shift);
     appendCell(row, formatDate(shift.shiftDate));
     appendCell(row, shift.employeeName || NA_TEXT);
     appendCell(row, sourceLabel(shift.source));
@@ -252,12 +391,19 @@ function renderShifts(items) {
     appendCell(row, formatMoney(shift.metrics?.averageCheck), 'numeric');
     appendCell(row, formatNumber(shift.metrics?.itemsPerReceipt), 'numeric');
     appendCell(row, formatPercent(shift.metrics?.qrShare), 'numeric');
-    appendCell(row, kpiLabel(shift.metrics?.kpiScore, shift.metrics?.kpiLevel));
+    appendCell(row, kpiWithBadge(shift.metrics?.kpiScore, shift.metrics?.kpiLevel));
     const statusInfo = uiDataStatus(status);
     const statusCell = document.createElement('td');
     statusCell.innerHTML = `<span class="status-pill ${statusInfo.tone}">${statusInfo.label}</span>`;
     row.append(statusCell);
+    if (status === 'PARTIAL') {
+      const missing = shiftMissingFields(shift);
+      if (missing.length > 0) {
+        row.title = `Недостающие поля: ${missing.map(russianMissingField).join(', ')}`;
+      }
+    }
     const actionCell = document.createElement('td');
+    actionCell.className = 'action-column';
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'table-button';
@@ -271,6 +417,31 @@ function renderShifts(items) {
     row.addEventListener('click', () => openShiftById(shift.id));
     body.append(row);
   }
+}
+
+function resolveShiftDataStatus(shift) {
+  return shift.metrics?.kpiStatus === 'COMPLETE' && shift.metrics?.paymentBreakdownAvailable !== false
+    ? 'COMPLETE'
+    : (shift.receipts === 0 && shift.metrics?.revenue === 0 ? 'NO_DATA' : 'PARTIAL');
+}
+
+function shiftMissingFields(shift) {
+  const missing = [];
+  if (shift.itemsSold === null || shift.itemsSold === undefined) missing.push('itemsSold');
+  if (shift.upsellReceipts === null || shift.upsellReceipts === undefined) missing.push('upsellReceipts');
+  if (shift.treatsRevenue === null || shift.treatsRevenue === undefined) missing.push('treatsRevenue');
+  if (shift.treatsReceipts === null || shift.treatsReceipts === undefined) missing.push('treatsReceipts');
+  return missing;
+}
+
+function kpiWithBadge(score, level) {
+  if (isUnavailable(score)) return UNAVAILABLE;
+  return `${formatNumber(score)} ${level && level !== 'null' ? `<span class="kpi-badge">${level}</span>` : ''}`;
+}
+
+function formatPercentAxis(value) {
+  if (isUnavailable(value)) return UNAVAILABLE;
+  return `${Math.round(value * 100)}%`;
 }
 
 async function loadShifts() {
@@ -291,20 +462,25 @@ function renderSellers(items) {
   const body = element('sellers-table');
   body.replaceChildren();
   element('sellers-empty').hidden = items.length !== 0;
+  const targets = state.settings?.targets || {};
   for (const seller of items) {
     const row = document.createElement('tr');
     row.className = 'clickable-row';
     appendCell(row, seller.employeeName || NA_TEXT);
     appendCell(row, formatInteger(seller.shiftsCount), 'numeric');
-    appendCell(row, formatMoney(seller.revenue), 'numeric');
     appendCell(row, formatMoney(seller.revenuePerShift), 'numeric');
-    appendCell(row, formatInteger(seller.receipts), 'numeric');
+    appendCell(row, formatMoney(targets.shiftRevenue), 'numeric');
     appendCell(row, formatMoney(seller.averageCheck), 'numeric');
+    appendCell(row, formatMoney(targets.averageCheck), 'numeric');
     appendCell(row, formatNumber(seller.itemsPerReceipt), 'numeric');
+    appendCell(row, formatNumber(targets.itemsPerReceipt), 'numeric');
     appendCell(row, formatPercent(seller.qrShare), 'numeric');
     appendCell(row, kpiLabel(seller.averageKpi, seller.kpiLevel));
     appendCell(row, seller.kpiLevel || NA_TEXT);
     appendCell(row, seller.bonusStatus === 'COMPLETE' ? formatMoney(seller.bonus) : NA_TEXT, 'numeric');
+    if (seller.missingFields && seller.missingFields.length > 0) {
+      row.title = `Недостающие поля: ${seller.missingFields.map(russianMissingField).join(', ')}`;
+    }
     row.addEventListener('click', () => openSellerDetail(seller));
     body.append(row);
   }
@@ -318,12 +494,17 @@ async function openSellerDetail(seller) {
   detail.scrollIntoView({ behavior: 'smooth' });
   const metrics = element('seller-metrics');
   metrics.replaceChildren();
+  const targets = state.settings?.targets || {};
   const metricItems = [
     ['Смены', formatInteger(seller.shiftsCount)],
     ['Выручка', formatMoney(seller.revenue)],
     ['На смену', formatMoney(seller.revenuePerShift)],
+    ['Цель на смену', formatMoney(targets.shiftRevenue)],
     ['Средний чек', formatMoney(seller.averageCheck)],
-    ['QR %', formatPercent(seller.qrShare)],
+    ['Цель среднего чека', formatMoney(targets.averageCheck)],
+    ['Товаров в чеке', formatNumber(seller.itemsPerReceipt)],
+    ['Цель товаров в чеке', formatNumber(targets.itemsPerReceipt)],
+    ['Доля QR', formatPercent(seller.qrShare)],
     ['KPI', kpiLabel(seller.averageKpi, seller.kpiLevel)],
     ['Уровень', seller.kpiLevel || NA_TEXT],
     ['Премия', seller.bonusStatus === 'COMPLETE' ? formatMoney(seller.bonus) : NA_TEXT],
@@ -333,6 +514,12 @@ async function openSellerDetail(seller) {
     div.className = 'metric';
     div.innerHTML = `<small>${label}</small><strong>${value}</strong>`;
     metrics.append(div);
+  }
+  if (seller.missingFields && seller.missingFields.length > 0) {
+    const note = document.createElement('p');
+    note.className = 'field-help';
+    note.textContent = `Недостающие поля: ${seller.missingFields.map(russianMissingField).join(', ')}`;
+    metrics.append(note);
   }
   const store = selectedStoreId();
   const { year, month } = period();
@@ -359,8 +546,11 @@ async function openSellerDetail(seller) {
 function renderSellerCharts(rows) {
   const dates = rows.map(r => formatDate(r.shiftDate));
   renderLineChart('seller-chart-kpi', dates, [rows.map(r => r.metrics?.kpiScore)], ['KPI'], ['#205c46']);
-  renderLineChart('seller-chart-average', dates, [rows.map(r => r.metrics?.averageCheck)], ['Средний чек'], ['#a8641f']);
-  renderLineChart('seller-chart-revenue', dates, [rows.map(r => r.metrics?.revenue)], ['Выручка'], ['#205c46']);
+  renderLineChart('seller-chart-average', dates, [rows.map(r => r.metrics?.averageCheck)], ['Средний чек'], ['#a8641f'], formatMoneyAxis, formatMoney);
+  renderLineChart('seller-chart-items', dates, [rows.map(r => r.metrics?.itemsPerReceipt)], ['Товаров в чеке'], ['#205c46']);
+  renderLineChart('seller-chart-qr', dates, [rows.map(r => r.metrics?.qrShare)], ['Доля QR'], ['#205c46'], formatPercentAxis, formatPercent);
+  renderBarChart('seller-chart-revenue', dates, [{ label: 'Выручка', values: rows.map(r => r.metrics?.revenue), color: '#205c46' }], formatMoneyAxis);
+  renderLineChart('seller-chart-revenue-per-shift', dates, [rows.map(r => r.metrics?.revenue)], ['Выручка за смену'], ['#a8641f'], formatMoneyAxis, formatMoney);
 }
 
 function renderMonths(data) {
@@ -369,19 +559,30 @@ function renderMonths(data) {
   const body = element('months-table');
   body.replaceChildren();
   element('months-empty').hidden = data.items.some(m => m.dataStatus !== 'NO_DATA');
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
   const labels = [];
   const revenue = [];
   const plan = [];
   const average = [];
   for (const month of data.items) {
-    labels.push(MONTH_NAMES[month.month - 1]);
-    revenue.push(month.revenue);
-    plan.push(month.plan);
-    average.push(month.averageCheck);
+    const isCurrent = data.year === currentYear && month.month === currentMonth;
+    const label = isCurrent ? `${MONTH_NAMES[month.month - 1]} · Текущий месяц` : MONTH_NAMES[month.month - 1];
+    if (month.dataStatus !== 'NO_DATA') {
+      labels.push(label);
+      revenue.push(month.revenue);
+      plan.push(month.plan);
+      average.push(month.averageCheck);
+    }
     const row = document.createElement('tr');
-    appendCell(row, MONTH_NAMES[month.month - 1]);
+    if (isCurrent) row.classList.add('current-row');
+    appendCell(row, label);
     appendCell(row, formatMoney(month.plan), 'numeric');
     appendCell(row, formatMoney(month.revenue), 'numeric');
+    appendCell(row, isCurrent && month.forecast?.projectedRevenue !== null && month.forecast?.projectedRevenue !== undefined
+      ? formatMoney(month.forecast.projectedRevenue)
+      : '—', 'numeric');
     appendCell(row, formatPercent(month.planCompletion), 'numeric');
     appendCell(row, formatInteger(month.receipts), 'numeric');
     appendCell(row, formatMoney(month.averageCheck), 'numeric');
@@ -393,14 +594,17 @@ function renderMonths(data) {
     statusCell.innerHTML = `<span class="status-pill ${statusInfo.tone}">${statusInfo.label}</span>`;
     row.append(statusCell);
     const change = month.changeFromPreviousMonth;
-    appendCell(row, change === null ? '—' : `${change >= 0 ? '+' : ''}${formatMoney(change)}`, 'numeric');
+    const changeText = change === null
+      ? '—'
+      : `${change >= 0 ? '+' : ''}${formatMoney(change)}${isCurrent ? ' (месяц не завершён)' : ''}`;
+    appendCell(row, changeText, 'numeric');
     body.append(row);
   }
   renderBarChart('months-chart-revenue', labels, [
     { label: 'План', values: plan, color: '#cbd3ca' },
     { label: 'Факт', values: revenue, color: '#205c46' },
-  ]);
-  renderLineChart('months-chart-average', labels, [average], ['Средний чек'], ['#a8641f']);
+  ], formatMoneyAxis);
+  renderLineChart('months-chart-average', labels, [average], ['Средний чек'], ['#a8641f'], formatMoneyAxis, formatMoney);
 }
 
 async function loadMonths() {
@@ -420,6 +624,24 @@ function renderYear(data) {
   element('year-receipts').textContent = formatInteger(data.ytd.receipts);
   element('year-average-check').textContent = formatMoney(data.ytd.averageCheck);
   element('year-shifts').textContent = formatInteger(data.ytd.shiftsCount);
+
+  element('year-completed-revenue').textContent = formatMoney(data.ytdCompleted.revenue);
+  element('year-completed-plan').textContent = formatMoney(data.ytdCompleted.plan);
+  element('year-completed-completion').textContent = formatPercent(data.ytdCompleted.planCompletion);
+  element('year-completed-average-check').textContent = formatMoney(data.ytdCompleted.averageCheck);
+
+  const current = data.currentMonthSummary;
+  element('year-current-month-card').hidden = !current;
+  if (current) {
+    element('year-current-month-name').textContent = MONTH_NAMES[current.month - 1];
+    element('year-current-revenue').textContent = formatMoney(current.revenue);
+    element('year-current-plan').textContent = formatMoney(current.plan);
+    element('year-current-completion').textContent = formatPercent(current.planCompletion);
+    element('year-current-forecast').textContent = current.forecast?.projectedRevenue !== null
+      ? formatMoney(current.forecast.projectedRevenue)
+      : NA_TEXT;
+  }
+
   element('year-best-revenue').textContent = data.bests.revenue
     ? `${MONTH_NAMES[data.bests.revenue.month - 1]} · ${formatMoney(data.bests.revenue.revenue)}`
     : NA_TEXT;
@@ -433,6 +655,10 @@ function renderYear(data) {
     ? `${MONTH_NAMES[data.worsts.completion.month - 1]} · ${formatPercent(data.worsts.completion.planCompletion)}`
     : NA_TEXT;
   element('year-table-year-label').textContent = String(data.year);
+
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
   const body = element('year-months-table');
   body.replaceChildren();
   const labels = [];
@@ -442,13 +668,16 @@ function renderYear(data) {
   const changes = [];
   for (const month of data.months) {
     if (month.dataStatus === 'NO_DATA') continue;
-    labels.push(MONTH_NAMES[month.month - 1]);
+    const isCurrent = data.year === currentYear && month.month === currentMonth;
+    const label = isCurrent ? `${MONTH_NAMES[month.month - 1]} · Текущий месяц` : MONTH_NAMES[month.month - 1];
+    labels.push(label);
     revenue.push(month.revenue);
     plan.push(month.plan);
     average.push(month.averageCheck);
     changes.push(month.changeFromPreviousMonth || 0);
     const row = document.createElement('tr');
-    appendCell(row, MONTH_NAMES[month.month - 1]);
+    if (isCurrent) row.classList.add('current-row');
+    appendCell(row, label);
     appendCell(row, formatMoney(month.plan), 'numeric');
     appendCell(row, formatMoney(month.revenue), 'numeric');
     appendCell(row, formatPercent(month.planCompletion), 'numeric');
@@ -456,17 +685,17 @@ function renderYear(data) {
     appendCell(row, formatMoney(month.averageCheck), 'numeric');
     appendCell(row, formatInteger(month.shiftsCount), 'numeric');
     const change = month.changeFromPreviousMonth;
-    appendCell(row, change === null ? '—' : `${change >= 0 ? '+' : ''}${formatMoney(change)}`, 'numeric');
+    appendCell(row, change === null ? '—' : `${change >= 0 ? '+' : ''}${formatMoney(change)}${isCurrent ? ' (месяц не завершён)' : ''}`, 'numeric');
     body.append(row);
   }
   renderBarChart('year-chart-revenue', labels, [
     { label: 'План', values: plan, color: '#cbd3ca' },
     { label: 'Факт', values: revenue, color: '#205c46' },
-  ]);
-  renderLineChart('year-chart-average', labels, [average], ['Средний чек'], ['#a8641f']);
+  ], formatMoneyAxis);
+  renderLineChart('year-chart-average', labels, [average], ['Средний чек'], ['#a8641f'], formatMoneyAxis, formatMoney);
   renderBarChart('year-chart-mom', labels, [
     { label: 'Δ к прошлому месяцу', values: changes, color: '#205c46' },
-  ]);
+  ], formatMoneyAxis);
 }
 
 async function loadYear() {
@@ -487,18 +716,48 @@ function renderBonuses(data) {
   for (const item of data.items) {
     const row = document.createElement('tr');
     appendCell(row, item.employeeName || NA_TEXT);
-    appendCell(row, formatInteger(item.shiftsCount), 'numeric');
-    appendCell(row, item.bonusDetails
-      ? formatInteger(item.bonusDetails.shiftCoefficient === null ? null : Math.round(state.settings?.targets?.sellerShifts || 0))
-      : NA_TEXT, 'numeric');
-    appendCell(row, item.bonusDetails ? formatNumber(item.bonusDetails.shiftCoefficient) : NA_TEXT, 'numeric');
     appendCell(row, kpiLabel(item.averageKpi, item.kpiLevel), 'numeric');
     appendCell(row, item.kpiLevel || NA_TEXT);
     appendCell(row, item.bonusDetails ? formatMoney(item.bonusDetails.bonusBase) : NA_TEXT, 'numeric');
+    appendCell(row, item.bonusDetails
+      ? `${formatInteger(item.shiftsCount)} / ${formatInteger(item.bonusDetails.shiftNorm)}`
+      : NA_TEXT, 'numeric');
+    appendCell(row, item.bonusDetails ? formatNumber(item.bonusDetails.shiftCoefficient) : NA_TEXT, 'numeric');
     appendCell(row, formatPercent(item.qrShare), 'numeric');
     appendCell(row, item.bonusDetails ? formatNumber(item.bonusDetails.qrCoefficient) : NA_TEXT, 'numeric');
-    appendCell(row, data.planCompletion !== null && data.planCompletion >= 1 ? 'Да' : 'Нет');
     appendCell(row, item.bonusStatus === 'COMPLETE' ? formatMoney(item.bonus) : NA_TEXT, 'numeric');
+
+    const detailsCell = document.createElement('td');
+    detailsCell.className = 'action-column';
+    if (item.bonusDetails) {
+      const formula = `${formatMoney(item.bonusDetails.bonusBase)} × ${formatNumber(item.bonusDetails.shiftCoefficient)} × ${formatNumber(item.bonusDetails.qrCoefficient)} = ${formatMoney(item.bonus)}`;
+      const expand = document.createElement('button');
+      expand.type = 'button';
+      expand.className = 'table-button';
+      expand.textContent = 'Подробнее';
+      expand.addEventListener('click', () => {
+        const existing = row.nextElementSibling;
+        if (existing?.classList.contains('bonus-details-row')) {
+          existing.remove();
+          return;
+        }
+        const detailsRow = document.createElement('tr');
+        detailsRow.className = 'bonus-details-row';
+        const details = document.createElement('td');
+        details.colSpan = 10;
+        details.className = 'bonus-formula';
+        details.textContent = formula;
+        detailsRow.append(details);
+        row.after(detailsRow);
+      });
+      detailsCell.append(expand);
+    } else {
+      detailsCell.textContent = 'Расчёт недоступен';
+      if (item.missingFields?.length) {
+        detailsCell.title = `Недостающие поля: ${item.missingFields.map(russianMissingField).join(', ')}`;
+      }
+    }
+    row.append(detailsCell);
     body.append(row);
   }
 }
@@ -507,9 +766,15 @@ async function loadBonuses() {
   const store = selectedStoreId();
   if (!store) return;
   const { year, month } = period();
-  renderBonuses(await api(
-    `/api/business-kpi/bonuses?store=${encodeURIComponent(store)}&year=${year}&month=${month}`
-  ));
+  const [bonuses, dashboard] = await Promise.all([
+    api(`/api/business-kpi/bonuses?store=${encodeURIComponent(store)}&year=${year}&month=${month}`),
+    api(`/api/business-kpi/dashboard?store=${encodeURIComponent(store)}&year=${year}&month=${month}`),
+  ]);
+  const missingFieldsByEmployee = new Map((dashboard.sellers || []).map(s => [s.employeeId, s.missingFields || []]));
+  for (const item of bonuses.items) {
+    item.missingFields = missingFieldsByEmployee.get(item.employeeId) || [];
+  }
+  renderBonuses(bonuses);
 }
 
 function renderSettings(record) {
@@ -919,6 +1184,9 @@ async function renderRoute() {
   element('year-filter-field').hidden = routeId !== 'year' && routeId !== 'months';
   element('seller-detail-card').hidden = true;
   try {
+    if (routeId === 'dashboard' || routeId === 'sellers' || routeId === 'bonuses') {
+      await loadEffectiveSettings();
+    }
     if (routeId === 'dashboard') await loadDashboard();
     if (routeId === 'shifts') await loadShifts();
     if (routeId === 'months') await loadMonths();
@@ -1293,23 +1561,7 @@ function populateYearFilter() {
   }
 }
 
-function renderChart(containerId, days, valueKey, planKey, planValue) {
-  const container = element(containerId);
-  if (!container || days.length === 0) {
-    if (container) container.innerHTML = '<p class="empty-copy">Нет данных для графика.</p>';
-    return;
-  }
-  const labels = days.map(d => d.date.slice(8, 10));
-  const values = days.map(d => d[valueKey] || 0);
-  let cumulative = 0;
-  const cumulativeValues = values.map(v => { cumulative += v; return cumulative; });
-  const planValues = planValue !== null && planValue !== undefined
-    ? days.map((_, i) => (planValue / days.length) * (i + 1))
-    : [];
-  renderLineChart(containerId, labels, [values, cumulativeValues, planValues], ['Выручка', 'Накопительный факт', 'Накопительный план'], ['#205c46', '#a8641f', '#cbd3ca']);
-}
-
-function renderLineChart(containerId, labels, series, names, colors) {
+function renderLineChart(containerId, labels, series, names, colors, axisFormatter = null, tooltipFormatter = null) {
   const container = element(containerId);
   if (!container) return;
   if (!labels.length) {
@@ -1320,8 +1572,14 @@ function renderLineChart(containerId, labels, series, names, colors) {
   const height = 240;
   const padding = { top: 20, right: 20, bottom: 40, left: 50 };
   const allValues = series.flat().filter(v => v !== null && v !== undefined);
-  const max = allValues.length ? Math.max(...allValues) : 0;
-  const min = 0;
+  const formatter = axisFormatter || ((v) => formatNumber(v));
+  const tipFormatter = tooltipFormatter || ((v) => formatNumber(v));
+  let max = allValues.length ? Math.max(...allValues) : 0;
+  let min = Math.min(0, ...allValues);
+  if (allValues.length && max === min) {
+    max = max * 1.2 || 1;
+    min = min * 0.8;
+  }
   const range = max - min || 1;
   const xStep = (width - padding.left - padding.right) / (labels.length - 1 || 1);
   const yScale = (height - padding.top - padding.bottom) / range;
@@ -1346,7 +1604,7 @@ function renderLineChart(containerId, labels, series, names, colors) {
     text.setAttribute('text-anchor', 'end');
     text.setAttribute('font-size', '10');
     text.setAttribute('fill', '#68736f');
-    text.textContent = formatMoney(value).replace(' ₽', '');
+    text.textContent = formatter(value);
     svg.append(text);
   }
   for (let i = 0; i < labels.length; i += Math.max(1, Math.floor(labels.length / 8))) {
@@ -1373,6 +1631,19 @@ function renderLineChart(containerId, labels, series, names, colors) {
     path.setAttribute('stroke-width', idx === 0 ? '2' : '1.5');
     path.setAttribute('stroke-dasharray', idx === 2 ? '4 2' : '');
     svg.append(path);
+
+    for (let i = 0; i < serie.length; i += 1) {
+      if (serie[i] === null || serie[i] === undefined) continue;
+      const point = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      point.setAttribute('cx', x(i));
+      point.setAttribute('cy', y(serie[i]));
+      point.setAttribute('r', 3);
+      point.setAttribute('fill', colors[idx] || '#205c46');
+      const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+      title.textContent = `${labels[i]}: ${tipFormatter(serie[i])}`;
+      point.append(title);
+      svg.append(point);
+    }
   });
   const legend = document.createElementNS('http://www.w3.org/2000/svg', 'g');
   names.forEach((name, idx) => {
@@ -1397,7 +1668,7 @@ function renderLineChart(containerId, labels, series, names, colors) {
   container.replaceChildren(svg);
 }
 
-function renderBarChart(containerId, labels, series) {
+function renderBarChart(containerId, labels, series, axisFormatter = null) {
   const container = element(containerId);
   if (!container) return;
   if (!labels.length) {
@@ -1408,8 +1679,13 @@ function renderBarChart(containerId, labels, series) {
   const height = 240;
   const padding = { top: 20, right: 20, bottom: 40, left: 50 };
   const allValues = series.flatMap(s => s.values).filter(v => v !== null && v !== undefined);
-  const max = allValues.length ? Math.max(...allValues) : 0;
-  const min = Math.min(0, ...allValues);
+  const formatter = axisFormatter || ((v) => formatMoney(v).replace(' ₽', ''));
+  let max = allValues.length ? Math.max(...allValues) : 0;
+  let min = Math.min(0, ...allValues);
+  if (allValues.length && max === min) {
+    max = max * 1.2 || 1;
+    min = min * 0.8;
+  }
   const range = max - min || 1;
   const plotWidth = width - padding.left - padding.right;
   const plotHeight = height - padding.top - padding.bottom;
@@ -1437,7 +1713,7 @@ function renderBarChart(containerId, labels, series) {
     text.setAttribute('text-anchor', 'end');
     text.setAttribute('font-size', '10');
     text.setAttribute('fill', '#68736f');
-    text.textContent = formatMoney(value).replace(' ₽', '');
+    text.textContent = formatter(value);
     svg.append(text);
   }
   for (let i = 0; i < labels.length; i += 1) {
@@ -1462,6 +1738,9 @@ function renderBarChart(containerId, labels, series) {
       bar.setAttribute('height', Math.abs(zeroY - by));
       bar.setAttribute('fill', serie.color);
       bar.setAttribute('rx', 2);
+      const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+      title.textContent = `${labels[i]}: ${formatMoney(value)}`;
+      bar.append(title);
       svg.append(bar);
     });
   });

@@ -122,6 +122,23 @@ function aggregateMonth(shifts, options) {
   });
 }
 
+function sellerMissingFields(group) {
+  const missing = [];
+  if (group.shifts.some(item => item.shift.itemsSold === null || item.shift.itemsSold === undefined)) {
+    missing.push('itemsSold');
+  }
+  if (group.shifts.some(item => item.shift.upsellReceipts === null || item.shift.upsellReceipts === undefined)) {
+    missing.push('upsellReceipts');
+  }
+  if (group.shifts.some(item => item.shift.treatsRevenue === null || item.shift.treatsRevenue === undefined)) {
+    missing.push('treatsRevenue');
+  }
+  if (group.shifts.some(item => item.shift.treatsReceipts === null || item.shift.treatsReceipts === undefined)) {
+    missing.push('treatsReceipts');
+  }
+  return missing;
+}
+
 function aggregateSellers(monthAggregate, settings) {
   const grouped = new Map();
   for (const item of monthAggregate.calculatedShifts) {
@@ -143,6 +160,7 @@ function aggregateSellers(monthAggregate, settings) {
     );
     const itemsSold = sumNullableInteger(group.shifts, item => item.shift.itemsSold);
     const qr = sumNullableMoney(group.shifts, item => item.shift.qr, 'qr');
+    const missingFields = sellerMissingFields(group);
     const kpiComplete = Boolean(settings) && group.shifts.every(
       item => item.metrics.kpiScore !== null
     );
@@ -185,10 +203,12 @@ function aggregateSellers(monthAggregate, settings) {
       bonusDetails: kpiComplete ? Object.freeze({
         bonusBase: level.bonusBase,
         shiftCoefficient,
+        shiftNorm: settings.targets.sellerShifts,
         qrCoefficient: appliedQrCoefficient,
       }) : null,
+      missingFields,
     });
-  }).sort((left, right) => right.revenue - left.revenue);
+  }).sort((left, right) => right.revenuePerShift - left.revenuePerShift);
 }
 
 function aggregateDays(monthAggregate) {

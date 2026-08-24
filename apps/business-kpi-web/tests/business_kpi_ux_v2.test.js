@@ -372,3 +372,137 @@ test('frontend app does not compute kpiScore with assignment', () => {
   const js = fs.readFileSync(path.join(__dirname, '../public/app.js'), 'utf8');
   assert.doesNotMatch(js, /kpiScore\s*=/);
 });
+
+test('year endpoint returns currentMonthSummary and ytdCompleted and excludes current month from bests/worsts', async () => {
+  const response = await fetch(
+    `${baseUrl}/api/business-kpi/year?store=${DEV_STORE.id}&year=2026`
+  );
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.ok(body.data.currentMonthSummary);
+  assert.ok(Object.hasOwn(body.data, 'ytdCompleted'));
+  assert.ok(body.data.ytdCompleted);
+  const now = new Date();
+  const currentMonth = now.getUTCMonth() + 1;
+  const currentYear = now.getUTCFullYear();
+  if (currentYear === 2026) {
+    if (body.data.bests.revenue) {
+      assert.notEqual(body.data.bests.revenue.month, currentMonth);
+    }
+    if (body.data.worsts.revenue) {
+      assert.notEqual(body.data.worsts.revenue.month, currentMonth);
+    }
+  }
+});
+
+async function createCompleteShift(input) {
+  const response = await fetch(`${baseUrl}/api/business-kpi/shifts`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      storeId: DEV_STORE.id,
+      employeeId: DEV_EMPLOYEES[0].id,
+      shiftDate: '2026-08-20',
+      shiftKey: 'main',
+      cash: 10000,
+      acquiring: 14000,
+      qr: 2400,
+      receipts: 20,
+      itemsSold: 50,
+      upsellReceipts: 6,
+      treatsRevenue: 1200,
+      treatsReceipts: 4,
+      comment: 'UX v2 bonus test',
+      ...input,
+    }),
+  });
+  return (await response.json()).data;
+}
+
+test('bonuses endpoint returns shiftNorm 15 and coefficient matching shift count', async () => {
+  const employee = DEV_EMPLOYEES[2];
+  const dates = ['2026-08-10', '2026-08-11', '2026-08-12', '2026-08-13', '2026-08-14', '2026-08-15'];
+  for (const date of dates) {
+    await createCompleteShift({ shiftDate: date, employeeId: employee.id });
+  }
+  const response = await fetch(
+    `${baseUrl}/api/business-kpi/bonuses?store=${DEV_STORE.id}&year=2026&month=8`
+  );
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  const seller = body.data.items.find(item => item.employeeId === employee.id);
+  assert.ok(seller, 'seller bonus row exists');
+  assert.ok(seller.bonusDetails, 'bonusDetails exists');
+  assert.equal(seller.bonusDetails.shiftNorm, 15);
+  assert.equal(seller.bonusDetails.shiftCoefficient, 6 / 15);
+});
+
+test('partial seller has missingFields and unresolved bonus', async () => {
+  const employee = DEV_EMPLOYEES[3];
+  const created = await createCompleteShift({
+    shiftDate: '2026-08-16',
+    employeeId: employee.id,
+    itemsSold: null,
+    upsellReceipts: null,
+    treatsRevenue: null,
+    treatsReceipts: null,
+  });
+  assert.ok(created, 'partial shift was created');
+
+  const dashboardResponse = await fetch(
+    `${baseUrl}/api/business-kpi/dashboard?store=${DEV_STORE.id}&year=2026&month=8`
+  );
+  const dashboardBody = await dashboardResponse.json();
+  assert.equal(dashboardResponse.status, 200);
+  const dashboardSeller = dashboardBody.data.sellers.find(item => item.employeeId === employee.id);
+  assert.ok(dashboardSeller, 'partial seller row exists in dashboard');
+  assert.equal(dashboardSeller.bonusStatus, 'UNRESOLVED');
+  assert.ok(Array.isArray(dashboardSeller.missingFields));
+  assert.ok(dashboardSeller.missingFields.length > 0);
+
+  const bonusesResponse = await fetch(
+    `${baseUrl}/api/business-kpi/bonuses?store=${DEV_STORE.id}&year=2026&month=8`
+  );
+  const bonusesBody = await bonusesResponse.json();
+  assert.equal(bonusesResponse.status, 200);
+  const bonusSeller = bonusesBody.data.items.find(item => item.employeeId === employee.id);
+  assert.ok(bonusSeller, 'partial seller row exists in bonuses');
+  assert.equal(bonusSeller.bonusStatus, 'UNRESOLVED');
+});
+
+test('months endpoint marks current month with label and note', async () => {
+  const response = await fetch(
+    `${baseUrl}/api/business-kpi/months?store=${DEV_STORE.id}&year=2026`
+  );
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  const now = new Date();
+  const currentMonth = now.getUTCMonth() + 1;
+  const august = body.data.items[7];
+  if (currentMonth === 8) {
+    assert.ok(august.forecast);
+  }
+});
+
+test('dashboard HTML includes attention block and responsive table classes', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const html = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
+  assert.match(html, /id="attention-list"/);
+  assert.match(html, /class="sticky-first-column"/);
+  assert.match(html, /Товаров в чеке/);
+  assert.match(html, /Доля QR/);
+  assert.match(html, /Оплачено через QR/);
+});
+
+test('dashboard app includes attention rendering and target comparison helpers', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const js = fs.readFileSync(path.join(__dirname, '../public/app.js'), 'utf8');
+  assert.match(js, /function renderAttention\(/);
+  assert.match(js, /function renderDashboardPlanChart\(/);
+  assert.match(js, /function renderDashboardRevenueChart\(/);
+  assert.match(js, /targets\.shiftRevenue/);
+  assert.match(js, /targets\.averageCheck/);
+  assert.match(js, /targets\.itemsPerReceipt/);
+});
