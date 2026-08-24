@@ -55,6 +55,7 @@ test('migration files are ordered and checksummed deterministically', () => {
     '001_initial_schema.up.sql',
     '002_historical_xlsx_import.up.sql',
     '003_auth_sessions.up.sql',
+    '004_auth_sessions_privileges.up.sql',
   ]);
   assert.equal(computeChecksum(sql), computeChecksum(sql));
   assert.equal(computeChecksum(sql).length, 64);
