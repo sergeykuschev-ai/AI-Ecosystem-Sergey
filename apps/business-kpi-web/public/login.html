@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Вход в Business Portal МИСКА">
+    <title>МИСКА · Вход</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/login.js" defer></script>
+  </head>
+  <body class="login-page">
+    <main class="login-card">
+      <div class="login-brand">
+        <span class="brand-mark"><img src="/assets/miska-logo.jpg" alt="МИСКА" class="brand-logo-img"></span>
+        <div>
+          <strong>МИСКА</strong>
+          <small>Business Portal</small>
+        </div>
+      </div>
+      <h1>Вход в портал</h1>
+      <form id="login-form" novalidate>
+        <label class="login-field">
+          Логин
+          <input id="login-external-id" type="text" autocomplete="username" required autofocus>
+        </label>
+        <label class="login-field">
+          Пароль
+          <input id="login-password" type="password" autocomplete="current-password" required>
+        </label>
+        <p class="inline-error" id="login-error" role="alert" hidden></p>
+        <button class="primary-button login-button" type="submit" id="login-submit">Войти</button>
+      </form>
+    </main>
+  </body>
+</html>

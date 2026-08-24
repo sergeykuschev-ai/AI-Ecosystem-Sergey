@@ -615,3 +615,78 @@ dialog::backdrop { background: rgba(11, 27, 21, 0.55); backdrop-filter: blur(3px
   .sticky-first-column td:first-child,
   .action-column { position: static; box-shadow: none; }
 }
+
+/* Login page */
+.login-page {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  background: var(--surface-muted);
+  padding: 24px;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 380px;
+  padding: 36px;
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.login-brand .brand-mark {
+  width: 54px;
+  height: 54px;
+  border-radius: 14px;
+}
+
+.login-brand .brand-logo-img {
+  max-height: 54px;
+}
+
+.login-brand strong {
+  font-size: 22px;
+  color: var(--brand-primary-dark);
+}
+
+.login-brand small {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.login-card h1 {
+  margin: 0 0 24px;
+  font-size: 20px;
+  color: var(--text-primary);
+}
+
+.login-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.login-button {
+  width: 100%;
+  margin-top: 8px;
+}
+
+#logout-button {
+  margin-left: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  min-height: 30px;
+}

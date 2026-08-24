@@ -50,16 +50,79 @@ const state = {
   today: null,
   settings: null,
   selectedSeller: null,
+  currentUser: null,
 };
 
 function element(id) { return document.getElementById(id); }
 
+function parseCookies(header) {
+  const cookies = Object.create(null);
+  if (!header) return cookies;
+  for (const part of header.split(';')) {
+    const [name, ...rest] = part.trim().split('=');
+    if (name) cookies[name] = decodeURIComponent(rest.join('='));
+  }
+  return cookies;
+}
+
+function csrfToken() {
+  return parseCookies(document.cookie)['business_kpi_csrf'] || '';
+}
+
+function roleLabel(role) {
+  return { OWNER: 'Владелец', MANAGER: 'Менеджер', SELLER: 'Продавец' }[role] || role;
+}
+
+function canViewRoute(route) {
+  const role = state.currentUser?.role;
+  if (role === 'OWNER') return true;
+  if (role === 'MANAGER') {
+    return !['settings'].includes(route);
+  }
+  if (role === 'SELLER') {
+    return ['dashboard', 'shifts', 'months', 'year', 'sellers', 'bonuses'].includes(route);
+  }
+  return false;
+}
+
+function canCreateShift() {
+  const role = state.currentUser?.role;
+  return role === 'OWNER' || role === 'MANAGER' || role === 'SELLER';
+}
+
+function canEditShift(shift) {
+  const role = state.currentUser?.role;
+  if (role === 'OWNER' || role === 'MANAGER') return true;
+  if (role !== 'SELLER') return false;
+  if (!shift) return true;
+  if (shift.source !== 'web_manual') return false;
+  return shift.employeeId === state.currentUser?.employeeId;
+}
+
+function canArchiveShift(shift) {
+  const role = state.currentUser?.role;
+  if (role === 'OWNER' || role === 'MANAGER') return true;
+  if (role !== 'SELLER') return false;
+  if (!shift || shift.source !== 'web_manual') return false;
+  return shift.employeeId === state.currentUser?.employeeId;
+}
+
 async function api(path, options = {}) {
   const isFormData = options.body instanceof FormData;
+  const isStateChanging = options.method && options.method !== 'GET' && options.method !== 'HEAD';
+  const headers = {
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+    ...(isStateChanging && !isFormData ? { 'x-csrf-token': csrfToken() } : {}),
+    ...(options.headers || {}),
+  };
   const response = await fetch(path, {
-    headers: { ...(isFormData ? {} : { 'Content-Type': 'application/json' }), ...(options.headers || {}) },
+    headers,
     ...options,
   });
+  if (response.status === 401 && !path.includes('/auth/')) {
+    window.location.replace('/login.html');
+    return null;
+  }
   const body = await response.json();
   if (!response.ok) {
     const error = new Error(body.error?.message || 'Не удалось выполнить запрос.');
@@ -326,7 +389,8 @@ function renderDashboardSellers(items) {
     appendCell(row, formatNumber(seller.itemsPerReceipt), 'numeric');
     appendCell(row, formatPercent(seller.qrShare), 'numeric');
     appendCell(row, kpiLabel(seller.averageKpi, seller.kpiLevel));
-    appendCell(row, seller.bonusStatus === 'COMPLETE' ? formatMoney(seller.bonus) : NA_TEXT, 'numeric');
+    appendCell(row, seller.bonusStatus === 'COMPLETE' ? formatMoney(seller.bonus)
+      : (seller.bonusStatus === 'ACCESS_DENIED' ? 'Недоступно' : NA_TEXT), 'numeric');
     if (seller.missingFields && seller.missingFields.length > 0) {
       row.title = `Недостающие поля: ${seller.missingFields.map(russianMissingField).join(', ')}`;
     }
@@ -505,7 +569,8 @@ function renderSellers(items) {
     appendCell(row, formatPercent(seller.qrShare), 'numeric');
     appendCell(row, kpiLabel(seller.averageKpi, seller.kpiLevel));
     appendCell(row, seller.kpiLevel || NA_TEXT);
-    appendCell(row, seller.bonusStatus === 'COMPLETE' ? formatMoney(seller.bonus) : NA_TEXT, 'numeric');
+    appendCell(row, seller.bonusStatus === 'COMPLETE' ? formatMoney(seller.bonus)
+      : (seller.bonusStatus === 'ACCESS_DENIED' ? 'Недоступно' : NA_TEXT), 'numeric');
     if (seller.missingFields && seller.missingFields.length > 0) {
       row.title = `Недостающие поля: ${seller.missingFields.map(russianMissingField).join(', ')}`;
     }
@@ -535,7 +600,8 @@ async function openSellerDetail(seller) {
     ['Доля QR', formatPercent(seller.qrShare)],
     ['KPI', kpiLabel(seller.averageKpi, seller.kpiLevel)],
     ['Уровень', seller.kpiLevel || NA_TEXT],
-    ['Премия', seller.bonusStatus === 'COMPLETE' ? formatMoney(seller.bonus) : NA_TEXT],
+    ['Премия', seller.bonusStatus === 'COMPLETE' ? formatMoney(seller.bonus)
+      : (seller.bonusStatus === 'ACCESS_DENIED' ? 'Недоступно' : NA_TEXT)],
   ];
   for (const [label, value] of metricItems) {
     const div = document.createElement('div');
@@ -753,11 +819,14 @@ function renderBonuses(data) {
     appendCell(row, item.bonusDetails ? formatNumber(item.bonusDetails.shiftCoefficient) : NA_TEXT, 'numeric');
     appendCell(row, formatPercent(item.qrShare), 'numeric');
     appendCell(row, item.bonusDetails ? formatNumber(item.bonusDetails.qrCoefficient) : NA_TEXT, 'numeric');
-    appendCell(row, item.bonusStatus === 'COMPLETE' ? formatMoney(item.bonus) : NA_TEXT, 'numeric');
+    appendCell(row, item.bonusStatus === 'COMPLETE' ? formatMoney(item.bonus)
+      : (item.bonusStatus === 'ACCESS_DENIED' ? 'Недоступно' : NA_TEXT), 'numeric');
 
     const detailsCell = document.createElement('td');
     detailsCell.className = 'action-column';
-    if (item.bonusDetails) {
+    if (item.bonusStatus === 'ACCESS_DENIED') {
+      detailsCell.textContent = 'Нет доступа';
+    } else if (item.bonusDetails) {
       const formula = `${formatMoney(item.bonusDetails.bonusBase)} × ${formatNumber(item.bonusDetails.shiftCoefficient)} × ${formatNumber(item.bonusDetails.qrCoefficient)} = ${formatMoney(item.bonus)}`;
       const expand = document.createElement('button');
       expand.type = 'button';
@@ -1196,6 +1265,10 @@ async function saveSettings(event) {
 
 async function renderRoute() {
   const routeId = selectedRoute();
+  if (!canViewRoute(routeId)) {
+    window.location.hash = '#dashboard';
+    return;
+  }
   const [title, description] = ROUTES[routeId];
   element('page-title').textContent = title;
   element('page-description').textContent = description;
@@ -1207,7 +1280,8 @@ async function renderRoute() {
   });
   document.querySelectorAll('.route-panel').forEach(panel => { panel.hidden = true; });
   document.querySelector(`[data-panel="${routeId}"]`).hidden = false;
-  element('open-shift-form').hidden = routeId !== 'dashboard' && routeId !== 'shifts';
+  element('open-shift-form').hidden =
+    (routeId !== 'dashboard' && routeId !== 'shifts') || !canCreateShift();
   element('month-filter-field').hidden = routeId === 'year';
   element('year-filter-field').hidden = routeId !== 'year' && routeId !== 'months';
   element('seller-detail-card').hidden = true;
@@ -1359,7 +1433,9 @@ function openShiftDialog(shift = null) {
   for (const id of ['shift-cash', 'shift-acquiring', 'shift-qr']) {
     element(id).readOnly = historical;
   }
-  element('archive-shift').hidden = !shift;
+  element('archive-shift').hidden = !canArchiveShift(shift);
+  element('save-shift').hidden = shift ? !canEditShift(shift) : !canCreateShift();
+  element('shift-employee').disabled = Boolean(shift);
   setFormValue('shift-date', shift?.shiftDate || new Date().toISOString().slice(0, 10));
   setFormValue('shift-store', shift?.storeId || selectedStoreId());
   setFormValue('shift-employee', shift?.employeeId || state.employees[0]?.id);
@@ -1794,12 +1870,49 @@ function renderBarChart(containerId, labels, series, axisFormatter = null) {
   container.replaceChildren(svg);
 }
 
+function renderUserProfile() {
+  const user = state.currentUser;
+  const profile = element('user-profile');
+  if (!user) {
+    profile.hidden = true;
+    return;
+  }
+  element('user-name').textContent = user.displayName || user.externalId;
+  element('user-role').textContent = roleLabel(user.role);
+  element('user-avatar').textContent = (user.displayName || user.externalId || '?').slice(0, 1).toUpperCase();
+  profile.hidden = false;
+}
+
+function renderSidebar() {
+  document.querySelectorAll('[data-route]').forEach(link => {
+    const route = link.dataset.route;
+    link.hidden = !canViewRoute(route);
+  });
+}
+
+async function logout() {
+  try {
+    await api('/api/business-kpi/auth/logout', { method: 'POST' });
+  } catch {
+    // ignore
+  }
+  window.location.replace('/login.html');
+}
+
 async function initialize() {
   const now = new Date();
   element('period-filter').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   populateYearFilter();
   document.title = `${BUSINESS_CONTEXT.name} · ${BUSINESS_CONTEXT.moduleName}`;
   try {
+    const user = await api('/api/business-kpi/auth/me');
+    if (!user) {
+      window.location.replace('/login.html');
+      return;
+    }
+    state.currentUser = user.user;
+    renderUserProfile();
+    renderSidebar();
     const health = await api('/health');
     const runtime = element('runtime-mode');
     const runtimeNote = element('runtime-note');
@@ -1873,4 +1986,5 @@ element('commit-import').addEventListener('click', commitImport);
 element('export-month').addEventListener('click', exportSelectedMonth);
 element('close-shift-summary').addEventListener('click', () => element('shift-summary-dialog').close());
 element('shift-summary-ok').addEventListener('click', () => element('shift-summary-dialog').close());
+element('logout-button').addEventListener('click', logout);
 initialize();

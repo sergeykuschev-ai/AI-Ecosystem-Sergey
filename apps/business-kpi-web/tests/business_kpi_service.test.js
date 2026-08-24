@@ -102,7 +102,7 @@ test('archive is owner-only, excludes shift from dashboard, and writes audit', a
   const created = await service.createShift(shiftInput(), OWNER);
 
   await assert.rejects(
-    () => service.archiveShift(created.id, MANAGER),
+    () => service.archiveShift(created.id, { id: 'seller-1', role: 'SELLER' }),
     error => error.code === 'FORBIDDEN'
   );
   await service.archiveShift(created.id, OWNER, { reason: 'Дубль' });

@@ -4,7 +4,10 @@ const crypto = require('node:crypto');
 const Busboy = require('busboy');
 
 const { ApplicationError } = require('../application/application_error');
+const { PERMISSIONS } = require('../application/permissions');
+const { SESSION_TTL_MS } = require('../application/auth_service');
 const { sendApiError, sendJson } = require('./responses');
+const { createAuthMiddleware } = require('./auth_middleware');
 
 const SHIFT_ROUTE = /^\/api\/business-kpi\/shifts\/([0-9a-f-]{36})$/i;
 const PLAN_ROUTE = /^\/api\/business-kpi\/plans\/(\d{4})\/(\d{1,2})$/;
@@ -190,12 +193,16 @@ function readXlsxMultipart(request) {
 
 function createRouter(options) {
   const {
+    authService,
     businessKpiService,
     workbookImportService,
     devMode,
+    cookieSecure,
     healthService,
     staticHandler,
   } = options;
+
+  const auth = createAuthMiddleware({ authService, devMode, cookieSecure });
 
   return async function route(request, response) {
     const requestId = crypto.randomUUID();
@@ -215,8 +222,48 @@ function createRouter(options) {
         return;
       }
 
+      if (request.method === 'POST' && url.pathname === '/api/business-kpi/auth/login') {
+        const body = await readJson(request);
+        if (!body.externalId || !body.password) {
+          throw new ApplicationError('VALIDATION_ERROR', 'Логин и пароль обязательны.', 422);
+        }
+        const { token, user } = await authService.authenticate({
+          externalId: body.externalId,
+          password: body.password,
+          ipAddress: request.socket?.remoteAddress,
+          userAgent: request.headers['user-agent'],
+        });
+        const csrfToken = auth.generateCsrfToken();
+        auth.setSessionCookies(response, token, csrfToken, SESSION_TTL_MS);
+        success(response, { user, csrfToken });
+        return;
+      }
+
+      if (request.method === 'POST' && url.pathname === '/api/business-kpi/auth/logout') {
+        const cookies = auth.parseCookies(request.headers.cookie);
+        await authService.logout(cookies[auth.SESSION_COOKIE]);
+        auth.clearSessionCookies(response);
+        success(response, { loggedOut: true });
+        return;
+      }
+
+      if (request.method === 'GET' && url.pathname === '/api/business-kpi/auth/me') {
+        const actor = await auth.requireActor(request);
+        success(response, { user: {
+          id: actor.id,
+          externalId: actor.externalId,
+          displayName: actor.displayName,
+          role: actor.role,
+          storeId: actor.storeId,
+          employeeId: actor.employeeId || null,
+        }});
+        return;
+      }
+
       if (request.method === 'GET' &&
           url.pathname === '/api/business-kpi/reference-data') {
+        const actor = await auth.requireActor(request);
+        auth.requirePermission(actor, PERMISSIONS.DASHBOARD_READ);
         success(
           response,
           await businessKpiService.getReferenceData(url.searchParams.get('store'))
@@ -226,6 +273,8 @@ function createRouter(options) {
 
       if (url.pathname === '/api/business-kpi/shifts') {
         if (request.method === 'GET') {
+          const actor = await auth.requireActor(request);
+          auth.requirePermission(actor, PERMISSIONS.SHIFTS_READ);
           success(response, {
             items: await businessKpiService.listShifts(shiftFilters(url)),
           });
@@ -233,7 +282,8 @@ function createRouter(options) {
         }
         if (request.method === 'POST') {
           const body = await readJson(request);
-          const actor = actorFromRequest(request, devMode);
+          auth.validateCsrf(request);
+          const actor = await auth.requireActor(request);
           const created = await businessKpiService.createShift(body, actor, {
             correlationId: requestId,
             reason: request.headers['x-change-reason'],
@@ -249,11 +299,14 @@ function createRouter(options) {
       if (shiftMatch) {
         const shiftId = shiftMatch[1];
         if (request.method === 'GET') {
+          const actor = await auth.requireActor(request);
+          auth.requirePermission(actor, PERMISSIONS.SHIFTS_READ);
           success(response, await businessKpiService.getShift(shiftId));
           return;
         }
         if (request.method === 'PATCH') {
-          const actor = actorFromRequest(request, devMode);
+          auth.validateCsrf(request);
+          const actor = await auth.requireActor(request);
           success(response, await businessKpiService.updateShift(
             shiftId,
             await readJson(request),
@@ -266,7 +319,8 @@ function createRouter(options) {
           return;
         }
         if (request.method === 'DELETE') {
-          const actor = actorFromRequest(request, devMode);
+          auth.validateCsrf(request);
+          const actor = await auth.requireActor(request);
           success(response, await businessKpiService.archiveShift(
             shiftId,
             actor,
@@ -281,6 +335,8 @@ function createRouter(options) {
 
       if (request.method === 'GET' &&
           url.pathname === '/api/business-kpi/dashboard') {
+        const actor = await auth.requireActor(request);
+        auth.requirePermission(actor, PERMISSIONS.DASHBOARD_READ);
         const period = periodFromUrl(url);
         if (!period.storeId) {
           throw new ApplicationError(
@@ -289,12 +345,14 @@ function createRouter(options) {
             422
           );
         }
-        success(response, await businessKpiService.getDashboard(period));
+        success(response, await businessKpiService.getDashboard(period, actor));
         return;
       }
 
       if (request.method === 'GET' &&
           url.pathname === '/api/business-kpi/today') {
+        const actor = await auth.requireActor(request);
+        auth.requirePermission(actor, PERMISSIONS.DASHBOARD_READ);
         const storeId = url.searchParams.get('store');
         if (!storeId) {
           throw new ApplicationError(
@@ -309,6 +367,8 @@ function createRouter(options) {
 
       if (request.method === 'GET' &&
           url.pathname === '/api/business-kpi/months') {
+        const actor = await auth.requireActor(request);
+        auth.requirePermission(actor, PERMISSIONS.MONTHS_READ);
         const storeId = url.searchParams.get('store');
         const year = positiveInteger(url.searchParams.get('year'), 'year', {
           min: 2000,
@@ -331,6 +391,8 @@ function createRouter(options) {
 
       if (request.method === 'GET' &&
           url.pathname === '/api/business-kpi/year') {
+        const actor = await auth.requireActor(request);
+        auth.requirePermission(actor, PERMISSIONS.YEAR_READ);
         const storeId = url.searchParams.get('store');
         const year = positiveInteger(url.searchParams.get('year'), 'year', {
           min: 2000,
@@ -350,6 +412,8 @@ function createRouter(options) {
 
       if (request.method === 'GET' &&
           url.pathname === '/api/business-kpi/bonuses') {
+        const actor = await auth.requireActor(request);
+        auth.requirePermission(actor, PERMISSIONS.BONUSES_READ);
         const period = periodFromUrl(url);
         if (!period.storeId) {
           throw new ApplicationError(
@@ -358,12 +422,14 @@ function createRouter(options) {
             422
           );
         }
-        success(response, await businessKpiService.getBonuses(period));
+        success(response, await businessKpiService.getBonuses(period, actor));
         return;
       }
 
       if (request.method === 'GET' &&
           url.pathname === '/api/business-kpi/sellers') {
+        const actor = await auth.requireActor(request);
+        auth.requirePermission(actor, PERMISSIONS.SELLERS_READ);
         const period = periodFromUrl(url);
         if (!period.storeId) {
           throw new ApplicationError(
@@ -372,7 +438,7 @@ function createRouter(options) {
             422
           );
         }
-        const dashboard = await businessKpiService.getDashboard(period);
+        const dashboard = await businessKpiService.getDashboard(period, actor);
         success(response, {
           year: period.year,
           month: period.month,
@@ -383,6 +449,8 @@ function createRouter(options) {
 
       if (url.pathname === '/api/business-kpi/imports') {
         if (request.method === 'GET') {
+          const actor = await auth.requireActor(request);
+          auth.requirePermission(actor, PERMISSIONS.IMPORT_READ);
           success(response, await workbookImportService.list(url.searchParams.get('store')));
           return;
         }
@@ -390,33 +458,41 @@ function createRouter(options) {
 
       if (request.method === 'POST' &&
           url.pathname === '/api/business-kpi/imports/dry-run') {
+        auth.validateCsrf(request);
+        const actor = await auth.requireActor(request);
+        auth.requirePermission(actor, PERMISSIONS.IMPORT_WRITE);
         const upload = await readXlsxMultipart(request);
         if (!upload.storeId) {
           throw new ApplicationError('VALIDATION_ERROR', 'storeId обязателен.', 422);
         }
         success(response, await workbookImportService.dryRun(
           upload,
-          actorFromRequest(request, devMode)
+          actor
         ), 201);
         return;
       }
 
       const importCommitMatch = IMPORT_COMMIT_ROUTE.exec(url.pathname);
       if (importCommitMatch && request.method === 'POST') {
+        auth.validateCsrf(request);
+        const actor = await auth.requireActor(request);
+        auth.requirePermission(actor, PERMISSIONS.IMPORT_WRITE);
         success(response, await workbookImportService.commit(
           importCommitMatch[1],
-          actorFromRequest(request, devMode)
+          actor
         ));
         return;
       }
 
       if (request.method === 'GET' &&
           url.pathname === '/api/business-kpi/export') {
+        const actor = await auth.requireActor(request);
+        auth.requirePermission(actor, PERMISSIONS.EXPORT_RUN);
         const selected = periodFromUrl(url);
         if (!selected.storeId) {
           throw new ApplicationError('VALIDATION_ERROR', 'store обязателен.', 422);
         }
-        const workbook = await businessKpiService.exportMonth(selected);
+        const workbook = await businessKpiService.exportMonth(selected, actor);
         const filename = `business-kpi-${selected.year}-${String(selected.month).padStart(2, '0')}.xlsx`;
         response.writeHead(200, {
           'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -429,6 +505,8 @@ function createRouter(options) {
 
       if (url.pathname === '/api/business-kpi/settings') {
         if (request.method === 'GET') {
+          const actor = await auth.requireActor(request);
+          auth.requirePermission(actor, PERMISSIONS.SETTINGS_READ);
           const storeId = url.searchParams.get('store');
           const date = url.searchParams.get('date') ||
             new Date().toISOString().slice(0, 10);
@@ -439,8 +517,10 @@ function createRouter(options) {
           return;
         }
         if (request.method === 'POST') {
+          auth.validateCsrf(request);
           const body = await readJson(request);
-          const actor = actorFromRequest(request, devMode);
+          const actor = await auth.requireActor(request);
+          auth.requirePermission(actor, PERMISSIONS.SETTINGS_WRITE);
           const created = await businessKpiService.createSettingsVersion(body, actor, {
             correlationId: requestId,
             reason: body.reason || request.headers['x-change-reason'],
@@ -452,6 +532,8 @@ function createRouter(options) {
 
       if (request.method === 'GET' &&
           url.pathname === '/api/business-kpi/settings/versions') {
+        const actor = await auth.requireActor(request);
+        auth.requirePermission(actor, PERMISSIONS.SETTINGS_READ);
         const storeId = url.searchParams.get('store');
         const date = url.searchParams.get('date') || null;
         if (!storeId) {
@@ -465,7 +547,10 @@ function createRouter(options) {
 
       const planMatch = PLAN_ROUTE.exec(url.pathname);
       if (planMatch && request.method === 'PUT') {
+        auth.validateCsrf(request);
         const body = await readJson(request);
+        const actor = await auth.requireActor(request);
+        auth.requirePermission(actor, PERMISSIONS.PLAN_WRITE);
         const storeId = body.storeId || url.searchParams.get('store');
         if (!storeId) {
           throw new ApplicationError('VALIDATION_ERROR', 'storeId обязателен.', 422);
@@ -475,7 +560,7 @@ function createRouter(options) {
           year: positiveInteger(planMatch[1], 'year', { min: 2000, max: 2200 }),
           month: positiveInteger(planMatch[2], 'month', { min: 1, max: 12 }),
           revenuePlan: body.revenuePlan,
-        }, actorFromRequest(request, devMode), {
+        }, actor, {
           correlationId: requestId,
           reason: body.reason || request.headers['x-change-reason'],
         }));
