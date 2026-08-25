@@ -44,6 +44,7 @@
     "undici": "7.0.0"
   },
   "devDependencies": {
-    "js-yaml": "4.1.0"
+    "js-yaml": "4.1.0",
+    "puppeteer-core": "^25.9.0"
   }
 }
