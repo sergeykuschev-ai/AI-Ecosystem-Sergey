@@ -230,3 +230,154 @@ test('year summary excludes current month from best/worst and splits YTD', async
     summary.ytd.revenue
   );
 });
+
+test('items_sold primary-source correction resolves Kapitanova partial shifts and preserves other sellers', async () => {
+  const { service } = fixture();
+  const kapitanova = DEV_EMPLOYEES.find(item => item.displayName === 'Капитанова');
+  const cherednichenko = DEV_EMPLOYEES.find(item => item.displayName === 'Чередниченко');
+  assert.ok(kapitanova);
+  assert.ok(cherednichenko);
+
+  const cheredBase = {
+    storeId: DEV_STORE.id,
+    employeeId: cherednichenko.id,
+    shiftKey: 'main',
+    cash: 0,
+    acquiring: 125000,
+    qr: 15000,
+    receipts: 100,
+    itemsSold: 250,
+    upsellReceipts: 30,
+    treatsRevenue: 926,
+    treatsReceipts: 10,
+  };
+  const cheredShifts = [];
+  for (let day = 1; day <= 6; day += 1) {
+    cheredShifts.push(await service.createShift({
+      ...cheredBase,
+      shiftDate: `2026-08-${String(day).padStart(2, '0')}`,
+    }, OWNER));
+  }
+
+  const kapitanovaBase = {
+    storeId: DEV_STORE.id,
+    employeeId: kapitanova.id,
+    shiftKey: 'main',
+    cash: 0,
+    acquiring: 24000,
+    qr: 2400,
+    receipts: 20,
+    itemsSold: 50,
+    upsellReceipts: 6,
+    treatsRevenue: 0,
+    treatsReceipts: 4,
+  };
+  for (let day = 1; day <= 8; day += 1) {
+    await service.createShift({
+      ...kapitanovaBase,
+      shiftDate: `2026-08-${String(day + 22).padStart(2, '0')}`,
+    }, OWNER);
+  }
+
+  const kapitanovaInputs = [
+    {
+      shiftDate: '2026-08-13',
+      cash: 0,
+      acquiring: 24312,
+      qr: 0,
+      receipts: 25,
+      itemsSold: null,
+      upsellReceipts: 25,
+      treatsRevenue: 1200,
+      treatsReceipts: 25,
+    },
+    {
+      shiftDate: '2026-08-14',
+      cash: 0,
+      acquiring: 38503.40,
+      qr: 0,
+      receipts: 37,
+      itemsSold: null,
+      upsellReceipts: 37,
+      treatsRevenue: 1200,
+      treatsReceipts: 37,
+    },
+    {
+      shiftDate: '2026-08-22',
+      cash: 0,
+      acquiring: 30000,
+      qr: 0,
+      receipts: 25,
+      itemsSold: null,
+      upsellReceipts: 25,
+      treatsRevenue: 1200,
+      treatsReceipts: 25,
+    },
+  ];
+  const kapitanovaShifts = [];
+  for (const input of kapitanovaInputs) {
+    kapitanovaShifts.push(await service.createShift({
+      storeId: DEV_STORE.id,
+      employeeId: kapitanova.id,
+      shiftKey: 'main',
+      comment: 'Коррекция historical items_sold',
+      ...input,
+    }, OWNER));
+  }
+
+  const monthBefore = (await service.getDashboard({
+    storeId: DEV_STORE.id, year: 2026, month: 8,
+  }, OWNER)).month;
+  const bonusesBefore = await service.getBonuses({
+    storeId: DEV_STORE.id, year: 2026, month: 8,
+  }, OWNER);
+  const kapitanovaBefore = bonusesBefore.items.find(item => item.employeeId === kapitanova.id);
+  const cheredBefore = bonusesBefore.items.find(item => item.employeeId === cherednichenko.id);
+
+  assert.equal(kapitanovaBefore.bonusStatus, 'UNRESOLVED');
+  assert.equal(kapitanovaBefore.bonus, null);
+  assert.ok(kapitanovaBefore.missingFields.includes('itemsSold'));
+  assert.equal(cheredBefore.bonusStatus, 'COMPLETE');
+  assert.equal(cheredBefore.kpiLevel, 'Хорошо+');
+  assert.equal(cheredBefore.bonus, 2000);
+  assert.ok(Math.abs(cheredBefore.averageKpi - 94.54) < 0.01);
+
+  const corrections = [
+    { shift: kapitanovaShifts[0], itemsSold: 43 },
+    { shift: kapitanovaShifts[1], itemsSold: 130 },
+    { shift: kapitanovaShifts[2], itemsSold: 127 },
+  ];
+  for (const { shift, itemsSold } of corrections) {
+    await service.updateShift(shift.id, { itemsSold }, OWNER, {
+      reason: 'Коррекция historical items_sold по первичному отчету о розничных продажах',
+    });
+  }
+
+  const shift13 = await service.getShift(kapitanovaShifts[0].id);
+  const shift14 = await service.getShift(kapitanovaShifts[1].id);
+  const shift22 = await service.getShift(kapitanovaShifts[2].id);
+  assert.equal(shift13.metrics.itemsPerReceipt, 43 / 25);
+  assert.equal(shift14.metrics.itemsPerReceipt, 130 / 37);
+  assert.equal(shift22.metrics.itemsPerReceipt, 127 / 25);
+
+  const bonusesAfter = await service.getBonuses({
+    storeId: DEV_STORE.id, year: 2026, month: 8,
+  }, OWNER);
+  const kapitanovaAfter = bonusesAfter.items.find(item => item.employeeId === kapitanova.id);
+  const cheredAfter = bonusesAfter.items.find(item => item.employeeId === cherednichenko.id);
+
+  assert.equal(kapitanovaAfter.bonusStatus, 'COMPLETE');
+  assert.equal(kapitanovaAfter.kpiLevel, 'Хорошо+');
+  assert.equal(kapitanovaAfter.bonus, 3667);
+  assert.ok(!kapitanovaAfter.missingFields.includes('itemsSold'));
+
+  assert.equal(cheredAfter.bonus, cheredBefore.bonus);
+  assert.equal(cheredAfter.averageKpi, cheredBefore.averageKpi);
+  assert.equal(cheredAfter.kpiLevel, cheredBefore.kpiLevel);
+
+  const monthAfter = (await service.getDashboard({
+    storeId: DEV_STORE.id, year: 2026, month: 8,
+  }, OWNER)).month;
+  assert.equal(monthAfter.revenue, monthBefore.revenue);
+  assert.equal(monthAfter.receipts, monthBefore.receipts);
+});
