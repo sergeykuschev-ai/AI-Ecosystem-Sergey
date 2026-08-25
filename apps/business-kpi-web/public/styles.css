@@ -321,7 +321,7 @@ button:disabled { cursor: wait; opacity: 0.55; }
   margin-bottom: 20px;
 }
 
-.table-wrap { overflow-x: auto; }
+.table-wrap { overflow-x: auto; display: block; width: 100%; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 th, td { padding: 12px 10px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
 th { color: var(--muted); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; }
@@ -585,10 +585,12 @@ dialog::backdrop { background: rgba(11, 27, 21, 0.55); backdrop-filter: blur(3px
 
 .action-column { position: sticky; right: 0; background: var(--surface); z-index: 2; box-shadow: -2px 0 4px rgba(26, 26, 26, 0.05); }
 
-.bonuses-table { min-width: max-content; width: auto; }
+.bonuses-card { min-width: 0; }
+.bonuses-table { min-width: 1200px; width: auto; }
 .bonuses-table th,
-.bonuses-table td { white-space: nowrap; }
-.bonus-unresolved-reason { color: var(--muted); font-size: 12px; }
+.bonuses-table td { white-space: nowrap; padding: 8px 6px; font-size: 11px; }
+.bonuses-table th { font-size: 9px; letter-spacing: 0.02em; }
+.bonus-unresolved-reason { color: var(--muted); font-size: 11px; }
 
 .bonus-details-row { background: var(--surface-elevated); }
 .bonus-formula {
