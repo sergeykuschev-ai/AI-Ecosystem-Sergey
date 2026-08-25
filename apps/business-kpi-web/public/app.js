@@ -813,14 +813,17 @@ function renderBonuses(data) {
   element('bonuses-empty').hidden = data.items.length !== 0;
   for (const item of data.items) {
     const row = document.createElement('tr');
+    const shiftNormText = item.shiftNorm ? formatInteger(item.shiftNorm) : '—';
+    const shiftCoefficient = item.bonusDetails
+      ? item.bonusDetails.shiftCoefficient
+      : (item.shiftNorm ? Math.min(1, item.shiftsCount / item.shiftNorm) : null);
+
     appendCell(row, item.employeeName || NA_TEXT);
     appendCell(row, kpiLabel(item.averageKpi, item.kpiLevel), 'numeric');
     appendCell(row, item.kpiLevel || NA_TEXT);
     appendCell(row, item.bonusDetails ? formatMoney(item.bonusDetails.bonusBase) : NA_TEXT, 'numeric');
-    appendCell(row, item.bonusDetails
-      ? `${formatInteger(item.shiftsCount)} / ${formatInteger(item.bonusDetails.shiftNorm)}`
-      : NA_TEXT, 'numeric');
-    appendCell(row, item.bonusDetails ? formatNumber(item.bonusDetails.shiftCoefficient) : NA_TEXT, 'numeric');
+    appendCell(row, `${formatInteger(item.shiftsCount)} / ${shiftNormText}`, 'numeric');
+    appendCell(row, shiftCoefficient !== null ? formatNumber(shiftCoefficient) : NA_TEXT, 'numeric');
     appendCell(row, formatPercent(item.qrShare), 'numeric');
     appendCell(row, item.bonusDetails ? formatNumber(item.bonusDetails.qrCoefficient) : NA_TEXT, 'numeric');
     appendCell(row, item.bonusStatus === 'COMPLETE' ? formatMoney(item.bonus)
@@ -853,10 +856,16 @@ function renderBonuses(data) {
       });
       detailsCell.append(expand);
     } else {
-      detailsCell.textContent = 'Расчёт недоступен';
+      const reason = document.createElement('span');
+      reason.className = 'bonus-unresolved-reason';
       if (item.missingFields?.length) {
-        detailsCell.title = `Недостающие поля: ${item.missingFields.map(russianMissingField).join(', ')}`;
+        reason.textContent = `Нет данных: ${item.missingFields.map(russianMissingField).join(', ')}`;
+      } else if (item.shiftNorm && item.shiftsCount < item.shiftNorm) {
+        reason.textContent = `Мало смен: ${item.shiftsCount} из ${item.shiftNorm}`;
+      } else {
+        reason.textContent = 'Расчёт недоступен';
       }
+      detailsCell.append(reason);
     }
     row.append(detailsCell);
     body.append(row);

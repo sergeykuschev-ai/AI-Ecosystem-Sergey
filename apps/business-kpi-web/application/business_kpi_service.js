@@ -968,7 +968,12 @@ class BusinessKpiService {
     if (!storeRecord?.active) {
       throw new ApplicationError('STORE_NOT_FOUND', 'Магазин не найден.', 404);
     }
-    const dashboard = await this.getDashboard(input, actor);
+    const firstDay = `${input.year}-${String(input.month).padStart(2, '0')}-01`;
+    const [dashboard, settingsRecord] = await Promise.all([
+      this.getDashboard(input, actor),
+      this.store.getEffectiveSettings(input.storeId, firstDay),
+    ]);
+    const shiftNorm = settingsRecord?.settings?.targets?.sellerShifts ?? null;
     const canSeeAllAmounts = hasPermission(actor?.role, PERMISSIONS.BONUS_READ_ALL_AMOUNTS);
     const canSeeOwnAmount = hasPermission(actor?.role, PERMISSIONS.BONUS_READ_OWN_AMOUNT);
     const ownEmployeeId = canSeeOwnAmount && actor?.role === 'SELLER'
@@ -981,6 +986,7 @@ class BusinessKpiService {
         employeeId: seller.employeeId,
         employeeName: seller.employeeName,
         shiftsCount: seller.shiftsCount,
+        shiftNorm,
         revenuePerShift: seller.revenuePerShift,
         averageKpi: seller.averageKpi,
         kpiLevel: seller.kpiLevel,
@@ -988,6 +994,7 @@ class BusinessKpiService {
         bonus: canSeeAmount ? seller.bonus : null,
         bonusStatus: canSeeAmount ? seller.bonusStatus : 'ACCESS_DENIED',
         bonusDetails: canSeeAmount ? seller.bonusDetails : null,
+        missingFields: canSeeAmount ? (seller.missingFields || []) : [],
       };
     });
     return {
@@ -995,6 +1002,7 @@ class BusinessKpiService {
       month: input.month,
       planCompletion: dashboard.month.planCompletion,
       dataStatus: dashboard.month.dataStatus,
+      shiftNorm,
       items,
     };
   }

@@ -473,6 +473,9 @@ test('partial seller has missingFields and unresolved bonus', async () => {
   const bonusSeller = bonusesBody.data.items.find(item => item.employeeId === employee.id);
   assert.ok(bonusSeller, 'partial seller row exists in bonuses');
   assert.equal(bonusSeller.bonusStatus, 'UNRESOLVED');
+  assert.equal(bonusSeller.shiftNorm, 15, 'shiftNorm is exposed for unresolved seller');
+  assert.ok(Array.isArray(bonusSeller.missingFields), 'missingFields array is exposed');
+  assert.ok(bonusSeller.missingFields.includes('itemsSold'), 'missingFields lists itemsSold');
 });
 
 test('months endpoint marks current month with label and note', async () => {
