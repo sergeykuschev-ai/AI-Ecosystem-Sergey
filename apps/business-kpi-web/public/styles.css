@@ -586,11 +586,13 @@ dialog::backdrop { background: rgba(11, 27, 21, 0.55); backdrop-filter: blur(3px
 .action-column { position: sticky; right: 0; background: var(--surface); z-index: 2; box-shadow: -2px 0 4px rgba(26, 26, 26, 0.05); }
 
 .bonuses-card { min-width: 0; }
-.bonuses-table { min-width: 1200px; width: auto; }
+.bonuses-table { min-width: 1000px; width: auto; }
 .bonuses-table th,
-.bonuses-table td { white-space: nowrap; padding: 8px 6px; font-size: 11px; }
-.bonuses-table th { font-size: 9px; letter-spacing: 0.02em; }
-.bonus-unresolved-reason { color: var(--muted); font-size: 11px; }
+.bonuses-table td { white-space: nowrap; padding: 6px 4px; font-size: 10px; }
+.bonuses-table th { font-size: 8px; letter-spacing: 0.01em; }
+.bonuses-table td.action-column,
+.bonuses-table th.action-column { position: static; box-shadow: none; }
+.bonus-unresolved-reason { color: var(--muted); font-size: 10px; }
 
 .bonus-details-row { background: var(--surface-elevated); }
 .bonus-formula {

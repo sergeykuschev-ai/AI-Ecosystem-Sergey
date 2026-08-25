@@ -52,6 +52,11 @@ async function captureProductionOwner() {
     await page.screenshot({ path: path.join(OUTPUT_DIR, '02-owner-dashboard.png') });
     await screenshotElement(page, '.sidebar', path.join(OUTPUT_DIR, '03-owner-sidebar.png'));
 
+    await page.goto(`${PRODUCTION_URL}/#bonuses`, { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => document.querySelector('#bonuses-table') !== null, { timeout: 10000 });
+    await sleep(800);
+    await page.screenshot({ path: path.join(OUTPUT_DIR, '09-production-bonuses.png') });
+
     await page.click('#logout-button');
     await page.waitForFunction(() => document.querySelector('#login-form') !== null, { timeout: 10000 });
     await sleep(500);
