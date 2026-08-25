@@ -73,6 +73,10 @@ function roleLabel(role) {
   return { OWNER: 'Владелец', MANAGER: 'Менеджер', SELLER: 'Продавец' }[role] || role;
 }
 
+function redirectToLogin() {
+  window.location.replace('/login.html');
+}
+
 function canViewRoute(route) {
   const role = state.currentUser?.role;
   if (role === 'OWNER') return true;
@@ -1430,15 +1434,20 @@ function openShiftDialog(shift = null) {
     ? `Источник: ${sourceLabel(shift.source)}${shift.override ? ' · есть ручной override' : ''}`
     : '';
   const historical = shift?.revenueSource === 'historical_total';
-  for (const id of ['shift-cash', 'shift-acquiring', 'shift-qr']) {
-    element(id).readOnly = historical;
-  }
+  const editable = shift ? canEditShift(shift) : canCreateShift();
+  const isSeller = state.currentUser?.role === 'SELLER';
   element('archive-shift').hidden = !canArchiveShift(shift);
-  element('save-shift').hidden = shift ? !canEditShift(shift) : !canCreateShift();
-  element('shift-employee').disabled = Boolean(shift);
+  element('save-shift').hidden = !editable;
+  element('shift-employee').disabled = Boolean(shift) || isSeller;
+  element('shift-store').disabled = isSeller;
+  for (const id of ['shift-cash', 'shift-acquiring', 'shift-qr', 'shift-receipts',
+    'shift-items', 'shift-upsells', 'shift-treats-revenue', 'shift-treats-receipts',
+    'shift-comment', 'shift-key', 'shift-date']) {
+    element(id).readOnly = historical || !editable;
+  }
   setFormValue('shift-date', shift?.shiftDate || new Date().toISOString().slice(0, 10));
   setFormValue('shift-store', shift?.storeId || selectedStoreId());
-  setFormValue('shift-employee', shift?.employeeId || state.employees[0]?.id);
+  setFormValue('shift-employee', shift?.employeeId || (isSeller ? state.currentUser?.employeeId : state.employees[0]?.id) || '');
   setFormValue('shift-key', shift?.shiftKey || 'main');
   setFormValue('shift-cash', historical ? null : shift?.cash);
   setFormValue('shift-acquiring', historical ? null : shift?.acquiring);
@@ -1906,11 +1915,12 @@ async function initialize() {
   document.title = `${BUSINESS_CONTEXT.name} · ${BUSINESS_CONTEXT.moduleName}`;
   try {
     const user = await api('/api/business-kpi/auth/me');
-    if (!user) {
-      window.location.replace('/login.html');
+    if (!user?.user) {
+      redirectToLogin();
       return;
     }
     state.currentUser = user.user;
+    document.body.classList.remove('auth-loading');
     renderUserProfile();
     renderSidebar();
     const health = await api('/health');
@@ -1926,9 +1936,21 @@ async function initialize() {
     await loadReferenceData();
     await renderRoute();
   } catch (error) {
-    showMessage(error.message, 'error');
+    redirectToLogin();
   }
 }
+
+/* Re-validate session when the browser restores the page from bfcache,
+   so that Back after logout does not show the authenticated shell. */
+window.addEventListener('pageshow', async event => {
+  if (!event.persisted) return;
+  try {
+    const user = await api('/api/business-kpi/auth/me');
+    if (!user?.user) redirectToLogin();
+  } catch {
+    redirectToLogin();
+  }
+});
 
 window.addEventListener('hashchange', renderRoute);
 element('store-filter').addEventListener('change', async () => {

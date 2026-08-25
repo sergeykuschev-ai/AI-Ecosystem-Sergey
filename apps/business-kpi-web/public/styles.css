@@ -63,6 +63,12 @@ body {
   color: var(--ink);
 }
 
+/* Hide the authenticated shell until the frontend confirms the session.
+   This prevents a flash of authenticated content on the login screen. */
+body.auth-loading .app-shell {
+  display: none;
+}
+
 button, a { font: inherit; }
 
 .app-shell {
