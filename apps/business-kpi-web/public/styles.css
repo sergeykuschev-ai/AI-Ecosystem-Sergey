@@ -63,6 +63,12 @@ body {
   color: var(--ink);
 }
 
+/* Hide the authenticated shell until the frontend confirms the session.
+   This prevents a flash of authenticated content on the login screen. */
+body.auth-loading .app-shell {
+  display: none;
+}
+
 button, a { font: inherit; }
 
 .app-shell {
@@ -315,7 +321,7 @@ button:disabled { cursor: wait; opacity: 0.55; }
   margin-bottom: 20px;
 }
 
-.table-wrap { overflow-x: auto; }
+.table-wrap { overflow-x: auto; display: block; width: 100%; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 th, td { padding: 12px 10px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
 th { color: var(--muted); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; }
@@ -578,6 +584,15 @@ dialog::backdrop { background: rgba(11, 27, 21, 0.55); backdrop-filter: blur(3px
 .sticky-first-column th:first-child { z-index: 2; }
 
 .action-column { position: sticky; right: 0; background: var(--surface); z-index: 2; box-shadow: -2px 0 4px rgba(26, 26, 26, 0.05); }
+
+.bonuses-card { min-width: 0; }
+.bonuses-table { min-width: 1000px; width: auto; }
+.bonuses-table th,
+.bonuses-table td { white-space: nowrap; padding: 6px 4px; font-size: 10px; }
+.bonuses-table th { font-size: 8px; letter-spacing: 0.01em; }
+.bonuses-table td.action-column,
+.bonuses-table th.action-column { position: static; box-shadow: none; }
+.bonus-unresolved-reason { color: var(--muted); font-size: 10px; }
 
 .bonus-details-row { background: var(--surface-elevated); }
 .bonus-formula {

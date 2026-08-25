@@ -9,7 +9,7 @@
     <script src="/formatters.js" defer></script>
     <script src="/app.js" defer></script>
   </head>
-  <body>
+  <body class="auth-loading">
     <div class="app-shell">
       <aside class="sidebar">
         <a class="brand" href="#dashboard" aria-label="МИСКА — главная">
@@ -366,7 +366,7 @@
 
         <!-- Премии -->
         <section class="route-panel" data-panel="bonuses" hidden>
-          <article class="content-card">
+          <article class="content-card bonuses-card">
             <div class="card-heading">
               <div><p class="eyebrow">Расчёт премии</p><h2>Премии продавцов</h2></div>
               <span class="status-pill" id="bonuses-status">—</span>
@@ -377,7 +377,7 @@
               Иначе QR-коэффициент не выше 1.
             </p>
             <div class="table-wrap">
-              <table class="sticky-first-column">
+              <table class="bonuses-table sticky-first-column">
                 <thead><tr>
                   <th>Продавец</th>
                   <th>Средний KPI</th>
