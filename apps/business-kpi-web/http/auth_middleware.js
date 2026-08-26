@@ -56,11 +56,15 @@ function createAuthMiddleware(options) {
     }
 
     if (devMode) {
-      return {
-        id: String(request.headers['x-business-kpi-actor-id'] || 'local-owner'),
-        role: String(request.headers['x-business-kpi-role'] || 'OWNER').toUpperCase(),
-        type: 'dev-header',
-      };
+      const devActorId = request.headers['x-business-kpi-actor-id'];
+      const devRole = request.headers['x-business-kpi-role'];
+      if (devActorId && devRole) {
+        return {
+          id: String(devActorId),
+          role: String(devRole).toUpperCase(),
+          type: 'dev-header',
+        };
+      }
     }
 
     return null;
