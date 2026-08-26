@@ -19,14 +19,20 @@ const DEV_EMPLOYEES = Object.freeze([
     employeeCode: 'seller-demo-1',
     displayName: 'Продавец 1',
     active: true,
+    userId: null,
+    hiredOn: null,
+    terminatedOn: null,
   }),
   ...[
-    ['20000000-0000-4000-8000-000000000003', 'seller-gorbunova', 'Горбунова'],
-    ['20000000-0000-4000-8000-000000000004', 'seller-kapitanova', 'Капитанова'],
-    ['20000000-0000-4000-8000-000000000005', 'seller-kushchev', 'Кущев'],
-    ['20000000-0000-4000-8000-000000000006', 'seller-cherednichenko', 'Чередниченко'],
-  ].map(([id, employeeCode, displayName]) => Object.freeze({
+    ['20000000-0000-4000-8000-000000000003', 'seller-gorbunova', 'Горбунова', 'u-gorbunova'],
+    ['20000000-0000-4000-8000-000000000004', 'seller-kapitanova', 'Капитанова', 'u-kapitanova'],
+    ['20000000-0000-4000-8000-000000000005', 'seller-kushchev', 'Кущев', 'u-kushchev'],
+    ['20000000-0000-4000-8000-000000000006', 'seller-cherednichenko', 'Чередниченко', 'u-cherednichenko'],
+  ].map(([id, employeeCode, displayName, userId]) => Object.freeze({
     id, storeId: DEV_STORE.id, employeeCode, displayName, active: true,
+    userId,
+    hiredOn: '2026-01-01',
+    terminatedOn: null,
   })),
   Object.freeze({
     id: '20000000-0000-4000-8000-000000000002',
@@ -34,6 +40,9 @@ const DEV_EMPLOYEES = Object.freeze([
     employeeCode: 'seller-demo-2',
     displayName: 'Продавец 2',
     active: true,
+    userId: null,
+    hiredOn: null,
+    terminatedOn: null,
   }),
 ]);
 

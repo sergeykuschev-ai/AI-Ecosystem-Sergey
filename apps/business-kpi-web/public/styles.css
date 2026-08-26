@@ -705,3 +705,235 @@ dialog::backdrop { background: rgba(11, 27, 21, 0.55); backdrop-filter: blur(3px
   font-size: 12px;
   min-height: 30px;
 }
+
+/* Seller performance dashboard block */
+.seller-performance-card {
+  margin-top: 8px;
+}
+
+.seller-performance-card .table-wrap {
+  overflow-x: auto;
+  display: block;
+}
+
+.seller-performance-card table {
+  font-size: 0.75rem;
+  min-width: 760px;
+}
+
+.seller-performance-card th,
+.seller-performance-card td {
+  padding: 6px 4px;
+  white-space: nowrap;
+}
+
+.segmented-control {
+  display: inline-flex;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.segmented-control button {
+  padding: 7px 14px;
+  font-size: 13px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.segmented-control button + button {
+  border-left: 1px solid var(--border);
+}
+
+.segmented-control button.active,
+.segmented-control button:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.segmented-control button.active {
+  font-weight: 600;
+  color: var(--brand-primary);
+}
+
+.management-signals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin: 16px 0 20px;
+}
+
+.management-signal {
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border);
+}
+
+.management-signal h3 {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+.management-signal .value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.management-signal .detail {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.management-signal.positive {
+  border-color: var(--border-accent);
+  background: var(--success-soft);
+}
+
+.management-signal.negative {
+  border-color: #e8c2bf;
+  background: var(--danger-soft);
+}
+
+.management-signal.neutral {
+  border-color: var(--border);
+  background: var(--surface-muted);
+}
+
+.trend-arrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.trend-arrow.up { color: var(--brand-primary); }
+.trend-arrow.stable { color: var(--text-secondary); }
+.trend-arrow.down { color: var(--danger-text); }
+.trend-arrow.insufficient { color: var(--text-secondary); font-weight: 400; }
+
+.sparkline {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.sparkline span {
+  min-width: 22px;
+  text-align: center;
+  padding: 2px 4px;
+  border-radius: 4px;
+  background: var(--surface-muted);
+}
+
+.strongest-tag,
+.attention-tag {
+  display: inline-block;
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  margin-top: 4px;
+}
+
+.strongest-tag {
+  background: var(--success-soft);
+  color: var(--brand-primary-emphasis);
+}
+
+.attention-tag {
+  background: var(--warning-soft);
+  color: var(--brand-secondary-text);
+}
+
+.confidence-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  vertical-align: middle;
+}
+
+.confidence-badge.full {
+  background: var(--success-soft);
+  color: var(--brand-primary-emphasis);
+  border: 1px solid var(--border-accent);
+}
+
+.confidence-badge.preliminary {
+  background: var(--warning-soft);
+  color: var(--brand-secondary-text);
+  border: 1px solid #f0d0a0;
+}
+
+.confidence-badge.insufficient {
+  background: var(--surface-muted);
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+
+.window-kpis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.window-kpis span {
+  background: var(--surface-secondary);
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: default;
+}
+
+.preliminary-warning {
+  background: var(--warning-soft);
+  border: 1px solid #f0d0a0;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.preliminary-warning small {
+  display: block;
+  font-weight: 700;
+  color: var(--brand-secondary-text);
+  margin-bottom: 4px;
+}
+
+.preliminary-warning span {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+@media (max-width: 1024px) {
+  .seller-performance-card .card-heading {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 768px) {
+  .management-signals {
+    grid-template-columns: 1fr;
+  }
+}

@@ -350,6 +350,25 @@ function createRouter(options) {
       }
 
       if (request.method === 'GET' &&
+          url.pathname === '/api/business-kpi/seller-performance') {
+        const actor = await auth.requireActor(request);
+        auth.requirePermission(actor, PERMISSIONS.DASHBOARD_READ);
+        const period = periodFromUrl(url);
+        if (!period.storeId) {
+          throw new ApplicationError(
+            'VALIDATION_ERROR',
+            'store обязателен.',
+            422
+          );
+        }
+        success(response, await businessKpiService.getSellerPerformance({
+          ...period,
+          mode: url.searchParams.get('mode') || 'shifts',
+        }, actor));
+        return;
+      }
+
+      if (request.method === 'GET' &&
           url.pathname === '/api/business-kpi/today') {
         const actor = await auth.requireActor(request);
         auth.requirePermission(actor, PERMISSIONS.DASHBOARD_READ);

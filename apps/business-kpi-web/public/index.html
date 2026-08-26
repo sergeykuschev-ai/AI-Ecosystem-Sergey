@@ -142,6 +142,43 @@
             </article>
           </div>
 
+          <article class="content-card seller-performance-card" id="seller-performance-card" hidden>
+            <div class="card-heading">
+              <div>
+                <p class="eyebrow">Управленческий сигнал</p>
+                <h2>Эффективность продавцов</h2>
+              </div>
+              <div class="segmented-control" role="group" aria-label="Период сравнения">
+                <button type="button" data-performance-mode="shifts" class="active">5 смен</button>
+                <button type="button" data-performance-mode="month">Месяц</button>
+                <button type="button" data-performance-mode="3months">3 месяца</button>
+              </div>
+            </div>
+
+            <div class="management-signals" id="management-signals"></div>
+
+            <div class="table-wrap">
+              <table class="sticky-first-column">
+                <thead>
+                  <tr>
+                    <th>Продавец</th>
+                    <th class="numeric">KPI</th>
+                    <th class="numeric">Динамика KPI</th>
+                    <th class="numeric">Выручка / смену</th>
+                    <th class="numeric">Средний чек</th>
+                    <th class="numeric">Товаров / чек</th>
+                    <th class="numeric">Доля QR</th>
+                    <th class="numeric">Смены</th>
+                    <th>Статус</th>
+                  </tr>
+                </thead>
+                <tbody id="seller-performance-table"></tbody>
+              </table>
+            </div>
+            <p class="empty-copy" id="seller-performance-empty" hidden>Недостаточно данных для оценки эффективности.</p>
+            <p class="field-help" id="seller-performance-help">Динамика KPI — сравнение последних завершённых смен с предыдущим сопоставимым периодом.</p>
+          </article>
+
           <article class="content-card attention-card">
             <div class="card-heading"><div><p class="eyebrow">Контроль качества</p><h2>Что требует внимания</h2></div></div>
             <ul class="attention-list" id="attention-list"><li>Критичных отклонений нет</li></ul>

@@ -50,7 +50,10 @@ const state = {
   today: null,
   settings: null,
   selectedSeller: null,
+  selectedSellerPerformance: null,
   currentUser: null,
+  sellerPerformance: null,
+  sellerPerformanceMode: 'shifts',
 };
 
 function element(id) { return document.getElementById(id); }
@@ -402,6 +405,211 @@ function renderDashboardSellers(items) {
   }
 }
 
+function renderSellerPerformance(data) {
+  const card = element('seller-performance-card');
+  if (!data || state.currentUser?.role !== 'OWNER') {
+    card.hidden = true;
+    return;
+  }
+  card.hidden = false;
+  renderPerformanceModeButtons();
+  renderManagementSignals(data.teamSignals, data.items);
+  renderPerformanceTable(data.items);
+}
+
+function renderPerformanceModeButtons() {
+  for (const button of document.querySelectorAll('[data-performance-mode]')) {
+    button.classList.toggle('active', button.dataset.performanceMode === state.sellerPerformanceMode);
+  }
+}
+
+function renderManagementSignals(signals, items) {
+  const container = element('management-signals');
+  container.replaceChildren();
+  const hasData = items.some(item => item.dataCompleteness !== 'insufficient');
+
+  if (!hasData) {
+    container.append(createSignalCard('neutral', 'Недостаточно данных', 'Нужно больше завершённых смен для оценки', null));
+    return;
+  }
+
+  if (signals.bestKpi) {
+    container.append(createSignalCard(
+      'positive',
+      'Лучшая эффективность',
+      `${signals.bestKpi.employeeName}`,
+      `KPI ${formatNumber(signals.bestKpi.value)}`
+    ));
+  }
+
+  if (signals.bestTrend) {
+    container.append(createSignalCard(
+      'positive',
+      'Лучшая динамика',
+      `${signals.bestTrend.employeeName}`,
+      `${trendArrowHtml(signals.bestTrend.direction, signals.bestTrend.delta, true)}<span class="confidence-badge full" title="Полноценный тренд: последние 5 смен vs предыдущие 5">FULL</span>`
+    ));
+  } else if (signals.bestPreliminaryTrend) {
+    container.append(createSignalCard(
+      'positive',
+      'Лучшая динамика',
+      `${signals.bestPreliminaryTrend.employeeName}`,
+      `${trendArrowHtml(signals.bestPreliminaryTrend.direction, signals.bestPreliminaryTrend.delta, true)}<span class="confidence-badge preliminary" title="Предварительная динамика: недостаточно смен для полного 5×5">Предварительно</span>`
+    ));
+  }
+
+  if (signals.attention) {
+    const confidenceClass = signals.attention.confidence === 'full' ? 'full' : 'preliminary';
+    const confidenceText = signals.attention.confidence === 'full' ? 'FULL' : 'Предварительно';
+    container.append(createSignalCard(
+      'negative',
+      'Требует внимания',
+      `${signals.attention.employeeName}`,
+      `${formatAttentionMetric(signals.attention.metric)}<span class="confidence-badge ${confidenceClass}" title="${escapeHtml(signals.attention.explanation)}">${confidenceText}</span>`
+    ));
+  } else {
+    container.append(createSignalCard(
+      'neutral',
+      'Команда стабильна',
+      'Нет существенного падения ключевых метрик',
+      signals.teamAverageKpi !== null ? `Средний KPI ${formatNumber(signals.teamAverageKpi)}` : null
+    ));
+  }
+}
+
+function createSignalCard(tone, title, value, detail) {
+  const card = document.createElement('div');
+  card.className = `management-signal ${tone}`;
+  card.innerHTML = `
+    <h3>${escapeHtml(title)}</h3>
+    <div class="value">${value}</div>
+    ${detail ? `<div class="detail">${detail}</div>` : ''}
+  `;
+  return card;
+}
+
+function trendArrowHtml(direction, delta, includeLabel = false) {
+  const symbols = { up: '↑', down: '↓', stable: '→', insufficient: '—' };
+  const labels = { up: 'Рост', down: 'Снижение', stable: 'Стабильно', insufficient: 'Недостаточно данных' };
+  if (direction === 'insufficient' || delta === null) {
+    return `<span class="trend-arrow insufficient">${symbols.insufficient} ${labels.insufficient}</span>`;
+  }
+  const sign = delta > 0 ? '+' : '';
+  const numeric = typeof delta === 'number' && Math.abs(delta) < 1 ? delta.toFixed(2) : delta.toFixed(1);
+  const label = includeLabel ? ` ${labels[direction]}` : '';
+  return `<span class="trend-arrow ${direction}">${symbols[direction]} ${sign}${numeric}${label}</span>`;
+}
+
+function formatAttentionMetric(metric) {
+  if (!metric) return '';
+  const sign = metric.delta > 0 ? '+' : '';
+  const value = metric.isAbsolute
+    ? (metric.key === 'qrShare' ? `${(metric.delta * 100).toFixed(1)} п.п.` : `${metric.delta.toFixed(1)}`)
+    : `${(metric.delta * 100).toFixed(1)}%`;
+  return `${metric.label} ${sign}${value}`;
+}
+
+function renderPerformanceTable(items) {
+  const body = element('seller-performance-table');
+  body.replaceChildren();
+  const visible = items.filter(item => item.dataCompleteness !== 'insufficient');
+  element('seller-performance-empty').hidden = visible.length !== 0;
+  for (const item of items) {
+    const row = document.createElement('tr');
+    row.className = 'clickable-row';
+    appendCell(row, item.employeeName || NA_TEXT);
+    appendCell(row, kpiLabel(item.currentKpi, null), 'numeric');
+    const trendCell = document.createElement('td');
+    trendCell.className = 'numeric';
+    trendCell.innerHTML = trendArrowHtml(item.trendDirection, item.kpiDelta);
+    if (item.trendConfidence === 'preliminary') {
+      trendCell.append(createConfidenceBadge('preliminary', 'Предварительная динамика: недостаточно смен для полного 5×5'));
+    } else if (item.trendConfidence === 'full') {
+      trendCell.append(createConfidenceBadge('full', 'Полноценный тренд: последние 5 смен vs предыдущие 5'));
+    }
+    row.append(trendCell);
+    appendCell(row, formatMoney(item.revenuePerShift), 'numeric');
+    appendCell(row, formatMoney(item.averageCheck), 'numeric');
+    appendCell(row, formatNumber(item.itemsPerReceipt), 'numeric');
+    appendCell(row, formatPercent(item.sellerQrShare), 'numeric');
+    appendCell(row, formatInteger(item.shiftCount), 'numeric');
+    const statusCell = document.createElement('td');
+    statusCell.innerHTML = renderPerformanceStatus(item);
+    row.append(statusCell);
+    row.addEventListener('click', () => openSellerPerformanceDetail(item.employeeId));
+    body.append(row);
+  }
+}
+
+function createConfidenceBadge(confidence, title) {
+  const span = document.createElement('span');
+  span.className = `confidence-badge ${confidence}`;
+  span.textContent = confidence === 'full' ? 'FULL' : 'Предварительно';
+  span.title = title;
+  return span;
+}
+
+function renderPerformanceStatus(item) {
+  const parts = [];
+  if (item.dataCompleteness === 'insufficient') {
+    parts.push(`<span class="status-pill muted" title="Недостаточно завершённых смен для оценки">Недостаточно данных</span>`);
+  } else if (item.dataCompleteness === 'preliminary') {
+    parts.push(`<span class="status-pill warning" title="Предварительная динамика: требуется 10 смен для полноценного сравнения">Набирается история</span>`);
+  } else {
+    parts.push(`<span class="status-pill success">${escapeHtml(item.trendLabel)}</span>`);
+  }
+  if (item.strongestMetric) {
+    parts.push(`<span class="strongest-tag">Сильная: ${escapeHtml(item.strongestMetric.label)}</span>`);
+  }
+  if (item.attentionMetric) {
+    const confidenceText = item.attentionMetric.confidence === 'full' ? '' : ' (предв.)';
+    parts.push(`<span class="attention-tag">Зона внимания: ${escapeHtml(formatAttentionMetric(item.attentionMetric))}${confidenceText}</span>`);
+  }
+  return parts.join('<br>');
+}
+
+function renderWhatChanged(perf) {
+  const windows = perf._windows;
+  if (!windows || !windows.latest.shiftCount || !windows.previous.shiftCount) {
+    return 'Недостаточно данных для сравнения';
+  }
+  const changes = [];
+  const compare = (label, current, previous, isAbsolute = false) => {
+    if (current === null || previous === null || previous === 0) return;
+    const delta = isAbsolute ? current - previous : (current - previous) / previous;
+    if (Math.abs(delta) < 0.001) return;
+    const sign = delta > 0 ? '+' : '';
+    const value = isAbsolute
+      ? (label === 'QR' ? `${(delta * 100).toFixed(1)} п.п.` : `${delta.toFixed(2)}`)
+      : `${(delta * 100).toFixed(1)}%`;
+    const direction = delta > 0 ? '↑' : '↓';
+    changes.push(`${label} ${direction} ${sign}${value}`);
+  };
+  compare('KPI', windows.latest.averageKpi, windows.previous.averageKpi, true);
+  compare('Средний чек', windows.latest.averageCheck, windows.previous.averageCheck);
+  compare('Товаров/чек', windows.latest.itemsPerReceipt, windows.previous.itemsPerReceipt);
+  compare('QR', windows.latest.qrShare, windows.previous.qrShare, true);
+  compare('Выручка/смену', windows.latest.revenuePerShift, windows.previous.revenuePerShift);
+  return changes.length ? changes.join(' · ') : 'Без существенных изменений';
+}
+
+function openSellerPerformanceDetail(employeeId) {
+  window.location.hash = '#sellers';
+  const seller = state.dashboard?.sellers?.find(s => s.employeeId === employeeId);
+  if (seller) {
+    state.selectedSellerPerformance = state.sellerPerformance?.items?.find(i => i.employeeId === employeeId);
+    openSellerDetail(seller);
+  }
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 function russianMissingField(key) {
   const map = {
     itemsSold: 'продано единиц',
@@ -421,6 +629,24 @@ async function loadDashboard() {
   );
   state.today = await api(`/api/business-kpi/today?store=${encodeURIComponent(store)}`);
   renderDashboard({ ...state.dashboard, today: state.today });
+  if (state.currentUser?.role === 'OWNER') {
+    await loadSellerPerformance();
+  }
+}
+
+async function loadSellerPerformance() {
+  const store = selectedStoreId();
+  if (!store) return;
+  const { year, month } = period();
+  try {
+    state.sellerPerformance = await api(
+      `/api/business-kpi/seller-performance?store=${encodeURIComponent(store)}&year=${year}&month=${month}&mode=${state.sellerPerformanceMode}`
+    );
+    renderSellerPerformance(state.sellerPerformance);
+  } catch (error) {
+    state.sellerPerformance = null;
+    element('seller-performance-card').hidden = true;
+  }
 }
 
 function appendCell(row, value, className) {
@@ -592,6 +818,12 @@ async function openSellerDetail(seller) {
   const metrics = element('seller-metrics');
   metrics.replaceChildren();
   const targets = state.settings?.targets || {};
+  const perf = state.selectedSellerPerformance ||
+    state.sellerPerformance?.items?.find(item => item.employeeId === seller.employeeId) ||
+    null;
+  const kpiValue = perf && perf.currentKpi !== null
+    ? `${formatNumber(perf.currentKpi)} ${trendArrowHtml(perf.trendDirection, perf.kpiDelta)}`
+    : kpiLabel(seller.averageKpi, seller.kpiLevel);
   const metricItems = [
     ['Смены', formatInteger(seller.shiftsCount)],
     ['Выручка', formatMoney(seller.revenue)],
@@ -602,7 +834,7 @@ async function openSellerDetail(seller) {
     ['Товаров в чеке', formatNumber(seller.itemsPerReceipt)],
     ['Цель товаров в чеке', formatNumber(targets.itemsPerReceipt)],
     ['Доля QR', formatPercent(seller.qrShare)],
-    ['KPI', kpiLabel(seller.averageKpi, seller.kpiLevel)],
+    ['KPI', kpiValue],
     ['Уровень', seller.kpiLevel || NA_TEXT],
     ['Премия', seller.bonusStatus === 'COMPLETE' ? formatMoney(seller.bonus)
       : (seller.bonusStatus === 'ACCESS_DENIED' ? 'Недоступно' : NA_TEXT)],
@@ -618,6 +850,49 @@ async function openSellerDetail(seller) {
     note.className = 'field-help';
     note.textContent = `Недостающие поля: ${seller.missingFields.map(russianMissingField).join(', ')}`;
     metrics.append(note);
+  }
+  if (perf) {
+    const trendStateBlock = document.createElement('div');
+    trendStateBlock.className = 'metric wide';
+    const confidenceBadge = perf.trendConfidence === 'full'
+      ? '<span class="confidence-badge full">FULL</span>'
+      : (perf.trendConfidence === 'preliminary'
+        ? '<span class="confidence-badge preliminary">Предварительно</span>'
+        : '<span class="confidence-badge insufficient">Недостаточно данных</span>');
+    trendStateBlock.innerHTML = `<small>Динамика</small><strong>${escapeHtml(perf.trendLabel)} ${confidenceBadge}</strong>`;
+    metrics.append(trendStateBlock);
+
+    if (perf.trendConfidence === 'preliminary') {
+      const warningBlock = document.createElement('div');
+      warningBlock.className = 'metric wide preliminary-warning';
+      warningBlock.innerHTML = `<small>Внимание</small><span>${escapeHtml(perf.trendExplanation)} Требуется 10 завершённых смен для полноценного 5×5 сравнения.</span>`;
+      metrics.append(warningBlock);
+    }
+
+    if (perf.latestWindow?.shifts?.length > 0) {
+      const latestBlock = document.createElement('div');
+      latestBlock.className = 'metric wide';
+      latestBlock.innerHTML = `<small>Последние смены</small><div class="window-kpis">${perf.latestWindow.shifts.map(s => `<span title="${formatDate(s.date)}">${formatNumber(s.kpi)}</span>`).join(' → ')}</div>`;
+      metrics.append(latestBlock);
+    }
+
+    if (perf.previousWindow?.shifts?.length > 0) {
+      const previousBlock = document.createElement('div');
+      previousBlock.className = 'metric wide';
+      previousBlock.innerHTML = `<small>Предыдущие смены</small><div class="window-kpis">${perf.previousWindow.shifts.map(s => `<span title="${formatDate(s.date)}">${formatNumber(s.kpi)}</span>`).join(' → ')}</div>`;
+      metrics.append(previousBlock);
+    }
+
+    const changeBlock = document.createElement('div');
+    changeBlock.className = 'metric wide';
+    changeBlock.innerHTML = `<small>Что изменилось</small><strong>${renderWhatChanged(perf)}</strong>`;
+    metrics.append(changeBlock);
+    if (perf.sparkline && perf.sparkline.length > 0) {
+      const sparkBlock = document.createElement('div');
+      sparkBlock.className = 'metric wide';
+      sparkBlock.innerHTML = `<small>Динамика KPI по сменам</small><div class="sparkline">${perf.sparkline.map(p => `<span title="${formatDate(p.date)}">${formatNumber(p.kpi)}</span>`).join(' → ')}</div>`;
+      metrics.append(sparkBlock);
+    }
   }
   const store = selectedStoreId();
   const { year, month } = period();
@@ -2018,4 +2293,11 @@ element('export-month').addEventListener('click', exportSelectedMonth);
 element('close-shift-summary').addEventListener('click', () => element('shift-summary-dialog').close());
 element('shift-summary-ok').addEventListener('click', () => element('shift-summary-dialog').close());
 element('logout-button').addEventListener('click', logout);
+for (const button of document.querySelectorAll('[data-performance-mode]')) {
+  button.addEventListener('click', async () => {
+    state.sellerPerformanceMode = button.dataset.performanceMode;
+    renderPerformanceModeButtons();
+    await loadSellerPerformance();
+  });
+}
 initialize();

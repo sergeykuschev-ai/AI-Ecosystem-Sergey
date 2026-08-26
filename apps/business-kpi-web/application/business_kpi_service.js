@@ -11,6 +11,10 @@ const {
   aggregateSellers,
 } = require('../../../agents/business-kpi/services/aggregate_month');
 const {
+  buildSellerPerformance,
+  TREND_MODES,
+} = require('../../../agents/business-kpi/services/seller_performance_analytics');
+const {
   METRIC_CONTRACT_VERSION,
 } = require('../../../agents/business-kpi/rules/metric_contract');
 const { ApplicationError } = require('./application_error');
@@ -746,6 +750,42 @@ class BusinessKpiService {
       settingsVersion: settingsRecord?.version || null,
       settingsStatus: settingsRecord ? 'CONFIRMED' : 'UNRESOLVED',
     };
+  }
+
+  async getSellerPerformance(input, actor) {
+    requireRole(actor, OWNER_ROLES);
+    const storeRecord = await this.store.getStore(input.storeId);
+    if (!storeRecord?.active) {
+      throw new ApplicationError('STORE_NOT_FOUND', 'Магазин не найден.', 404);
+    }
+    const firstDay = `${input.year}-${String(input.month).padStart(2, '0')}-01`;
+    const monthsBack = 3;
+    const totalMonths = input.year * 12 + (input.month - 1);
+    const startTotal = totalMonths - monthsBack;
+    const startYear = Math.floor(startTotal / 12);
+    const startMonth = (startTotal % 12) + 1;
+    const startDate = `${startYear}-${String(startMonth).padStart(2, '0')}-01`;
+    const endDate = new Date(Date.UTC(input.year, input.month, 0)).toISOString().slice(0, 10);
+
+    const [employees, settingsRecord, shifts] = await Promise.all([
+      this.store.listEmployees({ storeId: input.storeId }),
+      this.store.getEffectiveSettings(input.storeId, firstDay),
+      this.store.listShifts({
+        storeId: input.storeId,
+        dateFrom: startDate,
+        dateTo: endDate,
+      }),
+    ]);
+
+    const mode = Object.values(TREND_MODES).includes(input.mode) ? input.mode : TREND_MODES.SHIFTS;
+    return buildSellerPerformance({
+      shifts,
+      employees,
+      settings: settingsRecord?.settings || null,
+      year: input.year,
+      month: input.month,
+      mode,
+    });
   }
 
   async redactSellerBonuses(sellers, actor) {
