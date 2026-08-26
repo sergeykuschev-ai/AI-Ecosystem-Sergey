@@ -455,7 +455,7 @@ test('bonuses endpoint returns shiftNorm 15 and coefficient matching shift count
 });
 
 test('partial seller has missingFields and unresolved bonus', async () => {
-  const employee = DEV_EMPLOYEES[3];
+  const employee = DEV_EMPLOYEES[4];
   const created = await createCompleteShift({
     shiftDate: '2026-08-16',
     employeeId: employee.id,

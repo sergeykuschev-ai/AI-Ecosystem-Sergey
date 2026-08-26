@@ -722,7 +722,7 @@ class BusinessKpiService {
       throw new ApplicationError('STORE_NOT_FOUND', 'Магазин не найден.', 404);
     }
     const firstDay = `${input.year}-${String(input.month).padStart(2, '0')}-01`;
-    const [shifts, planRecord, settingsRecord] = await Promise.all([
+    const [shifts, planRecord, settingsRecord, employees] = await Promise.all([
       this.store.listShifts({
         storeId: input.storeId,
         year: input.year,
@@ -730,6 +730,7 @@ class BusinessKpiService {
       }),
       this.store.getMonthlyPlan(input.storeId, input.year, input.month),
       this.store.getEffectiveSettings(input.storeId, firstDay),
+      this.store.listEmployees({ storeId: input.storeId }),
     ]);
     const month = aggregateMonth(shifts, {
       ...input,
@@ -737,7 +738,13 @@ class BusinessKpiService {
       settings: settingsRecord?.settings || null,
       asOf: this.now(),
     });
-    const sellers = aggregateSellers(month, settingsRecord?.settings || null);
+    const participatingSellerIds = new Set(
+      employees
+        .filter(employee => employee.participatesInSellerKpi !== false)
+        .map(employee => employee.id)
+    );
+    const sellers = aggregateSellers(month, settingsRecord?.settings || null)
+      .filter(seller => participatingSellerIds.has(seller.employeeId));
     const redactedSellers = await this.redactSellerBonuses(sellers, actor);
     return {
       month: {
