@@ -33,12 +33,24 @@ after(async () => {
   await once(server, 'close');
 });
 
-function ownerHeaders() {
-  return { 'X-Business-KPI-Role': 'OWNER' };
+function devOwnerHeaders(extra = {}) {
+  return {
+    'X-Business-KPI-Actor-Id': 'ux-v2-owner',
+    'X-Business-KPI-Role': 'OWNER',
+    ...extra,
+  };
+}
+
+function apiFetch(path, options = {}) {
+  const mergedHeaders = {
+    ...devOwnerHeaders(),
+    ...(options.headers || {}),
+  };
+  return fetch(path, { ...options, headers: mergedHeaders });
 }
 
 async function createShift(input) {
-  const response = await fetch(`${baseUrl}/api/business-kpi/shifts`, {
+  const response = await apiFetch(`${baseUrl}/api/business-kpi/shifts`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -62,7 +74,7 @@ async function createShift(input) {
 }
 
 test('dashboard includes dataStatus and today aggregate', async () => {
-  const response = await fetch(
+  const response = await apiFetch(
     `${baseUrl}/api/business-kpi/dashboard?store=${DEV_STORE.id}&year=2026&month=8`
   );
   const body = await response.json();
@@ -72,7 +84,7 @@ test('dashboard includes dataStatus and today aggregate', async () => {
 });
 
 test('today endpoint returns current date aggregate', async () => {
-  const response = await fetch(`${baseUrl}/api/business-kpi/today?store=${DEV_STORE.id}`);
+  const response = await apiFetch(`${baseUrl}/api/business-kpi/today?store=${DEV_STORE.id}`);
   const body = await response.json();
   assert.equal(response.status, 200);
   assert.match(body.data.date, /^\d{4}-\d{2}-\d{2}$/);
@@ -81,7 +93,7 @@ test('today endpoint returns current date aggregate', async () => {
 });
 
 test('months endpoint returns 12 months with plan, fact and dataStatus', async () => {
-  const response = await fetch(
+  const response = await apiFetch(
     `${baseUrl}/api/business-kpi/months?store=${DEV_STORE.id}&year=2026`
   );
   const body = await response.json();
@@ -95,7 +107,7 @@ test('months endpoint returns 12 months with plan, fact and dataStatus', async (
 });
 
 test('year endpoint returns YTD and completed month ranking', async () => {
-  const response = await fetch(
+  const response = await apiFetch(
     `${baseUrl}/api/business-kpi/year?store=${DEV_STORE.id}&year=2026`
   );
   const body = await response.json();
@@ -109,7 +121,7 @@ test('year endpoint returns YTD and completed month ranking', async () => {
 });
 
 test('bonuses endpoint exposes bonus details per seller', async () => {
-  const response = await fetch(
+  const response = await apiFetch(
     `${baseUrl}/api/business-kpi/bonuses?store=${DEV_STORE.id}&year=2026&month=8`
   );
   const body = await response.json();
@@ -120,9 +132,9 @@ test('bonuses endpoint exposes bonus details per seller', async () => {
 });
 
 test('settings version creation requires weights to sum to 100', async () => {
-  const response = await fetch(`${baseUrl}/api/business-kpi/settings`, {
+  const response = await apiFetch(`${baseUrl}/api/business-kpi/settings`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...ownerHeaders() },
+    headers: { 'Content-Type': 'application/json', ...devOwnerHeaders() },
     body: JSON.stringify({
       storeId: DEV_STORE.id,
       effectiveFrom: '2026-09-01',
@@ -153,9 +165,9 @@ test('settings version creation requires weights to sum to 100', async () => {
 });
 
 test('settings version creation succeeds with valid weights', async () => {
-  const response = await fetch(`${baseUrl}/api/business-kpi/settings`, {
+  const response = await apiFetch(`${baseUrl}/api/business-kpi/settings`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...ownerHeaders() },
+    headers: { 'Content-Type': 'application/json', ...devOwnerHeaders() },
     body: JSON.stringify({
       storeId: DEV_STORE.id,
       effectiveFrom: '2026-09-01',
@@ -218,9 +230,9 @@ function buildValidSettings(patch = {}) {
 }
 
 test('settings version creation rejects invalid QR tiers', async () => {
-  const response = await fetch(`${baseUrl}/api/business-kpi/settings`, {
+  const response = await apiFetch(`${baseUrl}/api/business-kpi/settings`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...ownerHeaders() },
+    headers: { 'Content-Type': 'application/json', ...devOwnerHeaders() },
     body: JSON.stringify({
       storeId: DEV_STORE.id,
       effectiveFrom: '2026-10-01',
@@ -241,9 +253,9 @@ test('settings version creation rejects invalid QR tiers', async () => {
 });
 
 test('settings version creation rejects percentage above 100%', async () => {
-  const response = await fetch(`${baseUrl}/api/business-kpi/settings`, {
+  const response = await apiFetch(`${baseUrl}/api/business-kpi/settings`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...ownerHeaders() },
+    headers: { 'Content-Type': 'application/json', ...devOwnerHeaders() },
     body: JSON.stringify({
       storeId: DEV_STORE.id,
       effectiveFrom: '2026-10-01',
@@ -261,9 +273,9 @@ test('historical shift keeps KPI calculated by settings version effective on shi
   const augustShift = await createShift({ shiftDate: '2026-08-20' });
   assert.equal(augustShift.settingsVersion, 1);
 
-  const createResponse = await fetch(`${baseUrl}/api/business-kpi/settings`, {
+  const createResponse = await apiFetch(`${baseUrl}/api/business-kpi/settings`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...ownerHeaders() },
+    headers: { 'Content-Type': 'application/json', ...devOwnerHeaders() },
     body: JSON.stringify({
       storeId: DEV_STORE.id,
       effectiveFrom: '2026-09-01',
@@ -273,7 +285,7 @@ test('historical shift keeps KPI calculated by settings version effective on shi
   });
   assert.equal(createResponse.status, 201);
 
-  const augustResponse = await fetch(
+  const augustResponse = await apiFetch(
     `${baseUrl}/api/business-kpi/shifts/${augustShift.id}`
   );
   const augustBody = await augustResponse.json();
@@ -285,7 +297,7 @@ test('historical shift keeps KPI calculated by settings version effective on shi
 });
 
 test('shift validation rejects qr above acquiring', async () => {
-  const response = await fetch(`${baseUrl}/api/business-kpi/shifts`, {
+  const response = await apiFetch(`${baseUrl}/api/business-kpi/shifts`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -310,7 +322,7 @@ test('shift validation rejects qr above acquiring', async () => {
 });
 
 test('shift validation rejects upsell receipts above total receipts', async () => {
-  const response = await fetch(`${baseUrl}/api/business-kpi/shifts`, {
+  const response = await apiFetch(`${baseUrl}/api/business-kpi/shifts`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -334,7 +346,7 @@ test('shift validation rejects upsell receipts above total receipts', async () =
 });
 
 test('shift validation rejects negative values', async () => {
-  const response = await fetch(`${baseUrl}/api/business-kpi/shifts`, {
+  const response = await apiFetch(`${baseUrl}/api/business-kpi/shifts`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -379,7 +391,7 @@ test('frontend app does not compute kpiScore with assignment', () => {
 });
 
 test('year endpoint returns currentMonthSummary and ytdCompleted and excludes current month from bests/worsts', async () => {
-  const response = await fetch(
+  const response = await apiFetch(
     `${baseUrl}/api/business-kpi/year?store=${DEV_STORE.id}&year=2026`
   );
   const body = await response.json();
@@ -401,7 +413,7 @@ test('year endpoint returns currentMonthSummary and ytdCompleted and excludes cu
 });
 
 async function createCompleteShift(input) {
-  const response = await fetch(`${baseUrl}/api/business-kpi/shifts`, {
+  const response = await apiFetch(`${baseUrl}/api/business-kpi/shifts`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -430,7 +442,7 @@ test('bonuses endpoint returns shiftNorm 15 and coefficient matching shift count
   for (const date of dates) {
     await createCompleteShift({ shiftDate: date, employeeId: employee.id });
   }
-  const response = await fetch(
+  const response = await apiFetch(
     `${baseUrl}/api/business-kpi/bonuses?store=${DEV_STORE.id}&year=2026&month=8`
   );
   const body = await response.json();
@@ -454,7 +466,7 @@ test('partial seller has missingFields and unresolved bonus', async () => {
   });
   assert.ok(created, 'partial shift was created');
 
-  const dashboardResponse = await fetch(
+  const dashboardResponse = await apiFetch(
     `${baseUrl}/api/business-kpi/dashboard?store=${DEV_STORE.id}&year=2026&month=8`
   );
   const dashboardBody = await dashboardResponse.json();
@@ -465,7 +477,7 @@ test('partial seller has missingFields and unresolved bonus', async () => {
   assert.ok(Array.isArray(dashboardSeller.missingFields));
   assert.ok(dashboardSeller.missingFields.length > 0);
 
-  const bonusesResponse = await fetch(
+  const bonusesResponse = await apiFetch(
     `${baseUrl}/api/business-kpi/bonuses?store=${DEV_STORE.id}&year=2026&month=8`
   );
   const bonusesBody = await bonusesResponse.json();
@@ -479,7 +491,7 @@ test('partial seller has missingFields and unresolved bonus', async () => {
 });
 
 test('months endpoint marks current month with label and note', async () => {
-  const response = await fetch(
+  const response = await apiFetch(
     `${baseUrl}/api/business-kpi/months?store=${DEV_STORE.id}&year=2026`
   );
   const body = await response.json();

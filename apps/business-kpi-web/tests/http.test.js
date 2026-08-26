@@ -16,6 +16,81 @@ const { makeXlsx } = require('./xlsx_fixture');
 
 let server;
 let baseUrl;
+let ownerHeaders = {};
+
+async function loginAsOwner() {
+  const authService = new (require('../application/auth_service').AuthService)({
+    store: server.businessKpiStore,
+  });
+  await authService.createUser({
+    id: '00000000-0000-4000-8000-000000000001',
+    externalId: 'owner.test',
+    displayName: 'Test Owner',
+    role: 'OWNER',
+    storeId: DEV_STORE.id,
+    password: 'owner-test-password',
+  });
+  const login = await fetch(`${baseUrl}/api/business-kpi/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ externalId: 'owner.test', password: 'owner-test-password' }),
+  });
+  if (!login.ok) {
+    throw new Error(`login failed: ${login.status} ${await login.text()}`);
+  }
+  const cookies = login.headers.get('set-cookie');
+  const csrfMatch = cookies && cookies.match(/business_kpi_csrf=([^;]+)/);
+  return {
+    cookie: cookies,
+    csrf: csrfMatch ? decodeURIComponent(csrfMatch[1]) : '',
+  };
+}
+
+function authHeaders(extra = {}) {
+  return {
+    Cookie: ownerHeaders.cookie,
+    ...(ownerHeaders.csrf ? { 'X-CSRF-Token': ownerHeaders.csrf } : {}),
+    ...extra,
+  };
+}
+
+function sellerHeaders(extra = {}) {
+  return {
+    Cookie: testSellerHeaders.cookie,
+    ...(testSellerHeaders.csrf ? { 'X-CSRF-Token': testSellerHeaders.csrf } : {}),
+    ...extra,
+  };
+}
+
+let testSellerHeaders = {};
+
+async function createTestSeller() {
+  const authService = new (require('../application/auth_service').AuthService)({
+    store: server.businessKpiStore,
+  });
+  await authService.createUser({
+    id: '00000000-0000-4000-8000-000000000003',
+    externalId: 'seller.test',
+    displayName: 'Test Seller',
+    role: 'SELLER',
+    storeId: DEV_STORE.id,
+    password: 'seller-test-password',
+  });
+  const login = await fetch(`${baseUrl}/api/business-kpi/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ externalId: 'seller.test', password: 'seller-test-password' }),
+  });
+  if (!login.ok) {
+    throw new Error(`seller login failed: ${login.status} ${await login.text()}`);
+  }
+  const cookies = login.headers.get('set-cookie');
+  const csrfMatch = cookies && cookies.match(/business_kpi_csrf=([^;]+)/);
+  return {
+    cookie: cookies,
+    csrf: csrfMatch ? decodeURIComponent(csrfMatch[1]) : '',
+  };
+}
 
 before(async () => {
   server = createBusinessKpiWebServer({
@@ -27,6 +102,8 @@ before(async () => {
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
   baseUrl = `http://127.0.0.1:${server.address().port}`;
+  ownerHeaders = await loginAsOwner();
+  testSellerHeaders = await createTestSeller();
 });
 
 after(async () => {
@@ -105,7 +182,7 @@ test('manual API shift flows through storage, KPI, dashboard, update, and audit'
   };
   const createResponse = await fetch(`${baseUrl}/api/business-kpi/shifts`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(input),
   });
   const created = (await createResponse.json()).data;
@@ -117,7 +194,8 @@ test('manual API shift flows through storage, KPI, dashboard, update, and audit'
   assert.equal(created.metrics.itemsPerReceipt, 2.5);
 
   const dashboardResponse = await fetch(
-    `${baseUrl}/api/business-kpi/dashboard?store=${DEV_STORE.id}&year=2026&month=8`
+    `${baseUrl}/api/business-kpi/dashboard?store=${DEV_STORE.id}&year=2026&month=8`,
+    { headers: authHeaders() }
   );
   const dashboard = (await dashboardResponse.json()).data;
   assert.equal(dashboard.month.revenue, 24000);
@@ -127,7 +205,8 @@ test('manual API shift flows through storage, KPI, dashboard, update, and audit'
 
   const filtered = await fetch(
     `${baseUrl}/api/business-kpi/shifts?store=${DEV_STORE.id}` +
-    `&employee=${DEV_EMPLOYEES[0].id}&date_from=2026-08-20&date_to=2026-08-20`
+    `&employee=${DEV_EMPLOYEES[0].id}&date_from=2026-08-20&date_to=2026-08-20`,
+    { headers: authHeaders() }
   ).then(response => response.json());
   assert.equal(filtered.data.items.length, 1);
 
@@ -135,10 +214,10 @@ test('manual API shift flows through storage, KPI, dashboard, update, and audit'
     `${baseUrl}/api/business-kpi/shifts/${created.id}`,
     {
       method: 'PATCH',
-      headers: {
+      headers: authHeaders({
         'Content-Type': 'application/json',
         'X-Change-Reason': 'cash correction',
-      },
+      }),
       body: JSON.stringify({ cash: 12000 }),
     }
   );
@@ -146,7 +225,8 @@ test('manual API shift flows through storage, KPI, dashboard, update, and audit'
   assert.equal(updated.metrics.revenue, 26000);
 
   const detail = await fetch(
-    `${baseUrl}/api/business-kpi/shifts/${created.id}`
+    `${baseUrl}/api/business-kpi/shifts/${created.id}`,
+    { headers: authHeaders() }
   ).then(response => response.json());
   assert.deepEqual(
     detail.data.audit.map(item => item.action),
@@ -155,7 +235,7 @@ test('manual API shift flows through storage, KPI, dashboard, update, and audit'
 
   const duplicateResponse = await fetch(`${baseUrl}/api/business-kpi/shifts`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(input),
   });
   const duplicate = await duplicateResponse.json();
@@ -164,18 +244,19 @@ test('manual API shift flows through storage, KPI, dashboard, update, and audit'
 
   const forbiddenDelete = await fetch(
     `${baseUrl}/api/business-kpi/shifts/${created.id}`,
-    { method: 'DELETE', headers: { 'X-Business-KPI-Role': 'SELLER' } }
+    { method: 'DELETE', headers: sellerHeaders({ 'X-Change-Reason': 'forbidden test' }) }
   );
   assert.equal(forbiddenDelete.status, 403);
 
   const deleteResponse = await fetch(
     `${baseUrl}/api/business-kpi/shifts/${created.id}`,
-    { method: 'DELETE', headers: { 'X-Change-Reason': 'archive test' } }
+    { method: 'DELETE', headers: authHeaders({ 'X-Change-Reason': 'archive test' }) }
   );
   assert.equal(deleteResponse.status, 200);
 
   const list = await fetch(
-    `${baseUrl}/api/business-kpi/shifts?store=${DEV_STORE.id}&year=2026&month=8`
+    `${baseUrl}/api/business-kpi/shifts?store=${DEV_STORE.id}&year=2026&month=8`,
+    { headers: authHeaders() }
   ).then(response => response.json());
   assert.equal(list.data.items.length, 0);
 });
@@ -196,7 +277,7 @@ test('manual API rejects derived fields and QR above acquiring', async () => {
   };
   const qrResponse = await fetch(`${baseUrl}/api/business-kpi/shifts`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(input),
   });
   const qrBody = await qrResponse.json();
@@ -206,7 +287,7 @@ test('manual API rejects derived fields and QR above acquiring', async () => {
 
   const derivedResponse = await fetch(`${baseUrl}/api/business-kpi/shifts`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({ ...input, qr: 5, averageCheck: 30 }),
   });
   const derivedBody = await derivedResponse.json();
@@ -214,7 +295,8 @@ test('manual API rejects derived fields and QR above acquiring', async () => {
   assert.equal(derivedBody.error.code, 'UNSUPPORTED_SHIFT_FIELD');
 
   const invalidRange = await fetch(
-    `${baseUrl}/api/business-kpi/shifts?date_from=2026-08-22&date_to=2026-08-21`
+    `${baseUrl}/api/business-kpi/shifts?date_from=2026-08-22&date_to=2026-08-21`,
+    { headers: authHeaders() }
   );
   const invalidRangeBody = await invalidRange.json();
   assert.equal(invalidRange.status, 422);
@@ -230,7 +312,9 @@ test('multipart XLSX API enforces dry-run before atomic commit', async () => {
   form.set('storeId', DEV_STORE.id);
   form.set('file', new Blob([workbook]), 'сентябрь.xlsx');
   const dryResponse = await fetch(`${baseUrl}/api/business-kpi/imports/dry-run`, {
-    method: 'POST', body: form,
+    method: 'POST',
+    headers: authHeaders(),
+    body: form,
   });
   const dryBody = await dryResponse.json();
   assert.equal(dryResponse.status, 201);
@@ -241,10 +325,57 @@ test('multipart XLSX API enforces dry-run before atomic commit', async () => {
 
   const commitResponse = await fetch(
     `${baseUrl}/api/business-kpi/imports/${dryBody.data.id}/commit`,
-    { method: 'POST' }
+    { method: 'POST', headers: authHeaders() }
   );
   const commitBody = await commitResponse.json();
   assert.equal(commitResponse.status, 200);
   assert.equal(commitBody.data.status, 'COMPLETED');
   assert.equal(commitBody.data.rowsImported, 1);
+});
+
+test('logout invalidates DB session and clears cookies', async () => {
+  const meBefore = await fetch(`${baseUrl}/api/business-kpi/auth/me`, {
+    headers: authHeaders(),
+  });
+  assert.equal(meBefore.status, 200);
+
+  const logout = await fetch(`${baseUrl}/api/business-kpi/auth/logout`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  assert.equal(logout.status, 200);
+  const clearCookies = logout.headers.get('set-cookie') || '';
+  assert.match(clearCookies, /business_kpi_session=;.*Max-Age=0/);
+  assert.match(clearCookies, /business_kpi_csrf=;.*Max-Age=0/);
+
+  const meAfter = await fetch(`${baseUrl}/api/business-kpi/auth/me`, {
+    headers: authHeaders(),
+  });
+  assert.equal(meAfter.status, 401);
+});
+
+test('dev mode does not auto-authenticate without explicit actor headers', async () => {
+  const me = await fetch(`${baseUrl}/api/business-kpi/auth/me`);
+  assert.equal(me.status, 401);
+});
+
+test('OWNER logout then SELLER login switches role correctly', async () => {
+  await fetch(`${baseUrl}/api/business-kpi/auth/logout`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+
+  const sellerLogin = await fetch(`${baseUrl}/api/business-kpi/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ externalId: 'seller.test', password: 'seller-test-password' }),
+  });
+  assert.equal(sellerLogin.status, 200);
+  const sellerCookies = sellerLogin.headers.get('set-cookie');
+  const sellerMe = await fetch(`${baseUrl}/api/business-kpi/auth/me`, {
+    headers: { Cookie: sellerCookies },
+  });
+  const sellerBody = await sellerMe.json();
+  assert.equal(sellerMe.status, 200);
+  assert.equal(sellerBody.data.user.role, 'SELLER');
 });
