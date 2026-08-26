@@ -648,3 +648,51 @@ test('SELLER cannot edit imported historical shift', async () => {
   }, { Cookie: sessionCookie, 'x-csrf-token': csrf });
   assert.equal(patchResponse.response.status, 403);
 });
+
+test('seller-performance endpoint is owner-only', async () => {
+  await authService.createUser({
+    id: 'owner-performance-1',
+    externalId: 'owner.performance',
+    displayName: 'Performance Owner',
+    role: 'OWNER',
+    storeId: DEV_STORE.id,
+    password: 'correct-password',
+  });
+  await authService.createUser({
+    id: 'seller-performance-1',
+    externalId: 'seller.performance',
+    displayName: 'Performance Seller',
+    role: 'SELLER',
+    storeId: DEV_STORE.id,
+    password: 'correct-password',
+  });
+
+  const ownerLogin = await postJson('/api/business-kpi/auth/login', {
+    externalId: 'owner.performance',
+    password: 'correct-password',
+  });
+  const ownerCookies = parseCookies(ownerLogin.response);
+  const ownerSession = sessionHeader(ownerCookies);
+
+  const ownerResponse = await fetch(
+    `${baseUrl}/api/business-kpi/seller-performance?store=${DEV_STORE.id}&year=2026&month=8`,
+    { headers: { Cookie: ownerSession } }
+  );
+  assert.equal(ownerResponse.status, 200);
+  const ownerBody = await ownerResponse.json();
+  assert.ok(Array.isArray(ownerBody.data.items));
+  assert.ok(ownerBody.data.teamSignals);
+
+  const sellerLogin = await postJson('/api/business-kpi/auth/login', {
+    externalId: 'seller.performance',
+    password: 'correct-password',
+  });
+  const sellerCookies = parseCookies(sellerLogin.response);
+  const sellerSession = sessionHeader(sellerCookies);
+
+  const sellerResponse = await fetch(
+    `${baseUrl}/api/business-kpi/seller-performance?store=${DEV_STORE.id}&year=2026&month=8`,
+    { headers: { Cookie: sellerSession } }
+  );
+  assert.equal(sellerResponse.status, 403);
+});

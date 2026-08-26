@@ -169,7 +169,8 @@ class PostgresBusinessKpiStore {
       where.push(`store_id = $${values.length}`);
     }
     const result = await this.client.query(
-      `SELECT id, store_id, employee_code, display_name, active
+      `SELECT id, store_id, employee_code, display_name, active,
+              user_id, hired_on, terminated_on
        FROM business_kpi.employees
        WHERE ${where.join(' AND ')} ORDER BY display_name`,
       values
@@ -180,12 +181,16 @@ class PostgresBusinessKpiStore {
       employeeCode: row.employee_code,
       displayName: row.display_name,
       active: row.active,
+      userId: row.user_id || null,
+      hiredOn: row.hired_on ? row.hired_on.toISOString().slice(0, 10) : null,
+      terminatedOn: row.terminated_on ? row.terminated_on.toISOString().slice(0, 10) : null,
     }));
   }
 
   async getEmployee(id) {
     const result = await this.client.query(
-      `SELECT id, store_id, employee_code, display_name, active
+      `SELECT id, store_id, employee_code, display_name, active,
+              user_id, hired_on, terminated_on
        FROM business_kpi.employees WHERE id = $1`,
       [id]
     );
@@ -196,6 +201,9 @@ class PostgresBusinessKpiStore {
       employeeCode: row.employee_code,
       displayName: row.display_name,
       active: row.active,
+      userId: row.user_id || null,
+      hiredOn: row.hired_on ? row.hired_on.toISOString().slice(0, 10) : null,
+      terminatedOn: row.terminated_on ? row.terminated_on.toISOString().slice(0, 10) : null,
     } : null;
   }
 
@@ -614,7 +622,8 @@ class PostgresBusinessKpiStore {
 
   async getEmployeeByUserId(userId) {
     const result = await this.client.query(
-      `SELECT id, store_id, employee_code, display_name, active, user_id
+      `SELECT id, store_id, employee_code, display_name, active,
+              user_id, hired_on, terminated_on
        FROM business_kpi.employees WHERE user_id = $1`,
       [userId]
     );
@@ -625,7 +634,9 @@ class PostgresBusinessKpiStore {
       employeeCode: row.employee_code,
       displayName: row.display_name,
       active: row.active,
-      userId: row.user_id,
+      userId: row.user_id || null,
+      hiredOn: row.hired_on ? row.hired_on.toISOString().slice(0, 10) : null,
+      terminatedOn: row.terminated_on ? row.terminated_on.toISOString().slice(0, 10) : null,
     } : null;
   }
 
