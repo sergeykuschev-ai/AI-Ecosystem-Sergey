@@ -302,6 +302,7 @@ function dataCompleteness(activeCurrentShifts, thresholds) {
 function isCurrentTeamMember(employee, options) {
   if (employee.active === false) return false;
   if (employee.terminatedOn) return false;
+  if (employee.participatesInSellerKpi === false) return false;
   const pattern = options.placeholderEmployeeCodePattern;
   if (pattern && employee.employeeCode && pattern.test(employee.employeeCode) && !employee.userId) return false;
   return true;
@@ -324,6 +325,10 @@ function currentTeamAudit(employees, shifts, year, month, options) {
     }
     if (employee.terminatedOn) {
       excluded.push({ employeeId: employee.id, employeeName: employee.displayName, reason: 'terminated' });
+      continue;
+    }
+    if (employee.participatesInSellerKpi === false) {
+      excluded.push({ employeeId: employee.id, employeeName: employee.displayName, reason: 'owner_not_in_seller_kpi' });
       continue;
     }
     const pattern = options.placeholderEmployeeCodePattern;

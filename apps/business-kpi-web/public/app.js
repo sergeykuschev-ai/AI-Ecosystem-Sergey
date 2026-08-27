@@ -269,7 +269,13 @@ function renderDashboard(data) {
   element('metric-receipts').textContent = formatInteger(month.receipts);
   element('metric-shifts').textContent = formatInteger(month.shiftsCount);
   element('metric-average-check').textContent = formatMoney(month.averageCheck);
-  element('metric-items').textContent = formatNumber(month.itemsPerReceipt);
+  const itemsCoverage = month.itemsCheckCoverage;
+  const itemsEl = element('metric-items');
+  if (itemsCoverage && itemsCoverage.totalShifts > 0 && itemsCoverage.shiftsWithItems < itemsCoverage.totalShifts) {
+    itemsEl.textContent = `${formatNumber(month.itemsPerReceipt)} · данные по ${itemsCoverage.shiftsWithItems} из ${itemsCoverage.totalShifts} смен`;
+  } else {
+    itemsEl.textContent = formatNumber(month.itemsPerReceipt);
+  }
   element('metric-qr').textContent = formatPercent(month.qrShare);
   element('metric-qr-amount').textContent = formatMoney(month.qr);
   element('metric-days').textContent = `Дней с данными ${formatInteger(month.dataDays)}`;

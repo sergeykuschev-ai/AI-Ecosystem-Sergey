@@ -46,6 +46,25 @@ const DEV_EMPLOYEES = Object.freeze([
   }),
 ]);
 
+const DEV_USERS = Object.freeze([
+  Object.freeze({
+    id: 'u-gorbunova', externalId: 'gorbunova', displayName: 'Горбунова',
+    role: 'SELLER', storeId: DEV_STORE.id, active: true,
+  }),
+  Object.freeze({
+    id: 'u-kapitanova', externalId: 'kapitanova', displayName: 'Капитанова',
+    role: 'SELLER', storeId: DEV_STORE.id, active: true,
+  }),
+  Object.freeze({
+    id: 'u-kushchev', externalId: 'kushchev', displayName: 'Кущев',
+    role: 'OWNER', storeId: DEV_STORE.id, active: true,
+  }),
+  Object.freeze({
+    id: 'u-cherednichenko', externalId: 'cherednichenko', displayName: 'Чередниченко',
+    role: 'SELLER', storeId: DEV_STORE.id, active: true,
+  }),
+]);
+
 function clone(value) {
   return value === undefined ? undefined : structuredClone(value);
 }
@@ -70,7 +89,7 @@ class InMemoryBusinessKpiStore {
     const seed = options.seed !== false;
     this.stores = seed ? [clone(DEV_STORE)] : [];
     this.employees = seed ? clone(DEV_EMPLOYEES) : [];
-    this.users = [];
+    this.users = seed ? clone(DEV_USERS) : [];
     this.sessions = [];
     this.shifts = [];
     this.audit = [];
@@ -115,14 +134,24 @@ class InMemoryBusinessKpiStore {
     return clone(this.stores.filter(store => store.active));
   }
 
+  _employeeWithParticipation(employee) {
+    if (!employee) return null;
+    const cloneEmployee = clone(employee);
+    const user = employee.userId ? this.users.find(u => u.id === employee.userId) : null;
+    cloneEmployee.participatesInSellerKpi = user?.role !== 'OWNER';
+    return cloneEmployee;
+  }
+
   async listEmployees({ storeId } = {}) {
-    return clone(this.employees.filter(employee =>
-      employee.active && (!storeId || employee.storeId === storeId)
-    ));
+    return this.employees
+      .filter(employee => employee.active && (!storeId || employee.storeId === storeId))
+      .map(employee => this._employeeWithParticipation(employee));
   }
 
   async getEmployee(id) {
-    return clone(this.employees.find(employee => employee.id === id) || null);
+    return this._employeeWithParticipation(
+      this.employees.find(employee => employee.id === id) || null
+    );
   }
 
   async getStore(id) {
@@ -329,7 +358,9 @@ class InMemoryBusinessKpiStore {
   }
 
   async getEmployeeByUserId(userId) {
-    return clone(this.employees.find(employee => employee.userId === userId) || null);
+    return this._employeeWithParticipation(
+      this.employees.find(employee => employee.userId === userId) || null
+    );
   }
 
   async createSession(record) {

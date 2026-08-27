@@ -71,6 +71,22 @@ function mapUser(row) {
   };
 }
 
+function mapEmployee(row) {
+  if (!row) return null;
+  const participatesInSellerKpi = row.user_role !== 'OWNER';
+  return {
+    id: row.id,
+    storeId: row.store_id,
+    employeeCode: row.employee_code,
+    displayName: row.display_name,
+    active: row.active,
+    userId: row.user_id || null,
+    hiredOn: row.hired_on ? row.hired_on.toISOString().slice(0, 10) : null,
+    terminatedOn: row.terminated_on ? row.terminated_on.toISOString().slice(0, 10) : null,
+    participatesInSellerKpi,
+  };
+}
+
 function mapImportRun(row) {
   if (!row) return null;
   return {
@@ -163,48 +179,32 @@ class PostgresBusinessKpiStore {
 
   async listEmployees({ storeId } = {}) {
     const values = [];
-    const where = ['active = true'];
+    const where = ['e.active = true'];
     if (storeId) {
       values.push(storeId);
-      where.push(`store_id = $${values.length}`);
+      where.push(`e.store_id = $${values.length}`);
     }
     const result = await this.client.query(
-      `SELECT id, store_id, employee_code, display_name, active,
-              user_id, hired_on, terminated_on
-       FROM business_kpi.employees
-       WHERE ${where.join(' AND ')} ORDER BY display_name`,
+      `SELECT e.id, e.store_id, e.employee_code, e.display_name, e.active,
+              e.user_id, e.hired_on, e.terminated_on, u.role AS user_role
+       FROM business_kpi.employees e
+       LEFT JOIN business_kpi.users u ON u.id = e.user_id
+       WHERE ${where.join(' AND ')} ORDER BY e.display_name`,
       values
     );
-    return result.rows.map(row => ({
-      id: row.id,
-      storeId: row.store_id,
-      employeeCode: row.employee_code,
-      displayName: row.display_name,
-      active: row.active,
-      userId: row.user_id || null,
-      hiredOn: row.hired_on ? row.hired_on.toISOString().slice(0, 10) : null,
-      terminatedOn: row.terminated_on ? row.terminated_on.toISOString().slice(0, 10) : null,
-    }));
+    return result.rows.map(row => mapEmployee(row));
   }
 
   async getEmployee(id) {
     const result = await this.client.query(
-      `SELECT id, store_id, employee_code, display_name, active,
-              user_id, hired_on, terminated_on
-       FROM business_kpi.employees WHERE id = $1`,
+      `SELECT e.id, e.store_id, e.employee_code, e.display_name, e.active,
+              e.user_id, e.hired_on, e.terminated_on, u.role AS user_role
+       FROM business_kpi.employees e
+       LEFT JOIN business_kpi.users u ON u.id = e.user_id
+       WHERE e.id = $1`,
       [id]
     );
-    const row = result.rows[0];
-    return row ? {
-      id: row.id,
-      storeId: row.store_id,
-      employeeCode: row.employee_code,
-      displayName: row.display_name,
-      active: row.active,
-      userId: row.user_id || null,
-      hiredOn: row.hired_on ? row.hired_on.toISOString().slice(0, 10) : null,
-      terminatedOn: row.terminated_on ? row.terminated_on.toISOString().slice(0, 10) : null,
-    } : null;
+    return mapEmployee(result.rows[0]);
   }
 
   async createShift(record) {
