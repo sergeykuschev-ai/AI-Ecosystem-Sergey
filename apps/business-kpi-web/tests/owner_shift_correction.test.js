@@ -215,3 +215,20 @@ test('null items/receipts do not become zero in metrics', async () => {
   const created = await service.createShift(partial, OWNER_ACTOR);
   assert.equal(created.metrics.itemsPerReceipt, null);
 });
+
+test('items/check coverage is exposed when some shifts lack itemsSold', async () => {
+  const { service } = fixture();
+  await service.createShift(ownerShift('2026-08-01', 17, 44, 13406), OWNER_ACTOR);
+  await service.createShift(ownerShift('2026-08-02', 20, 70, 22306), OWNER_ACTOR);
+  await service.createShift(sellerShift('Капитанова', '2026-08-03', 31372, 38, null), OWNER_ACTOR);
+
+  const dashboard = await service.getDashboard({
+    storeId: DEV_STORE.id, year: 2026, month: 8,
+  }, OWNER_ACTOR);
+
+  const coverage = dashboard.month.itemsCheckCoverage;
+  assert.ok(coverage, 'itemsCheckCoverage must be present');
+  assert.equal(coverage.totalShifts, 3);
+  assert.equal(coverage.shiftsWithItems, 2);
+  assert.equal(dashboard.month.itemsPerReceipt, null);
+});

@@ -70,6 +70,13 @@ function aggregateMonth(shifts, options) {
     treatsReceipts: sumNullableInteger(activeShifts, shift => shift.treatsReceipts),
   };
   const dataDays = new Set(activeShifts.map(shift => shift.shiftDate)).size;
+  const shiftsWithItems = activeShifts.filter(
+    shift => shift.itemsSold !== null && shift.itemsSold !== undefined
+  ).length;
+  const itemsCheckCoverage = Object.freeze({
+    totalShifts: activeShifts.length,
+    shiftsWithItems,
+  });
   const averageRevenuePerDataDay = ratio(totals.revenue, dataDays);
   const remainingDays = remainingCalendarDays(year, month, asOf);
   const remainingToPlan = plan === null ? null : plan - totals.revenue;
@@ -89,6 +96,7 @@ function aggregateMonth(shifts, options) {
     averageCheck: ratio(totals.revenue, totals.receipts),
     itemsSold: totals.itemsSold,
     itemsPerReceipt: totals.itemsSold === null ? null : ratio(totals.itemsSold, totals.receipts),
+    itemsCheckCoverage,
     cash: totals.cash,
     acquiring: totals.acquiring,
     qr: totals.qr,
