@@ -62,6 +62,30 @@ test('requirePermission passes for allowed permission', () => {
   assert.doesNotThrow(() => requirePermission({ role: ROLES.SELLER, id: 'u1' }, PERMISSIONS.DASHBOARD_READ));
 });
 
+test('SERVICE has only read permissions needed for analytics', () => {
+  assert.ok(hasPermission(ROLES.SERVICE, PERMISSIONS.DASHBOARD_READ));
+  assert.ok(hasPermission(ROLES.SERVICE, PERMISSIONS.MONTHS_READ));
+  assert.ok(hasPermission(ROLES.SERVICE, PERMISSIONS.YEAR_READ));
+  assert.ok(hasPermission(ROLES.SERVICE, PERMISSIONS.SELLERS_READ));
+  assert.ok(hasPermission(ROLES.SERVICE, PERMISSIONS.BONUSES_READ));
+  assert.ok(hasPermission(ROLES.SERVICE, PERMISSIONS.BONUS_READ_ALL_AMOUNTS));
+  assert.ok(hasPermission(ROLES.SERVICE, PERMISSIONS.SHIFTS_READ));
+  assert.ok(hasPermission(ROLES.SERVICE, PERMISSIONS.SETTINGS_READ));
+  assert.ok(hasPermission(ROLES.SERVICE, PERMISSIONS.IMPORT_READ));
+  assert.ok(hasPermission(ROLES.SERVICE, PERMISSIONS.SELLER_PERFORMANCE_READ));
+});
+
+test('SERVICE cannot perform any write operation', () => {
+  assert.ok(!hasPermission(ROLES.SERVICE, PERMISSIONS.SHIFT_CREATE));
+  assert.ok(!hasPermission(ROLES.SERVICE, PERMISSIONS.SHIFT_EDIT_ANY));
+  assert.ok(!hasPermission(ROLES.SERVICE, PERMISSIONS.SHIFT_ARCHIVE_ANY));
+  assert.ok(!hasPermission(ROLES.SERVICE, PERMISSIONS.SETTINGS_WRITE));
+  assert.ok(!hasPermission(ROLES.SERVICE, PERMISSIONS.PLAN_WRITE));
+  assert.ok(!hasPermission(ROLES.SERVICE, PERMISSIONS.IMPORT_WRITE));
+  assert.ok(!hasPermission(ROLES.SERVICE, PERMISSIONS.EXPORT_RUN));
+  assert.ok(!hasPermission(ROLES.SERVICE, PERMISSIONS.USERS_MANAGE));
+});
+
 test('listPermissions returns only permissions assigned to role', () => {
   const sellerPerms = listPermissions(ROLES.SELLER);
   assert.ok(sellerPerms.includes(PERMISSIONS.DASHBOARD_READ));

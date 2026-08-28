@@ -13,6 +13,7 @@ const { createArthurCoreSkill } = require('./skills/arthur-core/arthur_core_skil
 const { createMailSkill } = require('./skills/mail/mail_skill');
 const { createMailboxRegistry } = require('./skills/mail/mailbox_registry');
 const { createYandexMailSkillFromConfig } = require('./skills/mail/mail_runtime');
+const { createBusinessKpiSkill } = require('./skills/business_kpi/business_kpi_skill');
 const { normalizeMailMessage } = require('./skills/mail/message_normalizer');
 const { analyzeImportantMail } = require('./skills/mail/mail_analysis');
 const { createSenderAliasRegistry } = require('./skills/mail/sender_alias_registry');
@@ -54,6 +55,11 @@ function createArthurV1(options = {}) {
   // inject the configured real adapter. No mail provider is registered by default.
   if (options.mailSkill) {
     registry.register(options.mailSkill);
+  }
+
+  // Business KPI is opt-in. The Telegram Gateway injects the configured client.
+  if (options.businessKpiSkill) {
+    registry.register(options.businessKpiSkill);
   }
 
   const knowledgeDirectories = options.knowledgeDirectories || [
@@ -117,4 +123,5 @@ module.exports = {
   createSenderAliasRegistry,
   createFakeGmailAdapter,
   createFakeYandexAdapter,
+  createBusinessKpiSkill,
 };

@@ -47,6 +47,7 @@ function createBusinessKpiWebServer(options = {}) {
     cookieSecure: config.cookieSecure,
     healthService,
     staticHandler,
+    serviceKeys: config.serviceKeys,
   });
 
   const server = http.createServer((request, response) => {

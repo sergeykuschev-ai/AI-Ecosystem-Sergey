@@ -273,3 +273,42 @@ test('waiting task plan is empty when Core skill is not registered', () => {
   const builder = createRuleBasedPlanBuilder({ availableSkills: ['mail'] });
   assert.deepEqual(builder.build({ message: 'Жду ответ от Premium Pet' }).steps, []);
 });
+
+test('Business KPI intents are deterministic and route to business_kpi skill', () => {
+  const builder = createRuleBasedPlanBuilder({ availableSkills: ['business_kpi'] });
+  const scenarios = [
+    ['Как дела у Миски?', INTENTS.BUSINESS_KPI_STORE_SUMMARY, 'getStoreSummary'],
+    ['Кто сейчас лучше работает?', INTENTS.BUSINESS_KPI_SELLERS, 'getSellers'],
+    ['Как Капитанова?', INTENTS.BUSINESS_KPI_SELLER, 'getSeller'],
+    ['Сравни Капитанову и Чередниченко', INTENTS.BUSINESS_KPI_COMPARE_SELLERS, 'compareSellers'],
+    ['Какие данные не заполнены?', INTENTS.BUSINESS_KPI_DATA_QUALITY, 'getDataQuality'],
+    ['Что требует внимания?', INTENTS.BUSINESS_KPI_MANAGEMENT_SIGNALS, 'getManagementSignals'],
+    ['Итоги дня', INTENTS.BUSINESS_KPI_DAILY_REPORT, 'getDailyReport'],
+    ['Отчёт за неделю', INTENTS.BUSINESS_KPI_WEEKLY_REPORT, 'getWeeklyReport'],
+  ];
+
+  for (const [message, intent, operation] of scenarios) {
+    assert.equal(detectIntent(message), intent, message);
+    const plan = builder.build({ message });
+    assert.equal(plan.steps.length, 1, message);
+    assert.equal(plan.steps[0].skill, 'business_kpi', message);
+    assert.equal(plan.steps[0].operation, operation, message);
+  }
+});
+
+test('Business KPI seller plan extracts name from message', () => {
+  const builder = createRuleBasedPlanBuilder({ availableSkills: ['business_kpi'] });
+  const plan = builder.build({ message: 'Как Капитанова?' });
+  assert.equal(plan.steps[0].parameters.name, 'Капитанова');
+});
+
+test('Business KPI compare plan extracts multiple names from message', () => {
+  const builder = createRuleBasedPlanBuilder({ availableSkills: ['business_kpi'] });
+  const plan = builder.build({ message: 'Сравни Капитанову и Чередниченко' });
+  assert.deepEqual(plan.steps[0].parameters.names, ['Капитанова', 'Чередниченко']);
+});
+
+test('Business KPI plans are empty when skill is not registered', () => {
+  const builder = createRuleBasedPlanBuilder({ availableSkills: ['purchasing'] });
+  assert.deepEqual(builder.build({ message: 'Как дела у Миски?' }).steps, []);
+});

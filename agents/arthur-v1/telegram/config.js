@@ -14,6 +14,49 @@ function parseEnabled(value) {
   return ['1', 'true', 'yes'].includes(String(value || '').trim().toLowerCase());
 }
 
+function parseServiceKeys(value) {
+  if (!value) return [];
+  let parsed;
+  try {
+    parsed = JSON.parse(value);
+  } catch (error) {
+    throw new TypeError(`BUSINESS_KPI_SERVICE_KEYS must be a JSON array: ${error.message}`);
+  }
+  if (!Array.isArray(parsed)) {
+    throw new TypeError('BUSINESS_KPI_SERVICE_KEYS must be a JSON array');
+  }
+  return parsed.map((entry, index) => {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      throw new TypeError(`BUSINESS_KPI_SERVICE_KEYS[${index}] must be an object`);
+    }
+    if (typeof entry.id !== 'string' || !entry.id.trim()) {
+      throw new TypeError(`BUSINESS_KPI_SERVICE_KEYS[${index}].id is required`);
+    }
+    if (typeof entry.key !== 'string' || !entry.key.trim()) {
+      throw new TypeError(`BUSINESS_KPI_SERVICE_KEYS[${index}].key is required`);
+    }
+    return {
+      id: entry.id.trim(),
+      name: typeof entry.name === 'string' && entry.name.trim()
+        ? entry.name.trim()
+        : entry.id.trim(),
+      key: entry.key.trim(),
+    };
+  });
+}
+
+function loadBusinessKpiConfig(env = process.env) {
+  const baseUrl = (env.BUSINESS_KPI_BASE_URL || '').trim();
+  const serviceKeys = parseServiceKeys(env.BUSINESS_KPI_SERVICE_KEYS);
+  return {
+    enabled: Boolean(baseUrl) && serviceKeys.length > 0,
+    baseUrl,
+    serviceKeys,
+    serviceId: (env.BUSINESS_KPI_SERVICE_ID || 'arthur.analytics').trim(),
+    timeoutMs: Number(env.BUSINESS_KPI_REQUEST_TIMEOUT_MS) || 10000,
+  };
+}
+
 function loadYandexMailConfig(env = process.env) {
   return {
     enabled: parseEnabled(env.ARTHUR_MAILBOX_MISKA_YANDEX_ENABLED),
@@ -58,6 +101,7 @@ function loadConfig(env = process.env) {
     healthPort: Number(env.TELEGRAM_GATEWAY_HEALTH_PORT) || 8788,
     logLevel: env.TELEGRAM_GATEWAY_LOG_LEVEL || 'info',
     yandexMail: loadYandexMailConfig(env),
+    businessKpi: loadBusinessKpiConfig(env),
     isProduction: env.NODE_ENV === 'production',
   };
 }
@@ -116,6 +160,20 @@ function validateConfig(config) {
     errors.push('TELEGRAM_API_RETRY_ATTEMPTS must be between 0 and 10');
   }
 
+  if (config.businessKpi.enabled) {
+    try {
+      const parsed = new URL(config.businessKpi.baseUrl);
+      if (!['http:', 'https:'].includes(parsed.protocol)) {
+        errors.push('BUSINESS_KPI_BASE_URL must use http or https');
+      }
+    } catch {
+      errors.push('BUSINESS_KPI_BASE_URL must be a valid URL');
+    }
+    if (!config.businessKpi.serviceKeys.some(k => k.id === config.businessKpi.serviceId)) {
+      errors.push(`BUSINESS_KPI_SERVICE_ID ${config.businessKpi.serviceId} not found in BUSINESS_KPI_SERVICE_KEYS`);
+    }
+  }
+
   return {
     valid: errors.length === 0,
     errors,
@@ -125,7 +183,9 @@ function validateConfig(config) {
 module.exports = {
   loadConfig,
   loadYandexMailConfig,
+  loadBusinessKpiConfig,
   validateConfig,
   parseAllowedUserIds,
   parseEnabled,
+  parseServiceKeys,
 };

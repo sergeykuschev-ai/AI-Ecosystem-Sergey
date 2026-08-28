@@ -59,6 +59,39 @@ function resolveBoolean(value, defaultValue, fieldName) {
   throw new TypeError(`${fieldName} must be true or false`);
 }
 
+function resolveServiceKeys(value) {
+  if (value === undefined || value === '') return [];
+  let parsed;
+  try {
+    parsed = JSON.parse(value);
+  } catch (error) {
+    throw new TypeError(
+      `BUSINESS_KPI_SERVICE_KEYS must be a JSON array: ${error.message}`
+    );
+  }
+  if (!Array.isArray(parsed)) {
+    throw new TypeError('BUSINESS_KPI_SERVICE_KEYS must be a JSON array');
+  }
+  return parsed.map((entry, index) => {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      throw new TypeError(`BUSINESS_KPI_SERVICE_KEYS[${index}] must be an object`);
+    }
+    if (typeof entry.id !== 'string' || !entry.id.trim()) {
+      throw new TypeError(`BUSINESS_KPI_SERVICE_KEYS[${index}].id is required`);
+    }
+    if (typeof entry.key !== 'string' || !entry.key.trim()) {
+      throw new TypeError(`BUSINESS_KPI_SERVICE_KEYS[${index}].key is required`);
+    }
+    return {
+      id: entry.id.trim(),
+      name: typeof entry.name === 'string' && entry.name.trim()
+        ? entry.name.trim()
+        : entry.id.trim(),
+      key: entry.key.trim(),
+    };
+  });
+}
+
 function loadConfig(env = process.env) {
   const databaseUrl = resolveDatabaseUrl(env);
   const storageMode = resolveStorageMode(
@@ -94,6 +127,7 @@ function loadConfig(env = process.env) {
       false,
       'BUSINESS_KPI_COOKIE_SECURE'
     ),
+    serviceKeys: resolveServiceKeys(env.BUSINESS_KPI_SERVICE_KEYS),
   });
 }
 
@@ -109,5 +143,6 @@ module.exports = {
   resolveBoolean,
   resolveHttpHost,
   resolveHttpPort,
+  resolveServiceKeys,
   resolveStorageMode,
 };

@@ -39,9 +39,34 @@ function generateCsrfToken() {
 }
 
 function createAuthMiddleware(options) {
-  const { authService, devMode = false, cookieSecure = false } = options;
+  const {
+    authService,
+    devMode = false,
+    cookieSecure = false,
+    serviceKeys = [],
+  } = options;
+
+  const serviceKeyByValue = new Map(serviceKeys.map(entry => [entry.key, entry]));
+
+  function resolveServiceActor(request) {
+    const authorization = request.headers.authorization || '';
+    const match = authorization.match(/^Bearer\s+(.+)$/i);
+    if (!match) return null;
+    const token = match[1];
+    const service = serviceKeyByValue.get(token);
+    if (!service) return null;
+    return {
+      id: service.id,
+      displayName: service.name,
+      role: 'SERVICE',
+      type: 'service',
+    };
+  }
 
   async function resolveActor(request) {
+    const serviceActor = resolveServiceActor(request);
+    if (serviceActor) return serviceActor;
+
     const cookies = parseCookies(request.headers.cookie);
     const sessionToken = cookies[SESSION_COOKIE];
     if (sessionToken) {
@@ -80,6 +105,8 @@ function createAuthMiddleware(options) {
 
   function validateCsrf(request) {
     if (devMode) return;
+    // Service API-key authentication is not cookie-based and does not require CSRF.
+    if (resolveServiceActor(request)) return;
     const cookies = parseCookies(request.headers.cookie);
     const csrfCookie = cookies[CSRF_COOKIE];
     const csrfHeader = request.headers[CSRF_HEADER];

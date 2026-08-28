@@ -202,7 +202,12 @@ function createRouter(options) {
     staticHandler,
   } = options;
 
-  const auth = createAuthMiddleware({ authService, devMode, cookieSecure });
+  const auth = createAuthMiddleware({
+    authService,
+    devMode,
+    cookieSecure,
+    serviceKeys: options.serviceKeys || [],
+  });
 
   return async function route(request, response) {
     const requestId = crypto.randomUUID();

@@ -272,7 +272,167 @@ const PLAN_BUILDERS = {
   ]),
 
   [INTENTS.KNOWLEDGE_SEARCH]: () => createExecutionPlan([]),
+
+  [INTENTS.BUSINESS_KPI_STORE_SUMMARY]: (input) => createExecutionPlan([
+    createStep({
+      id: 'step_1',
+      skill: 'business_kpi',
+      operation: 'getStoreSummary',
+      parameters: input.parameters || {},
+      timeoutMs: 15000,
+    }),
+  ]),
+
+  [INTENTS.BUSINESS_KPI_TODAY]: (input) => createExecutionPlan([
+    createStep({
+      id: 'step_1',
+      skill: 'business_kpi',
+      operation: 'getTodaySummary',
+      parameters: input.parameters || {},
+      timeoutMs: 15000,
+    }),
+  ]),
+
+  [INTENTS.BUSINESS_KPI_SELLERS]: (input) => createExecutionPlan([
+    createStep({
+      id: 'step_1',
+      skill: 'business_kpi',
+      operation: 'getSellers',
+      parameters: input.parameters || {},
+      timeoutMs: 15000,
+    }),
+  ]),
+
+  [INTENTS.BUSINESS_KPI_SELLER]: (input) => createExecutionPlan([
+    createStep({
+      id: 'step_1',
+      skill: 'business_kpi',
+      operation: 'getSeller',
+      parameters: {
+        name: extractSellerName(input.message),
+        ...(input.parameters || {}),
+      },
+      timeoutMs: 15000,
+    }),
+  ]),
+
+  [INTENTS.BUSINESS_KPI_COMPARE_SELLERS]: (input) => createExecutionPlan([
+    createStep({
+      id: 'step_1',
+      skill: 'business_kpi',
+      operation: 'compareSellers',
+      parameters: {
+        names: extractCompareSellerNames(input.message),
+        ...(input.parameters || {}),
+      },
+      timeoutMs: 15000,
+    }),
+  ]),
+
+  [INTENTS.BUSINESS_KPI_BONUSES]: (input) => createExecutionPlan([
+    createStep({
+      id: 'step_1',
+      skill: 'business_kpi',
+      operation: 'getBonusSummary',
+      parameters: input.parameters || {},
+      timeoutMs: 15000,
+    }),
+  ]),
+
+  [INTENTS.BUSINESS_KPI_SHIFTS]: (input) => createExecutionPlan([
+    createStep({
+      id: 'step_1',
+      skill: 'business_kpi',
+      operation: 'getShifts',
+      parameters: input.parameters || {},
+      timeoutMs: 15000,
+    }),
+  ]),
+
+  [INTENTS.BUSINESS_KPI_DATA_QUALITY]: (input) => createExecutionPlan([
+    createStep({
+      id: 'step_1',
+      skill: 'business_kpi',
+      operation: 'getDataQuality',
+      parameters: input.parameters || {},
+      timeoutMs: 15000,
+    }),
+  ]),
+
+  [INTENTS.BUSINESS_KPI_MANAGEMENT_SIGNALS]: (input) => createExecutionPlan([
+    createStep({
+      id: 'step_1',
+      skill: 'business_kpi',
+      operation: 'getManagementSignals',
+      parameters: input.parameters || {},
+      timeoutMs: 15000,
+    }),
+  ]),
+
+  [INTENTS.BUSINESS_KPI_DAILY_REPORT]: (input) => createExecutionPlan([
+    createStep({
+      id: 'step_1',
+      skill: 'business_kpi',
+      operation: 'getDailyReport',
+      parameters: input.parameters || {},
+      timeoutMs: 15000,
+    }),
+  ]),
+
+  [INTENTS.BUSINESS_KPI_WEEKLY_REPORT]: (input) => createExecutionPlan([
+    createStep({
+      id: 'step_1',
+      skill: 'business_kpi',
+      operation: 'getWeeklyReport',
+      parameters: input.parameters || {},
+      timeoutMs: 15000,
+    }),
+  ]),
 };
+
+const KNOWN_SELLER_NAMES = Object.freeze([
+  'Капитанова',
+  'Чередниченко',
+  'Кущев',
+]);
+
+function normalizeSellerName(name) {
+  return name
+    .toLocaleLowerCase('ru-RU')
+    .replace(/ё/g, 'е')
+    .replace(/[^\p{L}]/gu, '');
+}
+
+function sellerNameStem(name) {
+  return normalizeSellerName(name).replace(/[ауыеой]$/, '');
+}
+
+function messageMentionsSeller(normalizedMessage, name) {
+  if (normalizedMessage.includes(normalizeSellerName(name))) return true;
+  const stem = sellerNameStem(name);
+  if (!stem) return false;
+  // Match stem at a word boundary: either preceded by non-letter or start,
+  // and followed by an optional trailing case ending.
+  const pattern = new RegExp(`(?:^|[^\\p{L}])${stem}[ауыеой]?`, 'u');
+  return pattern.test(normalizedMessage);
+}
+
+function extractSellerName(message) {
+  const normalizedMessage = message.toLocaleLowerCase('ru-RU');
+  for (const name of KNOWN_SELLER_NAMES) {
+    if (messageMentionsSeller(normalizedMessage, name)) {
+      return name;
+    }
+  }
+  return null;
+}
+
+function extractCompareSellerNames(message) {
+  const normalizedMessage = message.toLocaleLowerCase('ru-RU');
+  return KNOWN_SELLER_NAMES.filter(name =>
+    messageMentionsSeller(normalizedMessage, name)
+  );
+}
 
 function taskManagementPlan(input, action, operation) {
   const parsed = parseTaskManagementRequest(input.message, {
