@@ -6,6 +6,8 @@ const { createArthurV1 } = require('../index');
 const { generateCorrelationId } = require('../context/arthur_context');
 const { createLogger } = require('../logging/logger');
 const { createYandexMailSkillFromConfig } = require('../skills/mail/mail_runtime');
+const { createBusinessKpiClient } = require('../skills/business_kpi/business_kpi_client');
+const { createBusinessKpiSkill } = require('../skills/business_kpi/business_kpi_skill');
 const { loadConfig, validateConfig } = require('./config');
 const { createTelegramClient } = require('./telegram_client');
 
@@ -41,7 +43,11 @@ function formatErrorResponse(error) {
 
 const HELP_TEXT = `Привет, я Артур — AI-ассистент бизнеса.
 
-Сейчас я умею читать и искать почту, управлять внутренними задачами и отвечать на запросы по закупкам:
+Сейчас я умею отвечать на вопросы по Business KPI магазина «Миска», читать и искать почту, управлять внутренними задачами и отвечать на запросы по закупкам:
+• «Как дела у Миски?»
+• «Кто сейчас лучше работает?»
+• «Какая премия у Капитановой?»
+• «Сколько осталось до плана?»
 • «Что важного в почте по Миске сегодня?»
 • «Пришёл ответ от Валты?»
 • «Покажи письма от Premium Pet.»
@@ -142,9 +148,22 @@ class ArthurTelegramGateway {
     const mailSkill = options.mailSkill === undefined
       ? createYandexMailSkillFromConfig(this.config.yandexMail)
       : options.mailSkill;
+    const businessKpiConfig = this.config.businessKpi;
+    const businessKpiSkill = options.businessKpiSkill === undefined && businessKpiConfig.enabled
+      ? createBusinessKpiSkill({
+          client: createBusinessKpiClient({
+            baseUrl: businessKpiConfig.baseUrl,
+            serviceKeys: businessKpiConfig.serviceKeys,
+            serviceId: businessKpiConfig.serviceId,
+            timeoutMs: businessKpiConfig.timeoutMs,
+          }),
+          clock: options.clock,
+        })
+      : options.businessKpiSkill;
     this.arthur = options.arthur || createArthurV1({
       logger: this.logger,
       mailSkill,
+      businessKpiSkill,
       coreConfig: {
         baseUrl: this.config.coreBaseUrl,
         token: this.config.coreToken,

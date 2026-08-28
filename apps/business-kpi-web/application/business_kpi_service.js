@@ -18,7 +18,7 @@ const {
   METRIC_CONTRACT_VERSION,
 } = require('../../../agents/business-kpi/rules/metric_contract');
 const { ApplicationError } = require('./application_error');
-const { PERMISSIONS, hasPermission } = require('./permissions');
+const { PERMISSIONS, hasPermission, requirePermission } = require('./permissions');
 const { StorageConflictError } = require('../storage/storage_errors');
 const { exportMonthWorkbook } = require('../xlsx/month_exporter');
 
@@ -760,7 +760,7 @@ class BusinessKpiService {
   }
 
   async getSellerPerformance(input, actor) {
-    requireRole(actor, OWNER_ROLES);
+    requirePermission(actor, PERMISSIONS.SELLER_PERFORMANCE_READ);
     const storeRecord = await this.store.getStore(input.storeId);
     if (!storeRecord?.active) {
       throw new ApplicationError('STORE_NOT_FOUND', 'Магазин не найден.', 404);

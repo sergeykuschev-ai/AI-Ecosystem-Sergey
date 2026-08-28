@@ -32,6 +32,17 @@ const INTENTS = Object.freeze({
   MAIL_SENDER: 'mail.sender',
   MAIL_IMPORTANT: 'mail.important',
   KNOWLEDGE_SEARCH: 'knowledge.search',
+  BUSINESS_KPI_STORE_SUMMARY: 'business_kpi.store_summary',
+  BUSINESS_KPI_TODAY: 'business_kpi.today',
+  BUSINESS_KPI_SELLERS: 'business_kpi.sellers',
+  BUSINESS_KPI_SELLER: 'business_kpi.seller',
+  BUSINESS_KPI_COMPARE_SELLERS: 'business_kpi.compare_sellers',
+  BUSINESS_KPI_BONUSES: 'business_kpi.bonuses',
+  BUSINESS_KPI_SHIFTS: 'business_kpi.shifts',
+  BUSINESS_KPI_DATA_QUALITY: 'business_kpi.data_quality',
+  BUSINESS_KPI_MANAGEMENT_SIGNALS: 'business_kpi.management_signals',
+  BUSINESS_KPI_DAILY_REPORT: 'business_kpi.daily_report',
+  BUSINESS_KPI_WEEKLY_REPORT: 'business_kpi.weekly_report',
   UNKNOWN: 'unknown',
 });
 
@@ -74,6 +85,18 @@ const INTENT_KEYWORDS = Object.freeze({
     'мои задачи',
     'покажи задачи',
   ],
+  [INTENTS.BUSINESS_KPI_DAILY_REPORT]: [
+    'итоги дня',
+    'отчёт за день',
+    'ежедневный отчёт',
+    'сводка дня',
+  ],
+  [INTENTS.BUSINESS_KPI_WEEKLY_REPORT]: [
+    'итоги недели',
+    'отчёт за неделю',
+    'еженедельный отчёт',
+    'сводка недели',
+  ],
   [INTENTS.PURCHASING_SUMMARY]: [
     'сводка',
     'summary',
@@ -87,6 +110,64 @@ const INTENT_KEYWORDS = Object.freeze({
     'архитектура',
     'решение',
     'policy',
+  ],
+  [INTENTS.BUSINESS_KPI_STORE_SUMMARY]: [
+    'как дела у миски',
+    'как миска',
+    'сводка по магазину',
+    'выручка миски',
+    'план миски',
+    'сколько осталось до плана',
+    'какой прогноз месяца',
+    'средний чек миски',
+    'товаров в чеке миска',
+  ],
+  [INTENTS.BUSINESS_KPI_TODAY]: [
+    'как сегодня',
+    'сегодня миска',
+    'итоги дня',
+    'смены сегодня',
+  ],
+  [INTENTS.BUSINESS_KPI_SELLERS]: [
+    'продавцы',
+    'кто сейчас лучше работает',
+    'лучший продавец',
+    'рейтинг продавцов',
+    'kpi продавцов',
+  ],
+  [INTENTS.BUSINESS_KPI_SELLER]: [
+    'как капитанова',
+    'как чередниченко',
+    'как кущев',
+    'премия у капитановой',
+    'премия у чередниченко',
+    'какие смены у капитановой',
+  ],
+  [INTENTS.BUSINESS_KPI_COMPARE_SELLERS]: [
+    'сравни капитанову',
+    'сравни чередниченко',
+    'сравни продавцов',
+  ],
+  [INTENTS.BUSINESS_KPI_BONUSES]: [
+    'премии',
+    'бонусы',
+    'премия продавцов',
+  ],
+  [INTENTS.BUSINESS_KPI_SHIFTS]: [
+    'смены',
+    'последние смены',
+  ],
+  [INTENTS.BUSINESS_KPI_DATA_QUALITY]: [
+    'какие данные не заполнены',
+    'качество данных',
+    'недостаточно данных',
+    'не заполнено',
+  ],
+  [INTENTS.BUSINESS_KPI_MANAGEMENT_SIGNALS]: [
+    'что требует внимания',
+    'управленческий блок',
+    'внимание',
+    'проблемы',
   ],
 });
 
@@ -114,6 +195,17 @@ const DETERMINISTIC_INTENTS = Object.freeze(new Set([
   INTENTS.MAIL_SEARCH,
   INTENTS.MAIL_SENDER,
   INTENTS.MAIL_IMPORTANT,
+  INTENTS.BUSINESS_KPI_STORE_SUMMARY,
+  INTENTS.BUSINESS_KPI_TODAY,
+  INTENTS.BUSINESS_KPI_SELLERS,
+  INTENTS.BUSINESS_KPI_SELLER,
+  INTENTS.BUSINESS_KPI_COMPARE_SELLERS,
+  INTENTS.BUSINESS_KPI_BONUSES,
+  INTENTS.BUSINESS_KPI_SHIFTS,
+  INTENTS.BUSINESS_KPI_DATA_QUALITY,
+  INTENTS.BUSINESS_KPI_MANAGEMENT_SIGNALS,
+  INTENTS.BUSINESS_KPI_DAILY_REPORT,
+  INTENTS.BUSINESS_KPI_WEEKLY_REPORT,
 ]));
 
 const TASK_MANAGEMENT_INTENTS = Object.freeze({
@@ -121,6 +213,13 @@ const TASK_MANAGEMENT_INTENTS = Object.freeze({
   [TASK_MANAGEMENT_ACTIONS.CANCEL]: INTENTS.CORE_CANCEL_TASK,
   [TASK_MANAGEMENT_ACTIONS.RESCHEDULE]: INTENTS.CORE_RESCHEDULE_TASK,
 });
+
+function matchesCompareSellersIntent(message) {
+  if (typeof message !== 'string') return false;
+  const normalized = message.toLocaleLowerCase('ru-RU');
+  return /сравни/.test(normalized) &&
+    (normalized.includes('капитанов') || normalized.includes('чередниченко') || normalized.includes('продавц'));
+}
 
 function detectIntent(message) {
   if (!message || typeof message !== 'string') {
@@ -149,11 +248,14 @@ function detectIntent(message) {
   if (matchesUnreadMailIntent(message)) {
     return INTENTS.MAIL_UNREAD;
   }
-  const normalized = message.toLowerCase();
+  if (matchesCompareSellersIntent(message)) {
+    return INTENTS.BUSINESS_KPI_COMPARE_SELLERS;
+  }
+  const normalized = message.toLocaleLowerCase('ru-RU');
 
   for (const [intent, keywords] of Object.entries(INTENT_KEYWORDS)) {
     for (const keyword of keywords) {
-      if (normalized.includes(keyword.toLowerCase())) {
+      if (normalized.includes(keyword.toLocaleLowerCase('ru-RU'))) {
         return intent;
       }
     }
@@ -178,4 +280,5 @@ module.exports = {
   matchesRecentMailIntent,
   matchesSearchMailIntent,
   matchesSenderMailIntent,
+  matchesCompareSellersIntent,
 };
