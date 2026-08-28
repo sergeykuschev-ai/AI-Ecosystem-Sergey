@@ -986,6 +986,9 @@ function createBusinessKpiSkill({ client, clock = () => new Date(), cacheTtlMs }
         }
       }
       const result = await operation(parameters);
+      if (result.data && typeof result.responseText === 'string') {
+        result.data.responseText = result.responseText;
+      }
       if (useCache) {
         cache.set(input.operation, parameters, result);
       }
