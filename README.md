@@ -2,6 +2,13 @@
 
 AI-экосистема Сергея Кущева.
 
+## Stores Web Platform
+
+The mobile-first Next.js foundation for the Amper, Ventil, Metiz Market, and
+Miska public websites lives in [`apps/stores-web/`](apps/stores-web/). See its
+[README](apps/stores-web/README.md) for local setup, Docker, routes, CMS model,
+and extension procedures.
+
 ## Arthur OS
 
 Arthur OS — единая AI-система для личных задач, бизнеса, памяти, автоматизаций и специализированных навыков.
