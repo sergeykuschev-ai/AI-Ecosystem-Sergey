@@ -17,6 +17,7 @@ const CAPABILITIES = Object.freeze([
   { id: 'getManagementSignals', readOnly: true },
   { id: 'getDailyReport', readOnly: true },
   { id: 'getWeeklyReport', readOnly: true },
+  { id: 'getSettings', readOnly: true },
 ]);
 
 const DEFAULT_STORE_ID = process.env.BUSINESS_KPI_DEFAULT_STORE_ID || '';
@@ -496,6 +497,26 @@ function buildManagementSignals(client, dashboard, performance, parameters, retr
   };
 }
 
+function buildSettingsSummary(client, record, parameters, retrievedAt) {
+  if (!record) {
+    return {
+      found: false,
+      provenance: provenance(client, 'getSettings', parameters, retrievedAt),
+    };
+  }
+  return {
+    found: true,
+    version: record.version ?? null,
+    effectiveFrom: record.effectiveFrom ?? null,
+    settings: record.settings || {},
+    targets: record.settings?.targets || {},
+    weights: record.settings?.weights || {},
+    levels: record.settings?.levels || [],
+    payment: record.settings?.payment || {},
+    provenance: provenance(client, 'getSettings', parameters, retrievedAt),
+  };
+}
+
 function formatStoreSummaryResponse(summary) {
   const lines = [
     `🐾 Миска — ${summary.period}`,
@@ -735,11 +756,12 @@ function createBusinessKpiSkill({ client, clock = () => new Date(), cacheTtlMs }
 
   async function getShifts(parameters = {}) {
     const normalized = normalizeParameters(parameters);
+    const hasDateRange = parameters.dateFrom && parameters.dateTo;
     const shifts = await client.getShifts({
       storeId: normalized.storeId,
       employeeId: parameters.employeeId,
-      year: normalized.year,
-      month: normalized.month,
+      year: hasDateRange ? undefined : normalized.year,
+      month: hasDateRange ? undefined : normalized.month,
       dateFrom: parameters.dateFrom,
       dateTo: parameters.dateTo,
     });
@@ -862,6 +884,21 @@ function createBusinessKpiSkill({ client, clock = () => new Date(), cacheTtlMs }
     };
   }
 
+  async function getSettings(parameters = {}) {
+    const storeId = parameters.storeId || DEFAULT_STORE_ID || null;
+    const date = parameters.date || todayInTimezone(parameters.timezone);
+    const record = await client.getSettings({ storeId, date });
+    const summary = buildSettingsSummary(client, record, { storeId, date }, clock().toISOString());
+    return {
+      status: 'success',
+      data: summary,
+      responseText: summary.found
+        ? `Настройки KPI — версия ${summary.version || 'н/д'}, действуют с ${formatDateRu(summary.effectiveFrom)}.`
+        : 'Настройки KPI не найдены.',
+      metadata: { source: 'business_kpi', operation: 'getSettings' },
+    };
+  }
+
   async function getDailyReport(parameters = {}) {
     const normalized = normalizeParameters(parameters);
     const storeId = normalized.storeId;
@@ -962,6 +999,7 @@ function createBusinessKpiSkill({ client, clock = () => new Date(), cacheTtlMs }
     getBonusSummary,
     getDataQuality,
     getManagementSignals,
+    getSettings,
     getDailyReport,
     getWeeklyReport,
   };

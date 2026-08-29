@@ -486,6 +486,42 @@ test('Core URL and token must be configured together', () => {
   assert.equal(configured.coreTimeoutMs, 2500);
 });
 
+test('KPI automation config requires Business KPI when any automation enabled', () => {
+  const enabledWithoutBusinessKpi = loadConfig({
+    TELEGRAM_BOT_TOKEN: '123456:valid-token',
+    TELEGRAM_ALLOWED_USER_IDS: '111',
+    ARTHUR_OWNER_PROFILE_ID: 'owner-profile',
+    TELEGRAM_KPI_DAILY_ENABLED: 'true',
+  });
+  const validation = validateConfig(enabledWithoutBusinessKpi);
+  assert.equal(validation.valid, false);
+  assert.match(validation.errors.join('; '), /KPI automation requires BUSINESS_KPI_BASE_URL/);
+});
+
+test('KPI automation config validates time format and alert interval', () => {
+  const invalidTime = loadConfig({
+    TELEGRAM_BOT_TOKEN: '123456:valid-token',
+    TELEGRAM_ALLOWED_USER_IDS: '111',
+    ARTHUR_OWNER_PROFILE_ID: 'owner-profile',
+    BUSINESS_KPI_BASE_URL: 'http://business-kpi:3220',
+    BUSINESS_KPI_SERVICE_KEYS: '[{"id":"miska","key":"secret"}]',
+    TELEGRAM_KPI_DAILY_ENABLED: 'true',
+    TELEGRAM_KPI_DAILY_TIME: '25:15',
+  });
+  assert.match(validateConfig(invalidTime).errors.join('; '), /TELEGRAM_KPI_DAILY_TIME/);
+
+  const invalidInterval = loadConfig({
+    TELEGRAM_BOT_TOKEN: '123456:valid-token',
+    TELEGRAM_ALLOWED_USER_IDS: '111',
+    ARTHUR_OWNER_PROFILE_ID: 'owner-profile',
+    BUSINESS_KPI_BASE_URL: 'http://business-kpi:3220',
+    BUSINESS_KPI_SERVICE_KEYS: '[{"id":"miska","key":"secret"}]',
+    TELEGRAM_KPI_ALERTS_ENABLED: 'true',
+    TELEGRAM_KPI_ALERTS_INTERVAL_MINUTES: '5',
+  });
+  assert.match(validateConfig(invalidInterval).errors.join('; '), /TELEGRAM_KPI_ALERTS_INTERVAL_MINUTES/);
+});
+
 test('same Telegram chat keeps conversationId while requests get unique UUIDs', async () => {
   const capturedRequests = [];
   const arthur = {

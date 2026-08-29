@@ -8,6 +8,7 @@ const { createLogger } = require('../logging/logger');
 const { createYandexMailSkillFromConfig } = require('../skills/mail/mail_runtime');
 const { createBusinessKpiClient } = require('../skills/business_kpi/business_kpi_client');
 const { createBusinessKpiSkill } = require('../skills/business_kpi/business_kpi_skill');
+const { createKpiScheduler } = require('./kpi_scheduler');
 const { loadConfig, validateConfig } = require('./config');
 const { createTelegramClient } = require('./telegram_client');
 
@@ -149,7 +150,7 @@ class ArthurTelegramGateway {
       ? createYandexMailSkillFromConfig(this.config.yandexMail)
       : options.mailSkill;
     const businessKpiConfig = this.config.businessKpi;
-    const businessKpiSkill = options.businessKpiSkill === undefined && businessKpiConfig.enabled
+    this.businessKpiSkill = options.businessKpiSkill === undefined && businessKpiConfig.enabled
       ? createBusinessKpiSkill({
           client: createBusinessKpiClient({
             baseUrl: businessKpiConfig.baseUrl,
@@ -163,7 +164,7 @@ class ArthurTelegramGateway {
     this.arthur = options.arthur || createArthurV1({
       logger: this.logger,
       mailSkill,
-      businessKpiSkill,
+      businessKpiSkill: this.businessKpiSkill,
       coreConfig: {
         baseUrl: this.config.coreBaseUrl,
         token: this.config.coreToken,
@@ -171,12 +172,56 @@ class ArthurTelegramGateway {
         ownerProfileId: this.config.ownerProfileId,
       },
     });
+    this.scheduler = options.kpiScheduler || null;
+    this.dbPool = options.dbPool || null;
     this.running = false;
     this.shutdownRequested = false;
     this.offset = 0;
     this.startedAt = null;
     this.processedUpdates = 0;
     this.lastError = null;
+  }
+
+  async initializeScheduler() {
+    const kpiConfig = this.config.kpiAutomation;
+    const anyEnabled = kpiConfig.daily.enabled || kpiConfig.weekly.enabled || kpiConfig.alerts.enabled;
+    if (!anyEnabled || !this.config.businessKpi.enabled) {
+      this.logger.info('kpi_scheduler_skipped', null, { anyEnabled, businessKpiEnabled: this.config.businessKpi.enabled });
+      return;
+    }
+
+    try {
+      const { Pool } = require('pg');
+      this.dbPool = this.dbPool || new Pool({
+        connectionString: process.env.ARTHUR_DATABASE_URL,
+        max: 2,
+      });
+      const ownerChatId = this.config.allowedUserIds.size === 1
+        ? Array.from(this.config.allowedUserIds)[0]
+        : null;
+      if (!ownerChatId) {
+        throw new Error('KPI automation requires exactly one allowed Telegram user ID');
+      }
+      this.scheduler = createKpiScheduler({
+        config: kpiConfig,
+        logger: this.logger,
+        telegramClient: this.telegram,
+        businessKpiSkill: this.businessKpiSkill,
+        ownerChatId,
+        ownerId: this.config.ownerProfileId,
+        storeId: process.env.BUSINESS_KPI_DEFAULT_STORE_ID || '',
+        timezone: kpiConfig.timezone,
+        pool: this.dbPool,
+      });
+      await this.scheduler.initialize();
+      this.scheduler.start();
+    } catch (error) {
+      this.logger.error('kpi_scheduler_init_failed', null, {
+        errorCode: error.code || error.name,
+        errorMessage: error.message,
+      });
+      this.scheduler = null;
+    }
   }
 
   async start() {
@@ -186,12 +231,15 @@ class ArthurTelegramGateway {
       throw new Error(`Invalid gateway configuration: ${validation.errors.join('; ')}`);
     }
 
+    await this.initializeScheduler();
+
     this.running = true;
     this.startedAt = new Date().toISOString();
     this.logger.info('gateway_started', null, {
       allowedUserCount: this.config.allowedUserIds.size,
       pollTimeoutMs: this.config.pollTimeoutMs,
       telegramProxyEnabled: this.telegram.proxyEnabled,
+      kpiAutomation: this.scheduler ? this.scheduler.getHealth().automations : { daily: false, weekly: false, alerts: false },
     });
 
     while (this.running && !this.shutdownRequested) {
@@ -355,6 +403,28 @@ class ArthurTelegramGateway {
     this.shutdownRequested = true;
     this.logger.info('gateway_shutdown_requested', null, {});
 
+    try {
+      if (this.scheduler) {
+        this.scheduler.stop();
+      }
+    } catch (error) {
+      this.logger.error('kpi_scheduler_stop_failed', null, {
+        errorCode: error.code || error.name,
+        errorMessage: error.message,
+      });
+    }
+
+    try {
+      if (this.dbPool) {
+        await this.dbPool.end();
+      }
+    } catch (error) {
+      this.logger.error('kpi_scheduler_pool_close_failed', null, {
+        errorCode: error.code || error.name,
+        errorMessage: error.message,
+      });
+    }
+
     const deadline = Date.now() + 10000;
     while (this.running && Date.now() < deadline) {
       await this.sleep(100);
@@ -373,6 +443,7 @@ class ArthurTelegramGateway {
       processedUpdates: this.processedUpdates,
       lastError: this.lastError,
       configValid: validateConfig(this.config).valid,
+      kpiScheduler: this.scheduler ? this.scheduler.getHealth() : { running: false, automations: { daily: false, weekly: false, alerts: false } },
     };
   }
 }

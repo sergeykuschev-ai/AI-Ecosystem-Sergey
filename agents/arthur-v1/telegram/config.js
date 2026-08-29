@@ -57,6 +57,35 @@ function loadBusinessKpiConfig(env = process.env) {
   };
 }
 
+function parseCronTime(value, defaultValue) {
+  const trimmed = String(value || '').trim();
+  return trimmed || defaultValue;
+}
+
+function parseCronDay(value, defaultValue) {
+  const num = Number(value);
+  return Number.isInteger(num) && num >= 0 && num <= 6 ? num : defaultValue;
+}
+
+function loadKpiAutomationConfig(env = process.env) {
+  return {
+    timezone: (env.TELEGRAM_KPI_TIMEZONE || 'Asia/Vladivostok').trim(),
+    daily: {
+      enabled: parseEnabled(env.TELEGRAM_KPI_DAILY_ENABLED),
+      time: parseCronTime(env.TELEGRAM_KPI_DAILY_TIME, '20:15'),
+    },
+    weekly: {
+      enabled: parseEnabled(env.TELEGRAM_KPI_WEEKLY_ENABLED),
+      time: parseCronTime(env.TELEGRAM_KPI_WEEKLY_TIME, '20:30'),
+      day: parseCronDay(env.TELEGRAM_KPI_WEEKLY_DAY, 0),
+    },
+    alerts: {
+      enabled: parseEnabled(env.TELEGRAM_KPI_ALERTS_ENABLED),
+      intervalMinutes: Number(env.TELEGRAM_KPI_ALERTS_INTERVAL_MINUTES) || 60,
+    },
+  };
+}
+
 function loadYandexMailConfig(env = process.env) {
   return {
     enabled: parseEnabled(env.ARTHUR_MAILBOX_MISKA_YANDEX_ENABLED),
@@ -102,6 +131,7 @@ function loadConfig(env = process.env) {
     logLevel: env.TELEGRAM_GATEWAY_LOG_LEVEL || 'info',
     yandexMail: loadYandexMailConfig(env),
     businessKpi: loadBusinessKpiConfig(env),
+    kpiAutomation: loadKpiAutomationConfig(env),
     isProduction: env.NODE_ENV === 'production',
   };
 }
@@ -174,6 +204,22 @@ function validateConfig(config) {
     }
   }
 
+  const kpi = config.kpiAutomation;
+  const anyAutomationEnabled = kpi.daily.enabled || kpi.weekly.enabled || kpi.alerts.enabled;
+  if (anyAutomationEnabled && !config.businessKpi.enabled) {
+    errors.push('KPI automation requires BUSINESS_KPI_BASE_URL and BUSINESS_KPI_SERVICE_KEYS');
+  }
+  const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+  if (kpi.daily.enabled && !timeRegex.test(kpi.daily.time)) {
+    errors.push('TELEGRAM_KPI_DAILY_TIME must be HH:MM');
+  }
+  if (kpi.weekly.enabled && !timeRegex.test(kpi.weekly.time)) {
+    errors.push('TELEGRAM_KPI_WEEKLY_TIME must be HH:MM');
+  }
+  if (kpi.alerts.enabled && (!Number.isInteger(kpi.alerts.intervalMinutes) || kpi.alerts.intervalMinutes < 15 || kpi.alerts.intervalMinutes > 1440)) {
+    errors.push('TELEGRAM_KPI_ALERTS_INTERVAL_MINUTES must be between 15 and 1440');
+  }
+
   return {
     valid: errors.length === 0,
     errors,
@@ -184,6 +230,7 @@ module.exports = {
   loadConfig,
   loadYandexMailConfig,
   loadBusinessKpiConfig,
+  loadKpiAutomationConfig,
   validateConfig,
   parseAllowedUserIds,
   parseEnabled,
