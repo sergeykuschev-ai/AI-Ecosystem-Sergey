@@ -1,5 +1,7 @@
 'use strict';
 
+const crypto = require('node:crypto');
+
 const DEFAULT_TIMEZONE = 'Asia/Vladivostok';
 const OWNER_EMPLOYEE_NAME = 'Кущев';
 
@@ -586,13 +588,26 @@ function isStateWorsening(previousState, newState) {
   return order[newState] > order[previousState || 'ok'];
 }
 
-function shouldSendAlert(previousState, newState, lastSentAt, cooldownMinutes, now) {
+function computeAlertDigest(text) {
+  if (!text) return null;
+  return crypto.createHash('sha256').update(text, 'utf8').digest('hex');
+}
+
+function shouldSendAlert(previous, newState, currentDigest, cooldownMinutes, now) {
+  const previousState = previous?.state;
+  const lastSentAt = previous?.lastSentAt;
+  const previousDigest = previous?.lastAlertDigest;
+
   if (newState === 'ok' && previousState && previousState !== 'ok') return true; // recovery
   if (newState !== 'ok') {
     if (!lastSentAt) return true;
-    const cooldownMs = (cooldownMinutes || 60) * 60 * 1000;
-    if (now.getTime() - new Date(lastSentAt).getTime() >= cooldownMs) return true;
     if (isStateWorsening(previousState, newState)) return true;
+    if (previousDigest && previousDigest !== currentDigest) return true;
+    // Legacy fallback for rows without a stored digest: honour the cooldown window.
+    if (!previousDigest) {
+      const cooldownMs = (cooldownMinutes || 60) * 60 * 1000;
+      if (now.getTime() - new Date(lastSentAt).getTime() > cooldownMs) return true;
+    }
   }
   return false;
 }
@@ -603,6 +618,7 @@ async function evaluateAlerts(skill, stateStore, {
   ownerId,
   cooldownMinutes = 60,
   now = new Date(),
+  dryRun = false,
 }) {
   const { store, performance, settings, today } = await fetchCurrentMonthContext(skill, storeId, timezone);
   const todaySummary = await executeSkill(skill, 'getTodaySummary', { storeId, timezone });
@@ -612,29 +628,42 @@ async function evaluateAlerts(skill, stateStore, {
 
   const alerts = [];
   const messages = [];
+  const wouldSend = [];
+  const wouldSendMessages = [];
 
   const addAlert = async (alertType, entityId, state, lastValue, lastValueText, text, metadata = {}) => {
     const previous = await stateStore.getAlertState(ownerId, alertType, entityId);
-    const shouldSend = shouldSendAlert(previous?.state, state, previous?.lastSentAt, cooldownMinutes, now);
+    const currentDigest = computeAlertDigest(text);
+    const shouldSend = shouldSendAlert(previous, state, currentDigest, cooldownMinutes, now);
 
-    if (state === 'ok' && previous?.state && previous.state !== 'ok') {
-      await stateStore.resolveAlertState(ownerId, alertType, entityId);
-    } else if (state !== 'ok') {
-      await stateStore.upsertAlertState({
-        ownerId,
-        alertType,
-        entityId,
-        state,
-        lastValue,
-        lastValueText,
-        lastSentAt: shouldSend ? now.toISOString() : previous?.lastSentAt,
-        metadata,
-      });
+    if (!dryRun) {
+      if (state === 'ok' && previous?.state && previous.state !== 'ok') {
+        await stateStore.resolveAlertState(ownerId, alertType, entityId);
+      } else if (state !== 'ok') {
+        await stateStore.upsertAlertState({
+          ownerId,
+          alertType,
+          entityId,
+          state,
+          lastValue,
+          lastValueText,
+          lastSentAt: shouldSend ? now.toISOString() : previous?.lastSentAt,
+          lastAlertDigest: shouldSend ? currentDigest : previous?.lastAlertDigest,
+          metadata,
+        });
+      }
     }
 
     if (shouldSend) {
-      alerts.push({ alertType, entityId, state, previousState: previous?.state || 'ok' });
-      messages.push(text);
+      const alertMeta = { alertType, entityId, state, previousState: previous?.state || 'ok', digest: currentDigest };
+      const sendMessage = text;
+      if (dryRun) {
+        wouldSend.push(alertMeta);
+        wouldSendMessages.push(sendMessage);
+      } else {
+        alerts.push(alertMeta);
+        messages.push(sendMessage);
+      }
     }
   };
 
@@ -760,7 +789,10 @@ async function evaluateAlerts(skill, stateStore, {
   return {
     alertsSent: alerts,
     messages,
-    noActionReason: messages.length === 0 ? 'no_conditions_met' : null,
+    wouldSend: dryRun ? wouldSend : undefined,
+    wouldSendMessages: dryRun ? wouldSendMessages : undefined,
+    dryRun,
+    noActionReason: (dryRun ? wouldSendMessages.length === 0 : messages.length === 0) ? 'no_conditions_met' : null,
     provenance: { source: 'business_kpi', operations: ['getStoreSummary', 'getSellerPerformance', 'getTodaySummary', 'getDataQuality', 'getSettings'], retrievedAt: now.toISOString() },
   };
 }

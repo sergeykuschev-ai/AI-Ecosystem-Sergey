@@ -158,8 +158,12 @@ describe('migration runner unit helpers', () => {
     const files = listMigrationFiles(DEFAULT_MIGRATIONS_DIR);
     for (const file of files) {
       const content = fs.readFileSync(path.join(DEFAULT_MIGRATIONS_DIR, file), 'utf8');
-      assert.match(content, /CREATE TABLE IF NOT EXISTS arthur_/);
-      assert.match(content, /CREATE INDEX IF NOT EXISTS/);
+      const hasIdempotentTableChange = /CREATE TABLE IF NOT EXISTS arthur_/.test(content)
+        || /ALTER TABLE[\s\S]*?IF NOT EXISTS/.test(content);
+      assert.ok(hasIdempotentTableChange, `expected idempotent CREATE/ALTER TABLE in ${file}`);
+      if (/CREATE INDEX/.test(content)) {
+        assert.match(content, /CREATE INDEX IF NOT EXISTS/, `expected idempotent CREATE INDEX in ${file}`);
+      }
     }
   });
 });

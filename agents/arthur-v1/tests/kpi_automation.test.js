@@ -312,6 +312,173 @@ describe('KpiAutomation alerts', () => {
     assert.equal(second.noActionReason, 'no_conditions_met');
   });
 
+  test('sends first identical alert and suppresses immediate duplicate', async () => {
+    const skill = createFakeSkill();
+    const stateStore = createFakeStateStore();
+    const automation = createKpiAutomation(skill, stateStore);
+    const first = await automation.evaluateAlerts({ storeId: 'miska', timezone: DEFAULT_TIMEZONE, ownerId: 'owner', cooldownMinutes: 60, now: FIXED_NOW });
+    const second = await automation.evaluateAlerts({ storeId: 'miska', timezone: DEFAULT_TIMEZONE, ownerId: 'owner', cooldownMinutes: 60, now: FIXED_NOW });
+
+    assert.ok(first.alertsSent.length > 0, 'expected first evaluation to send');
+    assert.equal(second.alertsSent.length, 0, 'expected identical second evaluation to be suppressed');
+    assert.equal(second.noActionReason, 'no_conditions_met');
+  });
+
+  test('suppresses identical alert after restart using persisted digest state', async () => {
+    const skill = createFakeSkill();
+    const firstStore = createFakeStateStore();
+    const automation = createKpiAutomation(skill, firstStore);
+    const first = await automation.evaluateAlerts({ storeId: 'miska', timezone: DEFAULT_TIMEZONE, ownerId: 'owner', cooldownMinutes: 60, now: FIXED_NOW });
+
+    // Simulate restart: new state store instance seeded with persisted state.
+    const restartedStore = createFakeStateStore();
+    for (const [key, value] of firstStore._states.entries()) {
+      restartedStore._states.set(key, { ...value });
+    }
+    const restartedAutomation = createKpiAutomation(skill, restartedStore);
+    const afterRestart = await restartedAutomation.evaluateAlerts({ storeId: 'miska', timezone: DEFAULT_TIMEZONE, ownerId: 'owner', cooldownMinutes: 60, now: FIXED_NOW });
+
+    assert.ok(first.alertsSent.length > 0, 'expected first evaluation to send');
+    assert.equal(afterRestart.alertsSent.length, 0, 'expected identical evaluation after restart to be suppressed');
+  });
+
+  test('sends alert on meaningful deterioration even within cooldown', async () => {
+    const skill = createFakeSkill();
+    const stateStore = createFakeStateStore();
+    const automation = createKpiAutomation(skill, stateStore);
+    await automation.evaluateAlerts({ storeId: 'miska', timezone: DEFAULT_TIMEZONE, ownerId: 'owner', cooldownMinutes: 60, now: FIXED_NOW });
+
+    const worseSkill = createFakeSkill({
+      getStoreSummary: async () => ({
+        revenue: 702_688.40,
+        plan: 745_000,
+        planCompletion: 0.943,
+        forecast: 806_790.39,
+        remainingToPlan: 42_311.60,
+        revenueFormatted: '702 688 ₽',
+        planFormatted: '745 000 ₽',
+        forecastFormatted: '806 790 ₽',
+        planPercentFormatted: '94,3%',
+        dataStatusLabel: 'частичные',
+        itemsPerCheckFormatted: '2,90',
+        qrShareFormatted: '26,6%',
+        averageCheckFormatted: '1 000 ₽',
+        qrShare: 0.266,
+        itemsPerCheck: 2.90,
+        averageCheck: 1000, // dropped from 1076
+        itemsCheckCoverage: '27/27',
+      }),
+    });
+    const worseAutomation = createKpiAutomation(worseSkill, stateStore);
+    const result = await worseAutomation.evaluateAlerts({ storeId: 'miska', timezone: DEFAULT_TIMEZONE, ownerId: 'owner', cooldownMinutes: 60, now: FIXED_NOW });
+
+    const averageCheckAlert = result.alertsSent.find(a => a.alertType === 'average_check');
+    assert.ok(averageCheckAlert, 'expected new average_check alert after meaningful deterioration');
+  });
+
+  test('recovery transitions state to ok and dryRun does not mutate state', async () => {
+    const skill = createFakeSkill();
+    const stateStore = createFakeStateStore();
+    const automation = createKpiAutomation(skill, stateStore);
+    await automation.evaluateAlerts({ storeId: 'miska', timezone: DEFAULT_TIMEZONE, ownerId: 'owner', cooldownMinutes: 60, now: FIXED_NOW });
+
+    const normalSkill = createFakeSkill({
+      getSellerPerformance: async () => ({
+        sellers: [
+          { employeeId: '1', name: 'Капитанова', currentKpi: 95.00, previousKpi: 94.50, currentKpiFormatted: '95,00' },
+          { employeeId: '2', name: 'Чередниченко', currentKpi: 94.00, previousKpi: 93.00, currentKpiFormatted: '94,00' },
+        ],
+        teamSignals: {},
+      }),
+      getStoreSummary: async () => ({
+        revenue: 750_000,
+        plan: 745_000,
+        planCompletion: 1.01,
+        forecast: 800_000,
+        remainingToPlan: -5_000,
+        revenueFormatted: '750 000 ₽',
+        planFormatted: '745 000 ₽',
+        forecastFormatted: '800 000 ₽',
+        planPercentFormatted: '101,0%',
+        dataStatusLabel: 'полные',
+        itemsPerCheckFormatted: '3,10',
+        qrShareFormatted: '31,0%',
+        averageCheckFormatted: '1 120 ₽',
+        qrShare: 0.31,
+        itemsPerCheck: 3.10,
+        averageCheck: 1120,
+        itemsCheckCoverage: '27/27',
+      }),
+      getTodaySummary: async () => ({
+        date: '2026-08-28',
+        revenueFormatted: '30 000 ₽',
+        dataStatus: 'COMPLETE',
+        dataStatusLabel: 'полные',
+        revenue: 30_000,
+      }),
+      getDataQuality: async () => ({
+        dataStatus: 'COMPLETE',
+        dataStatusLabel: 'полные',
+        itemsCheckCoverage: '27/27',
+        incompleteSellers: [],
+      }),
+    });
+    const normalAutomation = createKpiAutomation(normalSkill, stateStore);
+    const recoveryResult = await normalAutomation.evaluateAlerts({ storeId: 'miska', timezone: DEFAULT_TIMEZONE, ownerId: 'owner', cooldownMinutes: 60, now: FIXED_NOW });
+
+    assert.ok(recoveryResult.messages.some(m => m.includes('восстановился') || m.includes('восстановилась')), 'expected recovery message');
+    const sellerState = await stateStore.getAlertState('owner', 'seller_kpi_drop', 'Капитанова');
+    assert.equal(sellerState.state, 'ok', 'expected seller_kpi_drop alert resolved to ok');
+
+    const dryRunResult = await normalAutomation.evaluateAlerts({ storeId: 'miska', timezone: DEFAULT_TIMEZONE, ownerId: 'owner', cooldownMinutes: 60, now: FIXED_NOW, dryRun: true });
+    assert.equal(dryRunResult.alertsSent.length, 0, 'dryRun must not return alertsSent');
+    assert.ok(dryRunResult.wouldSend.length === 0, 'expected no would-send alerts in stable state');
+    assert.equal(dryRunResult.dryRun, true);
+  });
+
+  test('sends new deterioration alert after recovery', async () => {
+    const skill = createFakeSkill();
+    const stateStore = createFakeStateStore();
+    const automation = createKpiAutomation(skill, stateStore);
+
+    // First deterioration
+    const first = await automation.evaluateAlerts({ storeId: 'miska', timezone: DEFAULT_TIMEZONE, ownerId: 'owner', cooldownMinutes: 60, now: FIXED_NOW });
+    assert.ok(first.alertsSent.some(a => a.alertType === 'seller_kpi_drop' && a.entityId === 'Капитанова'));
+
+    // Recovery
+    const normalSkill = createFakeSkill({
+      getSellerPerformance: async () => ({
+        sellers: [
+          { employeeId: '1', name: 'Капитанова', currentKpi: 95.00, previousKpi: 94.50, currentKpiFormatted: '95,00' },
+          { employeeId: '2', name: 'Чередниченко', currentKpi: 94.00, previousKpi: 93.00, currentKpiFormatted: '94,00' },
+        ],
+        teamSignals: {},
+      }),
+      getStoreSummary: async () => ({
+        revenue: 750_000,
+        plan: 745_000,
+        planCompletion: 1.01,
+        forecast: 800_000,
+        remainingToPlan: -5_000,
+        averageCheck: 1120,
+        itemsPerCheck: 3.10,
+        qrShare: 0.31,
+        itemsCheckCoverage: '27/27',
+      }),
+      getDataQuality: async () => ({
+        dataStatus: 'COMPLETE',
+        dataStatusLabel: 'полные',
+        itemsCheckCoverage: '27/27',
+        incompleteSellers: [],
+      }),
+    });
+    await createKpiAutomation(normalSkill, stateStore).evaluateAlerts({ storeId: 'miska', timezone: DEFAULT_TIMEZONE, ownerId: 'owner', cooldownMinutes: 60, now: FIXED_NOW });
+
+    // New deterioration after recovery
+    const newDeterioration = await automation.evaluateAlerts({ storeId: 'miska', timezone: DEFAULT_TIMEZONE, ownerId: 'owner', cooldownMinutes: 60, now: FIXED_NOW });
+    assert.ok(newDeterioration.alertsSent.some(a => a.alertType === 'seller_kpi_drop' && a.entityId === 'Капитанова'), 'expected seller KPI drop alert after recovery');
+  });
+
   test('recovers alert when metric returns to normal', async () => {
     const skill = createFakeSkill();
     const stateStore = createFakeStateStore();

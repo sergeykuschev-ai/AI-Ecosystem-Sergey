@@ -18,6 +18,7 @@ function rowToAlertState(row) {
     lastValueText: row.last_value_text,
     firstSeenAt: row.first_seen_at ? row.first_seen_at.toISOString() : null,
     lastSentAt: row.last_sent_at ? row.last_sent_at.toISOString() : null,
+    lastAlertDigest: row.last_alert_digest || null,
     resolvedAt: row.resolved_at ? row.resolved_at.toISOString() : null,
     sentCount: row.sent_count,
     metadata: row.metadata_json || {},
@@ -48,26 +49,28 @@ function createKpiAutomationStateStore(client) {
     lastValue,
     lastValueText,
     lastSentAt,
+    lastAlertDigest,
     metadata,
   }) {
     const result = await client.query(
       `INSERT INTO arthur_automation_alert_state
          (owner_id, alert_type, entity_id, state, last_value, last_value_text,
-          last_sent_at, metadata_json, updated_at)
+          last_sent_at, last_alert_digest, metadata_json, updated_at)
        VALUES (
          (SELECT id FROM arthur_profiles WHERE external_id = $1),
-         $2, $3, $4, $5, $6, $7, $8, now()
+         $2, $3, $4, $5, $6, $7, $8, $9, now()
        )
        ON CONFLICT (owner_id, alert_type, entity_id) DO UPDATE SET
          state = EXCLUDED.state,
          last_value = EXCLUDED.last_value,
          last_value_text = EXCLUDED.last_value_text,
          last_sent_at = EXCLUDED.last_sent_at,
+         last_alert_digest = EXCLUDED.last_alert_digest,
          sent_count = arthur_automation_alert_state.sent_count + 1,
          metadata_json = EXCLUDED.metadata_json,
          updated_at = now()
        RETURNING *`,
-      [ownerId, alertType, entityId, state, lastValue ?? null, lastValueText ?? null, lastSentAt || null, JSON.stringify(metadata || {})]
+      [ownerId, alertType, entityId, state, lastValue ?? null, lastValueText ?? null, lastSentAt || null, lastAlertDigest || null, JSON.stringify(metadata || {})]
     );
     return rowToAlertState(result.rows[0]);
   }
