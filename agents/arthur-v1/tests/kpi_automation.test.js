@@ -165,11 +165,14 @@ function createFakeStateStore() {
       return states.get(`${ownerId}:${alertType}:${entityId}`) || null;
     },
     upsertAlertState: async (state) => {
-      states.set(`${state.ownerId}:${state.alertType}:${state.entityId}`, {
+      const key = `${state.ownerId}:${state.alertType}:${state.entityId}`;
+      const upserted = {
         ...state,
         state: state.state,
-        sentCount: (states.get(`${state.ownerId}:${state.alertType}:${state.entityId}`)?.sentCount || 0) + 1,
-      });
+        sentCount: (states.get(key)?.sentCount || 0) + 1,
+      };
+      states.set(key, upserted);
+      return upserted;
     },
     resolveAlertState: async (ownerId, alertType, entityId) => {
       const key = `${ownerId}:${alertType}:${entityId}`;

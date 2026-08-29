@@ -260,6 +260,8 @@ class KpiScheduler {
         timezone: this.timezone,
         ownerId: this.ownerId,
         cooldownMinutes: this.config.alerts?.intervalMinutes || 60,
+        logger: log,
+        runId: correlationId,
       });
 
       const messages = [];

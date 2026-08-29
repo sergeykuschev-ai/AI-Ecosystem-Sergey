@@ -98,7 +98,9 @@ function createFakeStateStore() {
   return {
     getAlertState: async (ownerId, alertType, entityId) => states.get(`${ownerId}:${alertType}:${entityId}`) || null,
     upsertAlertState: async (state) => {
-      states.set(`${state.ownerId}:${state.alertType}:${state.entityId}`, state);
+      const key = `${state.ownerId}:${state.alertType}:${state.entityId}`;
+      states.set(key, state);
+      return state;
     },
     resolveAlertState: async (ownerId, alertType, entityId) => {
       const key = `${ownerId}:${alertType}:${entityId}`;

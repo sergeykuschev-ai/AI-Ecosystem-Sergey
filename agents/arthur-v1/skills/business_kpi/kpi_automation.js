@@ -593,23 +593,56 @@ function computeAlertDigest(text) {
   return crypto.createHash('sha256').update(text, 'utf8').digest('hex');
 }
 
-function shouldSendAlert(previous, newState, currentDigest, cooldownMinutes, now) {
+function isPlainObject(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function deepEqual(a, b) {
+  if (a === b) return true;
+  if (a == null || b == null) return a === b;
+  if (typeof a !== typeof b) return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  if (Array.isArray(a)) {
+    if (a.length !== b.length) return false;
+    return a.every((item, index) => deepEqual(item, b[index]));
+  }
+  if (isPlainObject(a)) {
+    const keysA = Object.keys(a).sort();
+    const keysB = Object.keys(b).sort();
+    if (keysA.length !== keysB.length) return false;
+    return keysA.every(key => deepEqual(a[key], b[key]));
+  }
+  return false;
+}
+
+function isSameAlertData(previous, newState, lastValue, metadata) {
+  if (!previous) return false;
+  if (previous.state !== newState) return false;
+  if (!deepEqual(previous.lastValue, lastValue ?? null)) return false;
+  if (!deepEqual(previous.metadata, metadata || {})) return false;
+  return true;
+}
+
+function shouldSendAlert(previous, newState, currentDigest, lastValue, metadata) {
   const previousState = previous?.state;
   const lastSentAt = previous?.lastSentAt;
   const previousDigest = previous?.lastAlertDigest;
 
-  if (newState === 'ok' && previousState && previousState !== 'ok') return true; // recovery
-  if (newState !== 'ok') {
-    if (!lastSentAt) return true;
-    if (isStateWorsening(previousState, newState)) return true;
-    if (previousDigest && previousDigest !== currentDigest) return true;
-    // Legacy fallback for rows without a stored digest: honour the cooldown window.
-    if (!previousDigest) {
-      const cooldownMs = (cooldownMinutes || 60) * 60 * 1000;
-      if (now.getTime() - new Date(lastSentAt).getTime() > cooldownMs) return true;
-    }
+  if (newState === 'ok' && previousState && previousState !== 'ok') {
+    return { send: true, reason: 'recovery' };
   }
-  return false;
+  if (newState !== 'ok') {
+    if (!lastSentAt) return { send: true, reason: 'first_alert' };
+    if (isStateWorsening(previousState, newState)) return { send: true, reason: 'state_worsening' };
+    if (previousDigest && previousDigest !== currentDigest) return { send: true, reason: 'digest_changed' };
+    if (!previousDigest) {
+      // Existing persistent row without a stored digest: compare underlying alert data.
+      if (isSameAlertData(previous, newState, lastValue, metadata)) return { send: false, reason: 'same_data_no_digest' };
+      return { send: true, reason: 'data_changed_no_digest' };
+    }
+    return { send: false, reason: 'same_digest' };
+  }
+  return { send: false, reason: 'state_ok' };
 }
 
 async function evaluateAlerts(skill, stateStore, {
@@ -619,6 +652,8 @@ async function evaluateAlerts(skill, stateStore, {
   cooldownMinutes = 60,
   now = new Date(),
   dryRun = false,
+  logger = { info: () => {}, warn: () => {}, error: () => {} },
+  runId = null,
 }) {
   const { store, performance, settings, today } = await fetchCurrentMonthContext(skill, storeId, timezone);
   const todaySummary = await executeSkill(skill, 'getTodaySummary', { storeId, timezone });
@@ -634,27 +669,51 @@ async function evaluateAlerts(skill, stateStore, {
   const addAlert = async (alertType, entityId, state, lastValue, lastValueText, text, metadata = {}) => {
     const previous = await stateStore.getAlertState(ownerId, alertType, entityId);
     const currentDigest = computeAlertDigest(text);
-    const shouldSend = shouldSendAlert(previous, state, currentDigest, cooldownMinutes, now);
+    const decision = shouldSendAlert(previous, state, currentDigest, lastValue, metadata);
+
+    logger.info('kpi_alert_dedup_decision', {
+      runId,
+      alertType,
+      entityId,
+      state,
+      lastValue,
+      digest: currentDigest,
+      storedDigest: previous?.lastAlertDigest || null,
+      storedState: previous?.state || null,
+      storedLastSentAt: previous?.lastSentAt || null,
+      decision: decision.send,
+      reason: decision.reason,
+    });
 
     if (!dryRun) {
       if (state === 'ok' && previous?.state && previous.state !== 'ok') {
         await stateStore.resolveAlertState(ownerId, alertType, entityId);
+        logger.info('kpi_alert_state_resolved', { runId, alertType, entityId });
       } else if (state !== 'ok') {
-        await stateStore.upsertAlertState({
+        const upserted = await stateStore.upsertAlertState({
           ownerId,
           alertType,
           entityId,
           state,
           lastValue,
           lastValueText,
-          lastSentAt: shouldSend ? now.toISOString() : previous?.lastSentAt,
-          lastAlertDigest: shouldSend ? currentDigest : previous?.lastAlertDigest,
+          lastSentAt: decision.send ? now.toISOString() : previous?.lastSentAt,
+          lastAlertDigest: currentDigest,
           metadata,
+        });
+        logger.info('kpi_alert_state_saved', {
+          runId,
+          alertType,
+          entityId,
+          state: upserted.state,
+          lastSentAt: upserted.lastSentAt,
+          lastAlertDigest: upserted.lastAlertDigest,
+          sentCount: upserted.sentCount,
         });
       }
     }
 
-    if (shouldSend) {
+    if (decision.send) {
       const alertMeta = { alertType, entityId, state, previousState: previous?.state || 'ok', digest: currentDigest };
       const sendMessage = text;
       if (dryRun) {
@@ -664,6 +723,14 @@ async function evaluateAlerts(skill, stateStore, {
         alerts.push(alertMeta);
         messages.push(sendMessage);
       }
+      logger.info('kpi_alert_sent', {
+        runId,
+        alertType,
+        entityId,
+        state,
+        digest: currentDigest,
+        dryRun,
+      });
     }
   };
 
