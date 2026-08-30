@@ -6,8 +6,6 @@
  * plain strings and URLs defined in `types/`.
  */
 
-const getDirectusUrl = () => process.env.DIRECTUS_URL?.replace(/\/$/, "") ?? "";
-
 export interface DirectusFile {
   id: string;
   filename_download?: string;
@@ -26,9 +24,7 @@ export interface DirectusM2MItem<T = DirectusRelation> {
 
 export function getDirectusAssetUrl(fileId: string | null | undefined): string | null {
   if (!fileId) return null;
-  const base = getDirectusUrl();
-  if (!base) return null;
-  return `${base}/assets/${fileId}`;
+  return `/api/assets/${fileId}`;
 }
 
 export function normalizeFile(file: DirectusFile | string | null | undefined): string | null {

@@ -865,8 +865,13 @@ export const schema: CollectionSpec[] = [
 const primaryKeyField: FieldSpec = {
   field: "id",
   type: "uuid",
-  meta: { hidden: true, interface: "input", special: null, width: "full" },
-  schema: { is_primary_key: true, has_auto_increment: false, nullable: false },
+  meta: { hidden: true, interface: "input", special: ["uuid"], width: "full" },
+  schema: {
+    is_primary_key: true,
+    has_auto_increment: false,
+    nullable: false,
+    default_value: "gen_random_uuid()",
+  },
 };
 
 async function updateProjectSettings(client: DirectusAdminClient) {
@@ -923,18 +928,22 @@ async function ensureCollection(client: DirectusAdminClient, spec: CollectionSpe
     });
   }
 
-  for (const field of spec.fields) {
+  const fields = [primaryKeyField, ...spec.fields];
+
+  for (const field of fields) {
     console.log(`  Ensuring field: ${field.field}`);
     const fieldAlreadyExists = await fieldExists(client, spec.collection, field.field);
-    const schema = normalizeSchema(field.schema);
+    const isPrimaryKey = field.field === primaryKeyField.field;
+    // Directus 12 refuses to alter the schema of an existing primary key column
+    // (e.g. dropping NOT NULL), so for existing PK fields we update metadata only.
+    const schema = isPrimaryKey && fieldAlreadyExists ? undefined : normalizeSchema(field.schema);
 
     if (fieldAlreadyExists) {
-      console.log(`    Field ${field.field} already exists, updating meta/schema.`);
+      console.log(`    Field ${field.field} already exists, updating meta${schema ? "/schema" : ""}.`);
       if (!client.dryRun) {
-        await client.patch(`/fields/${spec.collection}/${field.field}`, {
-          meta: field.meta,
-          schema,
-        });
+        const payload: { meta: unknown; schema?: unknown } = { meta: field.meta };
+        if (schema) payload.schema = schema;
+        await client.patch(`/fields/${spec.collection}/${field.field}`, payload);
       }
     } else {
       await client.post(`/fields/${spec.collection}`, {
