@@ -1,6 +1,7 @@
 import { mockActualItems } from "@/lib/data/mock-data";
 import type { ActualItem } from "@/types/actual-item";
 import { readDirectusItems } from "./client";
+import { normalizeActualItem } from "./mappers";
 
 function parseBoundary(value: string | null): number | null {
   if (!value) return null;
@@ -21,8 +22,11 @@ export function isActualItemVisible(item: ActualItem, now: Date): boolean {
   return true;
 }
 
+const fields = ["*", "brandId.*", "image.*"];
+
 async function getVisibleActualItems(now: Date): Promise<ActualItem[]> {
-  const items = (await readDirectusItems<ActualItem>("actual_items")) ?? mockActualItems;
+  const directusItems = await readDirectusItems<Record<string, unknown>>("actual_items", fields);
+  const items = directusItems?.map(normalizeActualItem) ?? mockActualItems;
   return items
     .filter((item) => isActualItemVisible(item, now))
     .sort((left, right) => right.priority - left.priority);

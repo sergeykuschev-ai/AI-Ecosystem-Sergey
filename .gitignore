@@ -3,6 +3,7 @@ node_modules/
 *.tsbuildinfo
 apps/stores-web/out/
 apps/stores-web/directus/uploads/
+apps/stores-web/scripts/directus/uploaded-files.json
 npm-debug.log*
 .env
 .env.*

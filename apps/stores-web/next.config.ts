@@ -1,5 +1,23 @@
 import type { NextConfig } from "next";
 
+function parseDirectusImagePattern() {
+  const directusUrl = process.env.DIRECTUS_URL;
+  if (!directusUrl) return [];
+  try {
+    const url = new URL(directusUrl);
+    return [
+      {
+        protocol: url.protocol.replace(":", "") as "http" | "https",
+        hostname: url.hostname,
+        port: url.port || undefined,
+        pathname: "/assets/**",
+      },
+    ];
+  } catch {
+    return [];
+  }
+}
+
 const nextConfig: NextConfig = {
   output: "standalone",
   trailingSlash: true,
@@ -9,9 +27,7 @@ const nextConfig: NextConfig = {
   turbopack: { root: process.cwd() },
   images: {
     formats: ["image/avif", "image/webp"],
-    remotePatterns: process.env.DIRECTUS_URL
-      ? [{ protocol: "http", hostname: "directus", port: "8055", pathname: "/assets/**" }]
-      : [],
+    remotePatterns: parseDirectusImagePattern(),
   },
   async headers() {
     return [

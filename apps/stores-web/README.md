@@ -57,6 +57,7 @@ The containers are version-pinned. Review release notes and update the pinned ta
 | `CONTENT_SOURCE` | Server only | Explicit content provider: `mock` or `directus` |
 | `DIRECTUS_URL` | Server only | Directus HTTP origin |
 | `DIRECTUS_SERVER_TOKEN` | Server only | Optional restricted read token; leave empty when the Directus public role is configured |
+| `DIRECTUS_ADMIN_TOKEN` | Local scripts only | Admin/static token for schema apply and seed; never used by the Next.js runtime |
 | `DIRECTUS_ADMIN_EMAIL` | Docker only | First Directus administrator email |
 | `DIRECTUS_ADMIN_PASSWORD` | Docker only | First Directus administrator password |
 | `DIRECTUS_KEY` / `DIRECTUS_SECRET` | Docker only | Directus cryptographic secrets |
@@ -101,12 +102,75 @@ docs/                Architecture and Directus model documentation
 
 ## Directus setup
 
-1. Start the Compose stack and sign in to Directus with the local bootstrap administrator.
-2. Create the collections, fields, relations, indexes, and validation rules described in `docs/DATA_MODEL.md`.
-3. Add verified brand, city, store, category, promotion, bonus, FAQ, and vacancy content.
-4. Configure either a read-only public role or a narrowly scoped static token. Never use the administrator token in the frontend.
-5. Set `DIRECTUS_URL` and, only if necessary, `DIRECTUS_SERVER_TOKEN` on the server.
-6. Rebuild or trigger cache revalidation after schema changes.
+### 1. Start the local stack
+
+```bash
+cd apps/stores-web
+cp .env.example .env
+# Replace every placeholder value in .env, then:
+docker compose -f compose.yml up --build
+```
+
+Directus UI is available at `http://localhost:8055`. Sign in with the bootstrap credentials from `.env`.
+
+### 2. Apply the schema
+
+Instead of creating collections manually, apply the reproducible schema definition:
+
+```bash
+cd apps/stores-web
+DIRECTUS_ADMIN_TOKEN=your-admin-token npm run directus:schema:apply
+```
+
+Use `DRY_RUN=1` to preview changes without API calls:
+
+```bash
+DRY_RUN=1 DIRECTUS_ADMIN_TOKEN=your-admin-token npm run directus:schema:apply
+```
+
+### 3. Seed V1 content
+
+Load the current V1 data from `lib/data/mock-data.ts` into Directus:
+
+```bash
+cd apps/stores-web
+DIRECTUS_ADMIN_TOKEN=your-admin-token npm run directus:seed
+```
+
+The seed is idempotent: it uses stable UUIDs derived from slugs and re-uses already uploaded files. `DRY_RUN=1` works here too.
+
+### 4. Verify the data
+
+```bash
+cd apps/stores-web
+DIRECTUS_ADMIN_TOKEN=your-admin-token npm run directus:check
+```
+
+### 5. Configure public access
+
+Configure either a read-only public role or a narrowly scoped static token for the Next.js app. Never use the administrator token in the frontend runtime.
+
+### 6. Switch the app to Directus
+
+Create or update `.env.local` in `apps/stores-web`:
+
+```bash
+CONTENT_SOURCE=directus
+DIRECTUS_URL=http://localhost:8055
+DIRECTUS_SERVER_TOKEN=your-read-only-token
+```
+
+Restart the dev server. The UI, pages, and routes do not change; only the data source changes.
+
+### 7. Roll back to mock data
+
+To return to the committed V1 data without touching the database:
+
+```bash
+CONTENT_SOURCE=mock
+```
+
+Set this in `.env.local` and restart the dev server. Mock data remains the default in `.env.example` and in Docker Compose.
 
 Directus collection details are isolated in `lib/directus/`; React components consume typed domain objects only.
 

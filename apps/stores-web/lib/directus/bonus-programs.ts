@@ -1,8 +1,12 @@
 import { mockBonusProgram } from "@/lib/data/mock-data";
 import type { BonusProgram } from "@/types/bonus-program";
-import { readDirectusItems } from "./client";
+import { readDirectusSingleton } from "./client";
+import { normalizeBonusProgram } from "./mappers";
+
+const fields = ["*", "faq.*"];
 
 export async function getBonusProgram(): Promise<BonusProgram | null> {
-  const programs = await readDirectusItems<BonusProgram>("bonus_programs");
-  return programs ? programs[0] ?? null : mockBonusProgram;
+  const raw = await readDirectusSingleton<Record<string, unknown>>("bonus_programs", fields);
+  if (!raw) return mockBonusProgram;
+  return normalizeBonusProgram(raw);
 }

@@ -1,9 +1,14 @@
 import { mockStores } from "@/lib/data/mock-data";
 import type { Store } from "@/types/store";
 import { readDirectusItems } from "./client";
+import { normalizeStore } from "./mappers";
+
+const fields = ["*", "brand_id.*", "city_id.*", "facade_photo.*", "entrance_photo.*"];
 
 export async function getStores(): Promise<Store[]> {
-  return (await readDirectusItems<Store>("stores")) ?? mockStores;
+  const directusItems = await readDirectusItems<Record<string, unknown>>("stores", fields);
+  if (!directusItems) return mockStores;
+  return directusItems.map(normalizeStore);
 }
 
 export async function getStoresByCity(cityId: string): Promise<Store[]> {
