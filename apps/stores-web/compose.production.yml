@@ -1,0 +1,99 @@
+services:
+  caddy:
+    image: caddy:2.9.1-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - /opt/stores-web/data/caddy/data:/data
+      - /opt/stores-web/data/caddy/config:/config
+    depends_on:
+      web:
+        condition: service_healthy
+      directus:
+        condition: service_healthy
+    networks:
+      - stores-web
+
+  postgres:
+    image: postgres:17.6-alpine3.22
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - /opt/stores-web/data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - stores-web
+
+  directus:
+    image: directus/directus:12.3.1
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      KEY: ${DIRECTUS_KEY}
+      SECRET: ${DIRECTUS_SECRET}
+      ADMIN_EMAIL: ${DIRECTUS_ADMIN_EMAIL}
+      ADMIN_PASSWORD: ${DIRECTUS_ADMIN_PASSWORD}
+      ADMIN_TOKEN: ${DIRECTUS_STATIC_ADMIN_TOKEN:-}
+      ACCESS_TOKEN_TTL: 30d
+      DB_CLIENT: pg
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: ${POSTGRES_DB}
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      PUBLIC_URL: https://cms.amurskmarket.ru
+      TELEMETRY: "false"
+      DIRECTUS_SERVER_TOKEN: ${DIRECTUS_SERVER_TOKEN}
+    volumes:
+      - /opt/stores-web/data/directus/uploads:/directus/uploads
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- --header=\"Authorization: Bearer $$DIRECTUS_SERVER_TOKEN\" http://127.0.0.1:8055/server/health | grep -q '{\"status\":\"ok\"}'"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    networks:
+      - stores-web
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL}
+    restart: unless-stopped
+    depends_on:
+      directus:
+        condition: service_healthy
+    command: ["sh", "-c", "HOSTNAME=0.0.0.0 exec node server.js"]
+    environment:
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}
+      CONTENT_SOURCE: directus
+      DIRECTUS_URL: http://directus:8055
+      DIRECTUS_SERVER_TOKEN: ${DIRECTUS_SERVER_TOKEN}
+      INDEXNOW_KEY: ${INDEXNOW_KEY:-}
+      INDEXNOW_ENDPOINT: ${INDEXNOW_ENDPOINT:-https://api.indexnow.org/indexnow}
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/api/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    networks:
+      - stores-web
+
+networks:
+  stores-web:
+    name: stores-web

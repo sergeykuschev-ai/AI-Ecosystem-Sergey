@@ -223,3 +223,7 @@ npm run lint
 npm run typecheck
 npm run build
 ```
+
+## Production deployment
+
+Production files are in the repository, but production secrets are not. See [`docs/PRODUCTION_DEPLOY.md`](docs/PRODUCTION_DEPLOY.md) for the full target architecture, migration strategy, and operational commands.

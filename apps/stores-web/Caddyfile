@@ -1,0 +1,15 @@
+{
+    email admin@amurskmarket.ru
+}
+
+amurskmarket.ru {
+    reverse_proxy web:3000
+}
+
+www.amurskmarket.ru {
+    redir https://amurskmarket.ru{uri} permanent
+}
+
+cms.amurskmarket.ru {
+    reverse_proxy directus:8055
+}

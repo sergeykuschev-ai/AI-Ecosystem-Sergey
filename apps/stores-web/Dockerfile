@@ -6,6 +6,8 @@ RUN npm ci
 FROM node:24.7.0-alpine3.22 AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
+ARG NEXT_PUBLIC_SITE_URL
+ENV NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL}
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
