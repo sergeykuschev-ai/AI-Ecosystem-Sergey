@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { YandexMetrika } from "@/components/analytics/YandexMetrika";
 import { Footer } from "@/components/layout/Footer";
 import { Header } from "@/components/layout/Header";
 import { StoreNavigationBar } from "@/components/layout/StoreNavigationBar";
@@ -21,6 +22,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <Header />
         <div id="main-content">{children}</div>
         <Footer />
+        <YandexMetrika />
       </body>
     </html>
   );
