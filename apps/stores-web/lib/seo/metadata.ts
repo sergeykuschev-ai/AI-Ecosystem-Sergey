@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 
-export const siteUrl = new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000");
+const rawSiteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.SITE_URL;
+if (!rawSiteUrl) {
+  throw new Error("NEXT_PUBLIC_SITE_URL or SITE_URL must be configured");
+}
+export const siteUrl = new URL(rawSiteUrl);
 
 interface PageMetadataInput {
   title: string;
