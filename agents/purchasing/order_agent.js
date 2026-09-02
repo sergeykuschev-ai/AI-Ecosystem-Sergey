@@ -31,6 +31,9 @@ const {
   DEFAULT_CANONICAL_MATRIX_PATH,
   loadAssortmentPolicySource,
 } = require('./services/assortment_policy_store');
+const {
+  applyMinMaxSafetyGuard,
+} = require('./services/minmax_safety_guard');
 const { validateInput } = require('./services/validator');
 const { buildResult } = require('./services/result_assembly');
 const {
@@ -54,24 +57,25 @@ function runOrderAgent(items, options = {}) {
 
 function runOrderAgentFromAdapterResult(adapterResult, options = {}) {
   assertUsableAdapterResult(adapterResult);
+  const guardedAdapterResult = applyMinMaxSafetyGuard(adapterResult);
 
-  const rows = adapterResult.rows;
+  const rows = guardedAdapterResult.rows;
   const analysis = analyzeRows(rows);
   const decisionResult = buildPurchasingDecisions(
     analysis,
-    adapterResult.diagnostics
+    guardedAdapterResult.diagnostics
   );
 
   return buildResult(rows, analysis, {
-    sourceRowsCount: adapterResult.source.sourceRowsCount,
-    detectedColumns: adapterResult.headerPaths,
+    sourceRowsCount: guardedAdapterResult.source.sourceRowsCount,
+    detectedColumns: guardedAdapterResult.headerPaths,
     financialData: options.financialData,
     financialDataPath: options.financialDataPath,
     additionalResultFields: {
       normalized_product_rows_count: rows.length,
-      adapter_source: adapterResult.source,
-      column_mapping: adapterResult.columnMap,
-      adapter_diagnostics: adapterResult.diagnostics,
+      adapter_source: guardedAdapterResult.source,
+      column_mapping: guardedAdapterResult.columnMap,
+      adapter_diagnostics: guardedAdapterResult.diagnostics,
       decisionVersion: decisionResult.decisionVersion,
       decisions: decisionResult.decisions,
       ...decisionResult.summary,
@@ -85,13 +89,14 @@ function runOrderAgentFromAdapterResultWithDemand(
   options = {}
 ) {
   assertUsableAdapterResult(adapterResult);
+  const guardedAdapterResult = applyMinMaxSafetyGuard(adapterResult);
 
-  const rows = adapterResult.rows;
+  const rows = guardedAdapterResult.rows;
   const analysis = analyzeRows(rows);
   const reportSupplierGroups = collectReportSupplierGroups(rows);
   const phase1DecisionResult = buildPurchasingDecisions(
     analysis,
-    adapterResult.diagnostics
+    guardedAdapterResult.diagnostics
   );
   const resolvedPhase2Inputs = { ...phase2Inputs };
   let assortmentContext = null;
@@ -108,7 +113,7 @@ function runOrderAgentFromAdapterResultWithDemand(
     assortmentContext = { ...loaded, matchResult };
   }
   if (!resolvedPhase2Inputs.inventorySemantics) {
-    resolvedPhase2Inputs.inventorySemantics = adapterResult.source.inventorySemantics;
+    resolvedPhase2Inputs.inventorySemantics = guardedAdapterResult.source.inventorySemantics;
   }
   const demandResult = buildDemandPlan(analysis, resolvedPhase2Inputs);
   const policy = loadAssortmentPolicySource({
@@ -131,7 +136,7 @@ function runOrderAgentFromAdapterResultWithDemand(
   };
   let phase2DecisionResult = buildPhase2PurchasingDecisions(
     policyDemandResult,
-    adapterResult.diagnostics
+    guardedAdapterResult.diagnostics
   );
   let demandProducts = policyProducts;
   let assortmentControl = null;
@@ -143,7 +148,7 @@ function runOrderAgentFromAdapterResultWithDemand(
       decisions: phase2DecisionResult.decisions,
       matrix: assortmentContext.matrix,
       matchResult: assortmentContext.matchResult,
-      inventoryModel: adapterResult.source.inventorySemantics,
+      inventoryModel: guardedAdapterResult.source.inventorySemantics,
       reportSupplierGroups,
     });
     demandProducts = assortmentControl.products;
@@ -163,8 +168,8 @@ function runOrderAgentFromAdapterResultWithDemand(
   );
 
   return buildResult(rows, analysis, {
-    sourceRowsCount: adapterResult.source.sourceRowsCount,
-    detectedColumns: adapterResult.headerPaths,
+    sourceRowsCount: guardedAdapterResult.source.sourceRowsCount,
+    detectedColumns: guardedAdapterResult.headerPaths,
     financialData: options.financialData,
     financialDataPath: options.financialDataPath,
     proposedOrderAmount: workingOrderResult.summary.workingMaximumSum,
@@ -172,9 +177,9 @@ function runOrderAgentFromAdapterResultWithDemand(
     additionalReportText: assortmentReport,
     additionalResultFields: {
       normalized_product_rows_count: rows.length,
-      adapter_source: adapterResult.source,
-      column_mapping: adapterResult.columnMap,
-      adapter_diagnostics: adapterResult.diagnostics,
+      adapter_source: guardedAdapterResult.source,
+      column_mapping: guardedAdapterResult.columnMap,
+      adapter_diagnostics: guardedAdapterResult.diagnostics,
       phase1DecisionVersion: phase1DecisionResult.decisionVersion,
       phase1Decisions: phase1DecisionResult.decisions,
       phase1DecisionSummary: phase1DecisionResult.summary,
