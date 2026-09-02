@@ -16,6 +16,11 @@ const {
   ensureCompleted,
 } = require('./run_query_service');
 
+const MINMAX_SAFETY_BLOCKED_MESSAGE =
+  'Заказ поставщику заблокирован: Min/Max не содержит обязательные позиции ' +
+  'или содержит неоднозначное сопоставление. Сначала проверьте остатки 1С ' +
+  'и привязку номенклатуры.';
+
 class SupplierOrderService {
   constructor(options = {}) {
     if (!options.queryService) {
@@ -29,19 +34,44 @@ class SupplierOrderService {
     this.now = options.now || (() => new Date());
   }
 
-  supplierFor(runId, items) {
+  agentJsonFor(runId) {
     try {
-      const agentResult = this.registry.getAgentResult(runId);
-      const supplier = agentResult?.[0]?.json?.supplier;
-      if (typeof supplier === 'string' && supplier.trim() !== '') {
-        return supplier;
-      }
-    } catch {}
+      return this.registry.getAgentResult(runId)?.[0]?.json || null;
+    } catch {
+      return null;
+    }
+  }
+
+  supplierFor(runId, items) {
+    const supplier = this.agentJsonFor(runId)?.supplier;
+    if (typeof supplier === 'string' && supplier.trim() !== '') {
+      return supplier;
+    }
     const item = (items || []).find(candidate =>
       typeof candidate?.supplier === 'string' &&
       candidate.supplier.trim() !== ''
     );
     return item ? item.supplier : null;
+  }
+
+  minMaxSafetyFor(runId) {
+    return this.agentJsonFor(runId)?.adapter_diagnostics?.minMaxSafety || null;
+  }
+
+  assertMinMaxSafety(runId) {
+    const safety = this.minMaxSafetyFor(runId);
+    if (!safety || !(safety.blockingIssueCount > 0)) return;
+
+    throw new SupplierOrderError(
+      SUPPLIER_ORDER_BLOCKED_CODE,
+      MINMAX_SAFETY_BLOCKED_MESSAGE,
+      {
+        details: {
+          blocking_issue_count: safety.blockingIssueCount,
+          blocking_issues: safety.blockingIssues || [],
+        },
+      }
+    );
   }
 
   /**
@@ -82,6 +112,7 @@ class SupplierOrderService {
   }
 
   buildOrder(runId) {
+    this.assertMinMaxSafety(runId);
     const items = this.queryService.getDecoratedItems(runId);
     return buildSupplierOrder({
       items,
@@ -138,5 +169,6 @@ class SupplierOrderService {
 }
 
 module.exports = {
+  MINMAX_SAFETY_BLOCKED_MESSAGE,
   SupplierOrderService,
 };
