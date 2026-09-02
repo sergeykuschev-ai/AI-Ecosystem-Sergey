@@ -250,9 +250,9 @@ export const mockFaqs: FAQ[] = [
 export const mockBonusProgram: BonusProgram = {
   id: "bonus-main",
   title: "Бонусная программа",
-  short_description: "Условия программы будут опубликованы после утверждения.",
-  description: "На этом этапе сайт не хранит бонусные счета и не показывает баланс клиента.",
-  rules: [],
+  short_description: "Покупайте в наших магазинах, получайте бонусы и используйте их при следующих покупках.",
+  description: "",
+  rules: ["5%", "15%", "3 месяца"],
   participating_brands: [],
   faq: [],
   active: true,
