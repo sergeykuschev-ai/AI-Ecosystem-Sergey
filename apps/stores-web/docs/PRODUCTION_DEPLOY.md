@@ -26,7 +26,7 @@ Only Caddy publishes ports `80` and `443`. `web`, `directus`, and `postgres` are
 | --- | --- |
 | `/opt/stores-web/app/compose.production.yml` | Production Docker Compose stack |
 | `/opt/stores-web/app/Caddyfile` | Caddy reverse-proxy configuration |
-| `/opt/stores-web/.env.production` | Production secrets (outside git) |
+| `/opt/stores-web/config/.env.production` | Production secrets (outside git), `root:root 600` |
 | `/opt/stores-web/data/postgres` | Persistent PostgreSQL data |
 | `/opt/stores-web/data/directus/uploads` | Persistent Directus uploads |
 | `/opt/stores-web/data/caddy/data` | Let's Encrypt certificates and state |
@@ -36,15 +36,17 @@ Only Caddy publishes ports `80` and `443`. `web`, `directus`, and `postgres` are
 
 1. Server has Docker, Docker Compose, UFW (80/443 open) ready.
 2. DNS A-records for all three domains point to `138.16.155.126`.
-3. `/opt/stores-web/.env.production` is created on the local Mac from the working local `.env` and transferred to the server. **Existing `DIRECTUS_KEY` and `DIRECTUS_SECRET` are preserved and not rotated during the first migration.**
+3. `/opt/stores-web/config/.env.production` is created on the local Mac from the working local `.env` and transferred to the server. **Existing `DIRECTUS_KEY` and `DIRECTUS_SECRET` are preserved and not rotated during the first migration.**
 4. Data migration plan is approved (see runbook below).
 5. `directus:seed` is **NOT** run without explicit approval.
 6. Directus schema, users, roles, policies, and permissions are **not** recreated; they migrate with the PostgreSQL dump.
-7. After deployment is verified, remove the accidentally copied `/opt/stores-web/app/.env` and `/opt/stores-web/app/.env.local`.
+7. After deployment is verified, rename the accidentally copied local env files on the server to `.env.legacy-disabled` and `.env.local.legacy-disabled` so they cannot be picked up by an implicit `.env` load.
 
 .env.production creation (Mac, source of truth: local `.env` + `.env.local`)
 
 The production env is created on the local Mac and then transferred to the server. **It is not created from `/opt/stores-web/app/.env`** — that file was transferred accidentally with the archive and may contain stale or local-only values.
+
+On the server the file lives at `/opt/stores-web/config/.env.production` (not inside `/opt/stores-web/app/`). It must be owned by `root:root` with mode `600`.
 
 Source of truth on Mac:
 - `apps/stores-web/.env` — used by the working local Docker Compose stack (PostgreSQL + Directus + web container). Contains `DIRECTUS_KEY`, `DIRECTUS_SECRET`, DB credentials, admin credentials, admin static tokens.
@@ -90,10 +92,10 @@ Then transfer only this file to the server:
 
 ```bash
 scp -i ~/.ssh/id_ed25519_arthur /tmp/stores-web.env.production \
-  root@138.16.155.126:/opt/stores-web/.env.production
+  root@138.16.155.126:/opt/stores-web/config/.env.production
 
 ssh -i ~/.ssh/id_ed25519_arthur root@138.16.155.126 \
-  "chmod 600 /opt/stores-web/.env.production"
+  "chmod 600 /opt/stores-web/config/.env.production"
 
 # Remove the local temp file:
 rm -f /tmp/stores-web.env.production
@@ -217,11 +219,11 @@ mkdir -p /opt/stores-web/data/postgres \
          /opt/stores-web/data/caddy/data \
          /opt/stores-web/data/caddy/config
 
-docker compose -f compose.production.yml --env-file /opt/stores-web/.env.production up -d postgres
+docker compose -f compose.production.yml --env-file /opt/stores-web/config/.env.production up -d postgres
 
 # Wait for PostgreSQL to be healthy
 sleep 5
-docker compose -f compose.production.yml --env-file /opt/stores-web/.env.production ps postgres
+docker compose -f compose.production.yml --env-file /opt/stores-web/config/.env.production ps postgres
 REMOTE
 ```
 
@@ -231,12 +233,12 @@ REMOTE
 ssh -i ~/.ssh/id_ed25519_arthur root@138.16.155.126 <<'REMOTE'
 set -e
 cd /opt/stores-web/app
-set -a && source /opt/stores-web/.env.production && set +a
+set -a && source /opt/stores-web/config/.env.production && set +a
 
 DUMP_FILE="/opt/stores-web/backups/migration-$(date +%Y%m%d-%H%M%S)/stores-web-local.sql"
 echo "Restoring from: $DUMP_FILE"
 
-docker compose -f compose.production.yml --env-file /opt/stores-web/.env.production \
+docker compose -f compose.production.yml --env-file /opt/stores-web/config/.env.production \
   exec -T postgres psql -U "$POSTGRES_USER" postgres < "$DUMP_FILE"
 REMOTE
 ```
@@ -247,10 +249,10 @@ REMOTE
 ssh -i ~/.ssh/id_ed25519_arthur root@138.16.155.126 <<'REMOTE'
 set -e
 cd /opt/stores-web/app
-set -a && source /opt/stores-web/.env.production && set +a
+set -a && source /opt/stores-web/config/.env.production && set +a
 
 echo '--- Table counts ---'
-docker compose -f compose.production.yml --env-file /opt/stores-web/.env.production \
+docker compose -f compose.production.yml --env-file /opt/stores-web/config/.env.production \
   exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c \
   "SELECT relname, n_live_tup FROM pg_stat_user_tables WHERE schemaname='public' ORDER BY n_live_tup DESC;"
 REMOTE
@@ -285,11 +287,11 @@ REMOTE
 ssh -i ~/.ssh/id_ed25519_arthur root@138.16.155.126 <<'REMOTE'
 set -e
 cd /opt/stores-web/app
-docker compose -f compose.production.yml --env-file /opt/stores-web/.env.production up -d directus
+docker compose -f compose.production.yml --env-file /opt/stores-web/config/.env.production up -d directus
 
 # Wait for health
 for i in {1..30}; do
-  if docker compose -f compose.production.yml --env-file /opt/stores-web/.env.production \
+  if docker compose -f compose.production.yml --env-file /opt/stores-web/config/.env.production \
        exec -T directus wget --no-verbose --tries=1 --spider http://localhost:8055/server/health 2>/dev/null; then
     echo 'Directus healthy'
     break
@@ -306,15 +308,15 @@ REMOTE
 ssh -i ~/.ssh/id_ed25519_arthur root@138.16.155.126 <<'REMOTE'
 set -e
 cd /opt/stores-web/app
-set -a && source /opt/stores-web/.env.production && set +a
+set -a && source /opt/stores-web/config/.env.production && set +a
 
 # Health endpoint (internal Docker network)
-docker compose -f compose.production.yml --env-file /opt/stores-web/.env.production \
+docker compose -f compose.production.yml --env-file /opt/stores-web/config/.env.production \
   exec -T directus wget --no-verbose --tries=1 --spider http://localhost:8055/server/health
 
 # Data access via runtime token (inside the Directus container; port 8055 is not published on host)
 echo 'Brands via runtime token:'
-docker compose -f compose.production.yml --env-file /opt/stores-web/.env.production \
+docker compose -f compose.production.yml --env-file /opt/stores-web/config/.env.production \
   exec -T directus wget -qO- --header="Authorization: Bearer $DIRECTUS_SERVER_TOKEN" \
   'http://localhost:8055/items/brands?limit=0&meta=total_count' | \
   python3 -c 'import sys,json; print(json.load(sys.stdin).get("meta",{}).get("total_count","?"))'
@@ -327,11 +329,11 @@ REMOTE
 ssh -i ~/.ssh/id_ed25519_arthur root@138.16.155.126 <<'REMOTE'
 set -e
 cd /opt/stores-web/app
-docker compose -f compose.production.yml --env-file /opt/stores-web/.env.production up -d --build web
+docker compose -f compose.production.yml --env-file /opt/stores-web/config/.env.production up -d --build web
 
 # Wait for web health
 for i in {1..30}; do
-  if docker compose -f compose.production.yml --env-file /opt/stores-web/.env.production \
+  if docker compose -f compose.production.yml --env-file /opt/stores-web/config/.env.production \
        exec -T web wget --no-verbose --tries=1 --spider http://localhost:3000/api/health 2>/dev/null; then
     echo 'Web healthy'
     break
@@ -350,7 +352,7 @@ Caddy is part of the same compose file, so the previous `up -d --build web` step
 ssh -i ~/.ssh/id_ed25519_arthur root@138.16.155.126 <<'REMOTE'
 set -e
 cd /opt/stores-web/app
-docker compose -f compose.production.yml --env-file /opt/stores-web/.env.production up -d caddy
+docker compose -f compose.production.yml --env-file /opt/stores-web/config/.env.production up -d caddy
 REMOTE
 ```
 
@@ -360,7 +362,7 @@ Before Caddy obtains certificates, validate its config:
 ssh -i ~/.ssh/id_ed25519_arthur root@138.16.155.126 <<'REMOTE'
 set -e
 cd /opt/stores-web/app
-docker compose -f compose.production.yml --env-file /opt/stores-web/.env.production \
+docker compose -f compose.production.yml --env-file /opt/stores-web/config/.env.production \
   exec caddy caddy validate --config /etc/caddy/Caddyfile
 REMOTE
 ```
@@ -399,10 +401,16 @@ ssh -i ~/.ssh/id_ed25519_arthur root@138.16.155.126 \
 - `DIRECTUS_ADMIN_TOKEN` and `DIRECTUS_STATIC_ADMIN_TOKEN` must be the **existing admin user's static token**.
 - `directus:seed` is **never** run automatically or during migration.
 - Directus schema, users, roles, policies, and permissions are **never** recreated; they come from the PostgreSQL dump.
-- After the deployment is verified, remove the accidentally copied local env files from the server:
+- After the deployment is verified, disable the accidentally copied local env files on the server so they can never be picked up as an implicit `.env`:
   ```bash
-  ssh -i ~/.ssh/id_ed25519_arthur root@138.16.155.126 \
-    "rm -f /opt/stores-web/app/.env /opt/stores-web/app/.env.local"
+  ssh -i ~/.ssh/id_ed25519_arthur root@138.16.155.126 <<'REMOTE'
+  set -e
+  cd /opt/stores-web/app
+  [ -f .env ] && mv .env .env.legacy-disabled
+  [ -f .env.local ] && mv .env.local .env.local.legacy-disabled
+  chown root:root .env.legacy-disabled .env.local.legacy-disabled 2>/dev/null || true
+  chmod 600 .env.legacy-disabled .env.local.legacy-disabled 2>/dev/null || true
+  REMOTE
   ```
 
 ## Healthchecks
@@ -422,13 +430,13 @@ Before any destructive operation, a backup is created automatically by the runbo
 ssh -i ~/.ssh/id_ed25519_arthur root@138.16.155.126 <<'REMOTE'
 set -e
 cd /opt/stores-web/app
-docker compose -f compose.production.yml --env-file /opt/stores-web/.env.production down
+docker compose -f compose.production.yml --env-file /opt/stores-web/config/.env.production down
 
 # Restore PostgreSQL from the dump used for migration (or any earlier backup)
-set -a && source /opt/stores-web/.env.production && set +a
+set -a && source /opt/stores-web/config/.env.production && set +a
 DUMP_FILE="/opt/stores-web/backups/migration-YYYYMMDD-HHMMSS/stores-web-local.sql"
-docker compose -f compose.production.yml --env-file /opt/stores-web/.env.production up -d postgres
-docker compose -f compose.production.yml --env-file /opt/stores-web/.env.production \
+docker compose -f compose.production.yml --env-file /opt/stores-web/config/.env.production up -d postgres
+docker compose -f compose.production.yml --env-file /opt/stores-web/config/.env.production \
   exec -T postgres psql -U "$POSTGRES_USER" postgres < "$DUMP_FILE"
 
 # Re-extract uploads if needed
@@ -439,6 +447,6 @@ chown -R 1000:1000 /opt/stores-web/data/directus/uploads
 chown -R 999:999 /opt/stores-web/data/postgres
 
 # Restart stack
-docker compose -f compose.production.yml --env-file /opt/stores-web/.env.production up -d
+docker compose -f compose.production.yml --env-file /opt/stores-web/config/.env.production up -d
 REMOTE
 ```

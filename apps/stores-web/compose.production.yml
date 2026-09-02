@@ -1,3 +1,8 @@
+# Production env source of truth: /opt/stores-web/config/.env.production
+# This file must be loaded explicitly with:
+#   docker compose --env-file /opt/stores-web/config/.env.production -f compose.production.yml ...
+# Never rely on an implicit `.env` file inside the project directory.
+
 services:
   caddy:
     image: caddy:2.9.1-alpine
