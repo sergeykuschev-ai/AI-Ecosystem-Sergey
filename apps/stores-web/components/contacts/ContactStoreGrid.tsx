@@ -85,7 +85,6 @@ export function ContactStoreGrid({ stores, brands, city }: { stores: Store[]; br
             className="store-card"
             data-brand={brand.slug}
             style={{
-              "--brand-color": brand.primary_color,
               display: "flex",
               flexDirection: "column",
               height: "100%",

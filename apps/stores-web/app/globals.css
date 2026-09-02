@@ -99,6 +99,10 @@ p { margin: 0 0 1rem; }
 .brand-card[data-brand="ventil"] { border-top-color: var(--store-nav-ventil); }
 .brand-card[data-brand="metiz-market"] { border-top-color: var(--store-nav-metiz-market); }
 .brand-card[data-brand="miska"] { border-top-color: var(--store-nav-miska); }
+.store-card[data-brand="amper"] { border-top-color: #f4c300; }
+.store-card[data-brand="ventil"] { border-top-color: #1769aa; }
+.store-card[data-brand="metiz-market"] { border-top-color: #c62828; }
+.store-card[data-brand="miska"] { border-top-color: #f58517; }
 .brand-card:hover, .store-card:hover, .card:hover { box-shadow: var(--shadow); }
 .brand-card:hover { transform: translateY(-0.2rem); }
 .store-card .store-tagline { color: var(--muted); font-size: 0.95rem; font-weight: 500; margin: -0.4rem 0 0.75rem; }
