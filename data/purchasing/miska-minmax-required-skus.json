@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "updated_at": "2026-09-02",
+  "store": "Миска",
+  "items": [
+    {
+      "key": "award-pouch-urinary-85",
+      "supplier_group": "валта",
+      "brand": "AWARD",
+      "target_stock": 24,
+      "blocking_if_missing": true,
+      "match_tokens": ["award", "urinary", "85"]
+    },
+    {
+      "key": "award-pouch-sterilized-turkey-85",
+      "supplier_group": "валта",
+      "brand": "AWARD",
+      "target_stock": 24,
+      "blocking_if_missing": true,
+      "match_tokens": ["award", "sterilized", "индей", "85"]
+    },
+    {
+      "key": "award-pouch-sterilized-salmon-85",
+      "supplier_group": "валта",
+      "brand": "AWARD",
+      "target_stock": 24,
+      "blocking_if_missing": true,
+      "match_tokens": ["award", "sterilized", "лосос", "85"]
+    },
+    {
+      "key": "award-pouch-healthy-growth-85",
+      "supplier_group": "валта",
+      "brand": "AWARD",
+      "target_stock": 24,
+      "blocking_if_missing": true,
+      "match_tokens": ["award", "healthy", "growth", "85"]
+    },
+    {
+      "key": "award-pouch-hairball-indoor-85",
+      "supplier_group": "валта",
+      "brand": "AWARD",
+      "target_stock": 24,
+      "blocking_if_missing": true,
+      "match_tokens": ["award", "hairball", "indoor", "85"]
+    },
+    {
+      "key": "award-pouch-indoor-big-cats-85",
+      "supplier_group": "валта",
+      "brand": "AWARD",
+      "target_stock": 24,
+      "blocking_if_missing": true,
+      "match_tokens": ["award", "indoor", "big", "cats", "85"]
+    }
+  ]
+}
