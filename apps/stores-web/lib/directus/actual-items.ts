@@ -1,5 +1,5 @@
 import { mockActualItems } from "@/lib/data/mock-data";
-import type { ActualItem } from "@/types/actual-item";
+import type { ActualItem, ActualItemType } from "@/types/actual-item";
 import { readDirectusItems } from "./client";
 import { normalizeActualItem } from "./mappers";
 
@@ -38,4 +38,8 @@ export async function getActualItems(now = new Date()): Promise<ActualItem[]> {
 
 export async function getActualItemsByBrand(brandId: string, now = new Date()): Promise<ActualItem[]> {
   return (await getVisibleActualItems(now)).filter((item) => item.brandId === brandId);
+}
+
+export async function getActualItemsByType(type: ActualItemType, now = new Date()): Promise<ActualItem[]> {
+  return (await getVisibleActualItems(now)).filter((item) => item.type === type);
 }

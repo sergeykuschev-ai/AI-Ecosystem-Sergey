@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { BrandLandingPage } from "@/components/brand/BrandLandingPage";
 import { createPageMetadata } from "@/lib/seo/metadata";
+export const dynamic = "force-dynamic";
 export const metadata: Metadata = createPageMetadata({ title: "Вентиль в Амурске — водоснабжение и отопление", description: "Официальная страница магазина «Вентиль» в Амурске: сантехника, отопление, водоснабжение и торговая точка.", path: "/ventil/" });
 export default function Page() {
   return (

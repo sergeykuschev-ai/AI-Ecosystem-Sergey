@@ -4,6 +4,7 @@ import { StaticPage } from "@/components/content/StaticPage";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { getBonusProgram } from "@/lib/directus/bonus-programs";
 import { createPageMetadata } from "@/lib/seo/metadata";
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = createPageMetadata({ title: "Бонусная программа", description: "Информация и правила бонусной программы участвующих магазинов в Амурске.", path: "/bonus/" });
 export default async function BonusPage() {

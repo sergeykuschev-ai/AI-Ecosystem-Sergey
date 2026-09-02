@@ -14,6 +14,8 @@ import { getStoresByCity } from "@/lib/directus/stores";
 import { createOrganizationsJsonLd, createWebsiteJsonLd } from "@/lib/seo/json-ld";
 import { createPageMetadata } from "@/lib/seo/metadata";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = createPageMetadata({
   title: "Ампер, Вентиль, Метиз Маркет и Миска — магазины в Амурске",
   description: "Магазины Ампер, Вентиль, Метиз Маркет и Миска в Амурске: направления, торговые точки, контакты, акции и вакансии.",

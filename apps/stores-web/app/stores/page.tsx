@@ -3,6 +3,7 @@ import Link from "next/link";
 import { StaticPage } from "@/components/content/StaticPage";
 import { getCities } from "@/lib/directus/cities";
 import { createPageMetadata } from "@/lib/seo/metadata";
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = createPageMetadata({ title: "Магазины по городам", description: "Физические торговые точки магазинов «Ампер», «Вентиль», «Метиз Маркет» и «Миска» по городам.", path: "/stores/" });
 

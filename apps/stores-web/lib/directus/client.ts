@@ -23,12 +23,21 @@ function buildQueryString(fields?: string[], extra = "filter[active][_eq]=true")
   return params.toString();
 }
 
+function resolveContentSource(): string | null {
+  const contentSource = process.env.CONTENT_SOURCE;
+  if (contentSource) return contentSource;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("CONTENT_SOURCE is required in production");
+  }
+  return null; // development/test default: mock fallback
+}
+
 export async function readDirectusSingleton<T>(
   collection: string,
   fields?: string[],
 ): Promise<T | null> {
-  const contentSource = process.env.CONTENT_SOURCE ?? "mock";
-  if (contentSource === "mock") return null;
+  const contentSource = resolveContentSource();
+  if (contentSource === null || contentSource === "mock") return null;
   if (contentSource !== "directus") throw new Error(`Unsupported CONTENT_SOURCE: ${contentSource}`);
 
   const directusUrl = getDirectusUrl();
@@ -54,8 +63,8 @@ export async function readDirectusItems<T>(
   fields?: string[],
   query = "filter[active][_eq]=true",
 ): Promise<T[] | null> {
-  const contentSource = process.env.CONTENT_SOURCE ?? "mock";
-  if (contentSource === "mock") return null;
+  const contentSource = resolveContentSource();
+  if (contentSource === null || contentSource === "mock") return null;
   if (contentSource !== "directus") throw new Error(`Unsupported CONTENT_SOURCE: ${contentSource}`);
 
   const directusUrl = getDirectusUrl();

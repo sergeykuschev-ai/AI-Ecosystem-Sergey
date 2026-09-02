@@ -11,6 +11,7 @@ import { getCities, getCityBySlug } from "@/lib/directus/cities";
 import { getStoreBySlug, getStores } from "@/lib/directus/stores";
 import { createStoreJsonLd } from "@/lib/seo/json-ld";
 import { createPageMetadata } from "@/lib/seo/metadata";
+export const dynamic = "force-dynamic";
 
 interface StorePageProps { params: Promise<{ city: string; store: string }> }
 

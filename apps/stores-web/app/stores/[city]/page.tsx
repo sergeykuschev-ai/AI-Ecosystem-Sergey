@@ -6,6 +6,7 @@ import { getBrands } from "@/lib/directus/brands";
 import { getCities, getCityBySlug } from "@/lib/directus/cities";
 import { getStoresByCity } from "@/lib/directus/stores";
 import { createPageMetadata } from "@/lib/seo/metadata";
+export const dynamic = "force-dynamic";
 
 interface CityPageProps { params: Promise<{ city: string }> }
 
