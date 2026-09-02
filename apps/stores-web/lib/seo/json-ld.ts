@@ -16,6 +16,15 @@ export function createWebsiteJsonLd(): JsonLdObject {
   };
 }
 
+export function createContactPageJsonLd(): JsonLdObject {
+  return {
+    "@context": "https://schema.org",
+    "@type": "ContactPage",
+    url: new URL("/kontakty/", siteUrl).href,
+    inLanguage: "ru-RU",
+  };
+}
+
 export function createOrganizationsJsonLd(brands: Brand[]): JsonLdObject {
   return {
     "@context": "https://schema.org",

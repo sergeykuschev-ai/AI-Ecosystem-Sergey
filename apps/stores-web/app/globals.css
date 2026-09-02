@@ -101,6 +101,9 @@ p { margin: 0 0 1rem; }
 .brand-card[data-brand="miska"] { border-top-color: var(--store-nav-miska); }
 .brand-card:hover, .store-card:hover, .card:hover { box-shadow: var(--shadow); }
 .brand-card:hover { transform: translateY(-0.2rem); }
+.store-card .store-tagline { color: var(--muted); font-size: 0.95rem; font-weight: 500; margin: -0.4rem 0 0.75rem; }
+.contacts-page .page-hero { padding-bottom: 1.5rem; }
+.contacts-section { padding-top: 0.75rem; }
 .brand-card > a { align-self: flex-start; margin-top: auto; font-weight: 700; }
 .brand-card > a::after { content: ""; position: absolute; z-index: 1; inset: 0; border-radius: var(--radius); }
 .brand-card > a:focus-visible { outline: none; }

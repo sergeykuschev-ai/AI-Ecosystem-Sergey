@@ -12,6 +12,7 @@ export function BrandLogo({ brand }: { brand: Brand }) {
         alt={`Логотип магазина ${brand.name}`}
         fill
         sizes="(min-width: 1024px) 288px, (min-width: 672px) 40vw, 90vw"
+        unoptimized
       />
     </div>
   );
