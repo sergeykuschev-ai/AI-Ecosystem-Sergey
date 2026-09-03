@@ -17,6 +17,14 @@ interface BrandLandingPageProps {
   heroEyebrow: string;
   nameInPrepositional: string;
   aboutHeading: string;
+  heroTitle?: string;
+  heroLead?: string;
+  assortmentHeading?: string;
+  assortmentExtra?: string[];
+  aboutText?: string;
+  showAbout?: boolean;
+  heroContactActions?: boolean;
+  featuredSections?: React.ReactNode;
 }
 
 export async function BrandLandingPage({
@@ -24,6 +32,14 @@ export async function BrandLandingPage({
   heroEyebrow,
   nameInPrepositional,
   aboutHeading,
+  heroTitle,
+  heroLead,
+  assortmentHeading,
+  assortmentExtra,
+  aboutText,
+  showAbout = true,
+  heroContactActions = false,
+  featuredSections,
 }: BrandLandingPageProps) {
   const brand = await getBrandBySlug(slug);
   if (!brand) notFound();
@@ -36,6 +52,7 @@ export async function BrandLandingPage({
   ]);
   const store = stores[0];
   const city = cities.find((item) => item.id === store?.city_id);
+  const mapUrl = store?.map_links.find((link) => link.url)?.url ?? null;
 
   return (
     <main className="brand-landing" data-brand={brand.slug} style={{ "--brand-color": brand.primary_color } as React.CSSProperties}>
@@ -47,21 +64,39 @@ export async function BrandLandingPage({
           </div>
           <div className="brand-landing-hero__content">
             <p className="eyebrow">{heroEyebrow}</p>
-            <h1>{brand.name}</h1>
-            <p className="lead">{brand.short_description}</p>
+            <h1>{heroTitle ?? brand.name}</h1>
+            <p className="lead">{heroLead ?? brand.short_description}</p>
+            {heroContactActions && store ? (
+              <div className="button-row">
+                {store.telephone ? (
+                  <a className="button button--primary" href={`tel:${store.telephone}`}>
+                    Позвонить
+                  </a>
+                ) : null}
+                {mapUrl ? (
+                  <a className="button button--secondary" href={mapUrl} target="_blank" rel="noopener noreferrer">
+                    Показать на карте
+                  </a>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </header>
 
         <section className="brand-landing-section" aria-labelledby="brand-assortment">
           <p className="eyebrow">Ассортимент</p>
-          <h2 id="brand-assortment">Что есть в «{nameInPrepositional}»</h2>
-          <CategoryGrid categories={categories} variant="brand-landing" />
+          <h2 id="brand-assortment">{assortmentHeading ?? `Что есть в «${nameInPrepositional}»`}</h2>
+          <CategoryGrid categories={categories} variant="brand-landing" extraItems={assortmentExtra} />
         </section>
 
+        {showAbout && (
         <section className="brand-landing-section brand-landing-about" aria-labelledby="brand-about">
           <h2 id="brand-about">{aboutHeading}</h2>
-          <p>{brand.description}</p>
+          <p>{aboutText ?? brand.description}</p>
         </section>
+        )}
+
+        {featuredSections}
 
         {actualItems.length > 0 && (
           <section className="brand-landing-section" aria-labelledby="brand-actual">

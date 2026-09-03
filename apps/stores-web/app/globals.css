@@ -146,6 +146,16 @@ p { margin: 0 0 1rem; }
 .brand-landing-about + .brand-landing-section { padding-top: clamp(1.1rem, 2.5vw, 1.5rem); }
 .brand-landing-about h2 { font-size: clamp(1.75rem, 4vw, 2.4rem); }
 .brand-landing-about p { max-width: 52rem; margin-bottom: 0; color: #354250; font-size: 1.08rem; }
+.brand-landing-section--compact { padding-block: clamp(0.9rem, 2.2vw, 1.25rem); }
+.miska-feature-grid { display: grid; gap: 1rem; }
+.miska-feature-card { min-width: 0; padding: 1.4rem; border: 1px solid var(--line); border-top: 0.35rem solid var(--brand-landing-accent); border-radius: var(--radius); background: white; }
+.miska-feature-card h2 { font-size: clamp(1.35rem, 3vw, 1.75rem); }
+.miska-feature-card p { margin-bottom: 0; color: #354250; }
+.miska-bonus-facts { display: grid; gap: 0.75rem; margin: 0 0 1rem; padding: 0; list-style: none; }
+.miska-bonus-facts li { min-width: 0; padding: 1rem 1.2rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-soft); }
+.miska-bonus-facts strong { display: block; font-size: 1.45rem; line-height: 1.2; }
+.miska-bonus-facts span { color: var(--muted); }
+.miska-bonus-note { color: #354250; }
 .brand-actual-grid { width: min(100%, 64rem); min-width: 0; display: grid; grid-template-columns: 1fr; gap: 1rem; margin-inline: auto; }
 .brand-actual-card { min-width: 0; height: 100%; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--line); border-top: 0.3rem solid var(--brand-landing-accent); border-radius: var(--radius); background: white; box-shadow: 0 8px 22px rgba(23, 33, 43, 0.055); }
 .brand-actual-card__visual { position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; background: white; }
@@ -243,6 +253,8 @@ p { margin: 0 0 1rem; }
 
 @media (min-width: 42rem) {
   .store-navigation__link { min-height: 2.5rem; height: 2.5rem; padding-inline: 0.5rem; font-size: 0.82rem; white-space: nowrap; }
+  .miska-feature-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .miska-bonus-facts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .brand-grid, .card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .home-store-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .home-store-section__footer { justify-content: flex-end; }
