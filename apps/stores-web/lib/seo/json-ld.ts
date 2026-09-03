@@ -26,6 +26,15 @@ export function createContactPageJsonLd(): JsonLdObject {
   };
 }
 
+export function createAboutPageJsonLd(): JsonLdObject {
+  return {
+    "@context": "https://schema.org",
+    "@type": "AboutPage",
+    url: new URL("/o-kompanii/", siteUrl).href,
+    inLanguage: "ru-RU",
+  };
+}
+
 export function createFAQPageJsonLd(faqs: FAQ[]): JsonLdObject {
   return {
     "@context": "https://schema.org",

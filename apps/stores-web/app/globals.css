@@ -202,6 +202,17 @@ p { margin: 0 0 1rem; }
 .split-panel, .feature-panel, .empty-state { margin: 2rem 0; padding: clamp(1.5rem, 5vw, 3rem); border-radius: var(--radius); background: var(--surface-soft); }
 .split-panel { display: flex; flex-direction: column; align-items: flex-start; gap: 1.5rem; }
 .faq-page .page-hero { padding: clamp(2rem, 6vw, 5rem) 0 1.5rem; }
+.about-page .page-hero { padding: clamp(1.25rem, 4vw, 3rem) 0 1.5rem; }
+.about-page h1 { font-size: clamp(2rem, 5.5vw, 3.4rem); }
+.about-intro-note { max-width: 49rem; margin: 0 0 1rem; color: #354250; font-size: clamp(1rem, 2.4vw, 1.15rem); }
+.about-section { padding-top: 0.75rem; }
+.about-section + .about-section { margin-top: clamp(1.25rem, 3vw, 2rem); }
+.about-section p { max-width: 49rem; }
+.about-brand-card__tag { margin: -0.5rem 0 0.5rem; color: var(--muted); font-weight: 700; }
+.about-brand-card__note { padding-top: 0.5rem; color: var(--muted); font-size: 0.9rem; }
+.about-page .brand-card > a { margin-top: auto; }
+.about-page .split-panel { margin: clamp(1.5rem, 4vw, 2.75rem) 0 0; }
+.about-page .split-panel p { max-width: 49rem; }
 .faq-section { padding-top: 0.75rem; }
 .faq-list { max-width: 60rem; margin: 0; border-top: 1px solid var(--line); }
 .faq-item { border-bottom: 1px solid var(--line); }
