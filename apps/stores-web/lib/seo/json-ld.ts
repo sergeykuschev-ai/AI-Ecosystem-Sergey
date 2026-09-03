@@ -1,5 +1,6 @@
 import type { Brand } from "@/types/brand";
 import type { City } from "@/types/city";
+import type { FAQ } from "@/types/faq";
 import type { Store } from "@/types/store";
 import { siteUrl } from "./metadata";
 
@@ -22,6 +23,21 @@ export function createContactPageJsonLd(): JsonLdObject {
     "@type": "ContactPage",
     url: new URL("/kontakty/", siteUrl).href,
     inLanguage: "ru-RU",
+  };
+}
+
+export function createFAQPageJsonLd(faqs: FAQ[]): JsonLdObject {
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqs.map((faq) => ({
+      "@type": "Question",
+      name: faq.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: faq.answer,
+      },
+    })),
   };
 }
 
