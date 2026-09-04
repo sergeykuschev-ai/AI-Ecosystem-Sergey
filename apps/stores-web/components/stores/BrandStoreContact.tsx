@@ -28,7 +28,25 @@ function OpeningHours({ entries }: { entries: OpeningHoursEntry[] }) {
   ));
 }
 
-export function BrandStoreContact({ store, brand, city }: { store: Store; brand: Brand; city: City }) {
+interface BrandStoreContactProps {
+  store: Store;
+  brand: Brand;
+  city: City;
+  heading?: string;
+  note?: string;
+  showCallAction?: boolean;
+  contactsHref?: string;
+}
+
+export function BrandStoreContact({
+  store,
+  brand,
+  city,
+  heading,
+  note,
+  showCallAction = false,
+  contactsHref,
+}: BrandStoreContactProps) {
   const mapLink = store.map_links.find((link) => link.url);
   const telephoneHref = store.telephone?.replace(/[^\d+]/g, "");
 
@@ -36,7 +54,7 @@ export function BrandStoreContact({ store, brand, city }: { store: Store; brand:
     <article className="brand-store-contact">
       <div className="brand-store-contact__heading">
         <p className="eyebrow">Магазин в Амурске</p>
-        <h2>Адрес и контакты</h2>
+        <h2>{heading ?? "Адрес и контакты"}</h2>
         <p className="brand-store-contact__name">{brand.name}</p>
       </div>
       <dl className="brand-store-contact__details">
@@ -53,8 +71,15 @@ export function BrandStoreContact({ store, brand, city }: { store: Store; brand:
           <dd>{store.telephone && telephoneHref ? <a href={`tel:${telephoneHref}`}>{store.telephone}</a> : "Телефон уточняется"}</dd>
         </div>
       </dl>
+      {note ? <p className="brand-store-contact__note">{note}</p> : null}
       <div className="brand-store-contact__actions">
+        {showCallAction && store.telephone && telephoneHref ? (
+          <a className="button button--primary" href={`tel:${telephoneHref}`}>
+            Позвонить
+          </a>
+        ) : null}
         <Link href={`/stores/${city.slug}/${store.slug}/`}>Подробнее о торговой точке</Link>
+        {contactsHref ? <Link href={contactsHref}>Контакты</Link> : null}
         {mapLink && (
           <a href={mapLink.url} target="_blank" rel="noopener noreferrer">
             Показать на карте <span aria-hidden="true">↗</span>

@@ -156,6 +156,21 @@ p { margin: 0 0 1rem; }
 .miska-bonus-facts strong { display: block; font-size: 1.45rem; line-height: 1.2; }
 .miska-bonus-facts span { color: var(--muted); }
 .miska-bonus-note { color: #354250; }
+.amper-info-grid { display: grid; gap: 1rem; }
+.amper-info-card { min-width: 0; padding: 1.4rem; border: 1px solid var(--line); border-left: 0.35rem solid var(--brand-landing-accent); border-radius: 0.5rem; background: white; }
+.amper-info-card h2 { font-size: clamp(1.3rem, 3vw, 1.7rem); }
+.amper-info-card p { margin-bottom: 0; color: #354250; }
+.amper-info-card__year { display: flex; align-items: baseline; gap: 0.6rem; margin-bottom: 0.75rem; }
+.amper-info-card__year strong { color: var(--brand-landing-accent); font-size: clamp(2.2rem, 6vw, 3rem); line-height: 1; letter-spacing: -0.02em; }
+.amper-info-card__year span { color: var(--muted); font-size: 0.78rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+.amper-bonus-panel { min-width: 0; padding: clamp(1.2rem, 3vw, 1.75rem); border-radius: 0.5rem; background: #17212b; color: #fff; }
+.amper-bonus-panel h2 { color: #fff; }
+.amper-bonus-facts { display: grid; gap: 0.75rem; margin: 0 0 1rem; padding: 0; list-style: none; }
+.amper-bonus-facts li { min-width: 0; padding: 0.85rem 1rem; border: 1px solid #3a4652; border-radius: 0.4rem; background: #1f2b38; }
+.amper-bonus-facts strong { display: block; color: var(--brand-landing-accent); font-size: 1.45rem; line-height: 1.2; }
+.amper-bonus-facts span { color: #c3ccd5; }
+.amper-bonus-note { color: #e6ebf0; }
+.amper-bonus-panel .button-row { margin-top: 1rem; }
 .brand-actual-grid { width: min(100%, 64rem); min-width: 0; display: grid; grid-template-columns: 1fr; gap: 1rem; margin-inline: auto; }
 .brand-actual-card { min-width: 0; height: 100%; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--line); border-top: 0.3rem solid var(--brand-landing-accent); border-radius: var(--radius); background: white; box-shadow: 0 8px 22px rgba(23, 33, 43, 0.055); }
 .brand-actual-card__visual { position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; background: white; }
@@ -177,6 +192,7 @@ p { margin: 0 0 1rem; }
 .brand-store-contact__hours { display: block; }
 .brand-store-contact__actions { display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem; }
 .brand-store-contact__actions a { min-height: 2.75rem; display: inline-flex; align-items: center; font-weight: 800; }
+.brand-store-contact__note { margin: 0 0 0.9rem; color: #354250; }
 .home-store-section { padding: clamp(1.1rem, 3vw, 2rem) 0; }
 .home-store-section + .section { padding-top: clamp(0.6rem, 1.8vw, 1.1rem); }
 .section:has(.brand-grid) { padding-bottom: clamp(1.1rem, 3vw, 2rem); }
@@ -255,6 +271,8 @@ p { margin: 0 0 1rem; }
   .store-navigation__link { min-height: 2.5rem; height: 2.5rem; padding-inline: 0.5rem; font-size: 0.82rem; white-space: nowrap; }
   .miska-feature-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .miska-bonus-facts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .amper-info-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .amper-bonus-facts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .brand-grid, .card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .home-store-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .home-store-section__footer { justify-content: flex-end; }
