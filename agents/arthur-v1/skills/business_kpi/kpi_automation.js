@@ -8,6 +8,33 @@ const OWNER_EMPLOYEE_NAME = 'Кущев';
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const SIGNIFICANT_KPI_DROP_POINTS = 1.0;
 
+// Day revenue classification relative to the calendar daily target
+// (today revenue / (monthly plan / days in month)).
+// A day is GOOD at or above target, WATCH from 80% to just under target,
+// WARNING from 60% to just under 80%, CRITICAL below 60%.
+const DAY_REVENUE_THRESHOLDS = Object.freeze({
+  good: 1.0,
+  watch: 0.8,
+  warning: 0.6,
+});
+
+// Month pace is ON_TRACK when within this share of the monthly plan
+// of the expected month-to-date value.
+const MONTH_PACE_EPSILON_RATIO = 0.005;
+
+const DAY_STATUS_SEVERITY = Object.freeze({
+  WARNING: 'warning',
+  CRITICAL: 'critical',
+});
+
+const SIGNAL_PRIORITY = Object.freeze({
+  day_revenue_pace: 1,
+  seller_kpi_drop: 2,
+  store_target_miss: 3,
+  plan_risk: 4,
+  data_quality: 5,
+});
+
 function nullish(value) {
   return value === null || value === undefined;
 }
@@ -292,6 +319,84 @@ function requiredPerDay(remaining, daysRemaining) {
   return remaining / daysRemaining;
 }
 
+function formatMoneySigned(value) {
+  if (!present(value)) return null;
+  const sign = value > 0 ? '+' : '';
+  return `${sign}${formatMoney(value)}`;
+}
+
+function evaluateDayRevenueStatus(completion) {
+  if (!present(completion) || !Number.isFinite(completion)) return null;
+  if (completion >= DAY_REVENUE_THRESHOLDS.good) return 'GOOD';
+  if (completion >= DAY_REVENUE_THRESHOLDS.watch) return 'WATCH';
+  if (completion >= DAY_REVENUE_THRESHOLDS.warning) return 'WARNING';
+  return 'CRITICAL';
+}
+
+function monthPaceLabel(status) {
+  if (status === 'AHEAD') return 'выше планового темпа';
+  if (status === 'BEHIND') return 'ниже планового темпа';
+  if (status === 'ON_TRACK') return 'в плановом темпе';
+  return null;
+}
+
+// Management pace assessment for one calendar day against the monthly plan.
+// The monthly plan is always taken from Business KPI data (store.plan);
+// no plan substitution or invented targets happen here.
+function computeDayAssessment({ plan, monthRevenue, todayRevenue, todayDate }) {
+  if (!present(plan) || plan <= 0 || !todayDate) return null;
+  const [year, month, day] = todayDate.split('-').map(Number);
+  if (!year || !month || !day) return null;
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const elapsedDays = day;
+  const remainingDays = Math.max(0, daysInMonth - day);
+  const calendarDailyTarget = plan / daysInMonth;
+  const dayCompletion = present(todayRevenue) && calendarDailyTarget > 0
+    ? Number(todayRevenue) / calendarDailyTarget
+    : null;
+  const expectedMonthToDate = calendarDailyTarget * elapsedDays;
+  const monthPaceDelta = present(monthRevenue) ? Number(monthRevenue) - expectedMonthToDate : null;
+  const remainingToPlan = present(monthRevenue) ? Number(plan) - Number(monthRevenue) : null;
+  // On the last calendar day of the month there is nothing left to spread.
+  const requiredDailyRevenue = remainingDays > 0 && present(remainingToPlan)
+    ? remainingToPlan / remainingDays
+    : null;
+  let monthPaceStatus = null;
+  if (present(monthPaceDelta)) {
+    const epsilon = Number(plan) * MONTH_PACE_EPSILON_RATIO;
+    monthPaceStatus = monthPaceDelta > epsilon ? 'AHEAD' : monthPaceDelta < -epsilon ? 'BEHIND' : 'ON_TRACK';
+  }
+  return {
+    daysInMonth,
+    elapsedDays,
+    remainingDays,
+    calendarDailyTarget,
+    dayCompletion,
+    dayStatus: evaluateDayRevenueStatus(dayCompletion),
+    expectedMonthToDate,
+    monthPaceDelta,
+    monthPaceStatus,
+    remainingToPlan,
+    requiredDailyRevenue,
+  };
+}
+
+// KPI components of one seller's day that are below the Business KPI targets.
+// Used to explain what drags the seller KPI down; never invents reasons.
+function sellerTargetReasons(seller, targets) {
+  const reasons = [];
+  if (present(seller.qrShare) && present(targets.qrShare) && seller.qrShare < targets.qrShare) {
+    reasons.push(`QR ${formatPercent(seller.qrShare)} при цели ${formatPercent(targets.qrShare)}`);
+  }
+  if (present(seller.itemsPerCheck) && present(targets.itemsPerReceipt) && seller.itemsPerCheck < targets.itemsPerReceipt) {
+    reasons.push(`товаров/чек ${formatNumber(seller.itemsPerCheck, 2)} при цели ${formatNumber(targets.itemsPerReceipt, 2)}`);
+  }
+  if (present(seller.averageCheck) && present(targets.averageCheck) && seller.averageCheck < targets.averageCheck) {
+    reasons.push(`ср. чек ${formatMoney(seller.averageCheck)} при цели ${formatMoney(targets.averageCheck)}`);
+  }
+  return reasons;
+}
+
 async function executeSkill(skill, operation, parameters, timeoutMs = 15000) {
   const result = await skill.execute({ operation, parameters });
   if (result.status !== 'success') {
@@ -319,14 +424,21 @@ async function fetchShiftsForRange(skill, storeId, dateFrom, dateTo) {
 }
 
 function buildSellerLines(sellers, options = {}) {
-  return sellers.map(s => {
+  return sellers.flatMap(s => {
     const parts = [`${s.name}`];
     if (s.averageKpi != null) parts.push(`KPI ${formatKpi(s.averageKpi)}`);
     if (options.includeRevenue && s.revenue != null) parts.push(`${formatMoney(s.revenue)}`);
     if (s.averageCheck != null) parts.push(`ср. чек ${formatMoney(s.averageCheck)}`);
     if (s.itemsPerCheck != null) parts.push(`товаров/чек ${formatNumber(s.itemsPerCheck, 2)}`);
     if (s.qrShare != null) parts.push(`QR ${formatPercent(s.qrShare)}`);
-    return `• ${parts.join(', ')}`;
+    const lines = [`• ${parts.join(', ')}`];
+    if (options.targets) {
+      const reasons = sellerTargetReasons(s, options.targets);
+      if (reasons.length > 0) {
+        lines.push(`  ↳ ниже цели: ${reasons.join('; ')}`);
+      }
+    }
+    return lines;
   });
 }
 
@@ -337,7 +449,7 @@ function rankSellers(sellers, key) {
 }
 
 async function buildDailyReport(skill, { storeId, timezone = DEFAULT_TIMEZONE }) {
-  const { store, settings, today } = await fetchCurrentMonthContext(skill, storeId, timezone);
+  const { store, performance, settings, today } = await fetchCurrentMonthContext(skill, storeId, timezone);
   const todaySummary = await executeSkill(skill, 'getTodaySummary', { storeId, timezone });
 
   const todayDate = todaySummary.date || today;
@@ -351,14 +463,62 @@ async function buildDailyReport(skill, { storeId, timezone = DEFAULT_TIMEZONE })
   const todaySellers = aggregateShiftsBySeller(todayShifts)
     .filter(hasMeaningfulMetrics)
     .filter(s => !isOwnerSeller(s));
-  const sellerLines = buildSellerLines(todaySellers, { includeRevenue: false });
+  const targets = settings?.settings?.targets || {};
+  const sellerLines = buildSellerLines(todaySellers, { includeRevenue: false, targets });
 
-  const attentionSignals = [];
+  const dayAssessment = computeDayAssessment({
+    plan: store.plan,
+    monthRevenue: store.revenue,
+    todayRevenue: todaySummary.revenue,
+    todayDate,
+  });
+
+  // Structured management signals; the final verdict is green only when empty.
+  // Priority: 1 revenue/day pace, 2 seller KPI drop, 3 store target miss,
+  // 4 plan risk, 5 data quality. At most 3 are shown.
+  const signals = [];
+  if (dayAssessment && ['WARNING', 'CRITICAL'].includes(dayAssessment.dayStatus)) {
+    const severity = DAY_STATUS_SEVERITY[dayAssessment.dayStatus];
+    const text = dayAssessment.dayStatus === 'CRITICAL'
+      ? `Выручка дня — только ${formatPercent(dayAssessment.dayCompletion)} дневного ориентира.`
+      : `Выручка дня — ${formatPercent(dayAssessment.dayCompletion)} дневного ориентира.`;
+    signals.push({ severity, priority: SIGNAL_PRIORITY.day_revenue_pace, text });
+  }
+
+  const performanceByName = new Map((performance?.sellers || []).map(s => [s.name, s]));
+  for (const seller of todaySellers) {
+    const perf = performanceByName.get(seller.name);
+    if (!perf) continue;
+    if (isSignificantDrop(perf.currentKpi, perf.previousKpi, SIGNIFICANT_KPI_DROP_POINTS)) {
+      signals.push({
+        severity: 'warning',
+        priority: SIGNAL_PRIORITY.seller_kpi_drop,
+        text: `KPI ${seller.name} заметно ниже предыдущего уровня (${formatKpi(perf.previousKpi)} → ${formatKpi(perf.currentKpi)}).`,
+      });
+    }
+  }
+
+  if (present(todaySummary.qrShare) && present(targets.qrShare) && todaySummary.qrShare < targets.qrShare) {
+    signals.push({
+      severity: 'warning',
+      priority: SIGNAL_PRIORITY.store_target_miss,
+      text: `QR сегодня ${formatPercent(todaySummary.qrShare)} — ниже цели ${formatPercent(targets.qrShare)}.`,
+    });
+  }
+
   if (store.forecast != null && store.plan != null && store.forecast < store.plan) {
-    attentionSignals.push(`прогноз ниже плана на ${formatMoney(store.plan - store.forecast)}`);
+    signals.push({
+      severity: 'warning',
+      priority: SIGNAL_PRIORITY.plan_risk,
+      text: `прогноз ниже плана на ${formatMoney(store.plan - store.forecast)}`,
+    });
   }
   if (isPartial) {
-    attentionSignals.push('сегодняшние данные частичные');
+    signals.push({
+      severity: 'warning',
+      priority: SIGNAL_PRIORITY.data_quality,
+      text: 'сегодняшние данные частичные',
+    });
   }
 
   const lines = [title, formatDateRu(todayDate), ''];
@@ -366,14 +526,20 @@ async function buildDailyReport(skill, { storeId, timezone = DEFAULT_TIMEZONE })
   if (isNoData) {
     lines.push('⚠️ Данные сегодняшней смены ещё не загружены.');
   } else {
-    lines.push(
-      'Сегодня:',
-      `• Выручка: ${formatMoney(todaySummary.revenue) ?? 'н/д'}`,
+    const todayLines = [`• Выручка: ${formatMoney(todaySummary.revenue) ?? 'н/д'}`];
+    if (dayAssessment) {
+      todayLines.push(
+        `• Дневной ориентир: ~${formatMoney(dayAssessment.calendarDailyTarget)}`,
+        `• Выполнение дня: ${formatPercent(dayAssessment.dayCompletion) ?? 'н/д'}`,
+      );
+    }
+    todayLines.push(
       `• Чеков: ${todaySummary.receipts ?? 'н/д'}`,
       `• Средний чек: ${formatMoney(todaySummary.averageCheck) ?? 'н/д'}`,
       `• Товаров/чек: ${todaySummary.itemsPerCheckFormatted ?? 'н/д'}`,
       `• QR: ${todaySummary.qrShareFormatted ?? 'н/д'}`,
     );
+    lines.push('Сегодня:', ...todayLines);
   }
 
   lines.push(
@@ -381,9 +547,21 @@ async function buildDailyReport(skill, { storeId, timezone = DEFAULT_TIMEZONE })
     'Месяц:',
     `• Выручка: ${store.revenue != null ? formatMoney(store.revenue) : 'н/д'}`,
     `• План: ${store.plan != null ? formatMoney(store.plan) : 'н/д'} (${store.planPercentFormatted ?? 'н/д'})`,
-    `• Осталось до плана: ${store.remainingToPlan != null ? formatMoney(store.remainingToPlan) : 'н/д'}`,
-    `• Прогноз: ${store.forecast != null ? formatMoney(store.forecast) : 'н/д'}`,
   );
+  if (dayAssessment) {
+    lines.push(`• Плановый темп на ${formatDateRu(todayDate)}: ~${formatMoney(dayAssessment.expectedMonthToDate)}`);
+    if (present(dayAssessment.monthPaceDelta)) {
+      const paceLabel = monthPaceLabel(dayAssessment.monthPaceStatus);
+      lines.push(`• Отклонение от темпа: ${formatMoneySigned(dayAssessment.monthPaceDelta)}${paceLabel ? ` (${paceLabel})` : ''}`);
+    }
+  }
+  lines.push(
+    `• Осталось до плана: ${store.remainingToPlan != null ? formatMoney(store.remainingToPlan) : 'н/д'}`,
+  );
+  if (dayAssessment?.requiredDailyRevenue != null) {
+    lines.push(`• Нужно в среднем: ~${formatMoney(dayAssessment.requiredDailyRevenue)}/день`);
+  }
+  lines.push(`• Прогноз: ${store.forecast != null ? formatMoney(store.forecast) : 'н/д'}`);
 
   if (isNoData) {
     lines.push('', 'Продавцы сегодня: данные смен ещё не загружены.');
@@ -391,10 +569,19 @@ async function buildDailyReport(skill, { storeId, timezone = DEFAULT_TIMEZONE })
     lines.push('', 'Продавцы сегодня:', ...sellerLines);
   }
 
-  if (attentionSignals.length > 0) {
-    lines.push('', '⚠️ Что требует внимания:', ...attentionSignals.map(s => `• ${s}`));
+  const sortedSignals = [...signals].sort((a, b) => a.priority - b.priority);
+  if (sortedSignals.length > 0) {
+    const hasCritical = sortedSignals.some(s => s.severity === 'critical');
+    lines.push('', `${hasCritical ? '🔴' : '⚠️'} Требует внимания:`, ...sortedSignals.slice(0, 3).map(s => `• ${s.text}`));
+    if (dayAssessment && ['WARNING', 'CRITICAL'].includes(dayAssessment.dayStatus)) {
+      if (dayAssessment.monthPaceStatus === 'AHEAD') {
+        lines.push('При этом месяц пока идёт выше планового темпа.');
+      } else if (dayAssessment.monthPaceStatus === 'BEHIND') {
+        lines.push('Месяц также отстаёт от планового темпа.');
+      }
+    }
   } else if (!isNoData) {
-    lines.push('', '✅ Критичных отклонений сегодня нет.');
+    lines.push('', '✅ Существенных отклонений сегодня нет.');
   }
 
   if (!isFinal) {
@@ -403,8 +590,8 @@ async function buildDailyReport(skill, { storeId, timezone = DEFAULT_TIMEZONE })
 
   return {
     text: lines.join('\n'),
-    data: { today: todaySummary, month: store, sellers: todaySellers, settings },
-    provenance: { source: 'business_kpi', operations: ['getTodaySummary', 'getStoreSummary', 'getShifts'], retrievedAt: new Date().toISOString() },
+    data: { today: todaySummary, month: store, sellers: todaySellers, settings, dayAssessment },
+    provenance: { source: 'business_kpi', operations: ['getTodaySummary', 'getStoreSummary', 'getSellerPerformance', 'getSettings', 'getShifts'], retrievedAt: new Date().toISOString() },
   };
 }
 
@@ -583,14 +770,40 @@ function isSignificantDrop(current, previous, minDelta = 0.05) {
   return present(current) && present(previous) && previous - current >= minDelta;
 }
 
+// Alert dedup identity is semantic, not textual: the digest covers the alert
+// type, entity, state and the values/metadata that define the meaning of the
+// alert. Formatting, wording, emoji or scope-label changes in the Telegram
+// text must never re-trigger an alert by themselves.
+const ALERT_DIGEST_VERSION = 'v2';
+
 function isStateWorsening(previousState, newState) {
   const order = { ok: 0, warning: 1, critical: 2 };
   return order[newState] > order[previousState || 'ok'];
 }
 
-function computeAlertDigest(text) {
-  if (!text) return null;
-  return crypto.createHash('sha256').update(text, 'utf8').digest('hex');
+function stableStringify(value) {
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
+  if (isPlainObject(value)) {
+    const keys = Object.keys(value).sort();
+    return `{${keys.map(key => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value) ?? 'null';
+}
+
+function computeSemanticAlertDigest({ alertType, entityId, state, lastValue, metadata }) {
+  const canonical = stableStringify({
+    version: ALERT_DIGEST_VERSION,
+    alertType,
+    entityId,
+    state,
+    lastValue: lastValue ?? null,
+    metadata: metadata || {},
+  });
+  return `${ALERT_DIGEST_VERSION}:${crypto.createHash('sha256').update(canonical, 'utf8').digest('hex')}`;
+}
+
+function isSemanticAlertDigest(digest) {
+  return typeof digest === 'string' && digest.startsWith(`${ALERT_DIGEST_VERSION}:`);
 }
 
 function isPlainObject(value) {
@@ -634,13 +847,15 @@ function shouldSendAlert(previous, newState, currentDigest, lastValue, metadata)
   if (newState !== 'ok') {
     if (!lastSentAt) return { send: true, reason: 'first_alert' };
     if (isStateWorsening(previousState, newState)) return { send: true, reason: 'state_worsening' };
-    if (previousDigest && previousDigest !== currentDigest) return { send: true, reason: 'digest_changed' };
-    if (!previousDigest) {
-      // Existing persistent row without a stored digest: compare underlying alert data.
-      if (isSameAlertData(previous, newState, lastValue, metadata)) return { send: false, reason: 'same_data_no_digest' };
-      return { send: true, reason: 'data_changed_no_digest' };
+    if (isSemanticAlertDigest(previousDigest)) {
+      if (previousDigest !== currentDigest) return { send: true, reason: 'digest_changed' };
+      return { send: false, reason: 'same_digest' };
     }
-    return { send: false, reason: 'same_digest' };
+    // Missing digest or a legacy text-based digest: message text is not a
+    // reliable alert identity, so compare the semantic alert data instead;
+    // the next upsert migrates the row to the semantic digest.
+    if (isSameAlertData(previous, newState, lastValue, metadata)) return { send: false, reason: 'same_data_no_digest' };
+    return { send: true, reason: 'data_changed_no_digest' };
   }
   return { send: false, reason: 'state_ok' };
 }
@@ -668,7 +883,7 @@ async function evaluateAlerts(skill, stateStore, {
 
   const addAlert = async (alertType, entityId, state, lastValue, lastValueText, text, metadata = {}) => {
     const previous = await stateStore.getAlertState(ownerId, alertType, entityId);
-    const currentDigest = computeAlertDigest(text);
+    const currentDigest = computeSemanticAlertDigest({ alertType, entityId, state, lastValue, metadata });
     const decision = shouldSendAlert(previous, state, currentDigest, lastValue, metadata);
 
     logger.info('kpi_alert_dedup_decision', {
@@ -760,6 +975,7 @@ async function evaluateAlerts(skill, stateStore, {
   }
 
   // Seller KPI drop
+  const snapshotTime = now.toLocaleTimeString('ru-RU', { timeZone: timezone, hour: '2-digit', minute: '2-digit' });
   for (const seller of excludeOwner(performance.sellers || [])) {
     const current = seller.currentKpi;
     const previous = seller.previousKpi;
@@ -769,13 +985,14 @@ async function evaluateAlerts(skill, stateStore, {
     if (state !== 'ok') {
       text = [
         `⚠️ KPI продавца снизился`,
-        seller.name,
+        `${seller.name} — KPI за месяц`,
+        `Срез на ${snapshotTime}:`,
         `было: ${formatKpi(previous)}`,
         `стало: ${formatKpi(current)}`,
         `изменение: ${formatKpiDelta(delta)}`,
       ].join('\n');
     } else if ((await stateStore.getAlertState(ownerId, 'seller_kpi_drop', seller.name))?.state !== 'ok') {
-      text = `✅ KPI ${seller.name} восстановился\nТекущее значение: ${formatKpi(current)}`;
+      text = `✅ KPI ${seller.name} восстановился\nKPI за месяц: ${formatKpi(current)}`;
     }
     if (text) {
       await addAlert('seller_kpi_drop', seller.name, state, current, formatKpi(current), text, { previous, current });
@@ -789,9 +1006,9 @@ async function evaluateAlerts(skill, stateStore, {
     const state = determineState(qrShare, target, 'above');
     let text = null;
     if (state !== 'ok') {
-      text = `⚠️ Миска: доля QR ниже цели\nТекущая: ${formatPercent(qrShare)}\nЦель: ${formatPercent(target)}`;
+      text = `⚠️ Миска: доля QR месяца ниже цели\nТекущая: ${formatPercent(qrShare)}\nЦель: ${formatPercent(target)}`;
     } else if (present(qrShare) && present(target) && (await stateStore.getAlertState(ownerId, 'qr_share', 'store'))?.state !== 'ok') {
-      text = `✅ Миска: доля QR восстановилась\nТекущая: ${formatPercent(qrShare)}\nЦель: ${formatPercent(target)}`;
+      text = `✅ Миска: доля QR месяца восстановилась\nТекущая: ${formatPercent(qrShare)}\nЦель: ${formatPercent(target)}`;
     }
     if (text) {
       await addAlert('qr_share', 'store', state, qrShare, formatPercent(qrShare), text, { target });
@@ -805,9 +1022,9 @@ async function evaluateAlerts(skill, stateStore, {
     const state = determineState(itemsPerCheck, target, 'above');
     let text = null;
     if (state !== 'ok') {
-      text = `⚠️ Миска: товаров в чеке ниже цели\nТекущее: ${formatNumber(itemsPerCheck, 2)}\nЦель: ${formatNumber(target, 2)}`;
+      text = `⚠️ Миска: товаров в чеке за месяц ниже цели\nТекущее: ${formatNumber(itemsPerCheck, 2)}\nЦель: ${formatNumber(target, 2)}`;
     } else if (present(itemsPerCheck) && present(target) && (await stateStore.getAlertState(ownerId, 'items_per_check', 'store'))?.state !== 'ok') {
-      text = `✅ Миска: товаров в чеке восстановилось\nТекущее: ${formatNumber(itemsPerCheck, 2)}\nЦель: ${formatNumber(target, 2)}`;
+      text = `✅ Миска: товаров в чеке за месяц восстановилось\nТекущее: ${formatNumber(itemsPerCheck, 2)}\nЦель: ${formatNumber(target, 2)}`;
     }
     if (text) {
       await addAlert('items_per_check', 'store', state, itemsPerCheck, formatNumber(itemsPerCheck, 2), text, { target });
@@ -821,9 +1038,9 @@ async function evaluateAlerts(skill, stateStore, {
     const state = determineState(averageCheck, target, 'above');
     let text = null;
     if (state !== 'ok') {
-      text = `⚠️ Миска: средний чек ниже цели\nТекущий: ${formatMoney(averageCheck)}\nЦель: ${formatMoney(target)}`;
+      text = `⚠️ Миска: средний чек месяца ниже цели\nТекущий: ${formatMoney(averageCheck)}\nЦель: ${formatMoney(target)}`;
     } else if (present(averageCheck) && present(target) && (await stateStore.getAlertState(ownerId, 'average_check', 'store'))?.state !== 'ok') {
-      text = `✅ Миска: средний чек восстановился\nТекущий: ${formatMoney(averageCheck)}\nЦель: ${formatMoney(target)}`;
+      text = `✅ Миска: средний чек месяца восстановился\nТекущий: ${formatMoney(averageCheck)}\nЦель: ${formatMoney(target)}`;
     }
     if (text) {
       await addAlert('average_check', 'store', state, averageCheck, formatMoney(averageCheck), text, { target });
@@ -884,6 +1101,10 @@ module.exports = {
   buildDailyReport,
   buildWeeklyReport,
   evaluateAlerts,
+  computeDayAssessment,
+  evaluateDayRevenueStatus,
+  computeSemanticAlertDigest,
+  DAY_REVENUE_THRESHOLDS,
   DEFAULT_TIMEZONE,
   OWNER_EMPLOYEE_NAME,
 };

@@ -231,7 +231,7 @@ describe('KpiAutomation weekly report', () => {
   test('compares last 7 days vs previous 7 days and excludes owner', async () => {
     const skill = createFakeSkill();
     const automation = createKpiAutomation(skill, createFakeStateStore());
-    const report = await automation.buildWeeklyReport({ storeId: 'miska', timezone: DEFAULT_TIMEZONE });
+    const report = await automation.buildWeeklyReport({ storeId: 'miska', timezone: DEFAULT_TIMEZONE, now: FIXED_NOW });
 
     assert.ok(report.text.includes('📈 Миска — итоги недели'));
     assert.ok(report.text.includes('Капитанова'));
@@ -244,7 +244,7 @@ describe('KpiAutomation weekly report', () => {
   test('ranks best seller by KPI', async () => {
     const skill = createFakeSkill();
     const automation = createKpiAutomation(skill, createFakeStateStore());
-    const report = await automation.buildWeeklyReport({ storeId: 'miska', timezone: DEFAULT_TIMEZONE });
+    const report = await automation.buildWeeklyReport({ storeId: 'miska', timezone: DEFAULT_TIMEZONE, now: FIXED_NOW });
 
     assert.ok(report.text.includes('🥇 Лучший результат недели'));
   });
@@ -851,5 +851,360 @@ describe('KpiAutomation QR share delta', () => {
     const report = await automation.buildWeeklyReport({ storeId: 'miska', timezone: DEFAULT_TIMEZONE, now: FIXED_NOW });
 
     assert.ok(report.text.includes('(-5,5 п.п.)'), `expected negative QR delta in pp, got: ${report.text}`);
+  });
+});
+
+// Production regression case: real Business KPI data for 05.09.2026.
+// Day revenue is far below the calendar daily target while the month is
+// ahead of pace — the report must surface the weak day, not claim all is fine.
+function createSep5FakeSkill(overrides = {}) {
+  const base = {
+    getStoreSummary: async () => ({
+      revenue: 140_781,
+      plan: 800_000,
+      planCompletion: 0.176,
+      forecast: 844_685,
+      remainingToPlan: 659_219,
+      planPercentFormatted: '17,6%',
+      revenueFormatted: '140 781 ₽',
+      planFormatted: '800 000 ₽',
+      forecastFormatted: '844 685 ₽',
+      dataStatusLabel: 'полные',
+      qrShare: 0.0567,
+      itemsPerCheck: 2.18,
+      averageCheck: 1282,
+      itemsCheckCoverage: '2/2',
+    }),
+    getTodaySummary: async () => ({
+      date: '2026-09-05',
+      revenue: 14_102,
+      receipts: 11,
+      averageCheck: 1282,
+      itemsPerCheck: 2.18,
+      qrShare: 0.0567,
+      dataStatus: 'COMPLETE',
+      dataStatusLabel: 'полные',
+      revenueFormatted: '14 102 ₽',
+      averageCheckFormatted: '1 282 ₽',
+      itemsPerCheckFormatted: '2,18',
+      qrShareFormatted: '5,7%',
+    }),
+    getSellerPerformance: async () => ({
+      sellers: [
+        {
+          employeeId: '2',
+          name: 'Чередниченко',
+          currentKpi: 83.90,
+          previousKpi: 94.10,
+          currentKpiFormatted: '83,90',
+        },
+      ],
+      teamSignals: {},
+    }),
+    getShifts: async ({ dateFrom, dateTo }) => {
+      if (dateFrom <= '2026-09-05' && dateTo >= '2026-09-05') {
+        return {
+          shifts: [
+            { id: '1', date: '2026-09-05', employeeName: 'Чередниченко', revenue: 14102, receipts: 11, itemsSold: 24, qr: 800, kpi: 83.90 },
+          ],
+          count: 1,
+        };
+      }
+      return { shifts: [], count: 0 };
+    },
+  };
+  return createFakeSkill({ ...base, ...overrides });
+}
+
+describe('KpiAutomation day revenue assessment (05.09.2026 production case)', () => {
+  test('computes day and month pace from the monthly plan', async () => {
+    const automation = createKpiAutomation(createSep5FakeSkill(), createFakeStateStore());
+    const report = await automation.buildDailyReport({ storeId: 'miska', timezone: DEFAULT_TIMEZONE });
+    const a = report.data.dayAssessment;
+
+    assert.ok(a, 'expected day assessment to be computed');
+    assert.equal(a.daysInMonth, 30);
+    assert.equal(a.elapsedDays, 5);
+    assert.equal(a.remainingDays, 25);
+    assert.ok(Math.abs(a.calendarDailyTarget - 26666.67) < 0.01, `calendarDailyTarget: ${a.calendarDailyTarget}`);
+    assert.ok(Math.abs(a.dayCompletion - 0.52883) < 0.0001, `dayCompletion: ${a.dayCompletion}`);
+    assert.equal(a.dayStatus, 'CRITICAL');
+    assert.ok(Math.abs(a.expectedMonthToDate - 133333.33) < 0.01, `expectedMonthToDate: ${a.expectedMonthToDate}`);
+    assert.ok(Math.abs(a.monthPaceDelta - 7447.67) < 0.01, `monthPaceDelta: ${a.monthPaceDelta}`);
+    assert.equal(a.monthPaceStatus, 'AHEAD');
+    assert.equal(a.remainingToPlan, 659_219);
+    assert.ok(Math.abs(a.requiredDailyRevenue - 26368.76) < 0.01, `requiredDailyRevenue: ${a.requiredDailyRevenue}`);
+  });
+
+  test('shows day orientation and month pace in the report', async () => {
+    const automation = createKpiAutomation(createSep5FakeSkill(), createFakeStateStore());
+    const report = await automation.buildDailyReport({ storeId: 'miska', timezone: DEFAULT_TIMEZONE });
+    const text = normalizeSpaces(report.text);
+
+    assert.ok(text.includes('• Дневной ориентир: ~26 667 ₽'), `expected daily target, got: ${report.text}`);
+    assert.ok(text.includes('• Выполнение дня: 52,9%'), `expected day completion, got: ${report.text}`);
+    assert.ok(text.includes('• Плановый темп на 5 сентября: ~133 333 ₽'), `expected month pace, got: ${report.text}`);
+    assert.ok(text.includes('• Отклонение от темпа: +7 448 ₽ (выше планового темпа)'), `expected pace delta, got: ${report.text}`);
+    assert.ok(text.includes('• Нужно в среднем: ~26 369 ₽/день'), `expected required daily, got: ${report.text}`);
+  });
+
+  test('weak day verdict overrides green and explains month pace separately', async () => {
+    const automation = createKpiAutomation(createSep5FakeSkill(), createFakeStateStore());
+    const report = await automation.buildDailyReport({ storeId: 'miska', timezone: DEFAULT_TIMEZONE });
+    const text = normalizeSpaces(report.text);
+
+    assert.ok(!text.includes('Существенных отклонений сегодня нет'), `must not claim no deviations, got: ${report.text}`);
+    assert.ok(text.includes('🔴 Требует внимания:'), `expected critical attention block, got: ${report.text}`);
+    assert.ok(text.includes('Выручка дня — только 52,9% дневного ориентира.'), `expected day revenue signal, got: ${report.text}`);
+    assert.ok(text.includes('При этом месяц пока идёт выше планового темпа.'), `expected month pace context, got: ${report.text}`);
+  });
+
+  test('reports seller KPI drop and QR target miss with component reasons', async () => {
+    const automation = createKpiAutomation(createSep5FakeSkill(), createFakeStateStore());
+    const report = await automation.buildDailyReport({ storeId: 'miska', timezone: DEFAULT_TIMEZONE });
+    const text = normalizeSpaces(report.text);
+
+    assert.ok(text.includes('KPI Чередниченко заметно ниже предыдущего уровня (94,10 → 83,90).'), `expected seller KPI signal, got: ${report.text}`);
+    assert.ok(text.includes('QR сегодня 5,7% — ниже цели 30%.'), `expected QR signal, got: ${report.text}`);
+    assert.ok(text.includes('ниже цели: QR 5,7% при цели 30%; товаров/чек 2,18 при цели 3,00'), `expected seller component reasons, got: ${report.text}`);
+  });
+
+  test('alert texts carry explicit scope and snapshot time', async () => {
+    const stateStore = createFakeStateStore();
+    const automation = createKpiAutomation(createSep5FakeSkill(), stateStore);
+    const result = await automation.evaluateAlerts({
+      storeId: 'miska',
+      timezone: DEFAULT_TIMEZONE,
+      ownerId: 'owner',
+      cooldownMinutes: 60,
+      now: new Date('2026-09-05T11:15:00.000Z'), // 21:15 Asia/Vladivostok
+    });
+
+    const sellerMessage = result.messages.find(m => m.includes('Чередниченко'));
+    assert.ok(sellerMessage, 'expected seller KPI drop alert');
+    assert.ok(sellerMessage.includes('KPI за месяц'), `expected month scope, got: ${sellerMessage}`);
+    assert.ok(sellerMessage.includes('Срез на 21:15'), `expected snapshot time, got: ${sellerMessage}`);
+    assert.ok(sellerMessage.includes('изменение: -10,20 п.'), `expected points delta, got: ${sellerMessage}`);
+
+    const qrMessage = result.messages.find(m => m.includes('доля QR'));
+    assert.ok(qrMessage, 'expected QR alert');
+    assert.ok(qrMessage.includes('доля QR месяца ниже цели'), `expected month scope in QR alert, got: ${qrMessage}`);
+  });
+});
+
+describe('KpiAutomation day revenue thresholds', () => {
+  test('classifies day completion against centralized thresholds', () => {
+    const { evaluateDayRevenueStatus } = require('../skills/business_kpi/kpi_automation');
+
+    assert.equal(evaluateDayRevenueStatus(1.0), 'GOOD');
+    assert.equal(evaluateDayRevenueStatus(1.2), 'GOOD');
+    assert.equal(evaluateDayRevenueStatus(0.9999), 'WATCH');
+    assert.equal(evaluateDayRevenueStatus(0.8), 'WATCH');
+    assert.equal(evaluateDayRevenueStatus(0.7999), 'WARNING');
+    assert.equal(evaluateDayRevenueStatus(0.6), 'WARNING');
+    assert.equal(evaluateDayRevenueStatus(0.5999), 'CRITICAL');
+    assert.equal(evaluateDayRevenueStatus(0), 'CRITICAL');
+    assert.equal(evaluateDayRevenueStatus(null), null);
+    assert.equal(evaluateDayRevenueStatus(undefined), null);
+  });
+
+  test('handles the last day of the month without division by zero', () => {
+    const { computeDayAssessment } = require('../skills/business_kpi/kpi_automation');
+    const a = computeDayAssessment({ plan: 800_000, monthRevenue: 790_000, todayRevenue: 26_000, todayDate: '2026-09-30' });
+
+    assert.equal(a.daysInMonth, 30);
+    assert.equal(a.remainingDays, 0);
+    assert.equal(a.requiredDailyRevenue, null);
+    assert.ok(Math.abs(a.calendarDailyTarget - 26666.67) < 0.01);
+    assert.equal(a.dayStatus, 'WATCH');
+  });
+
+  test('returns no assessment when the plan is missing or invalid', () => {
+    const { computeDayAssessment } = require('../skills/business_kpi/kpi_automation');
+
+    assert.equal(computeDayAssessment({ plan: null, monthRevenue: 100, todayRevenue: 50, todayDate: '2026-09-05' }), null);
+    assert.equal(computeDayAssessment({ plan: 0, monthRevenue: 100, todayRevenue: 50, todayDate: '2026-09-05' }), null);
+    const noRevenue = computeDayAssessment({ plan: 800_000, monthRevenue: 140_781, todayRevenue: null, todayDate: '2026-09-05' });
+    assert.equal(noRevenue.dayCompletion, null);
+    assert.equal(noRevenue.dayStatus, null);
+    assert.equal(noRevenue.monthPaceStatus, 'AHEAD');
+  });
+
+  test('WATCH day keeps the green verdict', async () => {
+    const skill = createFakeSkill({
+      getTodaySummary: async () => ({
+        date: '2026-08-28',
+        revenue: 21_000, // ~87% of 745000/31 = 24032 → WATCH
+        receipts: 20,
+        averageCheck: 1050,
+        itemsPerCheck: 2.85,
+        qrShare: 0.35,
+        dataStatus: 'COMPLETE',
+        dataStatusLabel: 'полные',
+      }),
+      getSellerPerformance: async () => ({
+        sellers: [
+          { employeeId: '1', name: 'Капитанова', currentKpi: 95.0, previousKpi: 94.0, currentKpiFormatted: '95,00' },
+          { employeeId: '2', name: 'Чередниченко', currentKpi: 94.0, previousKpi: 93.0, currentKpiFormatted: '94,00' },
+        ],
+        teamSignals: {},
+      }),
+      getShifts: async () => ({ shifts: [{ id: '1', date: '2026-08-28', employeeName: 'Капитанова', revenue: 21000, receipts: 20, itemsSold: 57, qr: 7350, kpi: 95.0 }], count: 1 }),
+    });
+    const automation = createKpiAutomation(skill, createFakeStateStore());
+    const report = await automation.buildDailyReport({ storeId: 'miska', timezone: DEFAULT_TIMEZONE });
+    const a = report.data.dayAssessment;
+
+    assert.equal(a.dayStatus, 'WATCH');
+    assert.ok(report.text.includes('✅ Существенных отклонений сегодня нет.'), `expected green verdict for WATCH day, got: ${report.text}`);
+    assert.ok(report.text.includes('• Выполнение дня: 87,4%'), `expected day completion shown, got: ${report.text}`);
+  });
+});
+
+describe('KpiAutomation semantic alert dedup', () => {
+  const { computeSemanticAlertDigest } = require('../skills/business_kpi/kpi_automation');
+  const crypto = require('node:crypto');
+
+  test('digest depends on semantic state, not on message presentation', () => {
+    const base = { alertType: 'seller_kpi_drop', entityId: 'Чередниченко', state: 'warning', lastValue: 83.90, metadata: { previous: 94.10, current: 83.90 } };
+    const same = computeSemanticAlertDigest(base);
+    assert.equal(computeSemanticAlertDigest({ ...base }), same, 'same semantic state must give same digest');
+    assert.ok(same.startsWith('v2:'), `digest must be versioned, got: ${same}`);
+    assert.notEqual(
+      computeSemanticAlertDigest({ ...base, lastValue: 82.50, metadata: { previous: 94.10, current: 82.50 } }),
+      same,
+      'changed value must change digest',
+    );
+    assert.notEqual(computeSemanticAlertDigest({ ...base, state: 'critical' }), same, 'state transition must change digest');
+    assert.notEqual(computeSemanticAlertDigest({ ...base, entityId: 'Капитанова' }), same, 'entity change must change digest');
+    // Object key order must not matter.
+    assert.equal(
+      computeSemanticAlertDigest({ alertType: base.alertType, entityId: base.entityId, state: base.state, metadata: { current: 83.90, previous: 94.10 }, lastValue: 83.90 }),
+      same,
+      'metadata key order must not change digest',
+    );
+  });
+
+  test('presentation-only change (snapshot time) does not re-send the alert', async () => {
+    const skill = createSep5FakeSkill();
+    const stateStore = createFakeStateStore();
+    const automation = createKpiAutomation(skill, stateStore);
+    const first = await automation.evaluateAlerts({
+      storeId: 'miska', timezone: DEFAULT_TIMEZONE, ownerId: 'owner', cooldownMinutes: 60,
+      now: new Date('2026-09-05T11:15:00.000Z'), // 21:15 VLAT
+    });
+    const firstSellerMessage = first.messages.find(m => m.includes('Чередниченко'));
+    assert.ok(firstSellerMessage.includes('Срез на 21:15'), `expected snapshot time in message, got: ${firstSellerMessage}`);
+
+    const second = await automation.evaluateAlerts({
+      storeId: 'miska', timezone: DEFAULT_TIMEZONE, ownerId: 'owner', cooldownMinutes: 60,
+      now: new Date('2026-09-05T12:15:00.000Z'), // 22:15 VLAT — only the text differs
+    });
+    assert.equal(second.alertsSent.length, 0, `presentation-only change must be suppressed, got: ${JSON.stringify(second.alertsSent)}`);
+    assert.equal(second.noActionReason, 'no_conditions_met');
+
+    const stored = await stateStore.getAlertState('owner', 'seller_kpi_drop', 'Чередниченко');
+    assert.ok(stored.lastAlertDigest.startsWith('v2:'), `expected semantic digest stored, got: ${stored.lastAlertDigest}`);
+  });
+
+  test('meaningful value change sends a new alert with the same presentation shape', async () => {
+    const stateStore = createFakeStateStore();
+    const automation = createKpiAutomation(createSep5FakeSkill(), stateStore);
+    await automation.evaluateAlerts({
+      storeId: 'miska', timezone: DEFAULT_TIMEZONE, ownerId: 'owner', cooldownMinutes: 60,
+      now: new Date('2026-09-05T11:15:00.000Z'),
+    });
+
+    const worseSkill = createSep5FakeSkill({
+      getSellerPerformance: async () => ({
+        sellers: [{ employeeId: '2', name: 'Чередниченко', currentKpi: 82.50, previousKpi: 94.10, currentKpiFormatted: '82,50' }],
+        teamSignals: {},
+      }),
+    });
+    const worse = await createKpiAutomation(worseSkill, stateStore).evaluateAlerts({
+      storeId: 'miska', timezone: DEFAULT_TIMEZONE, ownerId: 'owner', cooldownMinutes: 60,
+      now: new Date('2026-09-05T11:15:00.000Z'),
+    });
+    const sellerAlert = worse.alertsSent.find(a => a.alertType === 'seller_kpi_drop' && a.entityId === 'Чередниченко');
+    assert.ok(sellerAlert, 'expected new alert when KPI dropped further');
+  });
+
+  test('identical alert suppressed after restart on persisted semantic digest', async () => {
+    const skill = createSep5FakeSkill();
+    const firstStore = createFakeStateStore();
+    const first = await createKpiAutomation(skill, firstStore).evaluateAlerts({
+      storeId: 'miska', timezone: DEFAULT_TIMEZONE, ownerId: 'owner', cooldownMinutes: 60,
+      now: new Date('2026-09-05T11:15:00.000Z'),
+    });
+    assert.ok(first.alertsSent.length > 0, 'expected first evaluation to send');
+
+    const restartedStore = createFakeStateStore();
+    for (const [key, value] of firstStore._states.entries()) {
+      restartedStore._states.set(key, { ...value });
+    }
+    const afterRestart = await createKpiAutomation(skill, restartedStore).evaluateAlerts({
+      storeId: 'miska', timezone: DEFAULT_TIMEZONE, ownerId: 'owner', cooldownMinutes: 60,
+      now: new Date('2026-09-05T11:15:00.000Z'),
+    });
+    assert.equal(afterRestart.alertsSent.length, 0, 'expected identical evaluation after restart to be suppressed');
+  });
+
+  test('legacy text-based digest row is compared semantically and migrated without re-send', async () => {
+    const stateStore = createFakeStateStore();
+    const legacyTextDigest = crypto.createHash('sha256').update('⚠️ KPI продавца снизился\nстарый текст', 'utf8').digest('hex');
+    stateStore._states.set('owner:seller_kpi_drop:Чередниченко', {
+      ownerId: 'owner',
+      alertType: 'seller_kpi_drop',
+      entityId: 'Чередниченко',
+      state: 'warning',
+      lastValue: 83.90,
+      lastValueText: '83,90',
+      lastSentAt: '2026-09-05T11:00:00.000Z',
+      lastAlertDigest: legacyTextDigest,
+      metadata: { previous: 94.10, current: 83.90 },
+      sentCount: 1,
+    });
+
+    const result = await createKpiAutomation(createSep5FakeSkill(), stateStore).evaluateAlerts({
+      storeId: 'miska', timezone: DEFAULT_TIMEZONE, ownerId: 'owner', cooldownMinutes: 60,
+      now: new Date('2026-09-05T11:15:00.000Z'),
+    });
+    const sellerAlert = result.alertsSent.find(a => a.alertType === 'seller_kpi_drop');
+    assert.ok(!sellerAlert, `legacy row with unchanged data must not re-send, got: ${JSON.stringify(result.alertsSent)}`);
+
+    const migrated = await stateStore.getAlertState('owner', 'seller_kpi_drop', 'Чередниченко');
+    assert.ok(migrated.lastAlertDigest.startsWith('v2:'), `expected row migrated to semantic digest, got: ${migrated.lastAlertDigest}`);
+
+    // After migration, a presentation-only change is suppressed via the v2 digest.
+    const afterMigration = await createKpiAutomation(createSep5FakeSkill(), stateStore).evaluateAlerts({
+      storeId: 'miska', timezone: DEFAULT_TIMEZONE, ownerId: 'owner', cooldownMinutes: 60,
+      now: new Date('2026-09-05T12:15:00.000Z'),
+    });
+    assert.equal(afterMigration.alertsSent.length, 0, 'expected suppression after migration');
+  });
+
+  test('legacy row with genuinely changed data sends once and migrates', async () => {
+    const stateStore = createFakeStateStore();
+    stateStore._states.set('owner:seller_kpi_drop:Чередниченко', {
+      ownerId: 'owner',
+      alertType: 'seller_kpi_drop',
+      entityId: 'Чередниченко',
+      state: 'warning',
+      lastValue: 90.00,
+      lastValueText: '90,00',
+      lastSentAt: '2026-09-05T10:00:00.000Z',
+      lastAlertDigest: crypto.createHash('sha256').update('старый текст', 'utf8').digest('hex'),
+      metadata: { previous: 94.10, current: 90.00 },
+      sentCount: 1,
+    });
+
+    const result = await createKpiAutomation(createSep5FakeSkill(), stateStore).evaluateAlerts({
+      storeId: 'miska', timezone: DEFAULT_TIMEZONE, ownerId: 'owner', cooldownMinutes: 60,
+      now: new Date('2026-09-05T11:15:00.000Z'),
+    });
+    const sellerAlert = result.alertsSent.find(a => a.alertType === 'seller_kpi_drop' && a.entityId === 'Чередниченко');
+    assert.ok(sellerAlert, 'expected alert when legacy data genuinely changed');
+    const migrated = await stateStore.getAlertState('owner', 'seller_kpi_drop', 'Чередниченко');
+    assert.ok(migrated.lastAlertDigest.startsWith('v2:'));
   });
 });
