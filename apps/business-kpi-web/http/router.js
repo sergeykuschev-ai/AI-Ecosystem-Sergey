@@ -12,6 +12,8 @@ const { createAuthMiddleware } = require('./auth_middleware');
 const SHIFT_ROUTE = /^\/api\/business-kpi\/shifts\/([0-9a-f-]{36})$/i;
 const PLAN_ROUTE = /^\/api\/business-kpi\/plans\/(\d{4})\/(\d{1,2})$/;
 const IMPORT_COMMIT_ROUTE = /^\/api\/business-kpi\/imports\/([0-9a-f-]{36})\/commit$/i;
+const SELLER_TASK_ACTION_ROUTE =
+  /^\/api\/business-kpi\/seller-tasks\/([0-9a-f-]{36})\/(approve|approve-edited|reject|complete|not-complete)$/i;
 const MAX_JSON_BYTES = 64 * 1024;
 const MAX_XLSX_BYTES = 20 * 1024 * 1024;
 
@@ -196,6 +198,7 @@ function createRouter(options) {
     authService,
     businessKpiService,
     workbookImportService,
+    sellerTasksService,
     devMode,
     cookieSecure,
     healthService,
@@ -588,6 +591,101 @@ function createRouter(options) {
           correlationId: requestId,
           reason: body.reason || request.headers['x-change-reason'],
         }));
+        return;
+      }
+
+      if (sellerTasksService &&
+          request.method === 'GET' &&
+          url.pathname === '/api/business-kpi/seller-tasks/library') {
+        const actor = await auth.requireActor(request);
+        auth.requirePermission(actor, PERMISSIONS.TASKS_READ);
+        success(response, await sellerTasksService.listLibrary(actor));
+        return;
+      }
+
+      if (sellerTasksService &&
+          request.method === 'GET' &&
+          url.pathname === '/api/business-kpi/seller-tasks/proposals') {
+        const actor = await auth.requireActor(request);
+        auth.requirePermission(actor, PERMISSIONS.TASKS_READ);
+        success(response, await sellerTasksService.listProposals({
+          storeId: url.searchParams.get('store'),
+          status: url.searchParams.get('status'),
+          employeeId: url.searchParams.get('employee'),
+          dateFrom: optionalDate(url.searchParams.get('date_from'), 'date_from'),
+          dateTo: optionalDate(url.searchParams.get('date_to'), 'date_to'),
+        }, actor));
+        return;
+      }
+
+      if (sellerTasksService &&
+          request.method === 'GET' &&
+          url.pathname === '/api/business-kpi/seller-tasks/history') {
+        const actor = await auth.requireActor(request);
+        auth.requirePermission(actor, PERMISSIONS.TASKS_READ);
+        success(response, await sellerTasksService.listHistory({
+          storeId: url.searchParams.get('store'),
+          employeeId: url.searchParams.get('employee'),
+          dateFrom: optionalDate(url.searchParams.get('date_from'), 'date_from'),
+          dateTo: optionalDate(url.searchParams.get('date_to'), 'date_to'),
+        }, actor));
+        return;
+      }
+
+      if (sellerTasksService &&
+          request.method === 'POST' &&
+          url.pathname === '/api/business-kpi/seller-tasks/generate') {
+        auth.validateCsrf(request);
+        const body = await readJson(request);
+        const actor = await auth.requireActor(request);
+        auth.requirePermission(actor, PERMISSIONS.TASKS_MANAGE);
+        success(response, await sellerTasksService.generateProposals({
+          storeId: body.storeId,
+          shiftDate: body.shiftDate,
+        }, actor), 201);
+        return;
+      }
+
+      if (sellerTasksService &&
+          request.method === 'POST' &&
+          url.pathname === '/api/business-kpi/seller-tasks') {
+        auth.validateCsrf(request);
+        const body = await readJson(request);
+        const actor = await auth.requireActor(request);
+        auth.requirePermission(actor, PERMISSIONS.TASKS_MANAGE);
+        success(response, await sellerTasksService.assignManual(body, actor), 201);
+        return;
+      }
+
+      const sellerTaskMatch = SELLER_TASK_ACTION_ROUTE.exec(url.pathname);
+      if (sellerTasksService && sellerTaskMatch && request.method === 'POST') {
+        auth.validateCsrf(request);
+        const body = await readJson(request);
+        const actor = await auth.requireActor(request);
+        auth.requirePermission(actor, PERMISSIONS.TASKS_MANAGE);
+        const taskId = sellerTaskMatch[1];
+        const action = sellerTaskMatch[2].toLowerCase();
+        if (action === 'approve') {
+          success(response, await sellerTasksService.approve(taskId, actor));
+          return;
+        }
+        if (action === 'approve-edited') {
+          success(response, await sellerTasksService.approve(taskId, actor, {
+            title: body.title,
+            description: body.description,
+            expectedResult: body.expectedResult ?? null,
+          }));
+          return;
+        }
+        if (action === 'reject') {
+          success(response, await sellerTasksService.reject(taskId, actor));
+          return;
+        }
+        if (action === 'complete') {
+          success(response, await sellerTasksService.markResult(taskId, 'COMPLETED', body.note, actor));
+          return;
+        }
+        success(response, await sellerTasksService.markResult(taskId, 'NOT_COMPLETED', body.note, actor));
         return;
       }
 

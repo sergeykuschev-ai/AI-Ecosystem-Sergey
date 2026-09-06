@@ -937,3 +937,163 @@ dialog::backdrop { background: rgba(11, 27, 21, 0.55); backdrop-filter: blur(3px
     grid-template-columns: 1fr;
   }
 }
+
+/* ---- Задачи и обучение ---- */
+
+.task-subnav {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.task-subtab {
+  padding: 9px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-elevated);
+  color: var(--ink);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.task-subtab.active {
+  background: var(--brand-primary);
+  border-color: var(--brand-primary);
+  color: var(--text-on-primary);
+}
+
+.task-list {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.task-card h3 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.task-meta {
+  margin: 4px 0 10px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.task-reason {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  background: var(--surface-secondary);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.task-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.task-bitrix {
+  margin-top: 14px;
+}
+
+.task-bitrix pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--surface-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 13px;
+  margin: 0 0 10px;
+}
+
+.task-edit {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.task-edit input,
+.task-edit textarea,
+#manual-custom-fields input,
+#manual-custom-fields textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font: inherit;
+  background: var(--surface-elevated);
+  color: var(--ink);
+}
+
+.task-category {
+  margin-top: 18px;
+}
+
+.task-category h3 {
+  margin: 0 0 10px;
+  font-size: 15px;
+  text-transform: capitalize;
+}
+
+.task-learning-item {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 10px;
+  background: var(--surface-elevated);
+}
+
+.task-learning-item h4 {
+  margin: 0 0 6px;
+  font-size: 14.5px;
+}
+
+.task-learning-item p {
+  margin: 0 0 8px;
+  font-size: 13.5px;
+  color: var(--text-secondary);
+}
+
+.task-learning-item ol {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 13.5px;
+}
+
+.standard-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+.standard-grid section {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-elevated);
+}
+
+.standard-grid h3 {
+  margin: 0 0 8px;
+  font-size: 14.5px;
+}
+
+.standard-grid p {
+  margin: 0 0 6px;
+  font-size: 13.5px;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 768px) {
+  .standard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.manual-field-grow { flex: 1; min-width: 260px; }
+.manual-field-full { width: 100%; }

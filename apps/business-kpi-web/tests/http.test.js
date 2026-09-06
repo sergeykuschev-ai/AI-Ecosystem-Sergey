@@ -138,6 +138,7 @@ test('frontend shell exposes every planned section', async () => {
     'Год',
     'Продавцы',
     'Премии',
+    'Задачи и обучение',
     'Настройки',
     'Импорт / экспорт',
   ]) {

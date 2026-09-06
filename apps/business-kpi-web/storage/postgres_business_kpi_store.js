@@ -119,6 +119,73 @@ const SHIFT_SELECT = `
   JOIN business_kpi.employees e ON e.id = s.employee_id
 `;
 
+const PROPOSAL_SELECT = `
+  SELECT p.*, e.display_name AS employee_name, l.code AS library_code,
+         l.category AS library_category, l.material_text, l.questions,
+         cu.display_name AS created_by_name,
+         du.display_name AS decided_by_name,
+         ru.display_name AS result_marked_by_name
+  FROM business_kpi.seller_task_proposals p
+  JOIN business_kpi.employees e ON e.id = p.employee_id
+  LEFT JOIN business_kpi.seller_task_library l ON l.id = p.library_task_id
+  LEFT JOIN business_kpi.users cu ON cu.id = p.created_by_user_id
+  LEFT JOIN business_kpi.users du ON du.id = p.decided_by_user_id
+  LEFT JOIN business_kpi.users ru ON ru.id = p.result_marked_by_user_id
+`;
+
+function mapLibraryTask(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    code: row.code,
+    taskType: row.task_type,
+    title: row.title,
+    description: row.description,
+    expectedResult: row.expected_result,
+    category: row.category,
+    materialText: row.material_text || null,
+    questions: row.questions || null,
+    active: row.active,
+    sortOrder: Number(row.sort_order),
+  };
+}
+
+function mapProposal(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    storeId: row.store_id,
+    employeeId: row.employee_id,
+    employeeName: row.employee_name || null,
+    shiftDate: row.shift_date_text || dateText(row.shift_date),
+    libraryTaskId: row.library_task_id || null,
+    libraryCode: row.library_code || null,
+    libraryCategory: row.library_category || null,
+    materialText: row.material_text || null,
+    questions: row.questions || null,
+    taskType: row.task_type,
+    title: row.title,
+    description: row.description,
+    expectedResult: row.expected_result || null,
+    reason: row.reason || null,
+    source: row.source,
+    status: row.status,
+    bitrixText: row.bitrix_text || null,
+    createdByUserId: row.created_by_user_id || null,
+    createdByName: row.created_by_name || null,
+    decidedByUserId: row.decided_by_user_id || null,
+    decidedByName: row.decided_by_name || null,
+    decidedAt: row.decided_at ? new Date(row.decided_at).toISOString() : null,
+    approvedAt: row.approved_at ? new Date(row.approved_at).toISOString() : null,
+    resultNote: row.result_note || null,
+    resultMarkedByUserId: row.result_marked_by_user_id || null,
+    resultMarkedByName: row.result_marked_by_name || null,
+    resultMarkedAt: row.result_marked_at ? new Date(row.result_marked_at).toISOString() : null,
+    createdAt: new Date(row.created_at).toISOString(),
+    updatedAt: new Date(row.updated_at).toISOString(),
+  };
+}
+
 class PostgresBusinessKpiStore {
   constructor(options = {}) {
     this.client = options.client || new Pool({
@@ -699,6 +766,104 @@ class PostgresBusinessKpiStore {
       `DELETE FROM business_kpi.user_sessions WHERE expires_at <= $1`,
       [before instanceof Date ? before.toISOString() : before]
     );
+  }
+
+  async listLibraryTasks() {
+    const result = await this.client.query(
+      `SELECT id, code, task_type, title, description, expected_result,
+              category, material_text, questions, active, sort_order
+       FROM business_kpi.seller_task_library
+       WHERE active = true
+       ORDER BY sort_order`
+    );
+    return result.rows.map(row => mapLibraryTask(row));
+  }
+
+  async createProposal(record) {
+    try {
+      await this.client.query(
+        `INSERT INTO business_kpi.seller_task_proposals
+         (id, store_id, employee_id, shift_date, library_task_id, task_type,
+          title, description, expected_result, reason, source, status,
+          bitrix_text, created_by_user_id, created_at, updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+        [record.id, record.storeId, record.employeeId, record.shiftDate,
+          record.libraryTaskId || null, record.taskType, record.title,
+          record.description, record.expectedResult || null, record.reason || null,
+          record.source, record.status, record.bitrixText || null,
+          record.createdByUserId || null, record.createdAt, record.updatedAt]
+      );
+      return this.getProposal(record.id);
+    } catch (error) {
+      if (error.code === '23505') {
+        throw new StorageConflictError(
+          'DUPLICATE_TASK_PROPOSAL',
+          'Такое задание уже назначено этому продавцу на эту смену.',
+          { cause: error }
+        );
+      }
+      throw error;
+    }
+  }
+
+  async getProposal(id) {
+    const result = await this.client.query(
+      `${PROPOSAL_SELECT} WHERE p.id = $1`,
+      [id]
+    );
+    return mapProposal(result.rows[0]);
+  }
+
+  async updateProposal(id, patch) {
+    const fields = [];
+    const values = [];
+    const setField = (column, value) => {
+      values.push(value);
+      fields.push(`${column} = $${values.length}`);
+    };
+    if (patch.title !== undefined) setField('title', patch.title);
+    if (patch.description !== undefined) setField('description', patch.description);
+    if (patch.expectedResult !== undefined) setField('expected_result', patch.expectedResult);
+    if (patch.reason !== undefined) setField('reason', patch.reason);
+    if (patch.status !== undefined) setField('status', patch.status);
+    if (patch.bitrixText !== undefined) setField('bitrix_text', patch.bitrixText);
+    if (patch.decidedByUserId !== undefined) setField('decided_by_user_id', patch.decidedByUserId);
+    if (patch.decidedAt !== undefined) setField('decided_at', patch.decidedAt);
+    if (patch.approvedAt !== undefined) setField('approved_at', patch.approvedAt);
+    if (patch.resultNote !== undefined) setField('result_note', patch.resultNote);
+    if (patch.resultMarkedByUserId !== undefined) setField('result_marked_by_user_id', patch.resultMarkedByUserId);
+    if (patch.resultMarkedAt !== undefined) setField('result_marked_at', patch.resultMarkedAt);
+    if (fields.length === 0) return this.getProposal(id);
+    values.push(id);
+    await this.client.query(
+      `UPDATE business_kpi.seller_task_proposals
+       SET ${fields.join(', ')}, updated_at = now()
+       WHERE id = $${values.length}`,
+      values
+    );
+    return this.getProposal(id);
+  }
+
+  async listProposals(filters = {}) {
+    const clauses = [];
+    const values = [];
+    const add = (value, sql) => {
+      values.push(value);
+      clauses.push(sql.replace('?', `$${values.length}`));
+    };
+    if (filters.storeId) add(filters.storeId, 'p.store_id = ?');
+    if (filters.employeeId) add(filters.employeeId, 'p.employee_id = ?');
+    if (filters.status) add(filters.status, 'p.status = ?');
+    if (filters.source) add(filters.source, 'p.source = ?');
+    if (filters.dateFrom) add(filters.dateFrom, 'p.shift_date >= ?');
+    if (filters.dateTo) add(filters.dateTo, 'p.shift_date <= ?');
+    const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
+    const limit = Number.isInteger(filters.limit) && filters.limit > 0 ? filters.limit : 500;
+    const result = await this.client.query(
+      `${PROPOSAL_SELECT} ${where} ORDER BY p.shift_date DESC, p.created_at DESC LIMIT ${limit}`,
+      values
+    );
+    return result.rows.map(row => mapProposal(row));
   }
 
   async ensureDevReferenceData() {

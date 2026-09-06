@@ -32,6 +32,8 @@ const PERMISSIONS = Object.freeze({
   EXPORT_RUN: 'export.run',
   USERS_MANAGE: 'users.manage',
   SELLER_PERFORMANCE_READ: 'seller_performance.read',
+  TASKS_READ: 'tasks.read',
+  TASKS_MANAGE: 'tasks.manage',
 });
 
 const ROLE_PERMISSIONS = Object.freeze({

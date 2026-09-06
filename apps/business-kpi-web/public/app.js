@@ -7,6 +7,7 @@ const ROUTES = Object.freeze({
   year: ['Год', 'Годовая динамика KPI.'],
   sellers: ['Продавцы', 'Агрегаты сотрудников без средних от средних.'],
   bonuses: ['Премии', 'Расчёт премий.'],
+  tasks: ['Задачи и обучение', 'Предложения Артура, история задач, обучение и стандарт продавца.'],
   settings: ['Настройки', 'План месяца и действующие нормативы KPI.'],
   'import-export': ['Импорт / экспорт', 'Исторический Excel-import остаётся вторичным каналом.'],
 });
@@ -54,6 +55,9 @@ const state = {
   currentUser: null,
   sellerPerformance: null,
   sellerPerformanceMode: 'shifts',
+  tasksLibrary: [],
+  taskProposals: [],
+  taskHistory: [],
 };
 
 function element(id) { return document.getElementById(id); }
@@ -84,7 +88,7 @@ function canViewRoute(route) {
   const role = state.currentUser?.role;
   if (role === 'OWNER') return true;
   if (role === 'MANAGER') {
-    return !['settings'].includes(route);
+    return !['settings', 'tasks'].includes(route);
   }
   if (role === 'SELLER') {
     return ['dashboard', 'shifts', 'months', 'year', 'sellers', 'bonuses'].includes(route);
@@ -1557,6 +1561,378 @@ async function saveSettings(event) {
   });
 }
 
+/* ---- Задачи и обучение ---- */
+
+const TASK_STATUS_LABELS = Object.freeze({
+  PENDING: 'На согласовании',
+  APPROVED: 'Утверждено',
+  REJECTED: 'Отклонено',
+  COMPLETED: 'Выполнено',
+  NOT_COMPLETED: 'Не выполнено',
+});
+
+const TASK_TYPE_LABELS = Object.freeze({
+  STORE: 'Магазин/товар',
+  KNOWLEDGE: 'Знания',
+  SALES: 'Продажи/KPI',
+});
+
+function taskDefaultShiftDate() {
+  return new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+}
+
+function taskCardShell(proposal, extraClass = '') {
+  const card = document.createElement('article');
+  card.className = `content-card task-card ${extraClass}`.trim();
+  card.dataset.taskId = proposal.id;
+  return card;
+}
+
+function taskMetaRow(proposal) {
+  const row = document.createElement('p');
+  row.className = 'task-meta';
+  row.textContent = [
+    proposal.employeeName || 'Продавец',
+    `смена ${proposal.shiftDate}`,
+    TASK_TYPE_LABELS[proposal.taskType] || proposal.taskType,
+    proposal.source === 'MANUAL' ? 'назначено вручную' : 'предложено Артуром',
+  ].join(' · ');
+  return row;
+}
+
+function taskBitrixBlock(proposal) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'task-bitrix';
+  const pre = document.createElement('pre');
+  pre.textContent = proposal.bitrixText || '';
+  const copyButton = document.createElement('button');
+  copyButton.type = 'button';
+  copyButton.className = 'secondary-button';
+  copyButton.textContent = 'Скопировать для Битрикс24';
+  copyButton.addEventListener('click', () => copyTaskText(proposal.bitrixText || '', copyButton));
+  wrapper.append(pre, copyButton);
+  return wrapper;
+}
+
+async function copyTaskText(text, button) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const area = document.createElement('textarea');
+    area.value = text;
+    document.body.appendChild(area);
+    area.select();
+    document.execCommand('copy');
+    area.remove();
+  }
+  button.textContent = 'Скопировано';
+  window.setTimeout(() => { button.textContent = 'Скопировать для Битрикс24'; }, 2500);
+}
+
+function renderProposalCard(proposal) {
+  const card = taskCardShell(proposal);
+  const heading = document.createElement('div');
+  heading.className = 'card-heading';
+  const titleWrap = document.createElement('div');
+  const eyebrow = document.createElement('p');
+  eyebrow.className = 'eyebrow';
+  eyebrow.textContent = proposal.libraryCode || TASK_TYPE_LABELS[proposal.taskType] || '';
+  const title = document.createElement('h3');
+  title.textContent = proposal.title;
+  titleWrap.append(eyebrow, title);
+  const status = document.createElement('span');
+  status.className = 'status-pill';
+  status.textContent = TASK_STATUS_LABELS[proposal.status] || proposal.status;
+  heading.append(titleWrap, status);
+
+  card.append(heading, taskMetaRow(proposal));
+
+  const description = document.createElement('p');
+  description.textContent = proposal.description;
+  card.appendChild(description);
+  if (proposal.expectedResult) {
+    const expected = document.createElement('p');
+    expected.className = 'field-help';
+    expected.textContent = `Ожидаемый результат: ${proposal.expectedResult}`;
+    card.appendChild(expected);
+  }
+  if (proposal.reason) {
+    const reason = document.createElement('p');
+    reason.className = 'task-reason';
+    reason.textContent = `Почему это задание: ${proposal.reason}`;
+    card.appendChild(reason);
+  }
+
+  if (proposal.status === 'PENDING') {
+    const actions = document.createElement('div');
+    actions.className = 'task-actions';
+    const approveButton = document.createElement('button');
+    approveButton.type = 'button';
+    approveButton.className = 'primary-button';
+    approveButton.textContent = 'Утвердить';
+    approveButton.addEventListener('click', () => decideTask(proposal.id, 'approve'));
+    const editButton = document.createElement('button');
+    editButton.type = 'button';
+    editButton.className = 'secondary-button';
+    editButton.textContent = 'Изменить';
+    const rejectButton = document.createElement('button');
+    rejectButton.type = 'button';
+    rejectButton.className = 'danger-button';
+    rejectButton.textContent = 'Отклонить';
+    rejectButton.addEventListener('click', () => decideTask(proposal.id, 'reject'));
+    actions.append(approveButton, editButton, rejectButton);
+    card.appendChild(actions);
+
+    const editArea = document.createElement('div');
+    editArea.className = 'task-edit';
+    editArea.hidden = true;
+    const titleInput = document.createElement('input');
+    titleInput.type = 'text';
+    titleInput.value = proposal.title;
+    titleInput.maxLength = 200;
+    titleInput.setAttribute('aria-label', 'Название задачи');
+    const descriptionInput = document.createElement('textarea');
+    descriptionInput.rows = 3;
+    descriptionInput.maxLength = 2000;
+    descriptionInput.value = proposal.description;
+    descriptionInput.setAttribute('aria-label', 'Описание задачи');
+    const saveEdited = document.createElement('button');
+    saveEdited.type = 'button';
+    saveEdited.className = 'primary-button';
+    saveEdited.textContent = 'Сохранить и утвердить';
+    saveEdited.addEventListener('click', () =>
+      decideTask(proposal.id, 'approve-edited', {
+        title: titleInput.value,
+        description: descriptionInput.value,
+      }));
+    editArea.append(titleInput, descriptionInput, saveEdited);
+    card.appendChild(editArea);
+    editButton.addEventListener('click', () => { editArea.hidden = !editArea.hidden; });
+  }
+
+  if (proposal.status === 'APPROVED' && proposal.bitrixText) {
+    card.appendChild(taskBitrixBlock(proposal));
+    const actions = document.createElement('div');
+    actions.className = 'task-actions';
+    const completeButton = document.createElement('button');
+    completeButton.type = 'button';
+    completeButton.className = 'table-button';
+    completeButton.textContent = '✅ Выполнено';
+    completeButton.addEventListener('click', () => markTaskResult(proposal.id, 'complete'));
+    const failButton = document.createElement('button');
+    failButton.type = 'button';
+    failButton.className = 'danger-button';
+    failButton.textContent = '❌ Не выполнено';
+    failButton.addEventListener('click', () => markTaskResult(proposal.id, 'not-complete'));
+    actions.append(completeButton, failButton);
+    card.appendChild(actions);
+  }
+
+  if ((proposal.status === 'COMPLETED' || proposal.status === 'NOT_COMPLETED')
+      && proposal.bitrixText) {
+    card.appendChild(taskBitrixBlock(proposal));
+  }
+  return card;
+}
+
+function renderTaskList(containerId, items, emptyId) {
+  const container = element(containerId);
+  container.replaceChildren(...items.map(renderProposalCard));
+  element(emptyId).hidden = items.length > 0;
+}
+
+async function refreshTasks() {
+  const storeId = selectedStoreId();
+  const [proposals, history, library] = await Promise.all([
+    api(`/api/business-kpi/seller-tasks/proposals?store=${encodeURIComponent(storeId)}`),
+    api(`/api/business-kpi/seller-tasks/history?store=${encodeURIComponent(storeId)}`),
+    api('/api/business-kpi/seller-tasks/library'),
+  ]);
+  state.taskProposals = proposals.items;
+  state.taskHistory = history.items;
+  state.tasksLibrary = library.items;
+  renderTaskList('task-proposals', pendingTasks(), 'task-proposals-empty');
+  renderTaskHistory();
+  renderLearning();
+  renderManualTaskLibrary();
+}
+
+function pendingTasks() {
+  const shiftDate = element('task-shift-date').value;
+  return state.taskProposals
+    .filter(proposal => proposal.status === 'PENDING')
+    .filter(proposal => !shiftDate || proposal.shiftDate === shiftDate)
+    .sort((left, right) => left.shiftDate.localeCompare(right.shiftDate));
+}
+
+function renderTaskHistory() {
+  const statusFilter = element('task-history-status').value;
+  const items = state.taskHistory
+    .filter(proposal => !statusFilter || proposal.status === statusFilter)
+    .sort((left, right) => right.shiftDate.localeCompare(left.shiftDate));
+  renderTaskList('task-history', items, 'task-history-empty');
+  element('task-history-count').textContent = `${items.length}`;
+}
+
+function renderLearning() {
+  const container = element('task-learning');
+  const knowledge = state.tasksLibrary.filter(task => task.taskType === 'KNOWLEDGE');
+  const byCategory = new Map();
+  for (const task of knowledge) {
+    const list = byCategory.get(task.category) || [];
+    list.push(task);
+    byCategory.set(task.category, list);
+  }
+  const categories = [...byCategory.keys()].sort((left, right) => left.localeCompare(right, 'ru'));
+  const blocks = categories.map(category => {
+    const section = document.createElement('section');
+    section.className = 'task-category';
+    const heading = document.createElement('h3');
+    heading.textContent = category;
+    section.appendChild(heading);
+    for (const task of byCategory.get(category)) {
+      const card = document.createElement('article');
+      card.className = 'task-learning-item';
+      const title = document.createElement('h4');
+      title.textContent = task.title;
+      card.appendChild(title);
+      if (task.materialText) {
+        const material = document.createElement('p');
+        material.textContent = task.materialText;
+        card.appendChild(material);
+      }
+      if (Array.isArray(task.questions) && task.questions.length) {
+        const list = document.createElement('ol');
+        for (const question of task.questions) {
+          const item = document.createElement('li');
+          item.textContent = question;
+          list.appendChild(item);
+        }
+        card.appendChild(list);
+      }
+      section.appendChild(card);
+    }
+    return section;
+  });
+  container.replaceChildren(...blocks);
+}
+
+function renderManualTaskLibrary() {
+  const select = element('manual-task-library');
+  const current = select.value;
+  const options = [select.options[0]];
+  for (const task of state.tasksLibrary) {
+    const option = document.createElement('option');
+    option.value = task.code;
+    option.textContent = `${task.code} · ${task.title}`;
+    options.push(option);
+  }
+  select.replaceChildren(...options);
+  select.value = current;
+}
+
+function renderManualTaskEmployees() {
+  const select = element('manual-task-employee');
+  const sellers = state.employees.filter(employee => employee.participatesInSellerKpi !== false);
+  select.replaceChildren(...sellers.map(employee => {
+    const option = document.createElement('option');
+    option.value = employee.id;
+    option.textContent = employee.displayName;
+    return option;
+  }));
+}
+
+async function decideTask(id, action, payload = {}) {
+  try {
+    await api(`/api/business-kpi/seller-tasks/${id}/${action}`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    showMessage(action === 'reject' ? 'Предложение отклонено.' : 'Задача утверждена — текст готов для Битрикс24.');
+    await refreshTasks();
+  } catch (error) {
+    showMessage(error.message, 'error');
+  }
+}
+
+async function markTaskResult(id, action) {
+  try {
+    await api(`/api/business-kpi/seller-tasks/${id}/${action}`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+    showMessage(action === 'complete' ? 'Отмечено как выполненное.' : 'Отмечено как невыполненное.');
+    await refreshTasks();
+  } catch (error) {
+    showMessage(error.message, 'error');
+  }
+}
+
+async function generateTaskProposals() {
+  const shiftDate = element('task-shift-date').value;
+  if (!shiftDate) {
+    showMessage('Укажите дату смены.', 'error');
+    return;
+  }
+  try {
+    const result = await api('/api/business-kpi/seller-tasks/generate', {
+      method: 'POST',
+      body: JSON.stringify({ storeId: selectedStoreId(), shiftDate }),
+    });
+    showMessage(`Сформировано предложений: ${result.created.length}.`);
+    await refreshTasks();
+  } catch (error) {
+    showMessage(error.message, 'error');
+  }
+}
+
+async function assignManualTask() {
+  const libraryCode = element('manual-task-library').value;
+  const payload = {
+    storeId: selectedStoreId(),
+    employeeId: element('manual-task-employee').value,
+    shiftDate: element('manual-task-date').value,
+    libraryCode: libraryCode || undefined,
+  };
+  if (!libraryCode) {
+    payload.taskType = element('manual-task-type').value;
+    payload.title = element('manual-task-title').value;
+    payload.description = element('manual-task-description').value;
+  }
+  try {
+    await api('/api/business-kpi/seller-tasks', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    showMessage('Задача назначена и утверждена.');
+    element('manual-task-title').value = '';
+    element('manual-task-description').value = '';
+    await refreshTasks();
+  } catch (error) {
+    showMessage(error.message, 'error');
+  }
+}
+
+function switchTaskTab(tab) {
+  document.querySelectorAll('[data-task-tab]').forEach(button => {
+    button.classList.toggle('active', button.dataset.taskTab === tab);
+  });
+  document.querySelectorAll('[data-task-panel]').forEach(panel => {
+    panel.hidden = panel.dataset.taskPanel !== tab;
+  });
+}
+
+async function loadTasks() {
+  if (!element('task-shift-date').value) {
+    element('task-shift-date').value = taskDefaultShiftDate();
+  }
+  if (!element('manual-task-date').value) {
+    element('manual-task-date').value = taskDefaultShiftDate();
+  }
+  renderManualTaskEmployees();
+  await refreshTasks();
+}
+
 async function renderRoute() {
   const routeId = selectedRoute();
   if (!canViewRoute(routeId)) {
@@ -1592,6 +1968,7 @@ async function renderRoute() {
       renderSellers(state.dashboard.sellers);
     }
     if (routeId === 'bonuses') await loadBonuses();
+    if (routeId === 'tasks') await loadTasks();
     if (routeId === 'settings') await loadSettings();
     if (routeId === 'import-export') await loadImportRuns();
   } catch (error) {
@@ -2254,6 +2631,18 @@ element('source-filter').addEventListener('change', () => renderShifts(state.shi
 element('data-status-filter').addEventListener('change', () => renderShifts(state.shifts));
 element('shifts-sort').addEventListener('change', () => renderShifts(state.shifts));
 element('open-shift-form').addEventListener('click', () => openShiftDialog());
+element('task-generate').addEventListener('click', generateTaskProposals);
+element('task-shift-date').addEventListener('change', () => {
+  renderTaskList('task-proposals', pendingTasks(), 'task-proposals-empty');
+});
+element('manual-task-assign').addEventListener('click', assignManualTask);
+element('manual-task-library').addEventListener('change', () => {
+  element('manual-custom-fields').hidden = element('manual-task-library').value !== '';
+});
+element('task-history-status').addEventListener('change', renderTaskHistory);
+document.querySelectorAll('[data-task-tab]').forEach(button => {
+  button.addEventListener('click', () => switchTaskTab(button.dataset.taskTab));
+});
 element('close-shift-form').addEventListener('click', () => element('shift-dialog').close());
 element('cancel-shift').addEventListener('click', () => element('shift-dialog').close());
 element('archive-shift').addEventListener('click', archiveShift);

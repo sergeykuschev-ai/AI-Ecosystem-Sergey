@@ -56,7 +56,15 @@ test('migration files are ordered and checksummed deterministically', () => {
     '002_historical_xlsx_import.up.sql',
     '003_auth_sessions.up.sql',
     '004_auth_sessions_privileges.up.sql',
+    '005_seller_tasks.up.sql',
   ]);
+  const sellerTasksSql = fs.readFileSync(
+    path.join(migrationsRoot, '005_seller_tasks.up.sql'),
+    'utf8'
+  );
+  assert.match(sellerTasksSql, /CREATE TABLE IF NOT EXISTS business_kpi\.seller_task_library/);
+  assert.match(sellerTasksSql, /CREATE TABLE IF NOT EXISTS business_kpi\.seller_task_proposals/);
+  assert.match(sellerTasksSql, /business_kpi_task_proposal_identity/);
   assert.equal(computeChecksum(sql), computeChecksum(sql));
   assert.equal(computeChecksum(sql).length, 64);
 });

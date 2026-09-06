@@ -3,6 +3,9 @@
 const {
   MISKA_AUGUST_2026_SETTINGS,
 } = require('../../../agents/business-kpi/rules/reference_settings');
+const {
+  SELLER_TASK_LIBRARY,
+} = require('../../../agents/business-kpi/rules/seller_task_library');
 const { StorageConflictError } = require('./storage_errors');
 
 const DEV_STORE = Object.freeze({
@@ -95,6 +98,20 @@ class InMemoryBusinessKpiStore {
     this.audit = [];
     this.kpiResults = [];
     this.importRuns = [];
+    this.taskLibrary = SELLER_TASK_LIBRARY.map((task, index) => ({
+      id: `40000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
+      code: task.code,
+      taskType: task.type,
+      title: task.title,
+      description: task.description,
+      expectedResult: task.expectedResult,
+      category: task.category,
+      materialText: task.materialText || null,
+      questions: task.questions || null,
+      active: true,
+      sortOrder: index + 1,
+    }));
+    this.taskProposals = [];
     this.settings = seed ? [{
       id: '30000000-0000-4000-8000-000000000001',
       storeId: DEV_STORE.id,
@@ -121,6 +138,8 @@ class InMemoryBusinessKpiStore {
       settings: this.settings,
       plans: this.plans,
       importRuns: this.importRuns,
+      taskLibrary: this.taskLibrary,
+      taskProposals: this.taskProposals,
     });
     try {
       return await work(this);
@@ -391,6 +410,70 @@ class InMemoryBusinessKpiStore {
   async deleteExpiredSessions(before) {
     const threshold = before instanceof Date ? before.toISOString() : before;
     this.sessions = this.sessions.filter(session => session.expiresAt > threshold);
+  }
+
+  async listLibraryTasks() {
+    return clone(this.taskLibrary.filter(task => task.active));
+  }
+
+  async createProposal(record) {
+    const duplicate = this.taskProposals.find(proposal =>
+      proposal.status !== 'REJECTED' &&
+      proposal.employeeId === record.employeeId &&
+      proposal.shiftDate === record.shiftDate &&
+      proposal.libraryTaskId &&
+      record.libraryTaskId &&
+      proposal.libraryTaskId === record.libraryTaskId
+    );
+    if (duplicate) {
+      throw new StorageConflictError(
+        'DUPLICATE_TASK_PROPOSAL',
+        'Такое задание уже назначено этому продавцу на эту смену.'
+      );
+    }
+    const libraryTask = record.libraryTaskId
+      ? this.taskLibrary.find(task => task.id === record.libraryTaskId)
+      : null;
+    const stored = {
+      ...clone(record),
+      id: record.id,
+      employeeName: (this.employees.find(e => e.id === record.employeeId) || {}).displayName || null,
+      libraryCode: libraryTask?.code || null,
+      libraryCategory: libraryTask?.category || null,
+      materialText: libraryTask?.materialText || null,
+      questions: libraryTask?.questions || null,
+    };
+    this.taskProposals.push(stored);
+    return clone(stored);
+  }
+
+  async getProposal(id) {
+    return clone(this.taskProposals.find(proposal => proposal.id === id) || null);
+  }
+
+  async updateProposal(id, patch) {
+    const index = this.taskProposals.findIndex(proposal => proposal.id === id);
+    if (index === -1) return null;
+    this.taskProposals[index] = { ...this.taskProposals[index], ...clone(patch) };
+    return clone(this.taskProposals[index]);
+  }
+
+  async listProposals(filters = {}) {
+    let items = this.taskProposals.filter(proposal => {
+      if (filters.storeId && proposal.storeId !== filters.storeId) return false;
+      if (filters.employeeId && proposal.employeeId !== filters.employeeId) return false;
+      if (filters.status && proposal.status !== filters.status) return false;
+      if (filters.source && proposal.source !== filters.source) return false;
+      if (filters.dateFrom && proposal.shiftDate < filters.dateFrom) return false;
+      if (filters.dateTo && proposal.shiftDate > filters.dateTo) return false;
+      return true;
+    });
+    items = items.sort((left, right) =>
+      right.shiftDate.localeCompare(left.shiftDate) || right.createdAt.localeCompare(left.createdAt));
+    if (Number.isInteger(filters.limit) && filters.limit > 0) {
+      items = items.slice(0, filters.limit);
+    }
+    return clone(items);
   }
 
   async close() {}

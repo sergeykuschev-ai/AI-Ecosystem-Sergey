@@ -23,6 +23,7 @@
           <a href="#year" data-route="year">Год</a>
           <a href="#sellers" data-route="sellers">Продавцы</a>
           <a href="#bonuses" data-route="bonuses">Премии</a>
+          <a href="#tasks" data-route="tasks">Задачи и обучение</a>
           <a href="#settings" data-route="settings">Настройки</a>
           <a href="#import-export" data-route="import-export">Импорт / экспорт</a>
         </nav>
@@ -432,6 +433,169 @@
             </div>
             <p class="empty-copy" id="bonuses-empty" hidden>Недостаточно данных для расчёта премий.</p>
           </article>
+        </section>
+
+        <!-- Задачи и обучение -->
+        <section class="route-panel" data-panel="tasks" hidden>
+          <div class="task-subnav" role="tablist" aria-label="Разделы задач">
+            <button type="button" class="task-subtab active" data-task-tab="review">На согласование</button>
+            <button type="button" class="task-subtab" data-task-tab="history">История</button>
+            <button type="button" class="task-subtab" data-task-tab="learning">Обучение</button>
+            <button type="button" class="task-subtab" data-task-tab="standard">Стандарт</button>
+          </div>
+
+          <div data-task-panel="review">
+            <article class="content-card">
+              <div class="card-heading">
+                <div><p class="eyebrow">Артур предлагает</p><h2>Предложения на смену</h2></div>
+              </div>
+              <p class="field-help">
+                Артур формирует 2–3 задания на следующую смену по правилам: проблема KPI → контроль магазина → обучение.
+                Ничего продавцам не отправляется: утверждённые задачи владелец переносит в Битрикс24 вручную.
+              </p>
+              <div class="filter-row">
+                <label class="compact-field">Дата смены
+                  <input id="task-shift-date" type="date">
+                </label>
+                <button class="primary-button" id="task-generate" type="button">Сформировать предложения</button>
+              </div>
+              <div id="task-proposals" class="task-list"></div>
+              <p class="empty-copy" id="task-proposals-empty" hidden>Нет предложений на согласовании. Сформируйте предложения на дату смены.</p>
+            </article>
+
+            <article class="content-card">
+              <div class="card-heading">
+                <div><p class="eyebrow">Ручное назначение</p><h2>Назначить задачу вручную</h2></div>
+              </div>
+              <p class="field-help">Задание сразу попадает в историю со статусом «Утверждено» и готовым текстом для Битрикс24.</p>
+              <div class="filter-row">
+                <label class="compact-field">Продавец
+                  <select id="manual-task-employee"></select>
+                </label>
+                <label class="compact-field">Дата смены
+                  <input id="manual-task-date" type="date">
+                </label>
+                <label class="compact-field">Задание из библиотеки
+                  <select id="manual-task-library">
+                    <option value="">— разовая задача —</option>
+                  </select>
+                </label>
+              </div>
+              <div id="manual-custom-fields" hidden>
+                <div class="filter-row">
+                  <label class="compact-field">Тип
+                    <select id="manual-task-type">
+                      <option value="STORE">Магазин/товар</option>
+                      <option value="KNOWLEDGE">Знания</option>
+                      <option value="SALES">Продажи/KPI</option>
+                    </select>
+                  </label>
+                  <label class="compact-field manual-field-grow">Название
+                    <input id="manual-task-title" type="text" maxlength="200">
+                  </label>
+                </div>
+                <label class="compact-field manual-field-full">Описание
+                  <textarea id="manual-task-description" rows="3" maxlength="2000"></textarea>
+                </label>
+              </div>
+              <button class="secondary-button" id="manual-task-assign" type="button">Назначить</button>
+            </article>
+          </div>
+
+          <div data-task-panel="history" hidden>
+            <article class="content-card">
+              <div class="card-heading">
+                <div><p class="eyebrow">Что было назначено</p><h2>История задач</h2></div>
+                <span class="status-pill" id="task-history-count">—</span>
+              </div>
+              <div class="filter-row">
+                <label class="compact-field">Статус
+                  <select id="task-history-status">
+                    <option value="">Все</option>
+                    <option value="APPROVED">Утверждено</option>
+                    <option value="COMPLETED">Выполнено</option>
+                    <option value="NOT_COMPLETED">Не выполнено</option>
+                    <option value="REJECTED">Отклонено</option>
+                    <option value="PENDING">На согласовании</option>
+                  </select>
+                </label>
+              </div>
+              <div id="task-history" class="task-list"></div>
+              <p class="empty-copy" id="task-history-empty" hidden>История задач пуста.</p>
+            </article>
+          </div>
+
+          <div data-task-panel="learning" hidden>
+            <article class="content-card">
+              <div class="card-heading">
+                <div><p class="eyebrow">База знаний</p><h2>Обучение</h2></div>
+              </div>
+              <p class="field-help">
+                Учебные задания по категориям. Материалы — черновики для проверки владельцем;
+                медицинские вопросы направляем к ветеринару.
+              </p>
+              <div id="task-learning" class="task-list"></div>
+            </article>
+          </div>
+
+          <div data-task-panel="standard" hidden>
+            <article class="content-card">
+              <div class="card-heading">
+                <div><p class="eyebrow">Единый стандарт</p><h2>Стандарт продавца «Миски»</h2></div>
+              </div>
+              <div class="standard-grid">
+                <section>
+                  <h3>Начало смены</h3>
+                  <p>Входная и кассовая зона, чистота, полки, пустоты, повреждения, ценники.</p>
+                </section>
+                <section>
+                  <h3>Покупатель</h3>
+                  <p>Покупатель приоритетнее внутренних задач.</p>
+                  <p>приветствие → потребность → подбор → объяснение → полезное дополнение → продажа</p>
+                </section>
+                <section>
+                  <h3>Консультация</h3>
+                  <p>Знать назначение товара, особенности, применение, альтернативы и логичные дополнения. Не придумывать свойства. Не ставить диагноз. Не назначать лечение. При необходимости направлять к ветеринару.</p>
+                </section>
+                <section>
+                  <h3>Комплексная продажа</h3>
+                  <p>Предлагать полезное дополнение исходя из потребности, а не ради случайного увеличения чека.</p>
+                </section>
+                <section>
+                  <h3>Работа с товаром</h3>
+                  <p>Порядок, выкладка, пустоты, ценники, повреждения, сроки, заканчивающиеся позиции.</p>
+                </section>
+                <section>
+                  <h3>Сроки</h3>
+                  <p>Проверять по графику/заданиям.</p>
+                </section>
+                <section>
+                  <h3>Приёмка</h3>
+                  <p>Количество, товар, целостность, сроки, соответствие документам.</p>
+                </section>
+                <section>
+                  <h3>Когда покупателей нет</h3>
+                  <p>товар → порядок → контроль → задача → обучение</p>
+                </section>
+                <section>
+                  <h3>Бонусная программа</h3>
+                  <p>Для «Миски» карта выдаётся при покупке от 2 000 ₽.</p>
+                </section>
+                <section>
+                  <h3>QR</h3>
+                  <p>Использовать действующие правила и текущую KPI-логику.</p>
+                </section>
+                <section>
+                  <h3>Маячки</h3>
+                  <p>Знать товары/категории, где маячки обязательны; правильно устанавливать; контролировать при выкладке; снимать/деактивировать при продаже; не терять; корректно реагировать на срабатывание.</p>
+                </section>
+                <section>
+                  <h3>Закрытие смены</h3>
+                  <p>Порядок, обязательные операции, нерешённые проблемы, передача информации следующей смене.</p>
+                </section>
+              </div>
+            </article>
+          </div>
         </section>
 
         <!-- Настройки -->
