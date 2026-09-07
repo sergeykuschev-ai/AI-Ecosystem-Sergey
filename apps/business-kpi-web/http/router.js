@@ -605,6 +605,18 @@ function createRouter(options) {
 
       if (sellerTasksService &&
           request.method === 'GET' &&
+          url.pathname === '/api/business-kpi/seller-tasks/shift-seller') {
+        const actor = await auth.requireActor(request);
+        auth.requirePermission(actor, PERMISSIONS.TASKS_READ);
+        success(response, await sellerTasksService.resolveShiftSeller({
+          storeId: url.searchParams.get('store'),
+          shiftDate: optionalDate(url.searchParams.get('date'), 'date'),
+        }, actor));
+        return;
+      }
+
+      if (sellerTasksService &&
+          request.method === 'GET' &&
           url.pathname === '/api/business-kpi/seller-tasks/proposals') {
         const actor = await auth.requireActor(request);
         auth.requirePermission(actor, PERMISSIONS.TASKS_READ);

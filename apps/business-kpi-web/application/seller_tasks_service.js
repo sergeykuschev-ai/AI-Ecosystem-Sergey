@@ -249,6 +249,38 @@ class SellerTasksService {
     };
   }
 
+  /* Read-only seller resolution for the portal picker: who works the given
+     date according to shift data, plus the full eligible seller list the
+     owner can choose from. Never creates anything. */
+  async resolveShiftSeller(input, actor) {
+    requirePermission(actor, PERMISSIONS.TASKS_READ);
+    const storeId = requireString(input.storeId, 'storeId');
+    const shiftDate = requireDate(input.shiftDate, 'shiftDate');
+
+    const storeRecord = await this.store.getStore(storeId);
+    if (!storeRecord?.active) {
+      throw new ApplicationError('STORE_NOT_FOUND', 'Магазин не найден.', 404);
+    }
+    const [employees, dayShifts] = await Promise.all([
+      this.store.listEmployees({ storeId }),
+      this.store.listShifts({ storeId, dateFrom: shiftDate, dateTo: shiftDate }),
+    ]);
+    const eligibleSellers = employees.filter(isEligibleSeller);
+    const shiftEmployeeIds = new Set(dayShifts.map(shift => shift.employeeId));
+    const shiftSellers = eligibleSellers.filter(employee => shiftEmployeeIds.has(employee.id));
+    return {
+      resolved: shiftSellers.length > 0,
+      sellerSource: shiftSellers.length ? 'SHIFT' : 'NONE',
+      seller: shiftSellers.length
+        ? { id: shiftSellers[0].id, displayName: shiftSellers[0].displayName }
+        : null,
+      eligibleSellers: eligibleSellers.map(employee => ({
+        id: employee.id,
+        displayName: employee.displayName,
+      })),
+    };
+  }
+
   async listProposals(filters, actor) {
     requirePermission(actor, PERMISSIONS.TASKS_READ);
     const items = await this.store.listProposals({

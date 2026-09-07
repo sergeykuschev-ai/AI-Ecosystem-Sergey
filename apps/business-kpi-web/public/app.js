@@ -1869,33 +1869,48 @@ async function markTaskResult(id, action) {
   }
 }
 
+/* Fills the permanent seller picker for the chosen date: only real active
+   sellers are listed; when shift data names the seller, they are preselected,
+   otherwise the owner must pick one before generating. */
+async function refreshShiftSellerPick() {
+  const storeId = selectedStoreId();
+  const shiftDate = element('task-shift-date').value;
+  if (!storeId || !shiftDate) return;
+  const result = await api(
+    `/api/business-kpi/seller-tasks/shift-seller?store=${encodeURIComponent(storeId)}&date=${encodeURIComponent(shiftDate)}`
+  );
+  const select = element('task-seller-pick');
+  select.replaceChildren(...(result.eligibleSellers || []).map(seller => {
+    const option = document.createElement('option');
+    option.value = seller.id;
+    option.textContent = seller.displayName;
+    return option;
+  }));
+  if (result.resolved && result.seller) {
+    select.value = result.seller.id;
+    element('task-seller-hint').hidden = true;
+  } else {
+    select.value = '';
+    element('task-seller-hint').hidden = false;
+  }
+}
+
 async function generateTaskProposals() {
   const shiftDate = element('task-shift-date').value;
   if (!shiftDate) {
     showMessage('Укажите дату смены.', 'error');
     return;
   }
-  const sellerPick = element('task-seller-pick');
-  const employeeId = sellerPick.value || undefined;
+  const employeeId = element('task-seller-pick').value;
+  if (!employeeId) {
+    showMessage('Выберите продавца на смену.', 'error');
+    return;
+  }
   try {
     const result = await api('/api/business-kpi/seller-tasks/generate', {
       method: 'POST',
       body: JSON.stringify({ storeId: selectedStoreId(), shiftDate, employeeId }),
     });
-    if (result.sellerResolved === false) {
-      sellerPick.replaceChildren(...(result.eligibleSellers || []).map(seller => {
-        const option = document.createElement('option');
-        option.value = seller.id;
-        option.textContent = seller.displayName;
-        return option;
-      }));
-      element('task-seller-pick-field').hidden = false;
-      element('task-seller-hint').hidden = false;
-      showMessage('Продавец смены не определён — требуется выбор владельца.', 'error');
-      return;
-    }
-    element('task-seller-pick-field').hidden = true;
-    element('task-seller-hint').hidden = true;
     showMessage(`Сформировано предложений: ${result.created.length}.`);
     await refreshTasks();
   } catch (error) {
@@ -1947,6 +1962,11 @@ async function loadTasks() {
     element('manual-task-date').value = taskDefaultShiftDate();
   }
   renderManualTaskEmployees();
+  try {
+    await refreshShiftSellerPick();
+  } catch (error) {
+    showMessage(error.message, 'error');
+  }
   await refreshTasks();
 }
 
@@ -2650,10 +2670,9 @@ element('shifts-sort').addEventListener('change', () => renderShifts(state.shift
 element('open-shift-form').addEventListener('click', () => openShiftDialog());
 element('task-generate').addEventListener('click', generateTaskProposals);
 element('task-shift-date').addEventListener('change', () => {
-  element('task-seller-pick-field').hidden = true;
-  element('task-seller-hint').hidden = true;
-  element('task-seller-pick').replaceChildren();
-  renderTaskList('task-proposals', pendingTasks(), 'task-proposals-empty');
+  refreshShiftSellerPick()
+    .then(() => renderTaskList('task-proposals', pendingTasks(), 'task-proposals-empty'))
+    .catch(error => showMessage(error.message, 'error'));
 });
 element('manual-task-assign').addEventListener('click', assignManualTask);
 element('manual-task-library').addEventListener('change', () => {

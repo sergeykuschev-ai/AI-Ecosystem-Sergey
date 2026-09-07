@@ -99,6 +99,20 @@ test('official MISKA logo asset is referenced, stored, and served by static hand
   assert.equal(STATIC_FILES['/assets/miska-logo.jpg'][1], 'image/jpeg');
 });
 
+test('index.html references app.js with a cache-bust version and shows a permanent seller picker', () => {
+  assert.match(html, /<script src="\/app\.js\?v=[0-9a-f-]+" defer><\/script>/);
+  assert.match(html, /<select id="task-seller-pick">/);
+  assert.doesNotMatch(html, /task-seller-pick-field/);
+});
+
+test('generate flow always sends the picked seller and requires one when unknown', () => {
+  assert.match(javascript, /seller-tasks\/shift-seller/);
+  assert.match(javascript, /refreshShiftSellerPick/);
+  assert.match(javascript, /Выберите продавца на смену/);
+  assert.match(javascript, /shiftDate, employeeId/);
+  assert.doesNotMatch(javascript, /sellerResolved === false[\s\S]{0,200}Сформировано предложений/);
+});
+
 test('sellers table preserves all business columns', () => {
   for (const label of [
     'Продавец', 'Смены', 'На смену', 'Цель на смену', 'Средний чек', 'Цель ср. чек',

@@ -7,7 +7,7 @@
     <title>МИСКА · KPI</title>
     <link rel="stylesheet" href="/styles.css">
     <script src="/formatters.js" defer></script>
-    <script src="/app.js" defer></script>
+    <script src="/app.js?v=35c6bb6-2" defer></script>
   </head>
   <body class="auth-loading">
     <div class="app-shell">
@@ -457,13 +457,13 @@
                 <label class="compact-field">Дата смены
                   <input id="task-shift-date" type="date">
                 </label>
-                <label class="compact-field" id="task-seller-pick-field" hidden>Продавец на смену
+                <label class="compact-field">Продавец на смену
                   <select id="task-seller-pick"></select>
                 </label>
                 <button class="primary-button" id="task-generate" type="button">Сформировать предложения</button>
               </div>
               <p class="field-help" id="task-seller-hint" hidden>
-                Продавец смены не определён — выберите продавца вручную и сформируйте предложения повторно.
+                Расписание на эту дату неизвестно — выберите продавца вручную.
               </p>
               <div id="task-proposals" class="task-list"></div>
               <p class="empty-copy" id="task-proposals-empty" hidden>Нет предложений на согласовании. Сформируйте предложения на дату смены.</p>

@@ -359,6 +359,58 @@ test('generate with owner-picked seller creates proposals only for that seller',
   assert.equal(pickDemo.status, 404);
 });
 
+test('shift-seller endpoint resolves the seller from shift data without creating anything', async () => {
+  const kapitanova = DEV_EMPLOYEES.find(e => e.employeeCode === 'seller-kapitanova');
+  await server.businessKpiStore.createShift({
+    id: '30000000-0000-4000-8000-000000000010',
+    storeId: DEV_STORE.id,
+    employeeId: kapitanova.id,
+    shiftDate: '2026-09-09',
+    shiftKey: 'main',
+    cash: 0, acquiring: 0, qr: 0, receipts: 0, itemsSold: 0, upsellReceipts: 0,
+    treatsRevenue: 0, treatsReceipts: 0, comment: null, source: 'manual',
+    sourceRef: null, createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(), importRunId: null,
+    historicalRevenue: null, revenueSource: null, paymentBreakdownAvailable: false,
+    sourceReference: null, originalImportedInput: null,
+  });
+
+  const resolved = await fetch(
+    `${baseUrl}/api/business-kpi/seller-tasks/shift-seller?store=${DEV_STORE.id}&date=2026-09-09`,
+    { headers: authHeaders(ownerHeaders) }
+  );
+  assert.equal(resolved.status, 200);
+  const resolvedBody = await resolved.json();
+  assert.equal(resolvedBody.data.resolved, true);
+  assert.equal(resolvedBody.data.sellerSource, 'SHIFT');
+  assert.equal(resolvedBody.data.seller.id, kapitanova.id);
+
+  const unresolved = await fetch(
+    `${baseUrl}/api/business-kpi/seller-tasks/shift-seller?store=${DEV_STORE.id}&date=2026-09-10`,
+    { headers: authHeaders(ownerHeaders) }
+  );
+  const unresolvedBody = await unresolved.json();
+  assert.equal(unresolvedBody.data.resolved, false);
+  assert.equal(unresolvedBody.data.seller, null);
+  const names = unresolvedBody.data.eligibleSellers.map(seller => seller.displayName);
+  assert.ok(names.includes('Капитанова') && names.includes('Чередниченко'));
+  assert.ok(!names.includes('Продавец 1') && !names.includes('Продавец 2'));
+
+  const proposals = await fetch(
+    `${baseUrl}/api/business-kpi/seller-tasks/proposals?store=${DEV_STORE.id}&date_from=2026-09-09&date_to=2026-09-10`,
+    { headers: authHeaders(ownerHeaders) }
+  );
+  assert.equal((await proposals.json()).data.items.length, 0);
+});
+
+test('shift-seller endpoint is read-only for sellers (denied)', async () => {
+  const response = await fetch(
+    `${baseUrl}/api/business-kpi/seller-tasks/shift-seller?store=${DEV_STORE.id}&date=2026-09-09`,
+    { headers: authHeaders(sellerHeaders) }
+  );
+  assert.equal(response.status, 403);
+});
+
 test('manual assignment rejects demo employees without a linked account', async () => {
   const response = await post('/api/business-kpi/seller-tasks', ownerHeaders, {
     storeId: DEV_STORE.id,
@@ -413,14 +465,19 @@ test('approve-edited persists owner edits into bitrix text', async () => {
     { headers: authHeaders(ownerHeaders) }
   );
   const proposals = (await list.json()).data.items;
-  const edited = await post(`/api/business-kpi/seller-tasks/${proposals[0].id}/approve-edited`, ownerHeaders, {
+  const target = proposals.find(p => p.taskType !== 'KNOWLEDGE') || proposals[0];
+  const edited = await post(`/api/business-kpi/seller-tasks/${target.id}/approve-edited`, ownerHeaders, {
     title: 'Проверка полки с утренней выкладкой',
     description: 'Проверь полку до открытия: пустоты, ценники, порядок.',
   });
   const body = await edited.json();
   assert.equal(body.data.status, 'APPROVED');
   assert.match(body.data.title, /утренней выкладкой/);
-  assert.match(body.data.bitrixText, /Проверь полку до открытия/);
+  /* KNOWLEDGE tasks build bitrix text from the fixed learning material, so
+     the edited description only shows for STORE/SALES targets. */
+  if (target.taskType !== 'KNOWLEDGE') {
+    assert.match(body.data.bitrixText, /Проверь полку до открытия/);
+  }
 });
 
 test('manual assignment from library is approved immediately with bitrix text', async () => {
