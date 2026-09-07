@@ -20,6 +20,16 @@ const PROPOSAL_STATUSES = Object.freeze({
 const HISTORY_WINDOW_DAYS = 45;
 const LIST_DEFAULT_LIMIT = 500;
 
+/* A planner-eligible seller: active store employee participating in seller KPI
+   with a linked portal account. Employees without an account (demo/technical
+   placeholders like «Продавец 1») and OWNER-linked records never get
+   auto-generated assignments. */
+function isEligibleSeller(employee) {
+  return employee.active !== false &&
+    employee.participatesInSellerKpi !== false &&
+    Boolean(employee.userId);
+}
+
 function requireString(value, fieldName) {
   if (typeof value !== 'string' || value.trim() === '') {
     throw new ApplicationError('VALIDATION_ERROR', `${fieldName} обязателен.`, 422);
@@ -99,7 +109,7 @@ class SellerTasksService {
     const windowStartDate = `${windowStartYear}-${String(windowStartMonth).padStart(2, '0')}-01`;
     const windowEndDate = new Date(Date.UTC(shiftYear, shiftMonth, 0)).toISOString().slice(0, 10);
 
-    const [employees, settingsRecord, library, existing, shifts] = await Promise.all([
+    const [employees, settingsRecord, library, existing, shifts, dayShifts] = await Promise.all([
       this.store.listEmployees({ storeId }),
       this.store.getEffectiveSettings(storeId, shiftDate),
       this.store.listLibraryTasks(),
@@ -113,6 +123,11 @@ class SellerTasksService {
         dateFrom: windowStartDate,
         dateTo: windowEndDate,
       }),
+      this.store.listShifts({
+        storeId,
+        dateFrom: shiftDate,
+        dateTo: shiftDate,
+      }),
     ]);
     const assignedEmployees = new Set(
       existing
@@ -120,8 +135,38 @@ class SellerTasksService {
           proposal.status !== PROPOSAL_STATUSES.REJECTED && proposal.shiftDate === shiftDate)
         .map(proposal => proposal.employeeId)
     );
-    const sellers = employees.filter(employee =>
-      employee.participatesInSellerKpi !== false && !assignedEmployees.has(employee.id));
+    const eligibleSellers = employees.filter(isEligibleSeller);
+
+    /* Resolve exactly who works the chosen shift. Planner must never guess:
+       either the store's shift data names the seller, or the owner picks one
+       explicitly. No «every active employee» fallback. */
+    let sellers;
+    let sellerSource;
+    if (input.employeeId) {
+      const picked = eligibleSellers.find(employee => employee.id === input.employeeId);
+      if (!picked) {
+        throw new ApplicationError('EMPLOYEE_NOT_FOUND', 'Продавец не найден.', 404);
+      }
+      sellers = [picked];
+      sellerSource = 'MANUAL';
+    } else {
+      const shiftEmployeeIds = new Set(dayShifts.map(shift => shift.employeeId));
+      sellers = eligibleSellers.filter(employee => shiftEmployeeIds.has(employee.id));
+      sellerSource = 'SHIFT';
+    }
+    if (!sellers.length) {
+      return {
+        sellerResolved: false,
+        sellerSource: 'NONE',
+        eligibleSellers: eligibleSellers.map(employee => ({
+          id: employee.id,
+          displayName: employee.displayName,
+        })),
+        created: [],
+        skippedDuplicates: [],
+      };
+    }
+    sellers = sellers.filter(employee => !assignedEmployees.has(employee.id));
 
     const performance = buildSellerPerformance({
       shifts,
@@ -195,7 +240,13 @@ class SellerTasksService {
         throw error;
       }
     }
-    return { created, skippedDuplicates: skipped };
+    return {
+      sellerResolved: true,
+      sellerSource,
+      sellers: sellers.map(employee => ({ id: employee.id, displayName: employee.displayName })),
+      created,
+      skippedDuplicates: skipped,
+    };
   }
 
   async listProposals(filters, actor) {
@@ -310,7 +361,8 @@ class SellerTasksService {
       throw new ApplicationError('STORE_NOT_FOUND', 'Магазин не найден.', 404);
     }
     const employee = await this.store.getEmployee(employeeId);
-    if (!employee || employee.storeId !== storeId || employee.active === false) {
+    if (!employee || employee.storeId !== storeId || employee.active === false ||
+        !isEligibleSeller(employee)) {
       throw new ApplicationError('EMPLOYEE_NOT_FOUND', 'Продавец не найден.', 404);
     }
 

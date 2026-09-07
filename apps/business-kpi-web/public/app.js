@@ -1833,7 +1833,8 @@ function renderManualTaskLibrary() {
 
 function renderManualTaskEmployees() {
   const select = element('manual-task-employee');
-  const sellers = state.employees.filter(employee => employee.participatesInSellerKpi !== false);
+  const sellers = state.employees.filter(employee =>
+    employee.participatesInSellerKpi !== false && Boolean(employee.userId));
   select.replaceChildren(...sellers.map(employee => {
     const option = document.createElement('option');
     option.value = employee.id;
@@ -1874,11 +1875,27 @@ async function generateTaskProposals() {
     showMessage('Укажите дату смены.', 'error');
     return;
   }
+  const sellerPick = element('task-seller-pick');
+  const employeeId = sellerPick.value || undefined;
   try {
     const result = await api('/api/business-kpi/seller-tasks/generate', {
       method: 'POST',
-      body: JSON.stringify({ storeId: selectedStoreId(), shiftDate }),
+      body: JSON.stringify({ storeId: selectedStoreId(), shiftDate, employeeId }),
     });
+    if (result.sellerResolved === false) {
+      sellerPick.replaceChildren(...(result.eligibleSellers || []).map(seller => {
+        const option = document.createElement('option');
+        option.value = seller.id;
+        option.textContent = seller.displayName;
+        return option;
+      }));
+      element('task-seller-pick-field').hidden = false;
+      element('task-seller-hint').hidden = false;
+      showMessage('Продавец смены не определён — требуется выбор владельца.', 'error');
+      return;
+    }
+    element('task-seller-pick-field').hidden = true;
+    element('task-seller-hint').hidden = true;
     showMessage(`Сформировано предложений: ${result.created.length}.`);
     await refreshTasks();
   } catch (error) {
@@ -2633,6 +2650,9 @@ element('shifts-sort').addEventListener('change', () => renderShifts(state.shift
 element('open-shift-form').addEventListener('click', () => openShiftDialog());
 element('task-generate').addEventListener('click', generateTaskProposals);
 element('task-shift-date').addEventListener('change', () => {
+  element('task-seller-pick-field').hidden = true;
+  element('task-seller-hint').hidden = true;
+  element('task-seller-pick').replaceChildren();
   renderTaskList('task-proposals', pendingTasks(), 'task-proposals-empty');
 });
 element('manual-task-assign').addEventListener('click', assignManualTask);

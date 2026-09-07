@@ -457,8 +457,14 @@
                 <label class="compact-field">Дата смены
                   <input id="task-shift-date" type="date">
                 </label>
+                <label class="compact-field" id="task-seller-pick-field" hidden>Продавец на смену
+                  <select id="task-seller-pick"></select>
+                </label>
                 <button class="primary-button" id="task-generate" type="button">Сформировать предложения</button>
               </div>
+              <p class="field-help" id="task-seller-hint" hidden>
+                Продавец смены не определён — выберите продавца вручную и сформируйте предложения повторно.
+              </p>
               <div id="task-proposals" class="task-list"></div>
               <p class="empty-copy" id="task-proposals-empty" hidden>Нет предложений на согласовании. Сформируйте предложения на дату смены.</p>
             </article>

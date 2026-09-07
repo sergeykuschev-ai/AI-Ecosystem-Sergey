@@ -274,15 +274,52 @@ test('library endpoint returns the full seeded task library', async () => {
   assert.equal(knowledge.questions.length, 3);
 });
 
-test('generate creates proposals and a second run creates no duplicates', async () => {
+test('generate without shift data requires owner pick and creates nothing', async () => {
+  const response = await post('/api/business-kpi/seller-tasks/generate', ownerHeaders, {
+    storeId: DEV_STORE.id,
+    shiftDate: '2026-09-08',
+  });
+  assert.equal(response.status, 201);
+  const body = await response.json();
+  assert.equal(body.data.sellerResolved, false);
+  assert.equal(body.data.sellerSource, 'NONE');
+  assert.equal(body.data.created.length, 0);
+  const names = body.data.eligibleSellers.map(seller => seller.displayName);
+  assert.ok(names.includes('Капитанова') && names.includes('Чередниченко'));
+  assert.ok(!names.includes('Продавец 1') && !names.includes('Продавец 2'));
+  assert.ok(!names.includes('Кущев'));
+});
+
+test('generate with shift data creates proposals only for the shift seller', async () => {
+  const kapitanova = DEV_EMPLOYEES.find(e => e.employeeCode === 'seller-kapitanova');
+  await server.businessKpiStore.createShift({
+    id: '30000000-0000-4000-8000-000000000001',
+    storeId: DEV_STORE.id,
+    employeeId: kapitanova.id,
+    shiftDate: SHIFT_DATE,
+    shiftKey: 'main',
+    cash: 0, acquiring: 0, qr: 0, receipts: 0, itemsSold: 0, upsellReceipts: 0,
+    treatsRevenue: 0, treatsReceipts: 0, comment: null, source: 'manual',
+    sourceRef: null, createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(), importRunId: null,
+    historicalRevenue: null, revenueSource: null, paymentBreakdownAvailable: false,
+    sourceReference: null, originalImportedInput: null,
+  });
+
   const first = await post('/api/business-kpi/seller-tasks/generate', ownerHeaders, {
     storeId: DEV_STORE.id,
     shiftDate: SHIFT_DATE,
   });
   assert.equal(first.status, 201);
   const firstBody = await first.json();
-  assert.ok(firstBody.data.created.length >= 4, `expected proposals, got ${firstBody.data.created.length}`);
+  assert.equal(firstBody.data.sellerResolved, true);
+  assert.equal(firstBody.data.sellerSource, 'SHIFT');
+  /* Zero-value seed shift misses KPI targets, so the KPI task mapping stays
+     active: SALES + STORE + KNOWLEDGE = 3 proposals for the shift seller. */
+  assert.equal(firstBody.data.created.length, 3);
+  assert.equal(firstBody.data.created[0].taskType, 'SALES');
   assert.ok(firstBody.data.created.every(p => p.status === 'PENDING' && p.source === 'ARTHUR'));
+  assert.ok(firstBody.data.created.every(p => p.employeeId === kapitanova.id));
 
   const second = await post('/api/business-kpi/seller-tasks/generate', ownerHeaders, {
     storeId: DEV_STORE.id,
@@ -295,7 +332,43 @@ test('generate creates proposals and a second run creates no duplicates', async 
     `${baseUrl}/api/business-kpi/seller-tasks/proposals?store=${DEV_STORE.id}&status=PENDING`,
     { headers: authHeaders(ownerHeaders) }
   );
-  assert.equal((await pending.json()).data.items.length, firstBody.data.created.length);
+  const pendingItems = (await pending.json()).data.items;
+  assert.equal(pendingItems.length, firstBody.data.created.length);
+  assert.ok(pendingItems.every(p => p.employeeId === kapitanova.id));
+});
+
+test('generate with owner-picked seller creates proposals only for that seller', async () => {
+  const cherednichenko = DEV_EMPLOYEES.find(e => e.employeeCode === 'seller-cherednichenko');
+  const response = await post('/api/business-kpi/seller-tasks/generate', ownerHeaders, {
+    storeId: DEV_STORE.id,
+    shiftDate: '2026-09-08',
+    employeeId: cherednichenko.id,
+  });
+  assert.equal(response.status, 201);
+  const body = await response.json();
+  assert.equal(body.data.sellerResolved, true);
+  assert.equal(body.data.sellerSource, 'MANUAL');
+  assert.equal(body.data.created.length, 2);
+  assert.ok(body.data.created.every(p => p.employeeId === cherednichenko.id));
+
+  const pickDemo = await post('/api/business-kpi/seller-tasks/generate', ownerHeaders, {
+    storeId: DEV_STORE.id,
+    shiftDate: '2026-09-08',
+    employeeId: DEV_EMPLOYEES.find(e => e.employeeCode === 'seller-demo-1').id,
+  });
+  assert.equal(pickDemo.status, 404);
+});
+
+test('manual assignment rejects demo employees without a linked account', async () => {
+  const response = await post('/api/business-kpi/seller-tasks', ownerHeaders, {
+    storeId: DEV_STORE.id,
+    employeeId: DEV_EMPLOYEES.find(e => e.employeeCode === 'seller-demo-2').id,
+    shiftDate: SHIFT_DATE,
+    taskType: 'STORE',
+    title: 'Техническая задача',
+    description: 'Не должна быть создана.',
+  });
+  assert.equal(response.status, 404);
 });
 
 test('seller role is denied task management and reading', async () => {

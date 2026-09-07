@@ -642,6 +642,7 @@ function createRouter(options) {
         success(response, await sellerTasksService.generateProposals({
           storeId: body.storeId,
           shiftDate: body.shiftDate,
+          employeeId: body.employeeId,
         }, actor), 201);
         return;
       }
