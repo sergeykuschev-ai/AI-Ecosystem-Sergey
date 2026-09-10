@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, test } from "node:test";
 import type { Metadata } from "next";
+import { NextRequest } from "next/server";
 import sitemap from "@/app/sitemap";
 import robots from "@/app/robots";
 import { CANONICAL_BRAND_SLUGS } from "@/lib/constants/brands";
-import { siteUrl } from "@/lib/seo/metadata";
+import { siteUrl, createPageMetadata, DEFAULT_OG_IMAGE_ALT, DEFAULT_OG_IMAGE_PATH } from "@/lib/seo/metadata";
 import { mockCities, mockStores } from "@/lib/data/mock-data";
+import { proxy } from "@/proxy";
 import * as amperPage from "@/app/amper/page";
 import * as ventilPage from "@/app/ventil/page";
 import * as metizMarketPage from "@/app/metiz-market/page";
@@ -139,5 +143,49 @@ describe("robots", () => {
   test("declares the sitemap on the site origin", () => {
     const result = robots();
     assert.equal(result.sitemap, new URL("/sitemap.xml", siteUrl).href);
+  });
+});
+
+describe("default Open Graph image", () => {
+  test("createPageMetadata references the shared image with alt text on every page", () => {
+    // The root opengraph-image.png file convention only applies to the root
+    // segment; child segments that define their own openGraph metadata do not
+    // inherit it, so the shared image must be attached explicitly.
+    const metadata = createPageMetadata({ title: "Title", description: "Description", path: "/faq/" });
+    const images = metadata.openGraph?.images;
+    assert.ok(Array.isArray(images), "openGraph.images must be an array");
+    assert.equal(images.length, 1, "exactly one default og:image must be emitted");
+    const image = images[0] as { url?: unknown; alt?: unknown };
+    assert.equal(image.url, DEFAULT_OG_IMAGE_PATH);
+    assert.equal(image.alt, DEFAULT_OG_IMAGE_ALT);
+  });
+});
+
+describe("trailing-slash proxy", () => {
+  const runProxy = (path: string) => proxy(new NextRequest(new URL(path, siteUrl).href));
+
+  test("extensionless public paths redirect once to the trailing-slash canonical URL", () => {
+    for (const path of ["/amper", "/kontakty", "/bonus"]) {
+      const response = runProxy(path);
+      assert.equal(response.status, 308, `${path} must return 308`);
+      const location = response.headers.get("location");
+      assert.ok(location, `${path} must set a Location header`);
+      assert.equal(new URL(location, siteUrl).href, new URL(`${path}/`, siteUrl).href, `${path} redirect target`);
+    }
+  });
+
+  test("canonical, api, and asset URLs pass through without a redirect loop", () => {
+    for (const path of ["/", "/amper/", "/kontakty/", "/api/health", "/opengraph-image.png"]) {
+      const response = runProxy(path);
+      assert.notEqual(response.status, 308, `${path} must not be redirected again`);
+    }
+  });
+});
+
+describe("city page structured data", () => {
+  test("city page renders the LocalBusiness JSON-LD graph for its stores", () => {
+    const source = readFileSync(path.join(process.cwd(), "app", "stores", "[city]", "page.tsx"), "utf8");
+    assert.ok(source.includes("createStoresJsonLd"), "city page must build the store JSON-LD graph");
+    assert.ok(source.includes("<JsonLd"), "city page must render a JsonLd script block");
   });
 });

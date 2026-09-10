@@ -6,6 +6,13 @@ if (!rawSiteUrl) {
 }
 export const siteUrl = new URL(rawSiteUrl);
 
+// The default Open Graph image lives in the root segment as the
+// opengraph-image.png file convention, but Next does not inherit file-based
+// Open Graph images into child segments that define their own openGraph
+// metadata, so every page must reference it explicitly.
+export const DEFAULT_OG_IMAGE_PATH = "/opengraph-image.png";
+export const DEFAULT_OG_IMAGE_ALT = "Магазины Ампер, Вентиль, Метиз Маркет и Миска в Амурске";
+
 interface PageMetadataInput {
   title: string;
   description: string;
@@ -27,6 +34,7 @@ export function createPageMetadata({ title, description, path, noIndex = false }
       siteName: "Магазины Амурска",
       title,
       description,
+      images: [{ url: DEFAULT_OG_IMAGE_PATH, alt: DEFAULT_OG_IMAGE_ALT }],
     },
   };
 }

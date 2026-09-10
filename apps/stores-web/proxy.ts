@@ -10,8 +10,10 @@ export function proxy(request: NextRequest) {
 
   if (!isPublicPageWithoutSlash) return NextResponse.next();
 
-  const canonicalUrl = request.nextUrl.clone();
-  canonicalUrl.pathname = `${pathname}/`;
+  // request.nextUrl is a NextURL whose pathname setter silently drops the
+  // trailing slash in Next 16, which turned this redirect into an infinite
+  // 308 loop; build the target with the standard URL constructor instead.
+  const canonicalUrl = new URL(`${pathname}/`, request.url);
   return NextResponse.redirect(canonicalUrl, 308);
 }
 
