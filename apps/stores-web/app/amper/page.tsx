@@ -59,7 +59,7 @@ const BONUS_FACTS = [
 const BONUS_NOTE = `Бонусная карта в «Ампере» выдаётся при покупке от ${formatRubles(BONUS_CARD_THRESHOLDS_RUB.amper)}.`;
 
 const CONTACT_NOTE =
-  "Магазин находится в центре Амурска: рядом автобусные остановки, удобно добираться пешком.";
+  "В «Ампере» можно купить товары для электромонта, освещение, электроинструмент и расходные материалы. Магазин находится в центре Амурска: рядом автобусные остановки, удобно добираться пешком.";
 
 function AmperFeaturedSections() {
   return (
@@ -137,7 +137,7 @@ export default function Page() {
     <BrandLandingPage
       slug="amper"
       heroEyebrow="Ампер"
-      heroTitle="Электротовары для дома и ремонта в Амурске"
+      heroTitle="«Ампер» — магазин электротоваров в Амурске"
       heroLead="Электротовары, товары для электромонтажа, освещение, электроинструмент и расходные материалы — в магазине «Ампер» на проспекте Победы, 16."
       nameInPrepositional="Ампере"
       assortmentHeading="Что можно найти в «Ампере»"
@@ -148,6 +148,7 @@ export default function Page() {
       contactNote={CONTACT_NOTE}
       contactCallAction
       contactsHref="/kontakty/"
+      cityStoresHref="/stores/amursk/"
     />
   );
 }

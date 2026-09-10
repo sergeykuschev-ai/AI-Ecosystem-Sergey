@@ -65,3 +65,32 @@ describe("local SEO internal linking", () => {
     }
   });
 });
+
+describe("Ампер local commercial signals", () => {
+  const amperSource = source("app", "amper", "page.tsx");
+
+  test("metadata and visible H1 identify Ампер as an electrical goods store in Amursk", () => {
+    assert.match(String(amperPage.metadata.title), /Ампер.*магазин электротоваров в Амурске/i);
+    assert.ok(
+      amperSource.includes('heroTitle="«Ампер» — магазин электротоваров в Амурске"'),
+      "visible H1 must connect the brand, category and city",
+    );
+  });
+
+  test("local block uses approved assortment categories and confirmed store data", () => {
+    for (const category of ["товары для электромонта", "освещение", "электроинструмент", "расходные материалы"]) {
+      assert.ok(amperSource.includes(category), `Amper page must mention ${category}`);
+    }
+
+    const contactSource = source("components", "stores", "BrandStoreContact.tsx");
+    for (const field of ["store.address", "store.opening_hours", "store.telephone", "store.map_links"]) {
+      assert.ok(contactSource.includes(field), `local block must derive ${field} from store data`);
+    }
+  });
+
+  test("page links to contacts, Amursk stores and bonus programme", () => {
+    for (const href of ["/kontakty/", "/stores/amursk/", "/bonus/"]) {
+      assert.ok(amperSource.includes(`\"${href}\"`), `Amper page must link to ${href}`);
+    }
+  });
+});
