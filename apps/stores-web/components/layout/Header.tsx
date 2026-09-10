@@ -10,7 +10,7 @@ export interface PrimaryNavLink {
 }
 
 export const primaryLinks: ReadonlyArray<PrimaryNavLink> = [
-  { label: "Магазины", href: "/stores/", event: "store_open" },
+  { label: "Магазины", href: "/stores/", event: null },
   { label: "Акции", href: "/akcii/", event: "promotion_open" },
   { label: "Бонусы", href: "/bonus/", event: "bonus_open" },
   { label: "Вакансии", href: "/vakansii/", event: "vacancy_open" },
