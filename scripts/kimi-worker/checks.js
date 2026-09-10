@@ -54,6 +54,21 @@ async function fileExists(p) {
   }
 }
 
+// Hermetic environment for an npm check: only the runtime minimum
+// (PATH/HOME/npm cache) plus the area's fixed, non-secret test overrides.
+// The process environment is NOT inherited, so host secrets and host
+// .env-derived values can never leak into validation builds, and nothing
+// real is logged alongside the build output.
+function npmCheckEnv(area) {
+  const env = {
+    PATH: process.env.PATH,
+    HOME: process.env.HOME,
+    npm_config_cache: `/private/tmp/kimi-npm-check-${process.pid}`,
+  };
+  if (area.buildTestEnv) Object.assign(env, area.buildTestEnv);
+  return env;
+}
+
 // Runs the area's check list. Stops at the first failure. A failed check
 // means the worker must NOT commit.
 async function runChecks(worktreePath, area, log) {
@@ -82,9 +97,13 @@ async function runChecks(worktreePath, area, log) {
     }
     if (!check.startsWith('npm:')) continue;
     const script = check.slice(4);
-    log.info(`Running ${check} in ${area.packageDir} ...`);
+    // npm:build runs hermetically with the area's fixed test overrides —
+    // never with the inherited process environment (see npmCheckEnv).
+    const env = check === 'npm:build' && area.buildTestEnv ? npmCheckEnv(area) : undefined;
+    log.info(`Running ${check} in ${area.packageDir}${env ? ` with fixed test env overrides: ${Object.keys(area.buildTestEnv).join(', ')}` : ''} ...`);
     const result = await run('npm', ['run', script], {
       cwd: `${worktreePath}/${area.packageDir}`,
+      env,
     });
     results.push({ name: check, ok: result.ok, output: tail(result.stderr || result.stdout) });
     if (!result.ok) break;
@@ -93,4 +112,4 @@ async function runChecks(worktreePath, area, log) {
   return results;
 }
 
-module.exports = { runChecks, run };
+module.exports = { runChecks, run, npmCheckEnv };

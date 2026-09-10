@@ -42,6 +42,16 @@ const config = {
       allowedPaths: ['apps/stores-web/'],
       checks: ['git-diff-check', 'npm:lint', 'npm:typecheck', 'npm:build'],
       packageDir: 'apps/stores-web',
+      // Fixed, non-secret test values for `npm run build` in the validation
+      // worktree (issue #37: build failed with "NEXT_PUBLIC_SITE_URL or
+      // SITE_URL must be configured" because the worktree deliberately has
+      // no .env). These are the ONLY env overrides the build receives; they
+      // must never be sourced from .env, the process environment, or any
+      // production value.
+      buildTestEnv: Object.freeze({
+        NEXT_PUBLIC_SITE_URL: 'https://example.invalid',
+        CONTENT_SOURCE: 'mock',
+      }),
     },
   },
 

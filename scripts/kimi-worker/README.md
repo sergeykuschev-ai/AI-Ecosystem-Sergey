@@ -67,6 +67,12 @@ Four independent layers:
    (never followed by the secret scan); staged content is scanned for
    credential-shaped strings; `git diff --check` + lint/typecheck/build must
    pass. Any failure means nothing is committed.
+   `npm run build` runs **hermetically**: it inherits neither the worker's
+   process environment nor any `.env` (task worktrees have none); it receives
+   only `PATH`/`HOME`/npm cache plus the area's fixed, non-secret
+   `buildTestEnv` overrides from `config.js` (for stores-web:
+   `NEXT_PUBLIC_SITE_URL=https://example.invalid`, `CONTENT_SOURCE=mock`).
+   See `tests/build-env.test.js`.
 4. **Worker git discipline** — the worker itself only ever fetches, creates
    task worktrees/branches from `origin/main`, commits on the task branch
    and pushes that branch. `reset`/`clean`/`rebase`/`force-push`/`merge` do
@@ -159,3 +165,6 @@ Environment variables (see `config.js` for defaults):
 | `AIKIMI_REQUIRED_LABEL` | permission label (default `ai:kimi`) |
 
 New areas: add an entry to `config.areas` with `allowedPaths` and `checks`.
+If the area's `npm run build` requires non-secret configuration (the worktree
+has no `.env`), declare fixed test values in `buildTestEnv` — they are the
+only env overrides the build receives.
