@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { TrackedLink } from "@/components/analytics/TrackedLink";
 import type { Brand } from "@/types/brand";
 import type { City } from "@/types/city";
 import type { Store } from "@/types/store";
@@ -52,7 +52,9 @@ export function HomeStoreCard({ store, brand, city, operatingStatus = null }: Ho
           <dt>Телефон</dt>
           <dd>
             {store.telephone ? (
-              <a href={`tel:${store.telephone.replace(/[^\d+]/g, "")}`}>{store.telephone}</a>
+              <TrackedLink event="click_phone" payload={{ brand: brand.slug, store: store.slug }} href={`tel:${store.telephone.replace(/[^\d+]/g, "")}`}>
+                {store.telephone}
+              </TrackedLink>
             ) : (
               <span className="store-preview-card__placeholder">Телефон будет добавлен</span>
             )}
@@ -60,16 +62,22 @@ export function HomeStoreCard({ store, brand, city, operatingStatus = null }: Ho
         </div>
       </dl>
       <div className="store-preview-card__actions">
-        <Link className="button button--primary" href={`/stores/${city.slug}/${store.slug}/`}>Подробнее</Link>
+        <TrackedLink className="button button--primary" event="store_open" payload={{ city: city.slug, store: store.slug, brand: brand.slug }} href={`/stores/${city.slug}/${store.slug}/`}>
+          Подробнее
+        </TrackedLink>
         {store.telephone ? (
-          <a className="button button--secondary" href={`tel:${store.telephone.replace(/[^\d+]/g, "")}`}>Позвонить</a>
+          <TrackedLink className="button button--secondary" event="click_phone" payload={{ brand: brand.slug, store: store.slug }} href={`tel:${store.telephone.replace(/[^\d+]/g, "")}`}>
+            Позвонить
+          </TrackedLink>
         ) : (
           <button className="button button--secondary" type="button" disabled title="Телефон будет добавлен позже">
             Позвонить
           </button>
         )}
         {mapLink ? (
-          <a className="button button--secondary" href={mapLink.url} target="_blank" rel="noopener noreferrer">Маршрут на карте</a>
+          <TrackedLink className="button button--secondary" event="click_route" payload={{ brand: brand.slug, store: store.slug }} href={mapLink.url} target="_blank" rel="noopener noreferrer">
+            Маршрут на карте
+          </TrackedLink>
         ) : (
           <button className="button button--secondary" type="button" disabled title="Ссылка на карту будет добавлена после подтверждения адреса">
             Маршрут на карте

@@ -2,14 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
-
-declare global {
-  interface Window {
-    ym?: (id: number, method: string, ...args: unknown[]) => void;
-  }
-}
-
-const COUNTER_ID = 112116056;
+import { YANDEX_METRIKA_COUNTER_ID as COUNTER_ID } from "@/lib/analytics/yandex-metrika";
 
 export function YandexMetrika() {
   const pathname = usePathname();

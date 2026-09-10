@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { TrackedLink } from "@/components/analytics/TrackedLink";
 import type { Brand } from "@/types/brand";
 import type { City } from "@/types/city";
 import type { OpeningHoursEntry, Store } from "@/types/store";
@@ -68,22 +69,32 @@ export function BrandStoreContact({
         </div>
         <div>
           <dt>Телефон</dt>
-          <dd>{store.telephone && telephoneHref ? <a href={`tel:${telephoneHref}`}>{store.telephone}</a> : "Телефон уточняется"}</dd>
+          <dd>
+            {store.telephone && telephoneHref ? (
+              <TrackedLink event="click_phone" payload={{ brand: brand.slug, store: store.slug }} href={`tel:${telephoneHref}`}>
+                {store.telephone}
+              </TrackedLink>
+            ) : (
+              "Телефон уточняется"
+            )}
+          </dd>
         </div>
       </dl>
       {note ? <p className="brand-store-contact__note">{note}</p> : null}
       <div className="brand-store-contact__actions">
         {showCallAction && store.telephone && telephoneHref ? (
-          <a className="button button--primary" href={`tel:${telephoneHref}`}>
+          <TrackedLink className="button button--primary" event="click_phone" payload={{ brand: brand.slug, store: store.slug }} href={`tel:${telephoneHref}`}>
             Позвонить
-          </a>
+          </TrackedLink>
         ) : null}
-        <Link href={`/stores/${city.slug}/${store.slug}/`}>Подробнее о торговой точке</Link>
+        <TrackedLink event="store_open" payload={{ city: city.slug, store: store.slug, brand: brand.slug }} href={`/stores/${city.slug}/${store.slug}/`}>
+          Подробнее о торговой точке
+        </TrackedLink>
         {contactsHref ? <Link href={contactsHref}>Контакты</Link> : null}
         {mapLink && (
-          <a href={mapLink.url} target="_blank" rel="noopener noreferrer">
+          <TrackedLink event="click_route" payload={{ brand: brand.slug, store: store.slug }} href={mapLink.url} target="_blank" rel="noopener noreferrer">
             Показать на карте <span aria-hidden="true">↗</span>
-          </a>
+          </TrackedLink>
         )}
       </div>
     </article>

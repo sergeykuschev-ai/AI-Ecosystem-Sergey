@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { TrackedLink } from "@/components/analytics/TrackedLink";
 import { StaticPage } from "@/components/content/StaticPage";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { JsonLd } from "@/components/seo/JsonLd";
@@ -96,9 +97,9 @@ export default async function AboutPage() {
                   <p className="about-brand-card__tag">{card.tag}</p>
                   <p>{card.text}</p>
                   {card.note ? <p className="about-brand-card__note">{card.note}</p> : null}
-                  <Link href={`/${card.slug}/`}>
+                  <TrackedLink event="brand_open" payload={{ brand: card.slug }} href={`/${card.slug}/`}>
                     О магазине <span aria-hidden="true">→</span>
-                  </Link>
+                  </TrackedLink>
                 </article>
               );
             })}
@@ -113,9 +114,9 @@ export default async function AboutPage() {
               Контакты и режим работы
             </Link>
             {mapUrl ? (
-              <a className="button button--secondary" href={mapUrl} target="_blank" rel="noopener noreferrer">
+              <TrackedLink className="button button--secondary" event="click_route" payload={{ source: "about" }} href={mapUrl} target="_blank" rel="noopener noreferrer">
                 Показать на карте
-              </a>
+              </TrackedLink>
             ) : null}
           </div>
         </section>
@@ -131,18 +132,18 @@ export default async function AboutPage() {
             <p>{MISKA_TEXT}</p>
             <p>{MISKA_CLOTHING_TEXT}</p>
           </div>
-          <Link className="button button--secondary" href="/miska/">
+          <TrackedLink className="button button--secondary" event="brand_open" payload={{ brand: "miska" }} href="/miska/">
             Подробнее о «Миске»
-          </Link>
+          </TrackedLink>
         </section>
 
         <section className="about-section" aria-labelledby="about-choose-title">
           <h2 id="about-choose-title">Выберите нужный магазин</h2>
           <div className="button-row">
             {ABOUT_BRAND_CARDS.map((card) => (
-              <Link className="button button--secondary" href={`/${card.slug}/`} key={card.slug}>
+              <TrackedLink className="button button--secondary" event="brand_open" payload={{ brand: card.slug }} href={`/${card.slug}/`} key={card.slug}>
                 {card.name}
-              </Link>
+              </TrackedLink>
             ))}
             <Link className="button button--primary" href="/kontakty/">
               Контакты и режим работы

@@ -206,7 +206,7 @@ Critical brand, locality, store, category, FAQ, promotion, and vacancy content i
 
 ## Analytics and IndexNow
 
-`lib/analytics/` defines stable event names for phone, route, messenger, stock, brand, store, promotion, bonus, and vacancy interactions. Its default adapter is a no-op. A later Yandex Metrica or Google Analytics adapter can be installed without changing domain components.
+`lib/analytics/` defines stable event names for phone, route, messenger, stock, brand, store, promotion, bonus, and vacancy interactions. `components/analytics/AnalyticsProvider.tsx` installs a Yandex Metrica adapter that forwards these events as `reachGoal` calls through the existing counter; if `window.ym` is unavailable, events are skipped without errors. Domain components stay provider-neutral by rendering `TrackedLink` or calling `trackEvent`. Goal names, params, and privacy rules are documented in `docs/ANALYTICS.md`.
 
 `services/indexnow.ts` validates configuration, deduplicates URLs, applies the trusted site origin, rejects URLs outside that origin, enforces a timeout, and returns a small result contract. A dynamic root route serves `/{INDEXNOW_KEY}.txt` only when a key is configured. The service performs no requests unless explicitly called by future server-side webhook code; nothing in the app invokes it automatically.
 
