@@ -4,7 +4,7 @@ Date: 2026-09-10. Scope: `apps/stores-web/**` after issue #76. Read-only audit: 
 
 ## Verdict
 
-No verified P0/P1 defects. No code changes were required. All checks below were run in this environment and passed.
+No verified P0/P1 defects. No code changes were required. All deterministic validation checks passed. The local standalone smoke had one expected origin-only mismatch because it was built for the CI test origin; production smoke is required after deploy.
 
 ## Checks performed
 
@@ -46,7 +46,7 @@ No verified P0/P1 defects. No code changes were required. All checks below were 
 
 ### Tooling results
 
-- `npm test`: 89/89 passed (29 suites).
+- `npm test`: 90/90 passed (29 suites).
 - `npm run lint`: clean (`--max-warnings=0`).
 - `npm run typecheck`: clean.
 - Hermetic `npm run build` (`CONTENT_SOURCE=mock NEXT_PUBLIC_SITE_URL=https://stores-ci.example`): succeeded; 13 static pages generated.
