@@ -52,6 +52,18 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Secret scan (stores-web)
+        run: |
+          set -euo pipefail
+          matches=$(grep -RInE 'AKIA[0-9A-Z]{16}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----|DIRECTUS_SERVER_TOKEN\s*=\s*["'"'"']?[A-Za-z0-9]{16,}' \
+            --exclude-dir=node_modules --exclude-dir=.next --exclude=package-lock.json . || true)
+          if [ -n "$matches" ]; then
+            echo "$matches" >&2
+            echo "Potential secrets detected in apps/stores-web" >&2
+            exit 1
+          fi
+          echo "Secret scan: clean"
+
       - name: Build (hermetic, mock content)
         env:
           CONTENT_SOURCE: mock
