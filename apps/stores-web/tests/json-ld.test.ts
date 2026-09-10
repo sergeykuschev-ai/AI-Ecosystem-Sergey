@@ -24,6 +24,7 @@ const FORBIDDEN_KEYS = new Set([
   "offer",
   "price",
   "priceRange",
+  "sameAs",
 ]);
 
 function collectForbiddenKeys(value: unknown, path: string, found: string[]): void {
@@ -97,6 +98,21 @@ describe("JSON-LD builders", () => {
       const jsonLd = createStoreJsonLd(store, brand, amursk);
       assert.equal(jsonLd["@type"], expectedTypes[slug], `schema type for ${slug}`);
       assert.equal(jsonLd["@id"], new URL(`/stores/amursk/${store.slug}/#business`, siteUrl).href);
+      assert.equal(jsonLd.name, store.name, `name must come from the canonical store for ${slug}`);
+      assert.equal(jsonLd.telephone, store.telephone, `telephone must come from the canonical store for ${slug}`);
+      const address = jsonLd.address as JsonLdObject;
+      assert.equal(address.streetAddress, store.address, `address must come from the canonical store for ${slug}`);
+      assert.deepEqual(
+        jsonLd.openingHoursSpecification,
+        store.opening_hours.map((entry) => ({
+          "@type": "OpeningHoursSpecification",
+          dayOfWeek: entry.days,
+          opens: entry.opens,
+          closes: entry.closes,
+        })),
+        `opening hours must come from the canonical store for ${slug}`,
+      );
+      assert.equal(jsonLd.geo, undefined, `geo must not be emitted without confirmed coordinates for ${slug}`);
       assertNoFabricatedCommerceData(jsonLd, `store JSON-LD for ${slug}`);
     }
   });
@@ -105,6 +121,19 @@ describe("JSON-LD builders", () => {
     const jsonLd = createStoresJsonLd(mockStores, [], amursk);
     const graph = jsonLd["@graph"] as JsonLdObject[];
     assert.equal(graph.length, 0);
+  });
+
+  test("stores graph contains one uniquely identified LocalBusiness entity per store", () => {
+    const jsonLd = createStoresJsonLd(mockStores, mockBrands, amursk);
+    const graph = jsonLd["@graph"] as JsonLdObject[];
+    const ids = graph.map((entry) => entry["@id"]);
+
+    assert.equal(graph.length, mockStores.length);
+    assert.equal(new Set(ids).size, graph.length, "store JSON-LD must not contain duplicate entities");
+    for (const store of mockStores) {
+      const id = new URL(`/stores/amursk/${store.slug}/#business`, siteUrl).href;
+      assert.equal(ids.filter((candidate) => candidate === id).length, 1, `${store.slug} must occur exactly once`);
+    }
   });
 
   test("breadcrumb JSON-LD uses absolute canonical item URLs", () => {

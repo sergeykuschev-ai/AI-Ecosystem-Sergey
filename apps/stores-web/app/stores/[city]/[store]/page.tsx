@@ -75,6 +75,7 @@ export default async function StorePage({ params }: StorePageProps) {
             Направления ассортимента, актуальные акции и бонусная программа — на{" "}
             <Link href={`/${brand.slug}/`}>странице магазина «{brand.name}»</Link>.
           </p>
+          <p><Link href="/kontakty/">Контакты всех магазинов</Link></p>
         </section>
       </Container>
     </main>
