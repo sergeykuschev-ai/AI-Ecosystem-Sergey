@@ -18,8 +18,9 @@ const typeEvents: Partial<Record<ActualItemType, AnalyticsEventName>> = {
   bonus: "bonus_open",
 };
 
-export function BrandActualList({ items }: { items: ActualItem[] }) {
+export function BrandActualList({ items, headingLevel = 3 }: { items: ActualItem[]; headingLevel?: 2 | 3 }) {
   const hasPortraitImage = items.some((item) => item.imageOrientation === "portrait");
+  const HeadingTag = `h${headingLevel}` as const;
 
   return (
     <div className={`brand-actual-grid${hasPortraitImage ? " brand-actual-grid--mixed-media" : ""}`}>
@@ -40,7 +41,7 @@ export function BrandActualList({ items }: { items: ActualItem[] }) {
             )}
             <div className="brand-actual-card__content">
               <p className="brand-actual-card__type">{typeLabels[item.type]}</p>
-              <h3>{item.title}</h3>
+              <HeadingTag className="brand-actual-card__title">{item.title}</HeadingTag>
               {item.shortText && <p className="brand-actual-card__text">{item.shortText}</p>}
               {item.buttonUrl &&
                 (event ? (

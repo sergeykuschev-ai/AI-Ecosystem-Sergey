@@ -12,6 +12,7 @@
     "smoke:production": "tsx scripts/smoke/production.ts",
     "diagnose:production": "tsx scripts/diagnostics/production.ts",
     "audit:seo": "tsx scripts/seo-audit/production.ts",
+    "audit:accessibility": "tsx scripts/accessibility-audit/production.ts",
     "directus:schema:apply": "tsx scripts/directus/schema.ts",
     "directus:seed": "tsx scripts/directus/seed.ts",
     "directus:check": "tsx scripts/directus/check.ts",
@@ -25,11 +26,14 @@
     "react-dom": "19.2.4"
   },
   "devDependencies": {
+    "@types/jsdom": "^30.0.0",
     "@types/node": "24.3.0",
     "@types/react": "19.1.12",
     "@types/react-dom": "19.1.9",
+    "axe-core": "^4.13.0",
     "eslint": "9.34.0",
     "eslint-config-next": "16.3.3",
+    "jsdom": "^30.0.1",
     "tsx": "4.19.3",
     "typescript": "5.9.2",
     "uuid": "11.1.1"
