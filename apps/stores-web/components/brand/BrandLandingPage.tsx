@@ -19,6 +19,7 @@ interface BrandLandingPageProps {
   aboutHeading?: string;
   heroTitle?: string;
   heroLead?: string;
+  heroPoints?: string[];
   assortmentHeading?: string;
   assortmentExtra?: string[];
   aboutText?: string;
@@ -38,6 +39,7 @@ export async function BrandLandingPage({
   aboutHeading,
   heroTitle,
   heroLead,
+  heroPoints,
   assortmentHeading,
   assortmentExtra,
   aboutText,
@@ -74,6 +76,13 @@ export async function BrandLandingPage({
             <p className="eyebrow">{heroEyebrow}</p>
             <h1>{heroTitle ?? brand.name}</h1>
             <p className="lead">{heroLead ?? brand.short_description}</p>
+            {heroPoints && heroPoints.length > 0 ? (
+              <ul className="brand-landing-hero__points">
+                {heroPoints.map((point) => (
+                  <li key={point}>{point}</li>
+                ))}
+              </ul>
+            ) : null}
             {heroContactActions && store ? (
               <div className="button-row">
                 {store.telephone ? (
