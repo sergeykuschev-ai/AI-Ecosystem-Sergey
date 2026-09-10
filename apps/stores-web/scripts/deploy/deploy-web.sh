@@ -57,19 +57,11 @@ COMPOSE_FILE="compose.production.yml"
 log() { printf '\n==> %s\n' "$*"; }
 
 smoke_check() {
-  log "Smoke check: $PUBLIC_URL"
-  local health
-  health="$(curl -fsS --max-time 15 "$PUBLIC_URL/api/health")"
-  echo "GET /api/health -> $health"
-  case "$health" in
-    *'"status":"ok"'*) ;;
-    *) echo "Smoke check failed: unexpected /api/health body" >&2; return 1 ;;
-  esac
-  local home_code
-  home_code="$(curl -fsS -o /dev/null --max-time 20 -w '%{http_code}' "$PUBLIC_URL/")"
-  echo "GET / -> HTTP $home_code"
-  [ "$home_code" = "200" ] || { echo "Smoke check failed: homepage returned $home_code" >&2; return 1; }
-  echo "Smoke check OK"
+  log "Full production smoke check: $PUBLIC_URL"
+  (
+    cd apps/stores-web
+    SMOKE_BASE_URL="$PUBLIC_URL" npm run smoke:production
+  )
 }
 
 if [ "$SMOKE_ONLY" = "1" ]; then
@@ -78,7 +70,7 @@ if [ "$SMOKE_ONLY" = "1" ]; then
 fi
 
 log "Preflight"
-for tool in git tar ssh curl; do
+for tool in git tar ssh scp curl npm; do
   command -v "$tool" >/dev/null 2>&1 || { echo "Missing required tool: $tool" >&2; exit 1; }
 done
 echo "SSH target : $SSH_TARGET (configure Host/User/IdentityFile in ~/.ssh/config)"

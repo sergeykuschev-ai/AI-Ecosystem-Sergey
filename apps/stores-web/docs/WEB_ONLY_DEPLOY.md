@@ -22,8 +22,7 @@ Helper script: [`scripts/deploy/deploy-web.sh`](../scripts/deploy/deploy-web.sh)
    `up -d --build --no-deps --force-recreate web`.
 6. Waits for the web container healthcheck (`GET /api/health` inside the
    container, up to ~2.5 minutes).
-7. Runs a public smoke check: `GET <public origin>/api/health` must return
-   `{"status":"ok"}` and `GET <public origin>/` must return HTTP 200.
+7. Runs the full read-only production smoke-check (`npm run smoke:production`) against the public origin, covering all critical pages, sitemap, robots, Open Graph image, and `/api/health`.
 
 ## What this workflow never does
 
