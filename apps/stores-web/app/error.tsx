@@ -17,6 +17,7 @@ export default function ErrorPage({ error, reset }: ErrorPageProps) {
 
   return (
     <main>
+      <meta name="robots" content="noindex, nofollow" />
       <Container>
         <header className="page-hero">
           <p className="eyebrow">Ошибка</p>

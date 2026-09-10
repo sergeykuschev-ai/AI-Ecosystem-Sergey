@@ -36,7 +36,7 @@ async function getPageData(citySlug: string, storeSlug: string) {
 export async function generateMetadata({ params }: StorePageProps): Promise<Metadata> {
   const { city, store } = await params;
   const data = await getPageData(city, store);
-  if (!data) return {};
+  if (!data) notFound();
   return createPageMetadata({ title: data.store.seo_title, description: data.store.seo_description, path: `/stores/${city}/${store}/` });
 }
 

@@ -16,6 +16,9 @@ export default function GlobalErrorPage({ error, reset }: GlobalErrorPageProps) 
 
   return (
     <html lang="ru">
+      <head>
+        <meta name="robots" content="noindex, nofollow" />
+      </head>
       <body>
         <main style={{ maxWidth: "42rem", margin: "0 auto", padding: "4rem 1rem", fontFamily: "system-ui, sans-serif" }}>
           <h1>Страница временно недоступна</h1>

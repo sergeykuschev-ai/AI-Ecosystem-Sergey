@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, test } from "node:test";
 import { readDirectusItems, readDirectusSingleton } from "@/lib/directus/client";
+import { createListingPageMetadata } from "@/lib/seo/metadata";
 import { GET as readResource } from "@/app/api/[resource]/route";
 
 const projectRoot = fileURLToPath(new URL("..", import.meta.url));
@@ -169,5 +170,50 @@ describe("error boundaries fail clearly without leaking internals", () => {
     const source = readFileSync(join(projectRoot, "app", "not-found.tsx"), "utf8");
     assert.ok(source.includes('href="/"'), "not-found must link to the home page");
     assert.ok(source.includes("stores"), "not-found must link to the store list");
+  });
+
+  test("404 and error UI explicitly prevent indexing without publishing a canonical", () => {
+    const notFoundSource = readFileSync(join(projectRoot, "app", "not-found.tsx"), "utf8");
+    assert.match(notFoundSource, /robots:\s*\{\s*index:\s*false,\s*follow:\s*false\s*\}/);
+    assert.ok(!notFoundSource.includes("canonical"), "not-found must not publish a canonical URL");
+
+    for (const file of errorBoundaryFiles) {
+      const source = readFileSync(join(projectRoot, file), "utf8");
+      assert.ok(source.includes('name="robots"'), `${file} must emit robots metadata`);
+      assert.ok(source.includes("noindex, nofollow"), `${file} must prevent indexing`);
+      assert.ok(!source.includes("canonical"), `${file} must not publish a canonical URL`);
+    }
+  });
+
+  test("unknown city and store slugs terminate in generateMetadata with notFound", () => {
+    for (const file of ["app/stores/[city]/page.tsx", "app/stores/[city]/[store]/page.tsx"]) {
+      const source = readFileSync(join(projectRoot, file), "utf8");
+      assert.match(source, /generateMetadata[\s\S]*if \(!(?:city|data)\) notFound\(\)/);
+    }
+  });
+
+  test("dynamic entity checks complete before the response starts streaming", () => {
+    assert.throws(
+      () => readFileSync(join(projectRoot, "app", "loading.tsx"), "utf8"),
+      /ENOENT/,
+      "a root loading boundary would lock missing dynamic routes to HTTP 200",
+    );
+  });
+
+  test("empty editorial listings are rendered as noindex soft-empty states", () => {
+    for (const file of ["app/akcii/page.tsx", "app/vakansii/page.tsx", "app/faq/page.tsx"]) {
+      const source = readFileSync(join(projectRoot, file), "utf8");
+      assert.ok(source.includes("createListingPageMetadata"), `${file} must set listing metadata`);
+      assert.ok(source.includes("<EmptyState"), `${file} must explain the empty state`);
+    }
+  });
+
+  test("listing metadata only prevents indexing when the list is empty", () => {
+    const input = { title: "List", description: "List content", path: "/list/" };
+    const empty = createListingPageMetadata(input, 0);
+    const populated = createListingPageMetadata(input, 1);
+
+    assert.deepEqual(empty.robots, { index: false, follow: false });
+    assert.deepEqual(populated.robots, { index: true, follow: true });
   });
 });

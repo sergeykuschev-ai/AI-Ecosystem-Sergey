@@ -20,7 +20,7 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }: CityPageProps): Promise<Metadata> {
   const { city: slug } = await params;
   const city = await getCityBySlug(slug);
-  if (!city) return {};
+  if (!city) notFound();
   return createPageMetadata({
     title: `Магазины в городе ${city.name}: Ампер, Вентиль, Метиз Маркет и Миска`,
     description: `Адреса, телефоны и режим работы магазинов «Ампер», «Вентиль», «Метиз Маркет» и «Миска» в городе ${city.name}, ${city.region}: электротовары, сантехника, крепёж и зоотовары.`,
