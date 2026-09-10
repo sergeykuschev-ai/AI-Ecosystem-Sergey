@@ -82,13 +82,8 @@ export function ContactStoreGrid({ stores, brands, city }: { stores: Store[]; br
         return (
           <article
             key={store.id}
-            className="store-card"
+            className="store-card store-card--contact"
             data-brand={brand.slug}
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              height: "100%",
-            } as React.CSSProperties}
           >
             <BrandLogo brand={brand} />
             <h3>{brand.name}</h3>
@@ -109,12 +104,12 @@ export function ContactStoreGrid({ stores, brands, city }: { stores: Store[]; br
             <p className="eyebrow">Режим работы</p>
             <ContactStoreHours hours={store.opening_hours} />
 
-            <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <div className="store-card__actions">
               {phoneHref && (
                 <a className="button button--primary" href={phoneHref}>Позвонить</a>
               )}
-              <div style={{ display: "flex", gap: "0.75rem" }}>
-                <a className="button button--secondary" href={detailHref} style={{ flex: 1, textAlign: "center" }}>
+              <div className="store-card__actions-row">
+                <a className="button button--secondary" href={detailHref}>
                   Подробнее о магазине
                 </a>
                 {mapUrl && (
@@ -123,7 +118,6 @@ export function ContactStoreGrid({ stores, brands, city }: { stores: Store[]; br
                     href={mapUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{ flex: 1, textAlign: "center" }}
                   >
                     Показать на карте
                   </a>
