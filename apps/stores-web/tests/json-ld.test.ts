@@ -60,6 +60,7 @@ describe("JSON-LD builders", () => {
     assert.equal(jsonLd["@context"], "https://schema.org");
     assert.equal(jsonLd["@type"], "WebSite");
     assert.equal(jsonLd.url, siteUrl.href);
+    assert.equal(jsonLd["@id"], new URL("/#website", siteUrl).href);
   });
 
   test("contact and about pages use canonical URLs", () => {
@@ -101,10 +102,52 @@ describe("JSON-LD builders", () => {
     }
   });
 
+  test("store entities mirror canonical application facts and omit incomplete geo", () => {
+    const { brand, store } = storeForBrand("amper");
+    const jsonLd = createStoreJsonLd(store, brand, amursk);
+    const address = jsonLd.address as JsonLdObject;
+    const hours = jsonLd.openingHoursSpecification as JsonLdObject[];
+
+    assert.equal(jsonLd.name, store.name);
+    assert.equal(jsonLd.url, new URL(`/stores/${amursk.slug}/${store.slug}/`, siteUrl).href);
+    assert.equal(jsonLd.telephone, store.telephone);
+    assert.equal(address.streetAddress, store.address);
+    assert.equal(address.addressLocality, amursk.name);
+    assert.deepEqual(
+      hours.map(({ dayOfWeek, opens, closes }) => ({ dayOfWeek, opens, closes })),
+      store.opening_hours.map((entry) => ({
+        dayOfWeek: entry.days,
+        opens: entry.opens,
+        closes: entry.closes,
+      })),
+    );
+
+    const withoutCompleteCoordinates = createStoreJsonLd(
+      { ...store, longitude: null },
+      brand,
+      amursk,
+    );
+    assert.equal(withoutCompleteCoordinates.geo, undefined);
+    assert.equal(withoutCompleteCoordinates.sameAs, undefined);
+  });
+
   test("stores JSON-LD skips stores whose brand is missing", () => {
     const jsonLd = createStoresJsonLd(mockStores, [], amursk);
     const graph = jsonLd["@graph"] as JsonLdObject[];
     assert.equal(graph.length, 0);
+  });
+
+  test("store graphs contain unique context-free nodes with stable canonical IDs", () => {
+    const jsonLd = createStoresJsonLd([...mockStores, mockStores[0]], mockBrands, amursk);
+    const graph = jsonLd["@graph"] as JsonLdObject[];
+    const ids = graph.map((node) => node["@id"]);
+
+    assert.equal(graph.length, mockStores.length, "duplicate source rows must not duplicate entities");
+    assert.equal(new Set(ids).size, ids.length, "every entity ID must be unique within the graph");
+    for (const node of graph) {
+      assert.equal(node["@context"], undefined, "graph nodes inherit the document context");
+      assert.match(String(node["@id"]), /^https:\/\/stores-test\.local\/stores\/amursk\/[^/]+\/#business$/);
+    }
   });
 
   test("breadcrumb JSON-LD uses absolute canonical item URLs", () => {
@@ -115,7 +158,28 @@ describe("JSON-LD builders", () => {
     const items = jsonLd.itemListElement as JsonLdObject[];
     assert.equal(items[0].item, new URL("/", siteUrl).href);
     assert.equal(items[1].item, new URL("/miska/", siteUrl).href);
+    assert.equal(jsonLd["@id"], new URL("/miska/#breadcrumb", siteUrl).href);
     assertNoFabricatedCommerceData(jsonLd, "breadcrumb JSON-LD");
+  });
+  test("all top-level entities serialize and have distinct stable IDs", () => {
+    const outputs = [
+      createWebsiteJsonLd(),
+      createContactPageJsonLd(),
+      createAboutPageJsonLd(),
+      createFAQPageJsonLd(mockFaqs),
+      createOrganizationsJsonLd(mockBrands),
+      createStoresJsonLd(mockStores, mockBrands, amursk),
+      createBreadcrumbJsonLd([{ name: "Главная", path: "/" }]),
+    ];
+    const ids: string[] = [];
+    for (const output of outputs) {
+      assert.doesNotThrow(() => JSON.parse(JSON.stringify(output)));
+      if (typeof output["@id"] === "string") ids.push(output["@id"]);
+      for (const node of (output["@graph"] as JsonLdObject[] | undefined) ?? []) {
+        if (typeof node["@id"] === "string") ids.push(node["@id"]);
+      }
+    }
+    assert.equal(new Set(ids).size, ids.length, "audited entity IDs must not conflict");
   });
 
   test("no builder output contains fabricated ratings, reviews or offers", () => {
