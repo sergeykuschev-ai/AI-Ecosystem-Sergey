@@ -7,7 +7,14 @@ import { NextRequest } from "next/server";
 import sitemap from "@/app/sitemap";
 import robots from "@/app/robots";
 import { CANONICAL_BRAND_SLUGS } from "@/lib/constants/brands";
-import { siteUrl, createPageMetadata, DEFAULT_OG_IMAGE_ALT, DEFAULT_OG_IMAGE_PATH } from "@/lib/seo/metadata";
+import {
+  siteUrl,
+  createPageMetadata,
+  DEFAULT_OG_IMAGE_ALT,
+  DEFAULT_OG_IMAGE_HEIGHT,
+  DEFAULT_OG_IMAGE_PATH,
+  DEFAULT_OG_IMAGE_WIDTH,
+} from "@/lib/seo/metadata";
 import { mockCities, mockStores } from "@/lib/data/mock-data";
 import { proxy } from "@/proxy";
 import * as amperPage from "@/app/amper/page";
@@ -203,9 +210,12 @@ describe("default Open Graph image", () => {
     const images = metadata.openGraph?.images;
     assert.ok(Array.isArray(images), "openGraph.images must be an array");
     assert.equal(images.length, 1, "exactly one default og:image must be emitted");
-    const image = images[0] as { url?: unknown; alt?: unknown };
+    const image = images[0] as { url?: unknown; alt?: unknown; width?: unknown; height?: unknown; type?: unknown };
     assert.equal(image.url, DEFAULT_OG_IMAGE_PATH);
     assert.equal(image.alt, DEFAULT_OG_IMAGE_ALT);
+    assert.equal(image.width, DEFAULT_OG_IMAGE_WIDTH);
+    assert.equal(image.height, DEFAULT_OG_IMAGE_HEIGHT);
+    assert.equal(image.type, "image/png");
   });
 });
 
