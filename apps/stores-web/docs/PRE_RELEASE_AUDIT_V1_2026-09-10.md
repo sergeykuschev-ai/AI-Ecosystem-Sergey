@@ -26,7 +26,7 @@ No verified P0/P1 defects. No code changes were required. All checks below were 
 - Internal links: automated checks confirm every literal and templated internal `href` resolves to a known route with exactly one trailing slash; in-page anchors reference existing ids.
 - `tel:` links are built only from normalized phone values (`tests/link-integrity.test.ts` enforces the pattern).
 - Map links are `https://yandex.ru/maps/...` with a non-empty `text` query and open with `rel="noopener noreferrer"`.
-- Analytics: goal names are the 8 declared events in `lib/analytics/index.ts`; each goal fires from a single interaction type (no duplicate-goal regressions). Metrika counter init skips the first pathname effect to avoid double-counting the initial pageview; SPA navigations fire a single `hit`. Counter ID is a public metrica ID, not a secret.
+- Analytics: `lib/analytics/index.ts` declares 9 stable event identifiers: 7 are currently wired to real UI interactions and 2 (`click_messenger`, `check_stock`) are reserved for future UI. `store_open` is limited to specific store links, `brand_open` is wired on brand cards/navigation, and identical event+payload repeats are deduplicated within the configured window. Metrika counter init skips the first pathname effect to avoid double-counting the initial pageview; SPA navigations fire a single `hit`. Counter ID is a public metrica ID, not a secret.
 
 ### Directus/API failure behavior
 
@@ -46,7 +46,7 @@ No verified P0/P1 defects. No code changes were required. All checks below were 
 
 ### Tooling results
 
-- `npm test`: 78/78 passed (26 suites).
+- `npm test`: 89/89 passed (29 suites).
 - `npm run lint`: clean (`--max-warnings=0`).
 - `npm run typecheck`: clean.
 - Hermetic `npm run build` (`CONTENT_SOURCE=mock NEXT_PUBLIC_SITE_URL=https://stores-ci.example`): succeeded; 13 static pages generated.
