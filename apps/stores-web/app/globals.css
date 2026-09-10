@@ -235,7 +235,7 @@ p { margin: 0 0 1rem; }
 .brand-actual-card__visual img { object-fit: contain; }
 .brand-actual-card__content { flex: 1; display: flex; flex-direction: column; padding: 0.9rem 1.1rem 1rem; }
 .brand-actual-card__type { margin-bottom: 0.4rem; color: color-mix(in srgb, var(--brand-landing-accent) 42%, black); font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
-.brand-actual-card h3 { margin-bottom: 0.85rem; font-size: clamp(1.15rem, 3vw, 1.4rem); }
+.brand-actual-card__title { margin-bottom: 0.85rem; font-size: clamp(1.15rem, 3vw, 1.4rem); }
 .brand-actual-card__text { margin: 0 0 0.85rem; color: #354250; }
 .brand-actual-card a { align-self: flex-start; margin-top: auto; font-weight: 800; }
 .brand-landing-section--contact { padding-top: clamp(1.1rem, 2.5vw, 1.75rem); padding-bottom: 0; }

@@ -19,7 +19,7 @@ export const metadata: Metadata = createPageMetadata({
 export default async function FAQPage() {
   const faqs = await getFaqs();
   return (
-    <main className="faq-page">
+    <div className="faq-page">
       <JsonLd data={createFAQPageJsonLd(faqs)} />
       <StaticPage
         eyebrow="Покупателям"
@@ -38,6 +38,6 @@ export default async function FAQPage() {
           </ul>
         </section>
       </StaticPage>
-    </main>
+    </div>
   );
 }
