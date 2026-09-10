@@ -3,6 +3,7 @@ import { ActualSlider } from "@/components/actual/ActualSlider";
 import { BrandCard } from "@/components/brand/BrandCard";
 import { FAQList } from "@/components/faq/FAQList";
 import { JsonLd } from "@/components/seo/JsonLd";
+import { FindUsSection } from "@/components/stores/FindUsSection";
 import { HomeStoreSection } from "@/components/stores/HomeStoreSection";
 import { Button } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Container";
@@ -38,16 +39,21 @@ export default async function HomePage() {
         <section className="home-hero" aria-labelledby="home-title">
           <p className="eyebrow">Амурск · Хабаровский край</p>
           <h1 id="home-title">Четыре магазина. Всё для дома, ремонта и питомцев.</h1>
-          <p className="lead">Официальная информация о магазинах «Ампер», «Вентиль», «Метиз Маркет» и «Миска» и их торговых точках в Амурске.</p>
-          <div className="button-row"><Button href="/stores/amursk/">Найти магазин</Button><Button href="#brands" variant="secondary">Выбрать магазин</Button></div>
+          <p className="lead">«Ампер», «Вентиль», «Метиз Маркет» и «Миска»: направления, торговые точки, телефоны и действующие акции магазинов в Амурске.</p>
+          <div className="button-row">
+            <Button href="/stores/amursk/">Найти магазин</Button>
+            <Button href="/akcii/" variant="secondary">Акции</Button>
+            <Button href="#find-us" variant="secondary">Как нас найти</Button>
+          </div>
         </section>
-        <ActualSlider items={actualItems} brands={brands} />
-        <section className="section" aria-labelledby="brands">
+        <section className="section home-brands" aria-labelledby="brands-title">
           <p className="eyebrow">Магазины</p>
-          <h2 id="brands">Выберите магазин</h2>
+          <h2 id="brands-title">Выберите магазин</h2>
           <div className="brand-grid">{brands.map((brand) => <BrandCard key={brand.id} brand={brand} />)}</div>
         </section>
+        <ActualSlider items={actualItems} brands={brands} />
         {city && <HomeStoreSection stores={stores} brands={brands} city={city} />}
+        {city && <FindUsSection stores={stores} brands={brands} city={city} />}
         <section className="section" aria-labelledby="faq-title">
           <h2 id="faq-title">Частые вопросы</h2>
           <FAQList items={faqs} />
