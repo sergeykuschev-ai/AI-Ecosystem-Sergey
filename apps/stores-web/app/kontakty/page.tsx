@@ -8,15 +8,12 @@ import { getCityBySlug } from "@/lib/directus/cities";
 import { getStoresByCity } from "@/lib/directus/stores";
 import { createContactPageJsonLd, createStoresJsonLd } from "@/lib/seo/json-ld";
 import { createPageMetadata } from "@/lib/seo/metadata";
+import { getStaticPageSeo } from "@/lib/seo/page-intents";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = createPageMetadata({
-  title: "Контакты магазинов в Амурске | Ампер, Вентиль, Метиз Маркет, Миска",
-  description:
-    "Адреса, телефоны и режим работы магазинов «Ампер», «Вентиль», «Метиз Маркет» и «Миска» в Амурске. Все магазины на проспекте Победы, 16.",
-  path: "/kontakty/",
-});
+const pageSeo = getStaticPageSeo("/kontakty/");
+export const metadata: Metadata = createPageMetadata(pageSeo);
 
 const CONTACTS_INTRO = "Четыре магазина по одному адресу — электротовары, сантехника, крепёж и товары для питомцев.";
 
@@ -25,7 +22,7 @@ export default async function ContactsPage() {
 
   if (!city) {
     return (
-      <StaticPage eyebrow="Контакты" title="Наши магазины в Амурске" intro={CONTACTS_INTRO}>
+      <StaticPage eyebrow="Контакты" title={pageSeo.h1} intro={CONTACTS_INTRO}>
         <EmptyState title="Город не найден" text="Контактная информация для Амурска пока не опубликована." />
       </StaticPage>
     );
@@ -35,7 +32,7 @@ export default async function ContactsPage() {
 
   if (stores.length === 0) {
     return (
-      <StaticPage eyebrow="Контакты" title="Наши магазины в Амурске" intro={CONTACTS_INTRO}>
+      <StaticPage eyebrow="Контакты" title={pageSeo.h1} intro={CONTACTS_INTRO}>
         <EmptyState title="Магазины не найдены" text="Контактная информация о торговых точках в Амурске пока не опубликована." />
       </StaticPage>
     );
@@ -45,7 +42,7 @@ export default async function ContactsPage() {
     <main className="contacts-page">
       <JsonLd data={createContactPageJsonLd()} />
       <JsonLd data={createStoresJsonLd(stores, brands, city)} />
-      <StaticPage eyebrow="Контакты" title="Наши магазины в Амурске" intro={CONTACTS_INTRO}>
+      <StaticPage eyebrow="Контакты" title={pageSeo.h1} intro={CONTACTS_INTRO}>
         <section className="contacts-section" aria-labelledby="contacts-title">
           <h2 id="contacts-title">Магазины</h2>
           <ContactStoreGrid stores={stores} brands={brands} city={city} />

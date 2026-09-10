@@ -11,6 +11,7 @@ import { getCities, getCityBySlug } from "@/lib/directus/cities";
 import { getStoreBySlug, getStores } from "@/lib/directus/stores";
 import { createBreadcrumbJsonLd, createStoreJsonLd } from "@/lib/seo/json-ld";
 import { createPageMetadata } from "@/lib/seo/metadata";
+import { createStorePageSeo } from "@/lib/seo/page-intents";
 export const dynamic = "force-dynamic";
 
 interface StorePageProps { params: Promise<{ city: string; store: string }> }
@@ -37,7 +38,7 @@ export async function generateMetadata({ params }: StorePageProps): Promise<Meta
   const { city, store } = await params;
   const data = await getPageData(city, store);
   if (!data) return {};
-  return createPageMetadata({ title: data.store.seo_title, description: data.store.seo_description, path: `/stores/${city}/${store}/` });
+  return createPageMetadata(createStorePageSeo(data.store, data.city));
 }
 
 export default async function StorePage({ params }: StorePageProps) {

@@ -14,15 +14,12 @@ import { getFaqs } from "@/lib/directus/faqs";
 import { getStoresByCity } from "@/lib/directus/stores";
 import { createOrganizationsJsonLd, createWebsiteJsonLd } from "@/lib/seo/json-ld";
 import { createPageMetadata } from "@/lib/seo/metadata";
+import { getStaticPageSeo } from "@/lib/seo/page-intents";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = createPageMetadata({
-  title: "Ампер, Вентиль, Метиз Маркет и Миска — магазины в Амурске",
-  description:
-    "Электротовары «Ампер», сантехника «Вентиль», крепёж «Метиз Маркет» и зоотовары «Миска» в Амурске: адреса, телефоны, режим работы, акции и бонусы.",
-  path: "/",
-});
+const pageSeo = getStaticPageSeo("/");
+export const metadata: Metadata = createPageMetadata(pageSeo);
 
 export default async function HomePage() {
   const [brands, faqs, actualItems, city] = await Promise.all([

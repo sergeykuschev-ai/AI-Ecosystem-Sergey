@@ -6,15 +6,12 @@ import { JsonLd } from "@/components/seo/JsonLd";
 import { getFaqs } from "@/lib/directus/faqs";
 import { createFAQPageJsonLd } from "@/lib/seo/json-ld";
 import { createPageMetadata } from "@/lib/seo/metadata";
+import { getStaticPageSeo } from "@/lib/seo/page-intents";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = createPageMetadata({
-  title: "Частые вопросы | Магазины Ампер, Вентиль, Метиз Маркет и Миска",
-  description:
-    "Ответы на частые вопросы о магазинах Ампер, Вентиль, Метиз Маркет и Миска в Амурске: адрес, режим работы и бонусная программа.",
-  path: "/faq/",
-});
+const pageSeo = getStaticPageSeo("/faq/");
+export const metadata: Metadata = createPageMetadata(pageSeo);
 
 export default async function FAQPage() {
   const faqs = await getFaqs();

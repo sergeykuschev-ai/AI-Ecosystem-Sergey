@@ -8,6 +8,7 @@ import { getBrands } from "@/lib/directus/brands";
 import { getCities, getCityBySlug } from "@/lib/directus/cities";
 import { getStoresByCity } from "@/lib/directus/stores";
 import { createPageMetadata } from "@/lib/seo/metadata";
+import { createCityPageSeo } from "@/lib/seo/page-intents";
 import { createStoresJsonLd } from "@/lib/seo/json-ld";
 export const dynamic = "force-dynamic";
 
@@ -21,11 +22,7 @@ export async function generateMetadata({ params }: CityPageProps): Promise<Metad
   const { city: slug } = await params;
   const city = await getCityBySlug(slug);
   if (!city) return {};
-  return createPageMetadata({
-    title: `Магазины в городе ${city.name}: Ампер, Вентиль, Метиз Маркет и Миска`,
-    description: `Адреса, телефоны и режим работы магазинов «Ампер», «Вентиль», «Метиз Маркет» и «Миска» в городе ${city.name}, ${city.region}: электротовары, сантехника, крепёж и зоотовары.`,
-    path: `/stores/${city.slug}/`,
-  });
+  return createPageMetadata(createCityPageSeo(city));
 }
 export default async function CityStoresPage({ params }: CityPageProps) {
   const { city: slug } = await params;
