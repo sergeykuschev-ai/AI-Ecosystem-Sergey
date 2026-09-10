@@ -1,0 +1,115 @@
+'use strict';
+
+const fs = require('fs');
+const path = require('path');
+const config = require('./config');
+
+function slugify(text) {
+  const slug = String(text || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9а-яё]+/gi, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48);
+  return slug || 'task';
+}
+
+function branchNameForIssue(issue) {
+  return `${config.branchPrefix}${issue.number}-${slugify(issue.title)}`;
+}
+
+function assertSafeBranchName(branch) {
+  if (!/^ai\/kimi-\d+-[a-z0-9а-яё-]+$/.test(branch)) {
+    throw new Error(`Refusing to operate on branch name outside policy: ${branch}`);
+  }
+}
+
+function isForbiddenPath(file) {
+  return config.forbiddenPathPatterns.some((re) => re.test(file));
+}
+
+// Every changed file must live inside the area's allowed paths and must not
+// match a forbidden pattern. Paths are normalized first so a repo-relative
+// "apps/stores-web/../../escape" cannot smuggle a traversal past the prefix
+// check (belt and braces: git already normalizes, the sandbox blocks writes
+// outside the worktree anyway).
+function validateChangedFiles(files, area) {
+  const violations = [];
+  for (const raw of files) {
+    const file = path.posix.normalize(raw);
+    if (isForbiddenPath(file)) {
+      violations.push(`${raw}: forbidden path pattern`);
+      continue;
+    }
+    const allowed = area.allowedPaths.some((prefix) => file.startsWith(prefix));
+    if (!allowed) {
+      violations.push(`${raw}: outside allowed paths [${area.allowedPaths.join(', ')}]`);
+    }
+  }
+  return violations;
+}
+
+function looksBinary(buffer) {
+  const sample = buffer.subarray(0, Math.min(buffer.length, 8000));
+  return sample.includes(0);
+}
+
+// Symlinks are rejected outright in V1: a symlink inside the allowed area can
+// point outside it, and both the secret scan and the area validation must
+// never follow it.
+function findSymlinkViolations(worktreePath, files) {
+  const violations = [];
+  for (const file of files) {
+    const full = path.join(worktreePath, file);
+    let stat;
+    try {
+      stat = fs.lstatSync(full);
+    } catch {
+      continue;
+    }
+    if (stat.isSymbolicLink()) {
+      violations.push(`${file}: symlinks are not allowed`);
+    }
+  }
+  return violations;
+}
+
+// Scan staged file contents for secret-shaped strings. Uses lstat and refuses
+// symlinks; skips binary and oversized files.
+function scanFilesForSecrets(worktreePath, files) {
+  const findings = [];
+  for (const file of files) {
+    const full = path.join(worktreePath, file);
+    let stat;
+    try {
+      stat = fs.lstatSync(full);
+    } catch {
+      continue;
+    }
+    if (stat.isSymbolicLink()) {
+      findings.push(`${file}: symlink refused by secret scan`);
+      continue;
+    }
+    if (!stat.isFile() || stat.size > config.secretScanMaxFileBytes) continue;
+    const buffer = fs.readFileSync(full);
+    if (looksBinary(buffer)) continue;
+    const text = buffer.toString('utf8');
+    for (const { name, re } of config.secretPatterns) {
+      const match = text.match(re);
+      if (match) {
+        findings.push(`${file}: matches secret pattern "${name}"`);
+        break;
+      }
+    }
+  }
+  return findings;
+}
+
+module.exports = {
+  slugify,
+  branchNameForIssue,
+  assertSafeBranchName,
+  validateChangedFiles,
+  findSymlinkViolations,
+  scanFilesForSecrets,
+  isForbiddenPath,
+};

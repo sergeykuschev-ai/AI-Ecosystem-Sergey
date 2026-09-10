@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Kimi autonomous worker — LaunchAgent TEMPLATE.
+
+  This file is NOT installed. To activate (owner action, manual):
+    1. Review and adjust the placeholders below (__REPO_ROOT__, __HOME__).
+    2. Run:  scripts/kimi-worker/launchd/install-launchd.sh
+    3. Verify:  launchctl list | grep kimi
+    4. Logs:  ~/.kimi-worker/AI-Ecosystem-Sergey/logs/
+
+  The agent runs `run.js` (one issue per invocation, dry-run disabled) every
+  StartInterval seconds. No automatic merge, no deploy.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.sergeykuschev.kimi-worker</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/node</string>
+    <string>__REPO_ROOT__/scripts/kimi-worker/run.js</string>
+    <string>--no-dry-run</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>__REPO_ROOT__</string>
+
+  <key>StartInterval</key>
+  <integer>300</integer>
+
+  <key>RunAtLoad</key>
+  <false/>
+
+  <key>StandardOutPath</key>
+  <string>__HOME__/.kimi-worker-admin/AI-Ecosystem-Sergey/logs/launchd.out.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>__HOME__/.kimi-worker-admin/AI-Ecosystem-Sergey/logs/launchd.err.log</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <key>AIKIMI_REPO</key>
+    <string>sergeykuschev-ai/AI-Ecosystem-Sergey</string>
+  </dict>
+</dict>
+</plist>
