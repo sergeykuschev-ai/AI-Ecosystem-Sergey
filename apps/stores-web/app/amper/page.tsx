@@ -15,8 +15,33 @@ export const metadata: Metadata = createPageMetadata({
 const SINCE_2018_TEXT =
   "Магазин электротоваров «Ампер» работает в Амурске с 2018 года. Здесь можно подобрать товары для ремонта, замены электрики и повседневных хозяйственных задач — от электротоваров и товаров для электромонтажа до освещения, электроинструмента и расходных материалов.";
 
-const ASSISTANCE_TEXT =
-  "В магазине работают продавцы-консультанты: помогут сориентироваться в ассортименте и подобрать товар под вашу задачу.";
+const DIRECTIONS = [
+  {
+    title: "Кабель и провод",
+    text: "Провода, кабели и соединительные товары для замены проводки и хозяйственных задач — с подсказкой, какие характеристики важно знать перед покупкой.",
+  },
+  {
+    title: "Автоматика и защита",
+    text: "Автоматические выключатели, дифференциальные устройства, модульное оборудование и всё для обновления электрощита.",
+  },
+  {
+    title: "Освещение",
+    text: "Лампы, светильники и комплектующие для квартиры, дома и дачи: поможем подобрать варианты под ваше помещение.",
+  },
+  {
+    title: "Инструмент и расходные материалы",
+    text: "Электроинструмент, изолента, клеммы, гофра, подрозетники и монтажные коробки — мелочи, без которых ремонт не начинается.",
+  },
+];
+
+const ASSIST_ITEMS = [
+  "Подберём кабель, автоматику и освещение под описанную вами задачу.",
+  "Подскажем, какие характеристики стоит уточнить у электрика или по проекту.",
+  "Соберём сопутствующие товары: изоляция, клеммы, гофра, подрозетники, крепёж.",
+];
+
+const ASSIST_NOTE =
+  "Мы не выполняем проектные электротехнические расчёты: сечение кабеля и номиналы защитных устройств подтверждает проект или электрик.";
 
 const BONUS_FACTS = [
   { value: "5%", label: "начисляем бонусами" },
@@ -32,7 +57,7 @@ const CONTACT_NOTE =
 function AmperFeaturedSections() {
   return (
     <>
-      <section className="brand-landing-section" aria-label="О магазине и помощь с выбором">
+      <section className="brand-landing-section" aria-label="О магазине">
         <div className="amper-info-grid">
           <article className="amper-info-card">
             <div className="amper-info-card__year">
@@ -43,9 +68,37 @@ function AmperFeaturedSections() {
             <p>{SINCE_2018_TEXT}</p>
           </article>
           <article className="amper-info-card">
-            <h2>Поможем подобрать нужное</h2>
-            <p>{ASSISTANCE_TEXT}</p>
+            <h2>Основные направления</h2>
+            <p>
+              Электротовары и товары для электромонтажа, освещение, электроинструмент и расходные
+              материалы — основные направления ассортимента «Ампера».
+            </p>
           </article>
+        </div>
+      </section>
+
+      <section className="brand-landing-section" aria-labelledby="amper-directions">
+        <p className="eyebrow">Категории</p>
+        <h2 id="amper-directions">Электрика и расходные материалы</h2>
+        <div className="amper-feature-grid">
+          {DIRECTIONS.map((direction) => (
+            <article className="amper-feature-card" key={direction.title}>
+              <h3>{direction.title}</h3>
+              <p>{direction.text}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="brand-landing-section brand-landing-section--compact" aria-labelledby="amper-assistance">
+        <div className="amper-assist-panel">
+          <h2 id="amper-assistance">Поможем подобрать нужное</h2>
+          <ul className="amper-assist-list">
+            {ASSIST_ITEMS.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+          <p className="amper-assist-note">{ASSIST_NOTE}</p>
         </div>
       </section>
 
