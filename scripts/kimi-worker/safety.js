@@ -27,6 +27,25 @@ function isForbiddenPath(file) {
   return config.forbiddenPathPatterns.some((re) => re.test(file));
 }
 
+// Parses raw `git status --porcelain=v1` output into repo-relative paths.
+// Each line is exactly "XY PATH": two status chars, one separator space, then
+// the path at index 3. The first status char is a SPACE for unstaged changes
+// (" M path"), so the output must NEVER be trim()ed before parsing — trimming
+// shifts the path one char left and slice(3) silently drops its first letter
+// ("apps/..." became "pps/...", which then failed the area policy; real run,
+// issue #37 follow-up). Rename/copy lines ("R  old -> new") yield the new path.
+function parsePorcelainPaths(statusOut) {
+  const paths = [];
+  for (const line of String(statusOut || '').split('\n')) {
+    if (line.length <= 3) continue;
+    let p = line.slice(3);
+    const arrow = p.lastIndexOf(' -> ');
+    if (arrow !== -1) p = p.slice(arrow + 4);
+    paths.push(p);
+  }
+  return paths;
+}
+
 // Every changed file must live inside the area's allowed paths and must not
 // match a forbidden pattern. Paths are normalized first so a repo-relative
 // "apps/stores-web/../../escape" cannot smuggle a traversal past the prefix
@@ -109,6 +128,7 @@ module.exports = {
   branchNameForIssue,
   assertSafeBranchName,
   validateChangedFiles,
+  parsePorcelainPaths,
   findSymlinkViolations,
   scanFilesForSecrets,
   isForbiddenPath,

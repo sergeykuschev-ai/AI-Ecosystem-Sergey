@@ -168,8 +168,16 @@ async function processIssue(issueNumber, log, { dryRun }) {
         `Kimi exited with code ${kimiResult.code}. See transcript ${transcriptPath}.`);
     }
 
-    const statusOut = await git(['status', '--porcelain=v1'], wtPath);
-    const changedFiles = statusOut ? statusOut.split('\n').map((l) => l.slice(3)) : [];
+    // Raw porcelain output, NOT the trim()ing git() helper: the leading
+    // status char is a space for unstaged files, and trimming shifts the path
+    // left so slice(3) would drop its first letter (issue #37 follow-up).
+    // --untracked-files=all keeps untracked files listed individually instead
+    // of collapsing a new directory to "apps/".
+    const statusResult = await run('git', ['status', '--porcelain=v1', '--untracked-files=all'], { cwd: wtPath, timeoutMs: 120 * 1000 });
+    if (!statusResult.ok) {
+      throw new Error(`git status --porcelain=v1 failed (in ${wtPath}): ${(statusResult.stderr || statusResult.stdout).trim().split('\n').slice(0, 5).join(' | ')}`);
+    }
+    const changedFiles = safety.parsePorcelainPaths(statusResult.stdout);
     if (changedFiles.length === 0) {
       return finishWithFailure({ issueNumber, branch, state, log, wtPath },
         'Kimi finished but produced no changes.', { terminal: true, outcome: 'no-changes' });
