@@ -11,9 +11,9 @@ import type { Vacancy } from "@/types/vacancy";
 const timestamp = "2026-08-29T00:00:00.000Z";
 
 const brandSeed = [
-  ["amper", "Ампер", "/brands/amper-logo.jpg", "#175cd3", "#dbeafe", "Электротовары и решения для электромонтажа."],
-  ["ventil", "Вентиль", "/brands/ventil-logo.svg", "#087a66", "#d1fae5", "Товары для водоснабжения, отопления и сантехники."],
-  ["metiz-market", "Метиз Маркет", "/brands/metiz-market-logo.jpg", "#b54708", "#ffead5", "Крепёж, инструмент и расходные материалы."],
+  ["amper", "Ампер", "/brands/amper-logo.jpg", "#f4c300", "#fff7cc", "Электротовары и решения для электромонтажа."],
+  ["ventil", "Вентиль", "/brands/ventil-logo.svg", "#1769aa", "#e8f2fb", "Товары для водоснабжения, отопления и сантехники."],
+  ["metiz-market", "Метиз Маркет", "/brands/metiz-market-logo.jpg", "#c62828", "#f2f3f5", "Крепёж, инструмент и расходные материалы."],
   ["miska", "Миска", "/brands/miska-logo.jpg", "#1a7a3a", "#fdeede", "Товары для домашних животных и заботы о них."],
 ] as const;
 
