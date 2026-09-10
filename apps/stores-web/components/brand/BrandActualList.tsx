@@ -34,7 +34,7 @@ export function BrandActualList({ items }: { items: ActualItem[] }) {
                   src={item.image}
                   alt={item.imageAlt ?? item.title}
                   fill
-                  sizes="(min-width: 64rem) 35rem, (min-width: 42rem) 50vw, 100vw"
+                  sizes="(min-width: 64rem) 35rem, 100vw"
                 />
               </div>
             )}

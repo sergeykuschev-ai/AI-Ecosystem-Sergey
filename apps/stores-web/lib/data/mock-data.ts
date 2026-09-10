@@ -17,10 +17,10 @@ import type { Vacancy } from "@/types/vacancy";
 const timestamp = "2026-08-29T00:00:00.000Z";
 
 const brandSeed: Array<[CanonicalBrandSlug, string, string, string]> = [
-  ["amper", "Ампер", "/brands/amper-logo.jpg", "Электротовары и решения для электромонтажа."],
+  ["amper", "Ампер", "/brands/amper-logo.webp", "Электротовары и решения для электромонтажа."],
   ["ventil", "Вентиль", "/brands/ventil-logo.svg", "Товары для водоснабжения, отопления и сантехники."],
-  ["metiz-market", "Метиз Маркет", "/brands/metiz-market-logo.jpg", "Крепёж, инструмент и расходные материалы."],
-  ["miska", "Миска", "/brands/miska-logo.jpg", "Товары для домашних животных и заботы о них."],
+  ["metiz-market", "Метиз Маркет", "/brands/metiz-market-logo.webp", "Крепёж, инструмент и расходные материалы."],
+  ["miska", "Миска", "/brands/miska-logo.webp", "Товары для домашних животных и заботы о них."],
 ];
 
 const brandDescriptions: Record<string, string> = {
@@ -150,7 +150,7 @@ export const mockActualItems: ActualItem[] = [
     brandId: "brand-miska",
     title: "AWARD Veterinary Diet",
     shortText: "",
-    image: "/actual/miska-award-vet.png",
+    image: "/actual/miska-award-vet.webp",
     imageAlt: "AWARD Veterinary Diet в зоомагазине Миска",
     badge: null,
     buttonText: "Подробнее",
@@ -166,7 +166,7 @@ export const mockActualItems: ActualItem[] = [
     brandId: "brand-miska",
     title: "Купи корм + 3 лакомства — подарок",
     shortText: "",
-    image: "/actual/miska-food-treats-gift.jpg",
+    image: "/actual/miska-food-treats-gift.webp",
     imageAlt: "Акция магазина Миска: корм и три лакомства с подарком",
     imageOrientation: "portrait",
     badge: null,
@@ -184,7 +184,7 @@ export const mockActualItems: ActualItem[] = [
     brandId: null,
     title: "Единая бонусная программа",
     shortText: "",
-    image: "/actual/bonus-program.png",
+    image: "/actual/bonus-program.webp",
     imageAlt: "Единая бонусная программа магазинов Ампер, Вентиль, Метиз Маркет и Миска",
     badge: null,
     buttonText: "Подробнее",
@@ -200,7 +200,7 @@ export const mockActualItems: ActualItem[] = [
     brandId: "brand-amper",
     title: "Вакансия продавца в магазине Ампер",
     shortText: "",
-    image: "/actual/amper-vacancy.png",
+    image: "/actual/amper-vacancy.webp",
     imageAlt: "Вакансия продавца в магазине Ампер",
     badge: null,
     buttonText: "Подробнее",
@@ -216,7 +216,7 @@ export const mockActualItems: ActualItem[] = [
     brandId: "brand-amper",
     title: "Скидка 20% на электроинструмент",
     shortText: "",
-    image: "/actual/tool-discount-20.png",
+    image: "/actual/tool-discount-20.webp",
     imageAlt: "Скидка 20% на электроинструмент",
     badge: null,
     buttonText: "Подробнее",
