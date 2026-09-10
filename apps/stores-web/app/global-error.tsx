@@ -5,12 +5,12 @@ import Link from "next/link";
 
 interface GlobalErrorPageProps {
   error: Error & { digest?: string };
-  retry: () => void;
+  reset: () => void;
 }
 
-export default function GlobalErrorPage({ error, retry }: GlobalErrorPageProps) {
+export default function GlobalErrorPage({ error, reset }: GlobalErrorPageProps) {
   useEffect(() => {
-    // Server-side details (including the digest) stay in logs; never render them.
+    // Log only the opaque digest for client-side diagnostics; never render error details.
     console.error("Root layout rendering failed", { digest: error.digest });
   }, [error]);
 
@@ -24,7 +24,7 @@ export default function GlobalErrorPage({ error, retry }: GlobalErrorPageProps) 
             обновить страницу через минуту.
           </p>
           <p>
-            <button type="button" className="button button--primary" onClick={() => retry()}>
+            <button type="button" className="button button--primary" onClick={() => reset()}>
               Попробовать снова
             </button>{" "}
             <Link href="/">На главную</Link>

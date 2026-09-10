@@ -149,11 +149,11 @@ describe("public API route normalizes upstream failures", () => {
 describe("error boundaries fail clearly without leaking internals", () => {
   const errorBoundaryFiles = ["app/error.tsx", "app/global-error.tsx"];
 
-  test("root error boundaries exist as client components with a retry action", () => {
+  test("root error boundaries exist as client components with a reset action", () => {
     for (const file of errorBoundaryFiles) {
       const source = readFileSync(join(projectRoot, file), "utf8");
       assert.ok(source.includes('"use client"'), `${file} must be a Client Component`);
-      assert.ok(/retry\s*[:)]/.test(source) || source.includes("retry()"), `${file} must expose a retry action`);
+      assert.ok(/reset\s*[:)]/.test(source) || source.includes("reset()"), `${file} must expose the Next.js reset action`);
       assert.ok(source.includes("error.digest") || source.includes("digest"), `${file} should log the error digest`);
     }
   });

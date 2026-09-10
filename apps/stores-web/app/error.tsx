@@ -6,12 +6,12 @@ import { Container } from "@/components/ui/Container";
 
 interface ErrorPageProps {
   error: Error & { digest?: string };
-  retry: () => void;
+  reset: () => void;
 }
 
-export default function ErrorPage({ error, retry }: ErrorPageProps) {
+export default function ErrorPage({ error, reset }: ErrorPageProps) {
   useEffect(() => {
-    // Server-side details (including the digest) stay in logs; never render them.
+    // Log only the opaque digest for client-side diagnostics; never render error details.
     console.error("Page rendering failed", { digest: error.digest });
   }, [error]);
 
@@ -26,7 +26,7 @@ export default function ErrorPage({ error, retry }: ErrorPageProps) {
             обновить страницу через минуту.
           </p>
           <div className="button-row">
-            <button type="button" className="button button--primary" onClick={() => retry()}>
+            <button type="button" className="button button--primary" onClick={() => reset()}>
               Попробовать снова
             </button>
             <Link className="button button--secondary" href="/">
