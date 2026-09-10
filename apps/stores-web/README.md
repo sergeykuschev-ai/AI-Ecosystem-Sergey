@@ -224,6 +224,7 @@ The public frontend must never connect directly to 1C. See the future integratio
 npm run lint
 npm run typecheck
 npm run test
+npm run audit:seo:local
 NEXT_PUBLIC_SITE_URL=https://your-domain.example CONTENT_SOURCE=mock npm run build
 ```
 
@@ -233,10 +234,12 @@ To exercise the same checks against rendered HTTP responses, start the app local
 
 ```bash
 npm run dev
-npm run audit:seo:local
+npm run audit:seo:runtime-local
 ```
 
-The local command is pinned to `http://127.0.0.1:3000`; it does not contact production or submit IndexNow URLs.
+The runtime-local command is pinned to `http://127.0.0.1:3000`; it does not contact production or submit IndexNow URLs.
+
+`npm run audit:seo:local` is the final pre-production SEO regression gate. It reuses the focused accessibility, JSON-LD, link-integrity, local SEO, public-asset, and SEO-route suites and prints one PASS/FAIL verdict. The gate is hermetic: it uses mock content and makes no network requests.
 
 ## Production deployment
 

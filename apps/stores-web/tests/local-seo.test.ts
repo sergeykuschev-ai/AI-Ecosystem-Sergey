@@ -73,6 +73,28 @@ describe("local SEO internal linking", () => {
     assert.equal(new Set(descriptions).size, descriptions.length, "duplicate metadata descriptions across static pages");
   });
 
+  test("critical page H1 values stay unique", () => {
+    const staticH1Values = [
+      "Четыре магазина. Всё для дома, ремонта и питомцев.",
+      "Магазины",
+      "Акции",
+      "Бонусная программа",
+      "Вакансии",
+      "Четыре магазина в центре Амурска",
+      "Наши магазины в Амурске",
+      "Частые вопросы",
+    ];
+    const h1Values = [
+      ...staticH1Values,
+      ...mockBrands.filter((brand) => brand.active).map((brand) => brand.name),
+      ...mockCities.filter((city) => city.active).map((city) => `Магазины в ${city.name}`),
+      ...mockStores.filter((store) => store.active).map((store) => store.name),
+    ];
+
+    assert.ok(h1Values.every((value) => value.trim().length > 0), "critical H1 values must be non-empty");
+    assert.equal(new Set(h1Values).size, h1Values.length, "duplicate H1 values across critical pages");
+  });
+
   test("store pages link back to their brand landing page", () => {
     const page = source("app", "stores", "[city]", "[store]", "page.tsx");
     assert.ok(page.includes("href={`/${brand.slug}/`}"), "store page must link to the brand landing route");
