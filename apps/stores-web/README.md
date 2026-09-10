@@ -198,7 +198,7 @@ Create an active `promotions` record and set its brand, city, and/or store scope
 
 ## SEO, Local SEO, and AI search
 
-Every public page uses the Metadata API for title, description, canonical, Open Graph, and robots settings. Home JSON-LD describes a `WebSite` and each actual brand as a separate `Organization`; there is no fabricated parent organization. Store JSON-LD emits the verified business type, `PostalAddress`, and conditionally emits telephone, coordinates, and opening hours only when present.
+Every public page uses the Metadata API for title, description, canonical, Open Graph, and robots settings; a default Open Graph image (a committed static PNG, since generated metadata routes conflict with the trailing-slash redirect) with Russian `alt` text is attached at the root segment. Home JSON-LD describes a `WebSite` and each actual brand as a separate `Organization`; there is no fabricated parent organization. Store JSON-LD emits the verified business type, `PostalAddress`, and conditionally emits telephone, coordinates, and opening hours only when present. The contacts page emits the same verified store entities as a `LocalBusiness` graph, and store pages add `BreadcrumbList` JSON-LD matching their visible breadcrumbs.
 
 Critical brand, locality, store, category, FAQ, promotion, and vacancy content is server-rendered in semantic HTML. Navigation uses ordinary links, headings are hierarchical, focus is visible, and the layout supports 320 px viewports.
 
@@ -208,7 +208,7 @@ Critical brand, locality, store, category, FAQ, promotion, and vacancy content i
 
 `lib/analytics/` defines stable event names for phone, route, messenger, stock, brand, store, promotion, bonus, and vacancy interactions. `components/analytics/AnalyticsProvider.tsx` installs a Yandex Metrica adapter that forwards these events as `reachGoal` calls through the existing counter; if `window.ym` is unavailable, events are skipped without errors. Domain components stay provider-neutral by rendering `TrackedLink` or calling `trackEvent`. Goal names, params, and privacy rules are documented in `docs/ANALYTICS.md`.
 
-`services/indexnow.ts` validates configuration, deduplicates URLs, applies the trusted site origin, enforces a timeout, and returns a small result contract. A dynamic root route serves `/{INDEXNOW_KEY}.txt` only when a key is configured. The service performs no requests unless explicitly called by future server-side webhook code.
+`services/indexnow.ts` validates configuration, deduplicates URLs, applies the trusted site origin, rejects URLs outside that origin, enforces a timeout, and returns a small result contract. A dynamic root route serves `/{INDEXNOW_KEY}.txt` only when a key is configured. The service performs no requests unless explicitly called by future server-side webhook code; nothing in the app invokes it automatically.
 
 ## Future catalog
 

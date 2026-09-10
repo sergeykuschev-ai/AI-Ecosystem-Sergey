@@ -6,14 +6,15 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { getBrands } from "@/lib/directus/brands";
 import { getCityBySlug } from "@/lib/directus/cities";
 import { getStoresByCity } from "@/lib/directus/stores";
-import { createContactPageJsonLd } from "@/lib/seo/json-ld";
+import { createContactPageJsonLd, createStoresJsonLd } from "@/lib/seo/json-ld";
 import { createPageMetadata } from "@/lib/seo/metadata";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = createPageMetadata({
   title: "Контакты магазинов в Амурске | Ампер, Вентиль, Метиз Маркет, Миска",
-  description: "Адрес, телефоны и режим работы магазинов Ампер, Вентиль, Метиз Маркет и Миска в Амурске.",
+  description:
+    "Адреса, телефоны и режим работы магазинов «Ампер», «Вентиль», «Метиз Маркет» и «Миска» в Амурске: электротовары, сантехника, крепёж и зоотовары на проспекте Победы, 16.",
   path: "/kontakty/",
 });
 
@@ -43,6 +44,7 @@ export default async function ContactsPage() {
   return (
     <main className="contacts-page">
       <JsonLd data={createContactPageJsonLd()} />
+      <JsonLd data={createStoresJsonLd(stores, brands, city)} />
       <StaticPage eyebrow="Контакты" title="Наши магазины в Амурске" intro={CONTACTS_INTRO}>
         <section className="contacts-section" aria-labelledby="contacts-title">
           <h2 id="contacts-title">Магазины</h2>

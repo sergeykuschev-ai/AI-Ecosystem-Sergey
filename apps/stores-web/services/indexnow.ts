@@ -19,7 +19,13 @@ export async function submitChangedUrls(urls: string[]): Promise<IndexNowResult>
   }
 
   const origin = new URL(siteUrl);
-  const urlList = [...new Set(urls)].map((url) => new URL(url, origin).href);
+  const urlList = [...new Set(urls)].map((url) => {
+    const resolved = new URL(url, origin);
+    if (resolved.origin !== origin.origin) {
+      throw new Error(`IndexNow URL ${resolved.href} does not match the configured site origin ${origin.origin}`);
+    }
+    return resolved.href;
+  });
   if (!urlList.length) return { submitted: 0, status: 204 };
 
   const payload: IndexNowSubmission = {
