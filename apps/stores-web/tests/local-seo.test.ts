@@ -19,6 +19,8 @@ import * as metizMarketPage from "@/app/metiz-market/page";
 import * as miskaPage from "@/app/miska/page";
 import * as oKompaniiPage from "@/app/o-kompanii/page";
 import * as storesPage from "@/app/stores/page";
+import { Breadcrumbs } from "@/components/seo/Breadcrumbs";
+import { siteUrl } from "@/lib/seo/metadata";
 
 const projectRoot = fileURLToPath(new URL("..", import.meta.url));
 
@@ -75,6 +77,40 @@ describe("local SEO internal linking", () => {
     const page = source("app", "stores", "[city]", "[store]", "page.tsx");
     assert.ok(page.includes("href={`/${brand.slug}/`}"), "store page must link to the brand landing route");
     assert.ok(page.includes('href="/kontakty/"'), "store page must link to the contacts route");
+  });
+
+  test("visible breadcrumbs and BreadcrumbList share one canonical trail", () => {
+    const trail = [
+      { name: "Главная", path: "/" },
+      { name: "Магазины Амурска", path: "/stores/amursk/" },
+      { name: "Ампер", path: "/stores/amursk/amper/" },
+    ];
+    const markup = renderToStaticMarkup(h(Breadcrumbs, { trail }));
+    const script = markup.match(/<script type="application\/ld\+json">(.+)<\/script>/);
+    assert.ok(script, "breadcrumbs must expose BreadcrumbList JSON-LD");
+    const jsonLd = JSON.parse(script[1]) as { itemListElement: Array<{ name: string; item: string }> };
+
+    assert.deepEqual(jsonLd.itemListElement.map(({ name }) => name), trail.map(({ name }) => name));
+    assert.deepEqual(
+      jsonLd.itemListElement.map(({ item }) => item),
+      trail.map(({ path }) => new URL(path, siteUrl).href),
+    );
+    for (const { path } of trail.slice(0, -1)) {
+      assert.ok(markup.includes(`href="${path}"`), `visible breadcrumb is missing ${path}: ${markup}`);
+    }
+  });
+
+  test("city, store, and brand pages use the same city-first breadcrumb hierarchy", () => {
+    const cityPage = source("app", "stores", "[city]", "page.tsx");
+    const storePage = source("app", "stores", "[city]", "[store]", "page.tsx");
+    const brandPage = source("components", "brand", "BrandLandingPage.tsx");
+    for (const page of [cityPage, storePage, brandPage]) {
+      assert.ok(page.includes('{ name: "Главная", path: "/" }'));
+      assert.ok(page.includes('`Магазины ${city.name}`'));
+      assert.ok(page.includes('`/stores/${city.slug}/`'));
+    }
+    assert.ok(storePage.includes('{ name: store.name, path: `/stores/${city.slug}/${store.slug}/` }'));
+    assert.ok(brandPage.includes('{ name: brand.name, path: `/${brand.slug}/` }'));
   });
 
   test("city page links active city brands to their landing pages", () => {

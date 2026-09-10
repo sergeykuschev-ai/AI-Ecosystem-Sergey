@@ -6,12 +6,14 @@ interface StaticPageProps extends PropsWithChildren {
   eyebrow?: string;
   title: string;
   intro: string;
+  breadcrumbs?: React.ReactNode;
 }
 
-export function StaticPage({ className, eyebrow, title, intro, children }: StaticPageProps) {
+export function StaticPage({ className, eyebrow, title, intro, breadcrumbs, children }: StaticPageProps) {
   return (
     <main className={className}>
       <Container>
+        {breadcrumbs}
         <header className="page-hero">
           {eyebrow && <p className="eyebrow">{eyebrow}</p>}
           <h1>{title}</h1>

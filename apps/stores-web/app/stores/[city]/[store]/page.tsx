@@ -3,13 +3,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CategoryGrid } from "@/components/categories/CategoryGrid";
 import { JsonLd } from "@/components/seo/JsonLd";
+import { Breadcrumbs } from "@/components/seo/Breadcrumbs";
 import { StoreContactBlock } from "@/components/stores/StoreContactBlock";
 import { Container } from "@/components/ui/Container";
 import { getBrands } from "@/lib/directus/brands";
 import { getCategoriesByBrand } from "@/lib/directus/categories";
 import { getCities, getCityBySlug } from "@/lib/directus/cities";
 import { getStoreBySlug, getStores } from "@/lib/directus/stores";
-import { createBreadcrumbJsonLd, createStoreJsonLd } from "@/lib/seo/json-ld";
+import { createStoreJsonLd } from "@/lib/seo/json-ld";
 import { createPageMetadata } from "@/lib/seo/metadata";
 export const dynamic = "force-dynamic";
 
@@ -49,15 +50,12 @@ export default async function StorePage({ params }: StorePageProps) {
   return (
     <main>
       <JsonLd data={createStoreJsonLd(store, brand, city)} />
-      <JsonLd
-        data={createBreadcrumbJsonLd([
-          { name: "Магазины", path: "/stores/" },
-          { name: city.name, path: `/stores/${city.slug}/` },
-          { name: brand.name, path: `/stores/${city.slug}/${store.slug}/` },
-        ])}
-      />
       <Container>
-        <nav className="breadcrumbs" aria-label="Хлебные крошки"><Link href="/stores/">Магазины</Link><span aria-hidden="true">/</span><Link href={`/stores/${city.slug}/`}>{city.name}</Link><span aria-hidden="true">/</span><span aria-current="page">{brand.name}</span></nav>
+        <Breadcrumbs trail={[
+          { name: "Главная", path: "/" },
+          { name: `Магазины ${city.name}`, path: `/stores/${city.slug}/` },
+          { name: store.name, path: `/stores/${city.slug}/${store.slug}/` },
+        ]} />
         <header className="store-hero" style={{ "--brand-color": brand.primary_color, "--brand-soft": brand.secondary_color } as React.CSSProperties}>
           <p className="eyebrow">{brand.name} · {city.name}</p>
           <h1>{store.name}</h1>

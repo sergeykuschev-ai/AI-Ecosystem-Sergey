@@ -3,12 +3,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { StaticPage } from "@/components/content/StaticPage";
 import { JsonLd } from "@/components/seo/JsonLd";
+import { Breadcrumbs } from "@/components/seo/Breadcrumbs";
 import { StoreList } from "@/components/stores/StoreList";
 import { getBrands } from "@/lib/directus/brands";
 import { getCities, getCityBySlug } from "@/lib/directus/cities";
 import { getStoresByCity } from "@/lib/directus/stores";
 import { createPageMetadata } from "@/lib/seo/metadata";
-import { createBreadcrumbJsonLd, createStoresJsonLd } from "@/lib/seo/json-ld";
+import { createStoresJsonLd } from "@/lib/seo/json-ld";
 export const dynamic = "force-dynamic";
 
 interface CityPageProps { params: Promise<{ city: string }> }
@@ -36,15 +37,15 @@ export default async function CityStoresPage({ params }: CityPageProps) {
   const cityBrands = brands.filter((brand) => brand.active && brandIdsInCity.has(brand.id));
   return (
     <StaticPage
+      breadcrumbs={<Breadcrumbs trail={[
+        { name: "Главная", path: "/" },
+        { name: "Магазины", path: "/stores/" },
+        { name: city.name, path: `/stores/${city.slug}/` },
+      ]} />}
       eyebrow={`${city.region} · ${city.country}`}
       title={`4 магазина в ${city.name}: Ампер, Вентиль, Метиз Маркет и Миска`}
       intro={`В ${city.name} работают четыре магазина по разным направлениям: «Ампер» — электротовары, «Вентиль» — сантехника, «Метиз Маркет» — крепёж, метизы и инструмент, «Миска» — зоотовары.`}
     >
-      <JsonLd data={createBreadcrumbJsonLd([
-        { name: "Главная", path: "/" },
-        { name: "Магазины", path: "/stores/" },
-        { name: city.name, path: `/stores/${city.slug}/` },
-      ])} />
       <section className="section" aria-labelledby="store-list-title">
         <h2 id="store-list-title">Адрес, телефоны и часы работы</h2>
         <p>

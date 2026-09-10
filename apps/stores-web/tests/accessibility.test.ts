@@ -9,6 +9,7 @@ import { ActualSlider } from "@/components/actual/ActualSlider";
 import { BrandCard } from "@/components/brand/BrandCard";
 import { FAQItem } from "@/components/faq/FAQItem";
 import { StaticPage } from "@/components/content/StaticPage";
+import { Breadcrumbs } from "@/components/seo/Breadcrumbs";
 import { Footer } from "@/components/layout/Footer";
 import { Header } from "@/components/layout/Header";
 import { MobileNavigation } from "@/components/layout/MobileNavigation";
@@ -59,6 +60,14 @@ describe("landmarks and navigation semantics", () => {
     const markup = renderToStaticMarkup(h(MobileNavigation, { links: [{ label: "Контакты", href: "/kontakty/", event: null }] }));
     assert.match(markup, /<summary>Меню<\/summary>/);
     assert.doesNotMatch(markup, /<summary[^>]*aria-label=/);
+  });
+
+  test("desktop and mobile navigation resolve to identical canonical targets", () => {
+    const markup = renderToStaticMarkup(h(Header));
+    const desktop = markup.match(/<nav class="desktop-nav"[^>]*>(.*?)<\/nav>/)?.[1] ?? "";
+    const mobile = markup.match(/<nav aria-label="Мобильная навигация">(.*?)<\/nav>/)?.[1] ?? "";
+    const hrefs = (navigation: string) => [...navigation.matchAll(/href="([^"]+)"/g)].map((match) => match[1]);
+    assert.deepEqual(hrefs(mobile), hrefs(desktop));
   });
 
   test("store navigation bar is a labelled nav list with one link per brand", () => {
@@ -155,13 +164,18 @@ describe("skip link and breadcrumb regression guards", () => {
   });
 
   test("breadcrumb separators are hidden from assistive technology", () => {
-    const storePageSource = readSource("app/stores/[city]/[store]/page.tsx");
-    assert.match(storePageSource, /aria-label="Хлебные крошки"/);
-    const separators = storePageSource.match(/<span[^>]*>\/<\/span>/g) ?? [];
-    assert.ok(separators.length >= 2);
+    const markup = renderToStaticMarkup(h(Breadcrumbs, { trail: [
+      { name: "Главная", path: "/" },
+      { name: "Магазины Амурска", path: "/stores/amursk/" },
+      { name: "Ампер", path: "/stores/amursk/amper/" },
+    ] }));
+    assert.match(markup, /aria-label="Хлебные крошки"/);
+    const separators = markup.match(/<span[^>]*>\/<\/span>/g) ?? [];
+    assert.equal(separators.length, 2);
     for (const separator of separators) {
       assert.match(separator, /aria-hidden="true"/, `separator must be aria-hidden: ${separator}`);
     }
+    assert.match(markup, /aria-current="page">Ампер<\/span>/);
   });
 });
 
