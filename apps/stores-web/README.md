@@ -227,7 +227,16 @@ npm run test
 NEXT_PUBLIC_SITE_URL=https://your-domain.example CONTENT_SOURCE=mock npm run build
 ```
 
-`npm run test` runs the deterministic regression suite in `tests/` with the Node.js test runner (no network access; mock content). It covers canonical brand slugs and palette, bonus program rules and card thresholds, route metadata/sitemap/robots indexing rules, JSON-LD builders (no fabricated ratings/reviews/offers), a source-level guard that runtime code never mutates Directus schema or data, and a hermetic link-integrity audit (route registry vs. app structure, internal href literals, tel:/Yandex Maps link formats, anchor targets, and a redirect-loop guard).
+`npm run test` runs the deterministic regression suite in `tests/` with the Node.js test runner (no network access; mock content). It covers every static and mock-backed dynamic public route, canonical uniqueness and origin, index/follow policy, exact one-hop 308 trailing-slash redirects, sitemap/robots rules, canonical host routing at the edge, JSON-LD builders, and link integrity.
+
+To exercise the same checks against rendered HTTP responses, start the app locally and run the read-only audit in another terminal:
+
+```bash
+npm run dev
+npm run audit:seo:local
+```
+
+The local command is pinned to `http://127.0.0.1:3000`; it does not contact production or submit IndexNow URLs.
 
 ## Production deployment
 

@@ -337,17 +337,42 @@ async function main(): Promise<void> {
     });
   }
 
-  // --- redirects and trailing slash ---
-  for (const path of ["/amper", "/kontakty", "/bonus"]) {
+  // --- redirects and trailing slash (all discovered public routes) ---
+  const canonicalPagePaths = new Set([
+    ...STATIC_PUBLIC_PATHS,
+    ...BRAND_PATHS,
+    ...LEGAL_PATHS,
+    ...dynamicPaths,
+  ]);
+  for (const canonicalPath of canonicalPagePaths) {
+    if (canonicalPath === "/") continue;
+    const path = canonicalPath.slice(0, -1);
     const result = await fetchPath(baseUrl, path, "manual");
-    const expectedTarget = new URL(`${path}/`, origin).href;
+    const expectedTarget = new URL(canonicalPath, origin).href;
     const actualTarget = result.location ? new URL(result.location, origin).href : null;
     findings.push({
-      ok: [301, 302, 307, 308].includes(result.status) && actualTarget === expectedTarget,
+      ok: result.status === 308 && actualTarget === expectedTarget,
       severity: "error",
       scope: path,
-      message: `extensionless URL must redirect to ${expectedTarget}, got status ${result.status} location ${result.location ?? "none"}`,
+      message: `extensionless URL must return one 308 to ${expectedTarget}, got status ${result.status} location ${result.location ?? "none"}`,
     });
+
+    if (actualTarget === expectedTarget) {
+      const target = await fetchPath(baseUrl, canonicalPath, "manual");
+      const targetSnapshot = snapshotPage(canonicalPath, target);
+      findings.push({
+        ok: target.status === 200,
+        severity: "error",
+        scope: path,
+        message: `redirect target ${expectedTarget} must return HTTP 200 without another redirect, got ${target.status}`,
+      });
+      findings.push({
+        ok: targetSnapshot.canonical === expectedTarget,
+        severity: "error",
+        scope: path,
+        message: `redirect target canonical must be ${expectedTarget}, got ${targetSnapshot.canonical ?? "none"}`,
+      });
+    }
   }
   const unknown = await fetchPath(baseUrl, `/definitely-not-a-page-${Date.now()}/`, "manual");
   findings.push({ ok: unknown.status === 404, severity: "error", scope: "/<unknown>/", message: `unknown route must return 404, got ${unknown.status}` });
@@ -375,6 +400,21 @@ async function main(): Promise<void> {
 
   // --- duplicate titles and descriptions across indexable pages ---
   const indexable = snapshots.filter((snapshot) => !(snapshot.robotsMeta && /noindex/i.test(snapshot.robotsMeta)));
+  const canonicalOwners = new Map<string, string[]>();
+  for (const snapshot of indexable) {
+    if (!snapshot.canonical) continue;
+    const owners = canonicalOwners.get(snapshot.canonical) ?? [];
+    owners.push(snapshot.path);
+    canonicalOwners.set(snapshot.canonical, owners);
+  }
+  for (const [canonical, paths] of canonicalOwners) {
+    findings.push({
+      ok: paths.length === 1,
+      severity: "error",
+      scope: paths.join(", "),
+      message: `canonical ${canonical} is claimed by ${paths.length} public routes`,
+    });
+  }
   const byKey = (key: "title" | "description") => {
     const groups = new Map<string, string[]>();
     for (const snapshot of indexable) {
