@@ -1,6 +1,7 @@
 import type { Brand } from "@/types/brand";
 import type { City } from "@/types/city";
 import type { Store } from "@/types/store";
+import { TrackedLink } from "@/components/analytics/TrackedLink";
 import { Button } from "@/components/ui/Button";
 import { getFormattedOpeningHours } from "./opening-hours";
 
@@ -50,9 +51,9 @@ export function FindUsSection({ stores, brands, city }: FindUsSectionProps) {
           )}
           <p className="find-us__city">{city.name} · {city.region}</p>
           {mapLink && (
-            <a className="button button--primary" href={mapLink.url} target="_blank" rel="noopener noreferrer">
+            <TrackedLink className="button button--primary" event="click_route" payload={{ city: city.slug }} href={mapLink.url} target="_blank" rel="noopener noreferrer">
               Построить маршрут
-            </a>
+            </TrackedLink>
           )}
         </div>
         <div className="find-us__contacts">
@@ -63,7 +64,9 @@ export function FindUsSection({ stores, brands, city }: FindUsSectionProps) {
                 {Array.from(brandNamesByPhone.entries()).map(([telephone, brandNames]) => (
                   <li key={telephone}>
                     <span>{brandNames.map((name) => `«${name}»`).join(", ")}</span>
-                    <a href={`tel:${telephone.replace(/[^\d+]/g, "")}`}>{telephone}</a>
+                    <TrackedLink event="click_phone" payload={{ city: city.slug }} href={`tel:${telephone.replace(/[^\d+]/g, "")}`}>
+                      {telephone}
+                    </TrackedLink>
                   </li>
                 ))}
               </ul>
