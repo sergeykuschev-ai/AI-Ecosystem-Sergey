@@ -32,9 +32,9 @@ size and cache headers, image `srcset`/`sizes` correctness, LCP preload hints,
 and inline script count. Raw JSON for both runs is stored in
 `docs/perf/cwv-baseline-2026-09-10.json` and `docs/perf/cwv-after-2026-09-10.json`.
 
-Lab LCP/CLS/TBT numbers should be collected on the production host with
-Lighthouse or CrUX field data once a browser is available; every fix below is
-asset- or header-level and is independent of the measurement method.
+Lab LCP/CLS/TBT numbers still need a real browser run against production. The
+cache change below is header-level and can be validated independently of that
+future browser measurement.
 
 ## Baseline (before) and after
 
@@ -93,12 +93,6 @@ Header/Footer/navigation are server components.
    `headers()` in `next.config.ts` (rule ordered after the security catch-all
    so its `Cache-Control` wins). Regression coverage:
    `tests/static-cache-policy.test.ts`.
-
-2. **No edge compression in production.** The Caddyfile proxied everything to
-   the Node server and relied on Next's on-the-fly gzip. Added
-   `encode zstd gzip` to the `amurskmarket.ru` site block: zstd for modern
-   browsers, gzip fallback, compression offloaded from Node. HTML/SVG/RSC
-   payloads benefit the most (e.g. the 152 KB ventil SVG ships as ~42 KB).
 
 ## Reviewed and intentionally left unchanged
 
