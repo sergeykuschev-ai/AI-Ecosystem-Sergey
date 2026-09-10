@@ -30,6 +30,6 @@
     "eslint-config-next": "16.3.3",
     "tsx": "4.19.3",
     "typescript": "5.9.2",
-    "uuid": "11.1.0"
+    "uuid": "11.1.1"
   }
 }
