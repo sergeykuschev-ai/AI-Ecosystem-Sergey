@@ -55,9 +55,6 @@ const BONUS_FACTS = [
 
 const BONUS_NOTE = `Бонусная карта в «Вентиле» выдаётся при покупке от ${formatRubles(BONUS_CARD_THRESHOLDS_RUB.ventil)}.`;
 
-const CONTACT_NOTE =
-  "Магазин находится в центре Амурска: рядом автобусные остановки, удобно добираться пешком.";
-
 function VentilFeaturedSections() {
   return (
     <>
@@ -110,9 +107,9 @@ export default function Page() {
       heroContactActions
       featuredSections={<VentilFeaturedSections />}
       contactHeading="Вентиль в Амурске"
-      contactNote={CONTACT_NOTE}
       contactCallAction
       contactsHref="/kontakty/"
+      cityStoresHref="/stores/amursk/"
     />
   );
 }

@@ -64,4 +64,38 @@ describe("local SEO internal linking", () => {
       assert.ok(page.includes(`href=\"${href}\"`), `FAQ page must link to ${href}`);
     }
   });
+
+  test("Ventil page preserves local commercial signals for Amursk", () => {
+    const page = source("app", "ventil", "page.tsx");
+    const normalizedPage = page.toLocaleLowerCase("ru");
+    const title = String(ventilPage.metadata.title);
+    const description = String(ventilPage.metadata.description);
+
+    assert.match(title, /Вентиль.*магазин сантехники в Амурске/i);
+    assert.match(description, /магазин сантехники.*в Амурске/i);
+    assert.ok(
+      page.includes('heroTitle="Сантехника, водоснабжение и отопление в Амурске"'),
+      "visible H1 must connect Ventil's offer with Amursk",
+    );
+    assert.ok(
+      page.includes('heroLead="Магазин сантехники на проспекте Победы, 16:'),
+      "visible lead must identify the local plumbing store and its confirmed address",
+    );
+
+    for (const direction of [
+      "Сантехника",
+      "Водоснабжение",
+      "Отопление",
+      "Арматура",
+      "Смесители",
+      "Канализация",
+      "Расходные материалы",
+    ]) {
+      assert.ok(normalizedPage.includes(direction.toLocaleLowerCase("ru")), `Ventil page must mention ${direction}`);
+    }
+
+    for (const href of ["/kontakty/", "/stores/amursk/", "/bonus/"]) {
+      assert.ok(page.includes(`\"${href}\"`), `Ventil page must link to ${href}`);
+    }
+  });
 });
