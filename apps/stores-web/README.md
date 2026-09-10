@@ -224,10 +224,13 @@ The public frontend must never connect directly to 1C. See the future integratio
 npm run lint
 npm run typecheck
 npm run test
+npm run audit:seo:local
 NEXT_PUBLIC_SITE_URL=https://your-domain.example CONTENT_SOURCE=mock npm run build
 ```
 
 `npm run test` runs the deterministic regression suite in `tests/` with the Node.js test runner (no network access; mock content). It covers canonical brand slugs and palette, bonus program rules and card thresholds, route metadata/sitemap/robots indexing rules, JSON-LD builders (no fabricated ratings/reviews/offers), a source-level guard that runtime code never mutates Directus schema or data, and a hermetic link-integrity audit (route registry vs. app structure, internal href literals, tel:/Yandex Maps link formats, anchor targets, and a redirect-loop guard).
+
+`npm run audit:seo:local` is the final pre-production SEO regression gate. It reuses the focused accessibility, JSON-LD, link-integrity, local SEO, public-asset, and SEO-route suites and prints one PASS/FAIL verdict. The gate is hermetic: it uses mock content and makes no network requests.
 
 ## Production deployment
 

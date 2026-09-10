@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, test } from "node:test";
 import type { Metadata } from "next";
@@ -158,6 +158,13 @@ describe("default Open Graph image", () => {
     const image = images[0] as { url?: unknown; alt?: unknown };
     assert.equal(image.url, DEFAULT_OG_IMAGE_PATH);
     assert.equal(image.alt, DEFAULT_OG_IMAGE_ALT);
+  });
+
+  test("the shared Open Graph image is a valid local PNG asset", () => {
+    const imagePath = path.join(process.cwd(), "app", DEFAULT_OG_IMAGE_PATH.slice(1));
+    assert.ok(existsSync(imagePath), `missing Open Graph image at ${DEFAULT_OG_IMAGE_PATH}`);
+    const signature = readFileSync(imagePath).subarray(0, 8);
+    assert.deepEqual(signature, Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), "Open Graph image must be PNG");
   });
 });
 

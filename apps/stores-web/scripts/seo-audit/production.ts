@@ -25,6 +25,7 @@ interface PageSnapshot {
   canonical: string | null;
   title: string | null;
   description: string | null;
+  h1: string | null;
   robotsMeta: string | null;
   ogUrl: string | null;
   ogTitle: string | null;
@@ -62,6 +63,18 @@ const LEGAL_PATHS = ["/politika-konfidencialnosti/", "/soglasie-na-obrabotku-dan
 const PRIVATE_PATH_FRAGMENTS = ["/api/", "/admin/", "/preview/", "/directus/", "/_next/"];
 
 const ROBOTS_DISALLOW_EXPECTED = ["/api/", "/admin/", "/preview/", "/directus/", "/_next/"];
+
+const FORBIDDEN_JSON_LD_KEYS = new Set([
+  "aggregateRating",
+  "review",
+  "reviews",
+  "reviewCount",
+  "ratingValue",
+  "offers",
+  "offer",
+  "price",
+  "priceRange",
+]);
 
 function resolveBaseUrl(): URL {
   const raw = process.env.AUDIT_BASE_URL ?? DEFAULT_BASE_URL;
@@ -132,6 +145,18 @@ function collectTypes(node: unknown, into: Set<string>) {
   }
 }
 
+function collectForbiddenJsonLdKeys(node: unknown, into: string[], path = "$"): void {
+  if (Array.isArray(node)) {
+    node.forEach((item, index) => collectForbiddenJsonLdKeys(item, into, `${path}[${index}]`));
+    return;
+  }
+  if (!node || typeof node !== "object") return;
+  for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
+    if (FORBIDDEN_JSON_LD_KEYS.has(key)) into.push(`${path}.${key}`);
+    collectForbiddenJsonLdKeys(value, into, `${path}.${key}`);
+  }
+}
+
 // Schema.org LocalBusiness subtypes emitted by createStoreJsonLd.
 const LOCAL_BUSINESS_SUBTYPES = new Set([
   "LocalBusiness",
@@ -158,6 +183,7 @@ function snapshotPage(path: string, result: FetchResult): PageSnapshot {
     canonical: extractTag(result.body, /<link[^>]*rel="canonical"[^>]*href="([^"]*)"/),
     title: extractTag(result.body, /<title[^>]*>([\s\S]*?)<\/title>/),
     description: extractTag(result.body, /<meta[^>]*name="description"[^>]*content="([^"]*)"/),
+    h1: extractTag(result.body, /<h1[^>]*>([\s\S]*?)<\/h1>/),
     robotsMeta: extractTag(result.body, /<meta[^>]*name="robots"[^>]*content="([^"]*)"/),
     ogUrl: extractTag(result.body, /<meta[^>]*property="og:url"[^>]*content="([^"]*)"/),
     ogTitle: extractTag(result.body, /<meta[^>]*property="og:title"[^>]*content="([^"]*)"/),
@@ -175,6 +201,14 @@ function expectJsonLdTypes(snapshot: PageSnapshot, expected: string[], findings:
       continue;
     }
     collectTypes(block, present);
+    const forbiddenKeys: string[] = [];
+    collectForbiddenJsonLdKeys(block, forbiddenKeys);
+    findings.push({
+      ok: forbiddenKeys.length === 0,
+      severity: "error",
+      scope: snapshot.path,
+      message: `JSON-LD must not contain unverified commerce fields (found: ${forbiddenKeys.join(", ") || "none"})`,
+    });
   }
   for (const type of expected) {
     findings.push({
@@ -253,6 +287,7 @@ async function main(): Promise<void> {
     findings.push({ ok: snapshot.canonical === expectedCanonical, severity: "error", scope: path, message: `canonical must be ${expectedCanonical}, got ${snapshot.canonical ?? "none"}` });
     findings.push({ ok: Boolean(snapshot.title), severity: "error", scope: path, message: "title must be non-empty" });
     findings.push({ ok: Boolean(snapshot.description), severity: "error", scope: path, message: "meta description must be non-empty" });
+    findings.push({ ok: Boolean(snapshot.h1), severity: "error", scope: path, message: "H1 must be non-empty" });
     findings.push({
       ok: snapshot.robotsMeta == null || !/noindex/i.test(snapshot.robotsMeta),
       severity: "error",
@@ -298,6 +333,7 @@ async function main(): Promise<void> {
     findings.push({ ok: snapshot.status === 200, severity: "error", scope: path, message: `expected HTTP 200, got ${snapshot.status}` });
     findings.push({ ok: snapshot.canonical === new URL(path, origin).href, severity: "error", scope: path, message: `canonical mismatch: ${snapshot.canonical ?? "none"}` });
     findings.push({ ok: Boolean(snapshot.title) && Boolean(snapshot.description), severity: "error", scope: path, message: "title and description must be non-empty" });
+    findings.push({ ok: Boolean(snapshot.h1), severity: "error", scope: path, message: "H1 must be non-empty" });
     findings.push({
       ok: snapshot.robotsMeta == null || !/noindex/i.test(snapshot.robotsMeta),
       severity: "error",
@@ -391,6 +427,18 @@ async function main(): Promise<void> {
   }
   for (const [value, paths] of byKey("description")) {
     findings.push({ ok: false, severity: "error", scope: paths.join(", "), message: `duplicate description "${value}" on ${paths.length} pages` });
+  }
+  const h1Groups = new Map<string, string[]>();
+  for (const snapshot of indexable) {
+    if (!snapshot.h1) continue;
+    const paths = h1Groups.get(snapshot.h1) ?? [];
+    paths.push(snapshot.path);
+    h1Groups.set(snapshot.h1, paths);
+  }
+  for (const [value, paths] of h1Groups) {
+    if (paths.length > 1) {
+      findings.push({ ok: false, severity: "error", scope: paths.join(", "), message: `duplicate H1 "${value}" on ${paths.length} pages` });
+    }
   }
 
   // --- report ---
