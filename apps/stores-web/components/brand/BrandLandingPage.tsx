@@ -64,6 +64,7 @@ export async function BrandLandingPage({
   const store = stores[0];
   const city = cities.find((item) => item.id === store?.city_id);
   const mapUrl = store?.map_links.find((link) => link.url)?.url ?? null;
+  const telephoneHref = store?.telephone?.replace(/[^\d+]/g, "") ?? null;
 
   return (
     <main className="brand-landing" data-brand={brand.slug} style={{ "--brand-color": brand.primary_color } as React.CSSProperties}>
@@ -86,8 +87,8 @@ export async function BrandLandingPage({
             ) : null}
             {heroContactActions && store ? (
               <div className="button-row">
-                {store.telephone ? (
-                  <TrackedLink className="button button--primary" event="click_phone" payload={{ brand: slug }} href={`tel:${store.telephone}`}>
+                {store.telephone && telephoneHref ? (
+                  <TrackedLink className="button button--primary" event="click_phone" payload={{ brand: slug }} href={`tel:${telephoneHref}`}>
                     Позвонить
                   </TrackedLink>
                 ) : null}

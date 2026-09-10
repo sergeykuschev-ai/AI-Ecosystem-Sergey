@@ -225,7 +225,7 @@ npm run test
 NEXT_PUBLIC_SITE_URL=https://your-domain.example CONTENT_SOURCE=mock npm run build
 ```
 
-`npm run test` runs the deterministic regression suite in `tests/` with the Node.js test runner (no network access; mock content). It covers canonical brand slugs and palette, bonus program rules and card thresholds, route metadata/sitemap/robots indexing rules, JSON-LD builders (no fabricated ratings/reviews/offers), and a source-level guard that runtime code never mutates Directus schema or data.
+`npm run test` runs the deterministic regression suite in `tests/` with the Node.js test runner (no network access; mock content). It covers canonical brand slugs and palette, bonus program rules and card thresholds, route metadata/sitemap/robots indexing rules, JSON-LD builders (no fabricated ratings/reviews/offers), a source-level guard that runtime code never mutates Directus schema or data, and a hermetic link-integrity audit (route registry vs. app structure, internal href literals, tel:/Yandex Maps link formats, anchor targets, and a redirect-loop guard).
 
 ## Production deployment
 
