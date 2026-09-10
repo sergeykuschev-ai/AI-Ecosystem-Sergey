@@ -11,6 +11,7 @@
     "test": "SITE_URL=https://stores-test.local node --import tsx --test tests/*.test.ts",
     "smoke:production": "tsx scripts/smoke/production.ts",
     "diagnose:production": "tsx scripts/diagnostics/production.ts",
+    "audit:seo": "tsx scripts/seo-audit/production.ts",
     "directus:schema:apply": "tsx scripts/directus/schema.ts",
     "directus:seed": "tsx scripts/directus/seed.ts",
     "directus:check": "tsx scripts/directus/check.ts",
