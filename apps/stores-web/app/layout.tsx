@@ -21,7 +21,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <a className="skip-link" href="#main-content">Перейти к содержимому</a>
         <StoreNavigationBar />
         <Header />
-        <div id="main-content">{children}</div>
+        <div id="main-content" tabIndex={-1}>{children}</div>
         <Footer />
         <YandexMetrika />
         <AnalyticsProvider />

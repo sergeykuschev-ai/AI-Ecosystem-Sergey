@@ -56,7 +56,7 @@ function useReducedMotion() {
 
 interface ActualSliderProps {
   items: ActualItem[];
-  brands: Pick<Brand, "id" | "name" | "primary_color" | "secondary_color">[];
+  brands: Pick<Brand, "id" | "slug" | "name" | "primary_color" | "secondary_color">[];
 }
 
 function ActualSlideImage({ item, index, onInteraction }: { item: ActualItem; index: number; onInteraction: () => void }) {
@@ -198,7 +198,7 @@ export function ActualSlider({ items, brands }: ActualSliderProps) {
           <h2 id="actual-title">Актуальное</h2>
         </div>
         {items.length > 1 && (
-          <div className="actual-slider__arrows" aria-label="Управление слайдером">
+          <div className="actual-slider__arrows" role="group" aria-label="Управление слайдером">
             <button type="button" onClick={() => move(-1)} aria-label="Предыдущий слайд">
               <span aria-hidden="true">←</span>
             </button>
@@ -212,6 +212,7 @@ export function ActualSlider({ items, brands }: ActualSliderProps) {
       <div
         ref={viewportRef}
         className="actual-slider__viewport"
+        role="group"
         tabIndex={0}
         aria-label="Материалы раздела «Актуальное». Используйте стрелки влево и вправо для навигации."
         aria-live={isTemporarilyPaused || isFocusWithin ? "polite" : "off"}
@@ -230,6 +231,7 @@ export function ActualSlider({ items, brands }: ActualSliderProps) {
             <article
               className="actual-slide"
               data-slide-index={index}
+              data-brand={brand?.slug}
               key={item.id}
               role="group"
               aria-roledescription="slide"

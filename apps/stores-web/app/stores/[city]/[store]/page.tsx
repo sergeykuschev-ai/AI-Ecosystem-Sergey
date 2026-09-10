@@ -57,7 +57,7 @@ export default async function StorePage({ params }: StorePageProps) {
         ])}
       />
       <Container>
-        <nav className="breadcrumbs" aria-label="Хлебные крошки"><Link href="/stores/">Магазины</Link><span>/</span><Link href={`/stores/${city.slug}/`}>{city.name}</Link><span>/</span><span aria-current="page">{brand.name}</span></nav>
+        <nav className="breadcrumbs" aria-label="Хлебные крошки"><Link href="/stores/">Магазины</Link><span aria-hidden="true">/</span><Link href={`/stores/${city.slug}/`}>{city.name}</Link><span aria-hidden="true">/</span><span aria-current="page">{brand.name}</span></nav>
         <header className="store-hero" style={{ "--brand-color": brand.primary_color, "--brand-soft": brand.secondary_color } as React.CSSProperties}>
           <p className="eyebrow">{brand.name} · {city.name}</p>
           <h1>{store.name}</h1>
