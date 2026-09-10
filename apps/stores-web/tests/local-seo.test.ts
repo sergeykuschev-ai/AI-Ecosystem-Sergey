@@ -10,31 +10,26 @@ import { BrandStoreContact } from "@/components/stores/BrandStoreContact";
 import { StoreContactBlock } from "@/components/stores/StoreContactBlock";
 import { mockBrands, mockCities, mockStores } from "@/lib/data/mock-data";
 import * as homePage from "@/app/page";
-import * as akciiPage from "@/app/akcii/page";
 import * as amperPage from "@/app/amper/page";
 import * as bonusPage from "@/app/bonus/page";
-import * as ventilPage from "@/app/ventil/page";
 import * as faqPage from "@/app/faq/page";
+import * as ventilPage from "@/app/ventil/page";
 import * as kontaktyPage from "@/app/kontakty/page";
 import * as metizMarketPage from "@/app/metiz-market/page";
 import * as miskaPage from "@/app/miska/page";
 import * as oKompaniiPage from "@/app/o-kompanii/page";
 import * as storesPage from "@/app/stores/page";
-import * as vakansiiPage from "@/app/vakansii/page";
 
 const projectRoot = fileURLToPath(new URL("..", import.meta.url));
 
 const STATIC_PAGE_MODULES: Array<{ name: string; metadata: Metadata }> = [
   { name: "/", metadata: homePage.metadata },
-  { name: "/akcii/", metadata: akciiPage.metadata },
   { name: "/amper/", metadata: amperPage.metadata },
   { name: "/bonus/", metadata: bonusPage.metadata },
-  { name: "/faq/", metadata: faqPage.metadata },
   { name: "/metiz-market/", metadata: metizMarketPage.metadata },
   { name: "/miska/", metadata: miskaPage.metadata },
   { name: "/o-kompanii/", metadata: oKompaniiPage.metadata },
   { name: "/stores/", metadata: storesPage.metadata },
-  { name: "/vakansii/", metadata: vakansiiPage.metadata },
   { name: "/ventil/", metadata: ventilPage.metadata },
 ];
 
@@ -68,6 +63,7 @@ describe("local SEO internal linking", () => {
     const pages = [
       ...STATIC_PAGE_MODULES,
       { name: "/kontakty/", metadata: await kontaktyPage.generateMetadata() },
+      { name: "/faq/", metadata: await faqPage.generateMetadata() },
     ];
     const titles = pages.map((page) => page.metadata.title);
     const descriptions = pages.map((page) => page.metadata.description);

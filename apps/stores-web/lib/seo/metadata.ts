@@ -46,3 +46,10 @@ export function createPageMetadata({ title, description, path, noIndex = false }
     },
   };
 }
+
+export function createListingPageMetadata(
+  input: Omit<PageMetadataInput, "noIndex">,
+  itemCount: number,
+): Metadata {
+  return createPageMetadata({ ...input, noIndex: itemCount === 0 });
+}
