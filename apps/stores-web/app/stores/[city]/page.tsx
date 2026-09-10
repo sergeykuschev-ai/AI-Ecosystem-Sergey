@@ -2,11 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { StaticPage } from "@/components/content/StaticPage";
+import { JsonLd } from "@/components/seo/JsonLd";
 import { StoreList } from "@/components/stores/StoreList";
 import { getBrands } from "@/lib/directus/brands";
 import { getCities, getCityBySlug } from "@/lib/directus/cities";
 import { getStoresByCity } from "@/lib/directus/stores";
 import { createPageMetadata } from "@/lib/seo/metadata";
+import { createStoresJsonLd } from "@/lib/seo/json-ld";
 export const dynamic = "force-dynamic";
 
 interface CityPageProps { params: Promise<{ city: string }> }
@@ -25,7 +27,6 @@ export async function generateMetadata({ params }: CityPageProps): Promise<Metad
     path: `/stores/${city.slug}/`,
   });
 }
-
 export default async function CityStoresPage({ params }: CityPageProps) {
   const { city: slug } = await params;
   const city = await getCityBySlug(slug);
@@ -50,6 +51,7 @@ export default async function CityStoresPage({ params }: CityPageProps) {
           </div>
         </section>
       )}
+      <JsonLd data={createStoresJsonLd(stores, brands, city)} />
     </StaticPage>
   );
 }

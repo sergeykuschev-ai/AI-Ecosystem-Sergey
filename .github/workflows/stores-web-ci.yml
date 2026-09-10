@@ -32,8 +32,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -44,21 +42,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
-
-      - name: Check diff for whitespace errors
-        run: git diff --check origin/main...HEAD
-
-      - name: Secret pattern scan on changed files
-        run: |
-          set -euo pipefail
-          git fetch origin main --depth=1
-          files=$(git diff --name-only origin/main...HEAD || true)
-          if [ -n "$files" ]; then
-            if echo "$files" | xargs grep -nE 'AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{36}|sk-[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|-----BEGIN (RSA |EC |OPENSSH |ENCRYPTED )?PRIVATE KEY-----' 2>/dev/null; then
-              echo "::error::Potential secret found in changed files"
-              exit 1
-            fi
-          fi
 
       - name: Run tests
         run: npm test

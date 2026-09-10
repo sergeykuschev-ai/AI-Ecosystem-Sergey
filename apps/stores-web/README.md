@@ -198,11 +198,11 @@ Create an active `promotions` record and set its brand, city, and/or store scope
 
 ## SEO, Local SEO, and AI search
 
-Every public page uses the Metadata API for title, description, canonical, Open Graph, and robots settings; a default Open Graph image (a committed static PNG, since generated metadata routes conflict with the trailing-slash redirect) with Russian `alt` text is attached at the root segment. Home JSON-LD describes a `WebSite` and each actual brand as a separate `Organization`; there is no fabricated parent organization. Store JSON-LD emits the verified business type, `PostalAddress`, and conditionally emits telephone, coordinates, and opening hours only when present. The contacts page emits the same verified store entities as a `LocalBusiness` graph, and store pages add `BreadcrumbList` JSON-LD matching their visible breadcrumbs.
+Every public page uses the Metadata API for title, description, canonical, Open Graph, and robots settings. The default Open Graph image is a committed static PNG referenced explicitly through `createPageMetadata` for every page (the root-segment `opengraph-image.png` file convention does not inherit into child segments that define their own Open Graph metadata); Russian `alt` text is attached alongside it. Home JSON-LD describes a `WebSite` and each actual brand as a separate `Organization`; there is no fabricated parent organization. Store JSON-LD emits the verified business type, `PostalAddress`, and conditionally emits telephone, coordinates, and opening hours only when present. The contacts page and the city page emit the same verified store entities as a `LocalBusiness` graph, and store pages add `BreadcrumbList` JSON-LD matching their visible breadcrumbs.
 
 Critical brand, locality, store, category, FAQ, promotion, and vacancy content is server-rendered in semantic HTML. Navigation uses ordinary links, headings are hierarchical, focus is visible, and the layout supports 320 px viewports.
 
-The V1.1 local-SEO layer (see [Local SEO V1.1](docs/LOCAL_SEO_V1_1_2026-09-10.md)) adds brand-scoped local-intent FAQs grounded only in verified facts, closes the internal-linking loop between store pages and brand pages, links city and FAQ pages to relevant sections, and enforces unique metadata titles/descriptions by test. It adds no catalog, no new routes, and no unverified commercial claims; phrases that would require unverified facts are documented there as owner decisions.
+The V1.1 local-SEO layer (see [Local SEO V1.1](docs/LOCAL_SEO_V1_1_2026-09-10.md)) strengthens internal linking without duplicating CMS content: the city page links to the four brand landings, store pages link back to their brand landing, and FAQ links to contacts, stores and bonus information. It adds no catalog, no new routes, no Directus seed changes, and no unverified commercial claims.
 
 `robots.txt` allows normal crawling and does not block OAI-SearchBot. It excludes APIs, admin, preview, internal Directus routes, and framework assets. The dynamic sitemap includes active public records only.
 
@@ -242,3 +242,11 @@ npm run smoke:production
 ```
 
 It verifies HTTP 200 and page markers for the public routes, `/sitemap.xml`, `/robots.txt`, `/opengraph-image.png`, and the `/api/health` contract. Details are in [`docs/PRODUCTION_DEPLOY.md`](docs/PRODUCTION_DEPLOY.md#post-deploy-smoke-check).
+
+For SEO/indexation audits (canonical URLs, metadata, JSON-LD, noindex discipline, sitemap/robots consistency, redirects, duplicate titles/descriptions, IndexNow readiness — anonymous GETs only, never submits IndexNow URLs), run:
+
+```bash
+npm run audit:seo
+```
+
+It is the repeatable form of the audit in [`docs/SEO_INDEXATION_AUDIT_V1_1_2026-09-10.md`](docs/SEO_INDEXATION_AUDIT_V1_1_2026-09-10.md).

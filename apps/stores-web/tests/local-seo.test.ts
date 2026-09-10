@@ -16,8 +16,6 @@ import * as miskaPage from "@/app/miska/page";
 import * as oKompaniiPage from "@/app/o-kompanii/page";
 import * as storesPage from "@/app/stores/page";
 import * as vakansiiPage from "@/app/vakansii/page";
-import { CANONICAL_BRAND_SLUGS } from "@/lib/constants/brands";
-import { mockBrands, mockFaqs } from "@/lib/data/mock-data";
 
 const projectRoot = fileURLToPath(new URL("..", import.meta.url));
 
@@ -36,53 +34,34 @@ const STATIC_PAGE_MODULES: Array<{ name: string; metadata: Metadata }> = [
   { name: "/ventil/", metadata: ventilPage.metadata },
 ];
 
-describe("local SEO content layer", () => {
-  test("every canonical brand has a local-intent FAQ grounded in verified facts", () => {
-    const activeFaqs = mockFaqs.filter((faq) => faq.active);
-    for (const slug of CANONICAL_BRAND_SLUGS) {
-      const brand = mockBrands.find((item) => item.slug === slug);
-      assert.ok(brand, `mock data must include brand ${slug}`);
-      const faq = activeFaqs.find((item) => item.brand_id === brand.id);
-      assert.ok(faq, `expected a local-intent FAQ for brand ${slug}`);
-      assert.match(faq.question, /Амурске\?$/, `question for ${slug} must be a local-intent question`);
-      assert.ok(
-        faq.question.toLowerCase().includes(brand.name.toLowerCase()) || faq.answer.includes(brand.name),
-        `FAQ for ${slug} must name the brand`,
-      );
-      assert.ok(
-        faq.answer.includes("проспекте Победы, 16"),
-        `FAQ answer for ${slug} must use only the verified address`,
-      );
-    }
-  });
+function source(...parts: string[]) {
+  return readFileSync(join(projectRoot, ...parts), "utf8");
+}
 
-  test("general FAQs stay separate from brand-scoped FAQs", () => {
-    const generalFaqs = mockFaqs.filter((faq) => !faq.brand_id);
-    assert.ok(generalFaqs.length > 0, "expected general FAQs for the home page");
-    for (const faq of generalFaqs) {
-      assert.ok(!faq.answer.includes("проспекте Победы"), "general FAQ answers must not invent store facts");
-    }
-  });
-
-  test("static page metadata titles and descriptions are unique", () => {
+describe("local SEO internal linking", () => {
+  test("static page metadata titles and descriptions stay unique", () => {
     const titles = STATIC_PAGE_MODULES.map((page) => page.metadata.title);
     const descriptions = STATIC_PAGE_MODULES.map((page) => page.metadata.description);
     assert.equal(new Set(titles).size, titles.length, "duplicate metadata titles across static pages");
-    assert.equal(
-      new Set(descriptions).size,
-      descriptions.length,
-      "duplicate metadata descriptions across static pages",
-    );
+    assert.equal(new Set(descriptions).size, descriptions.length, "duplicate metadata descriptions across static pages");
   });
 
   test("store pages link back to their brand landing page", () => {
-    const source = readFileSync(
-      join(projectRoot, "app", "stores", "[city]", "[store]", "page.tsx"),
-      "utf8",
-    );
-    assert.ok(
-      source.includes("href={`/${brand.slug}/`}"),
-      "store page must link to the brand landing route",
-    );
+    const page = source("app", "stores", "[city]", "[store]", "page.tsx");
+    assert.ok(page.includes("href={`/${brand.slug}/`}"), "store page must link to the brand landing route");
+  });
+
+  test("city page links active city brands to their landing pages", () => {
+    const page = source("app", "stores", "[city]", "page.tsx");
+    assert.ok(page.includes("cityBrands"), "city page must derive active brands present in the city");
+    assert.ok(page.includes("href={`/${brand.slug}/`}"), "city page must link each brand to its landing page");
+    assert.ok(page.includes("createStoresJsonLd"), "city page must preserve its structured-data graph");
+  });
+
+  test("FAQ page links to useful local navigation targets", () => {
+    const page = source("app", "faq", "page.tsx");
+    for (const href of ["/kontakty/", "/stores/", "/bonus/"]) {
+      assert.ok(page.includes(`href=\"${href}\"`), `FAQ page must link to ${href}`);
+    }
   });
 });
