@@ -13,7 +13,7 @@ the production HTML (the same approach as `scripts/smoke/production.ts`).
 | Check | Result | Evidence |
 | --- | --- | --- |
 | Counter 112116056 loads once | PASS | Production HTML contains exactly one `mc.yandex.ru/metrika/tag.js` loader; the inline snippet keeps the built-in duplicate guard (`document.scripts` scan); the component is mounted once in `app/layout.tsx` |
-| Initial pageview / SPA navigation | PASS | `init` runs with `ssr: true`, which records the initial pageview once; `components/analytics/YandexMetrika.tsx` skips the first render and sends `hit` only on pathname changes, so SPA transitions do not double-count |
+| Initial pageview / SPA navigation | PASS | The counter initializes without `defer: true`, so the regular tag records the initial pageview automatically; `components/analytics/YandexMetrika.tsx` skips its first pathname effect and sends `hit` only on later SPA pathname changes, avoiding a duplicate initial pageview |
 | `reachGoal` wiring for all 7 goals | PASS | `click_phone`, `click_route`, `brand_open`, `store_open`, `promotion_open`, `bonus_open`, `vacancy_open` are all fired through `TrackedLink`/`trackEvent` (see `docs/ANALYTICS.md` table for firing locations); `tests/analytics.test.ts` asserts each goal name reaches `ym(112116056, "reachGoal", …)` |
 | Duplicate suppression | PASS | Only an identical event+payload within `ANALYTICS_DEDUPE_WINDOW_MS` (1 s) is suppressed; a later click or a different payload fires again. Regression test: "fires an identical event+payload again after the dedupe window" |
 | No PII in payloads | PASS | Payloads carry only entity slugs, entity ids, and a click `source` label. No names, phone numbers, form contents, or free text |
