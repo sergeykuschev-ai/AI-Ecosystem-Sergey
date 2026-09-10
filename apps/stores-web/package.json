@@ -12,7 +12,10 @@
     "smoke:production": "tsx scripts/smoke/production.ts",
     "directus:schema:apply": "tsx scripts/directus/schema.ts",
     "directus:seed": "tsx scripts/directus/seed.ts",
-    "directus:check": "tsx scripts/directus/check.ts"
+    "directus:check": "tsx scripts/directus/check.ts",
+    "deploy:web:dry-run": "bash scripts/deploy/deploy-web.sh",
+    "deploy:web": "bash scripts/deploy/deploy-web.sh --deploy",
+    "deploy:web:smoke": "bash scripts/deploy/deploy-web.sh --smoke-only"
   },
   "dependencies": {
     "next": "16.3.3",
