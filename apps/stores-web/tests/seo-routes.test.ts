@@ -16,6 +16,16 @@ import * as metizMarketPage from "@/app/metiz-market/page";
 import * as miskaPage from "@/app/miska/page";
 import * as privacyPage from "@/app/politika-konfidencialnosti/page";
 import * as consentPage from "@/app/soglasie-na-obrabotku-dannyh/page";
+import * as homePage from "@/app/page";
+import * as storesPage from "@/app/stores/page";
+import * as promotionsPage from "@/app/akcii/page";
+import * as bonusPage from "@/app/bonus/page";
+import * as vacanciesPage from "@/app/vakansii/page";
+import * as aboutPage from "@/app/o-kompanii/page";
+import * as contactsPage from "@/app/kontakty/page";
+import * as faqPage from "@/app/faq/page";
+import { generateMetadata as generateCityMetadata } from "@/app/stores/[city]/page";
+import { generateMetadata as generateStoreMetadata } from "@/app/stores/[city]/[store]/page";
 
 const PUBLIC_STATIC_PATHS = [
   "/",
@@ -37,6 +47,18 @@ const BRAND_PAGES = [
   { module: miskaPage, path: "/miska/" },
 ];
 
+const INDEXABLE_STATIC_PAGES = [
+  { module: homePage, path: "/" },
+  { module: storesPage, path: "/stores/" },
+  { module: promotionsPage, path: "/akcii/" },
+  { module: bonusPage, path: "/bonus/" },
+  { module: vacanciesPage, path: "/vakansii/" },
+  { module: aboutPage, path: "/o-kompanii/" },
+  { module: contactsPage, path: "/kontakty/" },
+  { module: faqPage, path: "/faq/" },
+  ...BRAND_PAGES,
+];
+
 function canonicalHref(metadata: Metadata): string {
   const canonical = metadata.alternates?.canonical;
   assert.ok(canonical instanceof URL, "canonical alternate must be an absolute URL");
@@ -50,13 +72,38 @@ function robotsFlags(metadata: Metadata): { index?: boolean; follow?: boolean } 
 }
 
 describe("page metadata", () => {
-  test("brand pages expose canonical indexable metadata on canonical brand routes", () => {
-    for (const { module, path } of BRAND_PAGES) {
+  test("every static indexable page exposes one canonical trailing-slash URL", () => {
+    const canonicalUrls = new Set<string>();
+    for (const { module, path } of INDEXABLE_STATIC_PAGES) {
       const href = canonicalHref(module.metadata);
       assert.equal(href, new URL(path, siteUrl).href, `canonical for ${path}`);
       assert.equal(robotsFlags(module.metadata).index, true, `index for ${path}`);
+      assert.equal(robotsFlags(module.metadata).follow, true, `follow for ${path}`);
       assert.ok(module.metadata.title, `title for ${path}`);
       assert.ok(module.metadata.description, `description for ${path}`);
+      assert.ok(!canonicalUrls.has(href), `canonical ${href} must belong to only one public page`);
+      canonicalUrls.add(href);
+    }
+  });
+
+  test("dynamic city and store pages canonicalize their resolved content routes", async () => {
+    for (const city of mockCities.filter((item) => item.active)) {
+      const cityMetadata = await generateCityMetadata({ params: Promise.resolve({ city: city.slug }) });
+      assert.equal(canonicalHref(cityMetadata), new URL(`/stores/${city.slug}/`, siteUrl).href);
+      assert.equal(robotsFlags(cityMetadata).index, true);
+      assert.equal(robotsFlags(cityMetadata).follow, true);
+
+      for (const store of mockStores.filter((item) => item.active && item.city_id === city.id)) {
+        const storeMetadata = await generateStoreMetadata({
+          params: Promise.resolve({ city: city.slug, store: store.slug }),
+        });
+        assert.equal(
+          canonicalHref(storeMetadata),
+          new URL(`/stores/${city.slug}/${store.slug}/`, siteUrl).href,
+        );
+        assert.equal(robotsFlags(storeMetadata).index, true);
+        assert.equal(robotsFlags(storeMetadata).follow, true);
+      }
     }
   });
 
@@ -164,13 +211,24 @@ describe("default Open Graph image", () => {
 describe("trailing-slash proxy", () => {
   const runProxy = (path: string) => proxy(new NextRequest(new URL(path, siteUrl).href));
 
-  test("extensionless public paths redirect once to the trailing-slash canonical URL", () => {
-    for (const path of ["/amper", "/kontakty", "/bonus"]) {
+  test("every extensionless public path redirects once with 308 to its canonical URL", () => {
+    const dynamicPaths = mockCities.filter((item) => item.active).flatMap((city) => [
+      `/stores/${city.slug}/`,
+      ...mockStores
+        .filter((store) => store.active && store.city_id === city.id)
+        .map((store) => `/stores/${city.slug}/${store.slug}/`),
+    ]);
+    const canonicalPaths = [...INDEXABLE_STATIC_PAGES.map(({ path }) => path), ...LEGAL_PATHS, ...dynamicPaths];
+
+    for (const canonicalPath of canonicalPaths) {
+      if (canonicalPath === "/") continue;
+      const path = canonicalPath.slice(0, -1);
       const response = runProxy(path);
       assert.equal(response.status, 308, `${path} must return 308`);
       const location = response.headers.get("location");
       assert.ok(location, `${path} must set a Location header`);
-      assert.equal(new URL(location, siteUrl).href, new URL(`${path}/`, siteUrl).href, `${path} redirect target`);
+      assert.equal(new URL(location, siteUrl).href, new URL(canonicalPath, siteUrl).href, `${path} redirect target`);
+      assert.notEqual(runProxy(new URL(location).pathname).status, 308, `${path} must redirect only once`);
     }
   });
 
@@ -179,6 +237,22 @@ describe("trailing-slash proxy", () => {
       const response = runProxy(path);
       assert.notEqual(response.status, 308, `${path} must not be redirected again`);
     }
+  });
+});
+
+describe("public origin normalization", () => {
+  test("canonical metadata always uses the configured HTTPS non-www origin", () => {
+    assert.equal(siteUrl.protocol, "https:");
+    assert.ok(!siteUrl.hostname.startsWith("www."));
+    for (const { module, path } of INDEXABLE_STATIC_PAGES) {
+      assert.equal(new URL(canonicalHref(module.metadata)).origin, siteUrl.origin, `origin for ${path}`);
+    }
+  });
+
+  test("the edge redirects www to the same canonical origin", () => {
+    const caddyfile = readFileSync(path.join(process.cwd(), "Caddyfile"), "utf8");
+    assert.match(caddyfile, /www\.amurskmarket\.ru\s*\{/);
+    assert.match(caddyfile, /redir\s+https:\/\/amurskmarket\.ru\{uri\}\s+permanent/);
   });
 });
 
