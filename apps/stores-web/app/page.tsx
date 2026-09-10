@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { ActualSlider } from "@/components/actual/ActualSlider";
-import { BrandActualList } from "@/components/brand/BrandActualList";
 import { BrandCard } from "@/components/brand/BrandCard";
 import { FAQList } from "@/components/faq/FAQList";
 import { JsonLd } from "@/components/seo/JsonLd";
@@ -10,7 +8,7 @@ import { HomeStoreSection } from "@/components/stores/HomeStoreSection";
 import { Button } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Container";
 import { getBrands } from "@/lib/directus/brands";
-import { getActualItems, getActualItemsByType } from "@/lib/directus/actual-items";
+import { getActualItems } from "@/lib/directus/actual-items";
 import { getCityBySlug } from "@/lib/directus/cities";
 import { getFaqs } from "@/lib/directus/faqs";
 import { getStoresByCity } from "@/lib/directus/stores";
@@ -26,17 +24,13 @@ export const metadata: Metadata = createPageMetadata({
 });
 
 export default async function HomePage() {
-  const [brands, faqs, actualItems, promotions, city] = await Promise.all([
+  const [brands, faqs, actualItems, city] = await Promise.all([
     getBrands(),
     getFaqs(),
     getActualItems(),
-    getActualItemsByType("promotion"),
     getCityBySlug("amursk"),
   ]);
   const stores = city ? await getStoresByCity(city.id) : [];
-  const extraPromotions = promotions.filter(
-    (promotion) => !actualItems.some((homeItem) => homeItem.id === promotion.id),
-  );
   return (
     <main>
       <JsonLd data={createWebsiteJsonLd()} />
@@ -59,14 +53,6 @@ export default async function HomePage() {
         </section>
         <ActualSlider items={actualItems} brands={brands} />
         {city && <HomeStoreSection stores={stores} brands={brands} city={city} />}
-        {extraPromotions.length > 0 && (
-          <section className="section home-promo" aria-labelledby="home-promo-title">
-            <p className="eyebrow">Предложения</p>
-            <h2 id="home-promo-title">Действующие акции</h2>
-            <BrandActualList items={extraPromotions} />
-            <p className="home-promo__more"><Link href="/akcii/">Все акции <span aria-hidden="true">→</span></Link></p>
-          </section>
-        )}
         {city && <FindUsSection stores={stores} brands={brands} city={city} />}
         <section className="section" aria-labelledby="faq-title">
           <h2 id="faq-title">Частые вопросы</h2>
