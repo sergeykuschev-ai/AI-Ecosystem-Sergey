@@ -96,6 +96,14 @@ The `services/indexnow.ts` adapter accepts changed URLs, resolves them against a
 
 No public IndexNow or revalidation endpoint exists in V1.
 
+## Failure behavior
+
+Public routes render with `force-dynamic` and depend on Directus at request time. Repository functions throw on Directus HTTP or network failures; they never fall back to mock content when `CONTENT_SOURCE=directus`, so a CMS outage fails loudly instead of silently publishing placeholder data. Mock content is served only when `CONTENT_SOURCE` is unset outside production or explicitly set to `mock` (development, tests, hermetic builds).
+
+Uncaught page errors are handled by the root `app/error.tsx` boundary and, for root-layout failures, `app/global-error.tsx`. Both show a generic Russian recovery page with a retry action and navigation links. Error details and digests are logged server-side only; stack traces, upstream messages, credentials, and URLs are never rendered or exposed to the client. The root `app/not-found.tsx` handles `notFound()` outcomes such as unknown city or store slugs, and `app/loading.tsx` provides the navigation loading state for dynamic pages. Note: on Next.js 16.3.3, requests that match no route at all currently return a bare `404` status with an empty body at the routing level (verified in dev and standalone production output); this is framework behavior that app code does not control.
+
+Public `/api/*` routes normalize upstream failures into stable JSON codes (`UPSTREAM_UNAVAILABLE`, `UPSTREAM_ERROR`, `CONFIGURATION`, `NOT_FOUND`, `INVALID_ID`) with 4xx/5xx statuses and log only collection-level context, never credentials.
+
 ## Security
 
 Production terminates HTTPS at trusted infrastructure. Next.js sets content-type, frame, referrer, and permissions headers. Secrets remain server-only environment variables. Directus receives a least-privilege database account; the web service receives, at most, a read-only Directus token. API errors expose stable public codes and log only collection-level context, never credentials or personal data.
