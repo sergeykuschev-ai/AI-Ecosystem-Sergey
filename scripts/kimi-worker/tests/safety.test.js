@@ -58,6 +58,22 @@ test('allowed stores-web files pass validation', () => {
   assert.deepEqual(violations, []);
 });
 
+test('stores-web allows only its exact root CI workflow exception', () => {
+  const allowed = safety.validateChangedFiles(['.github/workflows/stores-web-ci.yml'], STORES_AREA);
+  assert.deepEqual(allowed, []);
+
+  const blocked = safety.validateChangedFiles(
+    [
+      '.github/workflows/other.yml',
+      'apps/stores-web/.github/workflows/ci.yml',
+      '.github/workflows/../workflows/stores-web-ci.yml',
+    ],
+    STORES_AREA
+  );
+  assert.equal(blocked.length, 3);
+  assert.ok(safety.isForbiddenPath('.github/workflows/stores-web-ci.yml'));
+});
+
 test('sibling-worktree traversal via relative path is rejected', () => {
   const violations = safety.validateChangedFiles(
     ['apps/stores-web/../../AI-Ecosystem-Sergey-stores-web/apps/stores-web/app/x.tsx'],
@@ -155,7 +171,7 @@ test('prompt wraps issue body in delimiters with an untrusted-data warning', () 
 test('sandbox denies writes outside the worktree', { skip: !sandbox.isAvailable() }, () => {
   fs.mkdirSync(config.worktreesDir, { recursive: true });
   const wt = fs.mkdtempSync(path.join(config.worktreesDir, 'probe-a-'));
-  const canary = path.join(os.tmpdir(), `kimi-canary-${process.pid}`);
+  const canary = path.join(config.adminHome, `write-canary-${process.pid}`);
   try {
     const wrapped = sandbox.wrap(wt, '/usr/bin/touch', [canary]);
     const { execFileSync } = require('child_process');

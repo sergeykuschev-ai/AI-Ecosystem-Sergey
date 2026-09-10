@@ -8,6 +8,10 @@
 function buildPrompt(issue, area, checks) {
   const labels = (issue.labels || []).map((l) => l.name).join(', ');
   const checkList = checks.filter((c) => c.startsWith('npm:')).map((c) => `npm run ${c.slice(4)}`);
+  const allowedLocations = [
+    ...area.allowedPaths,
+    ...(area.allowedExactPaths || []).map((p) => `${p} (exact file only)`),
+  ];
   return [
     `=== TASK (GitHub issue #${issue.number}) ===`,
     `Title: ${issue.title}`,
@@ -19,7 +23,7 @@ function buildPrompt(issue, area, checks) {
     `--- ISSUE BODY END ---`,
     ``,
     `=== YOUR CONSTRAINTS FOR THIS TASK ===`,
-    `1. Work ONLY inside ${area.allowedPaths.join(', ')} of this worktree.`,
+    `1. Work ONLY inside ${allowedLocations.join(', ')} of this worktree.`,
     `   Everything else is off limits: other areas of the monorepo, other`,
     `   worktrees, $HOME dotfiles, system directories. Enforced by the sandbox.`,
     `2. Do NOT run any git command — the worker handles all git operations.`,

@@ -40,6 +40,9 @@ const config = {
     'area:stores-web': {
       name: 'stores-web',
       allowedPaths: ['apps/stores-web/'],
+      // Exact, area-scoped exception: this one root workflow belongs to stores-web.
+      // All other .github/workflows/** paths remain globally forbidden.
+      allowedExactPaths: ['.github/workflows/stores-web-ci.yml'],
       checks: ['git-diff-check', 'npm:lint', 'npm:typecheck', 'npm:build'],
       packageDir: 'apps/stores-web',
       // Fixed, non-secret test values for `npm run build` in the validation

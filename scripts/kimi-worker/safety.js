@@ -55,13 +55,18 @@ function validateChangedFiles(files, area) {
   const violations = [];
   for (const raw of files) {
     const file = path.posix.normalize(raw);
-    if (isForbiddenPath(file)) {
+    const allowedExactPaths = area.allowedExactPaths || [];
+    // Exact exceptions are intentionally narrow and must already be normalized.
+    // This prevents traversal-shaped input from normalizing into an exception.
+    const exactAllowed = raw === file && allowedExactPaths.includes(file);
+    if (isForbiddenPath(file) && !exactAllowed) {
       violations.push(`${raw}: forbidden path pattern`);
       continue;
     }
-    const allowed = area.allowedPaths.some((prefix) => file.startsWith(prefix));
+    const allowed = exactAllowed || area.allowedPaths.some((prefix) => file.startsWith(prefix));
     if (!allowed) {
-      violations.push(`${raw}: outside allowed paths [${area.allowedPaths.join(', ')}]`);
+      const locations = [...area.allowedPaths, ...allowedExactPaths];
+      violations.push(`${raw}: outside allowed paths [${locations.join(', ')}]`);
     }
   }
   return violations;

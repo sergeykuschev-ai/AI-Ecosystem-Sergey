@@ -63,7 +63,7 @@ Four independent layers:
    worker never adds them.
 3. **Post-run gates (before commit)** — changed files must stay inside the
    area's allowed paths; `.env*`, keys, `node_modules`, build outputs and
-   `.github/workflows` are rejected; **symlinks are rejected outright**
+   `.github/workflows` are rejected by default (the stores-web area has one exact-file exception for `.github/workflows/stores-web-ci.yml`); **symlinks are rejected outright**
    (never followed by the secret scan); staged content is scanned for
    credential-shaped strings; `git diff --check` + lint/typecheck/build must
    pass. Any failure means nothing is committed.
