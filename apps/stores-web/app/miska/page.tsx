@@ -1,6 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { BrandLandingPage } from "@/components/brand/BrandLandingPage";
+import {
+  BONUS_CARD_THRESHOLDS_RUB,
+  BONUS_EARN_RATE,
+  BONUS_SPEND_CAP_LABEL,
+  BONUS_VALIDITY_LABEL,
+  formatRubles,
+} from "@/lib/constants/bonus";
 import { createPageMetadata } from "@/lib/seo/metadata";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +22,7 @@ export const metadata: Metadata = createPageMetadata({
 const HERO_POINTS = [
   "Корма и товары для кошек и собак — от повседневных рационов до специализированного питания",
   "Лакомства, наполнители, уход, игрушки и амуниция в одном магазине",
-  "Бонусная карта: начисляем 5%, выдаётся при покупке от 2 000 ₽",
+  `Бонусная карта: начисляем ${BONUS_EARN_RATE}, выдаётся при покупке от ${formatRubles(BONUS_CARD_THRESHOLDS_RUB.miska)}`,
 ];
 
 const CATEGORY_BLOCKS = [
@@ -70,12 +77,12 @@ const VET_NOTICE =
   "Команда магазина не ставит диагнозы и не заменяет консультацию ветеринарного врача. По вопросам здоровья питомца обращайтесь в ветеринарную клинику — а в магазине мы поможем подобрать товары с учётом рекомендаций врача.";
 
 const BONUS_FACTS = [
-  { value: "5%", label: "начисляем бонусами с каждой покупки" },
-  { value: "до 15%", label: "можно оплатить бонусами" },
-  { value: "3 месяца", label: "срок действия бонусов" },
+  { value: BONUS_EARN_RATE, label: "начисляем бонусами с каждой покупки" },
+  { value: BONUS_SPEND_CAP_LABEL, label: "можно оплатить бонусами" },
+  { value: BONUS_VALIDITY_LABEL, label: "срок действия бонусов" },
 ];
 
-const BONUS_NOTE = "Бонусная карта в «Миске» выдаётся при покупке от 2 000 ₽.";
+const BONUS_NOTE = `Бонусная карта в «Миске» выдаётся при покупке от ${formatRubles(BONUS_CARD_THRESHOLDS_RUB.miska)}.`;
 
 function MiskaCategoryBlocks() {
   return (

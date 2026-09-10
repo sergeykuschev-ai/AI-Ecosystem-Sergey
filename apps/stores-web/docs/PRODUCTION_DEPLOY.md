@@ -425,6 +425,23 @@ ssh -i ~/.ssh/id_ed25519_arthur root@138.16.155.126 \
 - Web: `GET /api/health`
 - Caddy: implicit; containers start after dependencies are healthy.
 
+## Post-deploy smoke-check
+
+`scripts/smoke/production.ts` is a read-only smoke-check for the public site. Run it manually after every deploy from the repo (no server access or credentials required):
+
+```bash
+cd apps/stores-web
+npm run smoke:production
+```
+
+It sends only anonymous GET requests to `https://amurskmarket.ru` (override with `SMOKE_BASE_URL`) and verifies:
+
+- HTTP 200 for `/`, all four brand pages, `/kontakty/`, `/bonus/`, `/akcii/`, `/vakansii/`, `/faq/`, `/o-kompanii/`, `/stores/amursk/`, `/sitemap.xml`, `/robots.txt`, and `/opengraph-image.png`;
+- page-specific content markers on each HTML page, so a false-positive 200 (for example a maintenance placeholder) does not pass;
+- `/api/health` returns `{"status":"ok"}`.
+
+The script performs no writes to production, Directus, the database, or any external service and uses no secrets. Exit code `0` means all checks passed; `1` means at least one check failed and the failing endpoint, status, and reason are printed.
+
 ## Backup and rollback
 
 Before any destructive operation, a backup is created automatically by the runbook (`pg_dump` and uploads archive).

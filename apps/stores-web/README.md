@@ -221,11 +221,22 @@ The public frontend must never connect directly to 1C. See the future integratio
 ```bash
 npm run lint
 npm run typecheck
-npm run build
+npm run test
+NEXT_PUBLIC_SITE_URL=https://your-domain.example CONTENT_SOURCE=mock npm run build
 ```
+
+`npm run test` runs the deterministic regression suite in `tests/` with the Node.js test runner (no network access; mock content). It covers canonical brand slugs and palette, bonus program rules and card thresholds, route metadata/sitemap/robots indexing rules, JSON-LD builders (no fabricated ratings/reviews/offers), and a source-level guard that runtime code never mutates Directus schema or data.
 
 ## Production deployment
 
 Production files are in the repository, but production secrets are not. See [`docs/PRODUCTION_DEPLOY.md`](docs/PRODUCTION_DEPLOY.md) for the full target architecture, migration strategy, and operational commands.
 
 Routine code updates deploy web-only through the safe workflow in [`docs/WEB_ONLY_DEPLOY.md`](docs/WEB_ONLY_DEPLOY.md) and `scripts/deploy/deploy-web.sh` (dry-run by default; `npm run deploy:web:dry-run`, `npm run deploy:web`, `npm run deploy:web:smoke`). It never runs `directus:seed`, never recreates the database or Directus schema, and never touches `/opt/stores-web/config/.env.production` or the persistent data directories.
+
+After each deploy, run the read-only production smoke-check from the repo (anonymous GET requests only; no credentials or writes):
+
+```bash
+npm run smoke:production
+```
+
+It verifies HTTP 200 and page markers for the public routes, `/sitemap.xml`, `/robots.txt`, `/opengraph-image.png`, and the `/api/health` contract. Details are in [`docs/PRODUCTION_DEPLOY.md`](docs/PRODUCTION_DEPLOY.md#post-deploy-smoke-check).
