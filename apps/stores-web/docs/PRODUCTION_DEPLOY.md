@@ -1,5 +1,10 @@
 # Production deployment: stores-web (Amursk)
 
+> Routine web-only code updates after the initial migration use the safe
+> deploy workflow in [`WEB_ONLY_DEPLOY.md`](./WEB_ONLY_DEPLOY.md)
+> (`scripts/deploy/deploy-web.sh`). This document covers the one-time
+> migration and full-stack operations.
+
 Target host: `stores-web1` (`138.16.155.126`).
 Domains: `amurskmarket.ru`, `www.amurskmarket.ru`, `cms.amurskmarket.ru`.
 

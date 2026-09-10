@@ -227,3 +227,5 @@ npm run build
 ## Production deployment
 
 Production files are in the repository, but production secrets are not. See [`docs/PRODUCTION_DEPLOY.md`](docs/PRODUCTION_DEPLOY.md) for the full target architecture, migration strategy, and operational commands.
+
+Routine code updates deploy web-only through the safe workflow in [`docs/WEB_ONLY_DEPLOY.md`](docs/WEB_ONLY_DEPLOY.md) and `scripts/deploy/deploy-web.sh` (dry-run by default; `npm run deploy:web:dry-run`, `npm run deploy:web`, `npm run deploy:web:smoke`). It never runs `directus:seed`, never recreates the database or Directus schema, and never touches `/opt/stores-web/config/.env.production` or the persistent data directories.
