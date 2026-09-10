@@ -83,13 +83,8 @@ export function ContactStoreGrid({ stores, brands, city }: { stores: Store[]; br
         return (
           <article
             key={store.id}
-            className="store-card"
+            className="store-card store-card--contact"
             data-brand={brand.slug}
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              height: "100%",
-            } as React.CSSProperties}
           >
             <BrandLogo brand={brand} />
             <h3>{brand.name}</h3>
@@ -112,19 +107,18 @@ export function ContactStoreGrid({ stores, brands, city }: { stores: Store[]; br
             <p className="eyebrow">Режим работы</p>
             <ContactStoreHours hours={store.opening_hours} />
 
-            <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <div className="store-card__actions">
               {phoneHref && (
                 <TrackedLink className="button button--primary" event="click_phone" payload={{ brand: brand.slug, store: store.slug }} href={phoneHref}>
                   Позвонить
                 </TrackedLink>
               )}
-              <div style={{ display: "flex", gap: "0.75rem" }}>
+              <div className="store-card__actions-row">
                 <TrackedLink
                   className="button button--secondary"
                   event="store_open"
                   payload={{ city: city.slug, store: store.slug, brand: brand.slug }}
                   href={detailHref}
-                  style={{ flex: 1, textAlign: "center" }}
                 >
                   Подробнее о магазине
                 </TrackedLink>
@@ -136,7 +130,6 @@ export function ContactStoreGrid({ stores, brands, city }: { stores: Store[]; br
                     href={mapUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{ flex: 1, textAlign: "center" }}
                   >
                     Показать на карте
                   </TrackedLink>

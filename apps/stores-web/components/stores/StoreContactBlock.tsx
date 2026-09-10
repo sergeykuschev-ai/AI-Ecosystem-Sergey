@@ -12,7 +12,11 @@ export function StoreContactBlock({ store }: { store: Store }) {
           <dt>Телефон</dt>
           <dd>
             {store.telephone ? (
-              <TrackedLink event="click_phone" payload={{ store: store.slug }} href={`tel:${store.telephone}`}>
+              <TrackedLink
+                event="click_phone"
+                payload={{ store: store.slug }}
+                href={`tel:${store.telephone.replace(/[^\d+]/g, "")}`}
+              >
                 {store.telephone}
               </TrackedLink>
             ) : (
