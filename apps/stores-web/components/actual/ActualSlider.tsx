@@ -15,6 +15,7 @@ import {
 } from "react";
 import type { ActualItem, ActualItemType } from "@/types/actual-item";
 import type { Brand } from "@/types/brand";
+import { trackEvent } from "@/lib/analytics";
 
 const AUTOPLAY_INTERVAL_MS = 6_500;
 const INTERACTION_PAUSE_MS = 12_000;
@@ -27,6 +28,17 @@ const typeLabels: Record<ActualItemType, string> = {
   bonus: "Бонусная программа",
   general: "Важное",
 };
+
+const typeEvents: Partial<Record<ActualItemType, "promotion_open" | "vacancy_open" | "bonus_open">> = {
+  promotion: "promotion_open",
+  vacancy: "vacancy_open",
+  bonus: "bonus_open",
+};
+
+function trackItemClick(item: ActualItem) {
+  const event = typeEvents[item.type];
+  if (event) trackEvent(event, { item: item.id });
+}
 
 function subscribeToReducedMotion(callback: () => void) {
   const query = window.matchMedia(REDUCED_MOTION_QUERY);
@@ -65,7 +77,10 @@ function ActualSlideImage({ item, index, onInteraction }: { item: ActualItem; in
       className="actual-slide__visual"
       href={item.buttonUrl}
       aria-label={`Открыть материал «${item.title}»`}
-      onClick={onInteraction}
+      onClick={() => {
+        trackItemClick(item);
+        onInteraction();
+      }}
     >
       {image}
     </Link>
@@ -231,7 +246,14 @@ export function ActualSlider({ items, brands }: ActualSliderProps) {
                 <h3>{item.title}</h3>
                 {item.shortText && <p>{item.shortText}</p>}
                 {item.buttonText && item.buttonUrl && (
-                  <Link className="actual-slide__button" href={item.buttonUrl} onClick={pauseTemporarily}>
+                  <Link
+                    className="actual-slide__button"
+                    href={item.buttonUrl}
+                    onClick={() => {
+                      trackItemClick(item);
+                      pauseTemporarily();
+                    }}
+                  >
                     {item.buttonText} <span aria-hidden="true">→</span>
                   </Link>
                 )}

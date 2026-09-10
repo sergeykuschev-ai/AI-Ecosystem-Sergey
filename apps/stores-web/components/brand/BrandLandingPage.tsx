@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { TrackedLink } from "@/components/analytics/TrackedLink";
 import { BrandActualList } from "@/components/brand/BrandActualList";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { CategoryGrid } from "@/components/categories/CategoryGrid";
@@ -86,14 +87,14 @@ export async function BrandLandingPage({
             {heroContactActions && store ? (
               <div className="button-row">
                 {store.telephone ? (
-                  <a className="button button--primary" href={`tel:${store.telephone}`}>
+                  <TrackedLink className="button button--primary" event="click_phone" payload={{ brand: slug }} href={`tel:${store.telephone}`}>
                     Позвонить
-                  </a>
+                  </TrackedLink>
                 ) : null}
                 {mapUrl ? (
-                  <a className="button button--secondary" href={mapUrl} target="_blank" rel="noopener noreferrer">
+                  <TrackedLink className="button button--secondary" event="click_route" payload={{ brand: slug }} href={mapUrl} target="_blank" rel="noopener noreferrer">
                     Показать на карте
-                  </a>
+                  </TrackedLink>
                 ) : null}
               </div>
             ) : null}

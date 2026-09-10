@@ -1,6 +1,7 @@
 import type { Brand } from "@/types/brand";
 import type { City } from "@/types/city";
 import type { OpeningHoursEntry, Store } from "@/types/store";
+import { TrackedLink } from "@/components/analytics/TrackedLink";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 
 const BRAND_ORDER = ["amper", "ventil", "metiz-market", "miska"];
@@ -100,7 +101,9 @@ export function ContactStoreGrid({ stores, brands, city }: { stores: Store[]; br
             <p className="eyebrow">Телефон</p>
             <p>
               {store.telephone ? (
-                <a href={phoneHref!}>{store.telephone}</a>
+                <TrackedLink event="click_phone" payload={{ brand: brand.slug, store: store.slug }} href={phoneHref!}>
+                  {store.telephone}
+                </TrackedLink>
               ) : (
                 "Телефон уточняется"
               )}
@@ -111,22 +114,32 @@ export function ContactStoreGrid({ stores, brands, city }: { stores: Store[]; br
 
             <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
               {phoneHref && (
-                <a className="button button--primary" href={phoneHref}>Позвонить</a>
+                <TrackedLink className="button button--primary" event="click_phone" payload={{ brand: brand.slug, store: store.slug }} href={phoneHref}>
+                  Позвонить
+                </TrackedLink>
               )}
               <div style={{ display: "flex", gap: "0.75rem" }}>
-                <a className="button button--secondary" href={detailHref} style={{ flex: 1, textAlign: "center" }}>
+                <TrackedLink
+                  className="button button--secondary"
+                  event="store_open"
+                  payload={{ city: city.slug, store: store.slug, brand: brand.slug }}
+                  href={detailHref}
+                  style={{ flex: 1, textAlign: "center" }}
+                >
                   Подробнее о магазине
-                </a>
+                </TrackedLink>
                 {mapUrl && (
-                  <a
+                  <TrackedLink
                     className="button button--secondary"
+                    event="click_route"
+                    payload={{ brand: brand.slug, store: store.slug }}
                     href={mapUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{ flex: 1, textAlign: "center" }}
                   >
                     Показать на карте
-                  </a>
+                  </TrackedLink>
                 )}
               </div>
             </div>
