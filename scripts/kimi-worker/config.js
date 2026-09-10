@@ -127,6 +127,7 @@ const config = {
     ],
     execDenyBinaries: [
       '/usr/bin/security', // keychain CLI (keychain itself is not mach-blockable)
+      '/usr/bin/git', // agents never perform git; worker owns git outside the sandbox
       '/opt/homebrew/bin/gh',
       '/usr/bin/ssh', '/usr/bin/scp', '/usr/bin/sftp',
       '/usr/bin/gpg', '/opt/homebrew/bin/gpg',

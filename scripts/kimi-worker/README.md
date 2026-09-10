@@ -18,8 +18,12 @@ never deploys, and works only inside allowlisted areas of the monorepo.
    Kimi's remaining quota is not burned blindly. Both agents run
    non-interactively under the generated macOS Seatbelt profile. Kimi also
    receives its staged `kimi-agent.md`; Codex runs with `approval=never`, its
-   own `workspace-write` sandbox, ephemeral session state, and user config/MCP
-   rules disabled. Per-task transcripts are written to the worker log dir.
+   inside the worker's outer Seatbelt sandbox, with ephemeral session state and
+   user config/MCP rules disabled. On macOS its inner sandbox is disabled to avoid
+   unsupported nested Seatbelt; the outer worker sandbox remains mandatory. The
+   git-worktree `.git` pointer is hidden during Codex execution and restored before
+   validation so Codex cannot traverse into the main repository metadata. Per-task
+   transcripts are written to the worker log dir.
 5. Validate: changed files must stay inside the area's allowed paths; a
    forbidden-path and secret-content scan runs before anything is staged.
 6. Run checks (`git diff --check`, `npm run lint`, `npm run typecheck`,
@@ -61,8 +65,11 @@ Four independent layers:
    Note: `kimi -p` already runs under the `auto` permission policy; passing
    `--auto`/`--yolo` together with `--prompt` is rejected by the CLI, so the
    worker never adds them. Codex runs with `approval=never`,
-   `workspace-write`, `--ephemeral`, `--ignore-user-config` and
-   `--ignore-rules`; the worker does not enable Codex web search or MCP.
+   `danger-full-access` only at the Codex layer because it is already wrapped by
+   the mandatory outer Seatbelt profile; `--skip-git-repo-check`, `--ephemeral`,
+   `--ignore-user-config` and `--ignore-rules` are also used. The worker temporarily
+   hides the task worktree `.git` pointer and restores it before post-run gates.
+   The worker does not enable Codex web search or MCP.
 3. **Post-run gates (before commit)** — changed files must stay inside the
    area's allowed paths; `.env*`, keys, `node_modules`, build outputs and
    `.github/workflows` are rejected by default (the stores-web area has one exact-file exception for `.github/workflows/stores-web-ci.yml`); **symlinks are rejected outright**

@@ -8,7 +8,7 @@ const safety = require('./safety');
 const { buildPrompt } = require('./prompts');
 const { runChecks, run } = require('./checks');
 const { runKimi } = require('./kimi');
-const { runCodex } = require('./codex');
+const { runCodex, recoverGitPointer } = require('./codex');
 const { chooseAgent } = require('./agent');
 const { createLogger } = require('./logger');
 const { stageAgentFile, removeAgentFile } = require('./agentFile');
@@ -90,6 +90,7 @@ async function prepareWorktree(mainRoot, branch, log) {
 
   await git(['fetch', 'origin', 'main'], mainRoot, 300 * 1000);
 
+  recoverGitPointer(wtPath);
   if (fs.existsSync(path.join(wtPath, '.git'))) {
     log.info(`Reusing existing worktree ${wtPath}`);
     await git(['fetch', 'origin', 'main'], wtPath, 300 * 1000);
@@ -191,7 +192,7 @@ async function processIssue(issueNumber, log, { dryRun }) {
     const changedFiles = safety.parsePorcelainPaths(statusResult.stdout);
     if (changedFiles.length === 0) {
       return finishWithFailure({ issueNumber, branch, state, log, wtPath },
-        'Kimi finished but produced no changes.', { terminal: true, outcome: 'no-changes' });
+        `${selectedAgent} finished but produced no changes.`, { terminal: true, outcome: 'no-changes' });
     }
     log.info(`Changed files (${changedFiles.length}):\n  ${changedFiles.join('\n  ')}`);
 
