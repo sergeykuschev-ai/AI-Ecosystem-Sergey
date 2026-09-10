@@ -240,3 +240,11 @@ npm run smoke:production
 ```
 
 It verifies HTTP 200 and page markers for the public routes, `/sitemap.xml`, `/robots.txt`, `/opengraph-image.png`, and the `/api/health` contract. Details are in [`docs/PRODUCTION_DEPLOY.md`](docs/PRODUCTION_DEPLOY.md#post-deploy-smoke-check).
+
+For incident triage and rollback verification, run the read-only health diagnostics (anonymous GET only; no credentials; distinguishes web-down, web-layer errors, and upstream Directus failure by exit code):
+
+```bash
+npm run diagnose:production
+```
+
+Details and the verdict table are in [`docs/PRODUCTION_HEALTH_RUNBOOK.md`](docs/PRODUCTION_HEALTH_RUNBOOK.md).

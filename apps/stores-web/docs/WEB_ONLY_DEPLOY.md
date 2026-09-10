@@ -95,6 +95,12 @@ Environment overrides: `DEPLOY_SSH_TARGET`, `DEPLOY_REF` (default
 - If the smoke check fails after a successful container healthcheck, rollback
   is the same two commands; the stack's data services are unaffected
   throughout.
+- Before rolling back, run `npm run diagnose:production` to classify the
+  failure: a `DIRECTUS_UPSTREAM` or `CONTENT_DEGRADED` verdict means the web
+  deploy is not the cause and rolling it back will not help. See
+  [`PRODUCTION_HEALTH_RUNBOOK.md`](PRODUCTION_HEALTH_RUNBOOK.md); after any
+  rollback, verify with `npm run diagnose:production` (expect `VERDICT: OK`)
+  followed by `npm run smoke:production`.
 
 ## Scope note
 
