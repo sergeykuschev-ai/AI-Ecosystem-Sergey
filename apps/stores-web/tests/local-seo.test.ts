@@ -64,4 +64,18 @@ describe("local SEO internal linking", () => {
       assert.ok(page.includes(`href=\"${href}\"`), `FAQ page must link to ${href}`);
     }
   });
+
+  test("Miska page keeps its local pet-store signals and useful links", () => {
+    const page = source("app", "miska", "page.tsx");
+
+    assert.match(String(miskaPage.metadata.title), /МИСКА ЗООМАГАЗИН/);
+    assert.match(String(miskaPage.metadata.title), /зоотовары в Амурске/i);
+    assert.ok(page.includes('heroTitle="Зоомагазин и зоотовары в Амурске"'));
+    assert.ok(page.includes("купить корм"));
+    assert.ok(page.includes("Основные направления:"));
+
+    assert.ok(page.includes('contactsHref="/kontakty/"'));
+    assert.ok(page.includes('cityHref="/stores/amursk/"'));
+    assert.ok(page.includes('href="/bonus/"'));
+  });
 });

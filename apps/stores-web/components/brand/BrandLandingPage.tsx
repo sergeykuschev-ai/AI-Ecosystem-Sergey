@@ -31,6 +31,7 @@ interface BrandLandingPageProps {
   contactNote?: string;
   contactCallAction?: boolean;
   contactsHref?: string;
+  cityHref?: string;
 }
 
 export async function BrandLandingPage({
@@ -51,6 +52,7 @@ export async function BrandLandingPage({
   contactNote,
   contactCallAction = false,
   contactsHref,
+  cityHref,
 }: BrandLandingPageProps) {
   const brand = await getBrandBySlug(slug);
   if (!brand) notFound();
@@ -135,6 +137,7 @@ export async function BrandLandingPage({
               note={contactNote}
               showCallAction={contactCallAction}
               contactsHref={contactsHref}
+              cityHref={cityHref}
             />
           </section>
         )}
