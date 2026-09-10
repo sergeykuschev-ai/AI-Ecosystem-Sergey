@@ -40,3 +40,7 @@ Analytics failures never propagate: the adapter call is isolated, so a blocked o
 1. Add the event name to `analyticsEvents` in `lib/analytics/index.ts`.
 2. Use `TrackedLink` (for links rendered by Server Components) or `trackEvent` (inside Client Components).
 3. Document the goal name and params in the table above and create the matching goal in Yandex Metrica.
+
+See `docs/ANALYTICS_PRODUCTION_VERIFICATION_2026-09-10.md` for the production
+verification results, the owner checklist of goals to create/verify in the
+Yandex Metrica UI, and the recommended UTM convention for future ads and QR links.
