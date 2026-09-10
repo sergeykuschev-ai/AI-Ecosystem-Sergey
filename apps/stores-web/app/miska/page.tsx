@@ -179,6 +179,9 @@ export default function Page() {
       showAbout={false}
       heroContactActions
       featuredSections={<MiskaFeaturedSections />}
+      contactHeading="Миска в Амурске"
+      contactCallAction
+      contactsHref="/kontakty/"
     />
   );
 }
