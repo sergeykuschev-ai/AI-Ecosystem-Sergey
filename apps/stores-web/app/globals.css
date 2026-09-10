@@ -332,6 +332,8 @@ p { margin: 0 0 1rem; }
 .breadcrumbs { display: flex; flex-wrap: wrap; gap: 0.5rem; padding-top: 2rem; color: var(--muted); font-size: 0.9rem; }
 .content-columns { display: grid; gap: 1.5rem; }
 .contact-block { margin-top: 2rem; padding: 1.5rem; border: 1px solid var(--line); border-radius: var(--radius); }
+.contact-block .button-row { margin: 1.25rem 0; }
+.contact-block .button-row .button { flex: 1 1 12rem; }
 .contact-block dl > div, .hours-list > div { display: grid; grid-template-columns: minmax(6rem, 0.5fr) 1fr; gap: 1rem; padding: 0.65rem 0; border-bottom: 1px solid var(--line); }
 .contact-block dt, .hours-list dt { color: var(--muted); font-weight: 700; }
 .contact-block dd, .hours-list dd { margin: 0; }

@@ -84,6 +84,9 @@ const BONUS_FACTS = [
 
 const BONUS_NOTE = `Бонусная карта в «Миске» выдаётся при покупке от ${formatRubles(BONUS_CARD_THRESHOLDS_RUB.miska)}.`;
 
+const CONTACT_NOTE =
+  "Магазин находится в центре Амурска: рядом автобусные остановки, удобно добираться пешком.";
+
 function MiskaCategoryBlocks() {
   return (
     <section className="brand-landing-section" aria-labelledby="miska-categories">
@@ -179,6 +182,10 @@ export default function Page() {
       showAbout={false}
       heroContactActions
       featuredSections={<MiskaFeaturedSections />}
+      contactHeading="Миска в Амурске"
+      contactNote={CONTACT_NOTE}
+      contactCallAction
+      contactsHref="/kontakty/"
     />
   );
 }
