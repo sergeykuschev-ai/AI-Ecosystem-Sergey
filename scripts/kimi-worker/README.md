@@ -1,7 +1,7 @@
-# Kimi Autonomous Worker (V1)
+# Autonomous AI Worker (Kimi + Codex)
 
 A safe, local worker that turns labelled GitHub Issues into reviewed Pull
-Requests using Kimi Code CLI. The worker never touches `main`, never merges,
+Requests using Kimi Code or OpenAI Codex. In `auto` mode it protects the Kimi quota and routes work to Codex when the Kimi reserve is reached. The worker never touches `main`, never merges,
 never deploys, and works only inside allowlisted areas of the monorepo.
 
 ## Flow
@@ -12,14 +12,14 @@ never deploys, and works only inside allowlisted areas of the monorepo.
    branch, or a terminal entry in the local state file.
 3. Create (or reuse) a dedicated git worktree under `~/.kimi-worker/…` on a
    task branch `ai/kimi-<issue>-<slug>` cut from `origin/main`.
-4. Run `kimi -p "<issue + rules>" --agent-file <copy>` under a macOS
-   Seatbelt sandbox (`sandbox-exec`), non-interactively, inside the worktree
-   (transcript in the logs directory). See "Security model" below. The
-   `--agent-file` value is a per-task copy of `kimi-agent.md` staged inside
-   the worktree (`agentFile.js`): the canonical file lives under
-   `~/Documents`, which the sandbox denies for reads (issue #37), so the copy
-   is the only sandbox-readable form. It is removed before `git status`, so
-   it can never be committed.
+4. In `auto` mode, query Kimi's local read-only OAuth usage endpoint. If every
+   quota window has more than the protected reserve (default 10%) left, run
+   Kimi; otherwise run Codex. If the quota probe itself fails, prefer Codex so
+   Kimi's remaining quota is not burned blindly. Both agents run
+   non-interactively under the generated macOS Seatbelt profile. Kimi also
+   receives its staged `kimi-agent.md`; Codex runs with `approval=never`, its
+   own `workspace-write` sandbox, ephemeral session state, and user config/MCP
+   rules disabled. Per-task transcripts are written to the worker log dir.
 5. Validate: changed files must stay inside the area's allowed paths; a
    forbidden-path and secret-content scan runs before anything is staged.
 6. Run checks (`git diff --check`, `npm run lint`, `npm run typecheck`,
@@ -31,15 +31,15 @@ never deploys, and works only inside allowlisted areas of the monorepo.
 
 ## Security model
 
-Isolation is enforced DURING Kimi execution, not just by post-run checks.
+Isolation is enforced DURING agent execution, not just by post-run checks.
 Four independent layers:
 
-1. **OS sandbox (macOS Seatbelt / `sandbox-exec`)** — every `kimi -p` run is
+1. **OS sandbox (macOS Seatbelt / `sandbox-exec`)** — every Kimi/Codex run is
    wrapped in a generated profile (`sandbox.js`) that:
    - denies **writes everywhere except** the task worktree, `/private/tmp`,
-     `~/.kimi-code` (Kimi session state) and `/dev` — the main worktree,
+     `~/.kimi-code` / `~/.codex` (agent runtime state) and `/dev` — the main worktree,
      purchasing, business-kpi, other repos, `~/.ssh`, `~/.config`, `/opt`
-     and sibling worktrees are unwritable *while Kimi runs*;
+     and sibling worktrees are unwritable *while an agent runs*;
    - denies **reads** of `~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.config`
      (contains the `gh` token), `~/Library` (Keychains), `~/Documents`
      (the main clone and every other repo/worktree), and the worker admin
@@ -47,9 +47,9 @@ Four independent layers:
    - makes sibling task worktrees unlistable and unreadable;
    - blocks execution of credential/admin tooling (`security`, `gh`, `ssh`,
      `scp`, `gpg`, `sudo`, `launchctl`).
-   If `sandbox-exec` is missing the worker **fails closed** (no Kimi run);
+   If `sandbox-exec` is missing the worker **fails closed** (no agent run);
    `AIKIMI_ALLOW_NO_SANDBOX=1` is the explicit escape hatch.
-2. **Kimi tool policy (`kimi-agent.md` via `--agent-file`)** — technically
+2. **Agent-level sandbox/policy** — Kimi uses `kimi-agent.md` via `--agent-file`, with a technically
    enforced allowlist: `Read/Grep/Glob/Write/Edit/TodoList/Bash` only. No
    `Agent`/`AgentSwarm` (no sub-agents), no `WebSearch`/`FetchURL` (no
    untrusted fetch), no `Skill`, no cron, no plan-mode tools. The agent is
@@ -60,7 +60,9 @@ Four independent layers:
    unreadable under the sandbox. The copy is deleted before git status/commit.
    Note: `kimi -p` already runs under the `auto` permission policy; passing
    `--auto`/`--yolo` together with `--prompt` is rejected by the CLI, so the
-   worker never adds them.
+   worker never adds them. Codex runs with `approval=never`,
+   `workspace-write`, `--ephemeral`, `--ignore-user-config` and
+   `--ignore-rules`; the worker does not enable Codex web search or MCP.
 3. **Post-run gates (before commit)** — changed files must stay inside the
    area's allowed paths; `.env*`, keys, `node_modules`, build outputs and
    `.github/workflows` are rejected by default (the stores-web area has one exact-file exception for `.github/workflows/stores-web-ci.yml`); **symlinks are rejected outright**
@@ -128,7 +130,7 @@ Locking: a PID lock at `~/.kimi-worker-admin/AI-Ecosystem-Sergey/worker.lock`
 prevents concurrent workers; stale locks are reclaimed automatically.
 
 Logs: `~/.kimi-worker-admin/AI-Ecosystem-Sergey/logs/` (worker log + per-issue
-Kimi transcripts). Nothing secret is written there.
+agent transcripts). Nothing secret is written there.
 
 Tests:
 
@@ -160,7 +162,11 @@ Environment variables (see `config.js` for defaults):
 | `AIKIMI_WORKER_HOME` | override `~/.kimi-worker/AI-Ecosystem-Sergey` (worktrees) |
 | `AIKIMI_ADMIN_HOME` | override `~/.kimi-worker-admin/AI-Ecosystem-Sergey` (logs, state, lock, sandbox profiles) |
 | `AIKIMI_ALLOW_NO_SANDBOX` | `1` permits running Kimi without the OS sandbox (NOT recommended) |
+| `AIKIMI_AGENT_MODE` | `auto` (default), `kimi`, or `codex` |
+| `AIKIMI_KIMI_RESERVE_PERCENT` | protected Kimi reserve in every quota window (default 10%) |
 | `AIKIMI_KIMI_TIMEOUT_MS` | per-task Kimi timeout (default 30 min) |
+| `AIKIMI_CODEX_TIMEOUT_MS` | per-task Codex timeout (default 30 min) |
+| `AIKIMI_CODEX_CMD` | Codex CLI path (default `~/.local/bin/codex`) |
 | `AIKIMI_SKIP_BUILD` | `1` skips `npm run build` in checks |
 | `AIKIMI_REQUIRED_LABEL` | permission label (default `ai:kimi`) |
 

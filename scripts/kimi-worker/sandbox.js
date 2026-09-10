@@ -7,7 +7,7 @@ const config = require('./config');
 // macOS Seatbelt (sandbox-exec) profile that isolates Kimi DURING execution,
 // not just after it. Verified on macOS 26 (see tests/safety.test.js):
 //   - writes are impossible outside the task worktree, /private/tmp,
-//     ~/.kimi-code (Kimi session state) and /dev;
+//     ~/.kimi-code / ~/.codex (agent runtime state) and /dev;
 //   - reads of ~/.ssh, ~/.aws, ~/.gnupg, ~/.config, ~/Library, ~/Documents
 //     (main clone + all other repos/worktrees) and the worker admin dir are
 //     denied, including through symlinks;
@@ -51,7 +51,8 @@ function buildProfile(worktreePath) {
   const worktreesReal = fs.realpathSync(config.worktreesDir);
   const workerHomeReal = fs.realpathSync(config.workerHome);
   const kimiHome = path.join(process.env.HOME || '', '.kimi-code');
-  const writeExceptions = [...wt, '/private/tmp', kimiHome, '/dev']
+  const codexHome = path.join(process.env.HOME || '', '.codex');
+  const writeExceptions = [...wt, '/private/tmp', kimiHome, codexHome, '/dev']
     .map((p) => `(require-not (subpath "${p}"))`)
     .join(' ');
   const readDeny = config.sandbox.readDenySubpaths

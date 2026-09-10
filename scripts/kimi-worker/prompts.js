@@ -1,6 +1,6 @@
 'use strict';
 
-// Builds the non-interactive prompt for Kimi. The issue content is untrusted
+// Builds the non-interactive prompt for the selected coding agent. The issue content is untrusted
 // input: it is embedded as plain DATA between explicit delimiters, never
 // interpolated into a shell, and the agent/sandbox enforce the boundaries
 // regardless of what the text instructs. The standing safety rules in the
@@ -30,7 +30,9 @@ function buildPrompt(issue, area, checks) {
     `3. Do NOT create symlinks. Regular files and directories only.`,
     `4. Implement the issue, then run from ${area.packageDir} until green:`,
     `   ${checkList.join(' && ')}`,
-    `5. Finish with a short summary: files changed, checks run, results.`,
+    `5. Do NOT read $HOME dotfiles, credentials, auth files, .env*, keys or secrets.`,
+    `6. Do NOT use web/network tooling except package-manager access required by the checks.`,
+    `7. Finish with a short summary: files changed, checks run, results.`,
     `   Leave changes uncommitted in the worktree.`,
   ].join('\n');
 }

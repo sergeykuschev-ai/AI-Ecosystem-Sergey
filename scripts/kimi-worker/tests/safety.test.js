@@ -136,7 +136,7 @@ test('symlinks are rejected and never followed by the secret scan', () => {
 // --- 6. Issue content is data, never a shell command
 
 test('worker never spawns a shell for issue-derived strings', () => {
-  const files = ['worker.js', 'github.js', 'kimi.js', 'checks.js', 'run.js', 'lock.js'];
+  const files = ['worker.js', 'github.js', 'kimi.js', 'codex.js', 'agent.js', 'kimiUsage.js', 'checks.js', 'run.js', 'lock.js'];
   for (const f of files) {
     const src = fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
     assert.ok(!src.includes('shell: true'), `${f} must not enable shell mode`);

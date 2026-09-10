@@ -87,6 +87,14 @@ const config = {
   ],
   secretScanMaxFileBytes: 1024 * 1024,
 
+  agent: {
+    // auto = prefer Kimi while it has more than the protected reserve,
+    // otherwise route the task to Codex. Forced modes are useful for tests
+    // and manual recovery.
+    mode: (process.env.AIKIMI_AGENT_MODE || 'auto').toLowerCase(),
+    kimiReservePercent: int(process.env.AIKIMI_KIMI_RESERVE_PERCENT, 10),
+  },
+
   kimi: {
     command: process.env.AIKIMI_KIMI_CMD || 'kimi',
     timeoutMs: int(process.env.AIKIMI_KIMI_TIMEOUT_MS, 30 * 60 * 1000),
@@ -94,6 +102,13 @@ const config = {
     // policy and REJECTS combining --prompt with --auto/--yolo (docs: kimi
     // command reference). Never add those flags here.
     agentFile: path.join(__dirname, 'kimi-agent.md'),
+  },
+
+  codex: {
+    // Absolute default avoids depending on launchd PATH; Codex itself still
+    // gets the worker's minimal PATH for commands inside the task sandbox.
+    command: process.env.AIKIMI_CODEX_CMD || path.join(HOME, '.local', 'bin', 'codex'),
+    timeoutMs: int(process.env.AIKIMI_CODEX_TIMEOUT_MS, 30 * 60 * 1000),
   },
 
   sandbox: {

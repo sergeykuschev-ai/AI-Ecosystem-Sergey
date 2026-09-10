@@ -8,6 +8,8 @@ const safety = require('./safety');
 const { buildPrompt } = require('./prompts');
 const { runChecks, run } = require('./checks');
 const { runKimi } = require('./kimi');
+const { runCodex } = require('./codex');
+const { chooseAgent } = require('./agent');
 const { createLogger } = require('./logger');
 const { stageAgentFile, removeAgentFile } = require('./agentFile');
 
@@ -137,35 +139,44 @@ async function processIssue(issueNumber, log, { dryRun }) {
   log.info(`Main clone: ${mainRoot}`);
 
   if (dryRun) {
-    log.info(`[dry-run] would: mark processing, fetch origin/main, create/reuse worktree, run kimi -p,`);
+    log.info(`[dry-run] would: mark processing, fetch origin/main, create/reuse worktree, choose Kimi/Codex, run agent,`);
     log.info(`[dry-run]   validate files against ${area.allowedPaths.join(', ')}, run checks (${area.checks.join(', ')}),`);
     log.info(`[dry-run]   commit, push ${branch}, open PR to main, comment on issue.`);
     return { status: 'dry-run', branch };
   }
 
-  await github.ensureLabel(config.repo, config.stateLabels.processing, 'FBCA04', 'Kimi worker: task is being processed');
-  await github.ensureLabel(config.repo, config.stateLabels.done, '0E8A16', 'Kimi worker: PR opened, awaiting owner review');
+  await github.ensureLabel(config.repo, config.stateLabels.processing, 'FBCA04', 'AI worker: task is being processed');
+  await github.ensureLabel(config.repo, config.stateLabels.done, '0E8A16', 'AI worker: PR opened, awaiting owner review');
   await github.addLabel(config.repo, issueNumber, config.stateLabels.processing);
 
   const wtPath = await prepareWorktree(mainRoot, branch, log);
 
   try {
     const prompt = buildPrompt(issue, area, area.checks);
-    const transcriptPath = path.join(config.logsDir, `kimi-issue-${issueNumber}.log`);
-    log.info(`Running kimi non-interactively; transcript: ${transcriptPath}`);
-    // The canonical agent file is unreadable under the sandbox (it lives in
-    // ~/Documents). Stage a copy inside the worktree — the only read path the
-    // profile guarantees — and remove it before git status/commit.
-    const agentFileCopy = stageAgentFile(wtPath);
-    let kimiResult;
-    try {
-      kimiResult = await runKimi(wtPath, prompt, transcriptPath, agentFileCopy);
-    } finally {
-      removeAgentFile(wtPath);
+    const selection = await chooseAgent(log);
+    const selectedAgent = selection.agent;
+    const transcriptPath = path.join(config.logsDir, `${selectedAgent}-issue-${issueNumber}.log`);
+    log.info(`Running ${selectedAgent} non-interactively; transcript: ${transcriptPath}`);
+
+    let agentResult;
+    if (selectedAgent === 'kimi') {
+      // Kimi's canonical agent file is unreadable under the sandbox (it lives
+      // in ~/Documents). Stage a copy inside this worktree temporarily.
+      const agentFileCopy = stageAgentFile(wtPath);
+      try {
+        agentResult = await runKimi(wtPath, prompt, transcriptPath, agentFileCopy);
+      } finally {
+        removeAgentFile(wtPath);
+      }
+    } else if (selectedAgent === 'codex') {
+      agentResult = await runCodex(wtPath, prompt, transcriptPath);
+    } else {
+      throw new Error(`Unsupported agent selected: ${selectedAgent}`);
     }
-    if (!kimiResult.ok) {
+
+    if (!agentResult.ok) {
       return finishWithFailure({ issueNumber, branch, state, log, wtPath },
-        `Kimi exited with code ${kimiResult.code}. See transcript ${transcriptPath}.`);
+        `${selectedAgent} exited with code ${agentResult.code}. See transcript ${transcriptPath}.`);
     }
 
     // Raw porcelain output, NOT the trim()ing git() helper: the leading
@@ -228,7 +239,7 @@ async function processIssue(issueNumber, log, { dryRun }) {
     const checksSummary = checkResults.map((r) => `- ${r.name}: PASS`).join('\n');
     const prBody = [
       `## Summary`,
-      `Automated by Kimi worker for issue #${issueNumber}.`,
+      `Automated by AI worker using **${selectedAgent}** for issue #${issueNumber}.`,
       ``,
       `Closes #${issueNumber}`,
       ``,
@@ -246,7 +257,7 @@ async function processIssue(issueNumber, log, { dryRun }) {
     log.info(`PR created: ${prUrl}`);
 
     await github.comment(config.repo, issueNumber, [
-      `🤖 Kimi worker завершил задачу.`,
+      `🤖 AI worker (${selectedAgent}) завершил задачу.`,
       ``,
       `PR: ${prUrl}`,
       ``,
@@ -259,7 +270,7 @@ async function processIssue(issueNumber, log, { dryRun }) {
     await github.addLabel(config.repo, issueNumber, config.stateLabels.done);
     await github.removeLabel(config.repo, issueNumber, config.stateLabels.processing).catch(() => {});
 
-    state.processed[issueNumber] = { prUrl, branch, finishedAt: new Date().toISOString(), outcome: 'pr-open' };
+    state.processed[issueNumber] = { prUrl, branch, agent: selectedAgent, finishedAt: new Date().toISOString(), outcome: 'pr-open' };
     saveState(state);
 
     return { status: 'done', branch, prUrl };
@@ -275,7 +286,7 @@ async function finishWithFailure(ctx, reason, { terminal = false, outcome = 'fai
   const { issueNumber, branch, state, log } = ctx;
   log.warn(`Issue #${issueNumber}: ${reason}`);
   await github.comment(config.repo, issueNumber,
-    `🤖 Kimi worker НЕ смог завершить задачу (изменения не закоммичены).\n\nПричина: ${reason}\n\nIssue возвращён в очередь${terminal ? ' (повторная автоматическая обработка отключена, требуется вмешательство владельца)' : ''}.`
+    `🤖 AI worker НЕ смог завершить задачу (изменения не закоммичены).\n\nПричина: ${reason}\n\nIssue возвращён в очередь${terminal ? ' (повторная автоматическая обработка отключена, требуется вмешательство владельца)' : ''}.`
   ).catch((err) => log.warn(`Could not comment on issue: ${err.message}`));
   await github.removeLabel(config.repo, issueNumber, config.stateLabels.processing).catch(() => {});
   state.processed[issueNumber] = { branch, finishedAt: new Date().toISOString(), terminal, outcome };
@@ -297,13 +308,19 @@ async function setupCheck(log) {
   if (ghAuth.ok) {
     const kimiVer = await run(config.kimi.command, ['--version'], {});
     allOk &= ok('kimi CLI', kimiVer.ok ? kimiVer.stdout.split('\n')[0] : '');
+    const codexVer = await run(config.codex.command, ['--version'], {});
+    allOk &= ok('codex CLI', codexVer.ok ? codexVer.stdout.split('\n')[0] : '');
+    if (codexVer.ok) {
+      const codexAuth = await run(config.codex.command, ['login', 'status'], {});
+      allOk &= ok('codex authenticated', codexAuth.ok ? 'yes (credentials not printed)' : '');
+    }
   }
   const sandbox = require('./sandbox');
   const sandboxOk = sandbox.isAvailable();
-  allOk &= ok('sandbox-exec (OS isolation during Kimi runs)', sandboxOk ? 'available' : '');
+  allOk &= ok('sandbox-exec (OS isolation during agent runs)', sandboxOk ? 'available' : '');
   allOk &= ok('worker agent file', fs.existsSync(config.kimi.agentFile) ? path.basename(config.kimi.agentFile) : '');
   if (sandboxOk) {
-    const canary = require('os').tmpdir() + `/kimi-sandbox-canary-${process.pid}`;
+    const canary = path.join(config.adminHome, `setup-write-canary-${process.pid}`);
     const wtProbe = path.join(config.worktreesDir, 'setup-probe');
     fs.mkdirSync(wtProbe, { recursive: true });
     const probe = sandbox.wrap(wtProbe, '/usr/bin/touch', [canary]);
@@ -332,8 +349,8 @@ async function runOnce(log, { dryRun } = {}) {
   const effectiveDryRun = dryRun !== undefined ? dryRun : config.dryRun;
 
   if (!effectiveDryRun) {
-    await github.ensureLabel(config.repo, config.stateLabels.processing, 'FBCA04', 'Kimi worker: task is being processed');
-    await github.ensureLabel(config.repo, config.stateLabels.done, '0E8A16', 'Kimi worker: PR opened, awaiting owner review');
+    await github.ensureLabel(config.repo, config.stateLabels.processing, 'FBCA04', 'AI worker: task is being processed');
+    await github.ensureLabel(config.repo, config.stateLabels.done, '0E8A16', 'AI worker: PR opened, awaiting owner review');
   }
 
   const issues = await github.listEligibleIssues(config.repo, config.requiredLabel);
