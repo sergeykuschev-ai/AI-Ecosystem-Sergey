@@ -64,4 +64,21 @@ describe("local SEO internal linking", () => {
       assert.ok(page.includes(`href=\"${href}\"`), `FAQ page must link to ${href}`);
     }
   });
+
+  test("Metiz Market keeps its Amursk commercial signals and useful local links", () => {
+    const page = source("app", "metiz-market", "page.tsx");
+    const title = String(metizMarketPage.metadata.title);
+    const description = String(metizMarketPage.metadata.description);
+
+    for (const phrase of ["крепёж", "метизы", "инструмент", "Амурск"]) {
+      assert.ok(title.toLocaleLowerCase("ru").includes(phrase.toLocaleLowerCase("ru")), `metadata title must include ${phrase}`);
+      assert.ok(page.toLocaleLowerCase("ru").includes(phrase.toLocaleLowerCase("ru")), `visible page copy must include ${phrase}`);
+    }
+    assert.ok(description.includes("проспект Победы, 16"), "metadata description must preserve the confirmed address");
+    assert.ok(page.includes('heroTitle="Крепёж, метизы и инструмент в Амурске"'), "H1 copy must state the offer and city");
+
+    for (const href of ["/kontakty/", "/stores/amursk/", "/bonus/"]) {
+      assert.ok(page.includes(`href=\"${href}\"`) || page.includes(`Href=\"${href}\"`), `Metiz Market page must link to ${href}`);
+    }
+  });
 });
