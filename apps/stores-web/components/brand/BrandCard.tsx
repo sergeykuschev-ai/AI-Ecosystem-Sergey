@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { TrackedLink } from "@/components/analytics/TrackedLink";
 import type { Brand } from "@/types/brand";
 import { BrandLogo } from "./BrandLogo";
 
@@ -8,7 +8,9 @@ export function BrandCard({ brand }: { brand: Brand }) {
       <BrandLogo brand={brand} />
       <h3>{brand.name}</h3>
       <p>{brand.short_description}</p>
-      <Link href={`/${brand.slug}/`}>О магазине <span aria-hidden="true">→</span></Link>
+      <TrackedLink event="brand_open" payload={{ brand: brand.slug }} href={`/${brand.slug}/`}>
+        О магазине <span aria-hidden="true">→</span>
+      </TrackedLink>
     </article>
   );
 }
