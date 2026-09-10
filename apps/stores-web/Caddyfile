@@ -3,6 +3,9 @@
 }
 
 amurskmarket.ru {
+    # zstd for modern browsers, gzip as fallback; static compression at the
+    # edge instead of on-the-fly gzip in the Node server.
+    encode zstd gzip
     reverse_proxy web:3000
 }
 
