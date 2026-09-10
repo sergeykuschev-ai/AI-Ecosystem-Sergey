@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { StaticPage } from "@/components/content/StaticPage";
+import { JsonLd } from "@/components/seo/JsonLd";
 import { StoreList } from "@/components/stores/StoreList";
 import { getBrands } from "@/lib/directus/brands";
 import { getCities, getCityBySlug } from "@/lib/directus/cities";
 import { getStoresByCity } from "@/lib/directus/stores";
 import { createPageMetadata } from "@/lib/seo/metadata";
+import { createStoresJsonLd } from "@/lib/seo/json-ld";
 export const dynamic = "force-dynamic";
 
 interface CityPageProps { params: Promise<{ city: string }> }
@@ -33,6 +35,7 @@ export default async function CityStoresPage({ params }: CityPageProps) {
   return (
     <StaticPage eyebrow={`${city.region} · ${city.country}`} title={`Магазины в ${city.name}`} intro="Физические торговые точки магазинов «Ампер», «Вентиль», «Метиз Маркет» и «Миска». Откройте страницу нужной точки для подробной информации.">
       <section className="section" aria-labelledby="store-list-title"><h2 id="store-list-title">Торговые точки</h2><StoreList stores={stores} brands={brands} city={city} /></section>
+      <JsonLd data={createStoresJsonLd(stores, brands, city)} />
     </StaticPage>
   );
 }
