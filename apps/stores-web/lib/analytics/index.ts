@@ -21,12 +21,41 @@ class NoopAnalyticsAdapter implements AnalyticsAdapter {
   track(): void {}
 }
 
+export const ANALYTICS_DEDUPE_WINDOW_MS = 1000;
+
 let adapter: AnalyticsAdapter = new NoopAnalyticsAdapter();
+let lastSignature: string | null = null;
+let lastTimestamp = 0;
+
+function eventSignature(event: AnalyticsEventName, payload: AnalyticsPayload): string {
+  const entries = Object.keys(payload)
+    .sort()
+    .map((key) => `${key}:${String(payload[key])}`);
+  return `${event}|${entries.join("|")}`;
+}
 
 export function configureAnalytics(nextAdapter: AnalyticsAdapter): void {
   adapter = nextAdapter;
 }
 
 export function trackEvent(event: AnalyticsEventName, payload?: AnalyticsPayload): void {
-  adapter.track(event, payload);
+  const now = Date.now();
+  const signature = eventSignature(event, payload ?? {});
+  if (signature === lastSignature && now - lastTimestamp < ANALYTICS_DEDUPE_WINDOW_MS) {
+    return;
+  }
+  lastSignature = signature;
+  lastTimestamp = now;
+
+  try {
+    adapter.track(event, payload);
+  } catch {
+    // Analytics must never break navigation or the interface.
+  }
+}
+
+export function resetAnalyticsForTests(): void {
+  adapter = new NoopAnalyticsAdapter();
+  lastSignature = null;
+  lastTimestamp = 0;
 }

@@ -22,6 +22,14 @@ Create goals of type «JavaScript event» in Yandex Metrica with exactly these i
 
 Reserved goals are declared in `lib/analytics/index.ts` but are not wired to any UI yet. Wire them through the same boundary when the interaction appears.
 
+`store_open` is reserved for links to a specific store page (`/stores/{city}/{store}/`). Links that are not store-specific — such as the «Магазины» nav link to `/stores/` — must not fire it.
+
+## Duplicate suppression and failure isolation
+
+`trackEvent` suppresses an identical event with an identical payload fired again within `ANALYTICS_DEDUPE_WINDOW_MS` (1 second), so double-rendered handlers or accidentally duplicated wiring do not inflate goal conversions in Yandex Metrica. Clicks on distinct elements (different payload or a later click) still count.
+
+Analytics failures never propagate: the adapter call is isolated, so a blocked or failing counter cannot break navigation or the UI. Regression coverage lives in `tests/analytics.test.ts`.
+
 ## Privacy rules
 
 - Payloads contain only stable identifiers: entity slugs, entity ids, and the click source. No names, no phone numbers, no form contents, no free-text values.
