@@ -19,14 +19,16 @@ export const metadata: Metadata = createPageMetadata({
 export default async function FAQPage() {
   const faqs = await getFaqs();
   return (
-    <main className="faq-page">
+    <>
       <JsonLd data={createFAQPageJsonLd(faqs)} />
       <StaticPage
+        className="faq-page"
         eyebrow="Покупателям"
         title="Частые вопросы"
         intro="Ответы на основные вопросы о наших магазинах и бонусной программе."
       >
-        <section className="faq-section" aria-label="Вопросы и ответы">
+        <section className="faq-section" aria-labelledby="faq-answers">
+          <h2 id="faq-answers">Вопросы о магазинах и бонусной программе</h2>
           <FAQList items={faqs} />
         </section>
         <section className="section" aria-labelledby="faq-useful">
@@ -38,6 +40,6 @@ export default async function FAQPage() {
           </ul>
         </section>
       </StaticPage>
-    </main>
+    </>
   );
 }

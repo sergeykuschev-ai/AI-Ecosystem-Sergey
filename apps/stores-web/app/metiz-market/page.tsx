@@ -39,14 +39,15 @@ const CONTACT_NOTE =
 function MetizMarketFeaturedSections() {
   return (
     <>
-      <section className="brand-landing-section" aria-label="Основные направления">
+      <section className="brand-landing-section" aria-labelledby="metiz-directions">
+        <h2 id="metiz-directions">Крепёж, инструмент и товары для ремонта</h2>
         <div className="metiz-feature-grid">
           <article className="metiz-feature-card">
-            <h2>Для ремонта и монтажа</h2>
+            <h3>Для ремонта и монтажа</h3>
             <p>{REPAIR_MOUNTING_TEXT}</p>
           </article>
           <article className="metiz-feature-card">
-            <h2>Крепёж и расходные материалы</h2>
+            <h3>Крепёж и расходные материалы</h3>
             <p>{FASTENERS_CONSUMABLES_TEXT}</p>
           </article>
         </div>

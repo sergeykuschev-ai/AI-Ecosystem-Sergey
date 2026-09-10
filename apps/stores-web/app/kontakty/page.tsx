@@ -50,20 +50,20 @@ export default async function ContactsPage() {
   }
 
   return (
-    <main className="contacts-page">
+    <>
       <JsonLd data={createContactPageJsonLd()} />
       <JsonLd data={createStoresJsonLd(stores, brands, city)} />
       <JsonLd data={createBreadcrumbJsonLd([
         { name: "Главная", path: "/" },
         { name: "Контакты", path: "/kontakty/" },
       ])} />
-      <StaticPage eyebrow="Контакты" title="Наши магазины в Амурске" intro={CONTACTS_INTRO}>
+      <StaticPage className="contacts-page" eyebrow="Контакты" title="Наши магазины в Амурске" intro={CONTACTS_INTRO}>
         <p><Link href={`/stores/${city.slug}/`}>Все магазины в {city.name}</Link></p>
         <section className="contacts-section" aria-labelledby="contacts-title">
           <h2 id="contacts-title">Магазины</h2>
           <ContactStoreGrid stores={stores} brands={brands} city={city} />
         </section>
       </StaticPage>
-    </main>
+    </>
   );
 }

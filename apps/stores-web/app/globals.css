@@ -163,7 +163,7 @@ p { margin: 0 0 1rem; }
 .brand-landing-section--compact { padding-block: clamp(0.9rem, 2.2vw, 1.25rem); }
 .miska-feature-grid { display: grid; gap: 1rem; }
 .miska-feature-card { min-width: 0; padding: 1.4rem; border: 1px solid var(--line); border-top: 0.35rem solid var(--brand-landing-accent); border-radius: var(--radius); background: white; }
-.miska-feature-card h2 { font-size: clamp(1.35rem, 3vw, 1.75rem); }
+.miska-feature-card h3 { font-size: clamp(1.35rem, 3vw, 1.75rem); }
 .miska-feature-card p { margin-bottom: 0; color: #354250; }
 .miska-bonus-facts { display: grid; gap: 0.75rem; margin: 0 0 1rem; padding: 0; list-style: none; }
 .miska-bonus-facts li { min-width: 0; padding: 1rem 1.2rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-soft); }
@@ -191,7 +191,7 @@ p { margin: 0 0 1rem; }
 .amper-assist-list li + li { margin-top: 0.4rem; }
 .amper-assist-note { margin-bottom: 0; color: var(--muted); font-size: 0.95rem; }
 .amper-info-card { min-width: 0; padding: 1.4rem; border: 1px solid var(--line); border-left: 0.35rem solid var(--brand-landing-accent); border-radius: 0.5rem; background: white; }
-.amper-info-card h2 { font-size: clamp(1.3rem, 3vw, 1.7rem); }
+.amper-info-card h3 { font-size: clamp(1.3rem, 3vw, 1.7rem); }
 .amper-info-card p { margin-bottom: 0; color: #354250; }
 .amper-info-card__year { display: flex; align-items: baseline; gap: 0.6rem; margin-bottom: 0.75rem; }
 .amper-info-card__year strong { color: var(--brand-landing-accent); font-size: clamp(2.2rem, 6vw, 3rem); line-height: 1; letter-spacing: -0.02em; }
@@ -206,10 +206,10 @@ p { margin: 0 0 1rem; }
 .amper-bonus-panel .button-row { margin-top: 1rem; }
 .ventil-feature-grid { display: grid; gap: 1rem; }
 .ventil-feature-card { min-width: 0; padding: 1.4rem; border: 1px solid var(--line); border-top: 0.35rem solid var(--brand-landing-accent); border-radius: 0.5rem; background: white; }
-.ventil-feature-card h2 { font-size: clamp(1.3rem, 3vw, 1.7rem); }
+.ventil-feature-card h3 { font-size: clamp(1.3rem, 3vw, 1.7rem); }
 .ventil-feature-card p { margin-bottom: 0; color: #354250; }
 .ventil-assist-panel { min-width: 0; padding: clamp(1.2rem, 3vw, 1.6rem); border: 1px solid color-mix(in srgb, var(--brand-landing-accent) 30%, var(--line)); border-radius: 0.5rem; background: var(--brand-landing-soft); }
-.ventil-assist-panel h2 { font-size: clamp(1.3rem, 3vw, 1.7rem); }
+.ventil-assist-panel h3 { font-size: clamp(1.3rem, 3vw, 1.7rem); }
 .ventil-assist-panel p { margin-bottom: 0; color: #354250; }
 .ventil-bonus-facts { display: grid; gap: 0.75rem; margin: 0 0 1rem; padding: 0; list-style: none; }
 .ventil-bonus-facts li { min-width: 0; padding: 0.25rem 0 0.25rem 1rem; border-left: 0.25rem solid var(--brand-landing-accent); }
@@ -218,7 +218,7 @@ p { margin: 0 0 1rem; }
 .ventil-bonus-note { color: #354250; }
 .metiz-feature-grid { display: grid; gap: 1rem; }
 .metiz-feature-card { min-width: 0; padding: 1.4rem; border: 1px solid var(--line); border-top: 0.35rem solid var(--brand-landing-accent); border-radius: 0.5rem; background: white; }
-.metiz-feature-card h2 { font-size: clamp(1.3rem, 3vw, 1.7rem); }
+.metiz-feature-card h3 { font-size: clamp(1.3rem, 3vw, 1.7rem); }
 .metiz-feature-card p { margin-bottom: 0; color: #354250; }
 .metiz-assist-panel { min-width: 0; padding: clamp(1.2rem, 3vw, 1.6rem); border: 1px solid color-mix(in srgb, var(--brand-landing-accent) 30%, var(--line)); border-radius: 0.5rem; background: var(--brand-landing-soft); }
 .metiz-assist-panel h2 { font-size: clamp(1.3rem, 3vw, 1.7rem); }
@@ -285,6 +285,7 @@ p { margin: 0 0 1rem; }
 .home-promo__more { margin: 1rem 0 0; font-weight: 800; }
 .find-us__panel { display: grid; gap: 1.5rem; margin-top: 1rem; padding: clamp(1.25rem, 4vw, 2rem); border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-soft); }
 .find-us__address { margin: 0 0 0.35rem; font-size: clamp(1.25rem, 3.5vw, 1.6rem); font-weight: 800; line-height: 1.25; }
+.store-address { font-style: normal; }
 .find-us__address-list { margin: 0 0 0.35rem; padding-left: 1.2rem; font-weight: 700; }
 .find-us__city { margin: 0 0 1rem; color: var(--muted); font-weight: 700; }
 .find-us__contacts { display: grid; gap: 1.25rem; align-content: start; }

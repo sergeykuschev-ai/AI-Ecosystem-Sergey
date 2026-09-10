@@ -64,18 +64,19 @@ const CONTACT_NOTE =
 function AmperFeaturedSections() {
   return (
     <>
-      <section className="brand-landing-section" aria-label="О магазине">
+      <section className="brand-landing-section" aria-labelledby="amper-about">
+        <h2 id="amper-about">О магазине «Ампер»</h2>
         <div className="amper-info-grid">
           <article className="amper-info-card">
             <div className="amper-info-card__year">
               <strong>2018</strong>
               <span>с 2018 года</span>
             </div>
-            <h2>«Ампер» работает в Амурске с 2018 года</h2>
+            <h3>«Ампер» работает в Амурске с 2018 года</h3>
             <p>{SINCE_2018_TEXT}</p>
           </article>
           <article className="amper-info-card">
-            <h2>Основные направления</h2>
+            <h3>Основные направления</h3>
             <p>
               Электротовары и товары для электромонтажа, освещение, электроинструмент и расходные
               материалы — основные направления ассортимента «Ампера».
