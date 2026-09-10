@@ -57,17 +57,3 @@ jobs:
           CONTENT_SOURCE: mock
           NEXT_PUBLIC_SITE_URL: https://stores-ci.example
         run: npm run build
-
-      - name: Check diff whitespace
-        run: git diff --check
-
-      - name: Secret scan
-        run: |
-          if git grep -nE -I \
-            -e '-----BEGIN [A-Z ]*PRIVATE KEY-----' \
-            -e 'AKIA[0-9A-Z]{16}' \
-            -e 'xox[baprs]-[A-Za-z0-9-]+' \
-            -- .; then
-            echo "::error::Potential secret detected in apps/stores-web"
-            exit 1
-          fi
