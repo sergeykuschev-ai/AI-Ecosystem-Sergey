@@ -183,6 +183,18 @@ p { margin: 0 0 1rem; }
 .ventil-bonus-facts strong { display: block; font-size: 1.45rem; line-height: 1.2; }
 .ventil-bonus-facts span { color: var(--muted); }
 .ventil-bonus-note { color: #354250; }
+.metiz-feature-grid { display: grid; gap: 1rem; }
+.metiz-feature-card { min-width: 0; padding: 1.4rem; border: 1px solid var(--line); border-top: 0.35rem solid var(--brand-landing-accent); border-radius: 0.5rem; background: white; }
+.metiz-feature-card h2 { font-size: clamp(1.3rem, 3vw, 1.7rem); }
+.metiz-feature-card p { margin-bottom: 0; color: #354250; }
+.metiz-assist-panel { min-width: 0; padding: clamp(1.2rem, 3vw, 1.6rem); border: 1px solid color-mix(in srgb, var(--brand-landing-accent) 30%, var(--line)); border-radius: 0.5rem; background: var(--brand-landing-soft); }
+.metiz-assist-panel h2 { font-size: clamp(1.3rem, 3vw, 1.7rem); }
+.metiz-assist-panel p { margin-bottom: 0; color: #354250; }
+.metiz-bonus-facts { display: grid; gap: 0.75rem; margin: 0 0 1rem; padding: 0; list-style: none; }
+.metiz-bonus-facts li { min-width: 0; padding: 0.25rem 0 0.25rem 1rem; border-left: 0.25rem solid var(--brand-landing-accent); }
+.metiz-bonus-facts strong { display: block; font-size: 1.45rem; line-height: 1.2; }
+.metiz-bonus-facts span { color: var(--muted); }
+.metiz-bonus-note { color: #354250; }
 .brand-actual-grid { width: min(100%, 64rem); min-width: 0; display: grid; grid-template-columns: 1fr; gap: 1rem; margin-inline: auto; }
 .brand-actual-card { min-width: 0; height: 100%; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--line); border-top: 0.3rem solid var(--brand-landing-accent); border-radius: var(--radius); background: white; box-shadow: 0 8px 22px rgba(23, 33, 43, 0.055); }
 .brand-actual-card__visual { position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; background: white; }
@@ -287,6 +299,8 @@ p { margin: 0 0 1rem; }
   .amper-bonus-facts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .ventil-feature-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ventil-bonus-facts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .metiz-feature-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .metiz-bonus-facts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .brand-grid, .card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .home-store-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .home-store-section__footer { justify-content: flex-end; }
