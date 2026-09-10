@@ -1,3 +1,9 @@
+import { BRAND_PALETTE, type CanonicalBrandSlug } from "@/lib/constants/brands";
+import {
+  BONUS_EARN_RATE,
+  BONUS_SPEND_CAP_PERCENT,
+  BONUS_VALIDITY_LABEL,
+} from "@/lib/constants/bonus";
 import type { BonusProgram } from "@/types/bonus-program";
 import type { ActualItem } from "@/types/actual-item";
 import type { Brand } from "@/types/brand";
@@ -10,12 +16,12 @@ import type { Vacancy } from "@/types/vacancy";
 
 const timestamp = "2026-08-29T00:00:00.000Z";
 
-const brandSeed = [
-  ["amper", "Ампер", "/brands/amper-logo.jpg", "#f4c300", "#fff7cc", "Электротовары и решения для электромонтажа."],
-  ["ventil", "Вентиль", "/brands/ventil-logo.svg", "#1769aa", "#e8f2fb", "Товары для водоснабжения, отопления и сантехники."],
-  ["metiz-market", "Метиз Маркет", "/brands/metiz-market-logo.jpg", "#c62828", "#f2f3f5", "Крепёж, инструмент и расходные материалы."],
-  ["miska", "Миска", "/brands/miska-logo.jpg", "#1a7a3a", "#fdeede", "Товары для домашних животных и заботы о них."],
-] as const;
+const brandSeed: Array<[CanonicalBrandSlug, string, string, string]> = [
+  ["amper", "Ампер", "/brands/amper-logo.jpg", "Электротовары и решения для электромонтажа."],
+  ["ventil", "Вентиль", "/brands/ventil-logo.svg", "Товары для водоснабжения, отопления и сантехники."],
+  ["metiz-market", "Метиз Маркет", "/brands/metiz-market-logo.jpg", "Крепёж, инструмент и расходные материалы."],
+  ["miska", "Миска", "/brands/miska-logo.jpg", "Товары для домашних животных и заботы о них."],
+];
 
 const brandDescriptions: Record<string, string> = {
   amper: "«Ампер» — магазин электротоваров и товаров для электромонтажа в Амурске.",
@@ -25,14 +31,14 @@ const brandDescriptions: Record<string, string> = {
 };
 
 export const mockBrands: Brand[] = brandSeed.map(
-  ([slug, name, logo, primary_color, secondary_color, short_description]) => ({
+  ([slug, name, logo, short_description]) => ({
     id: `brand-${slug}`,
     slug,
     name,
     legal_name: null,
     logo,
-    primary_color,
-    secondary_color,
+    primary_color: BRAND_PALETTE[slug].primaryColor,
+    secondary_color: BRAND_PALETTE[slug].secondaryColor,
     short_description,
     description: brandDescriptions[slug],
     seo_title: `${name} в Амурске — магазины и направления`,
@@ -252,7 +258,7 @@ export const mockBonusProgram: BonusProgram = {
   title: "Бонусная программа",
   short_description: "Покупайте в наших магазинах, получайте бонусы и используйте их при следующих покупках.",
   description: "",
-  rules: ["5%", "15%", "3 месяца"],
+  rules: [BONUS_EARN_RATE, `${BONUS_SPEND_CAP_PERCENT}%`, BONUS_VALIDITY_LABEL],
   participating_brands: [],
   faq: [],
   active: true,

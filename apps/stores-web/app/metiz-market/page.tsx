@@ -1,6 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { BrandLandingPage } from "@/components/brand/BrandLandingPage";
+import {
+  BONUS_CARD_THRESHOLDS_RUB,
+  BONUS_EARN_RATE,
+  BONUS_SPEND_CAP_LABEL,
+  BONUS_VALIDITY_LABEL,
+  formatRubles,
+} from "@/lib/constants/bonus";
 import { createPageMetadata } from "@/lib/seo/metadata";
 
 export const dynamic = "force-dynamic";
@@ -22,12 +29,12 @@ const ASSISTANCE_TEXT =
   "Не уверены в диаметре или длине крепежа, выборе сверла или насадки? Продавцы-консультанты помогут подобрать подходящий крепёж или инструмент под вашу задачу.";
 
 const BONUS_FACTS = [
-  { value: "5%", label: "начисляем бонусами" },
-  { value: "до 15%", label: "можно оплатить бонусами" },
-  { value: "3 месяца", label: "срок действия бонусов" },
+  { value: BONUS_EARN_RATE, label: "начисляем бонусами" },
+  { value: BONUS_SPEND_CAP_LABEL, label: "можно оплатить бонусами" },
+  { value: BONUS_VALIDITY_LABEL, label: "срок действия бонусов" },
 ];
 
-const BONUS_NOTE = "Бонусная карта в «Метиз Маркете» выдаётся при покупке от 3 500 ₽.";
+const BONUS_NOTE = `Бонусная карта в «Метиз Маркете» выдаётся при покупке от ${formatRubles(BONUS_CARD_THRESHOLDS_RUB["metiz-market"])}.`;
 
 const CONTACT_NOTE =
   "Магазин находится в центре Амурска: рядом автобусные остановки, удобно добираться пешком.";
