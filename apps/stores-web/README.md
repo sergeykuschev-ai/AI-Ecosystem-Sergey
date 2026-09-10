@@ -202,6 +202,8 @@ Every public page uses the Metadata API for title, description, canonical, Open 
 
 Critical brand, locality, store, category, FAQ, promotion, and vacancy content is server-rendered in semantic HTML. Navigation uses ordinary links, headings are hierarchical, focus is visible, and the layout supports 320 px viewports.
 
+The V1.1 local-SEO layer (see [Local SEO V1.1](docs/LOCAL_SEO_V1_1_2026-09-10.md)) adds brand-scoped local-intent FAQs grounded only in verified facts, closes the internal-linking loop between store pages and brand pages, links city and FAQ pages to relevant sections, and enforces unique metadata titles/descriptions by test. It adds no catalog, no new routes, and no unverified commercial claims; phrases that would require unverified facts are documented there as owner decisions.
+
 `robots.txt` allows normal crawling and does not block OAI-SearchBot. It excludes APIs, admin, preview, internal Directus routes, and framework assets. The dynamic sitemap includes active public records only.
 
 ## Analytics and IndexNow

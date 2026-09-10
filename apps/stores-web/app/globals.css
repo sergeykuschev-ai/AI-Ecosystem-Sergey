@@ -312,6 +312,9 @@ p { margin: 0 0 1rem; }
 .about-page .split-panel { margin: clamp(1.5rem, 4vw, 2.75rem) 0 0; }
 .about-page .split-panel p { max-width: 49rem; }
 .faq-section { padding-top: 0.75rem; }
+.link-list { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
+.link-list li { border-bottom: 1px solid var(--line); }
+.link-list a { min-height: 3rem; display: flex; align-items: center; font-weight: 700; }
 .faq-list { max-width: 60rem; margin: 0; border-top: 1px solid var(--line); }
 .faq-item { border-bottom: 1px solid var(--line); }
 .faq-item summary { min-height: 3.5rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.75rem 0; cursor: pointer; font-weight: 800; list-style: none; }

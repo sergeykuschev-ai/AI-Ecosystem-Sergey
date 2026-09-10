@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { StaticPage } from "@/components/content/StaticPage";
 import { StoreList } from "@/components/stores/StoreList";
@@ -30,9 +31,25 @@ export default async function CityStoresPage({ params }: CityPageProps) {
   const city = await getCityBySlug(slug);
   if (!city) notFound();
   const [stores, brands] = await Promise.all([getStoresByCity(city.id), getBrands()]);
+  const brandIdsInCity = new Set(stores.map((store) => store.brand_id));
+  const cityBrands = brands.filter((brand) => brand.active && brandIdsInCity.has(brand.id));
   return (
     <StaticPage eyebrow={`${city.region} · ${city.country}`} title={`Магазины в ${city.name}`} intro="Физические торговые точки магазинов «Ампер», «Вентиль», «Метиз Маркет» и «Миска». Откройте страницу нужной точки для подробной информации.">
       <section className="section" aria-labelledby="store-list-title"><h2 id="store-list-title">Торговые точки</h2><StoreList stores={stores} brands={brands} city={city} /></section>
+      {cityBrands.length > 0 && (
+        <section className="section" aria-labelledby="city-directions">
+          <h2 id="city-directions">Направления магазинов</h2>
+          <div className="card-grid">
+            {cityBrands.map((brand) => (
+              <article className="card" key={brand.id} data-brand={brand.slug}>
+                <h3>{brand.name}</h3>
+                <p>{brand.short_description}</p>
+                <Link href={`/${brand.slug}/`}>Страница магазина <span aria-hidden="true">→</span></Link>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
     </StaticPage>
   );
 }

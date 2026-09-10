@@ -32,6 +32,7 @@ export default async function HomePage() {
     getCityBySlug("amursk"),
   ]);
   const stores = city ? await getStoresByCity(city.id) : [];
+  const homeFaqs = faqs.filter((faq) => !faq.brand_id);
   return (
     <main>
       <JsonLd data={createWebsiteJsonLd()} />
@@ -57,7 +58,10 @@ export default async function HomePage() {
         {city && <FindUsSection stores={stores} brands={brands} city={city} />}
         <section className="section" aria-labelledby="faq-title">
           <h2 id="faq-title">Частые вопросы</h2>
-          <FAQList items={faqs} />
+          <FAQList items={homeFaqs} />
+          <div className="button-row">
+            <Button href="/faq/" variant="secondary">Все вопросы и ответы</Button>
+          </div>
         </section>
       </Container>
     </main>

@@ -322,10 +322,11 @@ async function seedFaqs(client: DirectusAdminClient) {
   console.log("Seeding FAQs...");
   for (const faq of mockFaqs) {
     const id = generateId("faqs", faq.id);
+    const brandSlug = faq.brand_id ? faq.brand_id.replace(/^brand-/, "") : null;
     await upsertItem(client, "faqs", id, {
       question: faq.question,
       answer: faq.answer,
-      brand_id: null,
+      brand_id: brandSlug ? generateId("brands", brandSlug) : null,
       city_id: faq.city_id ? generateId("cities", "amursk") : null,
       store_id: null,
       category_id: null,
