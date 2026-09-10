@@ -37,6 +37,7 @@ interface BrandStoreContactProps {
   note?: string;
   showCallAction?: boolean;
   contactsHref?: string;
+  cityStoresHref?: string;
 }
 
 export function BrandStoreContact({
@@ -47,6 +48,7 @@ export function BrandStoreContact({
   note,
   showCallAction = false,
   contactsHref,
+  cityStoresHref,
 }: BrandStoreContactProps) {
   const mapLink = store.map_links.find((link) => link.url);
   const telephoneHref = store.telephone?.replace(/[^\d+]/g, "");
@@ -91,6 +93,7 @@ export function BrandStoreContact({
           Подробнее о торговой точке
         </TrackedLink>
         {contactsHref ? <Link href={contactsHref}>Контакты</Link> : null}
+        {cityStoresHref ? <Link href={cityStoresHref}>Магазины в {city.name}</Link> : null}
         {mapLink && (
           <TrackedLink event="click_route" payload={{ brand: brand.slug, store: store.slug }} href={mapLink.url} target="_blank" rel="noopener noreferrer">
             Показать на карте <span aria-hidden="true">↗</span>
