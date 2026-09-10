@@ -442,6 +442,17 @@ It sends only anonymous GET requests to `https://amurskmarket.ru` (override with
 
 The script performs no writes to production, Directus, the database, or any external service and uses no secrets. Exit code `0` means all checks passed; `1` means at least one check failed and the failing endpoint, status, and reason are printed.
 
+## Production health diagnostics
+
+`scripts/diagnostics/production.ts` is a read-only owner diagnostic for incidents and rollback verification. It checks the public home page, `/api/health`, Directus reachability through the existing public app boundary (`/api/{brands,cities,stores,promotions,categories,vacancies}`), and — when `DIRECTUS_URL` is set — the anonymous Directus `/server/ping`. It distinguishes web-down from upstream Directus failure by verdict and exit code without reading or sending any secrets:
+
+```bash
+cd apps/stores-web
+npm run diagnose:production
+```
+
+Run it first during triage and after rollback; expect `VERDICT: OK` (exit `0`), then run the full post-deploy smoke-check above. The verdict table, incident flow, and guardrails are in [`PRODUCTION_HEALTH_RUNBOOK.md`](PRODUCTION_HEALTH_RUNBOOK.md).
+
 ## Backup and rollback
 
 Before any destructive operation, a backup is created automatically by the runbook (`pg_dump` and uploads archive).
@@ -471,4 +482,12 @@ chown -R 999:999 /opt/stores-web/data/postgres
 # Restart stack
 docker compose -f compose.production.yml --env-file /opt/stores-web/config/.env.production up -d
 REMOTE
+```
+
+After the stack is back up, verify recovery from the repo with the read-only diagnostics (expect `VERDICT: OK`, exit `0`) followed by the full smoke-check, as described in [`PRODUCTION_HEALTH_RUNBOOK.md`](PRODUCTION_HEALTH_RUNBOOK.md#rollback-verification):
+
+```bash
+cd apps/stores-web
+npm run diagnose:production
+npm run smoke:production
 ```
