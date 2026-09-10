@@ -13,7 +13,7 @@ import { createPageMetadata } from "@/lib/seo/metadata";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = createPageMetadata({
-  title: "Метиз Маркет — крепёж, метизы и инструмент в Амурске | Проспект Победы, 16",
+  title: "Метиз Маркет — крепёж, метизы и инструмент в Амурске",
   description:
     "Магазин «Метиз Маркет» в Амурске: крепёж, метизы, ручной и электроинструмент, расходные материалы для ремонта и монтажа. Адрес: проспект Победы, 16.",
   path: "/metiz-market/",
