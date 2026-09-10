@@ -1,0 +1,508 @@
+{
+  "base": "http://127.0.0.1:3910",
+  "date": "2026-09-10T17:45:39.837Z",
+  "pages": [
+    {
+      "path": "/",
+      "ttfbMs": 9.052,
+      "totalHtmlBytes": 73468,
+      "htmlGzipBytes": 12553,
+      "imageCount": 9,
+      "images": [
+        "https://mc.yandex.ru/watch/112116056",
+        "/brands/amper-logo.webp",
+        "/brands/ventil-logo.svg",
+        "/brands/metiz-market-logo.webp",
+        "/brands/miska-logo.webp",
+        "/_next/image/?url=%2Factual%2Fmiska-award-vet.webp&amp;w=3840&amp;q=75",
+        "/_next/image/?url=%2Factual%2Fbonus-program.webp&amp;w=3840&amp;q=75",
+        "/_next/image/?url=%2Factual%2Famper-vacancy.webp&amp;w=3840&amp;q=75",
+        "/_next/image/?url=%2Factual%2Ftool-discount-20.webp&amp;w=3840&amp;q=75"
+      ],
+      "preloads": [
+        "<link rel=\"preload\" as=\"image\" imageSrcSet=\"/_next/image/?url=%2Factual%2Fmiska-award-vet.webp&amp;w=32&amp;q=75 32w, /_next/image/?url=%2Factual%2Fmiska-award-vet.webp&amp;w=48&amp;q=75 48w, /_next/i",
+        "<link rel=\"preload\" as=\"script\" fetchPriority=\"low\" href=\"/_next/static/chunks/0hbddovizzdgp.js\"/>"
+      ],
+      "inlineScripts": 7,
+      "jsChunks": [
+        {
+          "url": "/_next/static/chunks/1_vgly0gd1oic.js",
+          "status": 200,
+          "wireBytes": 234172,
+          "gzipBytes": 73278,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/1w534hvog6gw_.js",
+          "status": 200,
+          "wireBytes": 176531,
+          "gzipBytes": 48481,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/0cz1d0mv5g_q7.js",
+          "status": 200,
+          "wireBytes": 112594,
+          "gzipBytes": 39627,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/2-_26icol1ymo.js",
+          "status": 200,
+          "wireBytes": 20540,
+          "gzipBytes": 7769,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/0l9ndemt0-mgl.js",
+          "status": 200,
+          "wireBytes": 11402,
+          "gzipBytes": 4668,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/0hbddovizzdgp.js",
+          "status": 200,
+          "wireBytes": 18236,
+          "gzipBytes": 3964,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/turbopack-3z49fqocobe6f.js",
+          "status": 200,
+          "wireBytes": 9688,
+          "gzipBytes": 3833,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/4367cc28851l3.js",
+          "status": 200,
+          "wireBytes": 14377,
+          "gzipBytes": 3664,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/2bh6skbn7iwxj.js",
+          "status": 200,
+          "wireBytes": 1059,
+          "gzipBytes": 681,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/3fu35yszj3amo.js",
+          "status": 200,
+          "wireBytes": 1188,
+          "gzipBytes": 671,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        }
+      ],
+      "otherAssets": [
+        {
+          "url": "/_next/static/chunks/2c5ufkfihyjja.css",
+          "status": 200,
+          "wireBytes": 31836,
+          "gzipBytes": 6123,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        }
+      ],
+      "jsTotalGzip": 186636,
+      "cssTotalGzip": 6123
+    },
+    {
+      "path": "/amper/",
+      "ttfbMs": 5.715,
+      "totalHtmlBytes": 49565,
+      "htmlGzipBytes": 11275,
+      "imageCount": 4,
+      "images": [
+        "https://mc.yandex.ru/watch/112116056",
+        "/brands/amper-logo.webp",
+        "/_next/image/?url=%2Factual%2Famper-vacancy.webp&amp;w=3840&amp;q=75",
+        "/_next/image/?url=%2Factual%2Ftool-discount-20.webp&amp;w=3840&amp;q=75"
+      ],
+      "preloads": [
+        "<link rel=\"preload\" as=\"script\" fetchPriority=\"low\" href=\"/_next/static/chunks/0hbddovizzdgp.js\"/>"
+      ],
+      "inlineScripts": 6,
+      "jsChunks": [
+        {
+          "url": "/_next/static/chunks/1_vgly0gd1oic.js",
+          "status": 200,
+          "wireBytes": 234172,
+          "gzipBytes": 73278,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/1w534hvog6gw_.js",
+          "status": 200,
+          "wireBytes": 176531,
+          "gzipBytes": 48481,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/0cz1d0mv5g_q7.js",
+          "status": 200,
+          "wireBytes": 112594,
+          "gzipBytes": 39627,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/291s-s015ycys.js",
+          "status": 200,
+          "wireBytes": 14858,
+          "gzipBytes": 5637,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/0l9ndemt0-mgl.js",
+          "status": 200,
+          "wireBytes": 11402,
+          "gzipBytes": 4668,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/0hbddovizzdgp.js",
+          "status": 200,
+          "wireBytes": 18236,
+          "gzipBytes": 3964,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/turbopack-3z49fqocobe6f.js",
+          "status": 200,
+          "wireBytes": 9688,
+          "gzipBytes": 3833,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/4367cc28851l3.js",
+          "status": 200,
+          "wireBytes": 14377,
+          "gzipBytes": 3664,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/2bh6skbn7iwxj.js",
+          "status": 200,
+          "wireBytes": 1059,
+          "gzipBytes": 681,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/3fu35yszj3amo.js",
+          "status": 200,
+          "wireBytes": 1188,
+          "gzipBytes": 671,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        }
+      ],
+      "otherAssets": [
+        {
+          "url": "/_next/static/chunks/2c5ufkfihyjja.css",
+          "status": 200,
+          "wireBytes": 31836,
+          "gzipBytes": 6123,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        }
+      ],
+      "jsTotalGzip": 184504,
+      "cssTotalGzip": 6123
+    },
+    {
+      "path": "/ventil/",
+      "ttfbMs": 4.129,
+      "totalHtmlBytes": 39824,
+      "htmlGzipBytes": 9798,
+      "imageCount": 2,
+      "images": [
+        "/brands/ventil-logo.svg",
+        "https://mc.yandex.ru/watch/112116056"
+      ],
+      "preloads": [
+        "<link rel=\"preload\" as=\"script\" fetchPriority=\"low\" href=\"/_next/static/chunks/0hbddovizzdgp.js\"/>"
+      ],
+      "inlineScripts": 4,
+      "jsChunks": [
+        {
+          "url": "/_next/static/chunks/1_vgly0gd1oic.js",
+          "status": 200,
+          "wireBytes": 234172,
+          "gzipBytes": 73278,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/1w534hvog6gw_.js",
+          "status": 200,
+          "wireBytes": 176531,
+          "gzipBytes": 48481,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/0cz1d0mv5g_q7.js",
+          "status": 200,
+          "wireBytes": 112594,
+          "gzipBytes": 39627,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/291s-s015ycys.js",
+          "status": 200,
+          "wireBytes": 14858,
+          "gzipBytes": 5637,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/0l9ndemt0-mgl.js",
+          "status": 200,
+          "wireBytes": 11402,
+          "gzipBytes": 4668,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/0hbddovizzdgp.js",
+          "status": 200,
+          "wireBytes": 18236,
+          "gzipBytes": 3964,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/turbopack-3z49fqocobe6f.js",
+          "status": 200,
+          "wireBytes": 9688,
+          "gzipBytes": 3833,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/4367cc28851l3.js",
+          "status": 200,
+          "wireBytes": 14377,
+          "gzipBytes": 3664,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/2bh6skbn7iwxj.js",
+          "status": 200,
+          "wireBytes": 1059,
+          "gzipBytes": 681,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/3fu35yszj3amo.js",
+          "status": 200,
+          "wireBytes": 1188,
+          "gzipBytes": 671,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        }
+      ],
+      "otherAssets": [
+        {
+          "url": "/_next/static/chunks/2c5ufkfihyjja.css",
+          "status": 200,
+          "wireBytes": 31836,
+          "gzipBytes": 6123,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        }
+      ],
+      "jsTotalGzip": 184504,
+      "cssTotalGzip": 6123
+    },
+    {
+      "path": "/metiz-market/",
+      "ttfbMs": 3.932,
+      "totalHtmlBytes": 37669,
+      "htmlGzipBytes": 8987,
+      "imageCount": 2,
+      "images": [
+        "/brands/metiz-market-logo.webp",
+        "https://mc.yandex.ru/watch/112116056"
+      ],
+      "preloads": [
+        "<link rel=\"preload\" as=\"script\" fetchPriority=\"low\" href=\"/_next/static/chunks/0hbddovizzdgp.js\"/>"
+      ],
+      "inlineScripts": 4,
+      "jsChunks": [
+        {
+          "url": "/_next/static/chunks/1_vgly0gd1oic.js",
+          "status": 200,
+          "wireBytes": 234172,
+          "gzipBytes": 73278,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/1w534hvog6gw_.js",
+          "status": 200,
+          "wireBytes": 176531,
+          "gzipBytes": 48481,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/0cz1d0mv5g_q7.js",
+          "status": 200,
+          "wireBytes": 112594,
+          "gzipBytes": 39627,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/291s-s015ycys.js",
+          "status": 200,
+          "wireBytes": 14858,
+          "gzipBytes": 5637,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/0l9ndemt0-mgl.js",
+          "status": 200,
+          "wireBytes": 11402,
+          "gzipBytes": 4668,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/0hbddovizzdgp.js",
+          "status": 200,
+          "wireBytes": 18236,
+          "gzipBytes": 3964,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/turbopack-3z49fqocobe6f.js",
+          "status": 200,
+          "wireBytes": 9688,
+          "gzipBytes": 3833,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/4367cc28851l3.js",
+          "status": 200,
+          "wireBytes": 14377,
+          "gzipBytes": 3664,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/2bh6skbn7iwxj.js",
+          "status": 200,
+          "wireBytes": 1059,
+          "gzipBytes": 681,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/3fu35yszj3amo.js",
+          "status": 200,
+          "wireBytes": 1188,
+          "gzipBytes": 671,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        }
+      ],
+      "otherAssets": [
+        {
+          "url": "/_next/static/chunks/2c5ufkfihyjja.css",
+          "status": 200,
+          "wireBytes": 31836,
+          "gzipBytes": 6123,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        }
+      ],
+      "jsTotalGzip": 184504,
+      "cssTotalGzip": 6123
+    },
+    {
+      "path": "/miska/",
+      "ttfbMs": 4.274,
+      "totalHtmlBytes": 56562,
+      "htmlGzipBytes": 13361,
+      "imageCount": 4,
+      "images": [
+        "https://mc.yandex.ru/watch/112116056",
+        "/brands/miska-logo.webp",
+        "/_next/image/?url=%2Factual%2Fmiska-award-vet.webp&amp;w=3840&amp;q=75",
+        "/_next/image/?url=%2Factual%2Fmiska-food-treats-gift.webp&amp;w=3840&amp;q=75"
+      ],
+      "preloads": [
+        "<link rel=\"preload\" as=\"script\" fetchPriority=\"low\" href=\"/_next/static/chunks/0hbddovizzdgp.js\"/>"
+      ],
+      "inlineScripts": 6,
+      "jsChunks": [
+        {
+          "url": "/_next/static/chunks/1_vgly0gd1oic.js",
+          "status": 200,
+          "wireBytes": 234172,
+          "gzipBytes": 73278,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/1w534hvog6gw_.js",
+          "status": 200,
+          "wireBytes": 176531,
+          "gzipBytes": 48481,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/0cz1d0mv5g_q7.js",
+          "status": 200,
+          "wireBytes": 112594,
+          "gzipBytes": 39627,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/291s-s015ycys.js",
+          "status": 200,
+          "wireBytes": 14858,
+          "gzipBytes": 5637,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/0l9ndemt0-mgl.js",
+          "status": 200,
+          "wireBytes": 11402,
+          "gzipBytes": 4668,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/0hbddovizzdgp.js",
+          "status": 200,
+          "wireBytes": 18236,
+          "gzipBytes": 3964,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/turbopack-3z49fqocobe6f.js",
+          "status": 200,
+          "wireBytes": 9688,
+          "gzipBytes": 3833,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/4367cc28851l3.js",
+          "status": 200,
+          "wireBytes": 14377,
+          "gzipBytes": 3664,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/2bh6skbn7iwxj.js",
+          "status": 200,
+          "wireBytes": 1059,
+          "gzipBytes": 681,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "url": "/_next/static/chunks/3fu35yszj3amo.js",
+          "status": 200,
+          "wireBytes": 1188,
+          "gzipBytes": 671,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        }
+      ],
+      "otherAssets": [
+        {
+          "url": "/_next/static/chunks/2c5ufkfihyjja.css",
+          "status": 200,
+          "wireBytes": 31836,
+          "gzipBytes": 6123,
+          "cacheControl": "Cache-Control: public, max-age=31536000, immutable"
+        }
+      ],
+      "jsTotalGzip": 184504,
+      "cssTotalGzip": 6123
+    }
+  ]
+}
