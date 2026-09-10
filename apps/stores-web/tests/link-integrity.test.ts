@@ -103,6 +103,17 @@ const routeModel: RouteModel = {
   ],
 };
 
+const INDEXABLE_PATHS = new Set([
+  ...EXPECTED_STATIC_PAGES.filter(
+    (path) => !["/politika-konfidencialnosti/", "/soglasie-na-obrabotku-dannyh/"].includes(path),
+  ),
+  ...CANONICAL_BRAND_SLUGS.map((slug) => `/${slug}/`),
+  ...[...citySlugs].map((slug) => `/stores/${slug}/`),
+  ...[...storeSlugsByCity.entries()].flatMap(([citySlug, storeSlugs]) =>
+    [...storeSlugs].map((storeSlug) => `/stores/${citySlug}/${storeSlug}/`),
+  ),
+]);
+
 function isKnownInternalPath(path: string): boolean {
   return routeModel.staticPaths.has(path) || routeModel.dynamicPatterns.some((pattern) => pattern.test(path));
 }
@@ -172,6 +183,44 @@ describe("route registry matches the app structure", () => {
     for (const slug of CANONICAL_BRAND_SLUGS) {
       assert.ok(linked.has(`/${slug}/`), `expected at least one internal link to /${slug}/`);
     }
+  });
+
+  test("every indexable route has a contextual incoming link outside global navigation", () => {
+    const contextualTargets = new Set(
+      internalLinks
+        .filter((link) => !link.file.startsWith("components/layout/"))
+        .map((link) => link.href),
+    );
+
+    // Expand the content-driven route templates against the same active data
+    // used to construct the route registry.
+    for (const slug of CANONICAL_BRAND_SLUGS) contextualTargets.add(`/${slug}/`);
+    for (const citySlug of citySlugs) contextualTargets.add(`/stores/${citySlug}/`);
+    for (const [citySlug, storeSlugs] of storeSlugsByCity) {
+      for (const storeSlug of storeSlugs) contextualTargets.add(`/stores/${citySlug}/${storeSlug}/`);
+    }
+    for (const item of mockActualItems.filter((entry) => entry.active && entry.buttonUrl)) {
+      contextualTargets.add(item.buttonUrl!);
+    }
+
+    // The root is the crawl entry point, not an orphan candidate.
+    for (const path of [...INDEXABLE_PATHS].filter((item) => item !== "/")) {
+      assert.ok(contextualTargets.has(path), `indexable route ${path} has no contextual incoming link`);
+    }
+  });
+
+  test("brand pages cross-link the city, contacts, bonus program, and brand details", () => {
+    const brandContact = sourceByFile.get(join(projectRoot, "components/stores/BrandStoreContact.tsx")) ?? "";
+    const contacts = sourceByFile.get(join(projectRoot, "components/contacts/ContactStoreGrid.tsx")) ?? "";
+    const bonus = sourceByFile.get(join(projectRoot, "app/bonus/page.tsx")) ?? "";
+
+    assert.match(brandContact, /href=\{`\/stores\/\$\{city\.slug\}\/`\}/);
+    assert.match(brandContact, /\u0412\u0441\u0435 \u043c\u0430\u0433\u0430\u0437\u0438\u043d\u044b \u0432 \{city\.name\}/);
+    assert.match(brandContact, /\u041a\u043e\u043d\u0442\u0430\u043a\u0442\u044b \u0438 \u0440\u0435\u0436\u0438\u043c \u0440\u0430\u0431\u043eты/);
+    assert.match(contacts, /href=\{`\/\$\{brand\.slug\}\/`\}/);
+    assert.match(contacts, /\u0410\u0441\u0441\u043e\u0440\u0442\u0438\u043c\u0435\u043d\u0442 \u043c\u0430\u0433\u0430\u0437\u0438\u043d\u0430/);
+    assert.match(bonus, /program\.participating_brands\.includes\(brand\.id\)/);
+    assert.match(bonus, /href=\{`\/\$\{brand\.slug\}\/`\}/);
   });
 });
 

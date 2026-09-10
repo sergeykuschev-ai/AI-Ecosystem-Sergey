@@ -92,8 +92,8 @@ export function BrandStoreContact({
         <TrackedLink event="store_open" payload={{ city: city.slug, store: store.slug, brand: brand.slug }} href={`/stores/${city.slug}/${store.slug}/`}>
           Подробнее о торговой точке
         </TrackedLink>
-        {contactsHref ? <Link href={contactsHref}>Контакты</Link> : null}
-        {cityStoresHref ? <Link href={cityStoresHref}>Магазины в {city.name}</Link> : null}
+        {cityStoresHref ? <Link href={cityStoresHref}>Все магазины в {city.name}</Link> : null}
+        {contactsHref ? <Link href={contactsHref}>Контакты и режим работы</Link> : null}
         {mapLink && (
           <TrackedLink event="click_route" payload={{ brand: brand.slug, store: store.slug }} href={mapLink.url} target="_blank" rel="noopener noreferrer">
             Показать на карте <span aria-hidden="true">↗</span>
