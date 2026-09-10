@@ -103,6 +103,10 @@ p { margin: 0 0 1rem; }
 .store-card[data-brand="ventil"] { border-top-color: #1769aa; }
 .store-card[data-brand="metiz-market"] { border-top-color: #c62828; }
 .store-card[data-brand="miska"] { border-top-color: #f58517; }
+.store-card--contact { height: 100%; display: flex; flex-direction: column; }
+.store-card__actions { display: grid; gap: 0.6rem; margin-top: auto; }
+.store-card__actions-row { display: grid; gap: 0.6rem; }
+.store-card__actions .button { width: 100%; min-height: 2.75rem; padding: 0.55rem 0.75rem; font-size: 0.9rem; }
 .brand-card:hover, .store-card:hover, .card:hover { box-shadow: var(--shadow); }
 .brand-card:hover { transform: translateY(-0.2rem); }
 .store-card .store-tagline { color: var(--muted); font-size: 0.95rem; font-weight: 500; margin: -0.4rem 0 0.75rem; }
@@ -327,6 +331,7 @@ p { margin: 0 0 1rem; }
 .site-footer { margin-top: 4rem; padding: 3rem 0; color: #e8edf3; background: #17212b; }
 .footer-grid { display: grid; gap: 2rem; }
 .site-footer nav { display: flex; flex-direction: column; gap: 0.6rem; }
+.site-footer nav a { min-height: 2.75rem; display: inline-flex; align-items: center; }
 
 @media (min-width: 42rem) {
   .store-navigation__link { min-height: 2.5rem; height: 2.5rem; padding-inline: 0.5rem; font-size: 0.82rem; white-space: nowrap; }
@@ -352,6 +357,7 @@ p { margin: 0 0 1rem; }
   .brand-store-contact__details > div { padding-block: 0.6rem 0; }
   .find-us__panel { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); }
   .split-panel { flex-direction: row; justify-content: space-between; align-items: center; }
+  .store-card__actions-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .content-columns { grid-template-columns: 1fr 1fr; align-items: start; }
   .footer-grid { grid-template-columns: 1fr 1fr; }
   .actual-slide__content { grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; padding: 1rem 1.25rem; }
