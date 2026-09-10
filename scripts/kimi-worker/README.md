@@ -12,9 +12,14 @@ never deploys, and works only inside allowlisted areas of the monorepo.
    branch, or a terminal entry in the local state file.
 3. Create (or reuse) a dedicated git worktree under `~/.kimi-worker/…` on a
    task branch `ai/kimi-<issue>-<slug>` cut from `origin/main`.
-4. Run `kimi -p "<issue + rules>" --agent-file kimi-agent.md` under a macOS
+4. Run `kimi -p "<issue + rules>" --agent-file <copy>` under a macOS
    Seatbelt sandbox (`sandbox-exec`), non-interactively, inside the worktree
-   (transcript in the logs directory). See "Security model" below.
+   (transcript in the logs directory). See "Security model" below. The
+   `--agent-file` value is a per-task copy of `kimi-agent.md` staged inside
+   the worktree (`agentFile.js`): the canonical file lives under
+   `~/Documents`, which the sandbox denies for reads (issue #37), so the copy
+   is the only sandbox-readable form. It is removed before `git status`, so
+   it can never be committed.
 5. Validate: changed files must stay inside the area's allowed paths; a
    forbidden-path and secret-content scan runs before anything is staged.
 6. Run checks (`git diff --check`, `npm run lint`, `npm run typecheck`,
@@ -49,6 +54,10 @@ Four independent layers:
    `Agent`/`AgentSwarm` (no sub-agents), no `WebSearch`/`FetchURL` (no
    untrusted fetch), no `Skill`, no cron, no plan-mode tools. The agent is
    bound at session start and outranks any repo-supplied agent file.
+   The file passed to `--agent-file` is a byte-identical copy staged inside
+   the task worktree by `agentFile.js`; the canonical
+   `scripts/kimi-worker/kimi-agent.md` remains the source of truth and stays
+   unreadable under the sandbox. The copy is deleted before git status/commit.
    Note: `kimi -p` already runs under the `auto` permission policy; passing
    `--auto`/`--yolo` together with `--prompt` is rejected by the CLI, so the
    worker never adds them.

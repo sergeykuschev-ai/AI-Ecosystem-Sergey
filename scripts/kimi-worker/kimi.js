@@ -7,17 +7,28 @@ const config = require('./config');
 const sandbox = require('./sandbox');
 const { scrub } = require('./logger');
 
+// agentFilePath MUST be a sandbox-readable copy (see agentFile.js): the
+// canonical scripts/kimi-worker/kimi-agent.md lives under ~/Documents and is
+// unreadable under the seatbelt profile (issue #37).
+function buildKimiArgs(agentFilePath, prompt) {
+  return [
+    '-p', prompt,
+    '--agent-file', agentFilePath,
+    '--skills-dir', emptySkillsDir(),
+    '--output-format', 'text',
+  ];
+}
+
 // Runs Kimi Code CLI non-interactively (kimi -p) inside the task worktree,
 // wrapped in the macOS seatbelt sandbox so filesystem access is bounded
 // DURING execution. Never invokes the interactive TUI.
-function runKimi(worktreePath, prompt, transcriptPath) {
+function runKimi(worktreePath, prompt, transcriptPath, agentFilePath) {
   return new Promise((resolve) => {
-    const kimiArgs = [
-      '-p', prompt,
-      '--agent-file', config.kimi.agentFile,
-      '--skills-dir', emptySkillsDir(),
-      '--output-format', 'text',
-    ];
+    if (!agentFilePath) {
+      resolve({ ok: false, code: 'missing-agent-file', transcriptPath });
+      return;
+    }
+    const kimiArgs = buildKimiArgs(agentFilePath, prompt);
 
     if (!sandbox.isAvailable()) {
       if (config.sandbox.required) {
@@ -86,4 +97,4 @@ function logLine(transcriptPath, line) {
   fs.appendFileSync(transcriptPath, line.endsWith('\n') ? line : line + '\n');
 }
 
-module.exports = { runKimi };
+module.exports = { runKimi, buildKimiArgs };

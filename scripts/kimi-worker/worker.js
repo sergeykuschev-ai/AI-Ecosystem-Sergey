@@ -9,6 +9,7 @@ const { buildPrompt } = require('./prompts');
 const { runChecks, run } = require('./checks');
 const { runKimi } = require('./kimi');
 const { createLogger } = require('./logger');
+const { stageAgentFile, removeAgentFile } = require('./agentFile');
 
 // ---------------------------------------------------------------------------
 // Git helpers (task-branch only; reset/clean/rebase/force-push never appear)
@@ -152,7 +153,16 @@ async function processIssue(issueNumber, log, { dryRun }) {
     const prompt = buildPrompt(issue, area, area.checks);
     const transcriptPath = path.join(config.logsDir, `kimi-issue-${issueNumber}.log`);
     log.info(`Running kimi non-interactively; transcript: ${transcriptPath}`);
-    const kimiResult = await runKimi(wtPath, prompt, transcriptPath);
+    // The canonical agent file is unreadable under the sandbox (it lives in
+    // ~/Documents). Stage a copy inside the worktree — the only read path the
+    // profile guarantees — and remove it before git status/commit.
+    const agentFileCopy = stageAgentFile(wtPath);
+    let kimiResult;
+    try {
+      kimiResult = await runKimi(wtPath, prompt, transcriptPath, agentFileCopy);
+    } finally {
+      removeAgentFile(wtPath);
+    }
     if (!kimiResult.ok) {
       return finishWithFailure({ issueNumber, branch, state, log, wtPath },
         `Kimi exited with code ${kimiResult.code}. See transcript ${transcriptPath}.`);
