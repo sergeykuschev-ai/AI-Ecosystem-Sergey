@@ -1,14 +1,21 @@
+import {
+  BONUS_CARD_THRESHOLDS_RUB,
+  BONUS_EARN_RATE,
+  BONUS_SPEND_CAP_PERCENT,
+  BONUS_VALIDITY_LABEL,
+  formatRubles,
+} from "@/lib/constants/bonus";
 import type { BonusProgram } from "@/types/bonus-program";
 
 const CARD_THRESHOLDS = [
-  { stores: "Ампер, Вентиль и Метиз Маркет", amount: "3 500 ₽" },
-  { stores: "Миска", amount: "2 000 ₽" },
+  { stores: "Ампер, Вентиль и Метиз Маркет", amount: BONUS_CARD_THRESHOLDS_RUB.amper },
+  { stores: "Миска", amount: BONUS_CARD_THRESHOLDS_RUB.miska },
 ];
 
 export function BonusProgramBlock({ program }: { program: BonusProgram }) {
-  const earnRate = program.rules[0] ?? "5%";
-  const spendRate = program.rules[1] ?? "15%";
-  const validity = program.rules[2] ?? "3 месяца";
+  const earnRate = program.rules[0] ?? BONUS_EARN_RATE;
+  const spendRate = program.rules[1] ?? `${BONUS_SPEND_CAP_PERCENT}%`;
+  const validity = program.rules[2] ?? BONUS_VALIDITY_LABEL;
 
   return (
     <div className="bonus-program">
@@ -39,7 +46,7 @@ export function BonusProgramBlock({ program }: { program: BonusProgram }) {
           {CARD_THRESHOLDS.map((item) => (
             <article className="card" key={item.stores}>
               <h3>{item.stores}</h3>
-              <p>Карта выдаётся при покупке от {item.amount}.</p>
+              <p>Карта выдаётся при покупке от {formatRubles(item.amount)}.</p>
             </article>
           ))}
         </div>

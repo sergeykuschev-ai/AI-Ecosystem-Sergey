@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
+    "test": "SITE_URL=https://stores-test.local node --import tsx --test tests/*.test.ts",
     "smoke:production": "tsx scripts/smoke/production.ts",
     "directus:schema:apply": "tsx scripts/directus/schema.ts",
     "directus:seed": "tsx scripts/directus/seed.ts",
