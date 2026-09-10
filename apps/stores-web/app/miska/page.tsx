@@ -128,14 +128,15 @@ function MiskaFeaturedSections() {
     <>
       <MiskaCategoryBlocks />
 
-      <section className="brand-landing-section" aria-label="Главные направления">
+      <section className="brand-landing-section" aria-labelledby="miska-directions">
+        <h2 id="miska-directions">Корма, одежда и амуниция для питомцев</h2>
         <div className="miska-feature-grid">
           <article className="miska-feature-card">
-            <h2>Питание с учётом особенностей питомца</h2>
+            <h3>Питание с учётом особенностей питомца</h3>
             <p>{NUTRITION_TEXT}</p>
           </article>
           <article className="miska-feature-card">
-            <h2>Одежда и амуниция для прогулок</h2>
+            <h3>Одежда и амуниция для прогулок</h3>
             <p>{CLOTHING_TEXT}</p>
           </article>
         </div>

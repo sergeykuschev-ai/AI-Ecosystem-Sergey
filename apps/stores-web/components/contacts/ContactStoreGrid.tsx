@@ -91,7 +91,7 @@ export function ContactStoreGrid({ stores, brands, city }: { stores: Store[]; br
             {BRAND_TAGLINE[brand.slug] && (
               <p className="store-tagline">{BRAND_TAGLINE[brand.slug]}</p>
             )}
-            <p className="store-address">{store.address ?? "Адрес уточняется"}</p>
+            <address className="store-address">{store.address ?? "Адрес уточняется"}</address>
 
             <p className="eyebrow">Телефон</p>
             <p>

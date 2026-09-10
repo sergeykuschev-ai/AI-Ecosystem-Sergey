@@ -26,9 +26,7 @@ export default async function BonusPage() {
 
   return (
     <StaticPage eyebrow="Для покупателей" title="Бонусная программа" intro={program.short_description}>
-      <section aria-label="Условия бонусной программы">
-        <BonusProgramBlock program={program} />
-      </section>
+      <BonusProgramBlock program={program} />
     </StaticPage>
   );
 }
