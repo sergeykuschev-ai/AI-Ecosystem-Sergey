@@ -230,3 +230,11 @@ NEXT_PUBLIC_SITE_URL=https://your-domain.example CONTENT_SOURCE=mock npm run bui
 ## Production deployment
 
 Production files are in the repository, but production secrets are not. See [`docs/PRODUCTION_DEPLOY.md`](docs/PRODUCTION_DEPLOY.md) for the full target architecture, migration strategy, and operational commands.
+
+After each deploy, run the read-only production smoke-check from the repo (anonymous GET requests only; no credentials or writes):
+
+```bash
+npm run smoke:production
+```
+
+It verifies HTTP 200 and page markers for the public routes, `/sitemap.xml`, `/robots.txt`, `/opengraph-image.png`, and the `/api/health` contract. Details are in [`docs/PRODUCTION_DEPLOY.md`](docs/PRODUCTION_DEPLOY.md#post-deploy-smoke-check).
