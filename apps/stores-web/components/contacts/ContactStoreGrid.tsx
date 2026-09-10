@@ -1,6 +1,7 @@
 import type { Brand } from "@/types/brand";
 import type { City } from "@/types/city";
 import type { OpeningHoursEntry, Store } from "@/types/store";
+import Link from "next/link";
 import { TrackedLink } from "@/components/analytics/TrackedLink";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 
@@ -108,6 +109,9 @@ export function ContactStoreGrid({ stores, brands, city }: { stores: Store[]; br
             <ContactStoreHours hours={store.opening_hours} />
 
             <div className="store-card__actions">
+              <Link href={`/${brand.slug}/`}>
+                Ассортимент магазина «{brand.name}»
+              </Link>
               {phoneHref && (
                 <TrackedLink className="button button--primary" event="click_phone" payload={{ brand: brand.slug, store: store.slug }} href={phoneHref}>
                   Позвонить

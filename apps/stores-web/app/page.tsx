@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { ActualSlider } from "@/components/actual/ActualSlider";
 import { BrandCard } from "@/components/brand/BrandCard";
 import { FAQList } from "@/components/faq/FAQList";
@@ -58,6 +59,17 @@ export default async function HomePage() {
         <section className="section" aria-labelledby="faq-title">
           <h2 id="faq-title">Частые вопросы</h2>
           <FAQList items={faqs} />
+          <p className="note">
+            Больше ответов — в разделе <Link href="/faq/">частых вопросов о магазинах</Link>.
+          </p>
+        </section>
+        <section className="section" aria-labelledby="about-links-title">
+          <h2 id="about-links-title">О магазинах и покупках</h2>
+          <ul className="link-list">
+            <li><Link href="/o-kompanii/">О магазинах «Ампер», «Вентиль», «Метиз Маркет» и «Миска»</Link></li>
+            <li><Link href="/bonus/">Условия бонусной программы магазинов</Link></li>
+            <li><Link href="/kontakty/">Адреса, телефоны и режим работы в Амурске</Link></li>
+          </ul>
         </section>
       </Container>
     </main>
