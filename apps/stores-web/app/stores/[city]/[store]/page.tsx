@@ -69,6 +69,13 @@ export default async function StorePage({ params }: StorePageProps) {
           <section className="section" aria-labelledby="about-store"><h2 id="about-store">О магазине</h2><p>{store.description}</p></section>
         </div>
         <section className="section" aria-labelledby="store-categories"><h2 id="store-categories">Основные категории</h2><CategoryGrid categories={categories} /></section>
+        <section className="section" aria-labelledby="brand-details">
+          <h2 id="brand-details">Магазин «{brand.name}»</h2>
+          <p>
+            Направления ассортимента, актуальные акции и бонусная программа — на{" "}
+            <Link href={`/${brand.slug}/`}>странице магазина «{brand.name}»</Link>.
+          </p>
+        </section>
       </Container>
     </main>
   );

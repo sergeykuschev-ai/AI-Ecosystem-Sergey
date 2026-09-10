@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { StaticPage } from "@/components/content/StaticPage";
 import { FAQList } from "@/components/faq/FAQList";
 import { JsonLd } from "@/components/seo/JsonLd";
@@ -27,6 +28,14 @@ export default async function FAQPage() {
       >
         <section className="faq-section" aria-label="Вопросы и ответы">
           <FAQList items={faqs} />
+        </section>
+        <section className="section" aria-labelledby="faq-useful">
+          <h2 id="faq-useful">Полезные разделы</h2>
+          <ul className="link-list">
+            <li><Link href="/kontakty/">Контакты, адреса и телефоны магазинов</Link></li>
+            <li><Link href="/stores/">Магазины по городам и страницы торговых точек</Link></li>
+            <li><Link href="/bonus/">Бонусная программа</Link></li>
+          </ul>
         </section>
       </StaticPage>
     </main>
