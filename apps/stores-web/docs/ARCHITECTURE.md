@@ -86,7 +86,7 @@ Arthur can later consume versioned Website API contracts for brands, stores, cit
 
 ## IndexNow and content changes
 
-The `services/indexnow.ts` adapter accepts changed URLs, resolves them against a trusted configured origin, deduplicates them, and submits only when explicitly invoked with an environment-provided key. A later authenticated Directus webhook handler should:
+The `services/indexnow.ts` adapter accepts changed URLs, resolves them against a trusted configured origin, rejects any resolved URL whose origin differs from the configured site origin, deduplicates them, and submits only when explicitly invoked with an environment-provided key. A later authenticated Directus webhook handler should:
 
 1. validate the webhook signature and content event;
 2. map the changed entity to canonical public URLs;

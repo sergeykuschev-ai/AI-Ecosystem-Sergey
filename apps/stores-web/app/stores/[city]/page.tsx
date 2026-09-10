@@ -18,7 +18,11 @@ export async function generateMetadata({ params }: CityPageProps): Promise<Metad
   const { city: slug } = await params;
   const city = await getCityBySlug(slug);
   if (!city) return {};
-  return createPageMetadata({ title: `Магазины в ${city.name}`, description: `Физические магазины Ампер, Вентиль, Метиз Маркет и Миска в городе ${city.name}, ${city.region}.`, path: `/stores/${city.slug}/` });
+  return createPageMetadata({
+    title: `Магазины в городе ${city.name}: Ампер, Вентиль, Метиз Маркет и Миска`,
+    description: `Адреса, телефоны и режим работы магазинов «Ампер», «Вентиль», «Метиз Маркет» и «Миска» в городе ${city.name}, ${city.region}: электротовары, сантехника, крепёж и зоотовары.`,
+    path: `/stores/${city.slug}/`,
+  });
 }
 
 export default async function CityStoresPage({ params }: CityPageProps) {

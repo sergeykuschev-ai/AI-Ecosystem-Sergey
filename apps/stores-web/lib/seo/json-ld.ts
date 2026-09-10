@@ -63,6 +63,41 @@ export function createOrganizationsJsonLd(brands: Brand[]): JsonLdObject {
   };
 }
 
+export interface BreadcrumbTrailItem {
+  name: string;
+  path: string;
+}
+
+export function createBreadcrumbJsonLd(trail: BreadcrumbTrailItem[]): JsonLdObject {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: trail.map((item, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: item.name,
+      item: new URL(item.path, siteUrl).href,
+    })),
+  };
+}
+
+export function createStoresJsonLd(
+  stores: Store[],
+  brands: Brand[],
+  city: City,
+): JsonLdObject {
+  const brandById = new Map(brands.map((brand) => [brand.id, brand]));
+  return {
+    "@context": "https://schema.org",
+    "@graph": stores
+      .map((store) => {
+        const brand = brandById.get(store.brand_id);
+        return brand ? createStoreJsonLd(store, brand, city) : null;
+      })
+      .filter((entry): entry is JsonLdObject => entry !== null),
+  };
+}
+
 export function createStoreJsonLd(store: Store, brand: Brand, city: City): JsonLdObject {
   const schemaTypes: Record<string, string> = {
     miska: "PetStore",

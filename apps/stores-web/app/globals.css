@@ -359,7 +359,7 @@ p { margin: 0 0 1rem; }
   .split-panel { flex-direction: row; justify-content: space-between; align-items: center; }
   .store-card__actions-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .content-columns { grid-template-columns: 1fr 1fr; align-items: start; }
-  .footer-grid { grid-template-columns: 1fr 1fr; }
+  .footer-grid { grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); }
   .actual-slide__content { grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; padding: 1rem 1.25rem; }
   .actual-slide__button { justify-self: end; }
 }
