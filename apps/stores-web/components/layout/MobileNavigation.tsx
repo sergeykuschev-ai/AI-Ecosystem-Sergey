@@ -8,7 +8,7 @@ interface MobileNavigationProps {
 export function MobileNavigation({ links }: MobileNavigationProps) {
   return (
     <details className="mobile-nav">
-      <summary aria-label="Открыть меню">Меню</summary>
+      <summary>Меню</summary>
       <nav aria-label="Мобильная навигация">
         {links.map(({ label, href, event }) =>
           event ? (

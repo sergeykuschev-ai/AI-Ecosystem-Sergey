@@ -72,16 +72,18 @@ p { margin: 0 0 1rem; }
 .actual-slider__viewport { position: relative; display: flex; gap: 1rem; width: 100%; padding: 0.25rem 0 0.75rem; overflow-x: auto; overscroll-behavior-inline: contain; scroll-snap-type: x mandatory; scrollbar-width: none; }
 .actual-slider__viewport::-webkit-scrollbar { display: none; }
 .actual-slider__viewport:focus-visible { outline: 3px solid #2563eb; outline-offset: 4px; border-radius: var(--radius); }
-.actual-slide { position: relative; flex: 0 0 100%; min-width: 0; display: flex; flex-direction: column; overflow: hidden; border: 1px solid color-mix(in srgb, var(--slide-accent) 28%, var(--line)); border-top: 0.4rem solid var(--slide-accent); border-radius: calc(var(--radius) + 0.25rem); background: white; box-shadow: 0 14px 36px rgba(23, 33, 43, 0.08); scroll-snap-align: start; scroll-snap-stop: always; }
+.actual-slide { position: relative; flex: 0 0 100%; min-width: 0; display: flex; flex-direction: column; overflow: hidden; border: 1px solid color-mix(in srgb, var(--slide-accent) 28%, var(--line)); border-top: 0.4rem solid var(--slide-accent); border-radius: calc(var(--radius) + 0.25rem); background: white; box-shadow: 0 14px 36px rgba(23, 33, 43, 0.08); scroll-snap-align: start; scroll-snap-stop: always; --slide-on-accent: #fff; --slide-accent-text: var(--slide-accent); }
+/* Amper's brand yellow (#f4c300) is too light for white text or for text on white; use a darkened yellow-brown that keeps the brand hue and passes WCAG AA. */
+.actual-slide[data-brand="amper"] { --slide-on-accent: #5c4700; --slide-accent-text: #5c4700; }
 .actual-slide__content { display: grid; grid-template-columns: 1fr; align-items: start; gap: 0.75rem; padding: 1rem 1.1rem; background: linear-gradient(135deg, #fff 0%, var(--slide-soft) 180%); }
 .actual-slide__meta { display: flex; flex-wrap: wrap; gap: 0.45rem; align-items: center; margin: 0; }
 .actual-slide__type, .actual-slide__badge, .actual-slide__brand { display: inline-flex; align-items: center; min-height: 1.8rem; padding: 0.25rem 0.6rem; border-radius: 999px; font-size: 0.68rem; font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase; }
-.actual-slide__type { color: white; background: var(--slide-accent); }
-.actual-slide__badge { color: var(--slide-accent); border: 1px solid color-mix(in srgb, var(--slide-accent) 35%, transparent); background: white; }
+.actual-slide__type { color: var(--slide-on-accent); background: var(--slide-accent); }
+.actual-slide__badge { color: var(--slide-accent-text); border: 1px solid color-mix(in srgb, var(--slide-accent) 35%, transparent); background: white; }
 .actual-slide__brand { color: var(--ink); background: color-mix(in srgb, var(--slide-soft) 72%, white); }
 .actual-slide h3 { margin: 0; max-width: none; font-size: clamp(1.15rem, 4vw, 1.55rem); }
 .actual-slide__content > p { margin: 0; max-width: 47rem; color: #354250; }
-.actual-slide__button { min-height: 2.75rem; display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem; justify-self: start; padding: 0.55rem 0.85rem; color: white; border-radius: 0.65rem; background: var(--slide-accent); font-weight: 800; text-decoration: none; }
+.actual-slide__button { min-height: 2.75rem; display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem; justify-self: start; padding: 0.55rem 0.85rem; color: var(--slide-on-accent); border-radius: 0.65rem; background: var(--slide-accent); font-weight: 800; text-decoration: none; }
 .actual-slide__visual { position: relative; width: 100%; aspect-ratio: 16 / 9; display: block; overflow: hidden; background: white; }
 .actual-slide__visual > img { object-fit: contain; }
 .actual-slider__arrows { display: flex; gap: 0.6rem; }
