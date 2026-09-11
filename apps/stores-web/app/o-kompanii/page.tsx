@@ -59,7 +59,7 @@ const ABOUT_INTRO_NOTE =
   "«Ампер» работает в Амурске с 2018 года. Сегодня по адресу проспект Победы, 16 работают четыре магазина: «Ампер», «Вентиль», «Метиз Маркет» и «Миска».";
 
 const LOCATION_TEXT =
-  "Все четыре магазина находятся по адресу проспект Победы, 16. До магазинов удобно добраться пешком или на общественном транспорте — рядом расположены автобусные остановки.";
+  "Все четыре магазина находятся по адресу проспект Победы, 16.";
 
 const ASSISTANCE_TEXT =
   "В магазинах работают продавцы-консультанты, которые помогут сориентироваться в ассортименте и подобрать товар под конкретную задачу.";
@@ -80,7 +80,7 @@ export default async function AboutPage() {
       <JsonLd data={createAboutPageJsonLd()} />
       <StaticPage
         eyebrow="О нас"
-        title="Четыре магазина в центре Амурска"
+        title="Четыре магазина в Амурске"
         intro="Электротовары, сантехника, крепёж и товары для питомцев — в магазинах по адресу проспект Победы, 16."
       >
         <p className="about-intro-note">{ABOUT_INTRO_NOTE}</p>
@@ -107,7 +107,7 @@ export default async function AboutPage() {
         </section>
 
         <section className="about-section" aria-labelledby="about-location-title">
-          <h2 id="about-location-title">В центре Амурска</h2>
+          <h2 id="about-location-title">Магазины в Амурске</h2>
           <p>{LOCATION_TEXT}</p>
           <div className="button-row">
             <Link className="button button--primary" href="/kontakty/">
