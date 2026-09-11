@@ -5,7 +5,7 @@ This integration uses the official Yandex Webmaster API v4. It discovers the OAu
 ## One-time OAuth setup
 
 1. Sign in to the Yandex account that owns the verified site in Yandex Webmaster.
-2. Register an application in Yandex OAuth and grant it the Yandex Webmaster API read permission for monitoring and write permission for re-crawl submission. Follow the current Yandex OAuth documentation when completing the authorization flow.
+2. Register an application in Yandex OAuth and add the Webmaster permissions `webmaster:hostinfo` and `webmaster:verify`, as required by the official Yandex Webmaster authorization guide. Follow the current Yandex OAuth documentation when completing the authorization flow.
 3. Save the resulting access token in the deployment platform's secret store. Do not put it in source control, command arguments, shell history, build arguments, or a public `NEXT_PUBLIC_*` variable.
 4. Expose it to the command process at runtime as `YANDEX_WEBMASTER_TOKEN`.
 
