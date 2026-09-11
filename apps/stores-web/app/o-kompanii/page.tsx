@@ -76,7 +76,7 @@ export default async function AboutPage() {
   const mapUrl = stores.map((store) => store.map_links.find((link) => link.url)?.url).find(Boolean) ?? null;
 
   return (
-    <main className="about-page">
+    <div className="about-page">
       <JsonLd data={createAboutPageJsonLd()} />
       <StaticPage
         eyebrow="О нас"
@@ -151,6 +151,6 @@ export default async function AboutPage() {
           </div>
         </section>
       </StaticPage>
-    </main>
+    </div>
   );
 }

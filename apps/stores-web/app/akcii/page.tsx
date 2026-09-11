@@ -17,7 +17,7 @@ export default async function PromotionsPage() {
     <StaticPage eyebrow="Предложения" title="Акции" intro="Здесь публикуются только действующие акции с точными сроками, магазинами и условиями.">
       <section className="section" aria-labelledby="promotions-title">
         <h2 id="promotions-title">Действующие акции магазинов</h2>
-        {items.length > 0 ? <BrandActualList items={items} /> : <EmptyState title="Активных акций пока нет" text="Здесь появятся только подтверждённые предложения и условия." />}
+        {items.length > 0 ? <BrandActualList items={items} headingLevel={2} /> : <EmptyState title="Активных акций пока нет" text="Здесь появятся только подтверждённые предложения и условия." />}
       </section>
     </StaticPage>
   );
