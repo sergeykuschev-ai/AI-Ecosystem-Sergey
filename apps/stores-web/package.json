@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "SITE_URL=${SITE_URL:-${NEXT_PUBLIC_SITE_URL:-https://stores-test.local}} CONTENT_SOURCE=${CONTENT_SOURCE:-mock} next build",
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
@@ -12,6 +12,9 @@
     "smoke:production": "tsx scripts/smoke/production.ts",
     "diagnose:production": "tsx scripts/diagnostics/production.ts",
     "audit:seo": "tsx scripts/seo-audit/production.ts",
+    "audit:seo:local": "tsx scripts/seo-audit/regression.ts",
+    "audit:seo:runtime-local": "AUDIT_BASE_URL=http://127.0.0.1:3000 tsx scripts/seo-audit/production.ts",
+    "indexnow:key-urls": "tsx scripts/indexnow/submit-key-urls.ts",
     "directus:schema:apply": "tsx scripts/directus/schema.ts",
     "directus:seed": "tsx scripts/directus/seed.ts",
     "directus:check": "tsx scripts/directus/check.ts",

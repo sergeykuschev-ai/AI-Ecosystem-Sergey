@@ -55,22 +55,20 @@ const BONUS_FACTS = [
 
 const BONUS_NOTE = `Бонусная карта в «Вентиле» выдаётся при покупке от ${formatRubles(BONUS_CARD_THRESHOLDS_RUB.ventil)}.`;
 
-const CONTACT_NOTE =
-  "Магазин находится в центре Амурска: рядом автобусные остановки, удобно добираться пешком.";
-
 function VentilFeaturedSections() {
   return (
     <>
-      <section className="brand-landing-section" aria-label="Основные направления ассортимента">
+      <section className="brand-landing-section" aria-labelledby="ventil-directions">
+        <h2 id="ventil-directions">Сантехника, водоснабжение и отопление</h2>
         <div className="ventil-feature-grid">
           {DIRECTION_CARDS.map((card) => (
             <article className="ventil-feature-card" key={card.title}>
-              <h2>{card.title}</h2>
+              <h3>{card.title}</h3>
               <p>{card.text}</p>
             </article>
           ))}
           <div className="ventil-assist-panel">
-            <h2>{ASSIST_TITLE}</h2>
+            <h3>{ASSIST_TITLE}</h3>
             <p>{ASSIST_TEXT}</p>
           </div>
         </div>
@@ -110,7 +108,6 @@ export default function Page() {
       heroContactActions
       featuredSections={<VentilFeaturedSections />}
       contactHeading="Вентиль в Амурске"
-      contactNote={CONTACT_NOTE}
       contactCallAction
       contactsHref="/kontakty/"
     />

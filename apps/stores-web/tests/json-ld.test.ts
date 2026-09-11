@@ -24,6 +24,7 @@ const FORBIDDEN_KEYS = new Set([
   "offer",
   "price",
   "priceRange",
+  "sameAs",
 ]);
 
 function collectForbiddenKeys(value: unknown, path: string, found: string[]): void {
@@ -60,6 +61,7 @@ describe("JSON-LD builders", () => {
     assert.equal(jsonLd["@context"], "https://schema.org");
     assert.equal(jsonLd["@type"], "WebSite");
     assert.equal(jsonLd.url, siteUrl.href);
+    assert.equal(jsonLd["@id"], new URL("/#website", siteUrl).href);
   });
 
   test("contact and about pages use canonical URLs", () => {
@@ -97,8 +99,52 @@ describe("JSON-LD builders", () => {
       const jsonLd = createStoreJsonLd(store, brand, amursk);
       assert.equal(jsonLd["@type"], expectedTypes[slug], `schema type for ${slug}`);
       assert.equal(jsonLd["@id"], new URL(`/stores/amursk/${store.slug}/#business`, siteUrl).href);
+      assert.equal(jsonLd.name, store.name, `name must come from the canonical store for ${slug}`);
+      assert.equal(jsonLd.telephone, store.telephone, `telephone must come from the canonical store for ${slug}`);
+      const address = jsonLd.address as JsonLdObject;
+      assert.equal(address.streetAddress, store.address, `address must come from the canonical store for ${slug}`);
+      assert.deepEqual(
+        jsonLd.openingHoursSpecification,
+        store.opening_hours.map((entry) => ({
+          "@type": "OpeningHoursSpecification",
+          dayOfWeek: entry.days,
+          opens: entry.opens,
+          closes: entry.closes,
+        })),
+        `opening hours must come from the canonical store for ${slug}`,
+      );
+      assert.equal(jsonLd.geo, undefined, `geo must not be emitted without confirmed coordinates for ${slug}`);
       assertNoFabricatedCommerceData(jsonLd, `store JSON-LD for ${slug}`);
     }
+  });
+
+  test("store entities mirror canonical application facts and omit incomplete geo", () => {
+    const { brand, store } = storeForBrand("amper");
+    const jsonLd = createStoreJsonLd(store, brand, amursk);
+    const address = jsonLd.address as JsonLdObject;
+    const hours = jsonLd.openingHoursSpecification as JsonLdObject[];
+
+    assert.equal(jsonLd.name, store.name);
+    assert.equal(jsonLd.url, new URL(`/stores/${amursk.slug}/${store.slug}/`, siteUrl).href);
+    assert.equal(jsonLd.telephone, store.telephone);
+    assert.equal(address.streetAddress, store.address);
+    assert.equal(address.addressLocality, amursk.name);
+    assert.deepEqual(
+      hours.map(({ dayOfWeek, opens, closes }) => ({ dayOfWeek, opens, closes })),
+      store.opening_hours.map((entry) => ({
+        dayOfWeek: entry.days,
+        opens: entry.opens,
+        closes: entry.closes,
+      })),
+    );
+
+    const withoutCompleteCoordinates = createStoreJsonLd(
+      { ...store, longitude: null },
+      brand,
+      amursk,
+    );
+    assert.equal(withoutCompleteCoordinates.geo, undefined);
+    assert.equal(withoutCompleteCoordinates.sameAs, undefined);
   });
 
   test("stores JSON-LD skips stores whose brand is missing", () => {
@@ -106,6 +152,23 @@ describe("JSON-LD builders", () => {
     const graph = jsonLd["@graph"] as JsonLdObject[];
     assert.equal(graph.length, 0);
   });
+
+  test("stores graph deduplicates source rows and keeps one stable LocalBusiness ID per store", () => {
+    const jsonLd = createStoresJsonLd([...mockStores, mockStores[0]], mockBrands, amursk);
+    const graph = jsonLd["@graph"] as JsonLdObject[];
+    const ids = graph.map((entry) => entry["@id"]);
+
+    assert.equal(graph.length, mockStores.length, "duplicate source rows must not duplicate entities");
+    assert.equal(new Set(ids).size, graph.length, "store JSON-LD must not contain duplicate entities");
+    for (const store of mockStores) {
+      const id = new URL(`/stores/amursk/${store.slug}/#business`, siteUrl).href;
+      assert.equal(ids.filter((candidate) => candidate === id).length, 1, `${store.slug} must occur exactly once`);
+    }
+    for (const node of graph) {
+      assert.equal(node["@context"], undefined, "graph nodes inherit the document context");
+    }
+  });
+
 
   test("breadcrumb JSON-LD uses absolute canonical item URLs", () => {
     const jsonLd = createBreadcrumbJsonLd([
@@ -115,7 +178,28 @@ describe("JSON-LD builders", () => {
     const items = jsonLd.itemListElement as JsonLdObject[];
     assert.equal(items[0].item, new URL("/", siteUrl).href);
     assert.equal(items[1].item, new URL("/miska/", siteUrl).href);
+    assert.equal(jsonLd["@id"], new URL("/miska/#breadcrumb", siteUrl).href);
     assertNoFabricatedCommerceData(jsonLd, "breadcrumb JSON-LD");
+  });
+  test("all top-level entities serialize and have distinct stable IDs", () => {
+    const outputs = [
+      createWebsiteJsonLd(),
+      createContactPageJsonLd(),
+      createAboutPageJsonLd(),
+      createFAQPageJsonLd(mockFaqs),
+      createOrganizationsJsonLd(mockBrands),
+      createStoresJsonLd(mockStores, mockBrands, amursk),
+      createBreadcrumbJsonLd([{ name: "Главная", path: "/" }]),
+    ];
+    const ids: string[] = [];
+    for (const output of outputs) {
+      assert.doesNotThrow(() => JSON.parse(JSON.stringify(output)));
+      if (typeof output["@id"] === "string") ids.push(output["@id"]);
+      for (const node of (output["@graph"] as JsonLdObject[] | undefined) ?? []) {
+        if (typeof node["@id"] === "string") ids.push(node["@id"]);
+      }
+    }
+    assert.equal(new Set(ids).size, ids.length, "audited entity IDs must not conflict");
   });
 
   test("no builder output contains fabricated ratings, reviews or offers", () => {

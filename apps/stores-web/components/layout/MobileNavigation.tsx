@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { TrackedLink } from "@/components/analytics/TrackedLink";
 import type { PrimaryNavLink } from "./Header";
 
@@ -16,7 +17,7 @@ export function MobileNavigation({ links }: MobileNavigationProps) {
               {label}
             </TrackedLink>
           ) : (
-            <a key={href} href={href}>{label}</a>
+            <Link key={href} href={href}>{label}</Link>
           ),
         )}
       </nav>

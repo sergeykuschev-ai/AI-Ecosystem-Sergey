@@ -3,13 +3,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CategoryGrid } from "@/components/categories/CategoryGrid";
 import { JsonLd } from "@/components/seo/JsonLd";
+import { Breadcrumbs } from "@/components/seo/Breadcrumbs";
 import { StoreContactBlock } from "@/components/stores/StoreContactBlock";
 import { Container } from "@/components/ui/Container";
 import { getBrands } from "@/lib/directus/brands";
 import { getCategoriesByBrand } from "@/lib/directus/categories";
 import { getCities, getCityBySlug } from "@/lib/directus/cities";
 import { getStoreBySlug, getStores } from "@/lib/directus/stores";
-import { createBreadcrumbJsonLd, createStoreJsonLd } from "@/lib/seo/json-ld";
+import { createStoreJsonLd } from "@/lib/seo/json-ld";
 import { createPageMetadata } from "@/lib/seo/metadata";
 export const dynamic = "force-dynamic";
 
@@ -36,7 +37,7 @@ async function getPageData(citySlug: string, storeSlug: string) {
 export async function generateMetadata({ params }: StorePageProps): Promise<Metadata> {
   const { city, store } = await params;
   const data = await getPageData(city, store);
-  if (!data) return {};
+  if (!data) notFound();
   return createPageMetadata({ title: data.store.seo_title, description: data.store.seo_description, path: `/stores/${city}/${store}/` });
 }
 
@@ -49,15 +50,13 @@ export default async function StorePage({ params }: StorePageProps) {
   return (
     <main>
       <JsonLd data={createStoreJsonLd(store, brand, city)} />
-      <JsonLd
-        data={createBreadcrumbJsonLd([
+      <Container>
+        <Breadcrumbs trail={[
+          { name: "Главная", path: "/" },
           { name: "Магазины", path: "/stores/" },
           { name: city.name, path: `/stores/${city.slug}/` },
-          { name: brand.name, path: `/stores/${city.slug}/${store.slug}/` },
-        ])}
-      />
-      <Container>
-        <nav className="breadcrumbs" aria-label="Хлебные крошки"><Link href="/stores/">Магазины</Link><span aria-hidden="true">/</span><Link href={`/stores/${city.slug}/`}>{city.name}</Link><span aria-hidden="true">/</span><span aria-current="page">{brand.name}</span></nav>
+          { name: store.name, path: `/stores/${city.slug}/${store.slug}/` },
+        ]} />
         <header className="store-hero" style={{ "--brand-color": brand.primary_color, "--brand-soft": brand.secondary_color } as React.CSSProperties}>
           <p className="eyebrow">{brand.name} · {city.name}</p>
           <h1>{store.name}</h1>
@@ -75,6 +74,7 @@ export default async function StorePage({ params }: StorePageProps) {
             Направления ассортимента, актуальные акции и бонусная программа — на{" "}
             <Link href={`/${brand.slug}/`}>странице магазина «{brand.name}»</Link>.
           </p>
+          <p><Link href="/kontakty/">Контакты всех магазинов</Link></p>
         </section>
       </Container>
     </main>

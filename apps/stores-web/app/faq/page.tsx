@@ -3,31 +3,43 @@ import Link from "next/link";
 import { StaticPage } from "@/components/content/StaticPage";
 import { FAQList } from "@/components/faq/FAQList";
 import { JsonLd } from "@/components/seo/JsonLd";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { getFaqs } from "@/lib/directus/faqs";
 import { createFAQPageJsonLd } from "@/lib/seo/json-ld";
-import { createPageMetadata } from "@/lib/seo/metadata";
+import { createListingPageMetadata } from "@/lib/seo/metadata";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = createPageMetadata({
+const pageMetadata = {
   title: "Частые вопросы | Магазины Ампер, Вентиль, Метиз Маркет и Миска",
   description:
     "Ответы на частые вопросы о магазинах Ампер, Вентиль, Метиз Маркет и Миска в Амурске: адрес, режим работы и бонусная программа.",
   path: "/faq/",
-});
+};
+
+export async function generateMetadata(): Promise<Metadata> {
+  const faqs = await getFaqs();
+  return createListingPageMetadata(pageMetadata, faqs.length);
+}
 
 export default async function FAQPage() {
   const faqs = await getFaqs();
   return (
-    <main className="faq-page">
-      <JsonLd data={createFAQPageJsonLd(faqs)} />
+    <>
+      {faqs.length > 0 && <JsonLd data={createFAQPageJsonLd(faqs)} />}
       <StaticPage
+        className="faq-page"
         eyebrow="Покупателям"
         title="Частые вопросы"
         intro="Ответы на основные вопросы о наших магазинах и бонусной программе."
       >
-        <section className="faq-section" aria-label="Вопросы и ответы">
-          <FAQList items={faqs} />
+        <section className="faq-section" aria-labelledby="faq-answers">
+          <h2 id="faq-answers">Вопросы о магазинах и бонусной программе</h2>
+          {faqs.length > 0 ? (
+            <FAQList items={faqs} />
+          ) : (
+            <EmptyState title="Вопросы пока не опубликованы" text="Подтверждённые ответы появятся здесь после публикации." />
+          )}
         </section>
         <section className="section" aria-labelledby="faq-useful">
           <h2 id="faq-useful">Полезные разделы</h2>
@@ -38,6 +50,6 @@ export default async function FAQPage() {
           </ul>
         </section>
       </StaticPage>
-    </main>
+    </>
   );
 }

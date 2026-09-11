@@ -4,6 +4,7 @@ import { BrandActualList } from "@/components/brand/BrandActualList";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { CategoryGrid } from "@/components/categories/CategoryGrid";
 import { JsonLd } from "@/components/seo/JsonLd";
+import { Breadcrumbs } from "@/components/seo/Breadcrumbs";
 import { BrandStoreContact } from "@/components/stores/BrandStoreContact";
 import { Container } from "@/components/ui/Container";
 import { getActualItemsByBrand } from "@/lib/directus/actual-items";
@@ -70,6 +71,12 @@ export async function BrandLandingPage({
     <main className="brand-landing" data-brand={brand.slug} style={{ "--brand-color": brand.primary_color } as React.CSSProperties}>
       <JsonLd data={createOrganizationsJsonLd([brand])} />
       <Container>
+        <Breadcrumbs trail={[
+          { name: "Главная", path: "/" },
+          { name: "Магазины", path: "/stores/" },
+          ...(city ? [{ name: city.name, path: `/stores/${city.slug}/` }] : []),
+          { name: brand.name, path: `/${brand.slug}/` },
+        ]} />
         <header className="brand-landing-hero">
           <div className="brand-landing-hero__logo">
             <BrandLogo brand={brand} />

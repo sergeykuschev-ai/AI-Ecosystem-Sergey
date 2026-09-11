@@ -212,6 +212,20 @@ The V1.1 local-SEO layer (see [Local SEO V1.1](docs/LOCAL_SEO_V1_1_2026-09-10.md
 
 `services/indexnow.ts` validates configuration, deduplicates URLs, applies the trusted site origin, rejects URLs outside that origin, enforces a timeout, and returns a small result contract. A dynamic root route serves `/{INDEXNOW_KEY}.txt` only when a key is configured. The service performs no requests unless explicitly called by future server-side webhook code; nothing in the app invokes it automatically.
 
+After an SEO release, preview the approved re-crawl list (`/`, `/stores/amursk/`, the four brand pages, and `/kontakty/`) with a dry run:
+
+```bash
+NEXT_PUBLIC_SITE_URL=https://amurskmarket.ru npm run indexnow:key-urls
+```
+
+The default command only prints normalized canonical URLs and never makes a request. After reviewing that output, an operator may explicitly submit the same list by providing the secret through the process environment (never a file in the repository) and adding `--submit`:
+
+```bash
+NEXT_PUBLIC_SITE_URL=https://amurskmarket.ru INDEXNOW_KEY='<secret-from-runtime>' npm run indexnow:key-urls -- --submit
+```
+
+Submission uses the existing `services/indexnow.ts` adapter. Do not run `--submit` from tests or CI; tests cover only pure URL preparation and make no network requests.
+
 ## Future catalog
 
 The category entity exists now, but there are no Product or Offer entities and no `/catalog/` pages. A later catalog should add dedicated catalog storage and contracts behind the Website API, then introduce `/catalog/{brand}/{category}/...` routes. Existing brand, city, and store contracts remain unchanged.
@@ -224,10 +238,22 @@ The public frontend must never connect directly to 1C. See the future integratio
 npm run lint
 npm run typecheck
 npm run test
+npm run audit:seo:local
 NEXT_PUBLIC_SITE_URL=https://your-domain.example CONTENT_SOURCE=mock npm run build
 ```
 
-`npm run test` runs the deterministic regression suite in `tests/` with the Node.js test runner (no network access; mock content). It covers canonical brand slugs and palette, bonus program rules and card thresholds, route metadata/sitemap/robots indexing rules, JSON-LD builders (no fabricated ratings/reviews/offers), a source-level guard that runtime code never mutates Directus schema or data, and a hermetic link-integrity audit (route registry vs. app structure, internal href literals, tel:/Yandex Maps link formats, anchor targets, and a redirect-loop guard).
+`npm run test` runs the deterministic regression suite in `tests/` with the Node.js test runner (no network access; mock content). It covers every static and mock-backed dynamic public route, canonical uniqueness and origin, index/follow policy, exact one-hop 308 trailing-slash redirects, sitemap/robots rules, canonical host routing at the edge, JSON-LD builders, and link integrity.
+
+To exercise the same checks against rendered HTTP responses, start the app locally and run the read-only audit in another terminal:
+
+```bash
+npm run dev
+npm run audit:seo:runtime-local
+```
+
+The runtime-local command is pinned to `http://127.0.0.1:3000`; it does not contact production or submit IndexNow URLs.
+
+`npm run audit:seo:local` is the final pre-production SEO regression gate. It reuses the focused accessibility, JSON-LD, link-integrity, local SEO, public-asset, and SEO-route suites and prints one PASS/FAIL verdict. The gate is hermetic: it uses mock content and makes no network requests.
 
 ## Production deployment
 
