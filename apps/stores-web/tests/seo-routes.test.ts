@@ -7,6 +7,7 @@ import { NextRequest } from "next/server";
 import sitemap from "@/app/sitemap";
 import robots from "@/app/robots";
 import { CANONICAL_BRAND_SLUGS } from "@/lib/constants/brands";
+import { KEY_RECRAWL_PATHS } from "@/lib/seo/key-urls";
 import { siteUrl, createPageMetadata, DEFAULT_OG_IMAGE_ALT, DEFAULT_OG_IMAGE_PATH } from "@/lib/seo/metadata";
 import { mockCities, mockStores } from "@/lib/data/mock-data";
 import { proxy } from "@/proxy";
@@ -14,6 +15,9 @@ import * as amperPage from "@/app/amper/page";
 import * as ventilPage from "@/app/ventil/page";
 import * as metizMarketPage from "@/app/metiz-market/page";
 import * as miskaPage from "@/app/miska/page";
+import * as homePage from "@/app/page";
+import * as kontaktyPage from "@/app/kontakty/page";
+import { generateMetadata as generateCityMetadata } from "@/app/stores/[city]/page";
 import * as privacyPage from "@/app/politika-konfidencialnosti/page";
 import * as consentPage from "@/app/soglasie-na-obrabotku-dannyh/page";
 
@@ -50,6 +54,24 @@ function robotsFlags(metadata: Metadata): { index?: boolean; follow?: boolean } 
 }
 
 describe("page metadata", () => {
+  test("key re-crawl pages expose canonical URLs matching the submission list", async () => {
+    const metadataByPath = new Map<string, Metadata>([
+      ["/", homePage.metadata],
+      ["/amper/", amperPage.metadata],
+      ["/ventil/", ventilPage.metadata],
+      ["/metiz-market/", metizMarketPage.metadata],
+      ["/miska/", miskaPage.metadata],
+      ["/kontakty/", kontaktyPage.metadata],
+      ["/stores/amursk/", await generateCityMetadata({ params: Promise.resolve({ city: "amursk" }) })],
+    ]);
+
+    for (const path of KEY_RECRAWL_PATHS) {
+      const metadata = metadataByPath.get(path);
+      assert.ok(metadata, `metadata fixture missing for ${path}`);
+      assert.equal(canonicalHref(metadata), new URL(path, siteUrl).href, `canonical for ${path}`);
+    }
+  });
+
   test("brand pages expose canonical indexable metadata on canonical brand routes", () => {
     for (const { module, path } of BRAND_PAGES) {
       const href = canonicalHref(module.metadata);
@@ -73,6 +95,14 @@ describe("page metadata", () => {
 });
 
 describe("sitemap", () => {
+  test("includes every key re-crawl URL in canonical form", async () => {
+    const urls = new Set((await sitemap()).map((entry) => entry.url));
+    for (const path of KEY_RECRAWL_PATHS) {
+      const canonical = new URL(path, siteUrl).href;
+      assert.ok(urls.has(canonical), `sitemap must include key URL ${canonical}`);
+    }
+  });
+
   test("includes every required public route", async () => {
     const entries = await sitemap();
     const urls = new Set(entries.map((entry) => entry.url));

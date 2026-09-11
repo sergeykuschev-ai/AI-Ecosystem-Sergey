@@ -10,6 +10,17 @@ export interface IndexNowResult {
   status: number;
 }
 
+export function normalizeIndexNowUrls(urls: readonly string[], siteUrl: string | URL): string[] {
+  const origin = new URL(siteUrl);
+  return [...new Set(urls)].map((url) => {
+    const resolved = new URL(url, origin);
+    if (resolved.origin !== origin.origin) {
+      throw new Error(`IndexNow URL ${resolved.href} does not match the configured site origin ${origin.origin}`);
+    }
+    return resolved.href;
+  });
+}
+
 export async function submitChangedUrls(urls: string[]): Promise<IndexNowResult> {
   const key = process.env.INDEXNOW_KEY;
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
@@ -19,13 +30,7 @@ export async function submitChangedUrls(urls: string[]): Promise<IndexNowResult>
   }
 
   const origin = new URL(siteUrl);
-  const urlList = [...new Set(urls)].map((url) => {
-    const resolved = new URL(url, origin);
-    if (resolved.origin !== origin.origin) {
-      throw new Error(`IndexNow URL ${resolved.href} does not match the configured site origin ${origin.origin}`);
-    }
-    return resolved.href;
-  });
+  const urlList = normalizeIndexNowUrls(urls, origin);
   if (!urlList.length) return { submitted: 0, status: 204 };
 
   const payload: IndexNowSubmission = {
