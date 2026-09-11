@@ -20,7 +20,7 @@ describe("Yandex Webmaster client", () => {
     const mockFetch: typeof fetch = async (input, init) => {
       const url = String(input);
       calls.push({ url, authorization: new Headers(init?.headers).get("authorization") });
-      if (url.endsWith("/user")) return response({ user_id: "42" });
+      if (url.endsWith("/user")) return response({ user_id: 42 });
       return response({ hosts: [
         { host_id: "https:other", ascii_host_url: "https://other.example", verification_state: "VERIFIED" },
         { host_id: "https:amurskmarket.ru:443", ascii_host_url: "https://amurskmarket.ru", verified: true },
@@ -33,6 +33,16 @@ describe("Yandex Webmaster client", () => {
     assert.equal(calls.length, 2);
     assert.ok(calls.every((call) => call.authorization === "OAuth secret-value"));
     assert.ok(calls.every((call) => !call.url.includes("secret-value")));
+  });
+
+  test("also accepts a string user_id for forward compatibility", async () => {
+    const mockFetch: typeof fetch = async (input) => {
+      const url = String(input);
+      if (url.endsWith("/user")) return response({ user_id: "42" });
+      return response({ hosts: [{ host_id: "host", ascii_host_url: "https://amurskmarket.ru", verified: true }] });
+    };
+    const context = await new YandexWebmasterClient("token", mockFetch).resolveContext();
+    assert.equal(context.userId, "42");
   });
 
   test("loads status sections including quota and queue", async () => {

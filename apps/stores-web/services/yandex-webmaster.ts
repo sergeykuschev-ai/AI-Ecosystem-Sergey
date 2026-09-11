@@ -38,6 +38,12 @@ function text(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
+function identifier(value: unknown): string | undefined {
+  if (typeof value === "string" && value.length > 0) return value;
+  if (typeof value === "number" && Number.isSafeInteger(value) && value >= 0) return String(value);
+  return undefined;
+}
+
 function number(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
@@ -88,7 +94,7 @@ export class YandexWebmasterClient {
 
   async resolveContext(siteUrl = YANDEX_WEBMASTER_SITE_URL): Promise<WebmasterContext> {
     const user = record(await this.request("/user"));
-    const userId = text(user.user_id);
+    const userId = identifier(user.user_id);
     if (!userId) throw new Error("Yandex Webmaster /user response did not contain user_id");
 
     const hostsResponse = record(await this.request(`/user/${encodeURIComponent(userId)}/hosts`));
