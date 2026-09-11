@@ -85,6 +85,7 @@ describe("local SEO internal linking", () => {
     const page = source("app", "stores", "[city]", "page.tsx");
     assert.ok(page.includes("cityBrands"), "city page must derive active brands present in the city");
     assert.ok(page.includes("href={`/${brand.slug}/`}"), "city page must link each brand to its landing page");
+    assert.ok(page.includes('href="/kontakty/"'), "city page must link to the canonical contacts page");
     assert.ok(page.includes("createStoresJsonLd"), "city page must preserve its structured-data graph");
     assert.ok(page.includes("createBreadcrumbJsonLd"), "city page must expose canonical breadcrumbs");
     assert.ok(page.includes('href="/kontakty/"'), "city page must link to the contacts route");
@@ -94,6 +95,25 @@ describe("local SEO internal linking", () => {
     const page = source("app", "kontakty", "page.tsx");
     assert.ok(page.includes("`/stores/${city.slug}/`"), "contacts page must derive the city stores route");
     assert.ok(page.includes("createBreadcrumbJsonLd"), "contacts page must expose canonical breadcrumbs");
+  });
+
+  test("city hub identifies all four Amursk stores and their directions", () => {
+    const page = source("app", "stores", "[city]", "page.tsx");
+    for (const description of [
+      "«Ампер» — электротовары",
+      "«Вентиль» — сантехника",
+      "«Метиз Маркет» — крепёж, метизы и инструмент",
+      "«Миска» — зоотовары",
+    ]) {
+      assert.ok(page.includes(description), `city hub must include: ${description}`);
+    }
+    assert.ok(page.includes("4 магазина в"), "city H1 must describe the four-store local hub");
+  });
+
+  test("city hub emits one store graph and one breadcrumb trail", () => {
+    const page = source("app", "stores", "[city]", "page.tsx");
+    assert.equal(page.match(/createStoresJsonLd\(stores, brands, city\)/g)?.length, 1);
+    assert.equal(page.match(/createBreadcrumbJsonLd\(\[/g)?.length, 1);
   });
 
   test("FAQ page links to useful local navigation targets", () => {
