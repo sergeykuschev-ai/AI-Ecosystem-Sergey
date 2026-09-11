@@ -13,7 +13,7 @@ import { createPageMetadata } from "@/lib/seo/metadata";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = createPageMetadata({
-  title: "Миска — зоомагазин в Амурске | Корма и товары для кошек и собак",
+  title: "МИСКА ЗООМАГАЗИН — зоотовары в Амурске",
   description:
     "Зоомагазин «Миска» в Амурске на проспекте Победы, 16: корма для собак и кошек, лакомства, наполнители, товары для ухода, игрушки, амуниция, витамины и добавки.",
   path: "/miska/",
@@ -168,9 +168,9 @@ export default function Page() {
   return (
     <BrandLandingPage
       slug="miska"
-      heroEyebrow="Миска — зоомагазин"
-      heroTitle="Зоотовары для собак и кошек в Амурске"
-      heroLead="Корма, лакомства, наполнители, товары для ухода, игрушки и амуниция — в магазине «Миска» на проспекте Победы, 16."
+      heroEyebrow="МИСКА ЗООМАГАЗИН"
+      heroTitle="Зоомагазин и зоотовары в Амурске"
+      heroLead="В «Миске» можно купить корм и другие товары для кошек и собак: лакомства, наполнители, товары для ухода, игрушки, амуницию, витамины и добавки."
       heroPoints={HERO_POINTS}
       nameInPrepositional="Миске"
       assortmentHeading="Что можно найти в «Миске»"
@@ -179,9 +179,11 @@ export default function Page() {
       showAbout={false}
       heroContactActions
       featuredSections={<MiskaFeaturedSections />}
-      contactHeading="Миска в Амурске"
+      contactHeading="МИСКА ЗООМАГАЗИН в Амурске"
+      contactNote="Основные направления: корма для кошек и собак, лакомства, наполнители, уход, игрушки, амуниция, витамины и добавки."
       contactCallAction
       contactsHref="/kontakty/"
+      cityStoresHref="/stores/amursk/"
     />
   );
 }
