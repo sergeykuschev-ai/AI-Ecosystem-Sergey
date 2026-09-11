@@ -35,7 +35,7 @@ const PAGE_CHECKS: PageCheck[] = [
   { path: "/", markers: ["Ампер, Вентиль, Метиз Маркет и Миска", "/amper/", "Бонусная"] },
   { path: "/amper/", markers: ["Ампер", "Проспект Победы"] },
   { path: "/ventil/", markers: ["Вентиль", "Проспект Победы"] },
-  { path: "/metiz-market/", markers: ["Метиз Маркет", "Проспект Победы"] },
+  { path: "/metiz-market/", markers: ["Метиз Маркет", "Победы, 16"] },
   { path: "/miska/", markers: ["Миска", "зоомагазин"] },
   { path: "/kontakty/", markers: ["Контакты", "Амурске"] },
   { path: "/bonus/", markers: ["Бонусная программа"] },
