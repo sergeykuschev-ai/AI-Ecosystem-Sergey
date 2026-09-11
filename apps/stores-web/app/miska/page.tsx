@@ -184,7 +184,6 @@ export default function Page() {
       contactNote="Основные направления: корма для кошек и собак, лакомства, наполнители, уход, игрушки, амуниция, витамины и добавки."
       contactCallAction
       contactsHref="/kontakty/"
-      cityStoresHref="/stores/amursk/"
     />
   );
 }

@@ -32,7 +32,6 @@ interface BrandLandingPageProps {
   contactNote?: string;
   contactCallAction?: boolean;
   contactsHref?: string;
-  cityStoresHref?: string;
 }
 
 export async function BrandLandingPage({
@@ -53,7 +52,6 @@ export async function BrandLandingPage({
   contactNote,
   contactCallAction = false,
   contactsHref,
-  cityStoresHref,
 }: BrandLandingPageProps) {
   const brand = await getBrandBySlug(slug);
   if (!brand) notFound();
@@ -75,7 +73,8 @@ export async function BrandLandingPage({
       <Container>
         <Breadcrumbs trail={[
           { name: "Главная", path: "/" },
-          ...(city ? [{ name: `Магазины ${city.name}`, path: `/stores/${city.slug}/` }] : []),
+          { name: "Магазины", path: "/stores/" },
+          ...(city ? [{ name: city.name, path: `/stores/${city.slug}/` }] : []),
           { name: brand.name, path: `/${brand.slug}/` },
         ]} />
         <header className="brand-landing-hero">
@@ -143,7 +142,6 @@ export async function BrandLandingPage({
               note={contactNote}
               showCallAction={contactCallAction}
               contactsHref={contactsHref}
-              cityStoresHref={cityStoresHref}
             />
           </section>
         )}

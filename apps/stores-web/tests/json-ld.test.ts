@@ -169,8 +169,6 @@ describe("JSON-LD builders", () => {
     }
   });
 
-    }
-  });
 
   test("breadcrumb JSON-LD uses absolute canonical item URLs", () => {
     const jsonLd = createBreadcrumbJsonLd([

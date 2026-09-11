@@ -53,7 +53,8 @@ export default async function StorePage({ params }: StorePageProps) {
       <Container>
         <Breadcrumbs trail={[
           { name: "Главная", path: "/" },
-          { name: `Магазины ${city.name}`, path: `/stores/${city.slug}/` },
+          { name: "Магазины", path: "/stores/" },
+          { name: city.name, path: `/stores/${city.slug}/` },
           { name: store.name, path: `/stores/${city.slug}/${store.slug}/` },
         ]} />
         <header className="store-hero" style={{ "--brand-color": brand.primary_color, "--brand-soft": brand.secondary_color } as React.CSSProperties}>

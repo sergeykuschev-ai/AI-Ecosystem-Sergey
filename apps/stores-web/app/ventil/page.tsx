@@ -110,7 +110,6 @@ export default function Page() {
       contactHeading="Вентиль в Амурске"
       contactCallAction
       contactsHref="/kontakty/"
-      cityStoresHref="/stores/amursk/"
     />
   );
 }

@@ -149,7 +149,6 @@ export default function Page() {
       contactNote={CONTACT_NOTE}
       contactCallAction
       contactsHref="/kontakty/"
-      cityStoresHref="/stores/amursk/"
     />
   );
 }

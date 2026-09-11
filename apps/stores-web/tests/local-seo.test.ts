@@ -128,8 +128,8 @@ describe("local SEO internal linking", () => {
     const brandPage = source("components", "brand", "BrandLandingPage.tsx");
     for (const page of [cityPage, storePage, brandPage]) {
       assert.ok(page.includes('{ name: "Главная", path: "/" }'));
-      assert.ok(page.includes('`Магазины ${city.name}`'));
-      assert.ok(page.includes('`/stores/${city.slug}/`'));
+      assert.ok(page.includes('{ name: "Магазины", path: "/stores/" }'));
+      assert.ok(page.includes('{ name: city.name, path: `/stores/${city.slug}/` }'));
     }
     assert.ok(storePage.includes('{ name: store.name, path: `/stores/${city.slug}/${store.slug}/` }'));
     assert.ok(brandPage.includes('{ name: brand.name, path: `/${brand.slug}/` }'));
@@ -141,7 +141,7 @@ describe("local SEO internal linking", () => {
     assert.ok(page.includes("href={`/${brand.slug}/`}"), "city page must link each brand to its landing page");
     assert.ok(page.includes('href="/kontakty/"'), "city page must link to the canonical contacts page");
     assert.ok(page.includes("createStoresJsonLd"), "city page must preserve its structured-data graph");
-    assert.ok(page.includes("createBreadcrumbJsonLd"), "city page must expose canonical breadcrumbs");
+    assert.ok(page.includes("<Breadcrumbs"), "city page must expose canonical breadcrumbs");
     assert.ok(page.includes('href="/kontakty/"'), "city page must link to the contacts route");
   });
 
@@ -167,7 +167,7 @@ describe("local SEO internal linking", () => {
   test("city hub emits one store graph and one breadcrumb trail", () => {
     const page = source("app", "stores", "[city]", "page.tsx");
     assert.equal(page.match(/createStoresJsonLd\(stores, brands, city\)/g)?.length, 1);
-    assert.equal(page.match(/createBreadcrumbJsonLd\(\[/g)?.length, 1);
+    assert.equal(page.match(/<Breadcrumbs/g)?.length, 1);
   });
 
   test("FAQ page links to useful local navigation targets", () => {
@@ -206,8 +206,10 @@ describe("local SEO internal linking", () => {
       assert.ok(normalizedPage.includes(direction.toLocaleLowerCase("ru")), `Ventil page must mention ${direction}`);
     }
 
-    for (const href of ["/kontakty/", "/stores/amursk/", "/bonus/"]) {
+    for (const href of ["/kontakty/", "/bonus/"]) {
       assert.ok(page.includes(`\"${href}\"`), `Ventil page must link to ${href}`);
     }
+    const contactSource = source("components", "stores", "BrandStoreContact.tsx");
+    assert.ok(contactSource.includes("href={`/stores/${city.slug}/`}"), "shared contact block must link to the city hub");
   });
 });
