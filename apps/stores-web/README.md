@@ -64,8 +64,11 @@ The containers are version-pinned. Review release notes and update the pinned ta
 | `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | Docker only | CMS database configuration |
 | `INDEXNOW_KEY` | Server only | Optional IndexNow key |
 | `INDEXNOW_ENDPOINT` | Server only | IndexNow endpoint override |
+| `YANDEX_WEBMASTER_TOKEN` | CLI runtime only | Yandex OAuth token for Webmaster monitoring and explicit re-crawl submission |
 
 `.env`, `.env.local`, keys, certificates, uploads, and generated output are ignored by Git. The committed `.env.example` contains placeholders only.
+
+Yandex Webmaster monitoring and re-crawl operations are documented in the [Yandex Webmaster API runbook](docs/YANDEX_WEBMASTER_RUNBOOK.md). The token is runtime-only, and re-crawl is a dry-run unless `--submit` is explicitly supplied.
 
 ## Routes
 
