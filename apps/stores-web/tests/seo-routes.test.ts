@@ -7,6 +7,7 @@ import { NextRequest } from "next/server";
 import sitemap from "@/app/sitemap";
 import robots from "@/app/robots";
 import { CANONICAL_BRAND_SLUGS } from "@/lib/constants/brands";
+import { KEY_RECRAWL_PATHS } from "@/lib/seo/key-urls";
 import {
   siteUrl,
   createPageMetadata,
@@ -21,7 +22,6 @@ import * as amperPage from "@/app/amper/page";
 import * as ventilPage from "@/app/ventil/page";
 import * as metizMarketPage from "@/app/metiz-market/page";
 import * as miskaPage from "@/app/miska/page";
-import { generateMetadata as generateCityMetadata } from "@/app/stores/[city]/page";
 import * as privacyPage from "@/app/politika-konfidencialnosti/page";
 import * as consentPage from "@/app/soglasie-na-obrabotku-dannyh/page";
 import * as homePage from "@/app/page";
@@ -58,14 +58,20 @@ const BRAND_PAGES = [
 const INDEXABLE_STATIC_PAGES = [
   { module: homePage, path: "/" },
   { module: storesPage, path: "/stores/" },
-  { module: promotionsPage, path: "/akcii/" },
   { module: bonusPage, path: "/bonus/" },
-  { module: vacanciesPage, path: "/vakansii/" },
   { module: aboutPage, path: "/o-kompanii/" },
-  { module: contactsPage, path: "/kontakty/" },
-  { module: faqPage, path: "/faq/" },
   ...BRAND_PAGES,
 ];
+
+async function getDynamicListingPages(): Promise<Array<{ path: string; metadata: Metadata }>> {
+  return [
+    { path: "/akcii/", metadata: await promotionsPage.generateMetadata() },
+    { path: "/vakansii/", metadata: await vacanciesPage.generateMetadata() },
+    { path: "/kontakty/", metadata: await contactsPage.generateMetadata() },
+    { path: "/faq/", metadata: await faqPage.generateMetadata() },
+  ];
+}
+
 
 function canonicalHref(metadata: Metadata): string {
   const canonical = metadata.alternates?.canonical;
@@ -80,15 +86,38 @@ function robotsFlags(metadata: Metadata): { index?: boolean; follow?: boolean } 
 }
 
 describe("page metadata", () => {
-  test("every static indexable page exposes one canonical trailing-slash URL", () => {
+  test("key re-crawl pages expose canonical URLs matching the submission list", async () => {
+    const contactsMetadata = await contactsPage.generateMetadata();
+    const metadataByPath = new Map<string, Metadata>([
+      ["/", homePage.metadata],
+      ["/amper/", amperPage.metadata],
+      ["/ventil/", ventilPage.metadata],
+      ["/metiz-market/", metizMarketPage.metadata],
+      ["/miska/", miskaPage.metadata],
+      ["/kontakty/", contactsMetadata],
+      ["/stores/amursk/", await generateCityMetadata({ params: Promise.resolve({ city: "amursk" }) })],
+    ]);
+
+    for (const path of KEY_RECRAWL_PATHS) {
+      const metadata = metadataByPath.get(path);
+      assert.ok(metadata, `metadata fixture missing for ${path}`);
+      assert.equal(canonicalHref(metadata), new URL(path, siteUrl).href, `canonical for ${path}`);
+    }
+  });
+
+  test("every indexable public page exposes one canonical trailing-slash URL", async () => {
     const canonicalUrls = new Set<string>();
-    for (const { module, path } of INDEXABLE_STATIC_PAGES) {
-      const href = canonicalHref(module.metadata);
+    const pages = [
+      ...INDEXABLE_STATIC_PAGES.map(({ module, path }) => ({ path, metadata: module.metadata })),
+      ...(await getDynamicListingPages()),
+    ];
+    for (const { metadata, path } of pages) {
+      const href = canonicalHref(metadata);
       assert.equal(href, new URL(path, siteUrl).href, `canonical for ${path}`);
-      assert.equal(robotsFlags(module.metadata).index, true, `index for ${path}`);
-      assert.equal(robotsFlags(module.metadata).follow, true, `follow for ${path}`);
-      assert.ok(module.metadata.title, `title for ${path}`);
-      assert.ok(module.metadata.description, `description for ${path}`);
+      assert.equal(robotsFlags(metadata).index, true, `index for ${path}`);
+      assert.equal(robotsFlags(metadata).follow, true, `follow for ${path}`);
+      assert.ok(metadata.title, `title for ${path}`);
+      assert.ok(metadata.description, `description for ${path}`);
       assert.ok(!canonicalUrls.has(href), `canonical ${href} must belong to only one public page`);
       canonicalUrls.add(href);
     }
@@ -128,6 +157,14 @@ describe("page metadata", () => {
 });
 
 describe("sitemap", () => {
+  test("includes every key re-crawl URL in canonical form", async () => {
+    const urls = new Set((await sitemap()).map((entry) => entry.url));
+    for (const path of KEY_RECRAWL_PATHS) {
+      const canonical = new URL(path, siteUrl).href;
+      assert.ok(urls.has(canonical), `sitemap must include key URL ${canonical}`);
+    }
+  });
+
   test("includes every required public route", async () => {
     const entries = await sitemap();
     const urls = new Set(entries.map((entry) => entry.url));
@@ -236,7 +273,7 @@ describe("trailing-slash proxy", () => {
         .filter((store) => store.active && store.city_id === city.id)
         .map((store) => `/stores/${city.slug}/${store.slug}/`),
     ]);
-    const canonicalPaths = [...INDEXABLE_STATIC_PAGES.map(({ path }) => path), ...LEGAL_PATHS, ...dynamicPaths];
+    const canonicalPaths = [...PUBLIC_STATIC_PATHS, ...BRAND_PAGES.map(({ path }) => path), ...LEGAL_PATHS, ...dynamicPaths];
 
     for (const canonicalPath of canonicalPaths) {
       if (canonicalPath === "/") continue;
@@ -259,11 +296,15 @@ describe("trailing-slash proxy", () => {
 });
 
 describe("public origin normalization", () => {
-  test("canonical metadata always uses the configured HTTPS non-www origin", () => {
+  test("canonical metadata always uses the configured HTTPS non-www origin", async () => {
     assert.equal(siteUrl.protocol, "https:");
     assert.ok(!siteUrl.hostname.startsWith("www."));
-    for (const { module, path } of INDEXABLE_STATIC_PAGES) {
-      assert.equal(new URL(canonicalHref(module.metadata)).origin, siteUrl.origin, `origin for ${path}`);
+    const pages = [
+      ...INDEXABLE_STATIC_PAGES.map(({ module, path }) => ({ path, metadata: module.metadata })),
+      ...(await getDynamicListingPages()),
+    ];
+    for (const { metadata, path } of pages) {
+      assert.equal(new URL(canonicalHref(metadata)).origin, siteUrl.origin, `origin for ${path}`);
     }
   });
 

@@ -212,6 +212,20 @@ The V1.1 local-SEO layer (see [Local SEO V1.1](docs/LOCAL_SEO_V1_1_2026-09-10.md
 
 `services/indexnow.ts` validates configuration, deduplicates URLs, applies the trusted site origin, rejects URLs outside that origin, enforces a timeout, and returns a small result contract. A dynamic root route serves `/{INDEXNOW_KEY}.txt` only when a key is configured. The service performs no requests unless explicitly called by future server-side webhook code; nothing in the app invokes it automatically.
 
+After an SEO release, preview the approved re-crawl list (`/`, `/stores/amursk/`, the four brand pages, and `/kontakty/`) with a dry run:
+
+```bash
+NEXT_PUBLIC_SITE_URL=https://amurskmarket.ru npm run indexnow:key-urls
+```
+
+The default command only prints normalized canonical URLs and never makes a request. After reviewing that output, an operator may explicitly submit the same list by providing the secret through the process environment (never a file in the repository) and adding `--submit`:
+
+```bash
+NEXT_PUBLIC_SITE_URL=https://amurskmarket.ru INDEXNOW_KEY='<secret-from-runtime>' npm run indexnow:key-urls -- --submit
+```
+
+Submission uses the existing `services/indexnow.ts` adapter. Do not run `--submit` from tests or CI; tests cover only pure URL preparation and make no network requests.
+
 ## Future catalog
 
 The category entity exists now, but there are no Product or Offer entities and no `/catalog/` pages. A later catalog should add dedicated catalog storage and contracts behind the Website API, then introduce `/catalog/{brand}/{category}/...` routes. Existing brand, city, and store contracts remain unchanged.
