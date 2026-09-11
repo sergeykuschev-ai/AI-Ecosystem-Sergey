@@ -8,7 +8,7 @@ import { getBrands } from "@/lib/directus/brands";
 import { getCities, getCityBySlug } from "@/lib/directus/cities";
 import { getStoresByCity } from "@/lib/directus/stores";
 import { createPageMetadata } from "@/lib/seo/metadata";
-import { createStoresJsonLd } from "@/lib/seo/json-ld";
+import { createBreadcrumbJsonLd, createStoresJsonLd } from "@/lib/seo/json-ld";
 export const dynamic = "force-dynamic";
 
 interface CityPageProps { params: Promise<{ city: string }> }
@@ -35,8 +35,23 @@ export default async function CityStoresPage({ params }: CityPageProps) {
   const brandIdsInCity = new Set(stores.map((store) => store.brand_id));
   const cityBrands = brands.filter((brand) => brand.active && brandIdsInCity.has(brand.id));
   return (
-    <StaticPage eyebrow={`${city.region} · ${city.country}`} title={`Магазины в ${city.name}`} intro="Физические торговые точки магазинов «Ампер», «Вентиль», «Метиз Маркет» и «Миска». Откройте страницу нужной точки для подробной информации.">
-      <section className="section" aria-labelledby="store-list-title"><h2 id="store-list-title">Торговые точки</h2><StoreList stores={stores} brands={brands} city={city} /></section>
+    <StaticPage
+      eyebrow={`${city.region} · ${city.country}`}
+      title={`4 магазина в ${city.name}: Ампер, Вентиль, Метиз Маркет и Миска`}
+      intro={`В ${city.name} работают четыре магазина по разным направлениям: «Ампер» — электротовары, «Вентиль» — сантехника, «Метиз Маркет» — крепёж, метизы и инструмент, «Миска» — зоотовары.`}
+    >
+      <nav className="breadcrumbs" aria-label="Хлебные крошки">
+        <Link href="/stores/">Магазины</Link>
+        <span aria-hidden="true">/</span>
+        <span aria-current="page">{city.name}</span>
+      </nav>
+      <section className="section" aria-labelledby="store-list-title">
+        <h2 id="store-list-title">Адрес, телефоны и часы работы</h2>
+        <p>
+          Выберите торговую точку или откройте <Link href="/kontakty/">все контакты магазинов</Link>.
+        </p>
+        <StoreList stores={stores} brands={brands} city={city} />
+      </section>
       {cityBrands.length > 0 && (
         <section className="section" aria-labelledby="city-directions">
           <h2 id="city-directions">Направления магазинов</h2>
@@ -52,6 +67,12 @@ export default async function CityStoresPage({ params }: CityPageProps) {
         </section>
       )}
       <JsonLd data={createStoresJsonLd(stores, brands, city)} />
+      <JsonLd
+        data={createBreadcrumbJsonLd([
+          { name: "Магазины", path: "/stores/" },
+          { name: city.name, path: `/stores/${city.slug}/` },
+        ])}
+      />
     </StaticPage>
   );
 }

@@ -14,6 +14,7 @@ import * as amperPage from "@/app/amper/page";
 import * as ventilPage from "@/app/ventil/page";
 import * as metizMarketPage from "@/app/metiz-market/page";
 import * as miskaPage from "@/app/miska/page";
+import { generateMetadata as generateCityMetadata } from "@/app/stores/[city]/page";
 import * as privacyPage from "@/app/politika-konfidencialnosti/page";
 import * as consentPage from "@/app/soglasie-na-obrabotku-dannyh/page";
 
@@ -183,6 +184,13 @@ describe("trailing-slash proxy", () => {
 });
 
 describe("city page structured data", () => {
+  test("Amursk hub has its own canonical metadata", async () => {
+    const metadata = await generateCityMetadata({ params: Promise.resolve({ city: "amursk" }) });
+    assert.equal(canonicalHref(metadata), new URL("/stores/amursk/", siteUrl).href);
+    assert.match(String(metadata.title), /Ампер.*Вентиль.*Метиз Маркет.*Миска/);
+    assert.match(String(metadata.description), /электротовары.*сантехника.*крепёж.*зоотовары/);
+  });
+
   test("city page renders the LocalBusiness JSON-LD graph for its stores", () => {
     const source = readFileSync(path.join(process.cwd(), "app", "stores", "[city]", "page.tsx"), "utf8");
     assert.ok(source.includes("createStoresJsonLd"), "city page must build the store JSON-LD graph");
