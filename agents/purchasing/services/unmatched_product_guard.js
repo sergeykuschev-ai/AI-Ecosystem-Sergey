@@ -1,8 +1,15 @@
-// An absent assortment policy cannot authorize a purchase. Calculated demand
-// remains evidence for matrix review, never a fallback permission.
+const { canonicalSupplierName } = require('./demand_engine');
+
+// Canonical assortment rules are explicit overrides/protections, not a global
+// whitelist. A product that is absent from the matrix may still follow the
+// deterministic demand decision when identity and source data are unambiguous.
+// Ambiguous assortment identity remains a hard blocker.
+const TRUSTED_OPERATIONAL_SUPPLIER_GROUPS = new Set(['валта', 'зооград']);
+
 const UNMATCHED_CLASSES = Object.freeze({
   REVIEW_REQUIRED: 'UNMATCHED_REVIEW_REQUIRED',
   CONFIDENTLY_EXCLUDED: 'UNMATCHED_CONFIDENTLY_EXCLUDED',
+  NON_BLOCKING: 'UNMATCHED_NON_BLOCKING',
 });
 
 // Keep the matcher's evidence rather than inferring conflicts from articles.
@@ -39,22 +46,49 @@ function guardUnmatchedProduct(product, decision, ambiguousMatches = []) {
     product.finalRecommendedQuantity === 0 && decision.requiredData.length === 0;
   const reason = ambiguous ? 'ambiguous_assortment_match' : excluded
     ? 'unmatched_deterministic_no_demand'
+    : 'unmatched_assortment_advisory';
+  const provenance = {
+    source: ambiguous
+      ? 'owner_ambiguous_assortment_safety_policy_2026_09_09'
+      : 'assortment_overlay_policy_2026_09_13',
+    priorDecision: decision.decision,
+    priorReasons: [...decision.reasons],
+    calculatedDemandQuantity: product.demandCalculatedQuantity ?? null,
+    preGuardFinalRecommendedQuantity: product.finalRecommendedQuantity,
+    ...previousProvenance,
+    ...(ambiguous ? { ambiguousMatches: conflicts } : {}),
+  };
+
+  const trustedOperationalSupplier = TRUSTED_OPERATIONAL_SUPPLIER_GROUPS.has(
+    canonicalSupplierName(product.supplier)
+  );
+
+  if (!ambiguous && !excluded && trustedOperationalSupplier) {
+    return {
+      product: {
+        ...product,
+        unmatchedObservation: {
+          classification: UNMATCHED_CLASSES.NON_BLOCKING,
+          reasonCode: reason,
+          provenance: {
+            ...provenance,
+            supplierGroup: canonicalSupplierName(product.supplier),
+          },
+        },
+      },
+      decision,
+    };
+  }
+
+  const blockingReason = ambiguous
+    ? reason
     : 'unmatched_product_no_assortment_policy';
   const guard = {
-    classification: excluded ? UNMATCHED_CLASSES.CONFIDENTLY_EXCLUDED : UNMATCHED_CLASSES.REVIEW_REQUIRED,
-    reasonCode: reason,
-    provenance: {
-      source: 'owner_unmatched_safety_policy_2026_09_08',
-      priorDecision: decision.decision,
-      priorReasons: [...decision.reasons],
-      calculatedDemandQuantity: product.demandCalculatedQuantity ?? null,
-      preGuardFinalRecommendedQuantity: product.finalRecommendedQuantity,
-      ...previousProvenance,
-      ...(ambiguous ? {
-        source: 'owner_ambiguous_assortment_safety_policy_2026_09_09',
-        ambiguousMatches: conflicts,
-      } : {}),
-    },
+    classification: excluded
+      ? UNMATCHED_CLASSES.CONFIDENTLY_EXCLUDED
+      : UNMATCHED_CLASSES.REVIEW_REQUIRED,
+    reasonCode: blockingReason,
+    provenance,
   };
   return {
     product: { ...product, unmatchedGuard: guard },
@@ -62,7 +96,7 @@ function guardUnmatchedProduct(product, decision, ambiguousMatches = []) {
       ...decision,
       decision: 'manual_review',
       approvedOrderQuantity: null,
-      reasons: [reason, ...decision.reasons.filter(value => value !== reason)],
+      reasons: [blockingReason, ...decision.reasons.filter(value => value !== blockingReason)],
       warnings: [...new Set([...decision.warnings, 'suspicious_unmatched_product'])],
     },
   };

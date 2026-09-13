@@ -209,7 +209,7 @@ test('approved totals exclude pending values while working maximum includes them
   );
 });
 
-test('unmatched pet product is held for review without purchase permission', () => {
+test('unmatched Valta product with complete demand data stays orderable', () => {
   const sourceProduct = product({
     name: 'Synthetic dry cat food 2 kg',
     article: 'SYN-CAT-FOOD-2KG',
@@ -217,6 +217,7 @@ test('unmatched pet product is held for review without purchase permission', () 
     finalRecommendedQuantity: 4,
     freeStock: 2,
     priceNum: 3560.66,
+    supplier: 'АО ВАЛТА ПЕТ ПРОДАКТС',
     assortmentPolicy: { matched: false },
   });
   const result = buildWorkingOrder([sourceProduct], [decision(sourceProduct.rowIdentity, {
@@ -227,17 +228,12 @@ test('unmatched pet product is held for review without purchase permission', () 
   })]);
   const line = result.products[0];
 
-  // A missing assortment policy never authorizes a purchase; preserve the
-  // calculated proposal for review.
-  assert.equal(line.workflowStatus, 'pending_manual_review');
-  assert.equal(line.blockingReason, 'unmatched_product_no_assortment_policy');
-  assert.equal(line.approvalRequired, true);
-  assert.equal(line.approvedOrderQuantity, null);
-  assert.equal(line.provisionalOrderQuantity, 4);
-  assert.equal(line.provisionalQuantitySource, 'phase2_final_recommendation');
-  assert.equal(line.provisionalLineSum, 14242.64);
-  assert.ok(line.decisionWarnings.includes('suspicious_unmatched_product'));
-  assert.equal(result.summary.autoApprovedLines, 0);
+  assert.equal(line.workflowStatus, 'auto_approved');
+  assert.equal(line.blockingReason, null);
+  assert.equal(line.approvalRequired, false);
+  assert.equal(line.approvedOrderQuantity, 4);
+  assert.equal(line.approvedLineSum, 14242.64);
+  assert.equal(result.summary.autoApprovedLines, 1);
   assert.equal(result.summary.workingMaximumLines, 1);
 });
 

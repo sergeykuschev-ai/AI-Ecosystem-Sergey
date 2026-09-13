@@ -678,7 +678,7 @@ test('ambiguous assortment match keeps mandatory status unknown and requires rev
       rowNumber: 5,
       barcode: null,
       inTransit: 0,
-      name: 'Synthetic duplicate article product',
+      name: 'Synthetic product one 100 g',
     }),
   ];
   const salesData = source('sales-test-v1', rows.map(row => ({

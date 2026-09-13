@@ -407,14 +407,27 @@ function matchMetadata(candidate) {
   };
 }
 
-function ambiguousRows(matchResult) {
+function ambiguousRows(matchResult, rows = [], options = {}) {
   const identities = new Set(
     matchResult.rowDiagnostics.map(diagnostic => diagnostic.rowIdentity)
   );
+  const rowsByIdentity = new Map(rows.map(row => [row.rowIdentity, row]));
   for (const result of matchResult.recordResults) {
-    if (result.status === 'ambiguous') {
-      for (const rowIdentity of result.candidateRowIdentities) identities.add(rowIdentity);
+    if (result.status !== 'ambiguous') continue;
+    if (
+      options.distinctNamesMakeSupplierArticleNonBlocking === true &&
+      result.matchType === 'supplier_article'
+    ) {
+      const names = new Set(
+        result.candidateRowIdentities
+          .map(rowIdentity => rowsByIdentity.get(rowIdentity))
+          .filter(Boolean)
+          .map(row => normalize(row.name))
+          .filter(Boolean)
+      );
+      if (names.size > 1) continue;
     }
+    for (const rowIdentity of result.candidateRowIdentities) identities.add(rowIdentity);
   }
   return identities;
 }
@@ -1205,9 +1218,11 @@ function buildDemandPlan(analysis, phase2Inputs = {}, config = DEMAND_ENGINE_CON
     inTransitMode,
     inTransitDecisionBasis,
     inventorySemantics: phase2Inputs.inventorySemantics || null,
-    ambiguousSalesRows: ambiguousRows(matches.sales),
-    ambiguousAssortmentRows: ambiguousRows(matches.assortment),
-    ambiguousTransitRows: ambiguousRows(matches.inTransit),
+    ambiguousSalesRows: ambiguousRows(matches.sales, rows),
+    ambiguousAssortmentRows: ambiguousRows(matches.assortment, rows, {
+      distinctNamesMakeSupplierArticleNonBlocking: true,
+    }),
+    ambiguousTransitRows: ambiguousRows(matches.inTransit, rows),
   };
   const products = [];
   const isolatedRowDiagnostics = [];

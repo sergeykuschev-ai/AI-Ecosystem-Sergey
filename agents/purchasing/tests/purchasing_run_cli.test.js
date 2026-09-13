@@ -150,7 +150,7 @@ test('creates report.txt with the owner summary and existing agent report', asyn
   assert.ok(report.includes('ОТЧЁТ ВЛАДЕЛЬЦУ — МАГАЗИН «Миска»'));
   assert.ok(report.includes('Распределение решений Phase 1:'));
   assert.ok(report.includes('Распределение решений Phase 2:'));
-  assert.ok(report.includes('# ДАННЫЕ ИЗ ОТЧЁТА MIN-MAX ВАЛТЫ'));
+  assert.ok(report.includes('# ДАННЫЕ ИЗ ОТЧЁТА MIN-MAX ПОСТАВЩИКА'));
 });
 
 test('creates deterministic Recommendation Explanation artifacts', async () => {

@@ -349,7 +349,26 @@ function authoritativeBlockerClassification(candidate, bundle) {
         extras: [],
       };
   }
-  if (blocker.startsWith('abc_xyz_risk:')) {
+  if (
+    blocker === 'incomplete_demand_data' &&
+    requiredData(candidate).includes('supplier_delivery_cycle_days')
+  ) {
+    return {
+      category: TRIAGE_CATEGORIES.SUPPLIER_DATA_MISSING,
+      severity: SEVERITY.BLOCKING,
+      action: CATEGORY_ACTIONS_RU.SUPPLIER_DATA_MISSING,
+      extras: ['missing=supplier_delivery_cycle_days'],
+    };
+  }
+  if (blocker === 'sales_spike_quantity_requires_review') {
+    return {
+      category: TRIAGE_CATEGORIES.SALES_SPIKE_REVIEW,
+      severity: SEVERITY.WARNING,
+      action: CATEGORY_ACTIONS_RU.SALES_SPIKE_REVIEW,
+      extras: [],
+    };
+  }
+  if (blocker === 'short_long_trend_conflict' || blocker.startsWith('abc_xyz_risk:')) {
     return {
       category: TRIAGE_CATEGORIES.OWNER_DECISION_REQUIRED,
       severity: SEVERITY.WARNING,
@@ -454,6 +473,9 @@ function missingSupplierData(candidate) {
     candidate.draft?.evidence?.supplier_recommended_qty === null
   ) {
     missing.push('supplier_recommendation');
+  }
+  if (requiredData(candidate).includes('supplier_delivery_cycle_days')) {
+    missing.push('supplier_delivery_cycle_days');
   }
   return Array.from(new Set(missing));
 }

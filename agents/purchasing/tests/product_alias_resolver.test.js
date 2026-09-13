@@ -138,7 +138,7 @@ test('valta legal-name variants share one alias scope', () => {
   assert.equal(byRow.matchMethod, 'confirmed_alias');
 });
 
-test('duplicate article stays ambiguous and picks no SKU', () => {
+test('duplicate supplier article stays unmatched and picks no SKU', () => {
   const m = matrix([matrixItem({
     article: 'DUP-1',
     name: 'Лакомство дубль 85 г',
@@ -147,8 +147,8 @@ test('duplicate article stays ambiguous and picks no SKU', () => {
   const first = row({ article: 'DUP-1', name: 'Вкус один 85 г', rowNumber: 20 });
   const second = row({ article: 'DUP-1', name: 'Вкус два 85 г', rowNumber: 21 });
   const result = matchWithAliases(m, [first, second], []);
-  assert.equal(statusFor(result, first.rowIdentity).status, 'ambiguous');
-  assert.equal(statusFor(result, second.rowIdentity).status, 'ambiguous');
+  assert.equal(statusFor(result, first.rowIdentity).status, 'unmatched');
+  assert.equal(statusFor(result, second.rowIdentity).status, 'unmatched');
   assert.equal(result.matchesByRowIdentity.has(first.rowIdentity), false);
   assert.equal(result.matchesByRowIdentity.has(second.rowIdentity), false);
 });
@@ -166,8 +166,8 @@ test('article alias cannot resolve a duplicated article', () => {
     evidence: ['test: duplicated supplier article'],
   });
   const result = matchWithAliases(m, [first, second], [dupAlias]);
-  assert.equal(statusFor(result, first.rowIdentity).status, 'ambiguous');
-  assert.equal(statusFor(result, second.rowIdentity).status, 'ambiguous');
+  assert.equal(statusFor(result, first.rowIdentity).status, 'unmatched');
+  assert.equal(statusFor(result, second.rowIdentity).status, 'unmatched');
   assert.equal(result.matchesByRowIdentity.has(first.rowIdentity), false);
   assert.equal(result.matchesByRowIdentity.has(second.rowIdentity), false);
 });

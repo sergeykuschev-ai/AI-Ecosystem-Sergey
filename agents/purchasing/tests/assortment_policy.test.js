@@ -916,6 +916,45 @@ test('canonical policy matches product by internal sku_id when supplier_sku diff
   assert.equal(products[1].finalRecommendedQuantity, 6);
 });
 
+test('canonical policy does not reuse a duplicated supplier article across distinct products', () => {
+  const store = {
+    version: 1,
+    schema_version: 'miska-canonical-assortment-matrix-v1',
+    updated_at: UPDATED_AT,
+    rules: [{
+      sku: '33040',
+      internal_sku_id: 'TREAT-025',
+      assortment_status: 'OPTIONAL',
+      min_stock: 2,
+      max_stock: 3,
+      target_stock: null,
+      order_mode: 'PIECE',
+      box_qty: 1,
+      display_stock: false,
+      display_min_qty: null,
+      purchase_hold: false,
+      purchase_hold_until_stock: null,
+      mandatory_assortment: false,
+      owner_comment: '',
+      rule_source: 'canonical-matrix',
+      updated_at: UPDATED_AT,
+      category: 'Лакомства',
+      rollout_status: 'ACTIVE',
+      review_after_days: 30,
+      canonical: { sku_id: 'TREAT-025', supplier_sku: '33040' },
+    }],
+  };
+  const products = applyAssortmentPolicyToProducts([
+    { article: '33040', name: 'Нарезка говяжья 50г', availableStock: 0, finalRecommendedQuantity: 1, matchingHints: { article: '33040' } },
+    { article: '33040', name: 'Уши говяжьи 85г', availableStock: 0, finalRecommendedQuantity: 2, matchingHints: { article: '33040' } },
+  ], store);
+
+  assert.equal(products[0].assortmentPolicy.matched, false);
+  assert.equal(products[1].assortmentPolicy.matched, false);
+  assert.equal(products[0].finalRecommendedQuantity, 1);
+  assert.equal(products[1].finalRecommendedQuantity, 2);
+});
+
 test('canonical policy matches alias-resolved product by canonicalSkuId', () => {
   const store = {
     version: 1,

@@ -3,9 +3,10 @@ const { test } = require('node:test');
 const { guardUnmatchedProduct } = require('../services/unmatched_product_guard');
 const { buildWorkingOrder } = require('../services/working_order');
 
-test('unmatched demand is preserved for review without analyzer fallback permission', () => {
+test('unmatched deterministic demand stays orderable while matrix remains advisory', () => {
   const product = {
-    rowIdentity: 'synthetic:1', assortmentPolicy: { matched: false },
+    rowIdentity: 'synthetic:1', supplier: 'АО ВАЛТА ПЕТ ПРОДАКТС',
+    assortmentPolicy: { matched: false },
     demandCalculatedQuantity: 3, finalRecommendedQuantity: 3,
     analyzerCalculatedQuantity: 99, priceNum: 10,
   };
@@ -16,12 +17,13 @@ test('unmatched demand is preserved for review without analyzer fallback permiss
   };
   const original = structuredClone({ product, decision });
   const guarded = guardUnmatchedProduct(product, decision);
-  assert.equal(guarded.decision.decision, 'manual_review');
-  assert.equal(guarded.decision.approvedOrderQuantity, null);
+  assert.equal(guarded.decision, decision);
+  assert.equal(guarded.decision.approvedOrderQuantity, 3);
   assert.equal(guarded.product.demandCalculatedQuantity, 3);
+  assert.equal(guarded.product.unmatchedObservation.classification, 'UNMATCHED_NON_BLOCKING');
   const working = buildWorkingOrder([guarded.product], [guarded.decision]);
-  assert.equal(working.products[0].provisionalOrderQuantity, 3);
-  assert.equal(working.summary.autoApprovedLines, 0);
+  assert.equal(working.products[0].approvedOrderQuantity, 3);
+  assert.equal(working.summary.autoApprovedLines, 1);
   assert.deepEqual({ product, decision }, original);
   const matched = { ...product, assortmentPolicy: { matched: true } };
   assert.equal(guardUnmatchedProduct(matched, decision).decision, decision);
@@ -29,11 +31,23 @@ test('unmatched demand is preserved for review without analyzer fallback permiss
   const noBuy = { ...decision, decision: 'do_not_buy', approvedOrderQuantity: 0 };
   assert.equal(guardUnmatchedProduct(zero, noBuy).product.unmatchedGuard.classification,
     'UNMATCHED_CONFIDENTLY_EXCLUDED');
-  assert.equal(guardUnmatchedProduct(zero, { ...noBuy, requiredData: ['sales'] }).decision.decision,
-    'manual_review');
+  const incompleteNoBuy = guardUnmatchedProduct(
+    zero, { ...noBuy, requiredData: ['sales'] }
+  );
+  assert.equal(incompleteNoBuy.decision.decision, 'do_not_buy');
+  assert.equal(incompleteNoBuy.product.unmatchedObservation.classification,
+    'UNMATCHED_NON_BLOCKING');
   const unavailable = { ...product, demandCalculatedQuantity: null, finalRecommendedQuantity: null };
-  assert.equal(buildWorkingOrder([unavailable], [decision]).products[0].provisionalOrderQuantity, null);
+  const manual = {
+    ...decision, decision: 'manual_review', approvedOrderQuantity: null,
+    requiredData: ['free_stock'],
+  };
+  const manualPair = guardUnmatchedProduct(unavailable, manual);
+  assert.equal(manualPair.decision.decision, 'manual_review');
+  assert.deepEqual(manualPair.decision.requiredData, ['free_stock']);
+  assert.equal(buildWorkingOrder([unavailable], [manual]).products[0].provisionalOrderQuantity, 99);
 });
+
 
 
 test('ambiguous matrix matching cannot be overridden by a later policy match', () => {
@@ -41,12 +55,12 @@ test('ambiguous matrix matching cannot be overridden by a later policy match', (
   const { buildAmbiguousAssortmentIndex } = require('../services/unmatched_product_guard');
   const products = [1, 2].map(number => ({
     rowIdentity: `duplicate:${number}`, rowNumber: number,
-    article: 'PET-100', name: `Synthetic treat variant ${number}`,
+    article: 'PET-100', name: 'Synthetic treat',
     assortmentPolicy: { matched: true },
     demandCalculatedQuantity: number, finalRecommendedQuantity: number,
     analyzerCalculatedQuantity: 99, priceNum: 10,
   }));
-  const matrix = { items: [{ normalized_article: 'pet-100', normalized_name: '' }] };
+  const matrix = { items: [{ normalized_article: 'pet-100', normalized_name: 'synthetic treat' }] };
   const matchResult = matchAssortmentMatrix(matrix, products);
   assert.equal(matchResult.itemResults[0].status, 'ambiguous');
   const original = structuredClone(products);

@@ -184,6 +184,65 @@ test('отсутствующая цена поставщика → SUPPLIER_DATA
   assert.ok(item.evidence.some(line => line.includes('purchase_price')));
 });
 
+
+test('missing supplier delivery cycle wins over MATRIX_UNMATCHED', () => {
+  const { item } = singleItemTriage(() => bundle({
+    drafts: [draftItem({
+      rowIdentity: 'r-cycle',
+      article: 'CYCLE-1',
+      supplier: 'Хабаровск ОПТ',
+      extra: { existing_matrix_item: false },
+    })],
+    products: [workProduct({
+      rowIdentity: 'r-cycle',
+      article: 'CYCLE-1',
+      blockingReason: 'incomplete_demand_data',
+      requiredData: ['supplier_delivery_cycle_days'],
+      assortment_matrix: { matched: false },
+    })],
+  }));
+  assert.equal(item.reason_code, TRIAGE_CATEGORIES.SUPPLIER_DATA_MISSING);
+  assert.equal(item.severity, SEVERITY.BLOCKING);
+});
+
+test('sales-spike blocker wins over MATRIX_UNMATCHED', () => {
+  const { item } = singleItemTriage(() => bundle({
+    drafts: [draftItem({
+      rowIdentity: 'r-spike-blocker',
+      article: 'SPIKE-BLOCKER-1',
+      extra: { existing_matrix_item: false },
+    })],
+    products: [workProduct({
+      rowIdentity: 'r-spike-blocker',
+      article: 'SPIKE-BLOCKER-1',
+      blockingReason: 'sales_spike_quantity_requires_review',
+      decisionReasons: ['sales_spike_quantity_requires_review'],
+      assortment_matrix: { matched: false },
+    })],
+  }));
+  assert.equal(item.reason_code, TRIAGE_CATEGORIES.SALES_SPIKE_REVIEW);
+  assert.equal(item.severity, SEVERITY.WARNING);
+});
+
+test('short/long demand trend conflict wins over MATRIX_UNMATCHED', () => {
+  const { item } = singleItemTriage(() => bundle({
+    drafts: [draftItem({
+      rowIdentity: 'r-trend',
+      article: 'TREND-1',
+      extra: { existing_matrix_item: false },
+    })],
+    products: [workProduct({
+      rowIdentity: 'r-trend',
+      article: 'TREND-1',
+      blockingReason: 'short_long_trend_conflict',
+      decisionReasons: ['short_long_trend_conflict'],
+      assortment_matrix: { matched: false },
+    })],
+  }));
+  assert.equal(item.reason_code, TRIAGE_CATEGORIES.OWNER_DECISION_REQUIRED);
+  assert.equal(item.severity, SEVERITY.WARNING);
+});
+
 test('дубль артикула → DUPLICATE_SKU', () => {
   const input = bundle({
     drafts: [

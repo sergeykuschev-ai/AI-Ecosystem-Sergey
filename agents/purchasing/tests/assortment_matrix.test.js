@@ -262,7 +262,7 @@ test('does not merge products with a repeated article', () => {
   assert.equal(result.matchesByRowIdentity.size, 2);
 });
 
-test('leaves a repeated article ambiguous when the name cannot disambiguate it', () => {
+test('leaves a repeated supplier article unmatched when the name cannot disambiguate it', () => {
   const rows = [
     row({ rowNumber: 4, article: 'DUP', name: 'Первый товар' }),
     row({ rowNumber: 5, article: 'DUP', name: 'Второй товар' }),
@@ -270,7 +270,11 @@ test('leaves a repeated article ambiguous when the name cannot disambiguate it',
   const value = matrix([matrixItem({ article: 'DUP', name: 'Неизвестный товар' })]);
   const result = matchAssortmentMatrix(value, rows);
 
-  assert.equal(result.itemResults[0].status, 'ambiguous');
+  assert.equal(result.itemResults[0].status, 'unmatched');
+  assert.deepEqual(result.itemResults[0].candidateRowIdentities, [
+    rows[0].rowIdentity,
+    rows[1].rowIdentity,
+  ]);
   assert.equal(result.matchesByRowIdentity.size, 0);
 });
 

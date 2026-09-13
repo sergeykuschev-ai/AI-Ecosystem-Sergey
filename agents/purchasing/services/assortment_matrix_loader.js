@@ -454,10 +454,16 @@ function matchAssortmentMatrix(matrix, rows, options = {}) {
       };
     }
 
-    const candidates = articleRows.length > 1 ? articleRows : nameRows;
+    // A supplier article may legitimately be reused for distinct products.
+    // When the article is non-unique and the normalized name cannot identify
+    // exactly one row, do not turn that supplier-code collision into a hard
+    // identity ambiguity. The canonical overlay simply stays unmatched until
+    // a confirmed alias or stronger identifier is available. Only multiple
+    // equal normalized-name matches remain genuinely ambiguous.
+    const candidates = nameRows.length > 1 ? nameRows : articleRows;
     return {
       itemIndex,
-      status: candidates.length > 1 ? 'ambiguous' : 'unmatched',
+      status: nameRows.length > 1 ? 'ambiguous' : 'unmatched',
       matchMethod: null,
       row: null,
       candidateRowIdentities: candidates.map(candidate => candidate.value.rowIdentity),
