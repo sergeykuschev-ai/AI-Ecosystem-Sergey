@@ -1,3 +1,12 @@
+const { guardUnmatchedProduct, buildAmbiguousAssortmentIndex } = require('./services/unmatched_product_guard');
+const {
+  resolveActiveOwnerOrderDecisions,
+  applyActiveOwnerOrderDecision,
+} = require('./services/active_owner_order_decisions');
+const {
+  loadVerifiedOwnerSessionIds,
+  applyVerifiedOwnerTestPolicy,
+} = require('./services/verified_owner_test_policy');
 const {
   parseInputRows,
   detectColumns,
@@ -31,6 +40,11 @@ const {
   DEFAULT_CANONICAL_MATRIX_PATH,
   loadAssortmentPolicySource,
 } = require('./services/assortment_policy_store');
+const {
+  loadProductAliases,
+  buildAliasIndex,
+  DEFAULT_ALIAS_PATH,
+} = require('./services/product_alias_resolver');
 const {
   applyMinMaxSafetyGuard,
 } = require('./services/minmax_safety_guard');
@@ -102,7 +116,10 @@ function runOrderAgentFromAdapterResultWithDemand(
   let assortmentContext = null;
   if (options.assortmentMatrixPath && !resolvedPhase2Inputs.assortmentMatrix) {
     const loaded = loadAssortmentMatrix(options.assortmentMatrixPath);
-    const matchResult = matchAssortmentMatrix(loaded.matrix, rows);
+    const aliasIndex = buildAliasIndex(
+      loadProductAliases(options.productAliasesPath || DEFAULT_ALIAS_PATH)
+    );
+    const matchResult = matchAssortmentMatrix(loaded.matrix, rows, { aliasIndex });
     resolvedPhase2Inputs.assortmentMatrix = buildDemandAssortmentSource(
       loaded.matrix,
       rows,
@@ -162,6 +179,50 @@ function runOrderAgentFromAdapterResultWithDemand(
     };
     assortmentReport = buildAssortmentMatrixReport(assortmentControl);
   }
+  const decisionsByIdentity = new Map(phase2DecisionResult.decisions.map(
+    decision => [decision.rowIdentity, decision]
+  ));
+  const ambiguousAssortment = buildAmbiguousAssortmentIndex([
+    ...(assortmentContext?.matchResult.itemResults || []),
+    ...(demandResult.diagnostics.assortmentMatches || []),
+  ]);
+  const activeOwnerOrders = resolveActiveOwnerOrderDecisions(demandProducts, {
+    ownerDecisionsPath: options.ownerDecisionsPath,
+    now: options.ownerDecisionNow,
+  });
+  const verifiedOwnerSessionIds = loadVerifiedOwnerSessionIds({
+    registryPath: options.ownerReviewSessionsPath,
+  });
+  let verifiedOwnerTestPolicyApplied = 0;
+  const guardedPairs = demandProducts.map(product => {
+    const verifiedTestPair = applyVerifiedOwnerTestPolicy(
+      product,
+      decisionsByIdentity.get(product.rowIdentity),
+      {
+        verifiedSessionIds: verifiedOwnerSessionIds,
+        currentDate: options.reportDate || options.currentDate || options.ownerDecisionNow,
+      }
+    );
+    if (verifiedTestPair.applied) verifiedOwnerTestPolicyApplied += 1;
+    const ownerPair = applyActiveOwnerOrderDecision(
+      verifiedTestPair.product,
+      verifiedTestPair.decision,
+      activeOwnerOrders.byRowIdentity.get(product.rowIdentity)
+    );
+    return guardUnmatchedProduct(
+      ownerPair.product,
+      ownerPair.decision,
+      ambiguousAssortment.get(product.rowIdentity)
+    );
+  });
+  demandProducts = guardedPairs.map(pair => pair.product);
+  phase2DecisionResult = {
+    ...phase2DecisionResult,
+    decisions: guardedPairs.map(pair => pair.decision),
+    summary: summarizePhase2Decisions(
+      guardedPairs.map(pair => pair.decision), demandProducts
+    ),
+  };
   const workingOrderResult = buildWorkingOrder(
     demandProducts,
     phase2DecisionResult.decisions
@@ -197,6 +258,11 @@ function runOrderAgentFromAdapterResultWithDemand(
       decisionVersion: phase2DecisionResult.decisionVersion,
       decisions: phase2DecisionResult.decisions,
       ...phase2DecisionResult.summary,
+      activeOwnerOrderDecisionSummary: activeOwnerOrders.summary,
+      verifiedOwnerTestPolicySummary: {
+        verifiedSessions: verifiedOwnerSessionIds.size,
+        applied: verifiedOwnerTestPolicyApplied,
+      },
       workingOrderVersion: workingOrderResult.workflowVersion,
       workingOrderProducts: workingOrderResult.products,
       phase1Reconciliation: workingOrderResult.phase1Reconciliation,

@@ -55,13 +55,19 @@ const DEMAND_ENGINE_CONFIG = Object.freeze({
   }),
   supplierDeliveryCycleDays: Object.freeze({
     default: null,
+    // Keys are canonical supplier identities (see canonicalSupplierName in
+    // services/demand_engine.js), not specific legal-form spellings.
     bySupplier: Object.freeze({
-      'ао "валта пет продактс"': 14,
+      'валта': 14,
       'рич стор ооо': 7,
       'зооград-хабаровск ооо': 14,
       'оникиенко роман евгеньевич': 21,
     }),
   }),
+  // Default safety buffers (pre-S10 values) for suppliers without a
+  // supplier-specific override. Valta uses the owner-approved S10 model in
+  // safetyStockDaysBySupplier below (Valta orders every 14 days, see
+  // supplierDeliveryCycleDays); these are buffers on top of the cycle.
   safetyStockDays: Object.freeze({
     'A/X': 21,
     'A/Y': 14,
@@ -73,6 +79,24 @@ const DEMAND_ENGINE_CONFIG = Object.freeze({
     'C/Y': 0,
     'C/Z': 0,
     'D/ZZ': 0,
+  }),
+  // Keys are canonical supplier identities (see canonicalSupplierName in
+  // services/demand_engine.js), not specific legal-form spellings.
+  safetyStockDaysBySupplier: Object.freeze({
+    bySupplier: Object.freeze({
+      'валта': Object.freeze({
+        'A/X': 10,
+        'A/Y': 7,
+        'A/Z': 3,
+        'B/X': 7,
+        'B/Y': 3,
+        'B/Z': 0,
+        'C/X': 0,
+        'C/Y': 0,
+        'C/Z': 0,
+        'D/ZZ': 0,
+      }),
+    }),
   }),
   trendThresholds: Object.freeze({
     spikeMultiplier: 2,

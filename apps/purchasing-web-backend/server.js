@@ -10,6 +10,7 @@ const {
   resolveApprovedRuleMode,
   resolveHttpPort,
   resolveRetentionTtlMs,
+  resolveRunsRoot,
 } = require('./config');
 const {
   RunQueryService,
@@ -73,7 +74,7 @@ function runStartupCleanup(options = {}) {
   let uploadCleanup = null;
   try {
     runCleanup = cleanupExpiredRuns({
-      runsRoot: options.runsRoot || DEFAULT_RUNS_ROOT,
+      runsRoot: options.runsRoot || resolveRunsRoot(),
       ttlMs: options.retentionTtlMs ?? resolveRetentionTtlMs(),
       now: options.now,
     });
@@ -133,7 +134,7 @@ function createPurchasingWebServer(options = {}) {
     options.ownerLearningRuleEffectivenessFilePath ||
     serverPaths.ownerLearningRuleEffectivenessFilePath ||
     DEFAULT_SERVER_PATHS.ownerLearningRuleEffectivenessFilePath;
-  const runsRoot = options.runsRoot || DEFAULT_RUNS_ROOT;
+  const runsRoot = options.runsRoot || resolveRunsRoot();
   const registry = options.registry || new FileRunRegistry({
     runsRoot,
     ownerLearningHistoryPath: options.ownerLearningHistoryPath || (
@@ -288,6 +289,7 @@ function createPurchasingWebServer(options = {}) {
         registry,
         now: options.now,
       }),
+    logger: options.logger,
   });
   const staticHandler = options.staticHandler || createStaticHandler({
     publicRoot: options.publicRoot,

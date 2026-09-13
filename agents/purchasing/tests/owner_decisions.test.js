@@ -172,7 +172,9 @@ test('inactive history entry does not displace the latest active decision', () =
 });
 
 test('DEFER remains in Owner Action Required', () => {
-  const application = applyOwnerDecisions(draft(), store([decision('DEFER')]));
+  const application = applyOwnerDecisions(draft(), store([decision('DEFER')]), {
+    now: '2026-07-20T10:00:00.000Z',
+  });
   const model = modelFor(application);
   assert.equal(application.summary.deferred, 1);
   assert.deepEqual(model.sections.owner_action_required, ['row-1']);
@@ -180,12 +182,13 @@ test('DEFER remains in Owner Action Required', () => {
 
 test('web order decisions preserve matrix calculations and quantity history', () => {
   const source = draft();
+  const options = { now: '2026-07-20T10:00:00.000Z' };
   const buy = applyOwnerDecisions(source, store([
     decision('BUY', { owner_order_quantity: 7 }),
-  ]));
+  ]), options);
   const skip = applyOwnerDecisions(source, store([
     decision('SKIP', { owner_order_quantity: 0 }),
-  ]));
+  ]), options);
   for (const result of [buy.draft.items[0], skip.draft.items[0]]) {
     assert.equal(result.suggested_role, 'OPTIONAL');
     assert.equal(result.suggested_target_stock, 3);

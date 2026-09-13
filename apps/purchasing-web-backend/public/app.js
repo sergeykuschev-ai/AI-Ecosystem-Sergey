@@ -1901,6 +1901,828 @@
     return diagnosticMessages(Array.from(new Set(names)));
   }
 
+  const REVIEW_TRIAGE_NO_DATA = 'нет данных';
+
+  const REVIEW_TRIAGE_DECISION_LABELS = Object.freeze({
+    POLICY_CONFIRM_UNVERIFIED:
+      'Подтверждение действующей политики (provenance не подтверждена)',
+    COMMERCIAL_ACCEPT_CALC:
+      'Заказ по расчёту агента или по рекомендации поставщика',
+    POLICY_LARGE_VERIFIED_ORDER:
+      'Подтверждённая политика при большом покрытии склада',
+    POLICY_COMMERCIAL_VERIFIED:
+      'Подтверждённая политика + рекомендация поставщика',
+  });
+
+  function reviewTriageUrl(runId) {
+    return typeof runId === 'string' && RUN_ID_PATTERN.test(runId)
+      ? `/api/v1/runs/${runId}/review-triage`
+      : null;
+  }
+
+  /**
+   * Banner text for the review triage block. All numbers come verbatim from
+   * the compaction contract — the client never groups or recounts anything.
+   * The main number counts ACTIVE owner decisions only; positions
+   * BLOCKED_BY_DATA are shown separately and never inflate it.
+   */
+  function reviewTriageBanner(compaction) {
+    if (
+      !compaction ||
+      typeof compaction !== 'object' ||
+      !Number.isInteger(compaction.total_owner_decision_count)
+    ) {
+      return null;
+    }
+    const blockedPart = Number.isInteger(compaction.blocked_by_data_count) &&
+      compaction.blocked_by_data_count > 0
+      ? ` · ${displayCount(compaction.blocked_by_data_count)} заблокировано проблемами данных (решение после исправления)`
+      : '';
+    return {
+      total: `Сейчас нужно принять ${displayCount(
+        compaction.total_owner_decision_count
+      )} ${decisionsLabel(compaction.total_owner_decision_count)}`,
+      subtitle:
+        `${displayCount(compaction.business_sku_count)} бизнес-позиций → ` +
+        `${displayCount(compaction.package_decision_count)} пакетных + ` +
+        `${displayCount(compaction.individual_decision_count)} индивидуальных` +
+        blockedPart +
+        (Number.isInteger(compaction.data_or_linkage_count)
+          ? ` · ${displayCount(compaction.data_or_linkage_count)} проблем данных (не решения владельца)`
+          : ''),
+    };
+  }
+
+  function decisionsLabel(count) {
+    const mod100 = Math.abs(count) % 100;
+    const mod10 = mod100 % 10;
+    if (mod100 >= 11 && mod100 <= 14) return 'решений';
+    if (mod10 === 1) return 'решение';
+    if (mod10 >= 2 && mod10 <= 4) return 'решения';
+    return 'решений';
+  }
+
+  /**
+   * Formats a Min/Target/Max triple. Missing components stay unknown —
+   * a missing value is never rendered as zero.
+   */
+  function reviewTriageMinMaxText(minStock, targetStock, maxStock) {
+    if (
+      minStock === null && targetStock === null && maxStock === null
+    ) {
+      return null;
+    }
+    return [minStock, targetStock, maxStock].map(value =>
+      value === null || value === undefined ? '—' : formatQuantity(value)
+    ).join(' / ');
+  }
+
+  // --- Owner-facing text (deterministic, no LLM) ----------------------------
+  // Внутренние коды (reason_code, owner_signals, provenance, decision_type)
+  // остаются в данных и в сворачиваемом блоке «Технические детали», но не
+  // показываются в основном тексте. Каждый текст строится только из фактов
+  // позиции: stock, Min/Target/Max, sales, recommendedQty,
+  // supplierRecommendedQty, owner_signals, evidence. Ничего не выдумывается:
+  // при нехватке данных — явное «Недостаточно данных для автоматического
+  // выбора».
+
+  function triageNum(value) {
+    return typeof value === 'number' && Number.isFinite(value) ? value : null;
+  }
+
+  function triageQtyText(value) {
+    return value === null || value === undefined
+      ? REVIEW_TRIAGE_NO_DATA
+      : formatQuantity(value);
+  }
+
+  const BLOCKED_OWNER_TEXT = Object.freeze({
+    MATRIX_UNMATCHED: {
+      title: 'Не найдено правило закупки для товара',
+      explanation:
+        'Закупщик пока не может надёжно определить, по какому Min/Max ' +
+        'работать с этим товаром.',
+      fix:
+        'Связать артикул поставщика с ассортиментной матрицей или добавить ' +
+        'правило для товара.',
+    },
+    SUPPLIER_DATA_MISSING: {
+      title: 'Не хватает данных поставщика',
+      explanation:
+        'Для расчёта отсутствует часть обязательных данных: например цена, ' +
+        'поставщик или единица измерения.',
+      fix: 'Дозаполнить карточку товара, после этого закупщик пересчитает позицию.',
+    },
+    DATA_ERROR_UNKNOWN_STOCK: {
+      title: 'Остаток товара неизвестен',
+      explanation:
+        'Закупщик не видит актуальный остаток, поэтому не может проверить, ' +
+        'нужен ли заказ.',
+      fix: 'Обновить отчёт SmartZapas из 1С, чтобы остаток стал известен.',
+    },
+    DATA_ERROR_IDENTITY: {
+      title: 'Не удалось однозначно определить товар',
+      explanation:
+        'По артикулу или штрихкоду находится несколько разных товаров.',
+      fix: 'Уточнить артикул/штрихкод в 1С или у поставщика.',
+    },
+    DUPLICATE_SKU: {
+      title: 'Один артикул связан с несколькими товарами',
+      explanation: 'В отчёте поставщика обнаружен дубль идентификатора.',
+      fix: 'Оставить один идентификатор, дубликат исключить из заказа.',
+    },
+    NEW_SKU_REVIEW: {
+      title: 'Новый товар ещё на тестовом режиме',
+      explanation:
+        'По товару пока мало истории продаж, действует тестовое правило закупки.',
+      fix: 'Дождаться накопления истории продаж, затем закупщик пересчитает правило.',
+    },
+    SALES_SPIKE_REVIEW: {
+      title: 'Подозрение на необычный спрос',
+      explanation: 'Продажи резко отличаются от обычного уровня.',
+      fix: 'Проверить, не разовая ли это продажа (возврат, опт).',
+    },
+    OWNER_DECISION_REQUIRED: {
+      title: 'Требуется проверка данных перед решением',
+      explanation: 'Позиция ожидает решения, но сначала нужно восстановить данные.',
+      fix: 'Исправить данные по товару, после этого решение станет доступно.',
+    },
+    FINANCIAL_LIMIT_REVIEW: {
+      title: 'Позиция ожидает проверки бюджета',
+      explanation: 'Заказ по товару затронут финансовым ограничением.',
+      fix: 'После исправления данных закупщик повторно проверит позицию.',
+    },
+    READY_WITH_EXPLANATION: {
+      title: 'Позиция ожидает проверки данных',
+      explanation: 'Позиция ожидает проверки.',
+      fix: 'Исправить данные по товару.',
+    },
+  });
+
+  const EXCLUSION_OWNER_TITLES = Object.freeze({
+    exit: 'Статус исключения товара не подтверждён',
+    identity: 'Один артикул связан с несколькими товарами',
+    article: 'Не удалось однозначно определить товар',
+  });
+
+  const PACKAGE_OWNER_TITLES = Object.freeze({
+    POLICY_CONFIRM_UNVERIFIED: 'Какой расчёт считать основным?',
+    COMMERCIAL_ACCEPT_CALC: 'Считать по расчёту или по рекомендации поставщика?',
+    POLICY_LARGE_VERIFIED_ORDER:
+      'Заказывать по утверждённой политике при большом покрытии?',
+    POLICY_COMMERCIAL_VERIFIED: 'Подтвердить политику и заказ по расчёту?',
+  });
+
+  const PACKAGE_OWNER_EXPLANATIONS = Object.freeze({
+    POLICY_CONFIRM_UNVERIFIED:
+      'Для этих товаров ранее использовались одни Min/Max, а свежий расчёт ' +
+      'предлагает другие значения. Нужно один раз определить, какой расчёт ' +
+      'считать основным для всей группы.',
+    COMMERCIAL_ACCEPT_CALC:
+      'По этим товарам поставщик рекомендует заказать, при этом свежий ' +
+      'расчёт закупщика умеренный и покрытие не экстремальное. Нужно ' +
+      'выбрать основу заказа для всей группы.',
+    POLICY_LARGE_VERIFIED_ORDER:
+      'По этим товарам действует подтверждённая политика Min/Max, но при ' +
+      'заказе по ней покрытие склада выходит большим. Нужно решить, ' +
+      'заказывать ли по политике для всей группы.',
+    POLICY_COMMERCIAL_VERIFIED:
+      'По этим товарам действует подтверждённая политика Min/Max, поставщик ' +
+      'рекомендует заказ, и расчёт с ней согласован. Нужно подтвердить ' +
+      'согласованный заказ для всей группы.',
+  });
+
+  const PACKAGE_OWNER_WHY = Object.freeze({
+    POLICY_CONFIRM_UNVERIFIED:
+      'товары объединены: у всех один и тот же конфликт — действующая ' +
+      'политика не совпадает со свежим расчётом',
+    COMMERCIAL_ACCEPT_CALC:
+      'товары объединены: у всех поставщик рекомендует заказ при умеренном ' +
+      'расчёте и без экстремального покрытия',
+    POLICY_LARGE_VERIFIED_ORDER:
+      'товары объединены: у всех подтверждённая политика и большое ' +
+      'проектируемое покрытие склада',
+    POLICY_COMMERCIAL_VERIFIED:
+      'товары объединены: у всех подтверждённая политика и рекомендация ' +
+      'поставщика, расчёт согласован',
+  });
+
+  // Owner-language variants of decision options. The upstream option texts
+  // may contain internal jargon («owner policy», «provenance»); the meaning
+  // is preserved one-to-one per decision_type, count and order unchanged.
+  const PACKAGE_OWNER_OPTIONS = Object.freeze({
+    POLICY_CONFIRM_UNVERIFIED: [
+      'оставить действующую политику Min/Max',
+      'принять свежий расчёт Min/Max',
+    ],
+    COMMERCIAL_ACCEPT_CALC: [
+      'заказать по расчёту закупщика',
+      'заказать по рекомендации поставщика',
+    ],
+    POLICY_LARGE_VERIFIED_ORDER: [
+      'заказать по утверждённой политике',
+      'отложить заказ',
+    ],
+    POLICY_COMMERCIAL_VERIFIED: [
+      'применить подтверждённую политику и заказать по расчёту',
+      'пересмотреть политику или основу заказа',
+    ],
+  });
+
+  function packageOwnerOptions(pkg) {
+    const mapped = PACKAGE_OWNER_OPTIONS[pkg?.decision_type];
+    if (Array.isArray(mapped) && Array.isArray(pkg?.decision_options) &&
+        mapped.length === pkg.decision_options.length) {
+      return mapped;
+    }
+    return Array.isArray(pkg?.decision_options) ? pkg.decision_options : [];
+  }
+
+  // Owner-language recommendation per decision_type; upstream texts may
+  // mention internal terms («canonical-политика»). Meaning preserved,
+  // no numbers invented.
+  const PACKAGE_OWNER_RECOMMENDATION = Object.freeze({
+    POLICY_CONFIRM_UNVERIFIED:
+      'Не менять Min/Max автоматически. Подтвердить действующую политику ' +
+      'или принять свежий расчёт — одно правило для всей группы.',
+    COMMERCIAL_ACCEPT_CALC:
+      'Не заказывать автоматически. Выбрать основу заказа для всей группы: ' +
+      'расчёт закупщика или рекомендация поставщика.',
+    POLICY_LARGE_VERIFIED_ORDER:
+      'Не заказывать автоматически. Решить для всей группы, допустимо ли ' +
+      'большое покрытие склада.',
+    POLICY_COMMERCIAL_VERIFIED:
+      'Заказ по согласованной политике готов, но автоматическое ' +
+      'применение не выполняется — нужно подтверждение владельца для ' +
+      'всей группы.',
+  });
+
+  function packageOwnerRecommendation(pkg) {
+    return PACKAGE_OWNER_RECOMMENDATION[pkg?.decision_type] ||
+      pkg?.recommended_action || REVIEW_TRIAGE_NO_DATA;
+  }
+
+  function packageOwnerTitle(pkg) {
+    const count = triageQtyText(triageNum(pkg?.count));
+    const question = PACKAGE_OWNER_TITLES[pkg?.decision_type] ||
+      'Общее решение для группы товаров';
+    return `${count} товаров: ${question}`;
+  }
+
+  /**
+   * Deterministic owner-facing model of an ACTIVE individual decision.
+   * Only reads facts that already exist upstream; never invents numbers.
+   */
+  function individualOwnerModel(individual) {
+    const rec = triageNum(individual?.recommended_qty);
+    const sup = triageNum(individual?.supplier_recommended_qty);
+    const max = triageNum(individual?.max_stock);
+    const signals = Array.isArray(individual?.owner_signals)
+      ? individual.owner_signals
+      : [];
+    const evidence = Array.isArray(individual?.evidence)
+      ? individual.evidence
+      : [];
+    const hasSalesSpike = evidence.some(line =>
+      typeof line === 'string' &&
+      (line.includes('sales_spike') || line.includes('irregular_sales'))
+    );
+    const hasPolicy = signals.includes('approved_policy_conflict');
+    const hasCommercial = signals.includes('commercial_review');
+    const hasLarge = signals.includes('large_inventory_review');
+    const hasExit = signals.includes('exit_candidate');
+
+    const exceedsMax = rec !== null && max !== null && rec > max;
+    const differsFromSupplier =
+      rec !== null && sup !== null &&
+      ((rec >= sup * 2 && rec - sup >= 2) || (sup >= rec * 2 && sup - rec >= 2));
+
+    let headline;
+    if (exceedsMax) {
+      headline = `Закупщик предлагает заказать ${formatQuantity(rec)} шт., ` +
+        `хотя действующий Max — ${formatQuantity(max)} шт.`;
+    } else if (hasPolicy) {
+      headline = 'Свежий расчёт заказа отличается от действующей политики Min/Max.';
+    } else if (differsFromSupplier) {
+      headline = `Расчёт закупщика (${formatQuantity(rec)} шт.) и рекомендация ` +
+        `поставщика (${formatQuantity(sup)} шт.) различаются.`;
+    } else if (hasLarge) {
+      headline = 'При заказе по расчёту покрытие склада будет большим.';
+    } else if (hasExit) {
+      headline = 'По товару предлагается исключение из ассортимента.';
+    } else {
+      headline = 'По товару требуется выбор владельца.';
+    }
+
+    const why = [];
+    if (exceedsMax) {
+      why.push('расчёт превышает действующий Max — автоматически применять его нельзя');
+    }
+    if (hasPolicy) {
+      why.push('свежий расчёт отличается от утверждённой ранее политики Min/Max');
+    }
+    if (hasCommercial) {
+      why.push('расчёт закупщика и рекомендация поставщика различаются');
+    }
+    if (hasLarge) {
+      why.push('при таком заказе покрытие склада будет большим');
+    }
+    if (hasSalesSpike) {
+      why.push('есть признаки необычного спроса — сначала его нужно подтвердить');
+    }
+    if (hasExit) {
+      why.push('решение об исключении товара из ассортимента принимает владелец');
+    }
+    if (why.length === 0) {
+      why.push('позиция требует подтверждения владельца по правилам магазина');
+    }
+
+    let recommendation;
+    if (rec === null && !hasExit) {
+      recommendation =
+        'Недостаточно данных для автоматического выбора: отсутствует ' +
+        'рассчитанное количество заказа. Сначала восстановить данные, ' +
+        'затем вернуться к решению.';
+    } else if (exceedsMax) {
+      recommendation =
+        `Не применять ${formatQuantity(rec)} шт. автоматически. Сначала ` +
+        'подтвердить, действительно ли повышенный спрос должен изменить ' +
+        'обычный уровень запаса.';
+    } else if (hasPolicy && hasCommercial) {
+      recommendation =
+        'Не менять Min/Max автоматически. Выбрать основу заказа и ' +
+        'подтвердить действующую политику.';
+    } else if (hasPolicy) {
+      recommendation =
+        'Не менять Min/Max автоматически. Подтвердить действующую ' +
+        'политику или принять свежий расчёт.';
+    } else if (hasCommercial) {
+      recommendation =
+        'Не заказывать автоматически. Выбрать основу заказа: расчёт ' +
+        'закупщика или рекомендация поставщика.';
+    } else if (hasLarge) {
+      recommendation =
+        'Не заказывать автоматически. Решить, допустимо ли большое ' +
+        'покрытие склада.';
+    } else if (hasExit) {
+      recommendation =
+        'Не исключать товар автоматически. Решение об исключении ' +
+        'принимает владелец.';
+    } else {
+      recommendation = 'Автоматическое применение не выполняется. Требуется выбор владельца.';
+    }
+
+    const options = [];
+    if (hasPolicy) {
+      options.push('оставить действующую политику Min/Max');
+      options.push('принять свежий расчёт');
+    }
+    if (hasCommercial) options.push('использовать рекомендацию поставщика');
+    if (hasExit) {
+      options.push('исключить товар из ассортимента');
+      options.push('оставить товар в ассортименте');
+    }
+    options.push('отложить закупку / разобрать позицию отдельно');
+
+    return { headline, why, recommendation, options };
+  }
+
+  function blockedOwnerText(entry) {
+    return BLOCKED_OWNER_TEXT[entry?.reason_code] || {
+      title: 'Позиция ожидает исправления данных',
+      explanation: 'Закупщик пока не может корректно обработать эту позицию.',
+      fix: 'Исправить данные по товару, после этого закупщик пересчитает позицию.',
+    };
+  }
+
+  /**
+   * Collapsible technical block: internal codes live here, never deleted,
+   * but hidden from the owner by default.
+   */
+  function reviewTriageTechnicalDetails(documentObject, title, lines) {
+    const details = documentObject.createElement('details');
+    details.className = 'review-triage-technical';
+    const summary = documentObject.createElement('summary');
+    summary.textContent = title || 'Технические детали';
+    const pre = documentObject.createElement('pre');
+    pre.textContent = lines
+      .filter(line => line !== null && line !== undefined && line !== '')
+      .join('\n');
+    details.append(summary, pre);
+    return details;
+  }
+
+  function reviewTriageDecisionLabel(decisionType) {
+    return REVIEW_TRIAGE_DECISION_LABELS[decisionType] ||
+      (typeof decisionType === 'string' && decisionType !== ''
+        ? decisionType
+        : REVIEW_TRIAGE_NO_DATA);
+  }
+
+  function reviewTriageStockText(value) {
+    return value === null || value === undefined
+      ? REVIEW_TRIAGE_NO_DATA
+      : formatQuantity(value);
+  }
+
+  function appendTextList(documentObject, list, values) {
+    list.replaceChildren();
+    for (const value of values) {
+      const item = documentObject.createElement('li');
+      item.textContent = typeof value === 'string' && value !== ''
+        ? value
+        : REVIEW_TRIAGE_NO_DATA;
+      list.append(item);
+    }
+  }
+
+  function reviewTriagePackageCard(documentObject, pkg) {
+    const card = documentObject.createElement('article');
+    card.className = 'review-triage-card';
+
+    const heading = documentObject.createElement('h5');
+    heading.textContent = packageOwnerTitle(pkg);
+    card.append(heading);
+
+    const count = triageNum(pkg?.count);
+    const meta = documentObject.createElement('p');
+    meta.className = 'review-triage-card-meta';
+    meta.textContent = `Пакетное решение · ${triageQtyText(count)} товаров`;
+    card.append(meta);
+
+    const explanation = documentObject.createElement('p');
+    explanation.textContent = PACKAGE_OWNER_EXPLANATIONS[pkg?.decision_type] ||
+      'Для этих товаров нужно одно общее решение.';
+    card.append(explanation);
+
+    const why = documentObject.createElement('p');
+    why.className = 'review-triage-card-meta';
+    why.textContent = `Почему объединены: ${PACKAGE_OWNER_WHY[pkg?.decision_type] || 'одинаковые условия по всем позициям группы'}.`;
+    card.append(why);
+
+    const action = documentObject.createElement('p');
+    action.className = 'review-triage-card-action';
+    action.textContent = `Рекомендация системы: ${packageOwnerRecommendation(pkg)}`;
+    card.append(action);
+
+    const options = documentObject.createElement('ol');
+    options.className = 'review-triage-options';
+    appendTextList(documentObject, options, packageOwnerOptions(pkg));
+    if (options.children.length > 0) {
+      const optionsLabel = documentObject.createElement('p');
+      optionsLabel.className = 'review-triage-card-meta';
+      optionsLabel.textContent = 'Варианты решения:';
+      card.append(optionsLabel, options);
+    }
+
+    const details = documentObject.createElement('details');
+    const summary = documentObject.createElement('summary');
+    summary.textContent = 'Товары пакета (остатки, политика, расчёт)';
+    const goods = documentObject.createElement('ul');
+    // Members come resolved from the backend (full run artifacts); the
+    // client only renders them and never looks numbers up elsewhere.
+    const memberList = Array.isArray(pkg?.members) ? pkg.members : [];
+    const goodsText = memberList.length > 0
+      ? memberList.map(member => {
+        const parts = [member?.name || 'Товар без названия'];
+        parts.push(`Артикул поставщика: ${member?.article || REVIEW_TRIAGE_NO_DATA}`);
+        const numbers = [
+          `остаток ${triageQtyText(member?.free_stock)}`,
+          `Min/Target/Max ${reviewTriageMinMaxText(
+            triageNum(member?.min_stock),
+            triageNum(member?.target_stock),
+            triageNum(member?.max_stock)
+          ) || REVIEW_TRIAGE_NO_DATA}`,
+          `продажи 28 дн. ${triageQtyText(member?.sales)}`,
+          `расчёт закупщика ${triageQtyText(member?.recommended_qty)}`,
+          `рекомендация поставщика ${triageQtyText(member?.supplier_recommended_qty)}`,
+        ];
+        parts.push(`(${numbers.join(' · ')})`);
+        return parts.join(' — ');
+      })
+      : (Array.isArray(pkg?.articles) && pkg.articles.length > 0
+        ? pkg.articles.map(article => String(article))
+        : [REVIEW_TRIAGE_NO_DATA]);
+    appendTextList(documentObject, goods, goodsText);
+    details.append(summary, goods);
+    card.append(details);
+
+    card.append(reviewTriageTechnicalDetails(documentObject, 'Технические детали', [
+      `package_id=${pkg?.package_id || '—'}`,
+      `decision_type=${pkg?.decision_type || '—'}`,
+      `owner_signals=${Array.isArray(pkg?.owner_signals) ? pkg.owner_signals.join(', ') : '—'}`,
+      `business_question=${pkg?.business_question || '—'}`,
+      `evidence_summary=${pkg?.evidence_summary || '—'}`,
+    ]));
+    return card;
+  }
+
+  function reviewTriageField(documentObject, label, value) {
+    const row = documentObject.createElement('div');
+    row.className = 'review-triage-field';
+    const term = documentObject.createElement('span');
+    term.textContent = label;
+    const description = documentObject.createElement('strong');
+    description.textContent = value === null || value === undefined ||
+        value === ''
+      ? REVIEW_TRIAGE_NO_DATA
+      : String(value);
+    row.append(term, description);
+    return row;
+  }
+
+  function reviewTriageIndividualCard(documentObject, individual) {
+    const card = documentObject.createElement('article');
+    card.className = 'review-triage-card';
+
+    const model = individualOwnerModel(individual);
+
+    const heading = documentObject.createElement('h5');
+    heading.textContent = individual?.name || individual?.article ||
+      REVIEW_TRIAGE_NO_DATA;
+    card.append(heading);
+
+    const meta = documentObject.createElement('p');
+    meta.className = 'review-triage-card-meta';
+    const metaParts = [
+      individual?.article ? `Артикул поставщика: ${individual.article}` : null,
+      individual?.sku_id ? `sku_id: ${individual.sku_id}` : null,
+      individual?.supplier ? `Поставщик: ${individual.supplier}` : null,
+    ].filter(Boolean);
+    meta.textContent = metaParts.length > 0
+      ? metaParts.join(' · ')
+      : REVIEW_TRIAGE_NO_DATA;
+    card.append(meta);
+
+    // 1. Что происходит — детерминированный headline из фактов.
+    const headline = documentObject.createElement('p');
+    headline.className = 'review-triage-card-attention';
+    headline.textContent = model.headline;
+    card.append(headline);
+
+    // 2. Какие факты это подтверждают — только upstream-числа.
+    const facts = documentObject.createElement('div');
+    facts.className = 'review-triage-fields';
+    facts.append(
+      reviewTriageField(
+        documentObject,
+        'Остаток',
+        triageQtyText(individual?.free_stock)
+      ),
+      reviewTriageField(
+        documentObject,
+        'Продано за 28 дней',
+        triageQtyText(individual?.sales)
+      ),
+      reviewTriageField(
+        documentObject,
+        'Текущая политика Min/Target/Max',
+        reviewTriageMinMaxText(
+          triageNum(individual?.min_stock),
+          triageNum(individual?.target_stock),
+          triageNum(individual?.max_stock)
+        )
+      ),
+      reviewTriageField(
+        documentObject,
+        'Расчёт закупщика',
+        triageQtyText(individual?.recommended_qty)
+      ),
+      reviewTriageField(
+        documentObject,
+        'Рекомендация поставщика',
+        triageQtyText(individual?.supplier_recommended_qty)
+      )
+    );
+    const factsLabel = documentObject.createElement('p');
+    factsLabel.className = 'review-triage-card-meta';
+    factsLabel.textContent = 'Факты:';
+    card.append(factsLabel, facts);
+
+    // 3. Почему закупщик не решил автоматически.
+    const whyLabel = documentObject.createElement('p');
+    whyLabel.className = 'review-triage-card-meta';
+    whyLabel.textContent = 'Почему нужен Сергей:';
+    const whyList = documentObject.createElement('ul');
+    appendTextList(documentObject, whyList, model.why);
+    card.append(whyLabel, whyList);
+
+    // 4. Рекомендация системы.
+    const action = documentObject.createElement('p');
+    action.className = 'review-triage-card-action';
+    action.textContent = `Рекомендация системы: ${model.recommendation}`;
+    card.append(action);
+
+    // 5. Что конкретно должен выбрать Сергей.
+    const optionsLabel = documentObject.createElement('p');
+    optionsLabel.className = 'review-triage-card-meta';
+    optionsLabel.textContent = 'Варианты решения:';
+    const options = documentObject.createElement('ul');
+    appendTextList(documentObject, options, model.options);
+    card.append(optionsLabel, options);
+
+    card.append(reviewTriageTechnicalDetails(documentObject, 'Технические детали', [
+      `reason_code=${individual?.reason_code || '—'}`,
+      `owner_signals=${Array.isArray(individual?.owner_signals) && individual.owner_signals.length > 0 ? individual.owner_signals.join(', ') : '—'}`,
+      `row_identity=${individual?.row_identity || '—'}`,
+      `provenance=${individual?.provenance || '—'}`,
+      `business_question=${individual?.business_question || '—'}`,
+      ...(Array.isArray(individual?.evidence)
+        ? individual.evidence.filter(line => typeof line === 'string')
+        : []),
+    ]));
+    return card;
+  }
+
+  /**
+   * Card for a position BLOCKED_BY_DATA. The owner sees what happened and
+   * what to fix; the explicit message is that no owner decision is needed
+   * right now. Internal codes live in the collapsible technical block.
+   */
+  function reviewTriageBlockedCard(documentObject, entry) {
+    const card = documentObject.createElement('article');
+    card.className = 'review-triage-card review-triage-card-blocked';
+
+    const text = blockedOwnerText(entry);
+
+    const heading = documentObject.createElement('h5');
+    heading.textContent = text.title;
+    card.append(heading);
+
+    const meta = documentObject.createElement('p');
+    meta.className = 'review-triage-card-meta';
+    const metaParts = [
+      entry?.name || null,
+      entry?.article ? `Артикул поставщика: ${entry.article}` : null,
+      entry?.supplier ? `Поставщик: ${entry.supplier}` : null,
+    ].filter(Boolean);
+    meta.textContent = metaParts.length > 0
+      ? metaParts.join(' · ')
+      : REVIEW_TRIAGE_NO_DATA;
+    card.append(meta);
+
+    const explanation = documentObject.createElement('p');
+    explanation.textContent = text.explanation;
+    card.append(explanation);
+
+    const fix = documentObject.createElement('p');
+    fix.className = 'review-triage-card-action';
+    fix.textContent = `Что нужно исправить: ${text.fix}`;
+    card.append(fix);
+
+    const decision = documentObject.createElement('p');
+    decision.className = 'review-triage-card-meta';
+    decision.textContent = 'Решение Сергея сейчас не требуется.';
+    card.append(decision);
+
+    const note = documentObject.createElement('p');
+    note.className = 'review-triage-card-meta';
+    note.textContent = entry?.note ||
+      'После исправления данных закупщик повторно проверит товар и при необходимости задаст вопрос Сергею.';
+    card.append(note);
+
+    card.append(reviewTriageTechnicalDetails(documentObject, 'Технические детали', [
+      `reason_code=${entry?.reason_code || '—'}`,
+      `blocker=${entry?.blocker || '—'}`,
+      `owner_signals=${Array.isArray(entry?.owner_signals) && entry.owner_signals.length > 0 ? entry.owner_signals.join(', ') : '—'}`,
+      `row_identity=${entry?.row_identity || '—'}`,
+    ]));
+    return card;
+  }
+
+  /**
+   * Renders the read-only «Разбор ручной очереди» block from the API payload.
+   * All business numbers are shown exactly as the compaction reports them;
+   * grouping of exclusions uses the ready linkage_reason field only.
+   */
+  function renderReviewTriage(documentObject, elements, payload) {
+    const root = elements?.reviewTriage;
+    if (!root) return false;
+    const banner = payload ? reviewTriageBanner(payload.compaction) : null;
+    if (!payload || payload.available !== true || !banner) {
+      root.hidden = false;
+      if (elements.reviewTriageState) {
+        elements.reviewTriageState.hidden = false;
+        elements.reviewTriageState.textContent =
+          'Разбор недоступен для этого run.';
+      }
+      if (elements.reviewTriageContent) {
+        elements.reviewTriageContent.hidden = true;
+      }
+      return false;
+    }
+
+    const compaction = payload.compaction;
+    root.hidden = false;
+    if (elements.reviewTriageState) {
+      elements.reviewTriageState.hidden = true;
+      elements.reviewTriageState.textContent = '';
+    }
+    if (elements.reviewTriageContent) {
+      elements.reviewTriageContent.hidden = false;
+    }
+    if (elements.reviewTriageTotal) {
+      elements.reviewTriageTotal.textContent = banner.total;
+    }
+    if (elements.reviewTriageSubtitle) {
+      elements.reviewTriageSubtitle.textContent = banner.subtitle;
+    }
+
+    const packages = Array.isArray(compaction?.packages)
+      ? compaction.packages
+      : [];
+    if (elements.reviewTriagePackages) {
+      elements.reviewTriagePackages.replaceChildren();
+      for (const pkg of packages) {
+        elements.reviewTriagePackages.append(
+          reviewTriagePackageCard(documentObject, pkg)
+        );
+      }
+    }
+    if (elements.reviewTriagePackagesEmpty) {
+      elements.reviewTriagePackagesEmpty.hidden = packages.length > 0;
+    }
+
+    const individuals = Array.isArray(compaction?.individuals)
+      ? compaction.individuals
+      : [];
+    if (elements.reviewTriageIndividuals) {
+      elements.reviewTriageIndividuals.replaceChildren();
+      for (const individual of individuals) {
+        elements.reviewTriageIndividuals.append(
+          reviewTriageIndividualCard(documentObject, individual)
+        );
+      }
+    }
+    if (elements.reviewTriageIndividualsEmpty) {
+      elements.reviewTriageIndividualsEmpty.hidden = individuals.length > 0;
+    }
+
+    const blocked = Array.isArray(compaction?.blocked)
+      ? compaction.blocked
+      : [];
+    if (elements.reviewTriageBlocked) {
+      elements.reviewTriageBlocked.replaceChildren();
+      for (const entry of blocked) {
+        elements.reviewTriageBlocked.append(
+          reviewTriageBlockedCard(documentObject, entry)
+        );
+      }
+    }
+    if (elements.reviewTriageBlockedEmpty) {
+      elements.reviewTriageBlockedEmpty.hidden = blocked.length > 0;
+    }
+    if (elements.reviewTriageBlockedSummary) {
+      elements.reviewTriageBlockedSummary.textContent =
+        `Сначала нужно исправить данные — ${blocked.length}`;
+    }
+
+    const exclusions = Array.isArray(compaction?.exclusions)
+      ? compaction.exclusions
+      : [];
+    if (elements.reviewTriageExclusions) {
+      elements.reviewTriageExclusions.replaceChildren();
+      const groups = new Map();
+      for (const exclusion of exclusions) {
+        const reason = exclusion?.linkage_reason ||
+          exclusion?.linkage_reason_label || 'unknown';
+        if (!groups.has(reason)) groups.set(reason, []);
+        groups.get(reason).push(exclusion);
+      }
+      for (const [reason, groupItems] of groups.entries()) {
+        const groupSection = documentObject.createElement('div');
+        groupSection.className = 'review-triage-exclusion-group';
+        const groupTitle = documentObject.createElement('h5');
+        groupTitle.textContent = EXCLUSION_OWNER_TITLES[reason] ||
+          groupItems[0]?.linkage_reason_label ||
+          `Проблема связи данных: ${reason}`;
+        const groupNote = documentObject.createElement('p');
+        groupNote.className = 'review-triage-group-note';
+        groupNote.textContent =
+          'Нужно решение Сергея сейчас: нет. Это проблема данных, ' +
+          'а не бизнес-решение.';
+        const list = documentObject.createElement('ul');
+        appendTextList(
+          documentObject,
+          list,
+          groupItems.map(item =>
+            `${item.article || '—'} ${item.name || ''}`.trim()
+          )
+        );
+        groupSection.append(groupTitle, groupNote, list);
+        elements.reviewTriageExclusions.append(groupSection);
+      }
+    }
+    if (elements.reviewTriageExclusionsEmpty) {
+      elements.reviewTriageExclusionsEmpty.hidden = exclusions.length > 0;
+    }
+    if (elements.reviewTriageExclusionsSummary) {
+      elements.reviewTriageExclusionsSummary.textContent =
+        `Другие проблемы данных — ${exclusions.length}`;
+    }
+    return true;
+  }
+
   async function requestJson(fetchFunction, url, options) {
     let response;
     try {
@@ -4738,6 +5560,35 @@
         documentObject.getElementById('report-preview-content'),
       reportPreviewClose:
         documentObject.getElementById('report-preview-close'),
+      reviewTriage: documentObject.getElementById('review-triage'),
+      reviewTriageState:
+        documentObject.getElementById('review-triage-state'),
+      reviewTriageContent:
+        documentObject.getElementById('review-triage-content'),
+      reviewTriageTotal:
+        documentObject.getElementById('review-triage-total'),
+      reviewTriageSubtitle:
+        documentObject.getElementById('review-triage-subtitle'),
+      reviewTriagePackages:
+        documentObject.getElementById('review-triage-packages'),
+      reviewTriagePackagesEmpty:
+        documentObject.getElementById('review-triage-packages-empty'),
+      reviewTriageIndividuals:
+        documentObject.getElementById('review-triage-individuals'),
+      reviewTriageIndividualsEmpty:
+        documentObject.getElementById('review-triage-individuals-empty'),
+      reviewTriageBlocked:
+        documentObject.getElementById('review-triage-blocked'),
+      reviewTriageBlockedEmpty:
+        documentObject.getElementById('review-triage-blocked-empty'),
+      reviewTriageBlockedSummary:
+        documentObject.getElementById('review-triage-blocked-summary'),
+      reviewTriageExclusions:
+        documentObject.getElementById('review-triage-exclusions'),
+      reviewTriageExclusionsEmpty:
+        documentObject.getElementById('review-triage-exclusions-empty'),
+      reviewTriageExclusionsSummary:
+        documentObject.getElementById('review-triage-exclusions-summary'),
     };
 
     let selectedFile = null;
@@ -4750,7 +5601,9 @@
     let materializedRulesRequestSequence = 0;
     let ruleEffectivenessRequestSequence = 0;
     let knowledgeHealthRequestSequence = 0;
+    let reviewTriageRequestSequence = 0;
     let currentRunId = null;
+    let latestItemsByKey = new Map();
     let supplierOrderCard = null;
     let latestBudgetOptimization = null;
     let pendingRuleStatusChange = null;
@@ -5854,6 +6707,15 @@
 
     function renderItemsPayload(payload) {
       const items = Array.isArray(payload?.items) ? payload.items : [];
+      latestItemsByKey = new Map();
+      for (const item of items) {
+        if (typeof item?.row_id === 'string' && item.row_id !== '') {
+          latestItemsByKey.set(item.row_id, item);
+        }
+        if (typeof item?.sku === 'string' && item.sku !== '') {
+          latestItemsByKey.set(item.sku, item);
+        }
+      }
       const pagination = payload?.pagination || {};
       itemState.page = Number.isInteger(pagination.page)
         ? pagination.page
@@ -5942,6 +6804,36 @@
       return loadItems();
     }
 
+    function resetReviewTriage() {
+      reviewTriageRequestSequence += 1;
+      if (elements.reviewTriage) elements.reviewTriage.hidden = true;
+      if (elements.reviewTriageState) {
+        elements.reviewTriageState.hidden = true;
+        elements.reviewTriageState.textContent = '';
+      }
+      if (elements.reviewTriageContent) {
+        elements.reviewTriageContent.hidden = true;
+      }
+    }
+
+    // Read-only: a failed or missing triage never breaks the results screen.
+    async function loadReviewTriage() {
+      const url = reviewTriageUrl(currentRunId);
+      if (!url) {
+        resetReviewTriage();
+        return;
+      }
+      const sequence = ++reviewTriageRequestSequence;
+      try {
+        const payload = await requestJson(fetchFunction, url);
+        if (sequence !== reviewTriageRequestSequence) return;
+        renderReviewTriage(documentObject, elements, payload);
+      } catch {
+        if (sequence !== reviewTriageRequestSequence) return;
+        renderReviewTriage(documentObject, elements, null);
+      }
+    }
+
     function setFieldError(message) {
       elements.fileError.textContent = message || '';
       elements.fileError.hidden = !message;
@@ -5992,6 +6884,7 @@
       resetExports();
       resetBudgetOptimization();
       resetItems();
+      resetReviewTriage();
       elements.results.hidden = true;
       elements.selectedFile.hidden = !file;
       elements.selectedFileName.textContent = file?.name || '';
@@ -6211,6 +7104,7 @@
           'Расчёт завершён. Итоги и файлы готовы.'
         );
         await activateItems(itemsUrl);
+        loadReviewTriage();
       } catch (error) {
         clearTimeout(processingHint);
         console.error(
@@ -6626,12 +7520,17 @@
     renderRuleEffectivenessSummary,
     renderRuleStatusPreview,
     renderItemRows,
-    resetCandidateFilters,
-    resetMaterializedRulesFilters,
+    renderReviewTriage,
+    resetCandidateFilters,    resetMaterializedRulesFilters,
     resetKnowledgeHealthFilters,
     resetRuleEffectivenessFilters,
     requestNeedsDecisionItems,
     requestJson,
+    reviewTriageBanner,
+    reviewTriageDecisionLabel,
+    reviewTriageMinMaxText,
+    reviewTriageStockText,
+    reviewTriageUrl,
     reportCenterItems,
     positionsLabel,
     supplierOrderCardModel,

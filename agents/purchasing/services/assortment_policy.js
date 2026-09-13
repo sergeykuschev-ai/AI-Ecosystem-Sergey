@@ -239,6 +239,10 @@ function policyView(rule) {
 function collectProductCandidateIds(product) {
   if (!product || typeof product !== 'object') return [];
   const candidates = [];
+  const canonicalSkuId = product.canonicalSkuId || product.canonical_sku_id || null;
+  if (canonicalSkuId) {
+    candidates.push({ type: 'canonicalSkuId', value: normalizeSku(canonicalSkuId) });
+  }
   if (product.article) {
     candidates.push({ type: 'article', value: normalizeSku(product.article) });
   }

@@ -42,9 +42,16 @@ function normalizedText(value) {
     : null;
 }
 
+const SUPPLIER_NAME_ALIASES = new Map([
+  ['АКЦИОНЕРНОЕ ОБЩЕСТВО \"ВАЛТА ПЕТ ПРОДАКТС\"', 'АО \"ВАЛТА ПЕТ ПРОДАКТС\"'],
+  ['АО \"ВАЛТА ПЕТ ПРОДАКТС\"', 'АО \"ВАЛТА ПЕТ ПРОДАКТС\"'],
+]);
+
 function normalizeSupplier(value) {
   const normalized = optionalString(value);
-  return normalized ? normalized.toUpperCase().replace(/\s+/g, ' ') : 'UNKNOWN';
+  if (!normalized) return 'UNKNOWN';
+  const canonical = normalized.toUpperCase().replace(/\s+/g, ' ');
+  return SUPPLIER_NAME_ALIASES.get(canonical) || canonical;
 }
 
 function supplierKeyPart(supplier) {

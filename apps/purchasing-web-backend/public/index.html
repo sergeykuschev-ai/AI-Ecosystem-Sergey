@@ -2021,6 +2021,83 @@
           <ul id="run-attention" hidden></ul>
         </section>
 
+        <details class="review-triage" id="review-triage" hidden>
+          <summary>
+            <span class="step-label">Read-only разбор</span>
+            <h3>Разбор ручной очереди</h3>
+          </summary>
+          <div class="review-triage-body">
+            <p
+              class="review-triage-state"
+              id="review-triage-state"
+              role="status"
+              hidden
+            ></p>
+            <div id="review-triage-content" hidden>
+              <div class="review-triage-banner">
+                <strong id="review-triage-total">—</strong>
+                <span id="review-triage-subtitle">—</span>
+              </div>
+
+              <section
+                class="review-triage-section"
+                aria-labelledby="review-triage-packages-title"
+              >
+                <h4 id="review-triage-packages-title">Пакетные решения</h4>
+                <p
+                  class="review-triage-empty"
+                  id="review-triage-packages-empty"
+                >
+                  Нет пакетных решений.
+                </p>
+                <div id="review-triage-packages"></div>
+              </section>
+
+              <section
+                class="review-triage-section"
+                aria-labelledby="review-triage-individuals-title"
+              >
+                <h4 id="review-triage-individuals-title">
+                  Индивидуальные решения
+                </h4>
+                <p
+                  class="review-triage-empty"
+                  id="review-triage-individuals-empty"
+                >
+                  Нет индивидуальных решений.
+                </p>
+                <div id="review-triage-individuals"></div>
+              </section>
+
+              <details class="review-triage-section review-triage-collapsible">
+                <summary id="review-triage-blocked-summary">
+                  Сначала нужно исправить данные
+                </summary>
+                <p
+                  class="review-triage-empty"
+                  id="review-triage-blocked-empty"
+                >
+                  Нет заблокированных позиций.
+                </p>
+                <div id="review-triage-blocked"></div>
+              </details>
+
+              <details class="review-triage-section review-triage-collapsible">
+                <summary id="review-triage-exclusions-summary">
+                  Другие проблемы данных
+                </summary>
+                <p
+                  class="review-triage-empty"
+                  id="review-triage-exclusions-empty"
+                >
+                  Нет проблем данных.
+                </p>
+                <div id="review-triage-exclusions"></div>
+              </details>
+            </div>
+          </div>
+        </details>
+
         <details class="technical-results">
           <summary>Технические детали расчёта</summary>
           <div class="technical-result-grid">

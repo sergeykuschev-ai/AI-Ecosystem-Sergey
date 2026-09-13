@@ -553,6 +553,8 @@ async function defaultAgentRunner(
     {
       financialDataPath,
       assortmentMatrixPath,
+      ownerDecisionsPath: DEFAULT_OWNER_DECISIONS_PATH,
+      ownerDecisionNow: reportMetadata.generatedAt,
       reportDate: reportMetadata.reportDate,
     }
   );

@@ -9,6 +9,8 @@ const ITEM_DECISION_ROUTE =
   /^\/api\/v1\/runs\/([^/]+)\/items\/([^/]+)\/decision$/;
 const OWNER_REVIEW_ROUTE =
   /^\/api\/v1\/runs\/([^/]+)\/owner-review$/;
+const REVIEW_TRIAGE_ROUTE =
+  /^\/api\/v1\/runs\/([^/]+)\/review-triage$/;
 const BUDGET_OPTIMIZATION_ROUTE =
   /^\/api\/v1\/runs\/([^/]+)\/budget-optimization$/;
 const OWNER_DECISION_ANALYTICS_ROUTE =
@@ -311,6 +313,8 @@ function createRouter(handlers, options = {}) {
           rawPath.match(BUDGET_OPTIMIZATION_ROUTE);
         const ownerReviewMatch = request.method === 'GET' &&
           url.pathname.match(OWNER_REVIEW_ROUTE);
+        const reviewTriageMatch = request.method === 'GET' &&
+          url.pathname.match(REVIEW_TRIAGE_ROUTE);
         const artifactsMatch = request.method === 'GET' &&
           url.pathname.match(ARTIFACTS_ROUTE);
         const artifactMatch = request.method === 'GET' &&
@@ -369,6 +373,9 @@ function createRouter(handlers, options = {}) {
             runId,
             queryObject(url.searchParams)
           );
+        } else if (reviewTriageMatch) {
+          runId = reviewTriageMatch[1];
+          result = handlers.getReviewTriage(runId, response);
         } else if (statusMatch) {
           runId = statusMatch[1];
           result = handlers.getRunStatus(runId);
@@ -406,6 +413,7 @@ module.exports = {
   ITEM_DECISION_ROUTE,
   ITEMS_ROUTE,
   OWNER_REVIEW_ROUTE,
+  REVIEW_TRIAGE_ROUTE,
   OWNER_DECISION_ANALYTICS_ROUTE,
   OWNER_LEARNING_CENTER_ROUTE,
   OWNER_KNOWLEDGE_HEALTH_DETAIL_ROUTE,

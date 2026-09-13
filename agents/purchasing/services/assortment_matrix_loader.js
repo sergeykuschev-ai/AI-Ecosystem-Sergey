@@ -4,6 +4,12 @@ const { normalize } = require('../parsers/minmax_parser');
 const {
   loadRequiredJson,
 } = require('../../../shared/config/json_config_loader');
+const {
+  EXTERNAL_ID_TYPES,
+  resolveConfirmedAlias,
+  rowExternalId,
+  normalizeAliasIdentifierValue,
+} = require('./product_alias_resolver');
 
 const ALLOWED_PRIORITIES = Object.freeze([
   'critical',
@@ -332,12 +338,65 @@ function valuesByKey(values, keyFor) {
   return index;
 }
 
-function matchAssortmentMatrix(matrix, rows) {
+function matchAssortmentMatrix(matrix, rows, options = {}) {
   if (!matrix || !Array.isArray(matrix.items)) {
     throw new TypeError('Для сопоставления требуется валидированная матрица.');
   }
   if (!Array.isArray(rows)) {
     throw new TypeError('Для сопоставления требуется массив товарных строк.');
+  }
+
+  // Confirmed-alias pass. Runs after the exact article pass conceptually but
+  // is resolved up front: an alias applies only to rows the article pass will
+  // not uniquely match, only when the alias identifier is unique across the
+  // report, and never twice to the same matrix item. Article-typed aliases
+  // cannot resolve duplicated articles (e.g. Мнямс 34002) because the
+  // identifier-uniqueness check rejects them.
+  const aliasIndex = options.aliasIndex || null;
+  const aliasRowsByItem = new Map();
+  const aliasClaimedRows = new Set();
+  if (aliasIndex && aliasIndex.size > 0) {
+    const identifierCounts = new Map();
+    for (const row of rows) {
+      for (const idType of EXTERNAL_ID_TYPES) {
+        const value = rowExternalId(row, idType);
+        if (value === null || String(value).trim() === '') continue;
+        const normalizedValue = normalizeAliasIdentifierValue(idType, value);
+        if (!normalizedValue) continue;
+        const key = `${idType}:${normalizedValue}`;
+        identifierCounts.set(key, (identifierCounts.get(key) || 0) + 1);
+      }
+    }
+    const matrixItemsByAliasTarget = new Map();
+    for (const item of matrix.items) {
+      for (const key of new Set(
+        [item.article, item.canonical_sku_id].filter(Boolean).map(String)
+      )) {
+        if (!matrixItemsByAliasTarget.has(key)) matrixItemsByAliasTarget.set(key, []);
+        matrixItemsByAliasTarget.get(key).push(item);
+      }
+    }
+    const rowsByArticleKey = valuesByKey(rows, row => normalizedArticle(row.article));
+    const itemsByArticleKey = valuesByKey(
+      matrix.items,
+      item => item.normalized_article
+    );
+    for (const row of rows) {
+      const resolved = resolveConfirmedAlias(
+        aliasIndex, row, identifierCounts, matrixItemsByAliasTarget
+      );
+      if (!resolved || !resolved.applied) continue;
+      const itemIndex = matrix.items.indexOf(resolved.item);
+      if (itemIndex < 0 || aliasRowsByItem.has(itemIndex)) continue;
+      // Exact article match takes precedence over the alias; if the row's
+      // article uniquely identifies one matrix item, the alias adds nothing.
+      const articleKey = normalizedArticle(row.article);
+      const articleRows = articleKey ? rowsByArticleKey.get(articleKey) || [] : [];
+      const sameArticleItems = articleKey ? itemsByArticleKey.get(articleKey) || [] : [];
+      if (articleRows.length === 1 && sameArticleItems.length === 1) continue;
+      aliasRowsByItem.set(itemIndex, { row, alias: resolved.alias });
+      aliasClaimedRows.add(row.rowIdentity);
+    }
   }
 
   const rowsByArticle = valuesByKey(
@@ -353,8 +412,21 @@ function matchAssortmentMatrix(matrix, rows) {
     item => item.normalized_article
   );
   const proposedResults = matrix.items.map((item, itemIndex) => {
+    const aliasMatch = aliasRowsByItem.get(itemIndex);
+    if (aliasMatch) {
+      return {
+        itemIndex,
+        status: 'matched',
+        matchMethod: 'confirmed_alias',
+        row: aliasMatch.row,
+        alias: aliasMatch.alias,
+        candidateRowIdentities: [aliasMatch.row.rowIdentity],
+      };
+    }
+
     const articleRows = item.normalized_article
-      ? rowsByArticle.get(item.normalized_article) || []
+      ? (rowsByArticle.get(item.normalized_article) || [])
+        .filter(candidate => !aliasClaimedRows.has(candidate.value.rowIdentity))
       : [];
     const sameArticleItems = item.normalized_article
       ? itemsByArticle.get(item.normalized_article) || []
@@ -370,7 +442,8 @@ function matchAssortmentMatrix(matrix, rows) {
       };
     }
 
-    const nameRows = rowsByName.get(item.normalized_name) || [];
+    const nameRows = (rowsByName.get(item.normalized_name) || [])
+      .filter(candidate => !aliasClaimedRows.has(candidate.value.rowIdentity));
     if (nameRows.length === 1) {
       return {
         itemIndex,
@@ -417,6 +490,7 @@ function matchAssortmentMatrix(matrix, rows) {
       item: matrix.items[result.itemIndex],
       row: result.row,
       matchMethod: result.matchMethod,
+      alias: result.alias || null,
     });
   }
 
@@ -479,6 +553,7 @@ function buildDemandAssortmentSource(matrix, rows, matchResult) {
     if (!demandMatch) continue;
     products.push({
       ...demandMatch,
+      canonicalSkuId: match.item.canonical_sku_id || null,
       mandatory: ['critical', 'important'].includes(match.item.priority),
       minDisplayStock: match.item.minimum_shelf_stock,
       assortmentPriority: match.item.priority === 'critical'

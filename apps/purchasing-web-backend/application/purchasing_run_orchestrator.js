@@ -316,6 +316,8 @@ async function runPurchasingWebOrchestrator(
       {
         financialDataPath: request.financialDataPath,
         assortmentMatrixPath: request.matrixPath,
+        ownerDecisionsPath: request.ownerDecisionsPath,
+        ownerDecisionNow: request.generatedAt,
       }
     );
   } catch (error) {

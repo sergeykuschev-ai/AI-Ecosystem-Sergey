@@ -342,6 +342,9 @@ function resolveIncomingStockSource(inTransitMode, sources, inTransitStatus) {
   return 'external_in_transit_data';
 }
 
+const ZOOGRAD_CANONICAL_SUPPLIER = 'зооград';
+const VALTA_CANONICAL_SUPPLIER = 'валта';
+
 const ZOOGRAD_ALIASES = new Set([
   'зооград',
   'зооград/оникиенко',
@@ -353,6 +356,9 @@ const ZOOGRAD_ALIASES = new Set([
 
 function canonicalSupplierName(supplier) {
   const normalized = normalize(supplier);
+  if (normalized.includes('валта')) {
+    return VALTA_CANONICAL_SUPPLIER;
+  }
   if (
     ZOOGRAD_ALIASES.has(normalized) ||
     normalized.includes('зооград') ||
@@ -360,16 +366,33 @@ function canonicalSupplierName(supplier) {
     normalized.includes('рич стор') ||
     normalized.includes('хабаровск опт')
   ) {
-    return 'зооград';
+    return ZOOGRAD_CANONICAL_SUPPLIER;
   }
   return normalized;
+}
+
+function supplierSafetyStockDays(row, config) {
+  const canonical = canonicalSupplierName(row.supplier);
+  const bySupplier =
+    (config.safetyStockDaysBySupplier &&
+      config.safetyStockDaysBySupplier.bySupplier) ||
+    {};
+  if (Object.hasOwn(bySupplier, canonical)) return bySupplier[canonical];
+  return config.safetyStockDays;
 }
 
 function supplierDeliveryCycle(row, inputs, config) {
   const supplier = normalize(row.supplier);
   const inputCycles = inputs.supplierDeliveryCycleDays || {};
-  const configured = inputCycles[supplier] ?? config.supplierDeliveryCycleDays.bySupplier[supplier];
-  return configured ?? config.supplierDeliveryCycleDays.default ?? null;
+  const bySupplier = config.supplierDeliveryCycleDays.bySupplier;
+  if (Object.hasOwn(inputCycles, supplier)) return inputCycles[supplier];
+  if (Object.hasOwn(bySupplier, supplier)) return bySupplier[supplier];
+  const canonical = canonicalSupplierName(row.supplier);
+  if (canonical !== supplier) {
+    if (Object.hasOwn(inputCycles, canonical)) return inputCycles[canonical];
+    if (Object.hasOwn(bySupplier, canonical)) return bySupplier[canonical];
+  }
+  return config.supplierDeliveryCycleDays.default ?? null;
 }
 
 function matchMetadata(candidate) {
@@ -556,6 +579,7 @@ function calculateDemandProduct(row, sources, matches, context, config) {
   const transitCandidate = matches.inTransit.matchesByRowIdentity.get(row.rowIdentity);
   const salesRecord = salesCandidate ? salesCandidate.record : null;
   const assortmentRecord = assortmentCandidate ? assortmentCandidate.record : null;
+  const canonicalSkuId = assortmentRecord?.canonicalSkuId || null;
   const transitRecord = transitCandidate ? transitCandidate.record : null;
   const sales = Object.fromEntries(
     SALES_FIELDS.map(field => [field, valueFromRecord(salesRecord, field)])
@@ -676,6 +700,13 @@ function calculateDemandProduct(row, sources, matches, context, config) {
   }
 
   const onHandStock = freeStock;
+  const zeroStockProvenance =
+    row.zeroStockConfirmed === true && freeStock === 0
+      ? {
+        status: 'confirmed_zero',
+        source: row.zeroStockReason || 'zero_confirmed_by_stock_days',
+      }
+      : null;
   const { reserveStock, reserveStockSource } = resolveReserveStock(
     row,
     context.inventorySemantics
@@ -767,8 +798,9 @@ function calculateDemandProduct(row, sources, matches, context, config) {
   const abc = normalizeClass(row.abc);
   const xyz = normalizeClass(row.xyz);
   const combination = `${abc}/${xyz}`;
-  const safetyStockDays = Object.hasOwn(config.safetyStockDays, combination)
-    ? config.safetyStockDays[combination]
+  const safetyTable = supplierSafetyStockDays(row, config);
+  const safetyStockDays = Object.hasOwn(safetyTable, combination)
+    ? safetyTable[combination]
     : null;
   if (safetyStockDays === null) requiredData.push('safety_stock_days');
 
@@ -840,6 +872,7 @@ function calculateDemandProduct(row, sources, matches, context, config) {
     rowNumber: row.rowNumber,
     name: row.name,
     article: row.article || null,
+    canonicalSkuId,
     supplier: row.supplier || null,
     abc,
     xyz,
@@ -912,6 +945,8 @@ function calculateDemandProduct(row, sources, matches, context, config) {
       : [],
     freeStock,
     stockStatus: resolvedStockStatus,
+    zeroStockConfirmed: zeroStockProvenance !== null,
+    zeroStockReason: zeroStockProvenance ? zeroStockProvenance.source : null,
     onHandStock,
     reserveStock,
     reserveStockSource,
@@ -1263,5 +1298,6 @@ module.exports = {
   summarizeDemandPlan,
   buildDemandPlan,
   canonicalSupplierName,
+  supplierSafetyStockDays,
   ZOOGRAD_ALIASES,
 };

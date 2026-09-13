@@ -572,13 +572,27 @@ test('GET / serves the Russian frontend with secure headers', async () => {
     'Скачать заказ поставщику',
     'Скачать исключённые позиции',
     'Скачать optimized-order.json',
-    'Рабочий заказ',
-    'Бюджет позволяет заказ',
-    'Заказ Зооград',
-    'Другие поставщики',
-    'Операционный статус',
+    'Итоговый заказ',
+    'Финансовое решение',
+    'Безопасный бюджет',
+    'Автоматически одобрено',
+    'Общий статус запуска',
   ]) {
     assert.match(body, new RegExp(label));
+  }
+  // The final-order cards replaced the old supplier working-maximum cards.
+  // Require each label and value element to belong to the same card.
+  const cards = body.match(/<article\b[^>]*>[\s\S]*?<\/article>/g) || [];
+  for (const [label, valueId] of [
+    ['Итоговый заказ', 'analyzer-order-sum'],
+    ['Финансовое решение', 'financial-status'],
+    ['Безопасный бюджет', 'reserve-surplus'],
+    ['Автоматически одобрено', 'auto-approved-sum'],
+    ['На ручную проверку', 'pending-review-sum'],
+    ['Общий статус запуска', 'run-status'],
+  ]) {
+    assert.ok(cards.some(card => card.includes(label) && card.includes(`id="${valueId}"`)),
+      `${label} must contain its value element ${valueId}`);
   }
   assert.match(body, /id="report-center-grid"[\s\S]*hidden/);
   assert.match(body, /id="report-preview-dialog"/);
@@ -596,16 +610,15 @@ test('GET / serves the Russian frontend with secure headers', async () => {
   }
   for (const id of [
     'result-file-name',
+    'analyzer-order-sum',
+    'sku-count',
+    'initial-recommendation',
+    'auto-approved-sum',
+    'pending-review-sum',
+    'owner-review-count',
+    'financial-status',
+    'financially-assessed-sum',
     'working-maximum-sum',
-    'working-maximum-lines',
-    'working-maximum-status',
-    'working-maximum-status-card',
-    'working-maximum-status-code',
-    'zoograd-working-maximum-sum',
-    'zoograd-working-maximum-lines',
-    'other-suppliers-working-maximum-sum',
-    'other-suppliers-working-maximum-lines',
-    'pending-review-lines',
     'financial-decision-card',
     'financial-status-code',
     'budget-deviation-card',
