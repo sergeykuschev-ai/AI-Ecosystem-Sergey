@@ -143,7 +143,7 @@ function referenceQuantity(item) {
     0;
 }
 
-function classifyItem(item) {
+function classifyItem(item, options = {}) {
   const decision = ownerDecisionOf(item);
   if (decision === 'BUY') {
     const quantity = finiteNumber(item?.owner_decision?.quantity);
@@ -157,15 +157,25 @@ function classifyItem(item) {
       item?.assortment_policy?.rollout_status === 'FIRST_ROLLOUT';
     return { kind: 'excluded', reason: isRollout ? 'postponed_by_rollout' : 'deferred' };
   }
+  const triageRowIds = options.ownerReviewRequiredRowIds;
+  const hasTriageOverride = triageRowIds instanceof Set;
+  const triageRequiresReview = hasTriageOverride &&
+    triageRowIds.has(item?.row_id ?? item?.rowIdentity ?? null);
   const isFirstRolloutTestAwaiting = item?.first_rollout_test_awaiting === true ||
     (
       item?.assortment_policy?.assortment_status === 'TEST' &&
       item?.assortment_policy?.rollout_status === 'FIRST_ROLLOUT'
     );
-  if (isFirstRolloutTestAwaiting) {
-    return { kind: 'unresolved', reason: 'first_rollout_review_required' };
+  if ((hasTriageOverride && triageRequiresReview) ||
+      (!hasTriageOverride && isFirstRolloutTestAwaiting)) {
+    return {
+      kind: 'unresolved',
+      reason: isFirstRolloutTestAwaiting
+        ? 'first_rollout_review_required'
+        : 'review_required',
+    };
   }
-  if (item?.matrix?.owner_review_required === true) {
+  if (!hasTriageOverride && item?.matrix?.owner_review_required === true) {
     return { kind: 'unresolved', reason: 'review_required' };
   }
   if (item?.workflow_status === 'auto_approved') {
@@ -247,7 +257,9 @@ function buildFinalOrderState(input = {}) {
   const unresolvedItems = [];
 
   for (const item of items) {
-    const classification = classifyItem(item);
+    const classification = classifyItem(item, {
+      ownerReviewRequiredRowIds: input.ownerReviewRequiredRowIds,
+    });
     if (classification.kind === 'included') {
       const packaging = applyPackagingRules(item, classification.quantity);
       const entry = includedEntry(

@@ -269,6 +269,23 @@ function ownerSectionItem(item) {
   };
 }
 
+
+function triageRequiredRowIds(triage) {
+  const sections = triage?.current_manual_sections;
+  if (!sections || typeof sections !== 'object') return null;
+  const rowIds = new Set();
+  for (const sectionName of ['data_problems', 'matrix_gaps', 'owner_decisions']) {
+    const items = sections?.[sectionName]?.items;
+    if (!Array.isArray(items)) continue;
+    for (const item of items) {
+      if (typeof item?.row_identity === 'string' && item.row_identity) {
+        rowIds.add(item.row_identity);
+      }
+    }
+  }
+  return rowIds;
+}
+
 class RunQueryService {
   constructor(registry, options = {}) {
     if (!registry) throw new TypeError('Run registry обязателен.');
@@ -297,10 +314,21 @@ class RunQueryService {
     return ownerDecisionSummary(this.getDecoratedItems(runId));
   }
 
+  getTriageRequiredRowIds(runId) {
+    try {
+      return triageRequiredRowIds(
+        this.registry.getReviewTriageArtifacts(runId)?.triage
+      );
+    } catch {
+      return null;
+    }
+  }
+
   optimizeBudget(runId, targetBudget) {
     ensureCompleted(this.getRunStatus(runId));
     const finalOrder = buildFinalOrderState({
       items: this.getDecoratedItems(runId),
+      ownerReviewRequiredRowIds: this.getTriageRequiredRowIds(runId),
     });
     return optimizePurchasingBudget({
       finalOrder,

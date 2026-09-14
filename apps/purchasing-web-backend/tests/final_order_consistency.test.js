@@ -716,3 +716,27 @@ test('classifyItem + applyPackagingRules is the single source of final_quantity'
   assert.equal(packaging.orderMode, 'BOX');
   assert.equal(finalQuantityWithOwnerDecision(item), packaging.quantity);
 });
+
+test('triage override limits unresolved rows to the verified manual queue', () => {
+  const flagged = {
+    row_id: 'row-flagged',
+    name: 'Flagged item',
+    matrix: { owner_review_required: true },
+    workflow_status: 'pending_manual_review',
+    quantities: { provisional_quantity: 2 },
+    amounts: { unit_price: 100 },
+    owner_decision: { decision: null },
+  };
+  const informational = {
+    ...flagged,
+    row_id: 'row-info',
+    name: 'Informational matrix warning',
+  };
+  const state = buildFinalOrderState({
+    items: [flagged, informational],
+    ownerReviewRequiredRowIds: new Set(['row-flagged']),
+  });
+  assert.equal(state.unresolvedCount, 1);
+  assert.equal(state.unresolvedItems[0].rowId, 'row-flagged');
+  assert.equal(state.excludedItems.some(item => item.rowId === 'row-info'), true);
+});

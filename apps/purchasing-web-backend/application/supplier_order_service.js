@@ -84,6 +84,8 @@ class SupplierOrderService {
     const summary = this.registry.getRunSummary(runId);
     const state = buildFinalOrderState({
       items,
+      ownerReviewRequiredRowIds:
+        this.queryService.getTriageRequiredRowIds(runId),
       maximumSafeOrderAmount:
         summary?.financial?.maximum_safe_order_amount ?? null,
       initialRecommendation: {
@@ -114,8 +116,14 @@ class SupplierOrderService {
   buildOrder(runId) {
     this.assertMinMaxSafety(runId);
     const items = this.queryService.getDecoratedItems(runId);
+    const state = buildFinalOrderState({
+      items,
+      ownerReviewRequiredRowIds:
+        this.queryService.getTriageRequiredRowIds(runId),
+    });
     return buildSupplierOrder({
       items,
+      state,
       supplier: this.supplierFor(runId, items),
       generatedAt: this.now(),
     });
