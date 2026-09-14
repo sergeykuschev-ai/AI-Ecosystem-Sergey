@@ -3,6 +3,7 @@
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const config = require('./config');
 const sandbox = require('./sandbox');
 const { scrub } = require('./logger');
@@ -83,7 +84,7 @@ function runCodex(worktreePath, prompt, transcriptPath) {
       PATH: process.env.PATH,
       HOME: process.env.HOME,
       LANG: process.env.LANG || 'en_US.UTF-8',
-      TMPDIR: `/private/tmp/codex-worker-${process.pid}`,
+      TMPDIR: path.join(os.tmpdir(), `codex-worker-${process.pid}`),
     };
     fs.mkdirSync(env.TMPDIR, { recursive: true });
     logLine(transcriptPath, `$ ${wrapped.command} <outer sandbox> ${config.codex.command} exec <prompt ${prompt.length} chars>`);

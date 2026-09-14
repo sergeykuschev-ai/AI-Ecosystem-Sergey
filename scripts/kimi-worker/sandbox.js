@@ -2,6 +2,8 @@
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
+const { spawnSync } = require('child_process');
 const config = require('./config');
 
 // macOS Seatbelt (sandbox-exec) profile that isolates Kimi DURING execution,
@@ -33,13 +35,22 @@ function bothForms(p) {
   }
 }
 
-function isAvailable() {
-  try {
-    fs.accessSync('/usr/bin/sandbox-exec', fs.constants.X_OK);
-    return true;
-  } catch {
-    return false;
+function sandboxKind() {
+  if (process.platform === 'darwin') {
+    try {
+      fs.accessSync('/usr/bin/sandbox-exec', fs.constants.X_OK);
+      return 'seatbelt';
+    } catch { return null; }
   }
+  if (process.platform === 'linux') {
+    const probe = spawnSync('sh', ['-lc', 'command -v bwrap'], { encoding: 'utf8' });
+    return probe.status === 0 && probe.stdout.trim() ? 'bubblewrap' : null;
+  }
+  return null;
+}
+
+function isAvailable() {
+  return sandboxKind() !== null;
 }
 
 function buildProfile(worktreePath) {
@@ -85,12 +96,24 @@ function writeProfile(worktreePath) {
 
 // Wraps a command so it runs under the seatbelt profile for this worktree.
 function wrap(worktreePath, command, args) {
-  const profilePath = writeProfile(worktreePath);
-  return {
-    command: '/usr/bin/sandbox-exec',
-    args: ['-f', profilePath, command, ...args],
-    profilePath,
-  };
+  const kind = sandboxKind();
+  if (kind === 'seatbelt') {
+    const profilePath = writeProfile(worktreePath);
+    return { command: '/usr/bin/sandbox-exec', args: ['-f', profilePath, command, ...args], profilePath };
+  }
+  if (kind === 'bubblewrap') {
+    const home = process.env.HOME || os.homedir();
+    const bwrapArgs = ['--die-with-parent','--ro-bind','/','/','--proc','/proc','--dev','/dev','--tmpfs','/tmp'];
+    for (const hidden of ['.config','.ssh','.aws','.gnupg']) bwrapArgs.push('--tmpfs', path.join(home, hidden));
+    bwrapArgs.push('--tmpfs', config.adminHome, '--bind', worktreePath, worktreePath);
+    for (const agentHome of ['.kimi-code','.codex']) {
+      const p = path.join(home, agentHome);
+      if (fs.existsSync(p)) bwrapArgs.push('--bind', p, p);
+    }
+    bwrapArgs.push('--chdir', worktreePath, command, ...args);
+    return { command: 'bwrap', args: bwrapArgs, profilePath: null };
+  }
+  return { command, args, profilePath: null };
 }
 
-module.exports = { isAvailable, buildProfile, wrap };
+module.exports = { sandboxKind, isAvailable, buildProfile, wrap };

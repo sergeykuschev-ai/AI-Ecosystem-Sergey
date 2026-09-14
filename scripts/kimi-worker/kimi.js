@@ -3,6 +3,7 @@
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const config = require('./config');
 const sandbox = require('./sandbox');
 const { scrub } = require('./logger');
@@ -45,8 +46,8 @@ function runKimi(worktreePath, prompt, transcriptPath, agentFilePath) {
       PATH: process.env.PATH,
       HOME: process.env.HOME,
       LANG: process.env.LANG || 'en_US.UTF-8',
-      TMPDIR: `/private/tmp/kimi-worker-${process.pid}`,
-      npm_config_cache: `/private/tmp/kimi-npm-${process.pid}`,
+      TMPDIR: path.join(os.tmpdir(), `kimi-worker-${process.pid}`),
+      npm_config_cache: path.join(os.tmpdir(), `kimi-npm-${process.pid}`),
     };
     fs.mkdirSync(env.TMPDIR, { recursive: true });
     logLine(transcriptPath, `$ ${wrapped.command} ${wrapped.args[0] === '-f' ? '-f <sandbox profile> ' : ''}${config.kimi.command} -p <prompt ${prompt.length} chars> --agent-file <worker agent>`);
