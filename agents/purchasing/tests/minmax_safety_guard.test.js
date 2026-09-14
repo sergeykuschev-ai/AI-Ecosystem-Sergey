@@ -95,6 +95,7 @@ test('required AWARD 85g pouch coverage passes when all six SKUs are present', (
     rowIdentity: `smartzapas:test:${index + 1}`,
     rowNumber: index + 10,
     name,
+    article: index === 4 ? '7177004' : index === 5 ? '7176991' : `sku-${index}`,
     freeStock: 1,
     stockDays: 1,
     sourceTokens: { freeStock: 1 },

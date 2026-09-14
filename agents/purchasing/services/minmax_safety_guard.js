@@ -50,6 +50,12 @@ function isValtaReport(rows) {
 }
 
 function matchesRequiredItem(row, item) {
+  const requiredArticle = normalizeText(item?.article);
+  const rowArticle = normalizeText(row?.article);
+  if (requiredArticle && rowArticle) {
+    return requiredArticle === rowArticle;
+  }
+
   const name = normalizeText(row?.name);
   return Array.isArray(item.match_tokens) &&
     item.match_tokens.length > 0 &&

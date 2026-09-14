@@ -41,7 +41,8 @@
       "brand": "AWARD",
       "target_stock": 24,
       "blocking_if_missing": true,
-      "match_tokens": ["award", "hairball", "indoor", "85"]
+      "match_tokens": ["award", "hairball", "indoor"],
+      "article": "7177004"
     },
     {
       "key": "award-pouch-indoor-big-cats-85",
@@ -49,7 +50,8 @@
       "brand": "AWARD",
       "target_stock": 24,
       "blocking_if_missing": true,
-      "match_tokens": ["award", "indoor", "big", "cats", "85"]
+      "match_tokens": ["award", "indoor", "big", "cats"],
+      "article": "7176991"
     }
   ]
 }
