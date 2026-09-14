@@ -8,6 +8,7 @@ const {
   DEFAULT_SHUTDOWN_TIMEOUT_MS,
   DEFAULT_UPLOAD_ROOT,
   resolveApprovedRuleMode,
+  resolveHttpHost,
   resolveHttpPort,
   resolveRetentionTtlMs,
   resolveRunsRoot,
@@ -313,7 +314,8 @@ function startPurchasingWebServer(options = {}) {
   runStartupCleanup(options);
   const server = createPurchasingWebServer(options);
   const port = options.port ?? resolveHttpPort();
-  server.listen(port, DEFAULT_HTTP_HOST);
+  const host = options.host ?? resolveHttpHost();
+  server.listen(port, host);
   return server;
 }
 
@@ -430,7 +432,7 @@ if (require.main === module) {
   server.once('listening', () => {
     const address = server.address();
     console.log(
-      `Purchasing Web API v1: http://${DEFAULT_HTTP_HOST}:${address.port}`
+      `Purchasing Web API v1: http://${address.address}:${address.port}`
     );
   });
 }
