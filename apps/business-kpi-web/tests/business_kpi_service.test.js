@@ -436,3 +436,13 @@ test('Amper accepts store-level payment input without inheriting Miska KPI setti
   assert.equal(dashboard.month.qr, 5000);
   assert.equal(dashboard.month.qrShare, 0.1);
 });
+
+test('Amper dashboard marks store premium unresolved instead of inventing coefficients', async () => {
+  const { service } = fixture();
+  const amper = (await service.store.listStores()).find(store => store.code === 'amper');
+  const dashboard = await service.getDashboard({ storeId: amper.id, year: 2026, month: 8 }, OWNER);
+  assert.equal(dashboard.settingsStatus, 'UNRESOLVED');
+  assert.equal(dashboard.storeBonus.status, 'UNRESOLVED');
+  assert.equal(dashboard.storeBonus.amount, null);
+  assert.match(dashboard.storeBonus.reason, /не настроены владельцем/);
+});

@@ -132,3 +132,11 @@ test('shift form uses store code to keep Miska KPI fields and hide them for othe
   assert.match(html, /id="shift-kpi-fieldset"/);
   assert.match(html, /data-miska-kpi-preview/);
 });
+
+test('non-Miska dashboard exposes unresolved store bonus without seller performance', () => {
+  const html = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
+  const app = fs.readFileSync(path.join(__dirname, '../public/app.js'), 'utf8');
+  assert.match(html, /id="metric-store-bonus-card" hidden/);
+  assert.match(app, /selectedStore\(\)\?\.code === 'miska'/);
+  assert.match(app, /storeBonus\.amount === null \? 'Не настроена'/);
+});

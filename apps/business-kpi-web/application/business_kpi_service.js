@@ -757,6 +757,15 @@ class BusinessKpiService {
     const sellers = aggregateSellers(month, settingsRecord?.settings || null)
       .filter(seller => participatingSellerIds.has(seller.employeeId));
     const redactedSellers = await this.redactSellerBonuses(sellers, actor);
+    const storeBonus = storeRecord.code === 'miska' ? null : {
+      status: settingsRecord ? 'CONFIGURED' : 'UNRESOLVED',
+      amount: null,
+      planCompletion: month.planCompletion,
+      qrShare: month.qrShare,
+      reason: settingsRecord
+        ? 'Расчёт магазинной премии требует отдельной подтверждённой формулы.'
+        : 'Размеры и пороги магазинной премии не настроены владельцем.',
+    };
     return {
       month: {
         ...month,
@@ -765,6 +774,7 @@ class BusinessKpiService {
       },
       days: aggregateDays(month),
       sellers: redactedSellers,
+      storeBonus,
       settingsVersion: settingsRecord?.version || null,
       settingsStatus: settingsRecord ? 'CONFIRMED' : 'UNRESOLVED',
     };

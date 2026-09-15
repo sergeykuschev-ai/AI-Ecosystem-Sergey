@@ -176,6 +176,7 @@ function period() {
 }
 
 function selectedStoreId() { return element('store-filter').value; }
+function selectedStore() { return state.stores.find(store => store.id === selectedStoreId()) || null; }
 
 function selectedYear() {
   return Number(element('year-filter').value) || new Date().getFullYear();
@@ -299,6 +300,13 @@ function renderDashboard(data) {
   element('metric-qr').textContent = formatPercent(month.qrShare);
   element('metric-qr-amount').textContent = formatMoney(month.qr);
   element('metric-days').textContent = `Дней с данными ${formatInteger(month.dataDays)}`;
+  const storeBonusCard = element('metric-store-bonus-card');
+  const storeBonus = data.storeBonus;
+  storeBonusCard.hidden = !storeBonus;
+  if (storeBonus) {
+    element('metric-store-bonus').textContent = storeBonus.amount === null ? 'Не настроена' : formatMoney(storeBonus.amount);
+    element('metric-store-bonus-note').textContent = storeBonus.reason || '—';
+  }
   element('plan-input').value = moneyInput(month.plan);
 
   renderAttention(month, data.sellers || []);
@@ -655,8 +663,10 @@ async function loadDashboard() {
   );
   state.today = await api(`/api/business-kpi/today?store=${encodeURIComponent(store)}`);
   renderDashboard({ ...state.dashboard, today: state.today });
-  if (state.currentUser?.role === 'OWNER') {
+  if (state.currentUser?.role === 'OWNER' && selectedStore()?.code === 'miska') {
     await loadSellerPerformance();
+  } else {
+    element('seller-performance-card').hidden = true;
   }
 }
 
