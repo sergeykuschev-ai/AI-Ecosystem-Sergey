@@ -872,6 +872,17 @@ class PostgresBusinessKpiStore {
        VALUES ($1,$2,$3,$4) ON CONFLICT (code) DO NOTHING`,
       [DEV_STORE.id, DEV_STORE.code, DEV_STORE.name, DEV_STORE.timezone]
     );
+    const additionalStores = [
+      ['10000000-0000-4000-8000-000000000002', 'amper', 'Ампер'],
+      ['10000000-0000-4000-8000-000000000003', 'ventil', 'Вентиль'],
+    ];
+    for (const [id, code, name] of additionalStores) {
+      await this.client.query(
+        `INSERT INTO business_kpi.stores (id, code, name, timezone)
+         VALUES ($1,$2,$3,$4) ON CONFLICT (code) DO NOTHING`,
+        [id, code, name, DEV_STORE.timezone]
+      );
+    }
     for (const employee of DEV_EMPLOYEES) {
       await this.client.query(
         `INSERT INTO business_kpi.employees
