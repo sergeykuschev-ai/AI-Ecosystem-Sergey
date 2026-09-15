@@ -2042,7 +2042,8 @@ function numberInput(id) {
 }
 
 function isMiskaStore(storeId = selectedStoreId()) {
-  return storeId === 'miska';
+  const store = state.stores.find(item => item.id === storeId);
+  return store?.code === 'miska';
 }
 
 function applyShiftFormMode(storeId) {

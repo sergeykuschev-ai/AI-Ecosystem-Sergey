@@ -81,6 +81,13 @@ const SHIFT_INPUT_FIELDS = new Set([
   'comment',
 ]);
 
+function requireActorStore(actor, storeId) {
+  if (!actor || !storeId || actor.role === 'OWNER' || actor.role === 'SERVICE') return;
+  if (!actor.storeId || actor.storeId !== storeId) {
+    throw new ApplicationError('FORBIDDEN', 'Нет доступа к данным другого магазина.', 403);
+  }
+}
+
 function requireRole(actor, roles) {
   if (!actor || !roles.has(actor.role)) {
     throw new ApplicationError(
@@ -453,6 +460,7 @@ class BusinessKpiService {
 
   async createShift(input, actor, options = {}) {
     const normalized = normalizeShiftInput(input);
+    requireActorStore(actor, normalized.storeId);
     const source = options.source || 'web_manual';
     if (!SHIFT_SOURCES.has(source)) {
       throw new ApplicationError(
@@ -576,11 +584,12 @@ class BusinessKpiService {
     return Promise.all(shifts.map(shift => this.decorateShift(this.store, shift)));
   }
 
-  async getShift(id) {
+  async getShift(id, actor = null) {
     const shift = await this.store.getShift(id, { includeArchived: true });
     if (!shift) {
       throw new ApplicationError('SHIFT_NOT_FOUND', 'Смена не найдена.', 404);
     }
+    requireActorStore(actor, shift.storeId);
     const decorated = await this.decorateShift(this.store, shift);
     const audit = await this.store.listAudit({ entityId: id });
     return { ...decorated, audit };
@@ -594,6 +603,7 @@ class BusinessKpiService {
         if (!oldShift) {
           throw new ApplicationError('SHIFT_NOT_FOUND', 'Смена не найдена.', 404);
         }
+        requireActorStore(actor, oldShift.storeId);
         const permission = hasPermission(actor?.role, PERMISSIONS.SHIFT_EDIT_ANY)
           ? PERMISSIONS.SHIFT_EDIT_ANY
           : PERMISSIONS.SHIFT_EDIT_OWN;
@@ -684,6 +694,7 @@ class BusinessKpiService {
       if (!oldShift) {
         throw new ApplicationError('SHIFT_NOT_FOUND', 'Смена не найдена.', 404);
       }
+      requireActorStore(actor, oldShift.storeId);
       const permission = hasPermission(actor?.role, PERMISSIONS.SHIFT_ARCHIVE_ANY)
         ? PERMISSIONS.SHIFT_ARCHIVE_ANY
         : PERMISSIONS.SHIFT_ARCHIVE_OWN;
@@ -1097,6 +1108,7 @@ class BusinessKpiService {
 
   async createSettingsVersion(input, actor, options = {}) {
     requireRole(actor, OWNER_ROLES);
+    requireActorStore(actor, input.storeId);
     requireString(input.storeId, 'storeId');
     requireDate(input.effectiveFrom, 'effectiveFrom');
     if (!input.reason || typeof input.reason !== 'string' || !input.reason.trim()) {
@@ -1160,6 +1172,7 @@ class BusinessKpiService {
 
   async updateMonthlyPlan(input, actor, options = {}) {
     requireRole(actor, OWNER_ROLES);
+    requireActorStore(actor, input.storeId);
     requireString(input.storeId, 'storeId');
     if (!Number.isInteger(input.year) || input.year < 2000 || input.year > 2200 ||
         !Number.isInteger(input.month) || input.month < 1 || input.month > 12) {

@@ -123,3 +123,12 @@ test('sellers table preserves all business columns', () => {
     assert.match(html, new RegExp(label));
   }
 });
+
+test('shift form uses store code to keep Miska KPI fields and hide them for other stores', () => {
+  const app = fs.readFileSync(path.join(__dirname, '../public/app.js'), 'utf8');
+  const html = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
+  assert.match(app, /state\.stores\.find\(item => item\.id === storeId\)/);
+  assert.match(app, /store\?\.code === 'miska'/);
+  assert.match(html, /id="shift-kpi-fieldset"/);
+  assert.match(html, /data-miska-kpi-preview/);
+});

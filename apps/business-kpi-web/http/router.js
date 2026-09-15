@@ -311,7 +311,7 @@ function createRouter(options) {
         if (request.method === 'GET') {
           const actor = await auth.requireActor(request);
           auth.requirePermission(actor, PERMISSIONS.SHIFTS_READ);
-          success(response, await businessKpiService.getShift(shiftId));
+          success(response, await businessKpiService.getShift(shiftId, actor));
           return;
         }
         if (request.method === 'PATCH') {
@@ -549,6 +549,7 @@ function createRouter(options) {
           if (!storeId) {
             throw new ApplicationError('VALIDATION_ERROR', 'store обязателен.', 422);
           }
+          auth.requireStoreAccess(actor, storeId);
           success(response, await businessKpiService.getSettings(storeId, date));
           return;
         }
@@ -575,6 +576,7 @@ function createRouter(options) {
         if (!storeId) {
           throw new ApplicationError('VALIDATION_ERROR', 'store обязателен.', 422);
         }
+        auth.requireStoreAccess(actor, storeId);
         success(response, {
           items: await businessKpiService.listSettingsVersions(storeId, date),
         });
@@ -591,6 +593,7 @@ function createRouter(options) {
         if (!storeId) {
           throw new ApplicationError('VALIDATION_ERROR', 'storeId обязателен.', 422);
         }
+        auth.requireStoreAccess(actor, storeId);
         success(response, await businessKpiService.updateMonthlyPlan({
           storeId,
           year: positiveInteger(planMatch[1], 'year', { min: 2000, max: 2200 }),

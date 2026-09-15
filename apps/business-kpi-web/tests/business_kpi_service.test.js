@@ -16,8 +16,8 @@ const {
 } = require('../../../agents/business-kpi/rules/reference_settings');
 
 const OWNER = Object.freeze({ id: 'owner-test', role: 'OWNER' });
-const MANAGER = Object.freeze({ id: 'manager-test', role: 'MANAGER' });
-const SELLER = Object.freeze({ id: 'seller-test', role: 'SELLER' });
+const MANAGER = Object.freeze({ id: 'manager-test', role: 'MANAGER', storeId: DEV_STORE.id });
+const SELLER = Object.freeze({ id: 'seller-test', role: 'SELLER', storeId: DEV_STORE.id });
 
 function shiftInput(overrides = {}) {
   return {
