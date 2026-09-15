@@ -2041,6 +2041,18 @@ function numberInput(id) {
   return value === '' ? null : Number(value);
 }
 
+function isMiskaStore(storeId = selectedStoreId()) {
+  return storeId === 'miska';
+}
+
+function applyShiftFormMode(storeId) {
+  const miskaMode = isMiskaStore(storeId);
+  element('shift-kpi-fieldset').hidden = !miskaMode;
+  document.querySelectorAll('[data-miska-kpi-preview]').forEach(node => {
+    node.hidden = !miskaMode;
+  });
+}
+
 function shiftPayload() {
   return {
     storeId: element('shift-store').value,
@@ -2174,6 +2186,7 @@ function openShiftDialog(shift = null) {
   }
   setFormValue('shift-date', shift?.shiftDate || new Date().toISOString().slice(0, 10));
   setFormValue('shift-store', shift?.storeId || selectedStoreId());
+  applyShiftFormMode(shift?.storeId || selectedStoreId());
   setFormValue('shift-employee', shift?.employeeId || (isSeller ? state.currentUser?.employeeId : state.employees[0]?.id) || '');
   setFormValue('shift-key', shift?.shiftKey || 'main');
   setFormValue('shift-cash', historical ? null : shift?.cash);
@@ -2708,6 +2721,7 @@ element('close-shift-form').addEventListener('click', () => element('shift-dialo
 element('cancel-shift').addEventListener('click', () => element('shift-dialog').close());
 element('archive-shift').addEventListener('click', archiveShift);
 element('shift-form').addEventListener('submit', saveShift);
+element('shift-store').addEventListener('change', event => applyShiftFormMode(event.target.value));
 element('shift-form').addEventListener('input', () => {
   element('shift-error').dataset.server = 'false';
   updatePreview();

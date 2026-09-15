@@ -776,7 +776,7 @@
             <label>Количество чеков<input id="shift-receipts" name="receipts" type="number" min="0" step="1" inputmode="numeric" required></label>
           </div>
         </fieldset>
-        <fieldset>
+        <fieldset id="shift-kpi-fieldset">
           <legend>C. KPI смены</legend>
           <div class="form-grid">
             <label>Продано товарных единиц<input id="shift-items" name="itemsSold" type="number" min="0" step="1" inputmode="numeric"></label>
@@ -793,11 +793,11 @@
         <div class="calculation-preview" aria-live="polite">
           <span>Выручка <strong id="preview-revenue">—</strong></span>
           <span>Средний чек <strong id="preview-average">—</strong></span>
-          <span>Товаров/чек <strong id="preview-items">—</strong></span>
+          <span data-miska-kpi-preview>Товаров/чек <strong id="preview-items">—</strong></span>
           <span>QR % <strong id="preview-qr">—</strong></span>
-          <span>Допродажи % <strong id="preview-upsells">—</strong></span>
-          <span>Лакомства % <strong id="preview-treats">—</strong></span>
-          <span>Предварительный KPI <strong id="preview-kpi">—</strong></span>
+          <span data-miska-kpi-preview>Допродажи % <strong id="preview-upsells">—</strong></span>
+          <span data-miska-kpi-preview>Лакомства % <strong id="preview-treats">—</strong></span>
+          <span data-miska-kpi-preview>Предварительный KPI <strong id="preview-kpi">—</strong></span>
         </div>
         <section id="shift-audit-section" class="audit-section" hidden>
           <h3>История изменений</h3>
