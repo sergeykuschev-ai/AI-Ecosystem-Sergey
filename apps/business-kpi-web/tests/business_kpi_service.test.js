@@ -381,3 +381,20 @@ test('items_sold primary-source correction resolves Kapitanova partial shifts an
   assert.equal(monthAfter.revenue, monthBefore.revenue);
   assert.equal(monthAfter.receipts, monthBefore.receipts);
 });
+
+test('monthly store summary exposes cash, acquiring and QR without double counting', async () => {
+  const { service } = fixture();
+  await service.createShift(shiftInput({
+    shiftDate: '2026-08-12', cash: 12000, acquiring: 18000, qr: 3000,
+  }), OWNER);
+  await service.createShift(shiftInput({
+    shiftDate: '2026-08-13', cash: 8000, acquiring: 12000, qr: 2000,
+  }), OWNER);
+
+  const august = (await service.listMonths({ storeId: DEV_STORE.id, year: 2026 }))[7];
+  assert.equal(august.revenue, 50000);
+  assert.equal(august.cash, 20000);
+  assert.equal(august.acquiring, 30000);
+  assert.equal(august.qr, 5000);
+  assert.equal(august.qrShare, 0.1);
+});

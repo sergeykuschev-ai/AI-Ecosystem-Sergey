@@ -983,10 +983,13 @@ function renderMonths(data) {
       ? formatMoney(month.forecast.projectedRevenue)
       : '—', 'numeric');
     appendCell(row, formatPercent(month.planCompletion), 'numeric');
+    appendCell(row, formatMoney(month.cash), 'numeric');
+    appendCell(row, formatMoney(month.acquiring), 'numeric');
+    appendCell(row, formatMoney(month.qr), 'numeric');
+    appendCell(row, month.qrShare === null ? NA_TEXT : formatPercent(month.qrShare), 'numeric');
     appendCell(row, formatInteger(month.receipts), 'numeric');
     appendCell(row, formatMoney(month.averageCheck), 'numeric');
     appendCell(row, formatNumber(month.itemsPerReceipt), 'numeric');
-    appendCell(row, month.qrShare === null ? NA_TEXT : formatPercent(month.qrShare), 'numeric');
     appendCell(row, formatInteger(month.shiftsCount), 'numeric');
     const statusInfo = uiDataStatus(month.dataStatus);
     const statusCell = document.createElement('td');
@@ -1080,6 +1083,10 @@ function renderYear(data) {
     appendCell(row, formatMoney(month.plan), 'numeric');
     appendCell(row, formatMoney(month.revenue), 'numeric');
     appendCell(row, formatPercent(month.planCompletion), 'numeric');
+    appendCell(row, formatMoney(month.cash), 'numeric');
+    appendCell(row, formatMoney(month.acquiring), 'numeric');
+    appendCell(row, formatMoney(month.qr), 'numeric');
+    appendCell(row, month.qrShare === null ? NA_TEXT : formatPercent(month.qrShare), 'numeric');
     appendCell(row, formatInteger(month.receipts), 'numeric');
     appendCell(row, formatMoney(month.averageCheck), 'numeric');
     appendCell(row, formatInteger(month.shiftsCount), 'numeric');

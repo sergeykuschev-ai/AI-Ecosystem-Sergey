@@ -905,6 +905,8 @@ class BusinessKpiService {
         receipts: aggregate.receipts,
         averageCheck: aggregate.averageCheck,
         itemsPerReceipt: aggregate.itemsPerReceipt,
+        cash: aggregate.cash,
+        acquiring: aggregate.acquiring,
         qr: aggregate.qr,
         qrShare: aggregate.qrShare,
         shiftsCount: aggregate.shiftsCount,
