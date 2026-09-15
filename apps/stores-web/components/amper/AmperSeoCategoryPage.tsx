@@ -13,7 +13,6 @@ import { getBrandBySlug } from "@/lib/directus/brands";
 import { getCities } from "@/lib/directus/cities";
 import { getStoresByBrand } from "@/lib/directus/stores";
 import {
-  createBreadcrumbJsonLd,
   createOrganizationsJsonLd,
   createStoreJsonLd,
 } from "@/lib/seo/json-ld";
@@ -44,13 +43,6 @@ export async function AmperSeoCategoryPage({ category }: AmperSeoCategoryPagePro
       style={{ "--brand-color": brand.primary_color } as React.CSSProperties}
     >
       <JsonLd data={createOrganizationsJsonLd([brand])} />
-      <JsonLd
-        data={createBreadcrumbJsonLd([
-          { name: "Главная", path: "/" },
-          { name: "Ампер", path: "/amper/" },
-          { name: category.label, path },
-        ])}
-      />
       {store && city ? <JsonLd data={createStoreJsonLd(store, brand, city)} /> : null}
       <Container>
         <Breadcrumbs
