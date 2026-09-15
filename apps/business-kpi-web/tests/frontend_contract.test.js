@@ -49,6 +49,8 @@ test('dashboard and sellers expose required labels without frontend KPI formulas
     'Чеки',
     'Средний чек',
     'Товаров в чеке',
+    'Наличные',
+    'Безнал / эквайринг',
     'Доля QR',
     'Количество смен',
     'История изменений',

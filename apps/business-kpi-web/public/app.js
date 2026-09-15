@@ -280,6 +280,8 @@ function renderDashboard(data) {
   } else {
     itemsEl.textContent = formatNumber(month.itemsPerReceipt);
   }
+  element('metric-cash').textContent = formatMoney(month.cash);
+  element('metric-acquiring').textContent = formatMoney(month.acquiring);
   element('metric-qr').textContent = formatPercent(month.qrShare);
   element('metric-qr-amount').textContent = formatMoney(month.qr);
   element('metric-days').textContent = `Дней с данными ${formatInteger(month.dataDays)}`;
