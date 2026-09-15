@@ -54,14 +54,16 @@ const DEMAND_ENGINE_CONFIG = Object.freeze({
     sales28: Object.freeze({ days: 28, weight: 0.2 }),
   }),
   supplierDeliveryCycleDays: Object.freeze({
-    default: null,
-    // Keys are canonical supplier identities (see canonicalSupplierName in
-    // services/demand_engine.js), not specific legal-form spellings.
+    // Owner decision 2026-09-15: purchasing/delivery cycle is 14 days for all suppliers.
+    default: 14,
+    // Explicit supplier identities are retained for compatibility; every
+    // supplier falls back to the owner-approved 14-day default.
     bySupplier: Object.freeze({
       'валта': 14,
-      'рич стор ооо': 7,
+      'рич стор ооо': 14,
       'зооград-хабаровск ооо': 14,
-      'оникиенко роман евгеньевич': 21,
+      'оникиенко роман евгеньевич': 14,
+      'хабаровск опт': 14,
     }),
   }),
   // Default safety buffers (pre-S10 values) for suppliers without a

@@ -383,16 +383,23 @@ function supplierSafetyStockDays(row, config) {
 
 function supplierDeliveryCycle(row, inputs, config) {
   const supplier = normalize(row.supplier);
-  const inputCycles = inputs.supplierDeliveryCycleDays || {};
   const bySupplier = config.supplierDeliveryCycleDays.bySupplier;
-  if (Object.hasOwn(inputCycles, supplier)) return inputCycles[supplier];
   if (Object.hasOwn(bySupplier, supplier)) return bySupplier[supplier];
   const canonical = canonicalSupplierName(row.supplier);
-  if (canonical !== supplier) {
-    if (Object.hasOwn(inputCycles, canonical)) return inputCycles[canonical];
-    if (Object.hasOwn(bySupplier, canonical)) return bySupplier[canonical];
+  if (canonical !== supplier && Object.hasOwn(bySupplier, canonical)) {
+    return bySupplier[canonical];
   }
-  return config.supplierDeliveryCycleDays.default ?? null;
+  // Owner decision 2026-09-15: one 14-day cycle applies to every supplier.
+  // A configured default is therefore authoritative over per-run input overrides.
+  if (config.supplierDeliveryCycleDays.default != null) {
+    return config.supplierDeliveryCycleDays.default;
+  }
+  const inputCycles = inputs.supplierDeliveryCycleDays || {};
+  if (Object.hasOwn(inputCycles, supplier)) return inputCycles[supplier];
+  if (canonical !== supplier && Object.hasOwn(inputCycles, canonical)) {
+    return inputCycles[canonical];
+  }
+  return null;
 }
 
 function matchMetadata(candidate) {
