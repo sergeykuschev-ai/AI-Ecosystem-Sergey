@@ -140,6 +140,10 @@ const ALLOWED_TEMPLATE_HREFS = new Set([
   "/${store.slug}/",
   "/${slug}/",
   "/${card.slug}/",
+  // SEO category slugs interpolated from each brand category registry.
+  "/ventil/${category.slug}/",
+  "/metiz-market/${category.slug}/",
+  "/miska/${category.slug}/",
   // City/store slugs interpolated from content data.
   "/stores/${city.slug}/",
   "/stores/${city.slug}/${store.slug}/",
