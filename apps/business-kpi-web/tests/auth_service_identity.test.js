@@ -257,3 +257,25 @@ test('invalid service key returns 401', async () => {
   const body = await response.json();
   assert.equal(body.error.code, 'AUTH_REQUIRED');
 });
+
+test('store-bound manager cannot read another store dashboard', async () => {
+  const otherStore = {
+    id: '10000000-0000-4000-8000-000000000099',
+    code: 'other-store',
+    name: 'Другой магазин',
+    timezone: 'Asia/Vladivostok',
+    active: true,
+  };
+  server.businessKpiStore.stores.push(otherStore);
+  const response = await fetch(
+    `${baseUrl}/api/business-kpi/dashboard?store=${otherStore.id}&year=2026&month=8`,
+    { headers: {
+      'x-business-kpi-actor-id': 'manager.test',
+      'x-business-kpi-role': 'MANAGER',
+      'x-business-kpi-store-id': DEV_STORE.id,
+    } }
+  );
+  assert.equal(response.status, 403);
+  const body = await response.json();
+  assert.equal(body.error.code, 'FORBIDDEN');
+});

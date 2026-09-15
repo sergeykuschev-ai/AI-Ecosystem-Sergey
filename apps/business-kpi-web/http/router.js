@@ -274,7 +274,7 @@ function createRouter(options) {
         auth.requirePermission(actor, PERMISSIONS.DASHBOARD_READ);
         success(
           response,
-          await businessKpiService.getReferenceData(url.searchParams.get('store'))
+          await businessKpiService.getReferenceData(url.searchParams.get('store'), actor)
         );
         return;
       }
@@ -283,8 +283,10 @@ function createRouter(options) {
         if (request.method === 'GET') {
           const actor = await auth.requireActor(request);
           auth.requirePermission(actor, PERMISSIONS.SHIFTS_READ);
+          const filters = shiftFilters(url);
+          auth.requireStoreAccess(actor, filters.storeId);
           success(response, {
-            items: await businessKpiService.listShifts(shiftFilters(url)),
+            items: await businessKpiService.listShifts(filters),
           });
           return;
         }
@@ -353,6 +355,7 @@ function createRouter(options) {
             422
           );
         }
+        auth.requireStoreAccess(actor, period.storeId);
         success(response, await businessKpiService.getDashboard(period, actor));
         return;
       }
@@ -369,6 +372,7 @@ function createRouter(options) {
             422
           );
         }
+        auth.requireStoreAccess(actor, period.storeId);
         success(response, await businessKpiService.getSellerPerformance({
           ...period,
           mode: url.searchParams.get('mode') || 'shifts',
@@ -388,6 +392,7 @@ function createRouter(options) {
             422
           );
         }
+        auth.requireStoreAccess(actor, storeId);
         success(response, await businessKpiService.getToday({ storeId }));
         return;
       }
@@ -409,6 +414,7 @@ function createRouter(options) {
             422
           );
         }
+        auth.requireStoreAccess(actor, storeId);
         success(response, {
           year,
           items: await businessKpiService.listMonths({ storeId, year }),
@@ -433,6 +439,7 @@ function createRouter(options) {
             422
           );
         }
+        auth.requireStoreAccess(actor, storeId);
         success(response, await businessKpiService.getYearSummary({ storeId, year }));
         return;
       }
@@ -449,6 +456,7 @@ function createRouter(options) {
             422
           );
         }
+        auth.requireStoreAccess(actor, period.storeId);
         success(response, await businessKpiService.getBonuses(period, actor));
         return;
       }
@@ -465,6 +473,7 @@ function createRouter(options) {
             422
           );
         }
+        auth.requireStoreAccess(actor, period.storeId);
         const dashboard = await businessKpiService.getDashboard(period, actor);
         success(response, {
           year: period.year,

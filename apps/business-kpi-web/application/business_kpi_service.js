@@ -1054,9 +1054,16 @@ class BusinessKpiService {
     };
   }
 
-  async getReferenceData(storeId) {
-    const stores = await this.store.listStores();
-    const selectedStoreId = storeId || stores[0]?.id || null;
+  async getReferenceData(storeId, actor) {
+    const allStores = await this.store.listStores();
+    const isGlobalActor = actor?.role === 'OWNER' || actor?.role === 'SERVICE';
+    const stores = isGlobalActor
+      ? allStores
+      : allStores.filter(store => store.id === actor?.storeId);
+    const selectedStoreId = storeId || actor?.storeId || stores[0]?.id || null;
+    if (!isGlobalActor && selectedStoreId !== actor?.storeId) {
+      throw new ApplicationError('FORBIDDEN', 'Нет доступа к данным другого магазина.', 403);
+    }
     const employees = selectedStoreId
       ? await this.store.listEmployees({ storeId: selectedStoreId })
       : [];
