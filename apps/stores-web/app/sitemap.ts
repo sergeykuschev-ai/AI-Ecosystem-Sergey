@@ -1,18 +1,29 @@
 import type { MetadataRoute } from "next";
+import { AMPER_SEO_CATEGORY_PATHS } from "@/lib/amper/seo-categories";
 import { getBrands } from "@/lib/directus/brands";
 import { getCities } from "@/lib/directus/cities";
 import { getStores } from "@/lib/directus/stores";
 import { siteUrl } from "@/lib/seo/metadata";
 
-const staticPaths = ["/", "/stores/", "/akcii/", "/bonus/", "/vakansii/", "/o-kompanii/", "/kontakty/", "/faq/"];
+const staticPaths = [
+  "/",
+  "/stores/",
+  "/akcii/",
+  "/bonus/",
+  "/vakansii/",
+  "/o-kompanii/",
+  "/kontakty/",
+  "/faq/",
+  ...AMPER_SEO_CATEGORY_PATHS,
+];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [brands, cities, stores] = await Promise.all([getBrands(), getCities(), getStores()]);
   const cityById = new Map(cities.map((city) => [city.id, city]));
   const entries: MetadataRoute.Sitemap = staticPaths.map((path) => ({
     url: new URL(path, siteUrl).href,
-    changeFrequency: path === "/" ? "weekly" : "monthly",
-    priority: path === "/" ? 1 : 0.7,
+    changeFrequency: path === "/" || path.startsWith("/amper/") ? "weekly" : "monthly",
+    priority: path === "/" ? 1 : path.startsWith("/amper/") ? 0.8 : 0.7,
   }));
 
   for (const brand of brands.filter((item) => item.active)) {
