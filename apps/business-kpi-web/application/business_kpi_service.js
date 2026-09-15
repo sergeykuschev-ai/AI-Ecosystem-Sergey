@@ -188,7 +188,7 @@ function normalizeShiftInput(input) {
     sourceReference: null,
   };
   try {
-    calculateKpiMetrics(normalized);
+    calculateKpiMetrics(normalized, null);
   } catch (error) {
     throw new ApplicationError(
       'VALIDATION_ERROR',
@@ -409,7 +409,7 @@ class BusinessKpiService {
         404
       );
     }
-    if (!settingsRecord) {
+    if (!settingsRecord && !['amper', 'ventil'].includes(storeRecord.code)) {
       throw new ApplicationError(
         'SETTINGS_NOT_FOUND',
         'Для даты смены не найдены действующие настройки KPI.',
@@ -490,7 +490,7 @@ class BusinessKpiService {
           store,
           normalized
         );
-        const metrics = calculateKpiMetrics(normalized, settingsRecord.settings);
+        const metrics = calculateKpiMetrics(normalized, settingsRecord?.settings || null);
         const shift = await store.createShift({
           id: this.uuid(),
           ...normalized,
@@ -502,7 +502,7 @@ class BusinessKpiService {
           createdAt: now,
           updatedAt: now,
         });
-        await this.saveKpiSnapshot(store, shift, settingsRecord, metrics, now);
+        if (settingsRecord) await this.saveKpiSnapshot(store, shift, settingsRecord, metrics, now);
         await store.appendAudit(auditRecord(
           'SHIFT_CREATED',
           shift.id,
@@ -517,7 +517,7 @@ class BusinessKpiService {
             now,
           }
         ));
-        return { ...shift, metrics, settingsVersion: settingsRecord.version };
+        return { ...shift, metrics, settingsVersion: settingsRecord?.version || null };
       });
     } catch (error) {
       if (error instanceof StorageConflictError) {

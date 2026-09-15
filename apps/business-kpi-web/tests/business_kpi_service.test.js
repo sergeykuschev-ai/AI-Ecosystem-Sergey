@@ -398,3 +398,41 @@ test('monthly store summary exposes cash, acquiring and QR without double counti
   assert.equal(august.qr, 5000);
   assert.equal(august.qrShare, 0.1);
 });
+
+test('Amper accepts store-level payment input without inheriting Miska KPI settings', async () => {
+  const { service, store } = fixture();
+  const amper = store.stores.find(item => item.code === 'amper');
+  const employee = {
+    id: '20000000-0000-4000-8000-000000000020',
+    storeId: amper.id,
+    employeeCode: 'amper-store-input',
+    displayName: 'Ампер',
+    active: true,
+    userId: null,
+    hiredOn: null,
+    terminatedOn: null,
+  };
+  store.employees.push(employee);
+  const created = await service.createShift(shiftInput({
+    storeId: amper.id,
+    employeeId: employee.id,
+    cash: 20000,
+    acquiring: 30000,
+    qr: 5000,
+    receipts: 25,
+    itemsSold: null,
+    upsellReceipts: null,
+    treatsRevenue: null,
+    treatsReceipts: null,
+  }), OWNER);
+  assert.equal(created.metrics.revenue, 50000);
+  assert.equal(created.metrics.qrShare, 0.1);
+  assert.equal(created.metrics.kpiStatus, 'UNRESOLVED');
+  assert.equal(created.metrics.kpiScore, null);
+  const dashboard = await service.getDashboard({ storeId: amper.id, year: 2026, month: 8 }, OWNER);
+  assert.equal(dashboard.month.revenue, 50000);
+  assert.equal(dashboard.month.cash, 20000);
+  assert.equal(dashboard.month.acquiring, 30000);
+  assert.equal(dashboard.month.qr, 5000);
+  assert.equal(dashboard.month.qrShare, 0.1);
+});
