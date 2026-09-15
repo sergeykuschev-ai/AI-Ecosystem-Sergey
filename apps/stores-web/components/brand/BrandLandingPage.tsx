@@ -12,7 +12,7 @@ import { getBrandBySlug } from "@/lib/directus/brands";
 import { getCategoriesByBrand } from "@/lib/directus/categories";
 import { getCities } from "@/lib/directus/cities";
 import { getStoresByBrand } from "@/lib/directus/stores";
-import { createOrganizationsJsonLd } from "@/lib/seo/json-ld";
+import { createOrganizationsJsonLd, createStoreJsonLd } from "@/lib/seo/json-ld";
 
 interface BrandLandingPageProps {
   slug: string;
@@ -70,6 +70,7 @@ export async function BrandLandingPage({
   return (
     <main className="brand-landing" data-brand={brand.slug} style={{ "--brand-color": brand.primary_color } as React.CSSProperties}>
       <JsonLd data={createOrganizationsJsonLd([brand])} />
+      {store && city ? <JsonLd data={createStoreJsonLd(store, brand, city)} /> : null}
       <Container>
         <Breadcrumbs trail={[
           { name: "Главная", path: "/" },
