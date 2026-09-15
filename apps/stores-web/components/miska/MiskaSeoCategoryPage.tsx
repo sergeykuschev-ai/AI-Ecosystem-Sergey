@@ -6,9 +6,9 @@ import { JsonLd } from "@/components/seo/JsonLd";
 import { BrandStoreContact } from "@/components/stores/BrandStoreContact";
 import { Container } from "@/components/ui/Container";
 import {
-  AMPER_SEO_CATEGORIES,
-  type AmperSeoCategory,
-} from "@/lib/amper/seo-categories";
+  MISKA_SEO_CATEGORIES,
+  type MiskaSeoCategory,
+} from "@/lib/miska/seo-categories";
 import { getBrandBySlug } from "@/lib/directus/brands";
 import { getCities } from "@/lib/directus/cities";
 import { getStoresByBrand } from "@/lib/directus/stores";
@@ -17,12 +17,12 @@ import {
   createStoreJsonLd,
 } from "@/lib/seo/json-ld";
 
-interface AmperSeoCategoryPageProps {
-  category: AmperSeoCategory;
+interface MiskaSeoCategoryPageProps {
+  category: MiskaSeoCategory;
 }
 
-export async function AmperSeoCategoryPage({ category }: AmperSeoCategoryPageProps) {
-  const brand = await getBrandBySlug("amper");
+export async function MiskaSeoCategoryPage({ category }: MiskaSeoCategoryPageProps) {
+  const brand = await getBrandBySlug("miska");
   if (!brand) notFound();
 
   const [stores, cities] = await Promise.all([
@@ -31,15 +31,15 @@ export async function AmperSeoCategoryPage({ category }: AmperSeoCategoryPagePro
   ]);
   const store = stores[0];
   const city = cities.find((item) => item.id === store?.city_id);
-  const relatedCategories = AMPER_SEO_CATEGORIES.filter(
+  const relatedCategories = MISKA_SEO_CATEGORIES.filter(
     (item) => item.slug !== category.slug,
   );
-  const path = `/amper/${category.slug}/`;
+  const path = `/miska/${category.slug}/`;
 
   return (
     <main
       className="brand-landing"
-      data-brand="amper"
+      data-brand="miska"
       style={{ "--brand-color": brand.primary_color } as React.CSSProperties}
     >
       <JsonLd data={createOrganizationsJsonLd([brand])} />
@@ -48,7 +48,7 @@ export async function AmperSeoCategoryPage({ category }: AmperSeoCategoryPagePro
         <Breadcrumbs
           trail={[
             { name: "Главная", path: "/" },
-            { name: "Ампер", path: "/amper/" },
+            { name: "Миска", path: "/miska/" },
             { name: category.label, path },
           ]}
         />
@@ -58,12 +58,12 @@ export async function AmperSeoCategoryPage({ category }: AmperSeoCategoryPagePro
             <BrandLogo brand={brand} />
           </div>
           <div className="brand-landing-hero__content">
-            <p className="eyebrow">Ампер · {category.label}</p>
+            <p className="eyebrow">Миска · {category.label}</p>
             <h1>{category.h1}</h1>
             <p className="lead">{category.lead}</p>
             <div className="button-row">
-              <Link className="button button--primary" href="/amper/">
-                Все электротовары
+              <Link className="button button--primary" href="/miska/">
+                Все зоотовары
               </Link>
               <Link className="button button--secondary" href="/kontakty/">
                 Адрес и контакты
@@ -76,9 +76,9 @@ export async function AmperSeoCategoryPage({ category }: AmperSeoCategoryPagePro
           <p className="eyebrow">Подбор</p>
           <h2 id="category-overview">{category.overviewHeading}</h2>
           <p>{category.overview}</p>
-          <div className="amper-feature-grid">
+          <div className="miska-feature-grid">
             {category.items.map((item) => (
-              <article className="amper-feature-card" key={item.title}>
+              <article className="miska-feature-card" key={item.title}>
                 <h3>{item.title}</h3>
                 <p>{item.text}</p>
               </article>
@@ -90,25 +90,25 @@ export async function AmperSeoCategoryPage({ category }: AmperSeoCategoryPagePro
           className="brand-landing-section brand-landing-section--compact"
           aria-labelledby="category-selection"
         >
-          <div className="amper-assist-panel">
+          <div className="miska-assist-panel">
             <h2 id="category-selection">{category.selectionHeading}</h2>
-            <ul className="amper-assist-list">
+            <ul className="miska-assist-list">
               {category.selectionTips.map((tip) => (
                 <li key={tip}>{tip}</li>
               ))}
             </ul>
-            <p className="amper-assist-note">{category.note}</p>
+            <p className="miska-assist-note">{category.note}</p>
           </div>
         </section>
 
-        <section className="brand-landing-section" aria-labelledby="amper-related-categories">
+        <section className="brand-landing-section" aria-labelledby="miska-related-categories">
           <p className="eyebrow">Другие направления</p>
-          <h2 id="amper-related-categories">Другие разделы магазина «Ампер»</h2>
-          <div className="amper-feature-grid">
+          <h2 id="miska-related-categories">Другие разделы магазина «Миска»</h2>
+          <div className="miska-feature-grid">
             {relatedCategories.map((item) => {
-              const href = `/amper/${item.slug}/`;
+              const href = `/miska/${item.slug}/`;
               return (
-                <article className="amper-feature-card" key={item.slug}>
+                <article className="miska-feature-card" key={item.slug}>
                   <h3>
                     <Link href={href}>{item.label}</Link>
                   </h3>
@@ -128,8 +128,8 @@ export async function AmperSeoCategoryPage({ category }: AmperSeoCategoryPagePro
               store={store}
               brand={brand}
               city={city}
-              heading="Ампер в Амурске"
-              note={`Уточнить наличие товаров раздела «${category.label}» можно в магазине «Ампер».`}
+              heading="Миска в Амурске"
+              note={`Уточнить наличие товаров раздела «${category.label}» можно в магазине «Миска».`}
               showCallAction
               contactsHref="/kontakty/"
             />

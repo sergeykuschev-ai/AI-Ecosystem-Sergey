@@ -9,6 +9,7 @@ import {
   formatRubles,
 } from "@/lib/constants/bonus";
 import { createPageMetadata } from "@/lib/seo/metadata";
+import { METIZ_SEO_CATEGORIES } from "@/lib/metiz-market/seo-categories";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +51,18 @@ function MetizMarketFeaturedSections() {
             <h3>Крепёж и расходные материалы</h3>
             <p>{FASTENERS_CONSUMABLES_TEXT}</p>
           </article>
+        </div>
+      </section>
+
+      <section className="brand-landing-section" aria-labelledby="metiz-categories">
+        <h2 id="metiz-categories">Популярные разделы «Метиз Маркета»</h2>
+        <div className="metiz-feature-grid">
+          {METIZ_SEO_CATEGORIES.map((category) => (
+            <article className="metiz-feature-card" key={category.slug}>
+              <h3><Link href={`/metiz-market/${category.slug}/`}>{category.label}</Link></h3>
+              <p>{category.lead}</p>
+            </article>
+          ))}
         </div>
       </section>
 
