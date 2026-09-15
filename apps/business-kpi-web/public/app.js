@@ -12,17 +12,30 @@ const ROUTES = Object.freeze({
   'import-export': ['Импорт / экспорт', 'Исторический Excel-import остаётся вторичным каналом.'],
 });
 
-/* Business context.
-   The portal is currently branded for MISKA only, but the architecture is
-   multi-business ready: a future business switch can replace this object
-   and the CSS theme tokens without touching module components. */
-const BUSINESS_CONTEXT = Object.freeze({
-  id: 'miska',
-  name: 'МИСКА',
-  shortName: 'МИСКА',
-  portalName: 'Business Portal',
-  moduleName: 'KPI',
+const STORE_CONTEXTS = Object.freeze({
+  miska: Object.freeze({ name: 'Миска', theme: 'miska', logo: '/assets/miska-logo.jpg' }),
+  amper: Object.freeze({ name: 'Ампер', theme: 'amper', logo: null }),
+  ventil: Object.freeze({ name: 'Вентиль', theme: 'ventil', logo: null }),
 });
+
+function storeContext(store) {
+  const code = String(store?.code || '').toLowerCase();
+  return STORE_CONTEXTS[code] || Object.freeze({
+    name: store?.name || 'Business Portal', theme: 'default', logo: null,
+  });
+}
+
+function applyStoreContext(store) {
+  const context = storeContext(store);
+  document.body.dataset.storeTheme = context.theme;
+  element('brand-name').textContent = context.name;
+  const logo = element('brand-logo');
+  logo.hidden = !context.logo;
+  if (context.logo) { logo.src = context.logo; logo.alt = context.name; }
+  element('brand-mark').classList.toggle('brand-mark-text', !context.logo);
+  if (!context.logo) element('brand-mark').dataset.initial = context.name.slice(0, 1).toUpperCase();
+  document.title = `${context.name} · KPI`;
+}
 
 const THEME_COLORS = Object.freeze({
   primary: 'var(--brand-primary)',
@@ -194,6 +207,7 @@ async function loadReferenceData(preferredStore) {
   fillSelect(element('store-filter'), state.stores, 'name', data.selectedStoreId);
   fillSelect(element('shift-store'), state.stores, 'name', data.selectedStoreId);
   fillSelect(element('shift-employee'), state.employees, 'displayName');
+  applyStoreContext(state.stores.find(store => store.id === data.selectedStoreId));
   const employeeFilter = element('employee-filter');
   employeeFilter.replaceChildren(new Option('Все продавцы', ''));
   for (const employee of state.employees) {
@@ -2618,7 +2632,6 @@ async function initialize() {
   const now = new Date();
   element('period-filter').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   populateYearFilter();
-  document.title = `${BUSINESS_CONTEXT.name} · ${BUSINESS_CONTEXT.moduleName}`;
   try {
     const user = await api('/api/business-kpi/auth/me');
     if (!user?.user) {

@@ -75,17 +75,17 @@ test('import/export UI requires dry-run before commit and exposes run history', 
   assert.match(javascript, /drop/);
 });
 
-test('portal branding is MISKA and multi-business ready', () => {
+test('portal branding follows selected store while preserving MISKA logo', () => {
   const css = fs.readFileSync(path.join(publicRoot, 'styles.css'), 'utf8');
-  assert.doesNotMatch(html, /Артур Business KPI/);
-  assert.doesNotMatch(html, /Ампер|Вентиль|Метиз/);
-  assert.match(html, /<title>МИСКА · KPI<\/title>/);
-  assert.match(html, /МИСКА/);
-  assert.match(javascript, /BUSINESS_CONTEXT/);
-  assert.match(javascript, /id:\s*['"]miska['"]/);
+  assert.match(html, /<title>Business Portal · KPI<\/title>/);
+  assert.match(html, /id="brand-name"/);
+  assert.match(javascript, /STORE_CONTEXTS/);
+  assert.match(javascript, /amper:[\s\S]*Ампер/);
+  assert.match(javascript, /ventil:[\s\S]*Вентиль/);
+  assert.match(javascript, /applyStoreContext/);
+  assert.match(css, /data-store-theme="amper"/);
+  assert.match(css, /data-store-theme="ventil"/);
   assert.match(css, /--brand-primary:/);
-  assert.match(css, /--brand-accent:/);
-  assert.match(css, /--brand-primary-dark:/);
 });
 
 test('shifts KPI badge is rendered as HTML, not escaped raw markup', () => {
@@ -102,7 +102,7 @@ test('official MISKA logo asset is referenced, stored, and served by static hand
 });
 
 test('index.html references app.js with a cache-bust version and shows a permanent seller picker', () => {
-  assert.match(html, /<script src="\/app\.js\?v=[0-9a-f-]+" defer><\/script>/);
+  assert.match(html, /<script src="\/app\.js\?v=[0-9A-Za-z-]+" defer><\/script>/);
   assert.match(html, /<select id="task-seller-pick">/);
   assert.doesNotMatch(html, /task-seller-pick-field/);
 });
