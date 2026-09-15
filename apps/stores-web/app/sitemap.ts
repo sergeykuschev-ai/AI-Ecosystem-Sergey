@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { AMPER_SEO_CATEGORY_PATHS } from "@/lib/amper/seo-categories";
 import { VENTIL_SEO_CATEGORY_PATHS } from "@/lib/ventil/seo-categories";
+import { METIZ_SEO_CATEGORY_PATHS } from "@/lib/metiz-market/seo-categories";
 import { getBrands } from "@/lib/directus/brands";
 import { getCities } from "@/lib/directus/cities";
 import { getStores } from "@/lib/directus/stores";
@@ -17,6 +18,7 @@ const staticPaths = [
   "/faq/",
   ...AMPER_SEO_CATEGORY_PATHS,
   ...VENTIL_SEO_CATEGORY_PATHS,
+  ...METIZ_SEO_CATEGORY_PATHS,
 ];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -24,8 +26,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const cityById = new Map(cities.map((city) => [city.id, city]));
   const entries: MetadataRoute.Sitemap = staticPaths.map((path) => ({
     url: new URL(path, siteUrl).href,
-    changeFrequency: path === "/" || path.startsWith("/amper/") || path.startsWith("/ventil/") ? "weekly" : "monthly",
-    priority: path === "/" ? 1 : path.startsWith("/amper/") || path.startsWith("/ventil/") ? 0.8 : 0.7,
+    changeFrequency: path === "/" || path.startsWith("/amper/") || path.startsWith("/ventil/") || path.startsWith("/metiz-market/") ? "weekly" : "monthly",
+    priority: path === "/" ? 1 : path.startsWith("/amper/") || path.startsWith("/ventil/") || path.startsWith("/metiz-market/") ? 0.8 : 0.7,
   }));
 
   for (const brand of brands.filter((item) => item.active)) {
