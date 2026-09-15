@@ -9,6 +9,7 @@ const {
   calculateSmartZapasWeeklySalesRate,
   calculateWeightedSalesRate,
   buildDemandPlan,
+  canonicalSupplierName,
 } = require('../services/demand_engine');
 const {
   buildPhase2PurchasingDecisions,
@@ -1233,6 +1234,13 @@ test('real supplier зооград-хабаровск ооо resolves delivery c
   assert.equal(result.inputStatus.phase2ResultStatus, 'calculated');
   assert.deepEqual(result.inputStatus.unknownDeliveryCycleSuppliers, []);
   assert.equal(result.diagnostics.deliveryCycleDiagnostics.length, 0);
+});
+
+test('supplier identity keeps Rich Store separate from Zoograd legal entities', () => {
+  assert.equal(canonicalSupplierName('Оникиенко Роман Евгеньевич'), 'зооград');
+  assert.equal(canonicalSupplierName('ЗООГРАД-ХАБАРОВСК ООО'), 'зооград');
+  assert.equal(canonicalSupplierName('Хабаровск ОПТ'), 'зооград');
+  assert.equal(canonicalSupplierName('РИЧ СТОР ООО'), 'рич стор ооо');
 });
 
 test('рич стор ооо uses owner-approved 14-day delivery cycle', () => {
