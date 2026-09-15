@@ -9,6 +9,7 @@ import {
   formatRubles,
 } from "@/lib/constants/bonus";
 import { createPageMetadata } from "@/lib/seo/metadata";
+import { MISKA_SEO_CATEGORIES } from "@/lib/miska/seo-categories";
 
 export const dynamic = "force-dynamic";
 
@@ -139,6 +140,18 @@ function MiskaFeaturedSections() {
             <h3>Одежда и амуниция для прогулок</h3>
             <p>{CLOTHING_TEXT}</p>
           </article>
+        </div>
+      </section>
+
+      <section className="brand-landing-section" aria-labelledby="miska-seo-categories">
+        <h2 id="miska-seo-categories">Популярные разделы зоомагазина</h2>
+        <div className="miska-feature-grid">
+          {MISKA_SEO_CATEGORIES.map((category) => (
+            <article className="miska-feature-card" key={category.slug}>
+              <h3><Link href={`/miska/${category.slug}/`}>{category.label}</Link></h3>
+              <p>{category.lead}</p>
+            </article>
+          ))}
         </div>
       </section>
 
