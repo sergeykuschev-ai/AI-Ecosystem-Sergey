@@ -342,3 +342,21 @@ describe("redirects", () => {
     }
   });
 });
+
+describe("local SEO cross-store links", () => {
+  test("SEO category pages link to the other stores through the shared network component", () => {
+    const networkFile = join(projectRoot, "components/seo/LocalStoreNetworkLinks.tsx");
+    const networkSource = readFileSync(networkFile, "utf8");
+    for (const slug of CANONICAL_BRAND_SLUGS) {
+      assert.ok(networkSource.includes(`slug: "${slug}"`), `network links must include ${slug}`);
+    }
+    assert.ok(networkSource.includes("проспект Победы, 16"), "network links must retain the verified shared address");
+
+    for (const brand of CANONICAL_BRAND_SLUGS) {
+      const componentName = brand === "metiz-market" ? "MetizSeoCategoryPage.tsx" : `${brand[0].toUpperCase()}${brand.slice(1)}SeoCategoryPage.tsx`;
+      const file = join(projectRoot, "components", brand, componentName);
+      const source = readFileSync(file, "utf8");
+      assert.ok(source.includes(`<LocalStoreNetworkLinks currentSlug="${brand}" />`), `${brand} category pages must expose cross-store links`);
+    }
+  });
+});
