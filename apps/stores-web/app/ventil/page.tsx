@@ -9,6 +9,7 @@ import {
   formatRubles,
 } from "@/lib/constants/bonus";
 import { createPageMetadata } from "@/lib/seo/metadata";
+import { VENTIL_SEO_CATEGORIES } from "@/lib/ventil/seo-categories";
 
 export const dynamic = "force-dynamic";
 
@@ -71,6 +72,18 @@ function VentilFeaturedSections() {
             <h3>{ASSIST_TITLE}</h3>
             <p>{ASSIST_TEXT}</p>
           </div>
+        </div>
+      </section>
+
+      <section className="brand-landing-section" aria-labelledby="ventil-categories">
+        <h2 id="ventil-categories">Популярные разделы «Вентиля»</h2>
+        <div className="ventil-feature-grid">
+          {VENTIL_SEO_CATEGORIES.map((category) => (
+            <article className="ventil-feature-card" key={category.slug}>
+              <h3><Link href={`/ventil/${category.slug}/`}>{category.label}</Link></h3>
+              <p>{category.lead}</p>
+            </article>
+          ))}
         </div>
       </section>
 

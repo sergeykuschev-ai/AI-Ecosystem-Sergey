@@ -1,4 +1,5 @@
 import { AMPER_SEO_CATEGORY_PATHS } from "@/lib/amper/seo-categories";
+import { VENTIL_SEO_CATEGORY_PATHS } from "@/lib/ventil/seo-categories";
 import { KEY_RECRAWL_PATHS } from "@/lib/seo/key-urls";
 import { normalizeIndexNowUrls, submitChangedUrls } from "@/services/indexnow";
 
@@ -11,7 +12,7 @@ async function main() {
   }
 
   const urls = normalizeIndexNowUrls(
-    [...KEY_RECRAWL_PATHS, ...AMPER_SEO_CATEGORY_PATHS],
+    [...KEY_RECRAWL_PATHS, ...AMPER_SEO_CATEGORY_PATHS, ...VENTIL_SEO_CATEGORY_PATHS],
     configuredSiteUrl,
   );
 
