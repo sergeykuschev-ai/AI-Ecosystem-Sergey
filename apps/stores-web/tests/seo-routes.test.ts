@@ -7,6 +7,10 @@ import { NextRequest } from "next/server";
 import sitemap from "@/app/sitemap";
 import robots from "@/app/robots";
 import { CANONICAL_BRAND_SLUGS } from "@/lib/constants/brands";
+import { AMPER_SEO_CATEGORY_PATHS } from "@/lib/amper/seo-categories";
+import { VENTIL_SEO_CATEGORY_PATHS } from "@/lib/ventil/seo-categories";
+import { METIZ_SEO_CATEGORY_PATHS } from "@/lib/metiz-market/seo-categories";
+import { MISKA_SEO_CATEGORY_PATHS } from "@/lib/miska/seo-categories";
 import { KEY_RECRAWL_PATHS } from "@/lib/seo/key-urls";
 import {
   siteUrl,
@@ -47,6 +51,12 @@ const PUBLIC_STATIC_PATHS = [
 ];
 
 const LEGAL_PATHS = ["/politika-konfidencialnosti/", "/soglasie-na-obrabotku-dannyh/"];
+const SEO_CATEGORY_PATHS = [
+  ...AMPER_SEO_CATEGORY_PATHS,
+  ...VENTIL_SEO_CATEGORY_PATHS,
+  ...METIZ_SEO_CATEGORY_PATHS,
+  ...MISKA_SEO_CATEGORY_PATHS,
+];
 
 const BRAND_PAGES = [
   { module: amperPage, path: "/amper/" },
@@ -172,6 +182,21 @@ describe("sitemap", () => {
     for (const url of expected) assert.ok(urls.has(url), `sitemap must include ${url}`);
   });
 
+  test("includes every SEO category exactly once", async () => {
+    const entries = await sitemap();
+    const counts = new Map<string, number>();
+    for (const entry of entries) counts.set(entry.url, (counts.get(entry.url) ?? 0) + 1);
+    for (const path of SEO_CATEGORY_PATHS) {
+      const url = new URL(path, siteUrl).href;
+      assert.equal(counts.get(url), 1, `sitemap must include ${url} exactly once`);
+    }
+  });
+
+  test("sitemap does not contain duplicate URLs", async () => {
+    const urls = (await sitemap()).map((entry) => entry.url);
+    assert.equal(new Set(urls).size, urls.length, "sitemap URLs must be unique");
+  });
+
   test("includes every canonical brand route", async () => {
     const entries = await sitemap();
     const urls = new Set(entries.map((entry) => entry.url));
@@ -273,7 +298,13 @@ describe("trailing-slash proxy", () => {
         .filter((store) => store.active && store.city_id === city.id)
         .map((store) => `/stores/${city.slug}/${store.slug}/`),
     ]);
-    const canonicalPaths = [...PUBLIC_STATIC_PATHS, ...BRAND_PAGES.map(({ path }) => path), ...LEGAL_PATHS, ...dynamicPaths];
+    const canonicalPaths = [
+      ...PUBLIC_STATIC_PATHS,
+      ...BRAND_PAGES.map(({ path }) => path),
+      ...SEO_CATEGORY_PATHS,
+      ...LEGAL_PATHS,
+      ...dynamicPaths,
+    ];
 
     for (const canonicalPath of canonicalPaths) {
       if (canonicalPath === "/") continue;
