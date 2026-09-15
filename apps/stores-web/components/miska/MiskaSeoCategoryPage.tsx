@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { Breadcrumbs } from "@/components/seo/Breadcrumbs";
 import { JsonLd } from "@/components/seo/JsonLd";
+import { LocalStoreNetworkLinks } from "@/components/seo/LocalStoreNetworkLinks";
 import { BrandStoreContact } from "@/components/stores/BrandStoreContact";
 import { Container } from "@/components/ui/Container";
 import {
@@ -118,6 +119,8 @@ export async function MiskaSeoCategoryPage({ category }: MiskaSeoCategoryPagePro
             })}
           </div>
         </section>
+
+        <LocalStoreNetworkLinks currentSlug="miska" />
 
         {store && city ? (
           <section
