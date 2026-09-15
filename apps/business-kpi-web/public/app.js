@@ -98,6 +98,7 @@ function redirectToLogin() {
 }
 
 function canViewRoute(route) {
+  if (!storeRouteAllowed(route)) return false;
   const role = state.currentUser?.role;
   if (role === 'OWNER') return true;
   if (role === 'MANAGER') {
@@ -177,6 +178,20 @@ function period() {
 
 function selectedStoreId() { return element('store-filter').value; }
 function selectedStore() { return state.stores.find(store => store.id === selectedStoreId()) || null; }
+function isStoreMode() { return selectedStore()?.code !== 'miska'; }
+function storeRouteAllowed(route) {
+  if (!isStoreMode()) return true;
+  return !['sellers', 'tasks', 'settings', 'import-export'].includes(route);
+}
+
+function applyStoreNavigation() {
+  document.querySelectorAll('[data-route]').forEach(link => {
+    const storeAllowed = storeRouteAllowed(link.dataset.route);
+    link.hidden = !storeAllowed;
+  });
+  const bonusLink = document.querySelector('[data-route="bonuses"]');
+  if (bonusLink) bonusLink.textContent = isStoreMode() ? 'Премия магазина' : 'Премии';
+}
 
 function selectedYear() {
   return Number(element('year-filter').value) || new Date().getFullYear();
@@ -209,6 +224,7 @@ async function loadReferenceData(preferredStore) {
   fillSelect(element('shift-store'), state.stores, 'name', data.selectedStoreId);
   fillSelect(element('shift-employee'), state.employees, 'displayName');
   applyStoreContext(state.stores.find(store => store.id === data.selectedStoreId));
+  applyStoreNavigation();
   const employeeFilter = element('employee-filter');
   employeeFilter.replaceChildren(new Option('Все продавцы', ''));
   for (const employee of state.employees) {
@@ -1190,7 +1206,23 @@ function renderBonuses(data) {
   }
 }
 
+async function loadStoreBonus() {
+  const store = selectedStoreId();
+  if (!store) return;
+  const { year, month } = period();
+  const dashboard = await api(`/api/business-kpi/dashboard?store=${encodeURIComponent(store)}&year=${year}&month=${month}`);
+  const bonus = dashboard.storeBonus;
+  element('store-bonus-panel').hidden = false;
+  element('seller-bonus-panel').hidden = true;
+  element('store-bonus-plan').textContent = formatPercent(dashboard.month.planCompletion);
+  element('store-bonus-qr').textContent = formatPercent(dashboard.month.qrShare);
+  element('store-bonus-amount').textContent = bonus?.amount === null ? 'Не настроена' : formatMoney(bonus?.amount);
+  element('store-bonus-note').textContent = bonus?.reason || 'Параметры магазинной премии не настроены.';
+}
+
 async function loadBonuses() {
+  element('store-bonus-panel').hidden = true;
+  element('seller-bonus-panel').hidden = false;
   const store = selectedStoreId();
   if (!store) return;
   const { year, month } = period();
@@ -2037,7 +2069,10 @@ async function renderRoute() {
       await loadDashboard();
       renderSellers(state.dashboard.sellers);
     }
-    if (routeId === 'bonuses') await loadBonuses();
+    if (routeId === 'bonuses') {
+      if (isStoreMode()) await loadStoreBonus();
+      else await loadBonuses();
+    }
     if (routeId === 'tasks') await loadTasks();
     if (routeId === 'settings') await loadSettings();
     if (routeId === 'import-export') await loadImportRuns();

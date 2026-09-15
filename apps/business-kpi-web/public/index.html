@@ -419,7 +419,15 @@
 
         <!-- Премии -->
         <section class="route-panel" data-panel="bonuses" hidden>
-          <article class="content-card bonuses-card">
+          <article class="content-card" id="store-bonus-panel" hidden>
+            <div class="card-heading"><div><p class="eyebrow">Премия магазина</p><h2>Расчёт по магазину</h2></div></div>
+            <div class="metric-grid operational-metrics">
+              <article class="metric-card"><span>Выполнение плана</span><strong id="store-bonus-plan">—</strong></article>
+              <article class="metric-card"><span>Доля QR</span><strong id="store-bonus-qr">—</strong></article>
+              <article class="metric-card"><span>Итоговая премия</span><strong id="store-bonus-amount">—</strong><small id="store-bonus-note">—</small></article>
+            </div>
+          </article>
+          <article class="content-card bonuses-card" id="seller-bonus-panel">
             <div class="card-heading">
               <div><p class="eyebrow">Расчёт премии</p><h2>Премии продавцов</h2></div>
               <span class="status-pill" id="bonuses-status">—</span>
