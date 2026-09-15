@@ -277,9 +277,10 @@ describe("robots", () => {
     );
     assert.ok(starRule, "robots must define a userAgent: * rule");
     assert.ok(starRule.allow?.includes("/"), "robots must allow /");
-    for (const privatePath of ["/api/", "/admin/", "/preview/", "/directus/", "/_next/"]) {
+    for (const privatePath of ["/api/", "/admin/", "/preview/", "/directus/"]) {
       assert.ok(starRule.disallow?.includes(privatePath), `robots must disallow ${privatePath}`);
     }
+    assert.ok(!starRule.disallow?.includes("/_next/"), "robots must allow Next.js assets for rendering");
   });
 
   test("declares the sitemap on the site origin", () => {

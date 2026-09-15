@@ -62,7 +62,7 @@ const LEGAL_PATHS = ["/politika-konfidencialnosti/", "/soglasie-na-obrabotku-dan
 
 const PRIVATE_PATH_FRAGMENTS = ["/api/", "/admin/", "/preview/", "/directus/", "/_next/"];
 
-const ROBOTS_DISALLOW_EXPECTED = ["/api/", "/admin/", "/preview/", "/directus/", "/_next/"];
+const ROBOTS_DISALLOW_EXPECTED = ["/api/", "/admin/", "/preview/", "/directus/"];
 
 const FORBIDDEN_JSON_LD_KEYS = new Set([
   "aggregateRating",
