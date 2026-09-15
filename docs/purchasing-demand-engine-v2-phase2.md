@@ -171,17 +171,17 @@ is not converted to daily units.
 
 ## Supply cycle and safety stock
 
-Supplier cycles are configured in `DEMAND_ENGINE_CONFIG`. Valta is explicitly
-mapped to its 14-day default. Config keys are canonical supplier identities
-resolved by `canonicalSupplierName` (`валта`, `зооград`), so every reasonable
-legal-form spelling of a known supplier (for example
-`АО "ВАЛТА ПЕТ ПРОДАКТС"` and
-`АКЦИОНЕРНОЕ ОБЩЕСТВО "ВАЛТА ПЕТ ПРОДАКТС"`) resolves to the same cycle. The
-lookup first tries the exact normalized supplier name, then the canonical
-identity, then the configured default. There is no global fallback for unknown
-suppliers, because applying Valta's cycle elsewhere would invent supply data. A
-caller may supply an exact normalized supplier or canonical-key override
-through `phase2Inputs.supplierDeliveryCycleDays`.
+Supplier cycles are configured in `DEMAND_ENGINE_CONFIG`. Owner decision
+2026-09-15 sets one purchasing/delivery cycle of **14 days for every supplier**.
+Valta, Zoograd-Khabarovsk, Rich Store, Onikienko and Khabarovsk OPT are retained
+as explicit compatible identities, while any other supplier uses the same
+14-day default. Canonical supplier identity resolution still groups legal-form
+spellings consistently for supplier scope and supplier-specific safety rules.
+
+The configured 14-day default is authoritative. Per-run
+`phase2Inputs.supplierDeliveryCycleDays` values cannot silently replace it with
+a different cycle. This prevents stale 7-day or 21-day supplier data from
+changing demand after the owner decision.
 
 Safety-stock defaults are:
 
