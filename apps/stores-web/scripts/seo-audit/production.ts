@@ -315,6 +315,7 @@ async function main(): Promise<void> {
     [/^\/faq\/$/, ["FAQPage"]],
     [/^\/stores\/[^/]+\/$/, ["LocalBusiness"]],
     [/^\/stores\/[^/]+\/[^/]+\/$/, ["BreadcrumbList"]],
+    [/^\/(amper|ventil|metiz-market|miska)\/[^/]+\/$/, ["Organization", "LocalBusiness", "BreadcrumbList"]],
   ];
   for (const snapshot of snapshots) {
     for (const [pattern, expected] of jsonLdExpectations) {
@@ -323,9 +324,11 @@ async function main(): Promise<void> {
   }
 
   // --- dynamic routes from the sitemap (city and store pages) ---
-  const dynamicPaths = [...sitemapUrlSet]
-    .map((url) => new URL(url).pathname)
-    .filter((path) => path.startsWith("/stores/") && path !== "/stores/");
+  const sitemapPaths = [...sitemapUrlSet].map((url) => new URL(url).pathname);
+  const dynamicPaths = sitemapPaths.filter((path) => path.startsWith("/stores/") && path !== "/stores/");
+  const categoryPaths = sitemapPaths.filter((path) =>
+    /^\/(amper|ventil|metiz-market|miska)\/[^/]+\/$/.test(path),
+  );
   for (const path of dynamicPaths) {
     const result = await fetchPath(baseUrl, path);
     const snapshot = snapshotPage(path, result);
@@ -378,6 +381,7 @@ async function main(): Promise<void> {
     ...STATIC_PUBLIC_PATHS,
     ...BRAND_PATHS,
     ...LEGAL_PATHS,
+    ...categoryPaths,
     ...dynamicPaths,
   ]);
   for (const canonicalPath of canonicalPagePaths) {
