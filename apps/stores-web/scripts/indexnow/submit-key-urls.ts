@@ -1,3 +1,4 @@
+import { AMPER_SEO_CATEGORY_PATHS } from "@/lib/amper/seo-categories";
 import { KEY_RECRAWL_PATHS } from "@/lib/seo/key-urls";
 import { normalizeIndexNowUrls, submitChangedUrls } from "@/services/indexnow";
 
@@ -9,7 +10,10 @@ async function main() {
     throw new Error("NEXT_PUBLIC_SITE_URL or SITE_URL must be configured");
   }
 
-  const urls = normalizeIndexNowUrls(KEY_RECRAWL_PATHS, configuredSiteUrl);
+  const urls = normalizeIndexNowUrls(
+    [...KEY_RECRAWL_PATHS, ...AMPER_SEO_CATEGORY_PATHS],
+    configuredSiteUrl,
+  );
 
   if (!shouldSubmit) {
     console.log("IndexNow dry run: no request was sent. URLs prepared for re-crawl:");
