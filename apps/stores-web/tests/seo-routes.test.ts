@@ -7,10 +7,10 @@ import { NextRequest } from "next/server";
 import sitemap from "@/app/sitemap";
 import robots from "@/app/robots";
 import { CANONICAL_BRAND_SLUGS } from "@/lib/constants/brands";
-import { AMPER_SEO_CATEGORY_PATHS } from "@/lib/amper/seo-categories";
-import { VENTIL_SEO_CATEGORY_PATHS } from "@/lib/ventil/seo-categories";
-import { METIZ_SEO_CATEGORY_PATHS } from "@/lib/metiz-market/seo-categories";
-import { MISKA_SEO_CATEGORY_PATHS } from "@/lib/miska/seo-categories";
+import { AMPER_SEO_CATEGORIES, AMPER_SEO_CATEGORY_PATHS } from "@/lib/amper/seo-categories";
+import { VENTIL_SEO_CATEGORIES, VENTIL_SEO_CATEGORY_PATHS } from "@/lib/ventil/seo-categories";
+import { METIZ_SEO_CATEGORIES, METIZ_SEO_CATEGORY_PATHS } from "@/lib/metiz-market/seo-categories";
+import { MISKA_SEO_CATEGORIES, MISKA_SEO_CATEGORY_PATHS } from "@/lib/miska/seo-categories";
 import { KEY_RECRAWL_PATHS } from "@/lib/seo/key-urls";
 import {
   siteUrl,
@@ -38,6 +38,10 @@ import * as contactsPage from "@/app/kontakty/page";
 import * as faqPage from "@/app/faq/page";
 import { generateMetadata as generateCityMetadata } from "@/app/stores/[city]/page";
 import { generateMetadata as generateStoreMetadata } from "@/app/stores/[city]/[store]/page";
+import { generateMetadata as generateAmperCategoryMetadata } from "@/app/amper/[category]/page";
+import { generateMetadata as generateVentilCategoryMetadata } from "@/app/ventil/[category]/page";
+import { generateMetadata as generateMetizCategoryMetadata } from "@/app/metiz-market/[category]/page";
+import { generateMetadata as generateMiskaCategoryMetadata } from "@/app/miska/[category]/page";
 
 const PUBLIC_STATIC_PATHS = [
   "/",
@@ -130,6 +134,27 @@ describe("page metadata", () => {
       assert.ok(metadata.description, `description for ${path}`);
       assert.ok(!canonicalUrls.has(href), `canonical ${href} must belong to only one public page`);
       canonicalUrls.add(href);
+    }
+  });
+
+  test("every SEO category exposes canonical indexable metadata from its registry", async () => {
+    const groups = [
+      ["amper", AMPER_SEO_CATEGORIES, generateAmperCategoryMetadata],
+      ["ventil", VENTIL_SEO_CATEGORIES, generateVentilCategoryMetadata],
+      ["metiz-market", METIZ_SEO_CATEGORIES, generateMetizCategoryMetadata],
+      ["miska", MISKA_SEO_CATEGORIES, generateMiskaCategoryMetadata],
+    ] as const;
+
+    for (const [brand, categories, generateMetadata] of groups) {
+      for (const category of categories) {
+        const path = `/${brand}/${category.slug}/`;
+        const metadata = await generateMetadata({ params: Promise.resolve({ category: category.slug }) });
+        assert.equal(canonicalHref(metadata), new URL(path, siteUrl).href, `canonical for ${path}`);
+        assert.equal(robotsFlags(metadata).index, true, `index for ${path}`);
+        assert.equal(robotsFlags(metadata).follow, true, `follow for ${path}`);
+        assert.equal(metadata.title, category.metaTitle, `title for ${path}`);
+        assert.equal(metadata.description, category.metaDescription, `description for ${path}`);
+      }
     }
   });
 
