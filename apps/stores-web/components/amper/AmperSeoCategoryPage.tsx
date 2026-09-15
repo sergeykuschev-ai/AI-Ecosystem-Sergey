@@ -105,14 +105,17 @@ export async function AmperSeoCategoryPage({ category }: AmperSeoCategoryPagePro
           <p className="eyebrow">Другие направления</p>
           <h2 id="amper-related-categories">Другие разделы магазина «Ампер»</h2>
           <div className="amper-feature-grid">
-            {relatedCategories.map((item) => (
-              <article className="amper-feature-card" key={item.slug}>
-                <h3>
-                  <Link href={`/amper/${item.slug}/`}>{item.label}</Link>
-                </h3>
-                <p>{item.lead}</p>
-              </article>
-            ))}
+            {relatedCategories.map((item) => {
+              const href = `/amper/${item.slug}/`;
+              return (
+                <article className="amper-feature-card" key={item.slug}>
+                  <h3>
+                    <Link href={href}>{item.label}</Link>
+                  </h3>
+                  <p>{item.lead}</p>
+                </article>
+              );
+            })}
           </div>
         </section>
 
