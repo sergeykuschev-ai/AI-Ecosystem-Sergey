@@ -12,6 +12,7 @@ export const metadata: Metadata = {
   title: { default: "Магазины Амурска", template: "%s" },
   description: "Официальные страницы магазинов Ампер, Вентиль, Метиз Маркет и Миска в Амурске.",
   applicationName: "Магазины Амурска",
+  icons: { icon: [{ url: "/favicon.svg", type: "image/svg+xml" }] },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
