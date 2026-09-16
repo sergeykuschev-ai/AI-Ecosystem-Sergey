@@ -84,3 +84,15 @@ describe("default Open Graph image asset", () => {
     assert.equal(contents.readUInt32BE(20), DEFAULT_OG_IMAGE_HEIGHT);
   });
 });
+
+
+describe("favicon asset", () => {
+  test("exposes a root SVG favicon suitable for search engines", () => {
+    const faviconPath = path.join(PUBLIC_DIR, "favicon.svg");
+    assert.ok(existsSync(faviconPath), "missing public/favicon.svg");
+    const contents = readFileSync(faviconPath, "utf8");
+    assert.match(contents, /<svg\b/);
+    assert.match(contents, /viewBox="0 0 120 120"/);
+    assert.ok(statSync(faviconPath).size <= MAX_ASSET_BYTES, "favicon exceeds the asset weight budget");
+  });
+});
