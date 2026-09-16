@@ -181,7 +181,7 @@ function selectedStore() { return state.stores.find(store => store.id === select
 function isStoreMode() { return selectedStore()?.code !== 'miska'; }
 function storeRouteAllowed(route) {
   if (!isStoreMode()) return true;
-  return !['sellers', 'tasks', 'settings', 'import-export'].includes(route);
+  return !['sellers', 'tasks', 'import-export'].includes(route);
 }
 
 function applyStoreNavigation() {
@@ -191,6 +191,9 @@ function applyStoreNavigation() {
   });
   const bonusLink = document.querySelector('[data-route="bonuses"]');
   if (bonusLink) bonusLink.textContent = isStoreMode() ? 'Премия магазина' : 'Премии';
+  const settingsLink = document.querySelector('[data-route="settings"]');
+  if (settingsLink) settingsLink.textContent = isStoreMode() ? 'План' : 'Настройки';
+  document.querySelectorAll('[data-miska-settings]').forEach(node => { node.hidden = isStoreMode(); });
 }
 
 function selectedYear() {
@@ -2074,7 +2077,10 @@ async function renderRoute() {
       else await loadBonuses();
     }
     if (routeId === 'tasks') await loadTasks();
-    if (routeId === 'settings') await loadSettings();
+    if (routeId === 'settings') {
+      if (isStoreMode()) await loadDashboard();
+      else await loadSettings();
+    }
     if (routeId === 'import-export') await loadImportRuns();
   } catch (error) {
     showMessage(error.message, 'error');

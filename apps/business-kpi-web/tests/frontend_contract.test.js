@@ -145,7 +145,16 @@ test('Amper and Ventil navigation is store-centric and premium page does not use
   const html = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
   const app = fs.readFileSync(path.join(__dirname, '../public/app.js'), 'utf8');
   assert.match(html, /id="store-bonus-panel" hidden/);
-  assert.match(app, /return !\['sellers', 'tasks', 'settings', 'import-export'\]\.includes\(route\)/);
+  assert.match(app, /return !\['sellers', 'tasks', 'import-export'\]\.includes\(route\)/);
   assert.match(app, /bonusLink\.textContent = isStoreMode\(\) \? 'Премия магазина' : 'Премии'/);
   assert.match(app, /if \(isStoreMode\(\)\) await loadStoreBonus\(\)/);
+});
+
+test('store mode keeps monthly plan editing but hides Miska KPI settings', () => {
+  const html = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
+  const app = fs.readFileSync(path.join(__dirname, '../public/app.js'), 'utf8');
+  assert.match(html, /id="plan-form"/);
+  assert.match(html, /data-miska-settings/);
+  assert.match(app, /settingsLink\.textContent = isStoreMode\(\) \? 'План' : 'Настройки'/);
+  assert.match(app, /if \(isStoreMode\(\)\) await loadDashboard\(\);\s*else await loadSettings\(\)/);
 });
