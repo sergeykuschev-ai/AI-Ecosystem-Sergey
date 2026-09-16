@@ -12,7 +12,7 @@ import { getBrands } from "@/lib/directus/brands";
 import { getActualItems } from "@/lib/directus/actual-items";
 import { getCityBySlug } from "@/lib/directus/cities";
 import { getFaqs } from "@/lib/directus/faqs";
-import { getStoresByCity } from "@/lib/directus/stores";
+import { getStores } from "@/lib/directus/stores";
 import { createOrganizationsJsonLd, createWebsiteJsonLd } from "@/lib/seo/json-ld";
 import { createPageMetadata } from "@/lib/seo/metadata";
 
@@ -26,13 +26,14 @@ export const metadata: Metadata = createPageMetadata({
 });
 
 export default async function HomePage() {
-  const [brands, faqs, actualItems, city] = await Promise.all([
+  const [brands, faqs, actualItems, city, allStores] = await Promise.all([
     getBrands(),
     getFaqs(),
     getActualItems(),
     getCityBySlug("amursk"),
+    getStores(),
   ]);
-  const stores = city ? await getStoresByCity(city.id) : [];
+  const stores = city ? allStores.filter((store) => store.city_id === city.id && store.active) : [];
   return (
     <main>
       <JsonLd data={createWebsiteJsonLd()} />
