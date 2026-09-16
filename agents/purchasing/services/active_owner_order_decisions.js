@@ -6,10 +6,10 @@ const {
   effectiveExpiresAt,
 } = require('../matrix_builder/owner_decisions');
 const {
-  normalizeSupplier,
   normalizedText,
   supplierSkuKey,
 } = require('./owner_decision_identity');
+const { canonicalSupplierName } = require('./demand_engine');
 
 const ACTIVE_ORDER_DECISIONS = new Set(['BUY', 'SKIP', 'DEFER']);
 
@@ -35,13 +35,13 @@ function exactOrderSku(product) {
 function exactIdentity(product) {
   const resolved = exactOrderSku(product);
   if (!resolved) return null;
-  return `${normalizeSupplier(product?.supplier)}|${resolved.sku}`;
+  return `${canonicalSupplierName(product?.supplier)}|${resolved.sku}`;
 }
 
 function exactNameIdentity(product) {
   const name = normalizedText(product?.name);
   if (!name) return null;
-  return `${normalizeSupplier(product?.supplier)}|${name}`;
+  return `${canonicalSupplierName(product?.supplier)}|${name}`;
 }
 
 function fallbackDecisionNameIdentity(key) {
@@ -57,7 +57,32 @@ function fallbackDecisionNameIdentity(key) {
   const name = normalizedText(fallbackPart.slice(pipeIndex + 1));
   if (!name) return null;
   const supplier = supplierPart.slice('SUPPLIER:'.length);
-  return `${normalizeSupplier(supplier)}|${name}`;
+  return `${canonicalSupplierName(supplier)}|${name}`;
+}
+
+function supplierAwareDecisionParts(key) {
+  if (typeof key !== 'string' || !key.startsWith('SUPPLIER:')) return null;
+  const match = key.match(/^SUPPLIER:(.*?):(SKU|BARCODE|FALLBACK):(.*)$/);
+  if (!match) return null;
+  return {
+    supplier: match[1],
+    type: match[2],
+    value: match[3],
+  };
+}
+
+function canonicalSkuDecisionIdentity(key) {
+  const parts = supplierAwareDecisionParts(key);
+  if (!parts || parts.type !== 'SKU') return null;
+  const sku = normalizeArticle(parts.value);
+  return sku ? `${canonicalSupplierName(parts.supplier)}|${sku}` : null;
+}
+
+function newerDecision(left, right) {
+  if (!left) return right;
+  return String(right.ownerDecision.decided_at || '') > String(left.ownerDecision.decided_at || '')
+    ? right
+    : left;
 }
 
 function validActiveOrderDecision(ownerDecision) {
@@ -87,6 +112,14 @@ function resolveActiveOwnerOrderDecisions(products = [], options = {}) {
   }
   const loaded = loadOwnerDecisions(options.ownerDecisionsPath, { allowMissing: true });
   const latest = latestActiveDecisions(loaded.store.decisions, { now: options.now });
+  const exactByCanonical = new Map();
+  for (const [key, ownerDecision] of latest.entries()) {
+    if (!validActiveOrderDecision(ownerDecision)) continue;
+    const identity = canonicalSkuDecisionIdentity(key);
+    if (!identity) continue;
+    const candidate = { key, ownerDecision };
+    exactByCanonical.set(identity, newerDecision(exactByCanonical.get(identity), candidate));
+  }
   const counts = new Map();
   const nameCounts = new Map();
   for (const product of products) {
@@ -103,8 +136,15 @@ function resolveActiveOwnerOrderDecisions(products = [], options = {}) {
     const nameIdentity = fallbackDecisionNameIdentity(key);
     if (!nameIdentity) continue;
     if (fallbackByName.has(nameIdentity)) {
-      fallbackConflicts.add(nameIdentity);
-      fallbackByName.delete(nameIdentity);
+      const existing = fallbackByName.get(nameIdentity);
+      const equivalent = existing.ownerDecision.owner_decision === ownerDecision.owner_decision &&
+        existing.ownerDecision.owner_order_quantity === ownerDecision.owner_order_quantity;
+      if (!equivalent) {
+        fallbackConflicts.add(nameIdentity);
+        fallbackByName.delete(nameIdentity);
+        continue;
+      }
+      fallbackByName.set(nameIdentity, newerDecision(existing, { key, ownerDecision }));
       continue;
     }
     if (!fallbackConflicts.has(nameIdentity)) {
@@ -117,8 +157,10 @@ function resolveActiveOwnerOrderDecisions(products = [], options = {}) {
     const identity = exactIdentity(product);
     if (identity && counts.get(identity) === 1) {
       const resolvedSku = exactOrderSku(product);
-      const key = resolvedSku ? supplierSkuKey(product.supplier, resolvedSku.sku) : null;
-      const ownerDecision = key ? latest.get(key) : null;
+      const canonicalMatch = exactByCanonical.get(identity) || null;
+      const legacyKey = resolvedSku ? supplierSkuKey(product.supplier, resolvedSku.sku) : null;
+      const key = canonicalMatch?.key || legacyKey;
+      const ownerDecision = canonicalMatch?.ownerDecision || (legacyKey ? latest.get(legacyKey) : null);
       if (validActiveOrderDecision(ownerDecision)) {
         byRowIdentity.set(
           product.rowIdentity,
