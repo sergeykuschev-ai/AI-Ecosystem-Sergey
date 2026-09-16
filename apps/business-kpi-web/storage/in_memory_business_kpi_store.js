@@ -49,6 +49,16 @@ const DEV_EMPLOYEES = Object.freeze([
     terminatedOn: null,
   })),
   Object.freeze({
+    id: '20000000-0000-4000-8000-000000000101',
+    storeId: DEV_ADDITIONAL_STORES[0].id, employeeCode: 'amper-store-input',
+    displayName: 'Ампер · магазин', active: true, userId: null, hiredOn: null, terminatedOn: null,
+  }),
+  Object.freeze({
+    id: '20000000-0000-4000-8000-000000000102',
+    storeId: DEV_ADDITIONAL_STORES[1].id, employeeCode: 'ventil-store-input',
+    displayName: 'Вентиль · магазин', active: true, userId: null, hiredOn: null, terminatedOn: null,
+  }),
+  Object.freeze({
     id: '20000000-0000-4000-8000-000000000002',
     storeId: DEV_STORE.id,
     employeeCode: 'seller-demo-2',

@@ -158,3 +158,12 @@ test('store mode keeps monthly plan editing but hides Miska KPI settings', () =>
   assert.match(app, /settingsLink\.textContent = isStoreMode\(\) \? 'План' : 'Настройки'/);
   assert.match(app, /if \(isStoreMode\(\)\) await loadDashboard\(\);\s*else await loadSettings\(\)/);
 });
+
+test('store daily input hides seller and shift key while preserving Miska form', () => {
+  const html = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
+  const app = fs.readFileSync(path.join(__dirname, '../public/app.js'), 'utf8');
+  assert.match(html, /id="shift-employee-field"/);
+  assert.match(html, /id="shift-key-field"/);
+  assert.match(app, /element\('shift-employee-field'\)\.hidden = !miskaMode/);
+  assert.match(app, /employeeCode === `\$\{store\?\.code\}-store-input`/);
+});

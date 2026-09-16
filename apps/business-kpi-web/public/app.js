@@ -2100,15 +2100,28 @@ function isMiskaStore(storeId = selectedStoreId()) {
 function applyShiftFormMode(storeId) {
   const miskaMode = isMiskaStore(storeId);
   element('shift-kpi-fieldset').hidden = !miskaMode;
+  element('shift-employee-field').hidden = !miskaMode;
+  element('shift-key-field').hidden = !miskaMode;
+  element('shift-employee').required = miskaMode;
+  if (!miskaMode) element('shift-key').value = 'main';
   document.querySelectorAll('[data-miska-kpi-preview]').forEach(node => {
     node.hidden = !miskaMode;
   });
 }
 
+function storeInputEmployeeId(storeId) {
+  const employees = state.employees.filter(employee => employee.storeId === storeId);
+  const store = state.stores.find(item => item.id === storeId);
+  if (store?.code === 'miska') return element('shift-employee').value;
+  return employees.find(employee => employee.employeeCode === `${store?.code}-store-input`)?.id
+    || employees[0]?.id || '';
+}
+
 function shiftPayload() {
+  const storeId = element('shift-store').value;
   return {
-    storeId: element('shift-store').value,
-    employeeId: element('shift-employee').value,
+    storeId,
+    employeeId: storeInputEmployeeId(storeId),
     shiftDate: element('shift-date').value,
     shiftKey: element('shift-key').value,
     cash: numberInput('shift-cash'),
