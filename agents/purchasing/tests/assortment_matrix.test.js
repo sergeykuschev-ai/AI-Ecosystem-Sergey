@@ -647,6 +647,7 @@ function canonicalMatrix(overrides = {}) {
     items: [{
       sku_id: 'FOOD-TEST-1',
       supplier_sku: 'TEST-SKU-1',
+      name: 'Тестовый canonical товар',
       supplier: 'Валта',
       brand: 'AWARD',
       category: 'Влажный корм для собак',
@@ -714,6 +715,39 @@ test('canonical adapter falls back to sku_id when supplier_sku missing', () => {
 
   const loaded = loadAssortmentMatrix(filePath);
   assert.equal(loaded.matrix.items[0].article, 'FOOD-TEST-1');
+});
+
+
+test('canonical adapter preserves exact product name for supplier-name fallback', () => {
+  const filePath = path.join(TEMP_DIRECTORY, 'canonical-name.json');
+  const data = canonicalMatrix();
+  data.items[0].supplier_sku = null;
+  data.items[0].name = 'Inspector Quadro Капли д/соб 1-4кг 3пипет.';
+  data.items[0].supplier = 'Зооград';
+  fs.writeFileSync(filePath, `${JSON.stringify(data, null, 2)}\n`, 'utf8');
+
+  const loaded = loadAssortmentMatrix(filePath);
+  assert.equal(loaded.matrix.items[0].name, 'Inspector Quadro Капли д/соб 1-4кг 3пипет.');
+  const sourceRow = row({ article: null, name: 'Inspector Quadro Капли д/соб 1-4кг 3пипет.' });
+  sourceRow.supplier = 'Хабаровск ОПТ';
+  const matched = matchAssortmentMatrix(loaded.matrix, [sourceRow]);
+  assert.equal(matched.itemResults[0].status, 'matched');
+  assert.equal(matched.itemResults[0].matchMethod, 'supplier_normalized_name');
+});
+
+test('canonical matrix includes owner-selected Zoograd strategic assortment', () => {
+  const loaded = loadAssortmentMatrix(CANONICAL_MATRIX_PATH);
+  const byId = new Map(loaded.matrix.items.map(item => [item.canonical_sku_id, item]));
+  for (const sku of [
+    'VET-INSP-001','VET-INSP-004','VET-INSP-008',
+    'VET-PRAZ-001','VET-PRAZ-002',
+    'CARE-CLINY-108','CARE-CLINY-114','CARE-CLINY-119','CARE-CLINY-120',
+    'VET-BARS-SPRAY-100','VET-BARS-SPRAY-200',
+  ]) {
+    assert.ok(byId.has(sku), `${sku} must be present in canonical matrix`);
+  }
+  assert.equal(byId.get('CARE-CLINY-114').minimum_shelf_stock, 2);
+  assert.equal(byId.get('VET-PRAZ-001').priority, 'critical');
 });
 
 test('canonical adapter rejects duplicate supplier_sku', () => {
