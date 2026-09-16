@@ -10,6 +10,7 @@ services:
       POSTGRES_DB: ${BUSINESS_KPI_DB_NAME:-business_kpi}
     volumes:
       - business_kpi_postgres_data:/var/lib/postgresql/data
+      - ./postgres-init/001-business-kpi-role.sql:/docker-entrypoint-initdb.d/001-business-kpi-role.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
