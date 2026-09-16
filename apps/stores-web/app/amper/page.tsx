@@ -8,6 +8,7 @@ import {
   BONUS_VALIDITY_LABEL,
   formatRubles,
 } from "@/lib/constants/bonus";
+import { AMPER_SEO_CATEGORIES } from "@/lib/amper/seo-categories";
 import { createPageMetadata } from "@/lib/seo/metadata";
 
 export const dynamic = "force-dynamic";
@@ -22,38 +23,10 @@ export const metadata: Metadata = createPageMetadata({
 const SINCE_2018_TEXT =
   "Магазин электротоваров «Ампер» работает в Амурске с 2018 года. Здесь можно подобрать товары для ремонта, замены электрики и повседневных хозяйственных задач — от электротоваров и товаров для электромонтажа до освещения, электроинструмента и расходных материалов.";
 
-const DIRECTIONS = [
-  {
-    title: "Кабель и провод",
-    text: "Провода, кабели и соединительные товары для замены проводки и хозяйственных задач — с подсказкой, какие характеристики важно знать перед покупкой.",
-    href: "/amper/kabel-i-provod/",
-  },
-  {
-    title: "Автоматы и УЗО",
-    text: "Автоматические выключатели, дифференциальные устройства, модульное оборудование и всё для обновления электрощита.",
-    href: "/amper/avtomaty-i-uzo/",
-  },
-  {
-    title: "Розетки и выключатели",
-    text: "Электроустановочные изделия для скрытого и открытого монтажа — подбор по задаче, типу установки и совместимости элементов.",
-    href: "/amper/rozetki-i-vyklyuchateli/",
-  },
-  {
-    title: "Освещение",
-    text: "Лампы, светильники и комплектующие для квартиры, дома и дачи: поможем подобрать варианты под ваше помещение.",
-    href: "/amper/osveshchenie/",
-  },
-  {
-    title: "Электромонтажные товары",
-    text: "Изолента, клеммы, гофра, подрозетники, монтажные коробки и крепёж — расходные материалы для электромонтажных работ.",
-    href: "/amper/elektromontazhnye-tovary/",
-  },
-  {
-    title: "Электроинструмент",
-    text: "Электроинструмент и расходные материалы для ремонта, монтажа и повседневных хозяйственных задач.",
-    href: "/amper/elektroinstrument/",
-  },
-];
+const AMPER_DIRECTIONS = AMPER_SEO_CATEGORIES.map((category) => ({
+  ...category,
+  href: `/amper/${category.slug}/`,
+}));
 
 const ASSIST_ITEMS = [
   "Подберём кабель, автоматику и освещение под описанную вами задачу.",
@@ -103,13 +76,13 @@ function AmperFeaturedSections() {
         <p className="eyebrow">Категории</p>
         <h2 id="amper-directions">Электрика и расходные материалы</h2>
         <div className="amper-feature-grid">
-          {DIRECTIONS.map((direction) => (
-            <article className="amper-feature-card" key={direction.title}>
+          {AMPER_DIRECTIONS.map((category) => (
+            <article className="amper-feature-card" key={category.slug}>
               <h3>
-                <Link href={direction.href}>{direction.title}</Link>
+                <Link href={category.href}>{category.label}</Link>
               </h3>
-              <p>{direction.text}</p>
-              <Link href={direction.href}>Подробнее</Link>
+              <p>{category.lead}</p>
+              <Link href={category.href}>Подробнее</Link>
             </article>
           ))}
         </div>
