@@ -446,3 +446,25 @@ test('Amper dashboard marks store premium unresolved instead of inventing coeffi
   assert.equal(dashboard.storeBonus.amount, null);
   assert.match(dashboard.storeBonus.reason, /не настроены владельцем/);
 });
+
+test('store manager cannot read, create, update or archive another store records', async () => {
+  const { service, store } = fixture();
+  const amper = store.stores.find(item => item.code === 'amper');
+  const amperEmployee = store.employees.find(item => item.storeId === amper.id);
+  const amperManager = { id: 'amper-manager', role: 'MANAGER', storeId: amper.id };
+  const created = await service.createShift(shiftInput(), OWNER);
+  for (const operation of [
+    () => service.listShifts({ storeId: DEV_STORE.id }, amperManager),
+    () => service.getShift(created.id, amperManager),
+    () => service.createShift(shiftInput(), amperManager),
+    () => service.updateShift(created.id, { cash: 1 }, amperManager),
+    () => service.archiveShift(created.id, amperManager),
+  ]) {
+    await assert.rejects(operation, error => error.code === 'FORBIDDEN');
+  }
+  const own = await service.createShift({
+    ...shiftInput({ storeId: amper.id, employeeId: amperEmployee.id }),
+    itemsSold: null, upsellReceipts: null, treatsRevenue: null, treatsReceipts: null,
+  }, amperManager);
+  assert.equal(own.storeId, amper.id);
+});

@@ -548,6 +548,7 @@ class BusinessKpiService {
       if (options.beforeImport) await options.beforeImport(store);
       const imported = [];
       for (const normalized of normalizedInputs) {
+        requireActorStore(actor, normalized.storeId);
         const storeRecord = await store.getStore(normalized.storeId);
         const employee = await store.getEmployee(normalized.employeeId);
         if (!storeRecord?.active || !employee?.active || employee.storeId !== normalized.storeId) {
@@ -579,7 +580,8 @@ class BusinessKpiService {
     });
   }
 
-  async listShifts(filters = {}) {
+  async listShifts(filters = {}, actor = null) {
+    requireActorStore(actor, filters.storeId);
     const shifts = await this.store.listShifts(filters);
     return Promise.all(shifts.map(shift => this.decorateShift(this.store, shift)));
   }
