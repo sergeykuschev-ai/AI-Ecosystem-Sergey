@@ -27,7 +27,7 @@ async function main(): Promise<void> {
   if (!command || !["status", "queries", "recrawl"].includes(command)) {
     throw new Error("Usage: yandex-webmaster <status|queries|recrawl> [--format json|csv] [--submit]");
   }
-  const paths = [...KEY_RECRAWL_PATHS, ...AMPER_SEO_CATEGORY_PATHS, ...VENTIL_SEO_CATEGORY_PATHS, ...METIZ_SEO_CATEGORY_PATHS, ...MISKA_SEO_CATEGORY_PATHS, ...METIZ_SEO_CATEGORY_PATHS, ...MISKA_SEO_CATEGORY_PATHS, ...MISKA_SEO_CATEGORY_PATHS];
+  const paths = [...KEY_RECRAWL_PATHS, ...AMPER_SEO_CATEGORY_PATHS, ...VENTIL_SEO_CATEGORY_PATHS, ...METIZ_SEO_CATEGORY_PATHS, ...MISKA_SEO_CATEGORY_PATHS];
   const urls = paths.map((path) => new URL(path, YANDEX_WEBMASTER_SITE_URL).href);
   if (command === "recrawl" && !process.argv.includes("--submit")) {
     console.log(JSON.stringify({ dryRun: true, submitted: 0, urls }, null, 2));
