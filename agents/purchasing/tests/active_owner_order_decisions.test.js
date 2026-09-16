@@ -76,20 +76,22 @@ test('Zoograd legal entities reuse the same active exact BUY decision', () => {
   assert.equal(owner.quantity, 3);
 });
 
-test('Rich Store decision never leaks into Zoograd legal entities', () => {
+test('Rich Store decision reuses across Zoograd legal entities', () => {
   const file = writeStore([decisionBase({
     sku: 'SUPPLIER:РИЧ СТОР ООО:SKU:I306',
     owner_order_quantity: 9,
   })]);
   const current = product('I306', {
     supplier: 'Оникиенко Роман Евгеньевич',
-    rowIdentity: 'row:zoograd-no-rich:1',
+    rowIdentity: 'row:zoograd-rich-alias:1',
   });
   const resolved = resolveActiveOwnerOrderDecisions([current], {
     ownerDecisionsPath: file,
     now: '2026-09-11T10:00:00.000Z',
   });
-  assert.equal(resolved.byRowIdentity.size, 0);
+  const owner = resolved.byRowIdentity.get(current.rowIdentity);
+  assert.equal(owner.ownerDecision, 'BUY');
+  assert.equal(owner.quantity, 9);
 });
 
 test('Valta legal-form alias reuses active exact BUY decision', () => {

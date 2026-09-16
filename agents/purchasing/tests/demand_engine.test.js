@@ -1236,11 +1236,11 @@ test('real supplier зооград-хабаровск ооо resolves delivery c
   assert.equal(result.diagnostics.deliveryCycleDiagnostics.length, 0);
 });
 
-test('supplier identity keeps Rich Store separate from Zoograd legal entities', () => {
+test('supplier identity groups all four Zoograd legal entities', () => {
   assert.equal(canonicalSupplierName('Оникиенко Роман Евгеньевич'), 'зооград');
   assert.equal(canonicalSupplierName('ЗООГРАД-ХАБАРОВСК ООО'), 'зооград');
   assert.equal(canonicalSupplierName('Хабаровск ОПТ'), 'зооград');
-  assert.equal(canonicalSupplierName('РИЧ СТОР ООО'), 'рич стор ооо');
+  assert.equal(canonicalSupplierName('РИЧ СТОР ООО'), 'зооград');
 });
 
 test('рич стор ооо uses owner-approved 14-day delivery cycle', () => {

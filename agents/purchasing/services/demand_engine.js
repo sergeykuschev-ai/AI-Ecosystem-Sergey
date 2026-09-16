@@ -351,6 +351,7 @@ const ZOOGRAD_ALIASES = new Set([
   'зооград-хабаровск ооо',
   'оникиенко роман евгеньевич',
   'хабаровск опт',
+  'рич стор ооо',
 ]);
 
 function canonicalSupplierName(supplier) {
@@ -362,7 +363,8 @@ function canonicalSupplierName(supplier) {
     ZOOGRAD_ALIASES.has(normalized) ||
     normalized.includes('зооград') ||
     normalized.includes('оникиенко') ||
-    normalized.includes('хабаровск опт')
+    normalized.includes('хабаровск опт') ||
+    normalized.includes('рич стор')
   ) {
     return ZOOGRAD_CANONICAL_SUPPLIER;
   }

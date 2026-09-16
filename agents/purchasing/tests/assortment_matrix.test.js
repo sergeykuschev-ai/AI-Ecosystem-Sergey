@@ -247,9 +247,7 @@ test('matches by normalized exact name when article is absent', () => {
 });
 
 
-test('supplier-scoped article resolves Zoograd legal entities and excludes Rich Store', () => {
-  const zoograd = row({ rowNumber: 4, article: 'SKU-42', name: 'Одинаковый товар' });
-  zoograd.supplier = 'Оникиенко Роман Евгеньевич';
+test('supplier-scoped article resolves Rich Store as a Zoograd legal entity', () => {
   const rich = row({ rowNumber: 5, article: 'SKU-42', name: 'Одинаковый товар' });
   rich.supplier = 'РИЧ СТОР ООО';
   const value = matrix([matrixItem({
@@ -258,10 +256,10 @@ test('supplier-scoped article resolves Zoograd legal entities and excludes Rich 
     supplier: 'ЗООГРАД-ХАБАРОВСК ООО',
   })]);
 
-  const result = matchAssortmentMatrix(value, [rich, zoograd]);
+  const result = matchAssortmentMatrix(value, [rich]);
   assert.equal(result.itemResults[0].status, 'matched');
   assert.equal(result.itemResults[0].matchMethod, 'supplier_article_group');
-  assert.equal(result.itemResults[0].row.rowIdentity, zoograd.rowIdentity);
+  assert.equal(result.itemResults[0].row.rowIdentity, rich.rowIdentity);
 });
 
 test('supplier-scoped normalized name resolves across Zoograd legal entities', () => {
@@ -280,7 +278,7 @@ test('supplier-scoped normalized name resolves across Zoograd legal entities', (
 
 test('supplier-scoped matrix item never matches a unique product from another supplier', () => {
   const sourceRow = row({ rowNumber: 4, article: 'SKU-99', name: 'Точный товар' });
-  sourceRow.supplier = 'РИЧ СТОР ООО';
+  sourceRow.supplier = 'Валта';
   const value = matrix([matrixItem({
     article: 'SKU-99',
     name: 'Точный товар',

@@ -13,7 +13,7 @@ const {
 
 test('resolveSupplierGroup normalizes and applies зооград aliases', () => {
   assert.equal(resolveSupplierGroup('Оникиенко Роман Евгеньевич'), 'зооград');
-  assert.equal(resolveSupplierGroup('РИЧ СТОР ООО'), 'рич стор ооо');
+  assert.equal(resolveSupplierGroup('РИЧ СТОР ООО'), 'зооград');
   assert.equal(resolveSupplierGroup('ЗООГРАД-ХАБАРОВСК ООО'), 'зооград');
   assert.equal(resolveSupplierGroup('Хабаровск ОПТ'), 'зооград');
   assert.equal(resolveSupplierGroup('Зооград'), 'зооград');
@@ -36,19 +36,18 @@ test('collectReportSupplierGroups gathers all present groups', () => {
     { supplier: null },
     { supplier: '' },
   ]);
-  assert.deepEqual(Array.from(groups).sort(), ['зооград', 'рич стор ооо']);
+  assert.deepEqual(Array.from(groups).sort(), ['зооград']);
 });
 
-test('Zoograd legal entities group together while Rich Store stays separate', () => {
+test('all four Zoograd legal entities collapse to one supplier group', () => {
   const groups = collectReportSupplierGroups([
     { supplier: 'Оникиенко Роман Евгеньевич' },
     { supplier: 'РИЧ СТОР ООО' },
     { supplier: 'ЗООГРАД-ХАБАРОВСК ООО' },
     { supplier: 'Хабаровск ОПТ' },
   ]);
-  assert.equal(groups.size, 2);
+  assert.equal(groups.size, 1);
   assert.equal(groups.has('зооград'), true);
-  assert.equal(groups.has('рич стор ооо'), true);
 });
 
 test('collectReportSupplierGroups handles non-array input', () => {

@@ -346,12 +346,12 @@ test('splits working maximum between Зооград and other suppliers', () => 
   assert.equal(renamed.summary.zoogradWorkingMaximumLines, 0);
   assert.equal(result.summary.workingMaximumLines, 3);
   assert.equal(result.summary.workingMaximumSum, 230);
-  assert.equal(result.summary.zoogradWorkingMaximumLines, 1);
-  assert.equal(result.summary.zoogradWorkingMaximumSum, 20);
-  assert.equal(result.summary.otherSuppliersWorkingMaximumLines, 2);
-  assert.equal(result.summary.otherSuppliersWorkingMaximumSum, 210);
-  assert.equal(result.products.find(p => p.supplier === 'РИЧ СТОР ООО').canonicalSupplier, 'рич стор ооо');
-  assert.equal(result.products.filter(p => p.canonicalSupplier === 'зооград').length, 1);
+  assert.equal(result.summary.zoogradWorkingMaximumLines, 2);
+  assert.equal(result.summary.zoogradWorkingMaximumSum, 80);
+  assert.equal(result.summary.otherSuppliersWorkingMaximumLines, 1);
+  assert.equal(result.summary.otherSuppliersWorkingMaximumSum, 150);
+  assert.equal(result.products.find(p => p.supplier === 'РИЧ СТОР ООО').canonicalSupplier, 'зооград');
+  assert.equal(result.products.filter(p => p.canonicalSupplier === 'зооград').length, 2);
 });
 
 test('working-order report uses workflow sections and preliminary wording', () => {
