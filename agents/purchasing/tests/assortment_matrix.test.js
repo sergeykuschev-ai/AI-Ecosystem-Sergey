@@ -246,6 +246,52 @@ test('matches by normalized exact name when article is absent', () => {
   assert.equal(result.itemResults[0].matchMethod, 'normalized_name');
 });
 
+
+test('supplier-scoped article resolves Zoograd legal entities and excludes Rich Store', () => {
+  const zoograd = row({ rowNumber: 4, article: 'SKU-42', name: 'Одинаковый товар' });
+  zoograd.supplier = 'Оникиенко Роман Евгеньевич';
+  const rich = row({ rowNumber: 5, article: 'SKU-42', name: 'Одинаковый товар' });
+  rich.supplier = 'РИЧ СТОР ООО';
+  const value = matrix([matrixItem({
+    article: 'SKU-42',
+    name: 'Одинаковый товар',
+    supplier: 'ЗООГРАД-ХАБАРОВСК ООО',
+  })]);
+
+  const result = matchAssortmentMatrix(value, [rich, zoograd]);
+  assert.equal(result.itemResults[0].status, 'matched');
+  assert.equal(result.itemResults[0].matchMethod, 'supplier_article_group');
+  assert.equal(result.itemResults[0].row.rowIdentity, zoograd.rowIdentity);
+});
+
+test('supplier-scoped normalized name resolves across Zoograd legal entities', () => {
+  const sourceRow = row({ rowNumber: 4, article: null, name: 'Inspector Quadro 10-25 кг' });
+  sourceRow.supplier = 'Хабаровск ОПТ';
+  const value = matrix([matrixItem({
+    article: null,
+    name: ' inspector quadro 10 25 кг ',
+    supplier: 'Зооград',
+  })]);
+
+  const result = matchAssortmentMatrix(value, [sourceRow]);
+  assert.equal(result.itemResults[0].status, 'matched');
+  assert.equal(result.itemResults[0].matchMethod, 'supplier_normalized_name');
+});
+
+test('supplier-scoped matrix item never matches a unique product from another supplier', () => {
+  const sourceRow = row({ rowNumber: 4, article: 'SKU-99', name: 'Точный товар' });
+  sourceRow.supplier = 'РИЧ СТОР ООО';
+  const value = matrix([matrixItem({
+    article: 'SKU-99',
+    name: 'Точный товар',
+    supplier: 'Зооград',
+  })]);
+
+  const result = matchAssortmentMatrix(value, [sourceRow]);
+  assert.equal(result.itemResults[0].status, 'unmatched');
+  assert.equal(result.matchesByRowIdentity.size, 0);
+});
+
 test('does not merge products with a repeated article', () => {
   const first = row({ rowNumber: 4, article: 'DUP', name: 'Первый товар' });
   const second = row({ rowNumber: 5, article: 'DUP', name: 'Второй товар' });
@@ -801,7 +847,7 @@ test('matched supplier-unassigned item is not flagged as missing', () => {
   assert.equal(result.summary.supplier_unassigned_matrix_items_count, 0);
 });
 
-test('зооград alias row puts валта item out of scope', () => {
+test('supplier-scoped matching leaves Valta item out of scope for a Zoograd row', () => {
   const validatedMatrix = matrix([
     scopeMatrixItem({ article: 'ZOO-1', supplier: 'Валта' }),
   ]);
@@ -817,9 +863,9 @@ test('зооград alias row puts валта item out of scope', () => {
     reportSupplierGroups: new Set(['зооград']),
   });
 
-  assert.equal(result.summary.matched_matrix_items, 1);
+  assert.equal(result.summary.matched_matrix_items, 0);
   assert.equal(result.summary.missing_matrix_items_count, 0);
-  assert.equal(result.summary.out_of_scope_matrix_items_count, 0);
+  assert.equal(result.summary.out_of_scope_matrix_items_count, 1);
 });
 
 test('report shows supplier-unassigned section', () => {

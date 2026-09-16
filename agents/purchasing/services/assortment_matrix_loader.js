@@ -10,6 +10,7 @@ const {
   rowExternalId,
   normalizeAliasIdentifierValue,
 } = require('./product_alias_resolver');
+const { canonicalSupplierName } = require('./demand_engine');
 
 const ALLOWED_PRIORITIES = Object.freeze([
   'critical',
@@ -49,6 +50,22 @@ function normalizedName(value) {
 
 function normalizedArticle(value) {
   return normalize(value).replace(/\s+/g, '');
+}
+
+function rowSupplier(row) {
+  return row?.supplier || row?.matchingHints?.supplier || null;
+}
+
+function supplierScopedArticleKey(supplier, article) {
+  const normalized = normalizedArticle(article);
+  if (!supplier || !normalized) return null;
+  return `${canonicalSupplierName(supplier)}|${normalized}`;
+}
+
+function supplierScopedNameKey(supplier, name) {
+  const normalized = normalizedName(name);
+  if (!supplier || !normalized) return null;
+  return `${canonicalSupplierName(supplier)}|${normalized}`;
 }
 
 function requireNonEmptyString(value, fieldName) {
@@ -407,9 +424,21 @@ function matchAssortmentMatrix(matrix, rows, options = {}) {
     rows,
     row => normalizedName(row.name)
   );
+  const rowsBySupplierArticle = valuesByKey(
+    rows,
+    row => supplierScopedArticleKey(rowSupplier(row), row.article)
+  );
+  const rowsBySupplierName = valuesByKey(
+    rows,
+    row => supplierScopedNameKey(rowSupplier(row), row.name)
+  );
   const itemsByArticle = valuesByKey(
     matrix.items,
     item => item.normalized_article
+  );
+  const itemsBySupplierArticle = valuesByKey(
+    matrix.items,
+    item => supplierScopedArticleKey(item.supplier, item.article)
   );
   const proposedResults = matrix.items.map((item, itemIndex) => {
     const aliasMatch = aliasRowsByItem.get(itemIndex);
@@ -424,11 +453,30 @@ function matchAssortmentMatrix(matrix, rows, options = {}) {
       };
     }
 
-    const articleRows = item.normalized_article
+    const supplierArticleKey = supplierScopedArticleKey(item.supplier, item.article);
+    const supplierArticleRows = supplierArticleKey
+      ? (rowsBySupplierArticle.get(supplierArticleKey) || [])
+        .filter(candidate => !aliasClaimedRows.has(candidate.value.rowIdentity))
+      : [];
+    const sameSupplierArticleItems = supplierArticleKey
+      ? itemsBySupplierArticle.get(supplierArticleKey) || []
+      : [];
+
+    if (supplierArticleRows.length === 1 && sameSupplierArticleItems.length === 1) {
+      return {
+        itemIndex,
+        status: 'matched',
+        matchMethod: 'supplier_article_group',
+        row: supplierArticleRows[0].value,
+        candidateRowIdentities: [supplierArticleRows[0].value.rowIdentity],
+      };
+    }
+
+    const articleRows = item.normalized_article && !item.supplier
       ? (rowsByArticle.get(item.normalized_article) || [])
         .filter(candidate => !aliasClaimedRows.has(candidate.value.rowIdentity))
       : [];
-    const sameArticleItems = item.normalized_article
+    const sameArticleItems = item.normalized_article && !item.supplier
       ? itemsByArticle.get(item.normalized_article) || []
       : [];
 
@@ -442,9 +490,26 @@ function matchAssortmentMatrix(matrix, rows, options = {}) {
       };
     }
 
-    const nameRows = (rowsByName.get(item.normalized_name) || [])
-      .filter(candidate => !aliasClaimedRows.has(candidate.value.rowIdentity));
-    if (nameRows.length === 1) {
+    const supplierNameKey = supplierScopedNameKey(item.supplier, item.name);
+    const supplierNameRows = supplierNameKey
+      ? (rowsBySupplierName.get(supplierNameKey) || [])
+        .filter(candidate => !aliasClaimedRows.has(candidate.value.rowIdentity))
+      : [];
+    if (supplierNameRows.length === 1) {
+      return {
+        itemIndex,
+        status: 'matched',
+        matchMethod: 'supplier_normalized_name',
+        row: supplierNameRows[0].value,
+        candidateRowIdentities: [supplierNameRows[0].value.rowIdentity],
+      };
+    }
+
+    const nameRows = !item.supplier
+      ? (rowsByName.get(item.normalized_name) || [])
+        .filter(candidate => !aliasClaimedRows.has(candidate.value.rowIdentity))
+      : supplierNameRows;
+    if (!item.supplier && nameRows.length === 1) {
       return {
         itemIndex,
         status: 'matched',
@@ -584,6 +649,8 @@ module.exports = {
   AssortmentMatrixError,
   normalizedName,
   normalizedArticle,
+  supplierScopedArticleKey,
+  supplierScopedNameKey,
   validateAssortmentMatrix,
   loadAssortmentMatrix,
   matchAssortmentMatrix,
