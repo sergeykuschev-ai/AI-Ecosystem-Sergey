@@ -219,7 +219,7 @@ describe("route registry matches the app structure", () => {
     const bonus = sourceByFile.get(join(projectRoot, "app/bonus/page.tsx")) ?? "";
 
     assert.match(brandContact, /href=\{`\/stores\/\$\{city\.slug\}\/`\}/);
-    assert.match(brandContact, /\u0412\u0441\u0435 \u043c\u0430\u0433\u0430\u0437\u0438\u043d\u044b \u0432 \{city\.name\}/);
+    assert.match(brandContact, /\u0412\u0441\u0435 \u043c\u0430\u0433\u0430\u0437\u0438\u043d\u044b \u0432 \{cityLocationLabel\(city\)\}/);
     assert.match(brandContact, /\u041a\u043e\u043d\u0442\u0430\u043a\u0442\u044b \u0438 \u0440\u0435\u0436\u0438\u043c \u0440\u0430\u0431\u043eты/);
     assert.match(contacts, /href=\{`\/\$\{brand\.slug\}\/`\}/);
     assert.match(contacts, /\u0410\u0441\u0441\u043e\u0440\u0442\u0438\u043c\u0435\u043d\u0442 \u043c\u0430\u0433\u0430\u0437\u0438\u043d\u0430/);

@@ -10,6 +10,7 @@ import { getCities, getCityBySlug } from "@/lib/directus/cities";
 import { getStoresByCity } from "@/lib/directus/stores";
 import { createPageMetadata } from "@/lib/seo/metadata";
 import { createStoresJsonLd } from "@/lib/seo/json-ld";
+import { cityLocationLabel } from "@/lib/seo/locality";
 export const dynamic = "force-dynamic";
 
 interface CityPageProps { params: Promise<{ city: string }> }
@@ -22,9 +23,10 @@ export async function generateMetadata({ params }: CityPageProps): Promise<Metad
   const { city: slug } = await params;
   const city = await getCityBySlug(slug);
   if (!city) notFound();
+  const location = cityLocationLabel(city);
   return createPageMetadata({
-    title: `Магазины в городе ${city.name}: Ампер, Вентиль, Метиз Маркет и Миска`,
-    description: `Адреса, телефоны и режим работы магазинов «Ампер», «Вентиль», «Метиз Маркет» и «Миска» в городе ${city.name}, ${city.region}: электротовары, сантехника, крепёж и зоотовары.`,
+    title: `Магазины в ${location}: Ампер, Вентиль, Метиз Маркет и Миска`,
+    description: `Адреса, телефоны и режим работы магазинов «Ампер», «Вентиль», «Метиз Маркет» и «Миска» в ${location}, ${city.region}: электротовары, сантехника, крепёж и зоотовары.`,
     path: `/stores/${city.slug}/`,
   });
 }
@@ -32,6 +34,7 @@ export default async function CityStoresPage({ params }: CityPageProps) {
   const { city: slug } = await params;
   const city = await getCityBySlug(slug);
   if (!city) notFound();
+  const location = cityLocationLabel(city);
   const [stores, brands] = await Promise.all([getStoresByCity(city.id), getBrands()]);
   const brandIdsInCity = new Set(stores.map((store) => store.brand_id));
   const cityBrands = brands.filter((brand) => brand.active && brandIdsInCity.has(brand.id));
@@ -43,8 +46,8 @@ export default async function CityStoresPage({ params }: CityPageProps) {
         { name: city.name, path: `/stores/${city.slug}/` },
       ]} />}
       eyebrow={`${city.region} · ${city.country}`}
-      title={`4 магазина в ${city.name}: Ампер, Вентиль, Метиз Маркет и Миска`}
-      intro={`В ${city.name} работают четыре магазина по разным направлениям: «Ампер» — электротовары, «Вентиль» — сантехника, «Метиз Маркет» — крепёж, метизы и инструмент, «Миска» — зоотовары.`}
+      title={`4 магазина в ${location}: Ампер, Вентиль, Метиз Маркет и Миска`}
+      intro={`В ${location} работают четыре магазина по разным направлениям: «Ампер» — электротовары, «Вентиль» — сантехника, «Метиз Маркет» — крепёж, метизы и инструмент, «Миска» — зоотовары.`}
     >
       <section className="section" aria-labelledby="store-list-title">
         <h2 id="store-list-title">Адрес, телефоны и часы работы</h2>

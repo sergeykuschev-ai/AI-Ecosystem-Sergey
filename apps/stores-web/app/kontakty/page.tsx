@@ -9,6 +9,7 @@ import { getCityBySlug } from "@/lib/directus/cities";
 import { getStoresByCity } from "@/lib/directus/stores";
 import { createBreadcrumbJsonLd, createContactPageJsonLd, createStoresJsonLd } from "@/lib/seo/json-ld";
 import { createPageMetadata } from "@/lib/seo/metadata";
+import { cityLocationLabel } from "@/lib/seo/locality";
 
 export const dynamic = "force-dynamic";
 
@@ -58,7 +59,7 @@ export default async function ContactsPage() {
         { name: "Контакты", path: "/kontakty/" },
       ])} />
       <StaticPage className="contacts-page" eyebrow="Контакты" title="Наши магазины в Амурске" intro={CONTACTS_INTRO}>
-        <p><Link href={`/stores/${city.slug}/`}>Все магазины в {city.name}</Link></p>
+        <p><Link href={`/stores/${city.slug}/`}>Все магазины в {cityLocationLabel(city)}</Link></p>
         <section className="contacts-section" aria-labelledby="contacts-title">
           <h2 id="contacts-title">Магазины</h2>
           <ContactStoreGrid stores={stores} brands={brands} city={city} />
