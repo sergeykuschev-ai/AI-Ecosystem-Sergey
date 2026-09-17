@@ -338,10 +338,25 @@ function finalOrderItems(state) {
     );
   }
   if (state.reviewComplete !== true) {
+    const ownerPending = Number.isInteger(state.ownerDecisionUnresolvedCount)
+      ? state.ownerDecisionUnresolvedCount
+      : state.unresolvedCount;
+    const dataBlocked = Number.isInteger(state.dataBlockedCount)
+      ? state.dataBlockedCount
+      : 0;
+    let message;
+    if (ownerPending > 0 && dataBlocked > 0) {
+      message = 'Перед оптимизацией завершите решения владельца и устраните ' +
+        'блокирующие проблемы данных.';
+    } else if (dataBlocked > 0) {
+      message = 'Перед оптимизацией устраните блокирующие проблемы данных. ' +
+        'Решение владельца для этих позиций сейчас не требуется.';
+    } else {
+      message = 'Завершите решения владельца перед оптимизацией под бюджет.';
+    }
     throw new BudgetOptimizerError(
       'OWNER_REVIEW_INCOMPLETE',
-      'Завершите ручную проверку всех позиций перед оптимизацией ' +
-      'под бюджет.'
+      message
     );
   }
   if (!Array.isArray(state.includedItems)) {

@@ -588,7 +588,7 @@ test('GET / serves the Russian frontend with secure headers', async () => {
     ['Финансовое решение', 'financial-status'],
     ['Безопасный бюджет', 'reserve-surplus'],
     ['Автоматически одобрено', 'auto-approved-sum'],
-    ['На ручную проверку', 'pending-review-sum'],
+    ['Нужны решения Сергея', 'pending-review-sum'],
     ['Общий статус запуска', 'run-status'],
   ]) {
     assert.ok(cards.some(card => card.includes(label) && card.includes(`id="${valueId}"`)),
@@ -597,7 +597,7 @@ test('GET / serves the Russian frontend with secure headers', async () => {
   assert.match(body, /id="report-center-grid"[\s\S]*hidden/);
   assert.match(body, /id="report-preview-dialog"/);
   assert.doesNotMatch(body, />\s*Ожидает проверки\s*</);
-  assert.match(body, />\s*На ручную проверку\s*</);
+  assert.match(body, />\s*Нужны решения Сергея\s*</);
   for (const heading of [
     'Товар',
     'Остаток',

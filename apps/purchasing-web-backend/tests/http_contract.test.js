@@ -206,7 +206,7 @@ test('GET summary, items, owner-review and artifacts expose compact DTOs', async
   ));
 });
 
-test('POST budget optimization is repeatable and never changes result.json',
+test('POST budget optimization is blocked by current data issues and never changes result.json',
   async () => {
     const resultPath = path.join(
       runsRoot,
@@ -252,13 +252,16 @@ test('POST budget optimization is repeatable and never changes result.json',
       body: JSON.stringify({ targetBudget: 2000 }),
     });
 
-    assert.equal(first.response.status, 200);
+    // The synthetic workbook intentionally contains unresolved identity/matrix
+    // data. Triage removes those rows from Sergey's decision queue, but they
+    // still block final-order optimization until the data is fixed.
+    assert.equal(first.response.status, 409);
     assert.equal(first.body.api_version, 'v1');
-    assert.equal(first.body.data.targetBudget, 1000);
-    assert.equal(second.response.status, 200);
-    assert.equal(second.body.data.targetBudget, 2000);
-    assert.ok(Array.isArray(first.body.data.items));
-    assert.ok(Array.isArray(first.body.data.removedItems));
+    assert.equal(first.body.error.code, 'OWNER_REVIEW_INCOMPLETE');
+    assert.match(first.body.error.message, /проблемы данных/i);
+    assert.match(first.body.error.message, /решение владельца.*не требуется/i);
+    assert.equal(second.response.status, 409);
+    assert.equal(second.body.error.code, 'OWNER_REVIEW_INCOMPLETE');
     assert.deepEqual(fs.readFileSync(resultPath), originalResult);
     assert.equal(
       fs.existsSync(path.join(

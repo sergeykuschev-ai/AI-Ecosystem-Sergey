@@ -176,10 +176,12 @@ test('4. при незавершённой ручной проверке экс�
       assert.equal(error.message, SUPPLIER_ORDER_BLOCKED_MESSAGE);
       assert.equal(
         error.message,
-        'Завершите ручную проверку всех позиций перед формированием ' +
-        'заказа поставщику'
+        'Заказ поставщику пока заблокирован: завершите решения владельца и ' +
+        'устраните блокирующие проблемы данных.'
       );
       assert.equal(error.details.pending_count, 1);
+      assert.equal(error.details.owner_decision_count, 1);
+      assert.equal(error.details.data_blocked_count, 0);
       return true;
     }
   );
@@ -199,6 +201,36 @@ test('4. при незавершённой ручной проверке экс�
     generatedAt: GENERATED_AT,
   });
   assert.equal(order.itemCount, 1);
+});
+
+test('4a. data-blocked позиция блокирует экспорт, но не считается решением владельца', () => {
+  assert.throws(
+    () => buildSupplierOrder({
+      items: [
+        item({ row_id: 'auto' }),
+        item({
+          row_id: 'data-blocked',
+          matrix: { owner_review_required: false },
+          review_triage: {
+            available: true,
+            requires_owner_decision: true,
+            owner_decision_status: 'BLOCKED_BY_DATA',
+          },
+          workflow_status: 'pending_manual_review',
+          quantities: { approved_quantity: null, provisional_quantity: 4 },
+        }),
+      ],
+      supplier: 'Оникиенко',
+      generatedAt: GENERATED_AT,
+    }),
+    error => {
+      assert.equal(error.code, SUPPLIER_ORDER_BLOCKED_CODE);
+      assert.equal(error.details.pending_count, 1);
+      assert.equal(error.details.owner_decision_count, 0);
+      assert.equal(error.details.data_blocked_count, 1);
+      return true;
+    }
+  );
 });
 
 test('4a. DEFER — принятое решение: исключается, но не блокирует', () => {

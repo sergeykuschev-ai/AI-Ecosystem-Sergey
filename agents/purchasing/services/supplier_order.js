@@ -11,8 +11,8 @@ const {
 const SUPPLIER_ORDER_SHEET_NAME = 'Заказ поставщику';
 const SUPPLIER_ORDER_BLOCKED_CODE = 'OWNER_REVIEW_INCOMPLETE';
 const SUPPLIER_ORDER_BLOCKED_MESSAGE =
-  'Завершите ручную проверку всех позиций перед формированием заказа ' +
-  'поставщику';
+  'Заказ поставщику пока заблокирован: завершите решения владельца и ' +
+  'устраните блокирующие проблемы данных.';
 const SUPPLIER_ORDER_EMPTY_CODE = 'SUPPLIER_ORDER_EMPTY';
 const SUPPLIER_ORDER_DATA_INCOMPLETE_CODE = 'SUPPLIER_ORDER_DATA_INCOMPLETE';
 const DEFAULT_SUPPLIER_NAME = 'поставщик';
@@ -126,7 +126,13 @@ function buildSupplierOrder({ items, supplier, generatedAt, state = null }) {
     throw new SupplierOrderError(
       SUPPLIER_ORDER_BLOCKED_CODE,
       SUPPLIER_ORDER_BLOCKED_MESSAGE,
-      { details: { pending_count: finalState.unresolvedCount } }
+      {
+        details: {
+          pending_count: finalState.unresolvedCount,
+          owner_decision_count: finalState.ownerDecisionUnresolvedCount,
+          data_blocked_count: finalState.dataBlockedCount,
+        },
+      }
     );
   }
   if (finalState.includedItems.length === 0) {

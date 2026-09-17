@@ -537,10 +537,15 @@
   }
 
   function needsOwnerDecisionView(item) {
-    // DEFER is a made decision (resolved), aligned with the canonical
-    // FinalOrderState: a deferred item leaves «Нужно решить» and stays
-    // visible in «Все товары» with the «Отложено» status.
+    // For new runs review triage is authoritative: data/linkage defects are
+    // not owner decisions. Legacy action classes remain the fallback for old
+    // runs that predate triage artifacts.
     const ownerDecision = item?.owner_decision?.decision || null;
+    if (item?.review_triage?.available === true) {
+      return item.review_triage.owner_decision_status === 'ACTIVE' &&
+        item.review_triage.requires_owner_decision === true &&
+        ownerDecision === null;
+    }
     const actionClass = item?.matrix?.owner_action_class || null;
     if (actionClass !== null) {
       return actionClass === 'OWNER_ACTION_REQUIRED' && ownerDecision === null;
@@ -625,6 +630,17 @@
       return {
         label: 'Решение владельца сохранено',
         className: 'status-auto',
+      };
+    }
+    if (item?.review_triage?.owner_decision_status === 'BLOCKED_BY_DATA') {
+      return { label: 'Сначала исправить данные', className: 'status-warning' };
+    }
+    if (item?.review_triage?.available === true &&
+        item?.review_triage?.requires_owner_decision === false &&
+        item?.workflow_status === 'pending_manual_review') {
+      return {
+        label: 'Решение Сергея не требуется',
+        className: 'status-warning',
       };
     }
     const actionClass = item?.matrix?.owner_action_class || null;
@@ -726,6 +742,12 @@
         className: 'decision-none',
       };
     }
+    if (item?.review_triage?.owner_decision_status === 'BLOCKED_BY_DATA') {
+      return {
+        label: 'Сначала исправить данные',
+        className: 'decision-none',
+      };
+    }
     if (needsOwnerDecisionView(item)) {
       return { label: 'Решение не принято', className: 'decision-none' };
     }
@@ -773,8 +795,11 @@
       reasons.push('Продажи нерегулярны, поэтому нужен осторожный запас.');
     }
     const actionClass = item?.matrix?.owner_action_class || null;
-    if (actionClass === 'OWNER_ACTION_REQUIRED' ||
-      (actionClass === null && item?.matrix?.owner_review_required === true)) {
+    if (item?.review_triage?.owner_decision_status === 'BLOCKED_BY_DATA') {
+      reasons.push(
+        'Сначала нужно исправить данные; бизнес-решение сейчас не требуется.'
+      );
+    } else if (needsOwnerDecisionView(item)) {
       reasons.push(
         'Агент не смог принять окончательное решение. ' +
         'Выберите действие вручную.'
@@ -1104,9 +1129,7 @@
     learningFields.hidden = true;
     controls.append(quantity, actionGroup, learningFields);
 
-    const actionClass = item?.matrix?.owner_action_class || null;
-    const requiresAction = actionClass === 'OWNER_ACTION_REQUIRED' ||
-      (actionClass === null && item?.matrix?.owner_review_required === true);
+    const requiresAction = needsOwnerDecisionView(item);
     if (!requiresAction) {
       controls.hidden = true;
     }
@@ -1809,20 +1832,41 @@
     }
     const initial = state.initialRecommendation;
     const initialAmount = finalOrderAmount(initial?.totalAmount);
+    const ownerDecisionCount = Number.isInteger(
+      state.ownerDecisionUnresolvedCount
+    ) ? state.ownerDecisionUnresolvedCount : state.unresolvedCount;
+    const ownerDecisionAmount = finalOrderAmount(
+      state.ownerDecisionUnresolvedAmount
+    ) ?? state.unresolvedAmount;
+    const dataBlockedCount = Number.isInteger(state.dataBlockedCount)
+      ? state.dataBlockedCount
+      : 0;
+    const ownerDecisionComplete = typeof state.ownerDecisionComplete === 'boolean'
+      ? state.ownerDecisionComplete
+      : ownerDecisionCount === 0;
     return {
       totalAmount: formatRub(state.totalAmount),
       itemCount: displayCount(state.itemCount),
       autoApprovedSum: formatRub(state.autoApprovedAmount),
-      pendingReviewSum: state.reviewComplete
-        ? formatRub(0)
-        : formatRub(state.unresolvedAmount),
-      ownerReviewCount: state.reviewComplete
-        ? '0 позиций для решения · проверка завершена'
-        : `${displayCount(state.unresolvedCount)} позиций для решения`,
-      runStatus: state.reviewComplete ? 'Проверка завершена' : null,
+      pendingReviewSum: formatRub(ownerDecisionAmount),
+      ownerReviewCount: ownerDecisionCount === 0
+        ? (dataBlockedCount > 0
+          ? `0 позиций для решения · ${displayCount(dataBlockedCount)} заблокировано данными`
+          : '0 позиций для решения · проверка завершена')
+        : `${displayCount(ownerDecisionCount)} позиций для решения` +
+          (dataBlockedCount > 0
+            ? ` · ${displayCount(dataBlockedCount)} заблокировано данными`
+            : ''),
+      runStatus: state.reviewComplete
+        ? 'Проверка завершена'
+        : (ownerDecisionComplete && dataBlockedCount > 0
+          ? 'Нужно исправить данные'
+          : null),
       runStatusCode: state.reviewComplete
-        ? 'Все ручные решения приняты'
-        : null,
+        ? 'Все решения приняты, блокирующих проблем данных нет'
+        : (ownerDecisionComplete && dataBlockedCount > 0
+          ? `Решений Сергея нет · проблем данных: ${displayCount(dataBlockedCount)}`
+          : null),
       remainingBudget: finalOrderAmount(state.remainingBudget),
       initialRecommendation: initialAmount !== null
         ? 'Исходная рекомендация агента: ' +

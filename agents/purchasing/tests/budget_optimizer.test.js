@@ -370,7 +370,7 @@ test('finalOrder: нерешённая проверка блокирует оп�
       targetBudget: 100,
     }),
     error => error.code === 'OWNER_REVIEW_INCOMPLETE' &&
-      error.message.includes('Завершите ручную проверку')
+      error.message.includes('Завершите решения владельца')
   );
   assert.throws(
     () => optimizePurchasingBudget({
