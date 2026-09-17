@@ -175,8 +175,8 @@ test('sandbox denies writes outside the worktree', { skip: !sandbox.isAvailable(
   try {
     const wrapped = sandbox.wrap(wt, '/usr/bin/touch', [canary]);
     const { execFileSync } = require('child_process');
-    assert.throws(() => execFileSync(wrapped.command, wrapped.args, { stdio: 'pipe' }));
-    assert.ok(!fs.existsSync(canary));
+    try { execFileSync(wrapped.command, wrapped.args, { stdio: 'pipe' }); } catch {}
+    assert.ok(!fs.existsSync(canary), 'sandbox command must not modify the host outside the worktree');
   } finally {
     fs.rmSync(wt, { recursive: true, force: true });
     fs.rmSync(canary, { force: true });

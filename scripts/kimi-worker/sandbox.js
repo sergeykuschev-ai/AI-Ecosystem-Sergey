@@ -104,11 +104,29 @@ function wrap(worktreePath, command, args) {
   if (kind === 'bubblewrap') {
     const home = process.env.HOME || os.homedir();
     const bwrapArgs = ['--die-with-parent','--ro-bind','/','/','--proc','/proc','--dev','/dev','--tmpfs','/tmp'];
-    for (const hidden of ['.config','.ssh','.aws','.gnupg']) bwrapArgs.push('--tmpfs', path.join(home, hidden));
-    bwrapArgs.push('--tmpfs', config.adminHome, '--bind', worktreePath, worktreePath);
+    const maskDir = (p) => { if (fs.existsSync(p)) bwrapArgs.push('--tmpfs', p); };
+
+    for (const hidden of ['.config','.ssh','.aws','.gnupg']) maskDir(path.join(home, hidden));
+    maskDir(config.adminHome);
+    maskDir(path.join(home, 'repo'));
+    maskDir(path.join(home, 'main'));
+    for (const p of ['/opt/stores-web','/opt/miska-purchasing','/opt/instagram-automation','/opt/instagram-mcp']) maskDir(p);
+
+    if (fs.existsSync(config.worktreesDir)) {
+      for (const entry of fs.readdirSync(config.worktreesDir, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        const sibling = path.join(config.worktreesDir, entry.name);
+        if (path.resolve(sibling) !== path.resolve(worktreePath)) maskDir(sibling);
+      }
+    }
+
+    bwrapArgs.push('--bind', worktreePath, worktreePath);
     for (const agentHome of ['.kimi-code','.codex']) {
       const p = path.join(home, agentHome);
       if (fs.existsSync(p)) bwrapArgs.push('--bind', p, p);
+    }
+    for (const blocked of config.sandbox.execDenyBinaries) {
+      if (fs.existsSync(blocked)) bwrapArgs.push('--ro-bind','/dev/null',blocked);
     }
     bwrapArgs.push('--chdir', worktreePath, command, ...args);
     return { command: 'bwrap', args: bwrapArgs, profilePath: null };

@@ -324,11 +324,16 @@ async function setupCheck(log) {
     const canary = path.join(config.adminHome, `setup-write-canary-${process.pid}`);
     const wtProbe = path.join(config.worktreesDir, 'setup-probe');
     fs.mkdirSync(wtProbe, { recursive: true });
+    fs.rmSync(canary, { force: true });
+    const execProbe = sandbox.wrap(wtProbe, '/bin/true', []);
+    const execResult = await run(execProbe.command, execProbe.args, {});
+    allOk &= ok('sandbox execution canary', execResult.ok ? 'confirmed' : '');
     const probe = sandbox.wrap(wtProbe, '/usr/bin/touch', [canary]);
-    const probeResult = await run(probe.command, probe.args, {});
+    await run(probe.command, probe.args, {});
+    const hostProtected = !fs.existsSync(canary);
     fs.rmSync(canary, { force: true });
     fs.rmdirSync(wtProbe);
-    allOk &= ok('sandbox denies writes outside worktree', probeResult.ok === false ? 'confirmed (canary refused)' : '');
+    allOk &= ok('sandbox denies host writes outside worktree', hostProtected ? 'confirmed' : '');
   }
   try {
     const mainRoot = await findMainWorktree();
