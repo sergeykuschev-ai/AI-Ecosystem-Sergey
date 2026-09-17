@@ -63,7 +63,10 @@ function indexDirectory(rootPath, index, relativePrefix = '') {
     const fullPath = path.join(rootPath, entry.name);
     const relativePath = path.join(relativePrefix, entry.name);
 
-    if (isExcluded(fullPath) || isExcluded(relativePath)) continue;
+    // Exclusion rules are repository-relative. Checking the absolute path here
+    // incorrectly excludes every document when an approved knowledge root lives
+    // under a system directory such as /tmp (including isolated test roots).
+    if (isExcluded(relativePath)) continue;
 
     if (entry.isDirectory()) {
       indexDirectory(fullPath, index, relativePath);
