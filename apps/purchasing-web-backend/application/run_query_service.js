@@ -265,7 +265,26 @@ function reviewTriageIndex(registry, runId) {
     if (!rowId || byRow.has(rowId)) continue;
     byRow.set(rowId, entry);
   }
-  return { byRow, auditByRow, triage };
+  const compaction = triage.owner_review_compaction || {};
+  const exclusionByRow = new Map();
+  for (const entry of Array.isArray(compaction.exclusions)
+    ? compaction.exclusions
+    : []) {
+    const rowId = typeof entry?.row_identity === 'string'
+      ? entry.row_identity
+      : null;
+    if (rowId && !exclusionByRow.has(rowId)) exclusionByRow.set(rowId, entry);
+  }
+  const blockedByRow = new Map();
+  for (const entry of Array.isArray(compaction.blocked)
+    ? compaction.blocked
+    : []) {
+    const rowId = typeof entry?.row_identity === 'string'
+      ? entry.row_identity
+      : null;
+    if (rowId && !blockedByRow.has(rowId)) blockedByRow.set(rowId, entry);
+  }
+  return { byRow, auditByRow, exclusionByRow, blockedByRow, triage };
 }
 
 function applyReviewTriage(items, triageIndex) {
@@ -273,16 +292,26 @@ function applyReviewTriage(items, triageIndex) {
   return (items || []).map(item => {
     const entry = triageIndex.byRow.get(item.row_id) || null;
     const auditEntry = triageIndex.auditByRow?.get(item.row_id) || null;
-    const status = entry?.owner_decision_status || null;
+    const exclusion = triageIndex.exclusionByRow?.get(item.row_id) || null;
+    const compactBlocked = triageIndex.blockedByRow?.get(item.row_id) || null;
+    const auditStatus = entry?.owner_decision_status || null;
+    const status = compactBlocked
+      ? 'BLOCKED_BY_DATA'
+      : exclusion
+        ? 'DATA_ISSUE'
+        : auditStatus;
     const requiresOwnerDecision =
       status === 'ACTIVE' && entry?.requires_owner_decision === true;
     const blockedByData = status === 'BLOCKED_BY_DATA';
-    const section = entry?.section || null;
+    const section = exclusion
+      ? 'data_problems'
+      : entry?.section || null;
     const legacyRequired = item?.matrix?.owner_review_required === true;
     let actionClass = item?.matrix?.owner_action_class || null;
     if (requiresOwnerDecision) actionClass = 'OWNER_ACTION_REQUIRED';
     else if (blockedByData) actionClass = 'DATA_BLOCKED';
-    else if (entry && (section === 'data_problems' || section === 'matrix_gaps')) {
+    else if (status === 'DATA_ISSUE' ||
+      (entry && (section === 'data_problems' || section === 'matrix_gaps'))) {
       actionClass = 'DATA_ISSUE';
     } else if (legacyRequired || actionClass === 'OWNER_ACTION_REQUIRED') {
       actionClass = 'TRIAGE_RESOLVED';
@@ -300,7 +329,9 @@ function applyReviewTriage(items, triageIndex) {
         available: true,
         requires_owner_decision: requiresOwnerDecision,
         owner_decision_status: status,
-        blocker: entry?.owner_decision_blocker || null,
+        audit_owner_decision_status: auditStatus,
+        blocker: compactBlocked?.blocker || entry?.owner_decision_blocker || null,
+        linkage_reason: exclusion?.linkage_reason || null,
         reason_code: entry?.reason_code || auditEntry?.reason_code || null,
         section,
         audit_section: auditEntry?.section || null,
@@ -367,15 +398,24 @@ class RunQueryService {
     const compaction = triageIndex?.triage?.owner_review_compaction || null;
     if (!compaction) return summary;
     const legacy = summary?.owner_review || {};
+    const decorated = this.getDecoratedItems(runId);
+    const activeSummary = ownerDecisionSummary(decorated);
+    const dataBlocked = decorated.filter(item =>
+      item?.matrix?.owner_action_class === 'DATA_BLOCKED'
+    ).length;
+    const dataIssues = decorated.filter(item =>
+      item?.matrix?.owner_action_class === 'DATA_BLOCKED' ||
+      item?.matrix?.owner_action_class === 'DATA_ISSUE'
+    ).length;
     return {
       ...summary,
       owner_review: {
         ...legacy,
         legacy_action_required: legacy.action_required ?? 0,
-        action_required: compaction.business_sku_count ?? 0,
+        action_required: activeSummary.needs_decision,
         decision_count: compaction.total_owner_decision_count ?? 0,
-        data_blocked: compaction.blocked_by_data_count ?? 0,
-        data_issues: compaction.data_or_linkage_count ?? 0,
+        data_blocked: dataBlocked,
+        data_issues: dataIssues,
         triage_authoritative: true,
       },
     };
