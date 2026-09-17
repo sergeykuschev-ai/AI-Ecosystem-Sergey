@@ -162,6 +162,9 @@ describe("local SEO internal linking", () => {
       assert.ok(page.includes(description), `city hub must include: ${description}`);
     }
     assert.ok(page.includes("4 магазина в"), "city H1 must describe the four-store local hub");
+    const locality = source("lib", "seo", "locality.ts");
+    assert.ok(locality.includes('"Амурске"'), "Amursk must use the correct locative form");
+    assert.ok(page.includes("cityLocationLabel(city)"), "city hub must use the locative helper");
   });
 
   test("city hub emits one store graph and one breadcrumb trail", () => {

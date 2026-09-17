@@ -3,6 +3,7 @@ import { TrackedLink } from "@/components/analytics/TrackedLink";
 import type { Brand } from "@/types/brand";
 import type { City } from "@/types/city";
 import type { OpeningHoursEntry, Store } from "@/types/store";
+import { cityLocationLabel } from "@/lib/seo/locality";
 
 const dayLabels: Record<string, string> = {
   Monday: "Пн",
@@ -90,7 +91,7 @@ export function BrandStoreContact({
         <TrackedLink event="store_open" payload={{ city: city.slug, store: store.slug, brand: brand.slug }} href={`/stores/${city.slug}/${store.slug}/`}>
           Подробнее о торговой точке
         </TrackedLink>
-        <Link href={`/stores/${city.slug}/`}>Все магазины в {city.name}</Link>
+        <Link href={`/stores/${city.slug}/`}>Все магазины в {cityLocationLabel(city)}</Link>
         {contactsHref ? <Link href={contactsHref}>Контакты и режим работы</Link> : null}
         {mapLink && (
           <TrackedLink event="click_route" payload={{ brand: brand.slug, store: store.slug }} href={mapLink.url} target="_blank" rel="noopener noreferrer">
