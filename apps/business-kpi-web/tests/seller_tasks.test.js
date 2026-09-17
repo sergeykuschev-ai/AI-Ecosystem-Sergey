@@ -452,10 +452,12 @@ test('approve produces bitrix text, complete marks result, reject discards', asy
   assert.ok(approvedBody.data.bitrixText.includes('Задача:'));
   assert.ok(approvedBody.data.bitrixText.includes('Битрикс24'));
 
-  const completed = await post(`/api/business-kpi/seller-tasks/${proposals[0].id}/complete`, ownerHeaders, { note: 'Сделано' });
+  const completed = await post(`/api/business-kpi/seller-tasks/${target.id}/complete`, ownerHeaders, { note: 'Сделано' });
   assert.equal((await completed.json()).data.status, 'COMPLETED');
 
-  const rejected = await post(`/api/business-kpi/seller-tasks/${proposals[1].id}/reject`, ownerHeaders);
+  const rejectTarget = proposals.find(p => p.id !== target.id);
+  assert.ok(rejectTarget, 'expected a second pending proposal to reject');
+  const rejected = await post(`/api/business-kpi/seller-tasks/${rejectTarget.id}/reject`, ownerHeaders);
   assert.equal((await rejected.json()).data.status, 'REJECTED');
 });
 

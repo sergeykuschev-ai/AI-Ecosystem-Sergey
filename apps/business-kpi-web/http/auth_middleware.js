@@ -87,6 +87,9 @@ function createAuthMiddleware(options) {
         return {
           id: String(devActorId),
           role: String(devRole).toUpperCase(),
+          storeId: request.headers['x-business-kpi-store-id']
+            ? String(request.headers['x-business-kpi-store-id'])
+            : null,
           type: 'dev-header',
         };
       }
@@ -101,6 +104,17 @@ function createAuthMiddleware(options) {
       throw new ApplicationError('AUTH_REQUIRED', 'Требуется аутентификация.', 401);
     }
     return actor;
+  }
+
+  function requireStoreAccess(actor, storeId) {
+    if (!actor || !actor.role) {
+      throw new ApplicationError('AUTH_REQUIRED', 'Требуется аутентификация.', 401);
+    }
+    if (!storeId) return;
+    if (actor.role === 'OWNER' || actor.role === 'SERVICE') return;
+    if (!actor.storeId || actor.storeId !== storeId) {
+      throw new ApplicationError('FORBIDDEN', 'Нет доступа к данным другого магазина.', 403);
+    }
   }
 
   function validateCsrf(request) {
@@ -156,6 +170,7 @@ function createAuthMiddleware(options) {
     parseCookies,
     requireActor,
     requirePermission: (actor, permission) => requirePermission(actor, permission),
+    requireStoreAccess,
     resolveActor,
     setSessionCookies,
     validateCsrf,

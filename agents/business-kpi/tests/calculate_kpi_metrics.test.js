@@ -80,3 +80,21 @@ test('invalid negative, fractional, and over-count inputs fail clearly', () => {
     /upsellReceipts must not exceed receipts/
   );
 });
+
+test('settings=null keeps payment-only metrics without inheriting Miska KPI rules', () => {
+  const metrics = calculateKpiMetrics({
+    cash: 20000,
+    acquiring: 30000,
+    qr: 5000,
+    receipts: 25,
+    itemsSold: null,
+    upsellReceipts: null,
+    treatsRevenue: null,
+    treatsReceipts: null,
+  }, null);
+  assert.equal(metrics.revenue, 50000);
+  assert.equal(metrics.qrShare, 0.1);
+  assert.equal(metrics.kpiScore, null);
+  assert.equal(metrics.kpiStatus, 'UNRESOLVED');
+  assert.equal(metrics.paymentBreakdown.qrIncludedInAcquiring, true);
+});

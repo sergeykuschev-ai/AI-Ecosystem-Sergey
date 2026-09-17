@@ -81,6 +81,13 @@ const SHIFT_INPUT_FIELDS = new Set([
   'comment',
 ]);
 
+function requireActorStore(actor, storeId) {
+  if (!actor || !storeId || actor.role === 'OWNER' || actor.role === 'SERVICE') return;
+  if (!actor.storeId || actor.storeId !== storeId) {
+    throw new ApplicationError('FORBIDDEN', 'Нет доступа к данным другого магазина.', 403);
+  }
+}
+
 function requireRole(actor, roles) {
   if (!actor || !roles.has(actor.role)) {
     throw new ApplicationError(
@@ -188,7 +195,7 @@ function normalizeShiftInput(input) {
     sourceReference: null,
   };
   try {
-    calculateKpiMetrics(normalized);
+    calculateKpiMetrics(normalized, null);
   } catch (error) {
     throw new ApplicationError(
       'VALIDATION_ERROR',
@@ -409,7 +416,7 @@ class BusinessKpiService {
         404
       );
     }
-    if (!settingsRecord) {
+    if (!settingsRecord && !['amper', 'ventil'].includes(storeRecord.code)) {
       throw new ApplicationError(
         'SETTINGS_NOT_FOUND',
         'Для даты смены не найдены действующие настройки KPI.',
@@ -453,6 +460,7 @@ class BusinessKpiService {
 
   async createShift(input, actor, options = {}) {
     const normalized = normalizeShiftInput(input);
+    requireActorStore(actor, normalized.storeId);
     const source = options.source || 'web_manual';
     if (!SHIFT_SOURCES.has(source)) {
       throw new ApplicationError(
@@ -490,7 +498,7 @@ class BusinessKpiService {
           store,
           normalized
         );
-        const metrics = calculateKpiMetrics(normalized, settingsRecord.settings);
+        const metrics = calculateKpiMetrics(normalized, settingsRecord?.settings || null);
         const shift = await store.createShift({
           id: this.uuid(),
           ...normalized,
@@ -502,7 +510,7 @@ class BusinessKpiService {
           createdAt: now,
           updatedAt: now,
         });
-        await this.saveKpiSnapshot(store, shift, settingsRecord, metrics, now);
+        if (settingsRecord) await this.saveKpiSnapshot(store, shift, settingsRecord, metrics, now);
         await store.appendAudit(auditRecord(
           'SHIFT_CREATED',
           shift.id,
@@ -517,7 +525,7 @@ class BusinessKpiService {
             now,
           }
         ));
-        return { ...shift, metrics, settingsVersion: settingsRecord.version };
+        return { ...shift, metrics, settingsVersion: settingsRecord?.version || null };
       });
     } catch (error) {
       if (error instanceof StorageConflictError) {
@@ -540,6 +548,7 @@ class BusinessKpiService {
       if (options.beforeImport) await options.beforeImport(store);
       const imported = [];
       for (const normalized of normalizedInputs) {
+        requireActorStore(actor, normalized.storeId);
         const storeRecord = await store.getStore(normalized.storeId);
         const employee = await store.getEmployee(normalized.employeeId);
         if (!storeRecord?.active || !employee?.active || employee.storeId !== normalized.storeId) {
@@ -571,16 +580,18 @@ class BusinessKpiService {
     });
   }
 
-  async listShifts(filters = {}) {
+  async listShifts(filters = {}, actor = null) {
+    requireActorStore(actor, filters.storeId);
     const shifts = await this.store.listShifts(filters);
     return Promise.all(shifts.map(shift => this.decorateShift(this.store, shift)));
   }
 
-  async getShift(id) {
+  async getShift(id, actor = null) {
     const shift = await this.store.getShift(id, { includeArchived: true });
     if (!shift) {
       throw new ApplicationError('SHIFT_NOT_FOUND', 'Смена не найдена.', 404);
     }
+    requireActorStore(actor, shift.storeId);
     const decorated = await this.decorateShift(this.store, shift);
     const audit = await this.store.listAudit({ entityId: id });
     return { ...decorated, audit };
@@ -594,6 +605,7 @@ class BusinessKpiService {
         if (!oldShift) {
           throw new ApplicationError('SHIFT_NOT_FOUND', 'Смена не найдена.', 404);
         }
+        requireActorStore(actor, oldShift.storeId);
         const permission = hasPermission(actor?.role, PERMISSIONS.SHIFT_EDIT_ANY)
           ? PERMISSIONS.SHIFT_EDIT_ANY
           : PERMISSIONS.SHIFT_EDIT_OWN;
@@ -684,6 +696,7 @@ class BusinessKpiService {
       if (!oldShift) {
         throw new ApplicationError('SHIFT_NOT_FOUND', 'Смена не найдена.', 404);
       }
+      requireActorStore(actor, oldShift.storeId);
       const permission = hasPermission(actor?.role, PERMISSIONS.SHIFT_ARCHIVE_ANY)
         ? PERMISSIONS.SHIFT_ARCHIVE_ANY
         : PERMISSIONS.SHIFT_ARCHIVE_OWN;
@@ -746,6 +759,15 @@ class BusinessKpiService {
     const sellers = aggregateSellers(month, settingsRecord?.settings || null)
       .filter(seller => participatingSellerIds.has(seller.employeeId));
     const redactedSellers = await this.redactSellerBonuses(sellers, actor);
+    const storeBonus = storeRecord.code === 'miska' ? null : {
+      status: settingsRecord ? 'CONFIGURED' : 'UNRESOLVED',
+      amount: null,
+      planCompletion: month.planCompletion,
+      qrShare: month.qrShare,
+      reason: settingsRecord
+        ? 'Расчёт магазинной премии требует отдельной подтверждённой формулы.'
+        : 'Размеры и пороги магазинной премии не настроены владельцем.',
+    };
     return {
       month: {
         ...month,
@@ -754,6 +776,7 @@ class BusinessKpiService {
       },
       days: aggregateDays(month),
       sellers: redactedSellers,
+      storeBonus,
       settingsVersion: settingsRecord?.version || null,
       settingsStatus: settingsRecord ? 'CONFIRMED' : 'UNRESOLVED',
     };
@@ -905,6 +928,8 @@ class BusinessKpiService {
         receipts: aggregate.receipts,
         averageCheck: aggregate.averageCheck,
         itemsPerReceipt: aggregate.itemsPerReceipt,
+        cash: aggregate.cash,
+        acquiring: aggregate.acquiring,
         qr: aggregate.qr,
         qrShare: aggregate.qrShare,
         shiftsCount: aggregate.shiftsCount,
@@ -1054,9 +1079,16 @@ class BusinessKpiService {
     };
   }
 
-  async getReferenceData(storeId) {
-    const stores = await this.store.listStores();
-    const selectedStoreId = storeId || stores[0]?.id || null;
+  async getReferenceData(storeId, actor) {
+    const allStores = await this.store.listStores();
+    const isGlobalActor = actor?.role === 'OWNER' || actor?.role === 'SERVICE';
+    const stores = isGlobalActor
+      ? allStores
+      : allStores.filter(store => store.id === actor?.storeId);
+    const selectedStoreId = storeId || actor?.storeId || stores[0]?.id || null;
+    if (!isGlobalActor && selectedStoreId !== actor?.storeId) {
+      throw new ApplicationError('FORBIDDEN', 'Нет доступа к данным другого магазина.', 403);
+    }
     const employees = selectedStoreId
       ? await this.store.listEmployees({ storeId: selectedStoreId })
       : [];
@@ -1088,6 +1120,7 @@ class BusinessKpiService {
 
   async createSettingsVersion(input, actor, options = {}) {
     requireRole(actor, OWNER_ROLES);
+    requireActorStore(actor, input.storeId);
     requireString(input.storeId, 'storeId');
     requireDate(input.effectiveFrom, 'effectiveFrom');
     if (!input.reason || typeof input.reason !== 'string' || !input.reason.trim()) {
@@ -1151,6 +1184,7 @@ class BusinessKpiService {
 
   async updateMonthlyPlan(input, actor, options = {}) {
     requireRole(actor, OWNER_ROLES);
+    requireActorStore(actor, input.storeId);
     requireString(input.storeId, 'storeId');
     if (!Number.isInteger(input.year) || input.year < 2000 || input.year > 2200 ||
         !Number.isInteger(input.month) || input.month < 1 || input.month > 12) {

@@ -12,17 +12,30 @@ const ROUTES = Object.freeze({
   'import-export': ['Импорт / экспорт', 'Исторический Excel-import остаётся вторичным каналом.'],
 });
 
-/* Business context.
-   The portal is currently branded for MISKA only, but the architecture is
-   multi-business ready: a future business switch can replace this object
-   and the CSS theme tokens without touching module components. */
-const BUSINESS_CONTEXT = Object.freeze({
-  id: 'miska',
-  name: 'МИСКА',
-  shortName: 'МИСКА',
-  portalName: 'Business Portal',
-  moduleName: 'KPI',
+const STORE_CONTEXTS = Object.freeze({
+  miska: Object.freeze({ name: 'Миска', theme: 'miska', logo: '/assets/miska-logo.jpg' }),
+  amper: Object.freeze({ name: 'Ампер', theme: 'amper', logo: null }),
+  ventil: Object.freeze({ name: 'Вентиль', theme: 'ventil', logo: null }),
 });
+
+function storeContext(store) {
+  const code = String(store?.code || '').toLowerCase();
+  return STORE_CONTEXTS[code] || Object.freeze({
+    name: store?.name || 'Business Portal', theme: 'default', logo: null,
+  });
+}
+
+function applyStoreContext(store) {
+  const context = storeContext(store);
+  document.body.dataset.storeTheme = context.theme;
+  element('brand-name').textContent = context.name;
+  const logo = element('brand-logo');
+  logo.hidden = !context.logo;
+  if (context.logo) { logo.src = context.logo; logo.alt = context.name; }
+  element('brand-mark').classList.toggle('brand-mark-text', !context.logo);
+  if (!context.logo) element('brand-mark').dataset.initial = context.name.slice(0, 1).toUpperCase();
+  document.title = `${context.name} · KPI`;
+}
 
 const THEME_COLORS = Object.freeze({
   primary: 'var(--brand-primary)',
@@ -85,6 +98,7 @@ function redirectToLogin() {
 }
 
 function canViewRoute(route) {
+  if (!storeRouteAllowed(route)) return false;
   const role = state.currentUser?.role;
   if (role === 'OWNER') return true;
   if (role === 'MANAGER') {
@@ -163,6 +177,24 @@ function period() {
 }
 
 function selectedStoreId() { return element('store-filter').value; }
+function selectedStore() { return state.stores.find(store => store.id === selectedStoreId()) || null; }
+function isStoreMode() { return selectedStore()?.code !== 'miska'; }
+function storeRouteAllowed(route) {
+  if (!isStoreMode()) return true;
+  return !['sellers', 'tasks', 'import-export'].includes(route);
+}
+
+function applyStoreNavigation() {
+  document.querySelectorAll('[data-route]').forEach(link => {
+    const storeAllowed = storeRouteAllowed(link.dataset.route);
+    link.hidden = !storeAllowed;
+  });
+  const bonusLink = document.querySelector('[data-route="bonuses"]');
+  if (bonusLink) bonusLink.textContent = isStoreMode() ? 'Премия магазина' : 'Премии';
+  const settingsLink = document.querySelector('[data-route="settings"]');
+  if (settingsLink) settingsLink.textContent = isStoreMode() ? 'План' : 'Настройки';
+  document.querySelectorAll('[data-miska-settings]').forEach(node => { node.hidden = isStoreMode(); });
+}
 
 function selectedYear() {
   return Number(element('year-filter').value) || new Date().getFullYear();
@@ -194,6 +226,8 @@ async function loadReferenceData(preferredStore) {
   fillSelect(element('store-filter'), state.stores, 'name', data.selectedStoreId);
   fillSelect(element('shift-store'), state.stores, 'name', data.selectedStoreId);
   fillSelect(element('shift-employee'), state.employees, 'displayName');
+  applyStoreContext(state.stores.find(store => store.id === data.selectedStoreId));
+  applyStoreNavigation();
   const employeeFilter = element('employee-filter');
   employeeFilter.replaceChildren(new Option('Все продавцы', ''));
   for (const employee of state.employees) {
@@ -280,9 +314,18 @@ function renderDashboard(data) {
   } else {
     itemsEl.textContent = formatNumber(month.itemsPerReceipt);
   }
+  element('metric-cash').textContent = formatMoney(month.cash);
+  element('metric-acquiring').textContent = formatMoney(month.acquiring);
   element('metric-qr').textContent = formatPercent(month.qrShare);
   element('metric-qr-amount').textContent = formatMoney(month.qr);
   element('metric-days').textContent = `Дней с данными ${formatInteger(month.dataDays)}`;
+  const storeBonusCard = element('metric-store-bonus-card');
+  const storeBonus = data.storeBonus;
+  storeBonusCard.hidden = !storeBonus;
+  if (storeBonus) {
+    element('metric-store-bonus').textContent = storeBonus.amount === null ? 'Не настроена' : formatMoney(storeBonus.amount);
+    element('metric-store-bonus-note').textContent = storeBonus.reason || '—';
+  }
   element('plan-input').value = moneyInput(month.plan);
 
   renderAttention(month, data.sellers || []);
@@ -639,8 +682,10 @@ async function loadDashboard() {
   );
   state.today = await api(`/api/business-kpi/today?store=${encodeURIComponent(store)}`);
   renderDashboard({ ...state.dashboard, today: state.today });
-  if (state.currentUser?.role === 'OWNER') {
+  if (state.currentUser?.role === 'OWNER' && selectedStore()?.code === 'miska') {
     await loadSellerPerformance();
+  } else {
+    element('seller-performance-card').hidden = true;
   }
 }
 
@@ -967,10 +1012,13 @@ function renderMonths(data) {
       ? formatMoney(month.forecast.projectedRevenue)
       : '—', 'numeric');
     appendCell(row, formatPercent(month.planCompletion), 'numeric');
+    appendCell(row, formatMoney(month.cash), 'numeric');
+    appendCell(row, formatMoney(month.acquiring), 'numeric');
+    appendCell(row, formatMoney(month.qr), 'numeric');
+    appendCell(row, month.qrShare === null ? NA_TEXT : formatPercent(month.qrShare), 'numeric');
     appendCell(row, formatInteger(month.receipts), 'numeric');
     appendCell(row, formatMoney(month.averageCheck), 'numeric');
     appendCell(row, formatNumber(month.itemsPerReceipt), 'numeric');
-    appendCell(row, month.qrShare === null ? NA_TEXT : formatPercent(month.qrShare), 'numeric');
     appendCell(row, formatInteger(month.shiftsCount), 'numeric');
     const statusInfo = uiDataStatus(month.dataStatus);
     const statusCell = document.createElement('td');
@@ -1064,6 +1112,10 @@ function renderYear(data) {
     appendCell(row, formatMoney(month.plan), 'numeric');
     appendCell(row, formatMoney(month.revenue), 'numeric');
     appendCell(row, formatPercent(month.planCompletion), 'numeric');
+    appendCell(row, formatMoney(month.cash), 'numeric');
+    appendCell(row, formatMoney(month.acquiring), 'numeric');
+    appendCell(row, formatMoney(month.qr), 'numeric');
+    appendCell(row, month.qrShare === null ? NA_TEXT : formatPercent(month.qrShare), 'numeric');
     appendCell(row, formatInteger(month.receipts), 'numeric');
     appendCell(row, formatMoney(month.averageCheck), 'numeric');
     appendCell(row, formatInteger(month.shiftsCount), 'numeric');
@@ -1157,7 +1209,23 @@ function renderBonuses(data) {
   }
 }
 
+async function loadStoreBonus() {
+  const store = selectedStoreId();
+  if (!store) return;
+  const { year, month } = period();
+  const dashboard = await api(`/api/business-kpi/dashboard?store=${encodeURIComponent(store)}&year=${year}&month=${month}`);
+  const bonus = dashboard.storeBonus;
+  element('store-bonus-panel').hidden = false;
+  element('seller-bonus-panel').hidden = true;
+  element('store-bonus-plan').textContent = formatPercent(dashboard.month.planCompletion);
+  element('store-bonus-qr').textContent = formatPercent(dashboard.month.qrShare);
+  element('store-bonus-amount').textContent = bonus?.amount === null ? 'Не настроена' : formatMoney(bonus?.amount);
+  element('store-bonus-note').textContent = bonus?.reason || 'Параметры магазинной премии не настроены.';
+}
+
 async function loadBonuses() {
+  element('store-bonus-panel').hidden = true;
+  element('seller-bonus-panel').hidden = false;
   const store = selectedStoreId();
   if (!store) return;
   const { year, month } = period();
@@ -2004,9 +2072,15 @@ async function renderRoute() {
       await loadDashboard();
       renderSellers(state.dashboard.sellers);
     }
-    if (routeId === 'bonuses') await loadBonuses();
+    if (routeId === 'bonuses') {
+      if (isStoreMode()) await loadStoreBonus();
+      else await loadBonuses();
+    }
     if (routeId === 'tasks') await loadTasks();
-    if (routeId === 'settings') await loadSettings();
+    if (routeId === 'settings') {
+      if (isStoreMode()) await loadDashboard();
+      else await loadSettings();
+    }
     if (routeId === 'import-export') await loadImportRuns();
   } catch (error) {
     showMessage(error.message, 'error');
@@ -2018,10 +2092,36 @@ function numberInput(id) {
   return value === '' ? null : Number(value);
 }
 
+function isMiskaStore(storeId = selectedStoreId()) {
+  const store = state.stores.find(item => item.id === storeId);
+  return store?.code === 'miska';
+}
+
+function applyShiftFormMode(storeId) {
+  const miskaMode = isMiskaStore(storeId);
+  element('shift-kpi-fieldset').hidden = !miskaMode;
+  element('shift-employee-field').hidden = !miskaMode;
+  element('shift-key-field').hidden = !miskaMode;
+  element('shift-employee').required = miskaMode;
+  if (!miskaMode) element('shift-key').value = 'main';
+  document.querySelectorAll('[data-miska-kpi-preview]').forEach(node => {
+    node.hidden = !miskaMode;
+  });
+}
+
+function storeInputEmployeeId(storeId) {
+  const employees = state.employees.filter(employee => employee.storeId === storeId);
+  const store = state.stores.find(item => item.id === storeId);
+  if (store?.code === 'miska') return element('shift-employee').value;
+  return employees.find(employee => employee.employeeCode === `${store?.code}-store-input`)?.id
+    || employees[0]?.id || '';
+}
+
 function shiftPayload() {
+  const storeId = element('shift-store').value;
   return {
-    storeId: element('shift-store').value,
-    employeeId: element('shift-employee').value,
+    storeId,
+    employeeId: storeInputEmployeeId(storeId),
     shiftDate: element('shift-date').value,
     shiftKey: element('shift-key').value,
     cash: numberInput('shift-cash'),
@@ -2151,6 +2251,7 @@ function openShiftDialog(shift = null) {
   }
   setFormValue('shift-date', shift?.shiftDate || new Date().toISOString().slice(0, 10));
   setFormValue('shift-store', shift?.storeId || selectedStoreId());
+  applyShiftFormMode(shift?.storeId || selectedStoreId());
   setFormValue('shift-employee', shift?.employeeId || (isSeller ? state.currentUser?.employeeId : state.employees[0]?.id) || '');
   setFormValue('shift-key', shift?.shiftKey || 'main');
   setFormValue('shift-cash', historical ? null : shift?.cash);
@@ -2616,7 +2717,6 @@ async function initialize() {
   const now = new Date();
   element('period-filter').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   populateYearFilter();
-  document.title = `${BUSINESS_CONTEXT.name} · ${BUSINESS_CONTEXT.moduleName}`;
   try {
     const user = await api('/api/business-kpi/auth/me');
     if (!user?.user) {
@@ -2686,6 +2786,7 @@ element('close-shift-form').addEventListener('click', () => element('shift-dialo
 element('cancel-shift').addEventListener('click', () => element('shift-dialog').close());
 element('archive-shift').addEventListener('click', archiveShift);
 element('shift-form').addEventListener('submit', saveShift);
+element('shift-store').addEventListener('change', event => applyShiftFormMode(event.target.value));
 element('shift-form').addEventListener('input', () => {
   element('shift-error').dataset.server = 'false';
   updatePreview();

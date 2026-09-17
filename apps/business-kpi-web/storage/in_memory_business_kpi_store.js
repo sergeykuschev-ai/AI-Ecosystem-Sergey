@@ -15,6 +15,17 @@ const DEV_STORE = Object.freeze({
   timezone: 'Asia/Vladivostok',
   active: true,
 });
+const DEV_ADDITIONAL_STORES = Object.freeze([
+  Object.freeze({
+    id: '10000000-0000-4000-8000-000000000002', code: 'amper', name: 'Ампер',
+    timezone: 'Asia/Vladivostok', active: true,
+  }),
+  Object.freeze({
+    id: '10000000-0000-4000-8000-000000000003', code: 'ventil', name: 'Вентиль',
+    timezone: 'Asia/Vladivostok', active: true,
+  }),
+]);
+
 const DEV_EMPLOYEES = Object.freeze([
   Object.freeze({
     id: '20000000-0000-4000-8000-000000000001',
@@ -37,6 +48,16 @@ const DEV_EMPLOYEES = Object.freeze([
     hiredOn: '2026-01-01',
     terminatedOn: null,
   })),
+  Object.freeze({
+    id: '20000000-0000-4000-8000-000000000101',
+    storeId: DEV_ADDITIONAL_STORES[0].id, employeeCode: 'amper-store-input',
+    displayName: 'Ампер · магазин', active: true, userId: null, hiredOn: null, terminatedOn: null,
+  }),
+  Object.freeze({
+    id: '20000000-0000-4000-8000-000000000102',
+    storeId: DEV_ADDITIONAL_STORES[1].id, employeeCode: 'ventil-store-input',
+    displayName: 'Вентиль · магазин', active: true, userId: null, hiredOn: null, terminatedOn: null,
+  }),
   Object.freeze({
     id: '20000000-0000-4000-8000-000000000002',
     storeId: DEV_STORE.id,
@@ -90,7 +111,7 @@ function matchesShift(shift, filters) {
 class InMemoryBusinessKpiStore {
   constructor(options = {}) {
     const seed = options.seed !== false;
-    this.stores = seed ? [clone(DEV_STORE)] : [];
+    this.stores = seed ? [clone(DEV_STORE), ...clone(DEV_ADDITIONAL_STORES)] : [];
     this.employees = seed ? clone(DEV_EMPLOYEES) : [];
     this.users = seed ? clone(DEV_USERS) : [];
     this.sessions = [];

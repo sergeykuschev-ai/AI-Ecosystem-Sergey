@@ -57,6 +57,7 @@ test('migration files are ordered and checksummed deterministically', () => {
     '003_auth_sessions.up.sql',
     '004_auth_sessions_privileges.up.sql',
     '005_seller_tasks.up.sql',
+    '006_store_reference_data.up.sql',
   ]);
   const sellerTasksSql = fs.readFileSync(
     path.join(migrationsRoot, '005_seller_tasks.up.sql'),
@@ -65,6 +66,14 @@ test('migration files are ordered and checksummed deterministically', () => {
   assert.match(sellerTasksSql, /CREATE TABLE IF NOT EXISTS business_kpi\.seller_task_library/);
   assert.match(sellerTasksSql, /CREATE TABLE IF NOT EXISTS business_kpi\.seller_task_proposals/);
   assert.match(sellerTasksSql, /business_kpi_task_proposal_identity/);
+  const storeReferenceSql = fs.readFileSync(
+    path.join(migrationsRoot, '006_store_reference_data.up.sql'),
+    'utf8'
+  );
+  assert.match(storeReferenceSql, /'amper', 'Ампер'/);
+  assert.match(storeReferenceSql, /'ventil', 'Вентиль'/);
+  assert.match(storeReferenceSql, /'amper-store-input'/);
+  assert.match(storeReferenceSql, /'ventil-store-input'/);
   assert.equal(computeChecksum(sql), computeChecksum(sql));
   assert.equal(computeChecksum(sql).length, 64);
 });
