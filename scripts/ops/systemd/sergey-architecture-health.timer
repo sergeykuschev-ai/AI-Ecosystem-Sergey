@@ -1,0 +1,11 @@
+[Unit]
+Description=Run architecture health check every 15 minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=15min
+Persistent=true
+Unit=sergey-architecture-health.service
+
+[Install]
+WantedBy=timers.target

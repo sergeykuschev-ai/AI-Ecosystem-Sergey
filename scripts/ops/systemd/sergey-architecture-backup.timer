@@ -1,0 +1,11 @@
+[Unit]
+Description=Run architecture backup daily
+
+[Timer]
+OnCalendar=*-*-* 03:10:00 UTC
+Persistent=true
+RandomizedDelaySec=10m
+Unit=sergey-architecture-backup.service
+
+[Install]
+WantedBy=timers.target

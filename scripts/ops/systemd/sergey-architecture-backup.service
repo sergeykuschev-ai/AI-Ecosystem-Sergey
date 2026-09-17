@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily backup for Stores Web and Business KPI
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/sergey-architecture-backup
+Nice=10
+UMask=0077
