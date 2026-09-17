@@ -1,0 +1,10 @@
+[Unit]
+Description=Sergey architecture health check
+After=docker.service tailscaled.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/sergey-architecture-health
+Nice=10
+UMask=0077
