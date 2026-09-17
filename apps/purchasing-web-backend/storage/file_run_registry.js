@@ -393,6 +393,29 @@ class FileRunRegistry {
     );
   }
 
+  getManualReview(runId) {
+    return readJson(
+      this.fs,
+      this.runFile(runId, 'artifacts/manual-review.json'),
+      'MANUAL_REVIEW_NOT_FOUND'
+    );
+  }
+
+  getReviewTriageArtifacts(runId) {
+    return {
+      triage: readJson(
+        this.fs,
+        this.runFile(runId, 'artifacts/review-triage.json'),
+        'REVIEW_TRIAGE_NOT_FOUND'
+      ),
+      compaction: readJson(
+        this.fs,
+        this.runFile(runId, 'artifacts/owner-review-compaction.json'),
+        'REVIEW_TRIAGE_NOT_FOUND'
+      ),
+    };
+  }
+
   listArtifacts(runId) {
     return this.artifactStore.readManifest(runId).artifacts;
   }

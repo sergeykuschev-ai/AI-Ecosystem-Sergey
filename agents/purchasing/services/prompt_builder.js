@@ -1,5 +1,6 @@
 const { toNumber } = require('../parsers/minmax_parser');
 const { DELIVERY_THRESHOLD } = require('../rules/supplier_rules');
+const { collectReportSupplierGroups } = require('./supplier_scope');
 
 function formatNumber(value) {
   const num = toNumber(value);
@@ -78,6 +79,21 @@ function addSection(lines, title, data, limit = null) {
   }
 }
 
+
+function supplierReportContext(productRows) {
+  const groups = [...collectReportSupplierGroups(productRows)];
+  if (groups.length !== 1) {
+    return { group: null, heading: 'ПОСТАВЩИКА', deliveryThreshold: null };
+  }
+  if (groups[0] === 'валта') {
+    return { group: 'валта', heading: 'ВАЛТЫ', deliveryThreshold: DELIVERY_THRESHOLD };
+  }
+  if (groups[0] === 'зооград') {
+    return { group: 'зооград', heading: 'ЗООГРАДА', deliveryThreshold: null };
+  }
+  return { group: groups[0], heading: 'ПОСТАВЩИКА', deliveryThreshold: null };
+}
+
 function buildMinmaxText(rows, analysis, options = {}) {
   const {
     productRows,
@@ -90,8 +106,9 @@ function buildMinmaxText(rows, analysis, options = {}) {
   } = analysis;
   const sourceRowsCount = options.sourceRowsCount ?? rows.length;
   const lines = [];
+  const supplierContext = supplierReportContext(productRows);
 
-  lines.push('# ДАННЫЕ ИЗ ОТЧЁТА MIN-MAX ВАЛТЫ');
+  lines.push(`# ДАННЫЕ ИЗ ОТЧЁТА MIN-MAX ${supplierContext.heading}`);
   lines.push('');
   lines.push(`Всего строк в исходном отчёте: ${sourceRowsCount}`);
   lines.push(`Реальных товарных SKU после очистки: ${productRows.length}`);
@@ -100,12 +117,14 @@ function buildMinmaxText(rows, analysis, options = {}) {
     `Предварительная сумма Min-Max: ${Math.round(totalOrderSum).toLocaleString('ru-RU')} ₽`
   );
 
-  if (totalOrderSum >= DELIVERY_THRESHOLD) {
-    lines.push('Порог бесплатной доставки Валты достигнут.');
-  } else {
-    lines.push(
-      `До бесплатной доставки не хватает: ${Math.round(missingToFreeDelivery).toLocaleString('ru-RU')} ₽`
-    );
+  if (supplierContext.deliveryThreshold !== null) {
+    if (totalOrderSum >= supplierContext.deliveryThreshold) {
+      lines.push('Порог бесплатной доставки Валты достигнут.');
+    } else {
+      lines.push(
+        `До бесплатной доставки Валты не хватает: ${Math.round(missingToFreeDelivery).toLocaleString('ru-RU')} ₽`
+      );
+    }
   }
 
   lines.push('');
@@ -160,5 +179,6 @@ module.exports = {
   addField,
   formatProduct,
   addSection,
+  supplierReportContext,
   buildMinmaxText,
 };

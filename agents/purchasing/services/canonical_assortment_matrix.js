@@ -193,6 +193,7 @@ function validateCanonicalItem(value, index) {
   const skuId = requiredString(value.sku_id, `${prefix}.sku_id`).toUpperCase();
   const supplier = optionalString(value.supplier, `${prefix}.supplier`);
   const supplierSku = optionalString(value.supplier_sku, `${prefix}.supplier_sku`);
+  const name = optionalString(value.name, `${prefix}.name`);
   const brand = optionalString(value.brand, `${prefix}.brand`);
   const category = optionalString(value.category, `${prefix}.category`);
   const subcategory = optionalString(value.subcategory, `${prefix}.subcategory`);
@@ -316,6 +317,7 @@ function validateCanonicalItem(value, index) {
     sku_id: skuId,
     supplier,
     supplier_sku: supplierSku,
+    name,
     brand,
     category,
     subcategory,

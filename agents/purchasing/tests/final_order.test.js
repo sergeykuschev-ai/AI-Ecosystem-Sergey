@@ -136,6 +136,61 @@ test('unresolved без решения блокирует финальный з�
   assert.equal(reviewRequired.unresolvedCount, 1);
 });
 
+test('triage separates owner decisions from data blockers without weakening export safety', () => {
+  const state = buildFinalOrderState({
+    items: [
+      item({
+        row_id: 'owner-active',
+        matrix: { owner_review_required: true },
+        review_triage: {
+          available: true,
+          requires_owner_decision: true,
+          owner_decision_status: 'ACTIVE',
+        },
+        workflow_status: 'pending_manual_review',
+        quantities: { approved_quantity: null, provisional_quantity: 2 },
+      }),
+      item({
+        row_id: 'data-blocked',
+        matrix: { owner_review_required: false },
+        review_triage: {
+          available: true,
+          requires_owner_decision: true,
+          owner_decision_status: 'BLOCKED_BY_DATA',
+        },
+        workflow_status: 'pending_manual_review',
+        quantities: { approved_quantity: null, provisional_quantity: 5 },
+      }),
+    ],
+  });
+  assert.equal(state.reviewComplete, false);
+  assert.equal(state.unresolvedCount, 2);
+  assert.equal(state.ownerDecisionComplete, false);
+  assert.equal(state.ownerDecisionUnresolvedCount, 1);
+  assert.equal(state.dataBlockedCount, 1);
+  assert.equal(state.unresolvedItems.find(x => x.rowId === 'data-blocked').reason, 'data_blocked');
+});
+
+test('triage can report zero owner decisions while data still blocks export', () => {
+  const state = buildFinalOrderState({
+    items: [item({
+      row_id: 'data-only',
+      matrix: { owner_review_required: true },
+      review_triage: {
+        available: true,
+        requires_owner_decision: true,
+        owner_decision_status: 'BLOCKED_BY_DATA',
+      },
+      workflow_status: 'pending_manual_review',
+      quantities: { approved_quantity: null, provisional_quantity: 3 },
+    })],
+  });
+  assert.equal(state.reviewComplete, false);
+  assert.equal(state.ownerDecisionComplete, true);
+  assert.equal(state.ownerDecisionUnresolvedCount, 0);
+  assert.equal(state.dataBlockedCount, 1);
+});
+
 test('pending_manual_review без owner_review_required не блокирует заказ', () => {
   // Единственный источник истины о завершении проверки —
   // owner_review_required. Статус workflow pending_manual_review сам по

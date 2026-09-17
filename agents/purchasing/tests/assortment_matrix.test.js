@@ -246,6 +246,50 @@ test('matches by normalized exact name when article is absent', () => {
   assert.equal(result.itemResults[0].matchMethod, 'normalized_name');
 });
 
+
+test('supplier-scoped article resolves Rich Store as a Zoograd legal entity', () => {
+  const rich = row({ rowNumber: 5, article: 'SKU-42', name: 'Одинаковый товар' });
+  rich.supplier = 'РИЧ СТОР ООО';
+  const value = matrix([matrixItem({
+    article: 'SKU-42',
+    name: 'Одинаковый товар',
+    supplier: 'ЗООГРАД-ХАБАРОВСК ООО',
+  })]);
+
+  const result = matchAssortmentMatrix(value, [rich]);
+  assert.equal(result.itemResults[0].status, 'matched');
+  assert.equal(result.itemResults[0].matchMethod, 'supplier_article_group');
+  assert.equal(result.itemResults[0].row.rowIdentity, rich.rowIdentity);
+});
+
+test('supplier-scoped normalized name resolves across Zoograd legal entities', () => {
+  const sourceRow = row({ rowNumber: 4, article: null, name: 'Inspector Quadro 10-25 кг' });
+  sourceRow.supplier = 'Хабаровск ОПТ';
+  const value = matrix([matrixItem({
+    article: null,
+    name: ' inspector quadro 10 25 кг ',
+    supplier: 'Зооград',
+  })]);
+
+  const result = matchAssortmentMatrix(value, [sourceRow]);
+  assert.equal(result.itemResults[0].status, 'matched');
+  assert.equal(result.itemResults[0].matchMethod, 'supplier_normalized_name');
+});
+
+test('supplier-scoped matrix item never matches a unique product from another supplier', () => {
+  const sourceRow = row({ rowNumber: 4, article: 'SKU-99', name: 'Точный товар' });
+  sourceRow.supplier = 'Валта';
+  const value = matrix([matrixItem({
+    article: 'SKU-99',
+    name: 'Точный товар',
+    supplier: 'Зооград',
+  })]);
+
+  const result = matchAssortmentMatrix(value, [sourceRow]);
+  assert.equal(result.itemResults[0].status, 'unmatched');
+  assert.equal(result.matchesByRowIdentity.size, 0);
+});
+
 test('does not merge products with a repeated article', () => {
   const first = row({ rowNumber: 4, article: 'DUP', name: 'Первый товар' });
   const second = row({ rowNumber: 5, article: 'DUP', name: 'Второй товар' });
@@ -262,7 +306,7 @@ test('does not merge products with a repeated article', () => {
   assert.equal(result.matchesByRowIdentity.size, 2);
 });
 
-test('leaves a repeated article ambiguous when the name cannot disambiguate it', () => {
+test('leaves a repeated supplier article unmatched when the name cannot disambiguate it', () => {
   const rows = [
     row({ rowNumber: 4, article: 'DUP', name: 'Первый товар' }),
     row({ rowNumber: 5, article: 'DUP', name: 'Второй товар' }),
@@ -270,7 +314,11 @@ test('leaves a repeated article ambiguous when the name cannot disambiguate it',
   const value = matrix([matrixItem({ article: 'DUP', name: 'Неизвестный товар' })]);
   const result = matchAssortmentMatrix(value, rows);
 
-  assert.equal(result.itemResults[0].status, 'ambiguous');
+  assert.equal(result.itemResults[0].status, 'unmatched');
+  assert.deepEqual(result.itemResults[0].candidateRowIdentities, [
+    rows[0].rowIdentity,
+    rows[1].rowIdentity,
+  ]);
   assert.equal(result.matchesByRowIdentity.size, 0);
 });
 
@@ -597,6 +645,7 @@ function canonicalMatrix(overrides = {}) {
     items: [{
       sku_id: 'FOOD-TEST-1',
       supplier_sku: 'TEST-SKU-1',
+      name: 'Тестовый canonical товар',
       supplier: 'Валта',
       brand: 'AWARD',
       category: 'Влажный корм для собак',
@@ -664,6 +713,39 @@ test('canonical adapter falls back to sku_id when supplier_sku missing', () => {
 
   const loaded = loadAssortmentMatrix(filePath);
   assert.equal(loaded.matrix.items[0].article, 'FOOD-TEST-1');
+});
+
+
+test('canonical adapter preserves exact product name for supplier-name fallback', () => {
+  const filePath = path.join(TEMP_DIRECTORY, 'canonical-name.json');
+  const data = canonicalMatrix();
+  data.items[0].supplier_sku = null;
+  data.items[0].name = 'Inspector Quadro Капли д/соб 1-4кг 3пипет.';
+  data.items[0].supplier = 'Зооград';
+  fs.writeFileSync(filePath, `${JSON.stringify(data, null, 2)}\n`, 'utf8');
+
+  const loaded = loadAssortmentMatrix(filePath);
+  assert.equal(loaded.matrix.items[0].name, 'Inspector Quadro Капли д/соб 1-4кг 3пипет.');
+  const sourceRow = row({ article: null, name: 'Inspector Quadro Капли д/соб 1-4кг 3пипет.' });
+  sourceRow.supplier = 'Хабаровск ОПТ';
+  const matched = matchAssortmentMatrix(loaded.matrix, [sourceRow]);
+  assert.equal(matched.itemResults[0].status, 'matched');
+  assert.equal(matched.itemResults[0].matchMethod, 'supplier_normalized_name');
+});
+
+test('canonical matrix includes owner-selected Zoograd strategic assortment', () => {
+  const loaded = loadAssortmentMatrix(CANONICAL_MATRIX_PATH);
+  const byId = new Map(loaded.matrix.items.map(item => [item.canonical_sku_id, item]));
+  for (const sku of [
+    'VET-INSP-001','VET-INSP-004','VET-INSP-008',
+    'VET-PRAZ-001','VET-PRAZ-002',
+    'CARE-CLINY-108','CARE-CLINY-114','CARE-CLINY-119','CARE-CLINY-120',
+    'VET-BARS-SPRAY-100','VET-BARS-SPRAY-200',
+  ]) {
+    assert.ok(byId.has(sku), `${sku} must be present in canonical matrix`);
+  }
+  assert.equal(byId.get('CARE-CLINY-114').minimum_shelf_stock, 2);
+  assert.equal(byId.get('VET-PRAZ-001').priority, 'critical');
 });
 
 test('canonical adapter rejects duplicate supplier_sku', () => {
@@ -797,7 +879,7 @@ test('matched supplier-unassigned item is not flagged as missing', () => {
   assert.equal(result.summary.supplier_unassigned_matrix_items_count, 0);
 });
 
-test('зооград alias row puts валта item out of scope', () => {
+test('supplier-scoped matching leaves Valta item out of scope for a Zoograd row', () => {
   const validatedMatrix = matrix([
     scopeMatrixItem({ article: 'ZOO-1', supplier: 'Валта' }),
   ]);
@@ -813,9 +895,9 @@ test('зооград alias row puts валта item out of scope', () => {
     reportSupplierGroups: new Set(['зооград']),
   });
 
-  assert.equal(result.summary.matched_matrix_items, 1);
+  assert.equal(result.summary.matched_matrix_items, 0);
   assert.equal(result.summary.missing_matrix_items_count, 0);
-  assert.equal(result.summary.out_of_scope_matrix_items_count, 0);
+  assert.equal(result.summary.out_of_scope_matrix_items_count, 1);
 });
 
 test('report shows supplier-unassigned section', () => {

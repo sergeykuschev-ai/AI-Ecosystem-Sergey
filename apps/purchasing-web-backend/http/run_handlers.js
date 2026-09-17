@@ -26,7 +26,17 @@ const {
   parseExcelUpload,
 } = require('./upload_handler');
 const { streamArtifact } = require('./artifact_handler');
-const { HttpError } = require('./responses');
+const { HttpError, sendJson } = require('./responses');
+
+function asArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+const {
+  createReviewTriageService,
+} = require('../application/review_triage_service');
+const {
+  presentOwnerReviewCompaction,
+} = require('../application/review_triage_presenter');
 const {
   mapOwnerDecisionAnalytics,
 } = require('../dto/owner_decision_analytics_mapper');
@@ -1347,6 +1357,14 @@ function createRunHandlers(options) {
     uploadOptions = {},
     runLock = DEFAULT_RUN_EXECUTION_LOCK,
     approvedRuleMode,
+    logger = console,
+    reviewTriageService = createReviewTriageService({
+      matrixPath: (options.serverPaths || DEFAULT_SERVER_PATHS).matrixPath,
+      sessionsPath:
+        (options.serverPaths || DEFAULT_SERVER_PATHS).ownerReviewSessionsPath,
+      logger,
+      now,
+    }),
     ownerDecisionAnalyticsService,
     ownerLearningCandidatesService,
     ownerLearningCandidateLifecycleService,
@@ -1425,6 +1443,25 @@ function createRunHandlers(options) {
         const saved = registry.saveCompletedRun(bundle, {
           completedAt: now(),
         });
+        // Review triage is auxiliary and read-only: it must never fail the
+        // already saved run, so any error is logged and swallowed.
+        try {
+          reviewTriageService.buildAndSaveReviewTriage({
+            runId,
+            agentResult: bundle.agentResult,
+            manualReview: bundle.manualReview,
+            ownerReview: bundle.ownerReview,
+            artifactStore: registry.artifactStore,
+            generatedAt: now(),
+          });
+        } catch (triageError) {
+          try {
+            logger.warn(
+              '[REVIEW_TRIAGE_UNAVAILABLE] ' +
+              (triageError?.message || 'review triage failed')
+            );
+          } catch {}
+        }
         return {
           statusCode: 201,
           headers: {
@@ -1498,6 +1535,69 @@ function createRunHandlers(options) {
       return {
         statusCode: 200,
         data: queryService.getOwnerReview(runId, query),
+        runId,
+      };
+    },
+
+    getReviewTriage(runId, response) {
+      let artifacts;
+      try {
+        artifacts = registry.getReviewTriageArtifacts(runId);
+      } catch (error) {
+        // Old runs saved before review triage existed have no artifacts:
+        // answer with an explicit «not available» instead of recalculating.
+        if (error?.code === 'REVIEW_TRIAGE_NOT_FOUND') {
+          sendJson(response, 404, {
+            run_id: runId,
+            available: false,
+            error: 'review_triage_not_available',
+          });
+          return { streamed: true, runId };
+        }
+        throw error;
+      }
+      const { triage, compaction } = artifacts;
+      const sectionCounts = {};
+      const summarySections = triage?.current_manual_sections || triage?.sections || {};
+      for (const [name, section] of Object.entries(summarySections)) {
+        sectionCounts[name] = Number.isInteger(section?.count)
+          ? section.count
+          : 0;
+      }
+      // Presentation enrichment (read-only): per-SKU working numbers come
+      // from the FULL run artifacts, never from the paginated /items table
+      // the frontend renders. Missing optional sources degrade to null
+      // fields («нет данных») instead of failing the endpoint.
+      let webItems = null;
+      try {
+        webItems = registry.getItems(runId);
+      } catch {
+        webItems = null;
+      }
+      let manualReview = null;
+      try {
+        manualReview = registry.getManualReview(runId);
+      } catch {
+        manualReview = null;
+      }
+      const presentedCompaction = presentOwnerReviewCompaction(compaction, {
+        webItems: Array.isArray(webItems) ? webItems : asArray(webItems?.items),
+        manualReviewItems: asArray(manualReview?.items),
+        canonicalMatrix: reviewTriageService.loadCanonicalMatrix(),
+      });
+      return {
+        statusCode: 200,
+        data: {
+          run_id: runId,
+          calculation_version: triage?.calculation_version ?? null,
+          available: true,
+          summary: {
+            comparison: triage?.comparison ?? null,
+            categories: triage?.current_manual_categories ?? triage?.categories ?? null,
+            sections: sectionCounts,
+          },
+          compaction: presentedCompaction,
+        },
         runId,
       };
     },

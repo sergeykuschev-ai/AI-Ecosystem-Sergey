@@ -39,7 +39,7 @@ test('collectReportSupplierGroups gathers all present groups', () => {
   assert.deepEqual(Array.from(groups).sort(), ['зооград']);
 });
 
-test('mixed zoograd aliases collapse to single supplier group', () => {
+test('all four Zoograd legal entities collapse to one supplier group', () => {
   const groups = collectReportSupplierGroups([
     { supplier: 'Оникиенко Роман Евгеньевич' },
     { supplier: 'РИЧ СТОР ООО' },

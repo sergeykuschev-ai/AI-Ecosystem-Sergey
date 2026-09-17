@@ -132,6 +132,30 @@ function isUndefinedError(value) {
     value.trim().toLowerCase() === '#error_undefined';
 }
 
+const ZERO_CONFIRMED_BY_STOCK_DAYS = 'zero_confirmed_by_stock_days';
+
+function isMissingStockValue(value) {
+  return value === null ||
+    value === undefined ||
+    String(value).trim() === '' ||
+    isUndefinedError(value);
+}
+
+// Restores a semantically confirmed zero free stock only when SmartZapas's
+// own fields prove it: an explicit numeric zero stock-days together with
+// confirmed positive period sales means the on-hand stock must be zero
+// (any positive stock with positive sales yields stock-days > 0). A positive
+// excess-stock count would contradict zero stock and blocks the restore.
+function resolveConfirmedZeroFreeStock({ freeStockToken, stockDays, sales, excessStock }) {
+  if (!isMissingStockValue(freeStockToken)) return null;
+  if (stockDays !== 0) return null;
+  if (!(typeof sales === 'number' && Number.isFinite(sales) && sales > 0)) return null;
+  if (typeof excessStock === 'number' && Number.isFinite(excessStock) && excessStock > 0) {
+    return null;
+  }
+  return { status: 'confirmed_zero', source: ZERO_CONFIRMED_BY_STOCK_DAYS };
+}
+
 function toSmartZapasNumber(value) {
   if (value instanceof Date) {
     if (!Number.isFinite(value.getTime())) return null;
@@ -791,6 +815,15 @@ function normalizeProductRow(
   const freeStockSourceToken = freeStockColumn
     ? row[freeStockColumn.index] ?? null
     : null;
+  const confirmedZeroFreeStock = resolveConfirmedZeroFreeStock({
+    freeStockToken: freeStockSourceToken,
+    stockDays: normalized.stockDays,
+    sales: normalized.sales,
+    excessStock: normalized.excessStock,
+  });
+  if (confirmedZeroFreeStock) {
+    normalized.freeStock = 0;
+  }
   const salesColumn = columnMap.sales;
   const speedColumn = columnMap.speed;
   const reportedSalesQuantitySourceToken = salesColumn
@@ -872,6 +905,12 @@ function normalizeProductRow(
 
   return {
     ...normalized,
+    ...(confirmedZeroFreeStock
+      ? {
+        zeroStockConfirmed: true,
+        zeroStockReason: confirmedZeroFreeStock.source,
+      }
+      : {}),
     rowIdentity: createRowIdentity(source.reportFingerprint, source.sheetName, rowNumber),
     identityBasis,
     matchKey: barcode
@@ -1492,6 +1531,8 @@ module.exports = {
   NORMALIZED_ROW_SCHEMA,
   COLUMN_DEFINITIONS,
   normalizeHeaderPart,
+  isUndefinedError,
+  resolveConfirmedZeroFreeStock,
   parseSmartZapasDate,
   parseReportedSalesPeriod,
   parseSmartZapasShortDate,

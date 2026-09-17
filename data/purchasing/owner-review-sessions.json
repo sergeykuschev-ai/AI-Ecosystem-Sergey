@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "description": "Реестр owner-review сессий с подтверждённой provenance. Сессия считается подтверждённой только при наличии независимого контрольного артефакта (control_artifact_path, путь относительно корня репозитория, файл должен существовать). rule_changed_at / rule_changed_by без записи в этом реестре доказательством не являются.",
+  "sessions": [
+    {
+      "session_id": "owner-review-2026-08-19",
+      "verified_at": "2026-08-19",
+      "verified_by": "owner-review-control-file",
+      "control_artifact_path": "data/purchasing/Миска_Туалет_Гигиена_Поведение_v6_OWNER_REVIEW_ФИНАЛЬНЫЙ_КОНТРОЛЬ_19.08.2026.xlsx",
+      "notes": "Финальный контрольный файл owner-review 19.08.2026. Canonical items с rule_changed_by=owner-review-2026-08-19 подтверждены этим артефактом. Записи rule_changed_by='OWNER' от 11-12.08.2026 контрольного артефакта не имеют и в реестр не включены."
+    }
+  ]
+}

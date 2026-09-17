@@ -204,3 +204,18 @@ test('supplier normalization collapses whitespace and ignores case', () => {
 
   assert.equal(key, 'SUPPLIER:ОСНОВНОЙ ПОСТАВЩИК:SKU:ART-001');
 });
+
+
+test('Valta legal-form variants resolve to the same supplier identity', () => {
+  const shortName = product({ supplier: 'АО \"ВАЛТА ПЕТ ПРОДАКТС\"', sku: '7173556' });
+  const longName = product({ supplier: 'АКЦИОНЕРНОЕ ОБЩЕСТВО \"ВАЛТА ПЕТ ПРОДАКТС\"', sku: '7173556' });
+
+  assert.deepEqual(
+    ownerDecisionKeyCandidates(shortName),
+    ownerDecisionKeyCandidates(longName)
+  );
+  assert.equal(
+    uniqueOwnerDecisionKey(longName, ownerDecisionKeyContext([longName])),
+    'SUPPLIER:АО \"ВАЛТА ПЕТ ПРОДАКТС\":SKU:7173556'
+  );
+});

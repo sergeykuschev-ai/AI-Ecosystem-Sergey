@@ -42,6 +42,8 @@ const ARTIFACT_NAMES = Object.freeze([
   'approved-rule-preview.md',
   'approved-rule-applications.json',
   'run-metadata.json',
+  'review-triage.json',
+  'owner-review-compaction.json',
 ]);
 
 const DEFAULT_SERVER_PATHS = Object.freeze({
@@ -97,10 +99,23 @@ const DEFAULT_SERVER_PATHS = Object.freeze({
     REPOSITORY_ROOT,
     'output/purchasing/owner-learning-history.json'
   ),
+  ownerReviewSessionsPath: path.join(
+    REPOSITORY_ROOT,
+    'data/purchasing/owner-review-sessions.json'
+  ),
 });
 
 function isValidRunId(runId) {
   return typeof runId === 'string' && RUN_ID_PATTERN.test(runId);
+}
+
+function resolveHttpHost(value = process.env.PURCHASING_WEB_HOST) {
+  if (value === undefined || value === '') return DEFAULT_HTTP_HOST;
+  const host = String(value).trim();
+  if (!host || /[\s/]/.test(host)) {
+    throw new TypeError('PURCHASING_WEB_HOST должен быть допустимым именем хоста или IP.');
+  }
+  return host;
 }
 
 function resolveHttpPort(value = process.env.PURCHASING_WEB_PORT) {
@@ -133,6 +148,11 @@ function resolveApprovedRuleMode(
     : value;
 }
 
+function resolveRunsRoot(value = process.env.PURCHASING_WEB_RUNS_ROOT) {
+  if (value === undefined || value === '') return DEFAULT_RUNS_ROOT;
+  return path.resolve(value);
+}
+
 module.exports = {
   ARTIFACT_NAMES,
   DEFAULT_APPROVED_RULE_MODE,
@@ -153,6 +173,8 @@ module.exports = {
   RUN_ID_PATTERN,
   isValidRunId,
   resolveApprovedRuleMode,
+  resolveHttpHost,
   resolveHttpPort,
   resolveRetentionTtlMs,
+  resolveRunsRoot,
 };
