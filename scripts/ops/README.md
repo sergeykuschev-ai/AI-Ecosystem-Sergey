@@ -32,7 +32,7 @@ The purchasing service keeps its separate existing daily backup of purchasing st
 /var/lib/sergey-architecture-health/latest.json
 ```
 
-It checks the production application containers including Arthur Core API/PostgreSQL, required systemd services/timers, disk usage, local and off-host backup freshness, Arthur backup presence, loopback owner-app HTTP endpoints, and unexpected public TCP listeners. A disabled Kimi worker is a warning rather than a production outage.
+It checks the production application containers including Arthur Core API/PostgreSQL, required systemd services/timers, disk usage, local and off-host backup freshness, Arthur backup presence, loopback owner-app HTTP endpoints, and unexpected public TCP listeners. It also validates the `arthur_services` Docker network used by Arthur's read-only Business KPI integration: the network must be an internal bridge, `business-kpi-web-1` must expose the `business-kpi-api` alias, and PostgreSQL/Arthur Core containers are forbidden from joining it. A disabled Kimi worker is a warning rather than a production outage.
 
 Installed paths:
 

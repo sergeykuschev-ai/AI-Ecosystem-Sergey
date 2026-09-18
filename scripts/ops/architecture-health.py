@@ -20,6 +20,61 @@ def container(name):
 for name in ('app-web-1','app-directus-1','app-postgres-1','business-kpi-web-1','business-kpi-postgres-1','miska-purchasing','arthur-core-api-1','arthur-core-postgres-1'):
     container(name)
 
+services_network = os.environ.get('ARTHUR_SERVICES_NETWORK', 'arthur_services')
+p = run(['docker','network','inspect',services_network])
+if p.returncode != 0:
+    checks['arthur_services_network'] = 'missing'
+    errors.append(f'arthur_services_network:{services_network}:missing')
+else:
+    try:
+        network = json.loads(p.stdout)[0]
+        internal = network.get('Internal') is True
+        driver = network.get('Driver')
+        members = sorted(
+            entry.get('Name')
+            for entry in (network.get('Containers') or {}).values()
+            if entry.get('Name')
+        )
+        checks['arthur_services_network'] = services_network
+        checks['arthur_services_internal'] = internal
+        checks['arthur_services_driver'] = driver
+        checks['arthur_services_members'] = members
+
+        if not internal:
+            errors.append(f'arthur_services_network:{services_network}:not_internal')
+        if driver != 'bridge':
+            errors.append(f'arthur_services_network:{services_network}:driver:{driver}')
+        if 'business-kpi-web-1' not in members:
+            errors.append('arthur_services_network:business-kpi-web-1:missing')
+
+        forbidden_members = sorted(set(members) & {
+            'app-postgres-1',
+            'business-kpi-postgres-1',
+            'arthur-core-postgres-1',
+            'arthur-core-api-1',
+        })
+        checks['arthur_services_forbidden_members'] = forbidden_members
+        if forbidden_members:
+            errors.append('arthur_services_network:forbidden_members:' + ','.join(forbidden_members))
+
+        web = run(['docker','inspect','business-kpi-web-1'])
+        aliases = []
+        if web.returncode == 0:
+            web_payload = json.loads(web.stdout)[0]
+            aliases = (
+                web_payload.get('NetworkSettings', {})
+                .get('Networks', {})
+                .get(services_network, {})
+                .get('Aliases')
+            ) or []
+        aliases = sorted(set(aliases))
+        checks['arthur_services_kpi_aliases'] = aliases
+        if 'business-kpi-api' not in aliases:
+            errors.append('arthur_services_network:business-kpi-api_alias:missing')
+    except Exception:
+        checks['arthur_services_network'] = 'invalid'
+        errors.append(f'arthur_services_network:{services_network}:invalid')
+
 for unit in ('tailscaled.service','instagram-germany-tunnel.service','miska-purchasing-health.timer','stores-public-health.timer','stores-seo-monitor.timer','sergey-architecture-backup.timer','sergey-offhost-backup.timer'):
     p = run(['systemctl','is-active',unit])
     state = p.stdout.strip()
