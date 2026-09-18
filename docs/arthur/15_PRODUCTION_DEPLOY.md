@@ -50,7 +50,7 @@ ARTHUR_MAILBOX_MISKA_YANDEX_ENABLED=false
 TELEGRAM_KPI_DAILY_ENABLED=false
 TELEGRAM_KPI_WEEKLY_ENABLED=false
 TELEGRAM_KPI_ALERTS_ENABLED=false
-PURCHASING_RUNS_SOURCE=/opt/miska-purchasing/state/runs
+PURCHASING_RUNS_SOURCE=/opt/miska-purchasing/output/purchasing-web/runs
 PURCHASING_RUNS_ROOT=/opt/arthur/output/purchasing-web/runs
 ```
 
