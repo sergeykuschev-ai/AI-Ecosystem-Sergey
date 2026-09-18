@@ -1,0 +1,11 @@
+[Unit]
+Description=Encrypted off-host backup to Germany proxy
+After=network-online.target docker.service sergey-architecture-backup.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/sergey-offhost-backup
+Nice=15
+UMask=0077

@@ -20,7 +20,7 @@ def container(name):
 for name in ('app-web-1','app-directus-1','app-postgres-1','business-kpi-web-1','business-kpi-postgres-1','miska-purchasing'):
     container(name)
 
-for unit in ('tailscaled.service','instagram-germany-tunnel.service','miska-purchasing-health.timer','stores-public-health.timer','stores-seo-monitor.timer','sergey-architecture-backup.timer'):
+for unit in ('tailscaled.service','instagram-germany-tunnel.service','miska-purchasing-health.timer','stores-public-health.timer','stores-seo-monitor.timer','sergey-architecture-backup.timer','sergey-offhost-backup.timer'):
     p = run(['systemctl','is-active',unit])
     state = p.stdout.strip()
     checks[f'unit:{unit}'] = state
@@ -39,6 +39,25 @@ if backup.exists():
 else:
     checks['architecture_backup_age_hours'] = None
     errors.append('architecture_backup:missing')
+
+offhost = Path('/var/backups/sergey-architecture/offhost-last.json')
+if offhost.exists():
+    age_h = round((time.time() - offhost.stat().st_mtime) / 3600, 1)
+    checks['offhost_backup_age_hours'] = age_h
+    try:
+        offhost_payload = json.loads(offhost.read_text())
+        checks['offhost_backup_status'] = offhost_payload.get('status')
+        if offhost_payload.get('status') != 'ok':
+            errors.append(f"offhost_backup_status:{offhost_payload.get('status')}")
+    except Exception:
+        checks['offhost_backup_status'] = 'invalid'
+        errors.append('offhost_backup_state:invalid')
+    if age_h > 30:
+        errors.append(f'offhost_backup_age:{age_h}h')
+else:
+    checks['offhost_backup_age_hours'] = None
+    checks['offhost_backup_status'] = 'missing'
+    errors.append('offhost_backup:missing')
 
 p = run(['ss','-lntH'])
 public = []

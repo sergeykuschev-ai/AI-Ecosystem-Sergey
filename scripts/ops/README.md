@@ -46,6 +46,28 @@ Installed paths:
 
 A backup is not considered valid solely because a file exists. PostgreSQL custom-format dumps must pass `pg_restore -l`, and Directus archives must pass `tar -tzf` before they are relied upon.
 
-## Off-host requirement
+## Encrypted off-host backup
 
-Host-local backups do not protect against loss of the VPS. Replication to a separately administered machine or storage account is still required. Do not send database dumps to an unverified Tailscale/SSH/SMB target merely because a port is reachable.
+`sergey-offhost-backup.sh` packages the latest Stores Web PostgreSQL dump, Business KPI PostgreSQL dump, Directus uploads archive, and the latest normal Miska Purchasing backup. The bundle is encrypted with `age` to every SSH public key in `/root/.ssh/authorized_keys` before it leaves the primary VPS.
+
+The encrypted artifact is copied atomically over SSH to the Germany proxy host and verified with SHA-256 before publication. The remote host stores ciphertext only and keeps seven days of `sergey-offhost-*.tar.gz.age` files.
+
+Installed paths:
+
+```text
+/usr/local/sbin/sergey-offhost-backup
+/etc/systemd/system/sergey-offhost-backup.service
+/etc/systemd/system/sergey-offhost-backup.timer
+/var/backups/sergey-architecture/offhost-last.json
+```
+
+The timer runs after the local architecture backup window. Architecture health treats a missing or older-than-30-hours off-host backup as an error.
+
+Restore requires the private SSH key matching one of the configured recipients. Example on a trusted recovery machine:
+
+```text
+age --decrypt -i ~/.ssh/<matching-private-key> sergey-offhost-YYYYMMDDTHHMMSSZ.tar.gz.age > backup.tar.gz
+tar -tzf backup.tar.gz
+```
+
+Do not copy the private decryption key to the Germany proxy.
