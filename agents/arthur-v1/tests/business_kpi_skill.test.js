@@ -134,6 +134,48 @@ describe('BusinessKpiSkill store summary', () => {
     assert.equal(result.data.revenueFormatted, null);
     assert.equal(result.data.itemsPerCheckFormatted, null);
     assert.equal(result.data.qrShareFormatted, null);
+    assert.match(result.responseText, /в Бизнес-портале пока нет внесённых смен/);
+    assert.match(result.responseText, /План: не задан/);
+    assert.doesNotMatch(result.responseText, /Выручка: 0/);
+  });
+
+  test('keeps a real zero revenue when a shift exists', async () => {
+    const client = createFakeClient({
+      getDashboard: async () => ({
+        month: {
+          revenue: 0,
+          receipts: 0,
+          shiftsCount: 1,
+          dataStatus: 'COMPLETE',
+        },
+      }),
+    });
+    const skill = createTestSkill(client);
+    const result = await skill.execute({ operation: 'getStoreSummary' });
+    assert.equal(result.data.revenue, 0);
+    assert.match(result.responseText, /Выручка: 0,00 ₽/);
+    assert.doesNotMatch(result.responseText, /пока нет внесённых смен/);
+  });
+
+  test('today summary distinguishes no portal shift from zero revenue', async () => {
+    const noData = createTestSkill(createFakeClient({
+      getToday: async () => ({
+        date: '2026-08-27',
+        aggregate: { revenue: null, shiftsCount: 0, dataStatus: 'NO_DATA' },
+      }),
+    }));
+    const missing = await noData.execute({ operation: 'getTodaySummary' });
+    assert.match(missing.responseText, /в Бизнес-портале пока нет внесённой смены/);
+    assert.doesNotMatch(missing.responseText, /Выручка: 0/);
+
+    const zero = createTestSkill(createFakeClient({
+      getToday: async () => ({
+        date: '2026-08-27',
+        aggregate: { revenue: 0, receipts: 0, shiftsCount: 1, dataStatus: 'COMPLETE' },
+      }),
+    }));
+    const recorded = await zero.execute({ operation: 'getTodaySummary' });
+    assert.match(recorded.responseText, /Выручка: 0,00 ₽/);
   });
 });
 

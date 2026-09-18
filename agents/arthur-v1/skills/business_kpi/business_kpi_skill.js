@@ -518,6 +518,15 @@ function buildSettingsSummary(client, record, parameters, retrievedAt) {
 }
 
 function formatStoreSummaryResponse(summary) {
+  if (summary.dataStatus === 'NO_DATA') {
+    return [
+      `🐾 Миска — ${summary.period}`,
+      '',
+      'За этот период в Бизнес-портале пока нет внесённых смен.',
+      `План: ${summary.planFormatted ?? 'не задан'}`,
+    ].join('\n');
+  }
+
   const lines = [
     `🐾 Миска — ${summary.period}`,
     '',
@@ -604,18 +613,25 @@ function createBusinessKpiSkill({ client, clock = () => new Date(), cacheTtlMs }
     return {
       status: 'success',
       data: summary,
-      responseText: [
-        `🐾 Миска — сегодня (${summary.date ?? 'н/д'})`,
-        '',
-        `Выручка: ${summary.revenueFormatted ?? 'н/д'}`,
-        `Чеков: ${summary.receipts ?? 'н/д'}`,
-        `Средний чек: ${summary.averageCheckFormatted ?? 'н/д'}`,
-        `Товаров в чеке: ${summary.itemsPerCheckFormatted ?? 'н/д'}`,
-        `QR: ${summary.qrShareFormatted ?? 'н/д'}`,
-        `Смен: ${summary.shifts ?? 'н/д'}`,
-        `Данные: ${summary.dataStatusLabel ?? 'н/д'}`,
-        ...(freshness ? ['', freshness] : []),
-      ].join('\n'),
+      responseText: summary.dataStatus === 'NO_DATA'
+        ? [
+            `🐾 Миска — сегодня (${summary.date ?? 'н/д'})`,
+            '',
+            'На сегодня в Бизнес-портале пока нет внесённой смены.',
+            ...(freshness ? ['', freshness] : []),
+          ].join('\n')
+        : [
+            `🐾 Миска — сегодня (${summary.date ?? 'н/д'})`,
+            '',
+            `Выручка: ${summary.revenueFormatted ?? 'н/д'}`,
+            `Чеков: ${summary.receipts ?? 'н/д'}`,
+            `Средний чек: ${summary.averageCheckFormatted ?? 'н/д'}`,
+            `Товаров в чеке: ${summary.itemsPerCheckFormatted ?? 'н/д'}`,
+            `QR: ${summary.qrShareFormatted ?? 'н/д'}`,
+            `Смен: ${summary.shifts ?? 'н/д'}`,
+            `Данные: ${summary.dataStatusLabel ?? 'н/д'}`,
+            ...(freshness ? ['', freshness] : []),
+          ].join('\n'),
       metadata: { source: 'business_kpi', operation: 'getTodaySummary' },
     };
   }
