@@ -1035,7 +1035,9 @@ function createBusinessKpiSkill({ client, clock = () => new Date(), cacheTtlMs }
     async health() {
       try {
         const health = await client.health();
-        return { healthy: health.ok === true, skill: 'business_kpi', version: '1.0.0' };
+        const healthy = health?.ok === true ||
+          (health?.status === 'ok' && health?.storage?.healthy !== false);
+        return { healthy, skill: 'business_kpi', version: '1.0.0' };
       } catch (error) {
         return { healthy: false, skill: 'business_kpi', version: '1.0.0', errorCode: error.code || 'UNKNOWN' };
       }

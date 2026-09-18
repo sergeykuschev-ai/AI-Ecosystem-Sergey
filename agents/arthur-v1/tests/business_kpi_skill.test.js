@@ -12,7 +12,7 @@ function createFakeClient(overrides = {}) {
   return {
     baseUrl: 'http://localhost:3000',
     serviceId: 'arthur.analytics',
-    health: overrides.health || (async () => ({ ok: true })),
+    health: overrides.health || (async () => ({ status: 'ok', storage: { healthy: true } })),
     getDashboard: overrides.getDashboard || (async () => ({ month: {}, sellers: [] })),
     getToday: overrides.getToday || (async () => ({ aggregate: {} })),
     getSellers: overrides.getSellers || (async () => ({ items: [] })),
@@ -46,6 +46,22 @@ describe('BusinessKpiSkill configuration', () => {
     const result = await skill.health();
     assert.equal(result.healthy, true);
     assert.equal(result.skill, 'business_kpi');
+  });
+
+  test('health returns unhealthy when client reports degraded storage', async () => {
+    const skill = createTestSkill(createFakeClient({
+      health: async () => ({ status: 'degraded', storage: { healthy: false } }),
+    }));
+    const result = await skill.health();
+    assert.equal(result.healthy, false);
+  });
+
+  test('health accepts legacy ok=true response', async () => {
+    const skill = createTestSkill(createFakeClient({
+      health: async () => ({ ok: true }),
+    }));
+    const result = await skill.health();
+    assert.equal(result.healthy, true);
   });
 
   test('health returns unhealthy when client fails', async () => {
