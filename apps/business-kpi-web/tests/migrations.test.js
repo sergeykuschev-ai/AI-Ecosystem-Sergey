@@ -9,6 +9,9 @@ const {
   computeChecksum,
   listMigrationFiles,
 } = require('../storage/migration_runner');
+const {
+  MISKA_AUGUST_2026_SETTINGS,
+} = require('../../../agents/business-kpi/rules/reference_settings');
 
 const migrationsRoot = path.join(__dirname, '../storage/migrations');
 const migrationPath = path.join(migrationsRoot, '001_initial_schema.up.sql');
@@ -59,6 +62,7 @@ test('migration files are ordered and checksummed deterministically', () => {
     '005_seller_tasks.up.sql',
     '006_store_reference_data.up.sql',
     '007_current_miska_employees.up.sql',
+    '008_miska_confirmed_kpi_settings.up.sql',
   ]);
   const sellerTasksSql = fs.readFileSync(
     path.join(migrationsRoot, '005_seller_tasks.up.sql'),
@@ -84,6 +88,19 @@ test('migration files are ordered and checksummed deterministically', () => {
   assert.match(currentMiskaEmployeesSql, /'seller-cherednichenko'/);
   assert.match(currentMiskaEmployeesSql, /'Чередниченко'/);
   assert.doesNotMatch(currentMiskaEmployeesSql, /Горбунова|Продавец 1|Продавец 2/);
+
+  const miskaSettingsSql = fs.readFileSync(
+    path.join(migrationsRoot, '008_miska_confirmed_kpi_settings.up.sql'),
+    'utf8'
+  );
+  const settingsMatch = miskaSettingsSql.match(
+    /SELECT '([^']+)'::jsonb AS settings_json/
+  );
+  assert.ok(settingsMatch, 'migration must embed canonical settings JSON');
+  assert.deepEqual(JSON.parse(settingsMatch[1]), MISKA_AUGUST_2026_SETTINGS);
+  assert.match(miskaSettingsSql, /10000000-0000-4000-8000-000000000001/);
+  assert.doesNotMatch(miskaSettingsSql, /10000000-0000-4000-8000-000000000002|10000000-0000-4000-8000-000000000003/);
+
   assert.equal(computeChecksum(sql), computeChecksum(sql));
   assert.equal(computeChecksum(sql).length, 64);
 });
