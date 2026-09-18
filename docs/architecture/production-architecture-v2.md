@@ -10,10 +10,11 @@ This document is the current infrastructure source of truth. Older Arthur docume
 Internet -> Caddy -> Next.js / Directus -> Stores PostgreSQL
 Tailscale -> Business KPI -> Business KPI PostgreSQL
           -> Purchasing -> file-backed purchasing state
+Business KPI web -> arthur_services (internal-only read API; arthur.analytics)
+Arthur Core API -> Arthur PostgreSQL (internal-only; no host port)
 systemd -> public health / SEO / Instagram queues / local + off-host backups
 Instagram -> Yandex Object Storage -> Germany SSH proxy -> Instagram MCP
 GitHub -> server worktrees / isolated Kimi worker / deployment copies
-Arthur staging -> isolated PostgreSQL + migrations + internal-only Core API
 ```
 
 The Ubuntu host `stores-web1` is currently the main production application host. The Mac is not required for normal operation of the deployed website, purchasing service, KPI portal, SEO monitoring, or Instagram publisher.
@@ -32,7 +33,7 @@ The Ubuntu host `stores-web1` is currently the main production application host.
 | Stores website | Docker `app-web-1` | Directus/PostgreSQL | public via Caddy |
 | Stores CMS | Docker `app-directus-1` | PostgreSQL + uploads | public via Caddy |
 | Stores DB | Docker `app-postgres-1` | `/opt/stores-web/data/postgres` | Docker network only |
-| Business KPI | Docker `business-kpi-web-1` | separate PostgreSQL | loopback + Tailscale |
+| Business KPI | Docker `business-kpi-web-1` | separate PostgreSQL | loopback + Tailscale + internal `arthur_services` read API |
 | Business KPI DB | Docker `business-kpi-postgres-1` | Docker volume | internal network only |
 | Purchasing | Docker `miska-purchasing` | `/opt/miska-purchasing/data` + `state` | loopback + Tailscale |
 | Arthur Core API | Docker `arthur-core-api-1` | Arthur PostgreSQL | Docker networks only; no host port |
@@ -40,7 +41,7 @@ The Ubuntu host `stores-web1` is currently the main production application host.
 | Instagram publisher | systemd + Node/Python | `/opt/instagram-automation` | outbound only |
 | Remote management | Desktop Commander | host filesystem/processes | authenticated remote agent |
 
-Website and CMS use the external Docker network `stores-web`. Business KPI has independent internal/edge networks and must not share its database with other domains.
+Website and CMS use the external Docker network `stores-web`. Business KPI has independent internal/edge networks and must not share its database with other domains. Its web container additionally joins `arthur_services`, an internal bridge used only for the read-only service API. Business KPI PostgreSQL, Arthur PostgreSQL, and Arthur Core API are explicitly forbidden from joining that shared service network.
 
 ## 4. Public website flow
 
@@ -55,7 +56,7 @@ Canonical runtime files are under `/opt/stores-web/app`, persistent data under `
 
 Business KPI listens on host loopback port 3220 and Purchasing on 3210. Tailscale Serve provides the remote HTTPS boundary. These ports must not be published on the public interface.
 
-Business KPI owns authentication, sessions, CSRF, permissions, plans, shifts, seller tasks, KPI settings, imports, and audit data in its own PostgreSQL schema.
+Business KPI owns authentication, sessions, CSRF, permissions, plans, shifts, seller tasks, KPI settings, imports, and audit data in its own PostgreSQL schema. The production service identity `arthur.analytics` is configured separately from owner sessions and is read-only: it can read dashboard/KPI data but cannot create, update, archive, import, or change plans/settings. The private alias is `business-kpi-api` on `arthur_services`; the existing host listener remains loopback-only on 3220.
 
 Purchasing is currently file-backed. Its canonical persistent trees are:
 
@@ -99,7 +100,7 @@ An encrypted emergency off-host bundle is created after the local backup window 
 
 ## 9. Arthur and AI workers
 
-Arthur Core is now running in production as a **Core-only foundation**: isolated PostgreSQL, migrations, and an internal-only API with no published host port. The canonical owner profile `sergey` exists with timezone `Asia/Vladivostok`. Telegram Gateway, n8n, mail access, KPI automation, and external AI-provider actions remain disabled. Existing production services stay independently callable while Arthur is introduced incrementally through explicit APIs/skills.
+Arthur Core is now running in production as a **Core-only foundation**: isolated PostgreSQL, migrations, and an internal-only API with no published host port. The canonical owner profile `sergey` exists with timezone `Asia/Vladivostok`. The read-only Purchasing skill and Business KPI skill have both been validated against live production data; the KPI path uses `arthur.analytics` over `arthur_services` and returns healthy. Telegram Gateway itself remains disabled because the previously stored bot token is no longer valid; n8n, mail access, scheduled KPI automation, and external AI-provider actions also remain disabled. Existing production services stay independently callable while Arthur is introduced incrementally.
 
 The Kimi worker is installed as an isolated systemd service under `kimiworker` and its timer is deliberately enabled after a controlled end-to-end validation. It uses the mainland Kimi Code session through the configured proxy path, checks quota reserve, works in isolated Git worktrees, and may create pull requests but must not merge or deploy production automatically.
 ## 10. Known boundaries and risks
@@ -118,7 +119,7 @@ The Kimi worker is installed as an isolated systemd service under `kimiworker` a
 3. Normalize Git deployment flow and retire stale worktrees only after branch verification.
 4. Harden management/CMS surfaces without breaking owner access.
 5. Keep the autonomous code worker PR-only, quota-guarded and sandboxed.
-6. Keep the current Arthur Core production foundation stable; next activate Telegram Gateway as a separate phase, then read-only skills, then scheduled automation.
+6. Keep the current Arthur Core production foundation stable; next activate Telegram Gateway with a newly verified bot token. Read-only Purchasing and Business KPI skills are already validated, so scheduled automation remains a later separate phase.
 7. Keep local-model compute on a separate node sized for GPU workloads.
 
 Any future architecture document that conflicts with this file must explicitly state whether it is a target design or a verified running-state update.
