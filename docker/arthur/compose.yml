@@ -140,7 +140,8 @@ services:
       - ${ARTHUR_ENV_FILE:-.env}
     environment:
       NODE_ENV: production
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?TELEGRAM_BOT_TOKEN is required}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_BOT_TOKEN_SECRET_FILE: /run/secrets/telegram_bot_token
       TELEGRAM_ALLOWED_USER_IDS: ${TELEGRAM_ALLOWED_USER_IDS:?TELEGRAM_ALLOWED_USER_IDS is required}
       ARTHUR_OWNER_PROFILE_ID: ${ARTHUR_OWNER_PROFILE_ID:?ARTHUR_OWNER_PROFILE_ID is required}
       ARTHUR_CORE_BASE_URL: ${ARTHUR_CORE_BASE_URL:-http://api:8787}
@@ -189,6 +190,8 @@ services:
     volumes:
       - ${PURCHASING_RUNS_SOURCE:-../../output/purchasing-web/runs}:/opt/arthur/output/purchasing-web/runs:ro
     secrets:
+      - source: telegram_bot_token
+        target: telegram_bot_token
       - source: arthur_mailbox_miska_yandex_username
         target: arthur_mailbox_miska_yandex_username
         mode: 0400
@@ -225,6 +228,8 @@ volumes:
   arthur_postgres_data:
 
 secrets:
+  telegram_bot_token:
+    file: ${TELEGRAM_BOT_TOKEN_SECRET_SOURCE:-./secrets/telegram-bot-token.example}
   telegram_germany_ssh_key:
     file: ${TELEGRAM_GERMANY_SSH_KEY_FILE:-/root/.ssh/instagram_germany}
   telegram_germany_known_hosts:

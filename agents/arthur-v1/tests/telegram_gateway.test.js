@@ -1,6 +1,9 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const { test, describe } = require('node:test');
 
 const {
@@ -446,6 +449,25 @@ test('config validation rejects missing token', () => {
     ARTHUR_OWNER_PROFILE_ID: 'owner-profile',
   });
   assert.equal(config.token, '');
+});
+
+test('config loads Telegram token from file secret when inline token is empty', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'arthur-telegram-token-'));
+  const tokenFile = path.join(dir, 'token');
+  fs.writeFileSync(tokenFile, '123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11\n', { mode: 0o600 });
+
+  try {
+    const config = loadConfig({
+      TELEGRAM_BOT_TOKEN: '',
+      TELEGRAM_BOT_TOKEN_SECRET_FILE: tokenFile,
+      TELEGRAM_ALLOWED_USER_IDS: '111',
+      ARTHUR_OWNER_PROFILE_ID: 'owner-profile',
+    });
+    assert.equal(config.token, '123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11');
+    assert.equal(validateConfig(config).valid, true);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('production config requires one allowed Telegram user and owner profile', () => {
