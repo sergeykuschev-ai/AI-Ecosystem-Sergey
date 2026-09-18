@@ -92,7 +92,7 @@ ssh -o BatchMode=yes -p "$REMOTE_PORT" -i "$REMOTE_KEY" "$REMOTE_USER@$REMOTE_HO
   "chmod 600 '$REMOTE_DIR/$REMOTE_NAME.tmp' &&
    mv '$REMOTE_DIR/$REMOTE_NAME.tmp' '$REMOTE_DIR/$REMOTE_NAME' &&
    rm -f '$REMOTE_DIR/offhost-smoke.age' &&
-   find '$REMOTE_DIR' -maxdepth 1 -type f -name 'sergey-offhost-*.tar.gz.age' -mtime +7 -delete"
+   ls -1t '$REMOTE_DIR'/sergey-offhost-*.tar.gz.age 2>/dev/null | tail -n +2 | xargs -r rm -f"
 
 python3 - "$STATE.tmp" "$REMOTE_HOST" "$REMOTE_DIR/$REMOTE_NAME" "$SIZE" "$LOCAL_SHA" <<'PY'
 import json, sys

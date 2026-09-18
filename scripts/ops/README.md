@@ -50,7 +50,7 @@ A backup is not considered valid solely because a file exists. PostgreSQL custom
 
 `sergey-offhost-backup.sh` packages the latest Stores Web PostgreSQL dump, Business KPI PostgreSQL dump, Directus uploads archive, and the latest normal Miska Purchasing backup. The bundle is encrypted with `age` to every SSH public key in `/root/.ssh/authorized_keys` before it leaves the primary VPS.
 
-The encrypted artifact is copied atomically over SSH to the Germany proxy host and verified with SHA-256 before publication. The remote host stores ciphertext only and keeps seven days of `sergey-offhost-*.tar.gz.age` files.
+The encrypted artifact is copied atomically over SSH to the Germany proxy host and verified with SHA-256 before publication. The remote host stores ciphertext only and keeps exactly one latest `sergey-offhost-*.tar.gz.age` emergency copy so the proxy disk is not used as backup storage.
 
 Installed paths:
 
