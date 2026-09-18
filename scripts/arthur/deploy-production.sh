@@ -8,6 +8,8 @@ DEPLOY_GATEWAY=${ARTHUR_DEPLOY_GATEWAY:-false}
 CONNECT_N8N=${ARTHUR_CONNECT_N8N:-false}
 N8N_CONTAINER=${N8N_CONTAINER:-n8n}
 NETWORK_NAME=${ARTHUR_N8N_NETWORK:-arthur_n8n}
+SERVICES_NETWORK=${ARTHUR_SERVICES_NETWORK:-arthur_services}
+SERVICES_NETWORK_SCRIPT=${ARTHUR_SERVICES_NETWORK_SCRIPT:-scripts/arthur/ensure-services-network.sh}
 
 command -v docker >/dev/null 2>&1 || { echo "Docker is required" >&2; exit 1; }
 [ -f "$COMPOSE_FILE" ] || { echo "Compose file not found: $COMPOSE_FILE" >&2; exit 1; }
@@ -55,6 +57,11 @@ docker exec "$API_CONTAINER" node -e   "fetch('http://127.0.0.1:8787/health').th
 echo "Arthur Core healthy and internal-only."
 
 if [ "$DEPLOY_GATEWAY" = true ]; then
+  [ -f "$SERVICES_NETWORK_SCRIPT" ] || {
+    echo "Arthur services network helper not found: $SERVICES_NETWORK_SCRIPT" >&2
+    exit 1
+  }
+  ARTHUR_SERVICES_NETWORK="$SERVICES_NETWORK" sh "$SERVICES_NETWORK_SCRIPT"
   echo "Starting Telegram gateway as an explicit second phase..."
   compose up -d --build telegram-gateway
   GATEWAY_CONTAINER=$(compose ps -q telegram-gateway)

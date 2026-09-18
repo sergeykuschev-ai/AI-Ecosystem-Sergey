@@ -30,7 +30,10 @@ test('production deploy refuses insecure env permissions and published Arthur AP
 
 test('production deploy keeps Telegram as explicit second phase', () => {
   const gatewayGuard = script.indexOf('if [ "$DEPLOY_GATEWAY" = true ]');
+  const networkCheck = script.indexOf('ensure-services-network.sh');
   const gatewayStart = script.indexOf('up -d --build telegram-gateway');
   assert.ok(gatewayGuard >= 0);
+  assert.ok(networkCheck >= 0);
   assert.ok(gatewayStart > gatewayGuard);
+  assert.match(script, /ARTHUR_SERVICES_NETWORK="\$SERVICES_NETWORK" sh "\$SERVICES_NETWORK_SCRIPT"/);
 });

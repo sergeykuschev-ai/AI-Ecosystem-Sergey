@@ -208,6 +208,7 @@ services:
     networks:
       - arthur_internal
       - arthur_outbound
+      - arthur_services
 
 networks:
   arthur_internal:
@@ -216,6 +217,9 @@ networks:
     name: ${ARTHUR_N8N_NETWORK:-arthur_n8n}
   arthur_outbound:
     driver: bridge
+  arthur_services:
+    name: ${ARTHUR_SERVICES_NETWORK:-arthur_services}
+    external: true
 
 volumes:
   arthur_postgres_data:
