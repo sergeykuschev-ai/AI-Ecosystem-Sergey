@@ -131,6 +131,8 @@ services:
       context: ../..
       dockerfile: docker/arthur/Dockerfile.telegram
     restart: unless-stopped
+    group_add:
+      - "${ARTHUR_PURCHASING_SHARED_GID:-1888}"
     depends_on:
       api:
         condition: service_healthy

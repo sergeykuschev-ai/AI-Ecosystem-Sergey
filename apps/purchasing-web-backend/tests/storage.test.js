@@ -124,6 +124,23 @@ test('completed bundle is atomically published with all required files', () => {
     assert.doesNotThrow(() => JSON.parse(content));
   });
   assert.equal(temporaryFiles(root).length, 0);
+  for (const name of [
+    'run.json',
+    'summary.json',
+    'items.json',
+    'owner-review-compact.json',
+  ]) {
+    assert.equal(
+      fs.statSync(path.join(runDirectory, name)).mode & 0o777,
+      0o640,
+      `${name} must be group-readable for the read-only Arthur mount`
+    );
+  }
+  assert.equal(
+    fs.statSync(path.join(runDirectory, 'artifacts', 'manifest.json')).mode & 0o777,
+    0o600,
+    'internal artifacts must remain private'
+  );
   assert.equal(saved.manifest.artifacts.length, 18);
   const history = JSON.parse(fs.readFileSync(
     path.join(root, 'owner-learning-history.json'),

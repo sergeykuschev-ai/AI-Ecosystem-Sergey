@@ -118,7 +118,7 @@ class FileRunRegistry {
     atomicWriteFile(
       this.runFile(runId, name),
       serializeJson(value),
-      { fsModule: this.fs }
+      { fsModule: this.fs, mode: 0o640 }
     );
   }
 
