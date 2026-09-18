@@ -81,8 +81,9 @@ jobs:
 
       - name: Apply Arthur Core migrations
         run: |
-          psql "$ARTHUR_DATABASE_URL" -v ON_ERROR_STOP=1 -f data/arthur/migrations/001_core_profile_memory_audit.up.sql
-          psql "$ARTHUR_DATABASE_URL" -v ON_ERROR_STOP=1 -f data/arthur/migrations/002_tasks_decisions_confirmations.up.sql
+          for migration in data/arthur/migrations/*.up.sql; do
+            psql "$ARTHUR_DATABASE_URL" -v ON_ERROR_STOP=1 -f "$migration"
+          done
 
       - name: Runtime smoke check
         run: |
@@ -133,14 +134,17 @@ jobs:
             IF to_regclass('public.arthur_tasks') IS NULL THEN RAISE EXCEPTION 'arthur_tasks table is missing'; END IF;
             IF to_regclass('public.arthur_decisions') IS NULL THEN RAISE EXCEPTION 'arthur_decisions table is missing'; END IF;
             IF to_regclass('public.arthur_confirmations') IS NULL THEN RAISE EXCEPTION 'arthur_confirmations table is missing'; END IF;
+            IF to_regclass('public.arthur_automation_runs') IS NULL THEN RAISE EXCEPTION 'arthur_automation_runs table is missing'; END IF;
+            IF to_regclass('public.arthur_automation_alert_state') IS NULL THEN RAISE EXCEPTION 'arthur_automation_alert_state table is missing'; END IF;
           END
           $$;
           SQL
 
       - name: Roll back Arthur Core migrations
         run: |
-          psql "$ARTHUR_DATABASE_URL" -v ON_ERROR_STOP=1 -f data/arthur/migrations/002_tasks_decisions_confirmations.down.sql
-          psql "$ARTHUR_DATABASE_URL" -v ON_ERROR_STOP=1 -f data/arthur/migrations/001_core_profile_memory_audit.down.sql
+          for migration in $(find data/arthur/migrations -maxdepth 1 -name '*.down.sql' | sort -r); do
+            psql "$ARTHUR_DATABASE_URL" -v ON_ERROR_STOP=1 -f "$migration"
+          done
 
       - name: Verify rollback
         run: |
@@ -152,27 +156,31 @@ jobs:
               OR to_regclass('public.arthur_audit_events') IS NOT NULL
               OR to_regclass('public.arthur_tasks') IS NOT NULL
               OR to_regclass('public.arthur_decisions') IS NOT NULL
-              OR to_regclass('public.arthur_confirmations') IS NOT NULL THEN
+              OR to_regclass('public.arthur_confirmations') IS NOT NULL
+              OR to_regclass('public.arthur_automation_runs') IS NOT NULL
+              OR to_regclass('public.arthur_automation_alert_state') IS NOT NULL THEN
               RAISE EXCEPTION 'Arthur Core rollback left database objects behind';
             END IF;
           END
           $$;
           SQL
 
-      - name: Docker Compose and n8n network smoke check
+      - name: Docker Compose Core and n8n network smoke check
         env:
           ARTHUR_POSTGRES_PASSWORD: ci-arthur-password
           ARTHUR_API_TOKEN: ci-n8n-token
           ARTHUR_N8N_NETWORK: arthur_n8n_ci
+          ARTHUR_ENV_FILE: /tmp/arthur-ci.env
           TELEGRAM_BOT_TOKEN: '123456:ci-placeholder-token'
           TELEGRAM_ALLOWED_USER_IDS: '111111'
           ARTHUR_OWNER_PROFILE_ID: sergey
         run: |
+          : > "$ARTHUR_ENV_FILE"
+          chmod 600 "$ARTHUR_ENV_FILE"
           COMPOSE="docker compose -f docker/arthur/compose.yml"
           trap '$COMPOSE down --volumes --remove-orphans || true' EXIT
           $COMPOSE config --quiet
-          $COMPOSE build api
-          $COMPOSE up --detach --wait
+          $COMPOSE up --detach --build --wait postgres migrate api
           docker network inspect arthur_n8n_ci >/dev/null
           test -z "$(docker inspect -f '{{range $p, $conf := .NetworkSettings.Ports}}{{if $conf}}{{$p}}{{end}}{{end}}' arthur-core-api-1)"
           docker run --rm -i --network arthur_n8n_ci node:22-alpine node - <<'NODE'
@@ -183,7 +191,7 @@ jobs:
             if (!health.ok) throw new Error('Arthur Core is not reachable from n8n network');
             const profile = await fetch(`${base}/v1/profiles`, {
               method: 'POST', headers,
-              body: JSON.stringify({ id: 'sergey', name: 'Сергей', timezone: 'Europe/Paris', locale: 'ru-RU' })
+              body: JSON.stringify({ id: 'sergey', name: 'Сергей', timezone: 'Asia/Vladivostok', locale: 'ru-RU' })
             });
             if (profile.status !== 201) throw new Error(`Profile creation failed: ${profile.status} ${await profile.text()}`);
             const task = await fetch(`${base}/v1/tasks`, {
