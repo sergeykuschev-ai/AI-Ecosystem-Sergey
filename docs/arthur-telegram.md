@@ -235,15 +235,29 @@ Always pass `--env-file .env` when running `docker compose` from outside the `do
 
 ## Proxy support
 
-If the server requires a proxy for outbound Telegram API requests, add to `.env`:
+Production uses the Compose-managed `telegram-proxy` sidecar instead of a host-published proxy port.
 
-```bash
-HTTP_PROXY=http://host.docker.internal:8443
-HTTPS_PROXY=http://host.docker.internal:8443
+```text
+telegram-gateway
+  -> http://telegram-proxy:18443
+  -> SSH to Germany:2222
+  -> Germany tinyproxy on 127.0.0.1:443
+  -> api.telegram.org
+```
+
+The sidecar is attached only to `arthur_outbound`, publishes no host ports, uses a read-only root filesystem, drops Linux capabilities and disables privilege escalation. The SSH key and `known_hosts` are mounted as file secrets from protected host files.
+
+The Gateway receives these defaults from Compose:
+
+```text
+HTTP_PROXY=http://telegram-proxy:18443
+HTTPS_PROXY=http://telegram-proxy:18443
 NO_PROXY=localhost,127.0.0.1,postgres,api,arthur-api
 ```
 
-The Gateway uses `undici.EnvHttpProxyAgent` only for Telegram API calls. Arthur internal services are excluded by `NO_PROXY`. Proxy credentials are never logged.
+The Telegram client uses `undici.EnvHttpProxyAgent` only for Telegram API calls. Internal Arthur traffic remains direct. Proxy and SSH credentials are never logged.
+
+Optional production overrides are `TELEGRAM_GERMANY_SSH_HOST`, `TELEGRAM_GERMANY_SSH_PORT`, `TELEGRAM_GERMANY_SSH_KEY_FILE`, `TELEGRAM_GERMANY_KNOWN_HOSTS_FILE`, `TELEGRAM_HTTP_PROXY`, `TELEGRAM_HTTPS_PROXY`, and `TELEGRAM_NO_PROXY`.
 
 ## After reboot
 

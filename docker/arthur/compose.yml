@@ -78,6 +78,54 @@ services:
         aliases:
           - arthur-api
 
+  telegram-proxy:
+    build:
+      context: ../..
+      dockerfile: docker/arthur/Dockerfile.telegram-proxy
+    restart: unless-stopped
+    command:
+      - -N
+      - -g
+      - -o
+      - ExitOnForwardFailure=yes
+      - -o
+      - ServerAliveInterval=30
+      - -o
+      - ServerAliveCountMax=3
+      - -o
+      - StrictHostKeyChecking=yes
+      - -o
+      - UserKnownHostsFile=/run/secrets/germany_known_hosts
+      - -o
+      - GlobalKnownHostsFile=/dev/null
+      - -p
+      - "${TELEGRAM_GERMANY_SSH_PORT:-2222}"
+      - -i
+      - /run/secrets/germany_ssh_key
+      - -L
+      - 0.0.0.0:18443:127.0.0.1:443
+      - "root@${TELEGRAM_GERMANY_SSH_HOST:-89.125.19.70}"
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    secrets:
+      - source: telegram_germany_ssh_key
+        target: germany_ssh_key
+      - source: telegram_germany_known_hosts
+        target: germany_known_hosts
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 18443"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 5s
+    networks:
+      - arthur_outbound
+
   telegram-gateway:
     build:
       context: ../..
@@ -85,6 +133,8 @@ services:
     restart: unless-stopped
     depends_on:
       api:
+        condition: service_healthy
+      telegram-proxy:
         condition: service_healthy
     env_file:
       - ${ARTHUR_ENV_FILE:-.env}
@@ -101,6 +151,9 @@ services:
       TELEGRAM_API_RETRY_ATTEMPTS: ${TELEGRAM_API_RETRY_ATTEMPTS:-3}
       TELEGRAM_GATEWAY_HEALTH_PORT: ${TELEGRAM_GATEWAY_HEALTH_PORT:-8788}
       TELEGRAM_GATEWAY_LOG_LEVEL: ${TELEGRAM_GATEWAY_LOG_LEVEL:-info}
+      HTTP_PROXY: ${TELEGRAM_HTTP_PROXY:-http://telegram-proxy:18443}
+      HTTPS_PROXY: ${TELEGRAM_HTTPS_PROXY:-http://telegram-proxy:18443}
+      NO_PROXY: ${TELEGRAM_NO_PROXY:-localhost,127.0.0.1,postgres,api,arthur-api}
       PURCHASING_RUNS_ROOT: ${PURCHASING_RUNS_ROOT:-/opt/arthur/output/purchasing-web/runs}
       ARTHUR_DATABASE_URL: postgresql://arthur:${ARTHUR_POSTGRES_PASSWORD:?ARTHUR_POSTGRES_PASSWORD is required}@postgres:5432/arthur
       BUSINESS_KPI_BASE_URL: ${BUSINESS_KPI_BASE_URL:-}
@@ -168,6 +221,10 @@ volumes:
   arthur_postgres_data:
 
 secrets:
+  telegram_germany_ssh_key:
+    file: ${TELEGRAM_GERMANY_SSH_KEY_FILE:-/root/.ssh/instagram_germany}
+  telegram_germany_known_hosts:
+    file: ${TELEGRAM_GERMANY_KNOWN_HOSTS_FILE:-/root/.ssh/known_hosts}
   arthur_mailbox_miska_yandex_username:
     file: ${ARTHUR_MAILBOX_MISKA_YANDEX_USERNAME_SECRET_SOURCE:-./secrets/miska-yandex-username.example}
   arthur_mailbox_miska_yandex_app_password:
