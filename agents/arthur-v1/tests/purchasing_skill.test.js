@@ -67,6 +67,18 @@ test('getStatus returns structured status and metadata', async () => {
       source: { original_name: 'Оникиенко Зооград 04.08.2026.xlsx' },
       skuCount: 602,
       sourceRowsCount: 700,
+      amounts: {
+        analyzer_order_sum: 180000,
+        auto_approved_sum: 121841.6,
+        pending_review_sum: 8347.26,
+      },
+      phase2: {
+        must_buy: 74,
+        recommended: 46,
+        manual_review: 14,
+        postpone: 17,
+        do_not_buy: 451,
+      },
       warnings: ['warning-1'],
     });
 
@@ -79,6 +91,19 @@ test('getStatus returns structured status and metadata', async () => {
     assert.equal(result.data.productCount, 602);
     assert.equal(result.data.sourceRowsCount, 700);
     assert.equal(result.data.reportWarnings, 1);
+    assert.equal(result.data.pendingReviewCount, 14);
+    assert.equal(result.data.mustBuyCount, 74);
+    assert.equal(result.data.recommendedCount, 46);
+    assert.equal(result.data.postponedCount, 17);
+    assert.match(result.data.responseText, /^Закупщик — последний завершённый расчёт/m);
+    assert.match(result.data.responseText, /602 SKU · 700 строк/);
+    assert.match(result.data.responseText, /Автоодобрено: 121[\s\u00A0\u202F]841,60 ₽/);
+    assert.match(result.data.responseText, /Ручная проверка: 14 позиций · 8[\s\u00A0\u202F]347,26 ₽/);
+    assert.match(result.data.responseText, /Must-buy: 74 · рекомендовано: 46 · отложено: 17/);
+    assert.match(result.data.responseText, /Предупреждений: 1/);
+    assert.match(result.data.responseText, /требуется проверка/);
+    assert.match(result.data.responseText, /Завершён: 04\.08\.2026 10:31/);
+    assert.doesNotMatch(result.data.responseText, /\[purchasing\]/);
     assert.equal(result.data.run.run_id, RUN_A);
     assert.equal(result.data.run.status, 'completed');
     assert.equal(result.data.run.source_filename, 'Оникиенко Зооград 04.08.2026.xlsx');
@@ -120,6 +145,9 @@ test('getSummary returns real summary values', async () => {
     assert.equal(result.data.workingOrderSum, 0);
     assert.equal(result.data.pendingReviewCount, 602);
     assert.equal(result.data.mustBuyCount, 0);
+    assert.match(result.data.responseText, /^Закупщик — последний завершённый расчёт/m);
+    assert.match(result.data.responseText, /Ручная проверка: 602 позиций/);
+    assert.doesNotMatch(result.data.responseText, /\[purchasing\]/);
     assert.equal(result.data.run.run_id, RUN_A);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });

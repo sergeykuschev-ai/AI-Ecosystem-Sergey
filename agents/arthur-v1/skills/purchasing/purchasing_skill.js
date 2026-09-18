@@ -46,6 +46,54 @@ function runMetadata(metadata) {
   };
 }
 
+function formatMoney(value) {
+  if (!Number.isFinite(value)) return 'нет данных';
+  return `${new Intl.NumberFormat('ru-RU', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value)} ₽`;
+}
+
+function formatCompletedAt(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat('ru-RU', {
+    timeZone: 'Asia/Vladivostok',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date).replace(',', '');
+}
+
+function tryGetOwnerReview(resolver, runId) {
+  try {
+    return resolver.getOwnerReview(runId);
+  } catch {
+    return null;
+  }
+}
+
+function formatPurchasingOverview(metadata, summary, ownerReview) {
+  const amounts = summary.amounts || {};
+  const phase2 = summary.phase2 || {};
+  const lines = [
+    'Закупщик — последний завершённый расчёт',
+    `${summary.sku_count ?? 0} SKU · ${summary.source_rows_count ?? 0} строк`,
+    `Автоодобрено: ${formatMoney(amounts.auto_approved_sum)}`,
+    `Ручная проверка: ${phase2.manual_review ?? 0} позиций · ${formatMoney(amounts.pending_review_sum)}`,
+    `Must-buy: ${phase2.must_buy ?? 0} · рекомендовано: ${phase2.recommended ?? 0} · отложено: ${phase2.postpone ?? 0}`,
+    `Предупреждений: ${(summary.warnings || []).length}`,
+  ];
+  const ownerLabel = ownerReview?.status?.label;
+  if (ownerLabel) lines.push(ownerLabel);
+  const completedAt = formatCompletedAt(metadata.completed_at);
+  if (completedAt) lines.push(`Завершён: ${completedAt}`);
+  return lines.join('\n');
+}
+
 async function getStatus(parameters) {
   const resolver = createResolver(parameters);
   const runId = resolveRunId(resolver, parameters);
@@ -56,14 +104,25 @@ async function getStatus(parameters) {
 
   const metadata = resolver.getRunMetadata(runId);
   const summary = resolver.getRunSummary(runId);
+  const ownerReview = tryGetOwnerReview(resolver, runId);
+  const responseText = formatPurchasingOverview(metadata, summary, ownerReview);
 
   return {
     status: 'success',
     data: {
       summary: `Закупка: ${summary.sku_count ?? 0} SKU, ${summary.source_rows_count ?? 0} строк`,
+      responseText,
       productCount: summary.sku_count ?? 0,
       sourceRowsCount: summary.source_rows_count ?? 0,
+      analyzerOrderSum: summary.amounts?.analyzer_order_sum ?? null,
+      workingOrderSum: summary.amounts?.auto_approved_sum ?? null,
+      pendingReviewSum: summary.amounts?.pending_review_sum ?? null,
+      pendingReviewCount: summary.phase2?.manual_review ?? null,
+      mustBuyCount: summary.phase2?.must_buy ?? null,
+      recommendedCount: summary.phase2?.recommended ?? null,
+      postponedCount: summary.phase2?.postpone ?? null,
       reportWarnings: (summary.warnings || []).length,
+      ownerReviewStatus: ownerReview?.status || null,
       demandInputStatus: null,
       run: runMetadata(metadata),
     },
@@ -94,13 +153,16 @@ async function getSummary(parameters) {
 
   const metadata = resolver.getRunMetadata(runId);
   const summary = resolver.getRunSummary(runId);
+  const ownerReview = tryGetOwnerReview(resolver, runId);
   const amounts = summary.amounts || {};
   const phase2 = summary.phase2 || {};
+  const responseText = formatPurchasingOverview(metadata, summary, ownerReview);
 
   return {
     status: 'success',
     data: {
       summary: `Сводка закупки: ${summary.sku_count ?? 0} SKU, ${summary.source_rows_count ?? 0} строк`,
+      responseText,
       productCount: summary.sku_count ?? 0,
       analyzerOrderSum: amounts.analyzer_order_sum ?? null,
       workingOrderSum: amounts.auto_approved_sum ?? null,
