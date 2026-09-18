@@ -30,6 +30,12 @@ describe('docker/arthur/compose.yml network topology', () => {
     assert.notEqual(compose.networks.arthur_outbound.internal, true, 'arthur_outbound must allow outbound traffic');
   });
 
+  test('arthur_services is an externally managed private service network', () => {
+    assert.ok(compose.networks.arthur_services, 'arthur_services network must exist');
+    assert.equal(compose.networks.arthur_services.external, true);
+    assert.equal(compose.networks.arthur_services.name, '${ARTHUR_SERVICES_NETWORK:-arthur_services}');
+  });
+
   test('telegram proxy is outbound-only and publishes no host ports', () => {
     const proxy = compose.services['telegram-proxy'];
     assert.ok(proxy, 'telegram-proxy service must exist');
@@ -47,6 +53,7 @@ describe('docker/arthur/compose.yml network topology', () => {
     const networks = normalizeNetworks(gateway.networks);
     assert.ok(networks.includes('arthur_internal'), 'telegram-gateway must be on arthur_internal');
     assert.ok(networks.includes('arthur_outbound'), 'telegram-gateway must be on arthur_outbound');
+    assert.ok(networks.includes('arthur_services'), 'telegram-gateway must be on arthur_services');
     assert.equal(gateway.depends_on['telegram-proxy'].condition, 'service_healthy');
     assert.equal(gateway.environment.HTTP_PROXY, '${TELEGRAM_HTTP_PROXY:-http://telegram-proxy:18443}');
     assert.equal(gateway.environment.HTTPS_PROXY, '${TELEGRAM_HTTPS_PROXY:-http://telegram-proxy:18443}');
@@ -64,6 +71,7 @@ describe('docker/arthur/compose.yml network topology', () => {
     const networks = normalizeNetworks(compose.services.api.networks);
     assert.ok(networks.includes('arthur_internal'), 'api must be on arthur_internal');
     assert.equal(networks.includes('arthur_outbound'), false, 'api must not be on arthur_outbound');
+    assert.equal(networks.includes('arthur_services'), false, 'api must not be on arthur_services');
   });
 
   test('api exposes no host ports', () => {

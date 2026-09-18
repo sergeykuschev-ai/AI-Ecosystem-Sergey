@@ -57,6 +57,29 @@ Production authentication is intentionally not simulated. If
 In local mode the default actor is `local-owner` with role `OWNER`; tests may
 set `X-Business-KPI-Actor-Id` and `X-Business-KPI-Role`.
 
+### Arthur read-only service identity
+
+Arthur Analytics uses a separate service identity rather than an owner session.
+Production sets `BUSINESS_KPI_SERVICE_KEYS` to a JSON array containing the
+`arthur.analytics` key. The real key exists only in protected production env
+files and is never committed.
+
+The `SERVICE` role is intentionally read-only: it can read dashboard, months,
+year, sellers, bonuses, shifts, settings, imports and seller performance, but
+cannot create/update/archive shifts, change plans/settings, import data, run
+exports, manage users or manage tasks. Contract tests require write attempts to
+return HTTP 403.
+
+Arthur reaches the KPI HTTP API through the external Docker network
+`arthur_services`. That network is created as an **internal bridge** by
+`scripts/arthur/ensure-services-network.sh`. Only Business KPI `web` joins it
+with alias `business-kpi-api`; Business KPI PostgreSQL, migrations and bootstrap
+containers never join it. The existing host exposure remains
+`127.0.0.1:3220`.
+
+The current Miska store ID used by Arthur is
+`10000000-0000-4000-8000-000000000001`.
+
 ## Manual shift contract
 
 The form and API accept only primary facts:

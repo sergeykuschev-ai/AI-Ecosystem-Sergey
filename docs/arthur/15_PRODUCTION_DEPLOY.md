@@ -148,6 +148,25 @@ Production Telegram egress uses the `telegram-proxy` sidecar:
 
 Before starting the Gateway, validate the candidate bot token with Telegram `getMe`. A token returning HTTP/API `401 Unauthorized` must not be deployed.
 
+For read-only Business KPI integration, create/verify the shared internal network and attach the KPI web service before starting the Gateway:
+
+```bash
+sh scripts/arthur/ensure-services-network.sh
+```
+
+The protected production envs on both sides must contain the same
+`arthur.analytics` service key. Arthur production additionally sets:
+
+```text
+BUSINESS_KPI_BASE_URL=http://business-kpi-api:3220
+BUSINESS_KPI_SERVICE_ID=arthur.analytics
+BUSINESS_KPI_DEFAULT_STORE_ID=10000000-0000-4000-8000-000000000001
+ARTHUR_SERVICES_NETWORK=arthur_services
+```
+
+The service identity is read-only at the Business KPI permission boundary; do not
+replace it with an OWNER session or expose the KPI database to Arthur.
+
 Then run:
 
 ```bash
