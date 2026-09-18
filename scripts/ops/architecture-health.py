@@ -17,7 +17,7 @@ def container(name):
     checks[f'container:{name}'] = state
     if state not in ('healthy','running'): errors.append(f'{name}:{state}')
 
-for name in ('app-web-1','app-directus-1','app-postgres-1','business-kpi-web-1','business-kpi-postgres-1','miska-purchasing'):
+for name in ('app-web-1','app-directus-1','app-postgres-1','business-kpi-web-1','business-kpi-postgres-1','miska-purchasing','arthur-core-api-1','arthur-core-postgres-1'):
     container(name)
 
 for unit in ('tailscaled.service','instagram-germany-tunnel.service','miska-purchasing-health.timer','stores-public-health.timer','stores-seo-monitor.timer','sergey-architecture-backup.timer','sergey-offhost-backup.timer'):
@@ -36,8 +36,26 @@ if backup.exists():
     age_h = round((time.time() - backup.stat().st_mtime) / 3600, 1)
     checks['architecture_backup_age_hours'] = age_h
     if age_h > 30: errors.append(f'architecture_backup_age:{age_h}h')
+    try:
+        backup_payload = json.loads(backup.read_text())
+        arthur_backup = Path(backup_payload.get('arthur_core', ''))
+        checks['arthur_backup_present'] = bool(backup_payload.get('arthur_core')) and arthur_backup.is_file()
+        if checks['arthur_backup_present']:
+            arthur_age_h = round((time.time() - arthur_backup.stat().st_mtime) / 3600, 1)
+            checks['arthur_backup_age_hours'] = arthur_age_h
+            if arthur_age_h > 30:
+                errors.append(f'arthur_backup_age:{arthur_age_h}h')
+        else:
+            checks['arthur_backup_age_hours'] = None
+            errors.append('arthur_backup:missing')
+    except Exception:
+        checks['arthur_backup_present'] = False
+        checks['arthur_backup_age_hours'] = None
+        errors.append('architecture_backup_state:invalid')
 else:
     checks['architecture_backup_age_hours'] = None
+    checks['arthur_backup_present'] = False
+    checks['arthur_backup_age_hours'] = None
     errors.append('architecture_backup:missing')
 
 offhost = Path('/var/backups/sergey-architecture/offhost-last.json')

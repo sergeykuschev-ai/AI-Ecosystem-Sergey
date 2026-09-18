@@ -12,7 +12,7 @@ Do not infer a deployment revision from timestamps or directory names. New deplo
 
 ## Architecture backup
 
-`sergey-architecture-backup.sh` creates validated custom-format PostgreSQL dumps for Stores Web and Business KPI plus a Directus uploads archive. Host retention is 14 days.
+`sergey-architecture-backup.sh` creates validated custom-format PostgreSQL dumps for Stores Web, Business KPI, and Arthur Core plus a Directus uploads archive. Every PostgreSQL dump is validated with `pg_restore -l` before publication. Host retention is 14 days.
 
 Installed paths:
 
@@ -32,7 +32,7 @@ The purchasing service keeps its separate existing daily backup of purchasing st
 /var/lib/sergey-architecture-health/latest.json
 ```
 
-It checks the core containers, required systemd services/timers, disk usage, backup freshness, loopback owner-app HTTP endpoints, and unexpected public TCP listeners. A disabled Kimi worker is currently a warning rather than a production outage.
+It checks the production application containers including Arthur Core API/PostgreSQL, required systemd services/timers, disk usage, local and off-host backup freshness, Arthur backup presence, loopback owner-app HTTP endpoints, and unexpected public TCP listeners. A disabled Kimi worker is a warning rather than a production outage.
 
 Installed paths:
 
@@ -48,7 +48,7 @@ A backup is not considered valid solely because a file exists. PostgreSQL custom
 
 ## Encrypted off-host backup
 
-`sergey-offhost-backup.sh` packages the latest Stores Web PostgreSQL dump, Business KPI PostgreSQL dump, Directus uploads archive, and the latest normal Miska Purchasing backup. The bundle is encrypted with `age` to every SSH public key in `/root/.ssh/authorized_keys` before it leaves the primary VPS.
+`sergey-offhost-backup.sh` packages the latest Stores Web PostgreSQL dump, Business KPI PostgreSQL dump, Arthur Core PostgreSQL dump, Directus uploads archive, and the latest normal Miska Purchasing backup. The bundle format is `sergey-offhost-v2`. It is encrypted with `age` to every SSH public key in `/root/.ssh/authorized_keys` before it leaves the primary VPS.
 
 The encrypted artifact is copied atomically over SSH to the Germany proxy host and verified with SHA-256 before publication. The remote host stores ciphertext only and keeps exactly one latest `sergey-offhost-*.tar.gz.age` emergency copy so the proxy disk is not used as backup storage.
 
