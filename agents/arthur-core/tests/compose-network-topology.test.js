@@ -30,12 +30,28 @@ describe('docker/arthur/compose.yml network topology', () => {
     assert.notEqual(compose.networks.arthur_outbound.internal, true, 'arthur_outbound must allow outbound traffic');
   });
 
-  test('telegram-gateway is attached to internal and outbound networks', () => {
+  test('telegram proxy is outbound-only and publishes no host ports', () => {
+    const proxy = compose.services['telegram-proxy'];
+    assert.ok(proxy, 'telegram-proxy service must exist');
+    const networks = normalizeNetworks(proxy.networks);
+    assert.deepEqual(networks, ['arthur_outbound'], 'telegram-proxy must be outbound-only');
+    assert.ok(!proxy.ports || proxy.ports.length === 0, 'telegram-proxy must not publish host ports');
+    assert.deepEqual(proxy.cap_drop, ['ALL'], 'telegram-proxy must drop Linux capabilities');
+    assert.ok(proxy.security_opt.includes('no-new-privileges:true'), 'telegram-proxy must disable privilege escalation');
+    assert.equal(proxy.read_only, true, 'telegram-proxy root filesystem must be read-only');
+  });
+
+  test('telegram-gateway is attached to internal and outbound networks and depends on proxy health', () => {
     const gateway = compose.services['telegram-gateway'];
     assert.ok(gateway, 'telegram-gateway service must exist');
     const networks = normalizeNetworks(gateway.networks);
     assert.ok(networks.includes('arthur_internal'), 'telegram-gateway must be on arthur_internal');
     assert.ok(networks.includes('arthur_outbound'), 'telegram-gateway must be on arthur_outbound');
+    assert.equal(gateway.depends_on['telegram-proxy'].condition, 'service_healthy');
+    assert.equal(gateway.environment.HTTP_PROXY, '${TELEGRAM_HTTP_PROXY:-http://telegram-proxy:18443}');
+    assert.equal(gateway.environment.HTTPS_PROXY, '${TELEGRAM_HTTPS_PROXY:-http://telegram-proxy:18443}');
+    assert.match(gateway.environment.NO_PROXY, /api/);
+    assert.match(gateway.environment.NO_PROXY, /postgres/);
   });
 
   test('postgres is not attached to outbound network', () => {

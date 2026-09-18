@@ -136,7 +136,19 @@ Creating the canonical `sergey` profile changes production storage and is not pa
 
 ## 7. Phase 2 — Telegram Gateway
 
-Only after Core is stable and production Telegram identity/token are verified, set the real Telegram variables in the external env file and run:
+Only after Core is stable and production Telegram identity/token are verified, set the real Telegram variables in the external env file.
+
+Production Telegram egress uses the `telegram-proxy` sidecar:
+
+- the sidecar has no host ports and is attached only to `arthur_outbound`;
+- it opens an SSH local forward to the existing Germany tinyproxy;
+- the SSH private key and `known_hosts` are mounted as file secrets;
+- the Gateway defaults `HTTP_PROXY` and `HTTPS_PROXY` to `http://telegram-proxy:18443`;
+- `NO_PROXY` keeps PostgreSQL and Arthur Core traffic inside Docker.
+
+Before starting the Gateway, validate the candidate bot token with Telegram `getMe`. A token returning HTTP/API `401 Unauthorized` must not be deployed.
+
+Then run:
 
 ```bash
 ARTHUR_ENV_FILE=/opt/arthur/config/production.env \
@@ -145,7 +157,7 @@ ARTHUR_DEPLOY_GATEWAY=true \
 ./scripts/arthur/deploy-production.sh
 ```
 
-The script starts the gateway only because `ARTHUR_DEPLOY_GATEWAY=true` was explicitly supplied.
+The script starts the gateway only because `ARTHUR_DEPLOY_GATEWAY=true` was explicitly supplied. Compose starts the healthy `telegram-proxy` dependency first.
 
 Before enabling scheduled KPI actions keep:
 
