@@ -1,6 +1,6 @@
 # Production Architecture v2
 
-Status: verified against live `stores-web1` on 2026-09-17.
+Status: verified against live `stores-web1` on 2026-09-18.
 
 This document is the current infrastructure source of truth. Older Arthur documents describe the intended architecture and may not reflect the running system.
 
@@ -10,9 +10,10 @@ This document is the current infrastructure source of truth. Older Arthur docume
 Internet -> Caddy -> Next.js / Directus -> Stores PostgreSQL
 Tailscale -> Business KPI -> Business KPI PostgreSQL
           -> Purchasing -> file-backed purchasing state
-systemd -> public health / SEO / Instagram queues / backups
+systemd -> public health / SEO / Instagram queues / local + off-host backups
 Instagram -> Yandex Object Storage -> Germany SSH proxy -> Instagram MCP
-GitHub -> server worktrees / deployment copies
+GitHub -> server worktrees / isolated Kimi worker / deployment copies
+Arthur staging -> isolated PostgreSQL + migrations + internal-only Core API
 ```
 
 The Ubuntu host `stores-web1` is currently the main production application host. The Mac is not required for normal operation of the deployed website, purchasing service, KPI portal, SEO monitoring, or Instagram publisher.
@@ -65,7 +66,7 @@ Purchasing must remain deterministic at the calculation boundary. LLMs may assis
 
 ## 6. Automation plane
 
-Production schedules are owned by systemd timers or an explicitly documented scheduler. Current systemd jobs include website health, SEO monitoring, purchasing health, Instagram queue processing, and architecture backups.
+Production schedules are owned by systemd timers or an explicitly documented scheduler. Current systemd jobs include website health, SEO monitoring, purchasing health, Instagram queue processing, local architecture backups, encrypted off-host backup replication, architecture health, and the isolated Kimi code worker.
 
 The Instagram path is intentionally separate from business calculations:
 
@@ -91,13 +92,13 @@ Daily host backups are executed by `sergey-architecture-backup.timer`. They incl
 
 The current host retention is 14 days. Purchasing has its own daily backup of `data`, `state`, and `final-orders`. Backup success must include archive/dump validation, not only file existence.
 
-Host-local backup protects against application corruption but not total VPS loss. Off-host replication is a required next infrastructure layer.
+An encrypted emergency off-host bundle is created after the local backup window and copied to the separately administered Germany proxy. Encryption with `age` happens before transfer and the remote checksum is verified before publication. To avoid consuming the proxy's small disk, only the latest encrypted emergency bundle is retained there. Long-term off-host history should use dedicated object storage rather than the proxy disk.
 
 ## 9. Arthur and AI workers
 
-Arthur Core is the target orchestration layer, not yet the running production control plane. Existing services stay independently callable while Arthur is introduced incrementally through explicit APIs/skills.
+Arthur Core is the target orchestration layer, not yet the running production control plane. A separate `arthur-staging` stack is now verified on the live host with isolated PostgreSQL, migrations and an internal-only Core API. Existing production services stay independently callable while Arthur is introduced incrementally through explicit APIs/skills.
 
-The Kimi/Codex worker is installed as an isolated systemd service under `kimiworker`, but its timer was disabled at this architecture snapshot. Do not describe it as autonomous production until a controlled validation run passes and the timer is deliberately enabled.
+The Kimi worker is installed as an isolated systemd service under `kimiworker` and its timer is deliberately enabled after a controlled end-to-end validation. It uses the mainland Kimi Code session through the configured proxy path, checks quota reserve, works in isolated Git worktrees, and may create pull requests but must not merge or deploy production automatically.
 ## 10. Known boundaries and risks
 
 - `stores-web1` is a physical single point of failure for several logical services.
@@ -110,11 +111,11 @@ The Kimi/Codex worker is installed as an isolated systemd service under `kimiwor
 ## 11. Target direction
 
 1. Preserve independent domain services and their deterministic contracts.
-2. Add off-host backup replication and restore drills.
+2. Add a dedicated long-term object-storage destination and periodic restore drills; keep Germany to one emergency ciphertext copy.
 3. Normalize Git deployment flow and retire stale worktrees only after branch verification.
 4. Harden management/CMS surfaces without breaking owner access.
-5. Validate and deliberately enable the autonomous code worker only after a sandboxed dry run.
-6. Introduce Arthur Core as orchestration, identity, memory, permissions, audit, and skill routing — not as a duplicate of domain logic.
+5. Keep the autonomous code worker PR-only, quota-guarded and sandboxed.
+6. Promote Arthur Core from verified staging to production in phases: Core first, then Telegram, then read-only skills, then scheduled automation.
 7. Keep local-model compute on a separate node sized for GPU workloads.
 
 Any future architecture document that conflicts with this file must explicitly state whether it is a target design or a verified running-state update.

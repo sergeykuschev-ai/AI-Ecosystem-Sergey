@@ -1,137 +1,216 @@
 # Arthur Core: production deployment
 
-## Цель
+Status: current production runbook for `stores-web1`, verified 2026-09-18.
 
-Поднять Arthur Core рядом с уже работающим контейнером `n8n`, не пересоздавая n8n и не затрагивая его volume, настройки или workflows.
+## Goal
 
-Arthur Core и PostgreSQL не публикуют порты на хост. n8n обращается к API через общую Docker-сеть по адресу `http://arthur-api:8787`.
+Deploy Arthur incrementally on the Ubuntu production host without changing the existing website, Business KPI, Purchasing, Instagram, or n8n.
 
-## 1. Подготовить секреты
-
-Скопировать пример окружения:
-
-```bash
-cp docker/arthur/.env.example docker/arthur/.env
-```
-
-Заполнить два разных длинных случайных значения:
+The default deployment is deliberately **Core-only**:
 
 ```text
-ARTHUR_POSTGRES_PASSWORD=...
-ARTHUR_API_TOKEN=...
-ARTHUR_N8N_NETWORK=arthur_n8n
+PostgreSQL -> migrations -> Arthur Core API
 ```
 
-Файл `.env` не добавлять в Git.
+Telegram Gateway is a separate explicit phase. n8n is optional and is not currently running on `stores-web1`.
 
-## 2. Сеть
+Arthur Core and PostgreSQL must not publish host ports.
 
-- `arthur_internal` — внутренняя сеть без доступа в интернет. В ней работают PostgreSQL и Arthur Core API.
-- `arthur_n8n` — сеть для связи Arthur Core API и существующего контейнера n8n.
-- `arthur_outbound` — обычная bridge-сеть с выходом в интернет. Подключена только к `telegram-gateway`, чтобы он мог достигать `api.telegram.org`.
+## 1. Preconditions
 
-Arthur Core API не публикует порты наружу. n8n обращается к API через общую Docker-сеть по адресу `http://arthur-api:8787`.
+Do not deploy until all of the following are true:
 
-## 3. Миграции
+- integration PR/branch tests are green;
+- current production architecture health reports `status=ok`;
+- latest host-local architecture backup is fresh;
+- latest encrypted off-host emergency backup is fresh;
+- the production env file is outside Git and has mode `600` or stricter;
+- production secrets are unique values, not placeholders copied from examples.
 
-Миграции управляются `agents/arthur-core/runtime/run-migrations.js` и таблицей `arthur_migrations`:
-
-- каждая `.up.sql` миграция применяется только один раз;
-- повторный `docker compose up` пропускает уже применённые миграции;
-- SQL написан с `IF NOT EXISTS`, поэтому существующая production база безопасно базелинится;
-- при ошибке в миграции происходит `ROLLBACK`, частичные изменения не фиксируются;
-- не используйте ручной `psql -f` цикл — он не ведёт учёт и может повторно применить миграции.
-
-Если на production базе уже есть таблицы `arthur_profiles`, `arthur_memory` и другие, но нет `arthur_migrations`, первый запуск runner создаст `arthur_migrations`, зафиксирует существующее состояние и не будет повторно создавать таблицы.
-
-## 4. Запустить безопасный deploy
-
-Windows PowerShell:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts/arthur/deploy-production.ps1
-```
-
-macOS/Linux:
-
-```bash
-sh scripts/arthur/deploy-production.sh
-```
-
-Скрипт:
-
-1. проверяет наличие Docker, `.env` и контейнера `n8n`;
-2. поднимает PostgreSQL, применяет миграции и Arthur Core;
-3. подключает существующий контейнер `n8n` к сети `arthur_n8n`;
-4. проверяет доступ к `/health` из отдельного контейнера в этой сети;
-5. не пересоздаёт и не останавливает n8n.
-
-## 5. Создать credential в n8n
-
-В n8n создать credential типа **Header Auth**:
-
-- Name: `Arthur Core API Token`
-- Header Name: `X-Arthur-Api-Token`
-- Header Value: значение `ARTHUR_API_TOKEN` из `docker/arthur/.env`
-
-Токен хранится в защищённом credential n8n, а не в workflow JSON и не требует пересоздания контейнера n8n.
-
-## 6. Проверить профиль владельца
-
-До активации workflow выполнить защищённый запрос:
+Current canonical production config path:
 
 ```text
-GET /v1/profiles/sergey
+/opt/arthur/config/production.env
 ```
 
-Ожидается HTTP `200`. Если получен `404`, остановиться и отдельно согласовать значения профиля.
-Создание `sergey` изменяет production storage и выполняется только контролируемым запросом
-`POST /v1/profiles`; deploy-скрипт и importer профиль не создают.
+Do not use historical `.env` files under Purchasing deployment copies as Arthur production configuration.
 
-## 7. Импортировать workflow автоматически
+## 2. Production configuration
 
-Подготовить локальное окружение по примеру `scripts/arthur/n8n-import.env.example`, затем выполнить:
+Create `/opt/arthur/config/production.env` as root and set mode `600`.
+
+Minimum Core values:
+
+```text
+ARTHUR_POSTGRES_PASSWORD=<unique-random-secret>
+ARTHUR_API_TOKEN=<unique-random-secret>
+ARTHUR_OWNER_PROFILE_ID=sergey
+ARTHUR_AI_PROVIDER=fake
+ARTHUR_MAILBOX_MISKA_YANDEX_ENABLED=false
+TELEGRAM_KPI_DAILY_ENABLED=false
+TELEGRAM_KPI_WEEKLY_ENABLED=false
+TELEGRAM_KPI_ALERTS_ENABLED=false
+PURCHASING_RUNS_SOURCE=/opt/miska-purchasing/state/runs
+PURCHASING_RUNS_ROOT=/opt/arthur/output/purchasing-web/runs
+```
+
+For the Core-only phase, Telegram values may be present but are not used because the gateway is not started.
+
+Mail, KPI automation and external AI provider access remain disabled until their own controlled activation step.
+
+## 3. Networks
+
+The Compose topology is intentionally split:
+
+- `arthur_internal` — internal-only network for PostgreSQL and Arthur Core;
+- `arthur_n8n` — optional shared network for a future existing n8n container;
+- `arthur_outbound` — outbound bridge used by Telegram Gateway only.
+
+Arthur Core API must remain reachable only inside Docker networks.
+
+## 4. Migrations
+
+Migrations are applied by the migration runner and tracked in `arthur_migrations`.
+
+Current migration set is discovered dynamically from `data/arthur/migrations/*.up.sql`; tests must not hard-code a fixed migration count.
+
+Rules:
+
+- already applied migrations are skipped by checksum;
+- modified applied migration files are rejected;
+- each migration runs transactionally;
+- partial migration state is rolled back on error;
+- manual `psql -f` loops are not a supported production path.
+
+## 5. Phase 1 — Core-only deployment
+
+From the repository revision that passed CI:
 
 ```bash
-set -a
-source .env.n8n-import
-set +a
-ARTHUR_N8N_WORKFLOW=arthur-create-task-production node scripts/arthur/import-n8n-workflows.js
+ARTHUR_ENV_FILE=/opt/arthur/config/production.env \
+ARTHUR_COMPOSE_PROJECT=arthur-core \
+./scripts/arthur/deploy-production.sh
 ```
 
-Скрипт создаёт или обновляет только `n8n/workflows/arthur-create-task-production.json`,
-назначает credential по его внутреннему ID и всегда оставляет workflow выключенным.
-Повторный запуск обновляет workflow с тем же именем и не создаёт дубликат.
+Default behavior:
 
-## 8. Проверить и активировать
+1. validates Docker, Compose and the external env file;
+2. refuses group/world-readable env files;
+3. validates Compose interpolation;
+4. starts only `postgres`, `migrate`, and `api`;
+5. waits for Arthur Core health;
+6. refuses the deployment if API port `8787` is published on the host;
+7. performs an internal `/health` request;
+8. does not start Telegram;
+9. does not require or connect n8n;
+10. does not activate workflows or mutate external systems.
 
-Отправить POST-запрос на production webhook n8n:
+Expected result:
 
-```json
-{
-  "title": "Проверить новую выгрузку Min/Max",
-  "domain": "purchasing",
-  "priority": "high",
-  "description": "После получения совместимой версии сделать повторный прогон"
-}
+```text
+Arthur Core healthy and internal-only.
+Telegram gateway not started.
+n8n not connected.
 ```
 
-Ожидаемый ответ: HTTP 201 и объект созданной задачи.
-До этого теста проверить настройки импортированного workflow и активировать его отдельным
-контролируемым действием в n8n.
+## 6. Core verification
 
-## Откат
-
-Остановить Arthur Core без удаления базы:
+After deployment verify:
 
 ```bash
-docker compose --env-file docker/arthur/.env -f docker/arthur/compose.yml down
+docker compose -p arthur-core \
+  --env-file /opt/arthur/config/production.env \
+  -f docker/arthur/compose.yml ps -a
 ```
 
-Отключить n8n от сети:
+Expected:
+
+- PostgreSQL healthy;
+- migration container exited `0`;
+- API healthy;
+- no host mapping for `8787`.
+
+A request without the API token to a `/v1/` route must return `401`.
+
+Creating the canonical `sergey` profile changes production storage and is not part of the deploy script. Perform it only as a separate controlled action after confirming whether the profile already exists.
+
+## 7. Phase 2 — Telegram Gateway
+
+Only after Core is stable and production Telegram identity/token are verified, set the real Telegram variables in the external env file and run:
 
 ```bash
-docker network disconnect arthur_n8n n8n
+ARTHUR_ENV_FILE=/opt/arthur/config/production.env \
+ARTHUR_COMPOSE_PROJECT=arthur-core \
+ARTHUR_DEPLOY_GATEWAY=true \
+./scripts/arthur/deploy-production.sh
 ```
 
-Данные n8n при этом не затрагиваются.
+The script starts the gateway only because `ARTHUR_DEPLOY_GATEWAY=true` was explicitly supplied.
+
+Before enabling scheduled KPI actions keep:
+
+```text
+TELEGRAM_KPI_DAILY_ENABLED=false
+TELEGRAM_KPI_WEEKLY_ENABLED=false
+TELEGRAM_KPI_ALERTS_ENABLED=false
+```
+
+First Telegram validation should be a harmless read-only message path.
+
+## 8. Optional n8n integration
+
+n8n is **not a prerequisite** for Arthur Core and is currently absent on the verified production host.
+
+Do not install n8n merely to satisfy old documentation.
+
+When a real n8n container is deliberately deployed later, connect it explicitly:
+
+```bash
+ARTHUR_ENV_FILE=/opt/arthur/config/production.env \
+ARTHUR_COMPOSE_PROJECT=arthur-core \
+ARTHUR_CONNECT_N8N=true \
+N8N_CONTAINER=n8n \
+./scripts/arthur/deploy-production.sh
+```
+
+The script then verifies that n8n can reach `http://arthur-api:8787/health`.
+
+Workflow import remains a separate step and the importer leaves workflows disabled by default.
+
+## 9. Rollback
+
+A safe rollback stops user-facing Arthur components without deleting the database volume:
+
+```bash
+ARTHUR_ENV_FILE=/opt/arthur/config/production.env \
+docker compose -p arthur-core \
+  --env-file /opt/arthur/config/production.env \
+  -f docker/arthur/compose.yml stop telegram-gateway api
+```
+
+Do **not** use `down -v` in a routine rollback.
+
+If a code revision must be rolled back:
+
+1. stop API/Gateway;
+2. checkout the previously verified Git revision;
+3. rebuild Core with the same external production env;
+4. verify migrations/checksums before restarting the gateway.
+
+Database restoration is a separate incident procedure and must use a validated backup.
+
+## 10. Current verified staging result
+
+On 2026-09-18 the same phased script was executed against `arthur-staging` with an isolated env/database:
+
+- PostgreSQL healthy;
+- all current migrations applied;
+- API healthy;
+- `8787` not published;
+- unauthenticated `/v1` request returned `401`;
+- authenticated profile create/read succeeded;
+- audit event was persisted;
+- Telegram was not started;
+- n8n was not connected.
+
+Production activation must preserve this same sequence.
