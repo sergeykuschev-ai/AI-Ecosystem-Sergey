@@ -58,6 +58,7 @@ test('migration files are ordered and checksummed deterministically', () => {
     '004_auth_sessions_privileges.up.sql',
     '005_seller_tasks.up.sql',
     '006_store_reference_data.up.sql',
+    '007_current_miska_employees.up.sql',
   ]);
   const sellerTasksSql = fs.readFileSync(
     path.join(migrationsRoot, '005_seller_tasks.up.sql'),
@@ -74,6 +75,15 @@ test('migration files are ordered and checksummed deterministically', () => {
   assert.match(storeReferenceSql, /'ventil', 'Вентиль'/);
   assert.match(storeReferenceSql, /'amper-store-input'/);
   assert.match(storeReferenceSql, /'ventil-store-input'/);
+  const currentMiskaEmployeesSql = fs.readFileSync(
+    path.join(migrationsRoot, '007_current_miska_employees.up.sql'),
+    'utf8'
+  );
+  assert.match(currentMiskaEmployeesSql, /'seller-kapitanova'/);
+  assert.match(currentMiskaEmployeesSql, /'Капитанова'/);
+  assert.match(currentMiskaEmployeesSql, /'seller-cherednichenko'/);
+  assert.match(currentMiskaEmployeesSql, /'Чередниченко'/);
+  assert.doesNotMatch(currentMiskaEmployeesSql, /Горбунова|Продавец 1|Продавец 2/);
   assert.equal(computeChecksum(sql), computeChecksum(sql));
   assert.equal(computeChecksum(sql).length, 64);
 });
