@@ -67,3 +67,17 @@ test('PostgresBusinessKpiStore serializes a top-level canonicalRows array for js
   assert.equal(updateCall.values[15], JSON.stringify(canonicalRows));
   assert.deepEqual(updated.canonicalRows, canonicalRows);
 });
+
+test('reference seed registers Amper and Ventil without copying Miska KPI settings', async () => {
+  const calls = [];
+  const client = { async query(sql, values) { calls.push({ sql, values }); return { rows: [] }; } };
+  const store = new PostgresBusinessKpiStore({ client });
+  await store.ensureDevReferenceData();
+
+  const storeInserts = calls.filter(call => /INSERT INTO business_kpi\.stores/u.test(call.sql));
+  assert.ok(storeInserts.some(call => call.values?.[1] === 'amper' && call.values?.[2] === 'Ампер'));
+  assert.ok(storeInserts.some(call => call.values?.[1] === 'ventil' && call.values?.[2] === 'Вентиль'));
+  const settingsInserts = calls.filter(call => /INSERT INTO business_kpi\.kpi_settings/u.test(call.sql));
+  assert.equal(settingsInserts.length, 1);
+  assert.equal(settingsInserts[0].values[1], '10000000-0000-4000-8000-000000000001');
+});

@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "store": "Миска",
+  "updatedAt": "2026-09-11",
+  "note": "Confirmed supplier-product aliases, kept outside the canonical assortment matrix. Only status \"confirmed\" aliases are applied automatically by the matching pipeline; \"proposed\" aliases wait for the owner. One external identifier must resolve to exactly one canonical SKU. Name similarity alone is never sufficient evidence for an alias.",
+  "aliases": [
+    {
+      "supplier": "Валта",
+      "externalIdType": "productName",
+      "externalId": "Диетический корм AWARD для взр кошек при аллергии и пищ непер 1.5 кг",
+      "canonicalSkuId": "FOOD-314",
+      "canonicalName": "Диетический корм AWARD VETERINARY DIET HYPOALLERGENIC для взрослых кошек при аллергии или пищевой непереносимости 1,5 кг",
+      "source": "owner-approved MASTER 16.08.2026 + Valta SmartZapas 11.09.2026",
+      "evidence": [
+        "Canonical FOOD-314: rule_changed_by=OWNER, one_c_status=CONFIRMED.",
+        "Текущее имя Валты однозначно описывает AWARD Hypoallergenic для кошек 1,5 кг; точное normalized-name совпадение уникально в отчёте."
+      ],
+      "status": "confirmed",
+      "createdAt": "2026-09-11T17:55:00.000Z"
+    },
+    {
+      "supplier": "Валта",
+      "externalIdType": "productName",
+      "externalId": "Сухой корм AWARD Monoprotein для взрослых собак мелких и миниатюрных пород из лосося с добавлением с",
+      "canonicalSkuId": "FOOD-310",
+      "canonicalName": "Сухой корм AWARD Monoprotein для взрослых собак мелких и миниатюрных пород из лосося с добавлением семян льна и алоэ вера 1,5 кг",
+      "source": "owner-approved MASTER 16.08.2026 + Valta SmartZapas 11.09.2026",
+      "evidence": [
+        "Canonical FOOD-310: rule_changed_by=OWNER, one_c_status=CONFIRMED, TEST MIN=1 MAX=2.",
+        "Строка Валты обрезана, но exact normalized source-name уникален и соответствует единственному owner-approved FOOD-310."
+      ],
+      "status": "confirmed",
+      "createdAt": "2026-09-11T17:55:00.000Z"
+    },
+    {
+      "supplier": "Валта",
+      "externalIdType": "productName",
+      "externalId": "Сухой корм AWARD Monoprotein для взрослых стерилизованных кошек из лосося с добавлением спаржи и аце",
+      "canonicalSkuId": "FOOD-311",
+      "canonicalName": "Сухой корм AWARD Monoprotein для взрослых стерилизованных кошек из лосося с добавлением спаржи и ацеролы 1,5 кг",
+      "source": "owner-approved MASTER 16.08.2026 + Valta SmartZapas 11.09.2026",
+      "evidence": [
+        "Canonical FOOD-311: rule_changed_by=OWNER, one_c_status=CONFIRMED, TEST MIN=1 MAX=2.",
+        "Строка Валты обрезана, но exact normalized source-name уникален и соответствует единственному owner-approved FOOD-311."
+      ],
+      "status": "confirmed",
+      "createdAt": "2026-09-11T17:55:00.000Z"
+    }
+  ]
+}

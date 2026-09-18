@@ -157,6 +157,11 @@ function classifyItem(item) {
       item?.assortment_policy?.rollout_status === 'FIRST_ROLLOUT';
     return { kind: 'excluded', reason: isRollout ? 'postponed_by_rollout' : 'deferred' };
   }
+  const triage = item?.review_triage;
+  const triageAvailable = triage?.available === true;
+  if (triage?.owner_decision_status === 'BLOCKED_BY_DATA') {
+    return { kind: 'unresolved', reason: 'data_blocked' };
+  }
   const isFirstRolloutTestAwaiting = item?.first_rollout_test_awaiting === true ||
     (
       item?.assortment_policy?.assortment_status === 'TEST' &&
@@ -165,7 +170,12 @@ function classifyItem(item) {
   if (isFirstRolloutTestAwaiting) {
     return { kind: 'unresolved', reason: 'first_rollout_review_required' };
   }
-  if (item?.matrix?.owner_review_required === true) {
+  if (triage?.owner_decision_status === 'ACTIVE') {
+    return { kind: 'unresolved', reason: 'review_required' };
+  }
+  // For triage-enabled runs the triage result is authoritative. Legacy
+  // owner_review_required remains a fallback only for historical runs.
+  if (!triageAvailable && item?.matrix?.owner_review_required === true) {
     return { kind: 'unresolved', reason: 'review_required' };
   }
   if (item?.workflow_status === 'auto_approved') {
@@ -277,7 +287,14 @@ function buildFinalOrderState(input = {}) {
     includedItems.reduce((sum, entry) => sum + (entry.amount ?? 0), 0)
   );
   const unresolvedCount = unresolvedItems.length;
+  const dataBlockedItems = unresolvedItems.filter(
+    entry => entry.reason === 'data_blocked'
+  );
+  const ownerDecisionUnresolvedItems = unresolvedItems.filter(
+    entry => entry.reason !== 'data_blocked'
+  );
   const reviewComplete = unresolvedCount === 0;
+  const ownerDecisionComplete = ownerDecisionUnresolvedItems.length === 0;
   const maximumSafe = finiteNumber(input.maximumSafeOrderAmount);
   const includedSkus = new Map();
   for (const entry of includedItems) {
@@ -312,6 +329,17 @@ function buildFinalOrderState(input = {}) {
     deferredAmount: sumExcluded('deferred'),
     unresolvedCount,
     unresolvedAmount: roundMoney(unresolvedItems.reduce(
+      (sum, entry) => sum + entry.referenceAmount, 0
+    )),
+    ownerDecisionComplete,
+    ownerDecisionUnresolvedCount: ownerDecisionUnresolvedItems.length,
+    ownerDecisionUnresolvedAmount: roundMoney(
+      ownerDecisionUnresolvedItems.reduce(
+        (sum, entry) => sum + entry.referenceAmount, 0
+      )
+    ),
+    dataBlockedCount: dataBlockedItems.length,
+    dataBlockedAmount: roundMoney(dataBlockedItems.reduce(
       (sum, entry) => sum + entry.referenceAmount, 0
     )),
     missingPriceIncludedCount: includedItems.filter(

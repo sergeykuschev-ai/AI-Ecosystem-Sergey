@@ -250,13 +250,16 @@ test('Мнямс positive demand recommendation is preserved up to MAX', () => {
   }
 });
 
-test('Мнямс positive-control flavours are not added or altered in canonical', () => {
+test('Мнямс mandatory whitelist remains exactly the approved 7', () => {
   const src = source();
-  const mnyamsRules = src.store.rules.filter(r => r.canonical && r.canonical.brand === 'Мнямс');
-  assert.equal(mnyamsRules.length, MNYAMS_MANDATORY.length);
-  for (const rule of mnyamsRules) {
-    assert.ok(MNYAMS_MANDATORY.includes(rule.sku), `${rule.sku} is one of the approved 7`);
-  }
+  const mandatoryMnyams = src.store.rules.filter(
+    r => r.canonical && r.canonical.brand === 'Мнямс' && r.mandatory_assortment === true
+  );
+  assert.equal(mandatoryMnyams.length, MNYAMS_MANDATORY.length);
+  assert.deepEqual(
+    mandatoryMnyams.map(r => r.sku).sort(),
+    [...MNYAMS_MANDATORY].sort()
+  );
 });
 
 test('AWARD non-mandatory SKUs remain unchanged', () => {

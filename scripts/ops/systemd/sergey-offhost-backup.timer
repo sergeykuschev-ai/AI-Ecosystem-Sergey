@@ -1,0 +1,11 @@
+[Unit]
+Description=Run encrypted off-host backup daily
+
+[Timer]
+OnCalendar=*-*-* 03:35:00 UTC
+Persistent=true
+RandomizedDelaySec=10m
+Unit=sergey-offhost-backup.service
+
+[Install]
+WantedBy=timers.target

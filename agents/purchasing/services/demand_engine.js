@@ -342,34 +342,64 @@ function resolveIncomingStockSource(inTransitMode, sources, inTransitStatus) {
   return 'external_in_transit_data';
 }
 
+const ZOOGRAD_CANONICAL_SUPPLIER = 'зооград';
+const VALTA_CANONICAL_SUPPLIER = 'валта';
+
 const ZOOGRAD_ALIASES = new Set([
   'зооград',
   'зооград/оникиенко',
   'зооград-хабаровск ооо',
-  'рич стор ооо',
   'оникиенко роман евгеньевич',
   'хабаровск опт',
+  'рич стор ооо',
 ]);
 
 function canonicalSupplierName(supplier) {
   const normalized = normalize(supplier);
+  if (normalized.includes('валта')) {
+    return VALTA_CANONICAL_SUPPLIER;
+  }
   if (
     ZOOGRAD_ALIASES.has(normalized) ||
     normalized.includes('зооград') ||
     normalized.includes('оникиенко') ||
-    normalized.includes('рич стор') ||
-    normalized.includes('хабаровск опт')
+    normalized.includes('хабаровск опт') ||
+    normalized.includes('рич стор')
   ) {
-    return 'зооград';
+    return ZOOGRAD_CANONICAL_SUPPLIER;
   }
   return normalized;
 }
 
+function supplierSafetyStockDays(row, config) {
+  const canonical = canonicalSupplierName(row.supplier);
+  const bySupplier =
+    (config.safetyStockDaysBySupplier &&
+      config.safetyStockDaysBySupplier.bySupplier) ||
+    {};
+  if (Object.hasOwn(bySupplier, canonical)) return bySupplier[canonical];
+  return config.safetyStockDays;
+}
+
 function supplierDeliveryCycle(row, inputs, config) {
   const supplier = normalize(row.supplier);
+  const bySupplier = config.supplierDeliveryCycleDays.bySupplier;
+  if (Object.hasOwn(bySupplier, supplier)) return bySupplier[supplier];
+  const canonical = canonicalSupplierName(row.supplier);
+  if (canonical !== supplier && Object.hasOwn(bySupplier, canonical)) {
+    return bySupplier[canonical];
+  }
+  // Owner decision 2026-09-15: one 14-day cycle applies to every supplier.
+  // A configured default is therefore authoritative over per-run input overrides.
+  if (config.supplierDeliveryCycleDays.default != null) {
+    return config.supplierDeliveryCycleDays.default;
+  }
   const inputCycles = inputs.supplierDeliveryCycleDays || {};
-  const configured = inputCycles[supplier] ?? config.supplierDeliveryCycleDays.bySupplier[supplier];
-  return configured ?? config.supplierDeliveryCycleDays.default ?? null;
+  if (Object.hasOwn(inputCycles, supplier)) return inputCycles[supplier];
+  if (canonical !== supplier && Object.hasOwn(inputCycles, canonical)) {
+    return inputCycles[canonical];
+  }
+  return null;
 }
 
 function matchMetadata(candidate) {
@@ -384,14 +414,27 @@ function matchMetadata(candidate) {
   };
 }
 
-function ambiguousRows(matchResult) {
+function ambiguousRows(matchResult, rows = [], options = {}) {
   const identities = new Set(
     matchResult.rowDiagnostics.map(diagnostic => diagnostic.rowIdentity)
   );
+  const rowsByIdentity = new Map(rows.map(row => [row.rowIdentity, row]));
   for (const result of matchResult.recordResults) {
-    if (result.status === 'ambiguous') {
-      for (const rowIdentity of result.candidateRowIdentities) identities.add(rowIdentity);
+    if (result.status !== 'ambiguous') continue;
+    if (
+      options.distinctNamesMakeSupplierArticleNonBlocking === true &&
+      result.matchType === 'supplier_article'
+    ) {
+      const names = new Set(
+        result.candidateRowIdentities
+          .map(rowIdentity => rowsByIdentity.get(rowIdentity))
+          .filter(Boolean)
+          .map(row => normalize(row.name))
+          .filter(Boolean)
+      );
+      if (names.size > 1) continue;
     }
+    for (const rowIdentity of result.candidateRowIdentities) identities.add(rowIdentity);
   }
   return identities;
 }
@@ -556,6 +599,7 @@ function calculateDemandProduct(row, sources, matches, context, config) {
   const transitCandidate = matches.inTransit.matchesByRowIdentity.get(row.rowIdentity);
   const salesRecord = salesCandidate ? salesCandidate.record : null;
   const assortmentRecord = assortmentCandidate ? assortmentCandidate.record : null;
+  const canonicalSkuId = assortmentRecord?.canonicalSkuId || null;
   const transitRecord = transitCandidate ? transitCandidate.record : null;
   const sales = Object.fromEntries(
     SALES_FIELDS.map(field => [field, valueFromRecord(salesRecord, field)])
@@ -676,6 +720,13 @@ function calculateDemandProduct(row, sources, matches, context, config) {
   }
 
   const onHandStock = freeStock;
+  const zeroStockProvenance =
+    row.zeroStockConfirmed === true && freeStock === 0
+      ? {
+        status: 'confirmed_zero',
+        source: row.zeroStockReason || 'zero_confirmed_by_stock_days',
+      }
+      : null;
   const { reserveStock, reserveStockSource } = resolveReserveStock(
     row,
     context.inventorySemantics
@@ -767,8 +818,9 @@ function calculateDemandProduct(row, sources, matches, context, config) {
   const abc = normalizeClass(row.abc);
   const xyz = normalizeClass(row.xyz);
   const combination = `${abc}/${xyz}`;
-  const safetyStockDays = Object.hasOwn(config.safetyStockDays, combination)
-    ? config.safetyStockDays[combination]
+  const safetyTable = supplierSafetyStockDays(row, config);
+  const safetyStockDays = Object.hasOwn(safetyTable, combination)
+    ? safetyTable[combination]
     : null;
   if (safetyStockDays === null) requiredData.push('safety_stock_days');
 
@@ -840,6 +892,7 @@ function calculateDemandProduct(row, sources, matches, context, config) {
     rowNumber: row.rowNumber,
     name: row.name,
     article: row.article || null,
+    canonicalSkuId,
     supplier: row.supplier || null,
     abc,
     xyz,
@@ -912,6 +965,8 @@ function calculateDemandProduct(row, sources, matches, context, config) {
       : [],
     freeStock,
     stockStatus: resolvedStockStatus,
+    zeroStockConfirmed: zeroStockProvenance !== null,
+    zeroStockReason: zeroStockProvenance ? zeroStockProvenance.source : null,
     onHandStock,
     reserveStock,
     reserveStockSource,
@@ -1170,9 +1225,11 @@ function buildDemandPlan(analysis, phase2Inputs = {}, config = DEMAND_ENGINE_CON
     inTransitMode,
     inTransitDecisionBasis,
     inventorySemantics: phase2Inputs.inventorySemantics || null,
-    ambiguousSalesRows: ambiguousRows(matches.sales),
-    ambiguousAssortmentRows: ambiguousRows(matches.assortment),
-    ambiguousTransitRows: ambiguousRows(matches.inTransit),
+    ambiguousSalesRows: ambiguousRows(matches.sales, rows),
+    ambiguousAssortmentRows: ambiguousRows(matches.assortment, rows, {
+      distinctNamesMakeSupplierArticleNonBlocking: true,
+    }),
+    ambiguousTransitRows: ambiguousRows(matches.inTransit, rows),
   };
   const products = [];
   const isolatedRowDiagnostics = [];
@@ -1263,5 +1320,6 @@ module.exports = {
   summarizeDemandPlan,
   buildDemandPlan,
   canonicalSupplierName,
+  supplierSafetyStockDays,
   ZOOGRAD_ALIASES,
 };

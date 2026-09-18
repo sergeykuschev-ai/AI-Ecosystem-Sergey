@@ -1112,3 +1112,153 @@ test(
     assert.deepEqual(duplicateArticles, ['33036', '33040', '34002']);
   }
 );
+
+
+test('resolveConfirmedZeroFreeStock restores zero only with full proof', () => {
+  const { resolveConfirmedZeroFreeStock } = require('../adapters/smartzapas_adapter');
+
+  // A. SmartZapas error marker + zero stock days + confirmed sales.
+  assert.deepEqual(
+    resolveConfirmedZeroFreeStock({
+      freeStockToken: '#ERROR_undefined',
+      stockDays: 0,
+      sales: 5,
+      excessStock: null,
+    }),
+    { status: 'confirmed_zero', source: 'zero_confirmed_by_stock_days' }
+  );
+
+  // B. Truly blank cell with the same proof also restores.
+  assert.deepEqual(
+    resolveConfirmedZeroFreeStock({
+      freeStockToken: null,
+      stockDays: 0,
+      sales: 3,
+      excessStock: 0,
+    }),
+    { status: 'confirmed_zero', source: 'zero_confirmed_by_stock_days' }
+  );
+
+  // C. No sales, no stock days: cannot prove zero (the D/ZZ case).
+  assert.equal(
+    resolveConfirmedZeroFreeStock({
+      freeStockToken: '#ERROR_undefined',
+      stockDays: null,
+      sales: null,
+      excessStock: null,
+    }),
+    null
+  );
+
+  // D. Zero stock days without confirmed positive sales does not restore.
+  assert.equal(
+    resolveConfirmedZeroFreeStock({
+      freeStockToken: null,
+      stockDays: 0,
+      sales: 0,
+      excessStock: null,
+    }),
+    null
+  );
+  assert.equal(
+    resolveConfirmedZeroFreeStock({
+      freeStockToken: null,
+      stockDays: 0,
+      sales: null,
+      excessStock: null,
+    }),
+    null
+  );
+
+  // E. An explicit numeric free stock is never changed.
+  assert.equal(
+    resolveConfirmedZeroFreeStock({
+      freeStockToken: 4,
+      stockDays: 0,
+      sales: 5,
+      excessStock: null,
+    }),
+    null
+  );
+
+  // F. A positive excess-stock count contradicts zero stock.
+  assert.equal(
+    resolveConfirmedZeroFreeStock({
+      freeStockToken: '#ERROR_undefined',
+      stockDays: 0,
+      sales: 5,
+      excessStock: 2,
+    }),
+    null
+  );
+});
+
+test('adapter restores confirmed-zero free stock with provenance end to end', () => {
+  const U = UNDEFINED_ERROR;
+  const matrix = [
+    [
+      U, 'Артикул', 'Наименование', 'Доп. инфо', 'Цена',
+      'Текущие остатки', U, U, 'MIN', U,
+      'Потреб- ность 12.01.2026 - 19.07.2026', 'Заказать у поставщика', U, U,
+      'История за период 12.01.2026 - 19.07.2026', U,
+    ],
+    [
+      U, U, U, 'Основной поставщик', U,
+      'Дней запаса', 'Свободный остаток', 'Кол-во излишков', 'шт', 'шт',
+      U, 'Кол-во', 'Сумма', 'Кратность заказа', 'Продано', 'Кол-во',
+    ],
+    [
+      U, U, U, U, U,
+      U, U, U, 'Авто', 'Ручной',
+      U, U, U, U, 'Кол-во', U,
+    ],
+    // A: error marker + sd 0 + sales > 0 -> confirmed zero
+    [U, 'ART-A', 'Товар A', 'Поставщик', 100, 0, U, U, 2, U, U, 2, 200, 1, 5, U],
+    // B: blank cell + sd 0 + sales > 0 -> confirmed zero
+    [U, 'ART-B', 'Товар B', 'Поставщик', 100, 0, null, U, 1, U, U, 1, 100, 1, 3, U],
+    // C: no stock days, no sales -> stays unknown
+    [U, 'ART-C', 'Товар C', 'Поставщик', 100, U, U, U, U, U, U, 0, U, U, U, U],
+    // D: sd 0 but sales 0 -> stays unknown
+    [U, 'ART-D', 'Товар D', 'Поставщик', 100, 0, U, U, 1, U, U, 0, U, U, 0, U],
+    // E: explicit positive free stock untouched
+    [U, 'ART-E', 'Товар E', 'Поставщик', 100, 9, 4, U, 2, U, U, 0, U, U, 5, U],
+    // F: excess stock contradicts zero -> stays unknown
+    [U, 'ART-F', 'Товар F', 'Поставщик', 100, 0, U, 2, 2, U, U, 2, 200, 1, 5, U],
+  ];
+  const result = adaptSmartZapasMatrix(matrix, { sheetName: 'ZeroRestore' });
+  const byArticle = new Map(result.rows.map(row => [row.article, row]));
+
+  const a = byArticle.get('ART-A');
+  assert.equal(a.freeStock, 0);
+  assert.equal(a.zeroStockConfirmed, true);
+  assert.equal(a.zeroStockReason, 'zero_confirmed_by_stock_days');
+  assert.equal(a.sourceTokens.freeStock, '#ERROR_undefined');
+
+  const b = byArticle.get('ART-B');
+  assert.equal(b.freeStock, 0);
+  assert.equal(b.zeroStockConfirmed, true);
+
+  for (const article of ['ART-C', 'ART-D', 'ART-F']) {
+    const row = byArticle.get(article);
+    assert.equal(row.freeStock, null, `${article} stays unknown`);
+    assert.equal(row.zeroStockConfirmed, undefined, `${article} has no provenance`);
+  }
+
+  const e = byArticle.get('ART-E');
+  assert.equal(e.freeStock, 4);
+  assert.equal(e.zeroStockConfirmed, undefined);
+
+  const demandResult = runOrderAgentFromAdapterResultWithDemand(result, {
+    purchasingProfile: 'miska',
+  })[0].json;
+  const demandByArticle = new Map(
+    demandResult.demandProducts.map(product => [product.article, product])
+  );
+  const demandA = demandByArticle.get('ART-A');
+  assert.equal(demandA.stockStatus, 'confirmed_zero');
+  assert.equal(demandA.zeroStockConfirmed, true);
+  assert.equal(demandA.zeroStockReason, 'zero_confirmed_by_stock_days');
+  assert.ok(!demandA.requiredData.includes('free_stock'));
+  assert.equal(demandByArticle.get('ART-C').stockStatus, 'unknown');
+  assert.equal(demandByArticle.get('ART-C').zeroStockConfirmed, false);
+});

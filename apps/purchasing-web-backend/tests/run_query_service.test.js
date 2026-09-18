@@ -206,3 +206,136 @@ test('Owner Review sections support pagination', () => {
     result.summary.owner_action_displayed
   );
 });
+
+
+test('review triage is authoritative for the owner-decision queue when available', () => {
+  const fakeRegistry = {
+    getItems() {
+      return [
+        {
+          row_id: 'active',
+          matrix: { owner_review_required: true, owner_action_class: 'OWNER_ACTION_REQUIRED' },
+          owner_decision: { decision: null },
+        },
+        {
+          row_id: 'blocked',
+          matrix: { owner_review_required: true, owner_action_class: 'OWNER_ACTION_REQUIRED' },
+          owner_decision: { decision: null },
+        },
+        {
+          row_id: 'excluded-linkage',
+          matrix: { owner_review_required: true, owner_action_class: 'OWNER_ACTION_REQUIRED' },
+          owner_decision: { decision: null },
+        },
+        {
+          row_id: 'legacy-no-longer-active',
+          matrix: { owner_review_required: true, owner_action_class: 'OWNER_ACTION_REQUIRED' },
+          owner_decision: { decision: null },
+        },
+      ];
+    },
+    getReviewTriageArtifacts() {
+      return {
+        triage: {
+          items: [
+            {
+              row_identity: 'active',
+              requires_owner_decision: true,
+              owner_decision_status: 'ACTIVE',
+              owner_decision_blocker: null,
+              reason_code: 'OWNER_DECISION_REQUIRED',
+              section: 'owner_decisions',
+            },
+            {
+              row_identity: 'blocked',
+              requires_owner_decision: true,
+              owner_decision_status: 'BLOCKED_BY_DATA',
+              owner_decision_blocker: 'data_or_linkage',
+              reason_code: 'SUPPLIER_DATA_MISSING',
+              section: 'owner_decisions',
+            },
+            {
+              row_identity: 'excluded-linkage',
+              requires_owner_decision: true,
+              owner_decision_status: 'ACTIVE',
+              reason_code: 'OWNER_DECISION_REQUIRED',
+              section: 'owner_decisions',
+            },
+          ],
+          owner_review_compaction: {
+            business_sku_count: 1,
+            total_owner_decision_count: 1,
+            blocked_by_data_count: 1,
+            data_or_linkage_count: 2,
+            exclusions: [
+              { row_identity: 'excluded-linkage', linkage_reason: 'identity' },
+            ],
+            blocked: [
+              { row_identity: 'blocked', blocker: 'data_or_linkage' },
+            ],
+          },
+        },
+      };
+    },
+  };
+  const triageService = new RunQueryService(fakeRegistry);
+  const decorated = triageService.getDecoratedItems('run');
+  const active = decorated.find(item => item.row_id === 'active');
+  const blocked = decorated.find(item => item.row_id === 'blocked');
+  const excluded = decorated.find(item => item.row_id === 'excluded-linkage');
+  const resolved = decorated.find(item => item.row_id === 'legacy-no-longer-active');
+  assert.equal(active.matrix.owner_review_required, true);
+  assert.equal(active.matrix.owner_action_class, 'OWNER_ACTION_REQUIRED');
+  assert.equal(blocked.matrix.owner_review_required, false);
+  assert.equal(blocked.matrix.owner_action_class, 'DATA_BLOCKED');
+  assert.equal(blocked.matrix.data_blocked, true);
+  assert.equal(excluded.matrix.owner_review_required, false);
+  assert.equal(excluded.matrix.owner_action_class, 'DATA_ISSUE');
+  assert.equal(excluded.review_triage.owner_decision_status, 'DATA_ISSUE');
+  assert.equal(excluded.review_triage.linkage_reason, 'identity');
+  assert.equal(resolved.matrix.owner_review_required, false);
+  assert.equal(resolved.matrix.owner_action_class, 'TRIAGE_RESOLVED');
+});
+
+test('run summary exposes current triage queue separately from the legacy counter', () => {
+  const fakeRegistry = {
+    getRunStatus() { return { status: 'completed' }; },
+    getRunSummary() {
+      return { owner_review: { action_required: 168, warnings: 10 } };
+    },
+    getItems() {
+      return [
+        { row_id: 'active', matrix: { owner_review_required: true }, owner_decision: { decision: null } },
+        { row_id: 'resolved', matrix: { owner_review_required: true }, owner_decision: { decision: 'SKIP' } },
+        { row_id: 'excluded', matrix: { owner_review_required: true }, owner_decision: { decision: null } },
+        { row_id: 'blocked', matrix: { owner_review_required: true }, owner_decision: { decision: null } },
+      ];
+    },
+    getReviewTriageArtifacts() {
+      return { triage: {
+        items: [
+          { row_identity: 'active', requires_owner_decision: true, owner_decision_status: 'ACTIVE', section: 'owner_decisions' },
+          { row_identity: 'resolved', requires_owner_decision: true, owner_decision_status: 'ACTIVE', section: 'owner_decisions' },
+          { row_identity: 'excluded', requires_owner_decision: true, owner_decision_status: 'ACTIVE', section: 'owner_decisions' },
+          { row_identity: 'blocked', requires_owner_decision: true, owner_decision_status: 'BLOCKED_BY_DATA', section: 'owner_decisions' },
+        ],
+        owner_review_compaction: {
+          business_sku_count: 2,
+          total_owner_decision_count: 2,
+          blocked_by_data_count: 1,
+          data_or_linkage_count: 2,
+          exclusions: [{ row_identity: 'excluded', linkage_reason: 'identity' }],
+          blocked: [{ row_identity: 'blocked', blocker: 'data_or_linkage' }],
+        },
+      } };
+    },
+  };
+  const triageService = new RunQueryService(fakeRegistry);
+  const summary = triageService.getRunSummary('run');
+  assert.equal(summary.owner_review.action_required, 1);
+  assert.equal(summary.owner_review.decision_count, 2);
+  assert.equal(summary.owner_review.data_blocked, 1);
+  assert.equal(summary.owner_review.data_issues, 2);
+  assert.equal(summary.owner_review.legacy_action_required, 168);
+  assert.equal(summary.owner_review.triage_authoritative, true);
+});

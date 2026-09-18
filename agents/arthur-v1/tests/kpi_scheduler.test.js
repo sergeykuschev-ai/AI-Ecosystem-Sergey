@@ -131,6 +131,7 @@ describe('KpiScheduler configuration', () => {
       businessKpiSkill: createFakeSkill(),
       ownerChatId: '123',
       storeId: 'miska',
+      databaseUrl: '',
     });
     await assert.rejects(scheduler.initialize(), /ARTHUR_DATABASE_URL/);
   });

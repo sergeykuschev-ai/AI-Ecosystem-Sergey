@@ -8,6 +8,9 @@ const { after, before, test } = require('node:test');
 const {
   runPurchasingWebOrchestrator,
 } = require('../application/purchasing_run_orchestrator');
+const {
+  createReviewTriageService,
+} = require('../application/review_triage_service');
 const { RunQueryService } = require('../application/run_query_service');
 const { ARTIFACT_NAMES } = require('../config');
 const {
@@ -38,6 +41,7 @@ let registry;
 let server;
 let baseUrl;
 let bundle;
+let reviewTriageService;
 let artifactStreamCalls = 0;
 let wholeArtifactReads = 0;
 
@@ -106,6 +110,16 @@ function completeRun(runId) {
   }, {
     completedAt: GENERATED_AT,
   });
+  // Mirror the HTTP handler: completed runs also persist the read-only
+  // review triage artifacts, so every whitelisted artifact exists.
+  reviewTriageService.buildAndSaveReviewTriage({
+    runId,
+    agentResult: bundle.agentResult,
+    manualReview: bundle.manualReview,
+    ownerReview: bundle.ownerReview,
+    artifactStore: registry.artifactStore,
+    generatedAt: GENERATED_AT,
+  });
 }
 
 async function api(pathname) {
@@ -123,6 +137,10 @@ before(async () => {
   uploadRoot = path.join(root, 'uploads');
   const fsModule = instrumentedFs();
   const artifactStore = new FileArtifactStore({ runsRoot, fsModule });
+  reviewTriageService = createReviewTriageService({
+    logger: { warn() {}, error() {} },
+    now: () => GENERATED_AT,
+  });
   registry = new FileRunRegistry({
     runsRoot,
     fsModule,

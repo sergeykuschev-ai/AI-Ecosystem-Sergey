@@ -31,3 +31,9 @@ docker/arthur/secrets/*
 !docker/arthur/secrets/*.example
 apps/stores-web/backups-local/
 artifacts/
+
+!docker/business-kpi/.env.production.example
+
+# Python generated files
+__pycache__/
+*.py[cod]

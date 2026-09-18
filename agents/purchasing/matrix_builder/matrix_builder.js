@@ -381,6 +381,7 @@ function buildDraftItem({
   return {
     rowIdentity: row.rowIdentity,
     source_row_number: row.rowNumber,
+    supplier: row.supplier || null,
     article: row.article || null,
     barcode: row.barcode || null,
     internal_product_id: row.internalProductId || null,

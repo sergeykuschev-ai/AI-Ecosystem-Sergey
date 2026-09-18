@@ -214,6 +214,21 @@ curl 'http://127.0.0.1:3210/api/v1/runs/REPLACE_WITH_RUN_ID/owner-review?section
 A red Owner Review status means that a commercial owner decision is required.
 It is a business status, not an HTTP failure or technical backend error.
 
+For runs that contain `review-triage.json`, the persisted **current triage
+queue is authoritative** for the owner-facing question “does Sergey need to
+make a decision now?”. Legacy Owner Review counters are preserved only for
+traceability. Full-audit matrix gaps and data-quality findings stay available
+as diagnostics but do not become owner decisions unless they are also present
+in `current_manual_sections`. `BLOCKED_BY_DATA` remains a safety blocker when
+it belongs to the current queue, but it is displayed separately from business
+decisions and never asks the owner to choose BUY/SKIP merely to repair data.
+Historical runs without triage artifacts retain the legacy semantics.
+
+The run summary exposes this split under `owner_review`: `action_required` is
+the current triage business-SKU count, `decision_count` is the compacted number
+of owner decisions, `data_blocked` and `data_issues` are current technical
+counts, while `legacy_action_required` keeps the original dashboard count.
+
 Manual item decisions are saved with:
 
 `PUT /api/v1/runs/:runId/items/:itemId/decision`

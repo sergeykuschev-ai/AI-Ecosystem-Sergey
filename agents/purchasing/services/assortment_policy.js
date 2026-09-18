@@ -239,6 +239,10 @@ function policyView(rule) {
 function collectProductCandidateIds(product) {
   if (!product || typeof product !== 'object') return [];
   const candidates = [];
+  const canonicalSkuId = product.canonicalSkuId || product.canonical_sku_id || null;
+  if (canonicalSkuId) {
+    candidates.push({ type: 'canonicalSkuId', value: normalizeSku(canonicalSkuId) });
+  }
   if (product.article) {
     candidates.push({ type: 'article', value: normalizeSku(product.article) });
   }
@@ -260,9 +264,37 @@ function collectProductCandidateIds(product) {
   return candidates;
 }
 
-function findRuleByCandidateIds(product, rules) {
+const NON_UNIQUE_POLICY_ID_TYPES = new Set([
+  'article',
+  'matchingHints.article',
+  'supplierSku',
+]);
+
+function buildCandidateIdCounts(products) {
+  const counts = new Map();
+  for (const product of products) {
+    const seen = new Set();
+    for (const candidate of collectProductCandidateIds(product)) {
+      if (!candidate.value) continue;
+      const key = `${candidate.type}:${candidate.value}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+  }
+  return counts;
+}
+
+function findRuleByCandidateIds(product, rules, candidateIdCounts = null) {
   for (const candidate of collectProductCandidateIds(product)) {
     if (!candidate.value) continue;
+    if (
+      candidateIdCounts &&
+      NON_UNIQUE_POLICY_ID_TYPES.has(candidate.type) &&
+      (candidateIdCounts.get(`${candidate.type}:${candidate.value}`) || 0) > 1
+    ) {
+      continue;
+    }
     const matchedRule = rules.get(candidate.value);
     if (matchedRule) return { rule: matchedRule, matchedBy: candidate.type };
   }
@@ -586,10 +618,11 @@ function applyAssortmentPolicyToProducts(products, store, runContext = {}) {
     throw new TypeError('Assortment Policy требует массив products.');
   }
   const rules = buildRulesIndex(store);
+  const candidateIdCounts = buildCandidateIdCounts(products);
   const matchedRuleSkus = new Set();
   const isolatedRowDiagnostics = [];
   const resultProducts = products.map((product, index) => {
-    const match = findRuleByCandidateIds(product, rules);
+    const match = findRuleByCandidateIds(product, rules, candidateIdCounts);
     const matchedRule = match ? match.rule : null;
     if (matchedRule) {
       matchedRuleSkus.add(normalizeSku(matchedRule.sku));

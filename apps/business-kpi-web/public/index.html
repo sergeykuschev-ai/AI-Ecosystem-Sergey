@@ -3,18 +3,18 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Business Portal МИСКА — ежедневные KPI магазинов">
-    <title>МИСКА · KPI</title>
+    <meta name="description" content="Business Portal — ежедневные KPI магазинов">
+    <title>Business Portal · KPI</title>
     <link rel="stylesheet" href="/styles.css">
     <script src="/formatters.js" defer></script>
-    <script src="/app.js?v=35c6bb6-2" defer></script>
+    <script src="/app.js?v=store-context-1" defer></script>
   </head>
   <body class="auth-loading">
     <div class="app-shell">
       <aside class="sidebar">
-        <a class="brand" href="#dashboard" aria-label="МИСКА — главная">
-          <span class="brand-mark"><img src="/assets/miska-logo.jpg" alt="МИСКА" class="brand-logo-img"></span>
-          <span><strong>МИСКА</strong><small>Business Portal</small></span>
+        <a class="brand" href="#dashboard" aria-label="Business Portal — главная">
+          <span class="brand-mark" id="brand-mark"><img id="brand-logo" src="/assets/miska-logo.jpg" alt="Миска" class="brand-logo-img"></span>
+          <span><strong id="brand-name">Миска</strong><small>Business Portal</small></span>
         </a>
         <nav class="primary-nav" aria-label="Разделы KPI">
           <a href="#dashboard" data-route="dashboard">Главная</a>
@@ -127,6 +127,16 @@
               <small>Единицы / чеки</small>
             </article>
             <article class="metric-card">
+              <span>Наличные</span>
+              <strong id="metric-cash">—</strong>
+              <small>Оплаты наличными</small>
+            </article>
+            <article class="metric-card">
+              <span>Безнал / эквайринг</span>
+              <strong id="metric-acquiring">—</strong>
+              <small>Эквайринг уже включает QR</small>
+            </article>
+            <article class="metric-card">
               <span>Доля QR</span>
               <strong id="metric-qr">—</strong>
               <small>QR / выручка</small>
@@ -140,6 +150,11 @@
               <span>Количество смен</span>
               <strong id="metric-shifts">—</strong>
               <small id="metric-days">Дней с данными —</small>
+            </article>
+            <article class="metric-card" id="metric-store-bonus-card" hidden>
+              <span>Премия магазина</span>
+              <strong id="metric-store-bonus">—</strong>
+              <small id="metric-store-bonus-note">Параметры не настроены</small>
             </article>
           </div>
 
@@ -279,7 +294,7 @@
             <div class="card-heading"><div><p class="eyebrow">Помесячная динамика</p><h2>Месяцы <span id="months-year-label"></span></h2></div></div>
             <div class="table-wrap">
               <table>
-                <thead><tr><th>Месяц</th><th>План</th><th>Факт</th><th>Прогноз</th><th>Выполнение</th><th>Чеки</th><th>Ср. чек</th><th>Товаров в чеке</th><th>Доля QR</th><th>Смены</th><th>Статус</th><th>Изменение</th></tr></thead>
+                <thead><tr><th>Месяц</th><th>План</th><th>Факт</th><th>Прогноз</th><th>Выполнение</th><th>Наличные</th><th>Безнал / эквайринг</th><th>QR, ₽</th><th>Доля QR</th><th>Чеки</th><th>Ср. чек</th><th>Товаров в чеке</th><th>Смены</th><th>Статус</th><th>Изменение</th></tr></thead>
                 <tbody id="months-table"></tbody>
               </table>
             </div>
@@ -348,7 +363,7 @@
             <div class="card-heading"><div><p class="eyebrow">Детализация</p><h2>Месяцы <span id="year-table-year-label"></span></h2></div></div>
             <div class="table-wrap">
               <table class="sticky-first-column">
-                <thead><tr><th>Месяц</th><th>План</th><th>Факт</th><th>Выполнение</th><th>Чеки</th><th>Ср. чек</th><th>Смены</th><th>Изменение</th></tr></thead>
+                <thead><tr><th>Месяц</th><th>План</th><th>Факт</th><th>Выполнение</th><th>Наличные</th><th>Безнал / эквайринг</th><th>QR, ₽</th><th>Доля QR</th><th>Чеки</th><th>Ср. чек</th><th>Смены</th><th>Изменение</th></tr></thead>
                 <tbody id="year-months-table"></tbody>
               </table>
             </div>
@@ -404,7 +419,15 @@
 
         <!-- Премии -->
         <section class="route-panel" data-panel="bonuses" hidden>
-          <article class="content-card bonuses-card">
+          <article class="content-card" id="store-bonus-panel" hidden>
+            <div class="card-heading"><div><p class="eyebrow">Премия магазина</p><h2>Расчёт по магазину</h2></div></div>
+            <div class="metric-grid operational-metrics">
+              <article class="metric-card"><span>Выполнение плана</span><strong id="store-bonus-plan">—</strong></article>
+              <article class="metric-card"><span>Доля QR</span><strong id="store-bonus-qr">—</strong></article>
+              <article class="metric-card"><span>Итоговая премия</span><strong id="store-bonus-amount">—</strong><small id="store-bonus-note">—</small></article>
+            </div>
+          </article>
+          <article class="content-card bonuses-card" id="seller-bonus-panel">
             <div class="card-heading">
               <div><p class="eyebrow">Расчёт премии</p><h2>Премии продавцов</h2></div>
               <span class="status-pill" id="bonuses-status">—</span>
@@ -616,14 +639,14 @@
                 <button class="primary-button" type="submit">Сохранить план</button>
               </form>
             </article>
-            <article class="content-card">
+            <article class="content-card" data-miska-settings>
               <p class="eyebrow">Действующая версия</p>
               <h2>Нормативы KPI</h2>
               <dl class="settings-list" id="settings-list"></dl>
             </article>
           </div>
 
-          <article class="content-card">
+          <article class="content-card" data-miska-settings>
             <div class="card-heading">
               <div><p class="eyebrow">Новая версия</p><h2>Изменить нормативы KPI</h2></div>
               <span class="status-pill" id="settings-weight-status">Сумма весов: 0 / 100</span>
@@ -679,7 +702,7 @@
             </form>
           </article>
 
-          <article class="content-card">
+          <article class="content-card" data-miska-settings>
             <div class="card-heading"><div><p class="eyebrow">История</p><h2>Версии настроек</h2></div></div>
             <div class="table-wrap">
               <table>
@@ -753,8 +776,8 @@
           <div class="form-grid">
             <label>Дата<input id="shift-date" name="shiftDate" type="date" required></label>
             <label>Магазин<select id="shift-store" name="storeId" required></select></label>
-            <label>Продавец<select id="shift-employee" name="employeeId" required></select></label>
-            <label>Часть дня<select id="shift-key" name="shiftKey"><option value="main">Основная смена</option><option value="morning">Утро</option><option value="evening">Вечер</option></select></label>
+            <label id="shift-employee-field">Продавец<select id="shift-employee" name="employeeId" required></select></label>
+            <label id="shift-key-field">Часть дня<select id="shift-key" name="shiftKey"><option value="main">Основная смена</option><option value="morning">Утро</option><option value="evening">Вечер</option></select></label>
           </div>
         </fieldset>
         <fieldset>
@@ -766,7 +789,7 @@
             <label>Количество чеков<input id="shift-receipts" name="receipts" type="number" min="0" step="1" inputmode="numeric" required></label>
           </div>
         </fieldset>
-        <fieldset>
+        <fieldset id="shift-kpi-fieldset">
           <legend>C. KPI смены</legend>
           <div class="form-grid">
             <label>Продано товарных единиц<input id="shift-items" name="itemsSold" type="number" min="0" step="1" inputmode="numeric"></label>
@@ -783,11 +806,11 @@
         <div class="calculation-preview" aria-live="polite">
           <span>Выручка <strong id="preview-revenue">—</strong></span>
           <span>Средний чек <strong id="preview-average">—</strong></span>
-          <span>Товаров/чек <strong id="preview-items">—</strong></span>
+          <span data-miska-kpi-preview>Товаров/чек <strong id="preview-items">—</strong></span>
           <span>QR % <strong id="preview-qr">—</strong></span>
-          <span>Допродажи % <strong id="preview-upsells">—</strong></span>
-          <span>Лакомства % <strong id="preview-treats">—</strong></span>
-          <span>Предварительный KPI <strong id="preview-kpi">—</strong></span>
+          <span data-miska-kpi-preview>Допродажи % <strong id="preview-upsells">—</strong></span>
+          <span data-miska-kpi-preview>Лакомства % <strong id="preview-treats">—</strong></span>
+          <span data-miska-kpi-preview>Предварительный KPI <strong id="preview-kpi">—</strong></span>
         </div>
         <section id="shift-audit-section" class="audit-section" hidden>
           <h3>История изменений</h3>

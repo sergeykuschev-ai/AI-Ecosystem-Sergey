@@ -54,6 +54,37 @@
     "Segoe UI", sans-serif;
 }
 
+body[data-store-theme="amper"] {
+  --brand-primary: #d4a900;
+  --brand-primary-dark: #1a1a1a;
+  --brand-primary-soft: #fff4b8;
+  --brand-primary-emphasis: #8a6e00;
+  --brand-secondary-accent: #b58f00;
+}
+
+body[data-store-theme="ventil"] {
+  --brand-primary: #245fa8;
+  --brand-primary-dark: #163a68;
+  --brand-primary-soft: #e2edf9;
+  --brand-primary-emphasis: #1d4d88;
+  --brand-secondary-accent: #245fa8;
+}
+
+body[data-store-theme="default"] {
+  --brand-primary: #4f5b66;
+  --brand-primary-dark: #303840;
+  --brand-primary-soft: #edf0f2;
+  --brand-primary-emphasis: #3e4851;
+  --brand-secondary-accent: #4f5b66;
+}
+
+.brand-mark-text::before {
+  content: attr(data-initial);
+  display: grid; place-items: center; width: 42px; height: 42px;
+  border-radius: 10px; background: var(--brand-primary); color: var(--text-on-primary);
+  font-weight: 800; font-size: 20px;
+}
+
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 

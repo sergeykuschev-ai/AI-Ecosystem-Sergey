@@ -44,7 +44,7 @@ test('finalOrderView показывает финальные значения п
   assert.equal(view.autoApprovedSum.replace(/[^\d,]/g, ''), '45000,50');
   assert.equal(view.pendingReviewSum.replace(/[^\d,]/g, ''), '0,00');
   assert.equal(view.runStatus, 'Проверка завершена');
-  assert.equal(view.runStatusCode, 'Все ручные решения приняты');
+  assert.equal(view.runStatusCode, 'Все решения приняты, блокирующих проблем данных нет');
   assert.equal(view.ownerReviewCount, '0 позиций для решения · проверка завершена');
   assert.equal(view.remainingBudget, 32512.14);
   assert.ok(view.initialRecommendation.includes('107'));
@@ -66,6 +66,29 @@ test('finalOrderView при незавершённой проверке не в�
     assert.equal(view.pendingReviewSum.replace(/[^\d,]/g, ''), '1234,50');
     assert.equal(view.ownerReviewCount, '12 позиций для решения');
   });
+
+test('finalOrderView не выдаёт data-blocked позиции за решения Сергея', () => {
+  const view = finalOrderView({
+    ...READY_STATE,
+    status: 'review_incomplete',
+    reviewComplete: false,
+    unresolvedCount: 41,
+    unresolvedAmount: 9000,
+    ownerDecisionComplete: true,
+    ownerDecisionUnresolvedCount: 0,
+    ownerDecisionUnresolvedAmount: 0,
+    dataBlockedCount: 41,
+    dataBlockedAmount: 9000,
+  });
+  assert.ok(view);
+  assert.equal(view.pendingReviewSum.replace(/[^\d,]/g, ''), '0,00');
+  assert.equal(
+    view.ownerReviewCount,
+    '0 позиций для решения · 41 заблокировано данными'
+  );
+  assert.equal(view.runStatus, 'Нужно исправить данные');
+  assert.equal(view.runStatusCode, 'Решений Сергея нет · проблем данных: 41');
+});
 
 test('finalOrderView отклоняет некорректное состояние', () => {
   assert.equal(finalOrderView(null), null);

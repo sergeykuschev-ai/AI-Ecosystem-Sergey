@@ -17,6 +17,8 @@ const OPTIONAL_ARTIFACT_NAMES = new Set([
   'approved-rule-preview.json',
   'approved-rule-preview.md',
   'approved-rule-applications.json',
+  'review-triage.json',
+  'owner-review-compaction.json',
 ]);
 
 class ArtifactStoreError extends Error {
@@ -206,6 +208,64 @@ class FileArtifactStore {
         { cause: error }
       );
     }
+  }
+
+  /**
+   * Writes supplementary read-only artifacts (e.g. review triage) into an
+   * already saved run and merges them into the manifest. Every name must be
+   * whitelisted in ARTIFACT_NAMES. Used after saveBundleArtifacts, so a
+   * failure here never blocks the completed run itself.
+   */
+  saveSupplementaryArtifacts(runId, payloads) {
+    assertRunId(runId);
+    if (!payloads || typeof payloads !== 'object') {
+      throw new ArtifactStoreError(
+        'INVALID_ARTIFACT_CONTENT',
+        'Supplementary artifact payloads должны быть объектом.'
+      );
+    }
+    const artifactDirectory = this.artifactDirectory(runId);
+    const written = [];
+    for (const [name, content] of Object.entries(payloads)) {
+      if (!ARTIFACT_NAMES.includes(name)) {
+        throw new ArtifactStoreError(
+          'ARTIFACT_NOT_ALLOWED',
+          'Artifact не входит в разрешённый whitelist.'
+        );
+      }
+      if (typeof content !== 'string') {
+        throw new ArtifactStoreError(
+          'INVALID_ARTIFACT_CONTENT',
+          `Artifact ${name} должен быть сериализованной строкой.`
+        );
+      }
+      atomicWriteFile(
+        path.join(artifactDirectory, name),
+        content,
+        { fsModule: this.fs }
+      );
+      written.push({
+        name,
+        content_type: CONTENT_TYPES[path.extname(name)] ||
+          'application/octet-stream',
+        size_bytes: Buffer.byteLength(content),
+        sha256: sha256(content),
+        download_url: `/api/v1/runs/${runId}/artifacts/${name}`,
+      });
+    }
+    const manifest = this.readManifest(runId);
+    const entries = new Map(
+      (Array.isArray(manifest.artifacts) ? manifest.artifacts : [])
+        .map(entry => [entry?.name, entry])
+    );
+    for (const entry of written) entries.set(entry.name, entry);
+    manifest.artifacts = Array.from(entries.values());
+    atomicWriteFile(
+      path.join(artifactDirectory, 'manifest.json'),
+      serializeJson(manifest),
+      { fsModule: this.fs }
+    );
+    return written;
   }
 
   openArtifactForStreaming(runId, artifactName) {

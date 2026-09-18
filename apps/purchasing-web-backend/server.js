@@ -1,15 +1,16 @@
 const http = require('node:http');
 
 const {
-  DEFAULT_HTTP_HOST,
   DEFAULT_REQUEST_TIMEOUT_MS,
   DEFAULT_RUNS_ROOT,
   DEFAULT_SERVER_PATHS,
   DEFAULT_SHUTDOWN_TIMEOUT_MS,
   DEFAULT_UPLOAD_ROOT,
   resolveApprovedRuleMode,
+  resolveHttpHost,
   resolveHttpPort,
   resolveRetentionTtlMs,
+  resolveRunsRoot,
 } = require('./config');
 const {
   RunQueryService,
@@ -73,7 +74,7 @@ function runStartupCleanup(options = {}) {
   let uploadCleanup = null;
   try {
     runCleanup = cleanupExpiredRuns({
-      runsRoot: options.runsRoot || DEFAULT_RUNS_ROOT,
+      runsRoot: options.runsRoot || resolveRunsRoot(),
       ttlMs: options.retentionTtlMs ?? resolveRetentionTtlMs(),
       now: options.now,
     });
@@ -133,7 +134,7 @@ function createPurchasingWebServer(options = {}) {
     options.ownerLearningRuleEffectivenessFilePath ||
     serverPaths.ownerLearningRuleEffectivenessFilePath ||
     DEFAULT_SERVER_PATHS.ownerLearningRuleEffectivenessFilePath;
-  const runsRoot = options.runsRoot || DEFAULT_RUNS_ROOT;
+  const runsRoot = options.runsRoot || resolveRunsRoot();
   const registry = options.registry || new FileRunRegistry({
     runsRoot,
     ownerLearningHistoryPath: options.ownerLearningHistoryPath || (
@@ -288,6 +289,7 @@ function createPurchasingWebServer(options = {}) {
         registry,
         now: options.now,
       }),
+    logger: options.logger,
   });
   const staticHandler = options.staticHandler || createStaticHandler({
     publicRoot: options.publicRoot,
@@ -311,7 +313,8 @@ function startPurchasingWebServer(options = {}) {
   runStartupCleanup(options);
   const server = createPurchasingWebServer(options);
   const port = options.port ?? resolveHttpPort();
-  server.listen(port, DEFAULT_HTTP_HOST);
+  const host = options.host ?? resolveHttpHost();
+  server.listen(port, host);
   return server;
 }
 
@@ -428,7 +431,7 @@ if (require.main === module) {
   server.once('listening', () => {
     const address = server.address();
     console.log(
-      `Purchasing Web API v1: http://${DEFAULT_HTTP_HOST}:${address.port}`
+      `Purchasing Web API v1: http://${address.address}:${address.port}`
     );
   });
 }

@@ -1,3 +1,6 @@
+const { guardUnmatchedProduct } = require('./unmatched_product_guard');
+const { resolveSupplierGroup } = require('./supplier_scope');
+
 const WORKFLOW_STATUSES = Object.freeze([
   'auto_approved',
   'pending_manual_review',
@@ -8,6 +11,7 @@ const WORKFLOW_STATUSES = Object.freeze([
 
 const PROVISIONAL_QUANTITY_SOURCES = Object.freeze([
   'phase2_final_recommendation',
+  'phase2_calculated_demand',
   'phase1_analyzer_fallback',
   'unavailable',
 ]);
@@ -55,6 +59,13 @@ function isConfidentNoBuy(product, decision) {
 }
 
 function workflowStatus(product, decision) {
+  if (product.activeOwnerOrderDecision?.applied === true) {
+    if (product.activeOwnerOrderDecision.ownerDecision === 'SKIP') return 'no_order_action';
+    if (product.activeOwnerOrderDecision.ownerDecision === 'DEFER') return 'postponed';
+  }
+  if (product.unmatchedGuard?.classification === 'UNMATCHED_CONFIDENTLY_EXCLUDED') {
+    return 'confidently_excluded';
+  }
   if (
     ['must_buy', 'recommended'].includes(decision.decision) &&
     isPositive(decision.approvedOrderQuantity)
@@ -81,6 +92,7 @@ function workflowStatus(product, decision) {
 }
 
 function blockingReason(product, decision, status) {
+  if (product.unmatchedGuard) return product.unmatchedGuard.reasonCode;
   if (status !== 'pending_manual_review') return null;
   if (decision.requiredData.includes('free_stock')) return 'free_stock_unknown';
   const explicitReason = decision.reasons.find(reason =>
@@ -95,9 +107,21 @@ function blockingReason(product, decision, status) {
 }
 
 function buildWorkflowProduct(product, decision) {
+  ({ product, decision } = guardUnmatchedProduct(product, decision));
   const status = workflowStatus(product, decision);
   const provisional = ['pending_manual_review', 'postponed'].includes(status)
-    ? provisionalQuantity(product)
+    ? (product.unmatchedGuard
+      ? {
+        provisionalOrderQuantity: isPositive(product.demandCalculatedQuantity)
+          ? product.demandCalculatedQuantity
+          : (isPositive(product.finalRecommendedQuantity)
+            ? product.finalRecommendedQuantity : null),
+        provisionalQuantitySource: isPositive(product.demandCalculatedQuantity)
+          ? 'phase2_calculated_demand'
+          : (isPositive(product.finalRecommendedQuantity)
+            ? 'phase2_final_recommendation' : 'unavailable'),
+      }
+      : provisionalQuantity(product))
     : {
       provisionalOrderQuantity: null,
       provisionalQuantitySource: 'unavailable',
@@ -113,6 +137,8 @@ function buildWorkflowProduct(product, decision) {
   );
 
   return {
+    unmatchedGuard: product.unmatchedGuard || null,
+    activeOwnerOrderDecision: product.activeOwnerOrderDecision || null,
     rowIdentity: product.rowIdentity,
     rowNumber: product.rowNumber,
     name: product.name,
@@ -120,6 +146,7 @@ function buildWorkflowProduct(product, decision) {
     barcode: product.matchingHints?.barcode || null,
     internalProductId: product.matchingHints?.internalProductId || null,
     supplier: product.supplier,
+    canonicalSupplier: resolveSupplierGroup(product.supplier),
     category: product.category || null,
     rolloutStatus: product.rolloutStatus || null,
     reviewAfterDays: product.reviewAfterDays ?? null,
@@ -296,6 +323,16 @@ function buildWorkingOrder(products, decisions) {
           ? product.approvedOrderQuantity
           : product.provisionalOrderQuantity
       ),
+      ...Object.fromEntries([
+        ['zoograd', workingMaximum.filter(product => product.canonicalSupplier === 'зооград')],
+        ['otherSuppliers', workingMaximum.filter(product => product.canonicalSupplier !== 'зооград')],
+      ].flatMap(([prefix, lines]) => [
+        [`${prefix}WorkingMaximumLines`, lines.length],
+        [`${prefix}WorkingMaximumSum`, sumLines(lines, product =>
+          product.workflowStatus === 'auto_approved'
+            ? product.approvedOrderQuantity
+            : product.provisionalOrderQuantity)],
+      ])),
       workingMaximumStatus: 'not_approved_not_ready_for_automatic_submission',
       phase2AdditionLines: phase2Additions.length,
       phase2AdditionApprovedLines: phase2Additions.filter(

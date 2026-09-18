@@ -46,6 +46,7 @@ class KpiScheduler {
     this.storeId = options.storeId;
     this.timezone = options.timezone || DEFAULT_TIMEZONE;
     this.pool = options.pool || null;
+    this.databaseUrl = options.databaseUrl;
     this.stateStore = options.stateStore || null;
     this.automation = options.automation || null;
     this.tasks = [];
@@ -56,7 +57,9 @@ class KpiScheduler {
 
   async initialize() {
     if (!this.pool && !this.stateStore) {
-      const connectionString = process.env.ARTHUR_DATABASE_URL;
+      const connectionString = this.databaseUrl !== undefined
+        ? this.databaseUrl
+        : process.env.ARTHUR_DATABASE_URL;
       if (!connectionString) {
         throw new Error('KPI scheduler requires ARTHUR_DATABASE_URL');
       }

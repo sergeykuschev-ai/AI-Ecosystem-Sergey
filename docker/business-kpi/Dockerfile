@@ -11,6 +11,7 @@ COPY --from=dependencies /opt/business-kpi/node_modules ./node_modules
 COPY package.json package-lock.json ./
 COPY agents/business-kpi ./agents/business-kpi
 COPY apps/business-kpi-web ./apps/business-kpi-web
+COPY scripts/business-kpi-bootstrap-users.js ./scripts/business-kpi-bootstrap-users.js
 USER businesskpi
 EXPOSE 3220
 CMD ["node", "apps/business-kpi-web/server.js"]

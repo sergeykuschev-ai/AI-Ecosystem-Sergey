@@ -18,6 +18,8 @@ const {
 } = require('../runtime/migration_runner');
 
 const databaseUrl = process.env.ARTHUR_DATABASE_URL;
+const expectedMigrationFiles = listMigrationFiles(DEFAULT_MIGRATIONS_DIR);
+const expectedMigrationCount = expectedMigrationFiles.length;
 
 function shouldSkip() {
   return !databaseUrl || !/test|ci/.test(databaseUrl);
@@ -31,6 +33,8 @@ async function connect() {
 
 async function cleanDatabase(client) {
   await client.query(`
+    DROP TABLE IF EXISTS arthur_automation_alert_state CASCADE;
+    DROP TABLE IF EXISTS arthur_automation_runs CASCADE;
     DROP TABLE IF EXISTS arthur_audit_events CASCADE;
     DROP TABLE IF EXISTS arthur_memory CASCADE;
     DROP TABLE IF EXISTS arthur_profiles CASCADE;
@@ -60,9 +64,9 @@ describe('migration runner integration', { skip: shouldSkip() }, () => {
     try {
       await cleanDatabase(client);
       const result = await runMigrations({ databaseUrl, migrationsDir: DEFAULT_MIGRATIONS_DIR });
-      assert.equal(result.appliedCount, 2);
+      assert.equal(result.appliedCount, expectedMigrationCount);
       assert.equal(result.skippedCount, 0);
-      assert.equal(await appliedCount(client), 2);
+      assert.equal(await appliedCount(client), expectedMigrationCount);
       assert.equal(await tableExists(client, 'arthur_profiles'), true);
       assert.equal(await tableExists(client, 'arthur_tasks'), true);
       assert.equal(await tableExists(client, SCHEMA_TABLE), true);
@@ -78,14 +82,14 @@ describe('migration runner integration', { skip: shouldSkip() }, () => {
       await runMigrations({ databaseUrl, migrationsDir: DEFAULT_MIGRATIONS_DIR });
       const result = await runMigrations({ databaseUrl, migrationsDir: DEFAULT_MIGRATIONS_DIR });
       assert.equal(result.appliedCount, 0);
-      assert.equal(result.skippedCount, 2);
-      assert.equal(await appliedCount(client), 2);
+      assert.equal(result.skippedCount, expectedMigrationCount);
+      assert.equal(await appliedCount(client), expectedMigrationCount);
     } finally {
       await client.end();
     }
   });
 
-  test('existing initialized database is baseline-tracked without data loss', async () => {
+  test('existing initialized database is re-tracked without data loss', async () => {
     const client = await connect();
     try {
       await cleanDatabase(client);
@@ -94,9 +98,9 @@ describe('migration runner integration', { skip: shouldSkip() }, () => {
       assert.equal(await appliedCount(client), 0);
 
       const result = await runMigrations({ databaseUrl, migrationsDir: DEFAULT_MIGRATIONS_DIR });
-      assert.equal(result.appliedCount, 0);
-      assert.equal(result.skippedCount, 2);
-      assert.equal(await appliedCount(client), 2);
+      assert.equal(result.appliedCount, expectedMigrationCount);
+      assert.equal(result.skippedCount, 0);
+      assert.equal(await appliedCount(client), expectedMigrationCount);
       assert.equal(await tableExists(client, 'arthur_profiles'), true);
     } finally {
       await client.end();

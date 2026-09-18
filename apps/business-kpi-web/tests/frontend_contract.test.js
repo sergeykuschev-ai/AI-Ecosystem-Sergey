@@ -49,6 +49,8 @@ test('dashboard and sellers expose required labels without frontend KPI formulas
     'Чеки',
     'Средний чек',
     'Товаров в чеке',
+    'Наличные',
+    'Безнал / эквайринг',
     'Доля QR',
     'Количество смен',
     'История изменений',
@@ -73,17 +75,17 @@ test('import/export UI requires dry-run before commit and exposes run history', 
   assert.match(javascript, /drop/);
 });
 
-test('portal branding is MISKA and multi-business ready', () => {
+test('portal branding follows selected store while preserving MISKA logo', () => {
   const css = fs.readFileSync(path.join(publicRoot, 'styles.css'), 'utf8');
-  assert.doesNotMatch(html, /Артур Business KPI/);
-  assert.doesNotMatch(html, /Ампер|Вентиль|Метиз/);
-  assert.match(html, /<title>МИСКА · KPI<\/title>/);
-  assert.match(html, /МИСКА/);
-  assert.match(javascript, /BUSINESS_CONTEXT/);
-  assert.match(javascript, /id:\s*['"]miska['"]/);
+  assert.match(html, /<title>Business Portal · KPI<\/title>/);
+  assert.match(html, /id="brand-name"/);
+  assert.match(javascript, /STORE_CONTEXTS/);
+  assert.match(javascript, /amper:[\s\S]*Ампер/);
+  assert.match(javascript, /ventil:[\s\S]*Вентиль/);
+  assert.match(javascript, /applyStoreContext/);
+  assert.match(css, /data-store-theme="amper"/);
+  assert.match(css, /data-store-theme="ventil"/);
   assert.match(css, /--brand-primary:/);
-  assert.match(css, /--brand-accent:/);
-  assert.match(css, /--brand-primary-dark:/);
 });
 
 test('shifts KPI badge is rendered as HTML, not escaped raw markup', () => {
@@ -100,7 +102,7 @@ test('official MISKA logo asset is referenced, stored, and served by static hand
 });
 
 test('index.html references app.js with a cache-bust version and shows a permanent seller picker', () => {
-  assert.match(html, /<script src="\/app\.js\?v=[0-9a-f-]+" defer><\/script>/);
+  assert.match(html, /<script src="\/app\.js\?v=[0-9A-Za-z-]+" defer><\/script>/);
   assert.match(html, /<select id="task-seller-pick">/);
   assert.doesNotMatch(html, /task-seller-pick-field/);
 });
@@ -120,4 +122,48 @@ test('sellers table preserves all business columns', () => {
   ]) {
     assert.match(html, new RegExp(label));
   }
+});
+
+test('shift form uses store code to keep Miska KPI fields and hide them for other stores', () => {
+  const app = fs.readFileSync(path.join(__dirname, '../public/app.js'), 'utf8');
+  const html = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
+  assert.match(app, /state\.stores\.find\(item => item\.id === storeId\)/);
+  assert.match(app, /store\?\.code === 'miska'/);
+  assert.match(html, /id="shift-kpi-fieldset"/);
+  assert.match(html, /data-miska-kpi-preview/);
+});
+
+test('non-Miska dashboard exposes unresolved store bonus without seller performance', () => {
+  const html = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
+  const app = fs.readFileSync(path.join(__dirname, '../public/app.js'), 'utf8');
+  assert.match(html, /id="metric-store-bonus-card" hidden/);
+  assert.match(app, /selectedStore\(\)\?\.code === 'miska'/);
+  assert.match(app, /storeBonus\.amount === null \? 'Не настроена'/);
+});
+
+test('Amper and Ventil navigation is store-centric and premium page does not use seller formula', () => {
+  const html = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
+  const app = fs.readFileSync(path.join(__dirname, '../public/app.js'), 'utf8');
+  assert.match(html, /id="store-bonus-panel" hidden/);
+  assert.match(app, /return !\['sellers', 'tasks', 'import-export'\]\.includes\(route\)/);
+  assert.match(app, /bonusLink\.textContent = isStoreMode\(\) \? 'Премия магазина' : 'Премии'/);
+  assert.match(app, /if \(isStoreMode\(\)\) await loadStoreBonus\(\)/);
+});
+
+test('store mode keeps monthly plan editing but hides Miska KPI settings', () => {
+  const html = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
+  const app = fs.readFileSync(path.join(__dirname, '../public/app.js'), 'utf8');
+  assert.match(html, /id="plan-form"/);
+  assert.match(html, /data-miska-settings/);
+  assert.match(app, /settingsLink\.textContent = isStoreMode\(\) \? 'План' : 'Настройки'/);
+  assert.match(app, /if \(isStoreMode\(\)\) await loadDashboard\(\);\s*else await loadSettings\(\)/);
+});
+
+test('store daily input hides seller and shift key while preserving Miska form', () => {
+  const html = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
+  const app = fs.readFileSync(path.join(__dirname, '../public/app.js'), 'utf8');
+  assert.match(html, /id="shift-employee-field"/);
+  assert.match(html, /id="shift-key-field"/);
+  assert.match(app, /element\('shift-employee-field'\)\.hidden = !miskaMode/);
+  assert.match(app, /employeeCode === `\$\{store\?\.code\}-store-input`/);
 });

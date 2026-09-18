@@ -209,14 +209,15 @@ test('approved totals exclude pending values while working maximum includes them
   );
 });
 
-test('confident foreign product is excluded from the working order', () => {
+test('unmatched Valta product with complete demand data stays orderable', () => {
   const sourceProduct = product({
-    name: 'ЩРН-45 EKF автоматический выключатель',
-    article: 'EKF-ЩРН-45',
+    name: 'Synthetic dry cat food 2 kg',
+    article: 'SYN-CAT-FOOD-2KG',
     analyzerCalculatedQuantity: 4,
     finalRecommendedQuantity: 4,
     freeStock: 2,
     priceNum: 3560.66,
+    supplier: 'АО ВАЛТА ПЕТ ПРОДАКТС',
     assortmentPolicy: { matched: false },
   });
   const result = buildWorkingOrder([sourceProduct], [decision(sourceProduct.rowIdentity, {
@@ -227,16 +228,13 @@ test('confident foreign product is excluded from the working order', () => {
   })]);
   const line = result.products[0];
 
-  assert.equal(line.workflowStatus, 'confidently_excluded');
-  assert.equal(line.blockingReason, 'foreign_product');
+  assert.equal(line.workflowStatus, 'auto_approved');
+  assert.equal(line.blockingReason, null);
   assert.equal(line.approvalRequired, false);
-  assert.equal(line.approvedOrderQuantity, null);
-  assert.equal(line.provisionalOrderQuantity, null);
-  assert.equal(line.provisionalLineSum, 0);
-  assert.equal(result.summary.confidentlyExcludedLines, 1);
-  assert.equal(result.summary.confidentlyExcludedPhase1Value, 14242.64);
-  assert.equal(result.summary.autoApprovedLines, 0);
-  assert.equal(result.summary.workingMaximumLines, 0);
+  assert.equal(line.approvedOrderQuantity, 4);
+  assert.equal(line.approvedLineSum, 14242.64);
+  assert.equal(result.summary.autoApprovedLines, 1);
+  assert.equal(result.summary.workingMaximumLines, 1);
 });
 
 test('suspicious unmatched product is blocked from automatic approval', () => {
@@ -266,10 +264,10 @@ test('suspicious unmatched product is blocked from automatic approval', () => {
   assert.equal(result.summary.pendingReviewLines, 1);
 });
 
-test('matched electrical product is not blocked by foreign filter', () => {
+test('matched pet product retains automatic approval', () => {
   const sourceProduct = product({
-    name: 'ЩРН-45 EKF автоматический выключатель',
-    article: 'EKF-ЩРН-45',
+    name: 'Synthetic dry cat food 2 kg',
+    article: 'SYN-CAT-FOOD-2KG',
     analyzerCalculatedQuantity: 4,
     finalRecommendedQuantity: 4,
     freeStock: 2,
@@ -285,7 +283,7 @@ test('matched electrical product is not blocked by foreign filter', () => {
   const line = result.products[0];
 
   assert.equal(line.workflowStatus, 'auto_approved');
-  assert.notEqual(line.blockingReason, 'foreign_product');
+  assert.equal(line.blockingReason, null);
   assert.equal(line.approvedOrderQuantity, 4);
 });
 
@@ -341,17 +339,19 @@ test('splits working maximum between Зооград and other suppliers', () => 
   ];
   const result = buildWorkingOrder(products, decisions);
 
+  assert.deepEqual(result.products.map(line => line.finalRecommendedQuantity), [2, 3, 5]);
+  const renamed = buildWorkingOrder(products.map(line => ({ ...line, supplier: 'Other supplier' })), decisions);
+  assert.deepEqual(renamed.products.map(line => line.finalRecommendedQuantity),
+    result.products.map(line => line.finalRecommendedQuantity));
+  assert.equal(renamed.summary.zoogradWorkingMaximumLines, 0);
   assert.equal(result.summary.workingMaximumLines, 3);
   assert.equal(result.summary.workingMaximumSum, 230);
   assert.equal(result.summary.zoogradWorkingMaximumLines, 2);
   assert.equal(result.summary.zoogradWorkingMaximumSum, 80);
   assert.equal(result.summary.otherSuppliersWorkingMaximumLines, 1);
   assert.equal(result.summary.otherSuppliersWorkingMaximumSum, 150);
-  assert.ok(result.products.every(p => p.canonicalSupplier === 'зооград' || p.supplier === 'АО "Валта Пет Продуктс"'));
-  assert.equal(
-    result.products.filter(p => p.canonicalSupplier === 'зооград').length,
-    2
-  );
+  assert.equal(result.products.find(p => p.supplier === 'РИЧ СТОР ООО').canonicalSupplier, 'зооград');
+  assert.equal(result.products.filter(p => p.canonicalSupplier === 'зооград').length, 2);
 });
 
 test('working-order report uses workflow sections and preliminary wording', () => {

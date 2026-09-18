@@ -2196,6 +2196,194 @@ h2 {
   font-size: 0.8rem;
 }
 
+.review-triage {
+  margin-top: 22px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 22px;
+  background: #f8faf9;
+}
+
+.review-triage summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.review-triage summary::-webkit-details-marker {
+  display: none;
+}
+
+.review-triage summary h3 {
+  display: inline;
+  margin: 0 0 0 10px;
+  font-size: 1.15rem;
+}
+
+.review-triage-body {
+  margin-top: 16px;
+}
+
+.review-triage-state {
+  margin: 0;
+  color: var(--muted);
+}
+
+.review-triage-banner {
+  display: grid;
+  gap: 6px;
+  border-radius: 14px;
+  padding: 16px;
+  background: #fff;
+  border: 1px solid rgba(245, 124, 0, 0.35);
+}
+
+.review-triage-banner strong {
+  font-size: 1.2rem;
+}
+
+.review-triage-banner span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.review-triage-section {
+  margin-top: 18px;
+}
+
+.review-triage-section h4 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+}
+
+.review-triage-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.review-triage-card {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  border-radius: 14px;
+  padding: 14px;
+  background: #fff;
+}
+
+.review-triage-card h5 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.review-triage-card p {
+  margin: 0;
+  font-size: 0.88rem;
+}
+
+.review-triage-card-meta {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.review-triage-card-action {
+  border-left: 3px solid rgba(245, 124, 0, 0.55);
+  padding-left: 10px;
+}
+
+.review-triage-card-blocked {
+  background: rgba(179, 157, 219, 0.12);
+  border-left: 3px solid rgba(126, 87, 194, 0.6);
+}
+
+.review-triage-card-attention {
+  font-weight: 600;
+  color: #8a4b00;
+}
+
+.review-triage-technical pre {
+  overflow-x: auto;
+  border-radius: 10px;
+  padding: 10px;
+  background: #f1f4f2;
+  color: var(--muted);
+  font-size: 0.74rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.review-triage-group-note {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.review-triage-collapsible summary {
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+
+.review-triage-collapsible summary::marker {
+  color: var(--muted);
+}
+
+.review-triage-options {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 0.86rem;
+}
+
+.review-triage-options li + li {
+  margin-top: 4px;
+}
+
+.review-triage-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.review-triage-field {
+  display: grid;
+  gap: 2px;
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: #f6f8f7;
+}
+
+.review-triage-field span {
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.review-triage-field strong {
+  font-size: 0.9rem;
+}
+
+.review-triage-card details {
+  font-size: 0.84rem;
+}
+
+.review-triage-card pre {
+  overflow-x: auto;
+  border-radius: 10px;
+  padding: 10px;
+  background: #f1f4f2;
+  font-size: 0.78rem;
+}
+
+.review-triage-exclusion-group h5 {
+  margin: 10px 0 6px;
+  font-size: 0.88rem;
+}
+
+.review-triage-exclusion-group ul {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 0.86rem;
+}
+
 .products {
   margin-top: 22px;
 }

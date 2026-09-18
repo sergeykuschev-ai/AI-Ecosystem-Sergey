@@ -172,7 +172,7 @@ test('незавершённая проверка блокирует оптим�
   const result = await optimize(100);
   assert.equal(result.response.status, 409);
   assert.equal(result.body.error.code, 'OWNER_REVIEW_INCOMPLETE');
-  assert.ok(result.body.error.message.includes('Завершите ручную проверку'));
+  assert.ok(result.body.error.message.includes('Завершите решения владельца'));
 });
 
 test('инвариант до завершения проверки: счётчик, флаг, оптимизация и экспорт согласованы',
@@ -194,7 +194,7 @@ test('инвариант до завершения проверки: счётч�
     assert.equal(supplierOrder.response.status, 200);
     assert.equal(supplierOrder.body.data.available, false);
     assert.ok(
-      supplierOrder.body.data.blockedReason.includes('ручную проверку')
+      supplierOrder.body.data.blockedReason.includes('решения владельца')
     );
     // RunSummaryDTO доступен и не несёт собственного флага проверки —
     // состояние проверки живёт только в owner_decisions + /final-order.

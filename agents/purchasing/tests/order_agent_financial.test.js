@@ -9,6 +9,7 @@ const {
 const {
   runOrderAgent,
   runOrderAgentFromAdapterResult,
+  runOrderAgentFromAdapterResultWithDemand,
 } = require('../order_agent');
 
 function legacyOrderItems({ price = 10, quantity = 2 } = {}) {
@@ -154,4 +155,27 @@ test('financial rejection does not change product quantities or Phase 1 decision
   assert.equal(rejected.manualReviewCount, preliminary.manualReviewCount);
   assert.equal(rejected.postponeCount, preliminary.postponeCount);
   assert.equal(rejected.doNotBuyCount, preliminary.doNotBuyCount);
+});
+
+
+test('Phase 2 financial assessment uses working maximum while preserving raw preliminary sum', () => {
+  const fixturePath = path.resolve(
+    __dirname,
+    '../../../tests/fixtures/SmartZapas_sanitized.json'
+  );
+  const fixture = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
+  const adapterResult = adaptSmartZapasMatrix(fixture.matrix, {
+    sheetName: fixture.sheetName,
+  });
+  const json = runOrderAgentFromAdapterResultWithDemand(
+    adapterResult,
+    { purchasingProfile: 'miska' },
+    { financialData: financialDataForStatus('APPROVED') }
+  )[0].json;
+
+  assert.notEqual(json.preliminary_order_sum, json.workingMaximumSum);
+  assert.equal(
+    json.financial_assessment.proposed_order_amount,
+    json.workingMaximumSum
+  );
 });

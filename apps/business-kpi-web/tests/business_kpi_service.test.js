@@ -16,8 +16,8 @@ const {
 } = require('../../../agents/business-kpi/rules/reference_settings');
 
 const OWNER = Object.freeze({ id: 'owner-test', role: 'OWNER' });
-const MANAGER = Object.freeze({ id: 'manager-test', role: 'MANAGER' });
-const SELLER = Object.freeze({ id: 'seller-test', role: 'SELLER' });
+const MANAGER = Object.freeze({ id: 'manager-test', role: 'MANAGER', storeId: DEV_STORE.id });
+const SELLER = Object.freeze({ id: 'seller-test', role: 'SELLER', storeId: DEV_STORE.id });
 
 function shiftInput(overrides = {}) {
   return {
@@ -380,4 +380,91 @@ test('items_sold primary-source correction resolves Kapitanova partial shifts an
   }, OWNER)).month;
   assert.equal(monthAfter.revenue, monthBefore.revenue);
   assert.equal(monthAfter.receipts, monthBefore.receipts);
+});
+
+test('monthly store summary exposes cash, acquiring and QR without double counting', async () => {
+  const { service } = fixture();
+  await service.createShift(shiftInput({
+    shiftDate: '2026-08-12', cash: 12000, acquiring: 18000, qr: 3000,
+  }), OWNER);
+  await service.createShift(shiftInput({
+    shiftDate: '2026-08-13', cash: 8000, acquiring: 12000, qr: 2000,
+  }), OWNER);
+
+  const august = (await service.listMonths({ storeId: DEV_STORE.id, year: 2026 }))[7];
+  assert.equal(august.revenue, 50000);
+  assert.equal(august.cash, 20000);
+  assert.equal(august.acquiring, 30000);
+  assert.equal(august.qr, 5000);
+  assert.equal(august.qrShare, 0.1);
+});
+
+test('Amper accepts store-level payment input without inheriting Miska KPI settings', async () => {
+  const { service, store } = fixture();
+  const amper = store.stores.find(item => item.code === 'amper');
+  const employee = {
+    id: '20000000-0000-4000-8000-000000000020',
+    storeId: amper.id,
+    employeeCode: 'amper-store-input',
+    displayName: 'Ампер',
+    active: true,
+    userId: null,
+    hiredOn: null,
+    terminatedOn: null,
+  };
+  store.employees.push(employee);
+  const created = await service.createShift(shiftInput({
+    storeId: amper.id,
+    employeeId: employee.id,
+    cash: 20000,
+    acquiring: 30000,
+    qr: 5000,
+    receipts: 25,
+    itemsSold: null,
+    upsellReceipts: null,
+    treatsRevenue: null,
+    treatsReceipts: null,
+  }), OWNER);
+  assert.equal(created.metrics.revenue, 50000);
+  assert.equal(created.metrics.qrShare, 0.1);
+  assert.equal(created.metrics.kpiStatus, 'UNRESOLVED');
+  assert.equal(created.metrics.kpiScore, null);
+  const dashboard = await service.getDashboard({ storeId: amper.id, year: 2026, month: 8 }, OWNER);
+  assert.equal(dashboard.month.revenue, 50000);
+  assert.equal(dashboard.month.cash, 20000);
+  assert.equal(dashboard.month.acquiring, 30000);
+  assert.equal(dashboard.month.qr, 5000);
+  assert.equal(dashboard.month.qrShare, 0.1);
+});
+
+test('Amper dashboard marks store premium unresolved instead of inventing coefficients', async () => {
+  const { service } = fixture();
+  const amper = (await service.store.listStores()).find(store => store.code === 'amper');
+  const dashboard = await service.getDashboard({ storeId: amper.id, year: 2026, month: 8 }, OWNER);
+  assert.equal(dashboard.settingsStatus, 'UNRESOLVED');
+  assert.equal(dashboard.storeBonus.status, 'UNRESOLVED');
+  assert.equal(dashboard.storeBonus.amount, null);
+  assert.match(dashboard.storeBonus.reason, /не настроены владельцем/);
+});
+
+test('store manager cannot read, create, update or archive another store records', async () => {
+  const { service, store } = fixture();
+  const amper = store.stores.find(item => item.code === 'amper');
+  const amperEmployee = store.employees.find(item => item.storeId === amper.id);
+  const amperManager = { id: 'amper-manager', role: 'MANAGER', storeId: amper.id };
+  const created = await service.createShift(shiftInput(), OWNER);
+  for (const operation of [
+    () => service.listShifts({ storeId: DEV_STORE.id }, amperManager),
+    () => service.getShift(created.id, amperManager),
+    () => service.createShift(shiftInput(), amperManager),
+    () => service.updateShift(created.id, { cash: 1 }, amperManager),
+    () => service.archiveShift(created.id, amperManager),
+  ]) {
+    await assert.rejects(operation, error => error.code === 'FORBIDDEN');
+  }
+  const own = await service.createShift({
+    ...shiftInput({ storeId: amper.id, employeeId: amperEmployee.id }),
+    itemsSold: null, upsellReceipts: null, treatsRevenue: null, treatsReceipts: null,
+  }, amperManager);
+  assert.equal(own.storeId, amper.id);
 });

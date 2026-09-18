@@ -55,6 +55,7 @@ function mapRunStatus(input) {
       summary: `/api/v1/runs/${runId}/summary`,
       items: `/api/v1/runs/${runId}/items`,
       owner_review: `/api/v1/runs/${runId}/owner-review`,
+      review_triage: `/api/v1/runs/${runId}/review-triage`,
       artifacts: `/api/v1/runs/${runId}/artifacts`,
     },
   };

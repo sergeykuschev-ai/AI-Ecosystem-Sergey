@@ -72,6 +72,7 @@ function calculateKpiMetrics(input, settings) {
     throw new TypeError('KPI metric input must be an object');
   }
   if (settings === undefined) settings = MISKA_AUGUST_2026_SETTINGS;
+  const qrIncludedInAcquiring = settings?.payment?.qrIncludedInAcquiring ?? true;
   const paymentBreakdownAvailable = input.paymentBreakdownAvailable !== false &&
     input.revenueSource !== 'historical_total';
   if (settings !== null && (!settings?.payment ||
@@ -89,12 +90,12 @@ function calculateKpiMetrics(input, settings) {
     cash = fromMinorUnits(toMinorUnits(input.cash, 'cash'));
     acquiring = fromMinorUnits(toMinorUnits(input.acquiring, 'acquiring'));
     qr = fromMinorUnits(toMinorUnits(input.qr, 'qr'));
-    if (settings?.payment.qrIncludedInAcquiring && qr > acquiring) {
+    if (qrIncludedInAcquiring && qr > acquiring) {
       throw new TypeError('qr must be less than or equal to acquiring');
     }
     revenue = fromMinorUnits(
       toMinorUnits(cash, 'cash') + toMinorUnits(acquiring, 'acquiring') +
-      (settings?.payment.qrIncludedInAcquiring === false ? toMinorUnits(qr, 'qr') : 0)
+      (!qrIncludedInAcquiring ? toMinorUnits(qr, 'qr') : 0)
     );
   } else {
     revenue = fromMinorUnits(toMinorUnits(input.historicalRevenue, 'historicalRevenue'));
@@ -183,7 +184,7 @@ function calculateKpiMetrics(input, settings) {
       cash,
       acquiring,
       qr,
-      qrIncludedInAcquiring: settings?.payment.qrIncludedInAcquiring ?? true,
+      qrIncludedInAcquiring,
     }) : null,
   });
 }
