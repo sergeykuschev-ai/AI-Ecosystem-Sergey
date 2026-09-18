@@ -73,22 +73,47 @@ function assessKimiUsage(data, reservePercent = 10) {
   if (!data || data.kind !== 'ok') {
     return { usable: false, reason: 'usage-unavailable', windows: [] };
   }
-  const raw = [data.summary, ...(Array.isArray(data.limits) ? data.limits : [])].filter(Boolean);
-  const windows = raw.map((item) => {
-    const used = Number(item.used);
-    const limit = Number(item.limit);
-    const remainingPercent = limit > 0 && Number.isFinite(used)
-      ? Math.max(0, ((limit - used) / limit) * 100)
-      : 0;
-    return {
-      duration: item.window?.duration,
-      unit: item.window?.unit,
-      used,
-      limit,
-      remainingPercent,
-      resetAt: item.reset_at || null,
-    };
-  }).filter((item) => Number.isFinite(item.used) && Number.isFinite(item.limit));
+
+  const managedUsages = data.quota && data.quota.usages;
+  let windows = [];
+  if (managedUsages && typeof managedUsages === 'object') {
+    const entries = [
+      ['5h', managedUsages.limit5h],
+      ['7d', managedUsages.limit7d],
+      ['month-total', managedUsages.monthTotal],
+      ['month-code', managedUsages.monthCode],
+    ];
+    windows = entries.map(([name, item]) => {
+      const usedRatio = Number(item && item.usedRatio);
+      if (!Number.isFinite(usedRatio)) return null;
+      const normalized = Math.max(0, Math.min(usedRatio, 1));
+      return {
+        name,
+        usedRatio: normalized,
+        used: normalized,
+        limit: 1,
+        remainingPercent: Math.max(0, (1 - normalized) * 100),
+        resetAt: item.resetAt || null,
+      };
+    }).filter(Boolean);
+  } else {
+    const raw = [data.summary, ...(Array.isArray(data.limits) ? data.limits : [])].filter(Boolean);
+    windows = raw.map((item) => {
+      const used = Number(item.used);
+      const limit = Number(item.limit);
+      const remainingPercent = limit > 0 && Number.isFinite(used)
+        ? Math.max(0, ((limit - used) / limit) * 100)
+        : 0;
+      return {
+        duration: item.window?.duration,
+        unit: item.window?.unit,
+        used,
+        limit,
+        remainingPercent,
+        resetAt: item.reset_at || null,
+      };
+    }).filter((item) => Number.isFinite(item.used) && Number.isFinite(item.limit));
+  }
 
   if (windows.length === 0) return { usable: false, reason: 'usage-unavailable', windows };
   const low = windows.filter((item) => item.remainingPercent <= reservePercent);

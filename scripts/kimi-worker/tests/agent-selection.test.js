@@ -35,6 +35,37 @@ test('five-hour window can independently trigger the reserve', () => {
   assert.equal(q.minRemainingPercent, 5);
 });
 
+test('Kimi 2.0 managed quota payload is assessed from usedRatio', () => {
+  const q = assessKimiUsage({
+    kind: 'ok',
+    quota: {
+      usages: {
+        limit5h: { usedRatio: 0, resetAt: '2026-09-18T17:48:00Z' },
+        limit7d: { usedRatio: 0, resetAt: '2026-09-20T10:48:00Z' },
+        monthTotal: { usedRatio: 0.1936, resetAt: '2026-10-07T00:00:00Z' },
+      },
+      extraUsage: null,
+    },
+  }, 10);
+  assert.equal(q.usable, true);
+  assert.equal(Math.round(q.minRemainingPercent * 100) / 100, 80.64);
+});
+
+test('Kimi 2.0 managed monthly quota protects the reserve', () => {
+  const q = assessKimiUsage({
+    kind: 'ok',
+    quota: {
+      usages: {
+        monthTotal: { usedRatio: 0.96, resetAt: '2026-10-07T00:00:00Z' },
+      },
+      extraUsage: null,
+    },
+  }, 10);
+  assert.equal(q.usable, false);
+  assert.equal(q.reason, 'reserve-protected');
+  assert.equal(Math.round(q.minRemainingPercent), 4);
+});
+
 test('auto mode selects Codex when Kimi reserve is reached', async () => {
   const oldMode = config.agent.mode;
   const oldReserve = config.agent.kimiReservePercent;
