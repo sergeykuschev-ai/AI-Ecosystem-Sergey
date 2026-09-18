@@ -46,6 +46,10 @@ function runKimi(worktreePath, prompt, transcriptPath, agentFilePath) {
       PATH: process.env.PATH,
       HOME: process.env.HOME,
       LANG: process.env.LANG || 'en_US.UTF-8',
+      ...(process.env.HTTP_PROXY ? { HTTP_PROXY: process.env.HTTP_PROXY } : {}),
+      ...(process.env.HTTPS_PROXY ? { HTTPS_PROXY: process.env.HTTPS_PROXY } : {}),
+      ...(process.env.NO_PROXY ? { NO_PROXY: process.env.NO_PROXY } : {}),
+      ...(process.env.NODE_USE_ENV_PROXY ? { NODE_USE_ENV_PROXY: process.env.NODE_USE_ENV_PROXY } : {}),
       TMPDIR: path.join(os.tmpdir(), `kimi-worker-${process.pid}`),
       npm_config_cache: path.join(os.tmpdir(), `kimi-npm-${process.pid}`),
     };
