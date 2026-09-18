@@ -41,6 +41,10 @@ async function fetchKimiUsage({ command = config.kimi.command, startupTimeoutMs 
     PATH: process.env.PATH,
     HOME: process.env.HOME,
     LANG: process.env.LANG || 'en_US.UTF-8',
+    ...(process.env.HTTP_PROXY ? { HTTP_PROXY: process.env.HTTP_PROXY } : {}),
+    ...(process.env.HTTPS_PROXY ? { HTTPS_PROXY: process.env.HTTPS_PROXY } : {}),
+    ...(process.env.NO_PROXY ? { NO_PROXY: process.env.NO_PROXY } : {}),
+    ...(process.env.NODE_USE_ENV_PROXY ? { NODE_USE_ENV_PROXY: process.env.NODE_USE_ENV_PROXY } : {}),
   };
   const child = spawn(command, ['web', '--no-open', '--dangerous-bypass-auth', '--port', String(port)], {
     env,
