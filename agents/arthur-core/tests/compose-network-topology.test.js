@@ -55,14 +55,16 @@ describe('docker/arthur/compose.yml network topology', () => {
     assert.ok(!api.ports || api.ports.length === 0, 'api must not publish host ports');
   });
 
-  test('telegram-gateway has env_file for explicit .env loading', () => {
-    const gateway = compose.services['telegram-gateway'];
-    assert.ok(gateway.env_file, 'telegram-gateway must declare env_file');
-    const files = Array.isArray(gateway.env_file) ? gateway.env_file : [gateway.env_file];
-    assert.ok(files.some(entry => {
-      const value = typeof entry === 'string' ? entry : entry.path || entry;
-      return value === '.env';
-    }), 'telegram-gateway env_file must include .env');
+  test('Arthur services support an external production env file', () => {
+    for (const serviceName of ['migrate', 'api', 'telegram-gateway']) {
+      const service = compose.services[serviceName];
+      assert.ok(service.env_file, `${serviceName} must declare env_file`);
+      const files = Array.isArray(service.env_file) ? service.env_file : [service.env_file];
+      assert.ok(files.some(entry => {
+        const value = typeof entry === 'string' ? entry : entry.path || entry;
+        return value === '${ARTHUR_ENV_FILE:-.env}';
+      }), `${serviceName} env_file must support ARTHUR_ENV_FILE`);
+    }
   });
 });
 

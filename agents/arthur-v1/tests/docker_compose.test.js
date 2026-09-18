@@ -93,14 +93,26 @@ test('Arthur Core client token is not explicitly exposed to database or migratio
   assert.equal(compose.services.migrate.environment.ARTHUR_CORE_TOKEN, undefined);
 });
 
-test('telegram-gateway mounts purchasing runs read-only', () => {
+test('telegram-gateway mounts configurable purchasing runs source read-only', () => {
   const compose = loadCompose();
   const volumes = compose.services['telegram-gateway'].volumes || [];
   const runVolume = volumes.find(v =>
-    typeof v === 'string' && v.includes('output/purchasing-web/runs')
+    typeof v === 'string' && v.includes('/opt/arthur/output/purchasing-web/runs')
   );
   assert.ok(runVolume, 'purchasing runs volume not found');
+  assert.ok(
+    runVolume.startsWith('${PURCHASING_RUNS_SOURCE:-../../output/purchasing-web/runs}:'),
+    `expected configurable host source, got ${runVolume}`
+  );
   assert.ok(runVolume.endsWith(':ro'), `expected read-only mount, got ${runVolume}`);
+});
+
+test('Arthur services use externalizable env file path', () => {
+  const compose = loadCompose();
+  for (const serviceName of ['migrate', 'api', 'telegram-gateway']) {
+    const files = compose.services[serviceName].env_file || [];
+    assert.ok(files.includes('${ARTHUR_ENV_FILE:-.env}'), `${serviceName} env_file is not externalizable`);
+  }
 });
 
 test('Yandex mail secret files are scoped only to telegram-gateway', () => {

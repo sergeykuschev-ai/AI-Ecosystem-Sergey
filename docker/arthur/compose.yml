@@ -27,7 +27,7 @@ services:
       postgres:
         condition: service_healthy
     env_file:
-      - .env
+      - ${ARTHUR_ENV_FILE:-.env}
     environment:
       NODE_ENV: production
       ARTHUR_DATABASE_URL: postgresql://arthur:${ARTHUR_POSTGRES_PASSWORD:?ARTHUR_POSTGRES_PASSWORD is required}@postgres:5432/arthur
@@ -46,7 +46,7 @@ services:
       migrate:
         condition: service_completed_successfully
     env_file:
-      - .env
+      - ${ARTHUR_ENV_FILE:-.env}
     environment:
       NODE_ENV: production
       ARTHUR_ALLOW_PRODUCTION: "true"
@@ -87,7 +87,7 @@ services:
       api:
         condition: service_healthy
     env_file:
-      - .env
+      - ${ARTHUR_ENV_FILE:-.env}
     environment:
       NODE_ENV: production
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?TELEGRAM_BOT_TOKEN is required}
@@ -134,7 +134,7 @@ services:
     ports:
       - "127.0.0.1:${TELEGRAM_GATEWAY_HEALTH_PORT:-8788}:${TELEGRAM_GATEWAY_HEALTH_PORT:-8788}"
     volumes:
-      - ../../output/purchasing-web/runs:/opt/arthur/output/purchasing-web/runs:ro
+      - ${PURCHASING_RUNS_SOURCE:-../../output/purchasing-web/runs}:/opt/arthur/output/purchasing-web/runs:ro
     secrets:
       - source: arthur_mailbox_miska_yandex_username
         target: arthur_mailbox_miska_yandex_username
