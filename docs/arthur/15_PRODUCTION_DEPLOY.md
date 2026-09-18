@@ -136,7 +136,14 @@ Creating the canonical `sergey` profile changes production storage and is not pa
 
 ## 7. Phase 2 — Telegram Gateway
 
-Only after Core is stable and production Telegram identity/token are verified, set the real Telegram variables in the external env file.
+Only after Core is stable and the production Telegram identity/token are verified, keep the bot token in a root-only file and point Compose at that file. The token must not be stored in the production env or exposed through `docker inspect`.
+
+Production example:
+
+```text
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_BOT_TOKEN_SECRET_SOURCE=/opt/arthur/config/telegram-bot-token
+```
 
 Production Telegram egress uses the `telegram-proxy` sidecar:
 
@@ -146,7 +153,7 @@ Production Telegram egress uses the `telegram-proxy` sidecar:
 - the Gateway defaults `HTTP_PROXY` and `HTTPS_PROXY` to `http://telegram-proxy:18443`;
 - `NO_PROXY` keeps PostgreSQL and Arthur Core traffic inside Docker.
 
-Before starting the Gateway, validate the candidate bot token with Telegram `getMe`. A token returning HTTP/API `401 Unauthorized` must not be deployed.
+Before starting the Gateway, validate the candidate bot token with Telegram `getMe`. A token returning HTTP/API `401 Unauthorized` must not be deployed. The Gateway reads the token from `/run/secrets/telegram_bot_token`; it is not injected into the container environment.
 
 For read-only Business KPI integration, create/verify the shared internal network and attach the KPI web service before starting the Gateway:
 

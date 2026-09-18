@@ -115,14 +115,16 @@ test('Arthur services use externalizable env file path', () => {
   }
 });
 
-test('Yandex mail secret files are scoped only to telegram-gateway', () => {
+test('Gateway secret files are scoped only to telegram-gateway', () => {
   const compose = loadCompose();
   const gatewaySecrets = compose.services['telegram-gateway'].secrets || [];
   assert.deepEqual(gatewaySecrets.map(secret => secret.source), [
+    'telegram_bot_token',
     'arthur_mailbox_miska_yandex_username',
     'arthur_mailbox_miska_yandex_app_password',
   ]);
   assert.deepEqual(gatewaySecrets.map(secret => secret.target), [
+    'telegram_bot_token',
     'arthur_mailbox_miska_yandex_username',
     'arthur_mailbox_miska_yandex_app_password',
   ]);
@@ -139,9 +141,10 @@ test('Yandex mail secret files are scoped only to telegram-gateway', () => {
   }
 });
 
-test('telegram-gateway receives non-secret Yandex config and secret file paths only', () => {
+test('telegram-gateway receives Telegram and Yandex secret file paths only', () => {
   const compose = loadCompose();
   const env = compose.services['telegram-gateway'].environment;
+  assert.equal(env.TELEGRAM_BOT_TOKEN_SECRET_FILE, '/run/secrets/telegram_bot_token');
   assert.equal(env.ARTHUR_MAILBOX_MISKA_YANDEX_ENABLED, '${ARTHUR_MAILBOX_MISKA_YANDEX_ENABLED:-false}');
   assert.equal(env.ARTHUR_MAILBOX_MISKA_YANDEX_IMAP_HOST, '${ARTHUR_MAILBOX_MISKA_YANDEX_IMAP_HOST:-imap.yandex.ru}');
   assert.equal(env.ARTHUR_MAILBOX_MISKA_YANDEX_IMAP_PORT, '${ARTHUR_MAILBOX_MISKA_YANDEX_IMAP_PORT:-993}');

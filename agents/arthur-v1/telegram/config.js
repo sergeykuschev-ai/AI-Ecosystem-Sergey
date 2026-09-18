@@ -1,5 +1,23 @@
 'use strict';
 
+const fs = require('node:fs');
+
+function loadTelegramToken(env = process.env) {
+  const inlineToken = String(env.TELEGRAM_BOT_TOKEN || '').trim();
+  if (inlineToken) return inlineToken;
+
+  const secretFile = String(env.TELEGRAM_BOT_TOKEN_SECRET_FILE || '').trim();
+  if (!secretFile) return '';
+
+  try {
+    return fs.readFileSync(secretFile, 'utf8').trim();
+  } catch (error) {
+    const safeError = new TypeError('Unable to read TELEGRAM_BOT_TOKEN_SECRET_FILE');
+    safeError.code = 'TELEGRAM_TOKEN_SECRET_READ_FAILED';
+    throw safeError;
+  }
+}
+
 function parseAllowedUserIds(value) {
   if (!value) return new Set();
   return new Set(
@@ -109,7 +127,7 @@ function loadYandexMailConfig(env = process.env) {
 }
 
 function loadConfig(env = process.env) {
-  const token = env.TELEGRAM_BOT_TOKEN || '';
+  const token = loadTelegramToken(env);
   const allowedUserIds = parseAllowedUserIds(env.TELEGRAM_ALLOWED_USER_IDS);
   const ownerProfileId = (env.ARTHUR_OWNER_PROFILE_ID || '').trim();
   const coreBaseUrl = (env.ARTHUR_CORE_BASE_URL || '').trim();
@@ -235,4 +253,5 @@ module.exports = {
   parseAllowedUserIds,
   parseEnabled,
   parseServiceKeys,
+  loadTelegramToken,
 };
