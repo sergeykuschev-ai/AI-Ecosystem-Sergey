@@ -1,6 +1,6 @@
 # Production Architecture v2
 
-Status: verified against live `stores-web1` on 2026-09-18.
+Status: verified against live `stores-web1` on 2026-09-18 after Arthur Core production activation.
 
 This document is the current infrastructure source of truth. Older Arthur documents describe the intended architecture and may not reflect the running system.
 
@@ -35,6 +35,8 @@ The Ubuntu host `stores-web1` is currently the main production application host.
 | Business KPI | Docker `business-kpi-web-1` | separate PostgreSQL | loopback + Tailscale |
 | Business KPI DB | Docker `business-kpi-postgres-1` | Docker volume | internal network only |
 | Purchasing | Docker `miska-purchasing` | `/opt/miska-purchasing/data` + `state` | loopback + Tailscale |
+| Arthur Core API | Docker `arthur-core-api-1` | Arthur PostgreSQL | Docker networks only; no host port |
+| Arthur Core DB | Docker `arthur-core-postgres-1` | Docker volume `arthur-core_arthur_postgres_data` | internal network only |
 | Instagram publisher | systemd + Node/Python | `/opt/instagram-automation` | outbound only |
 | Remote management | Desktop Commander | host filesystem/processes | authenticated remote agent |
 
@@ -88,15 +90,16 @@ Daily host backups are executed by `sergey-architecture-backup.timer`. They incl
 
 - Stores PostgreSQL custom-format dump;
 - Business KPI PostgreSQL custom-format dump;
+- Arthur Core PostgreSQL custom-format dump;
 - Directus uploads archive.
 
-The current host retention is 14 days. Purchasing has its own daily backup of `data`, `state`, and `final-orders`. Backup success must include archive/dump validation, not only file existence.
+The current host retention is 14 days. Purchasing has its own daily backup of `data`, `state`, and `final-orders`. PostgreSQL dumps are validated with `pg_restore -l`; Directus archives are validated with `tar -tzf`. A controlled Arthur restore drill to a temporary database was completed successfully on 2026-09-18.
 
 An encrypted emergency off-host bundle is created after the local backup window and copied to the separately administered Germany proxy. Encryption with `age` happens before transfer and the remote checksum is verified before publication. To avoid consuming the proxy's small disk, only the latest encrypted emergency bundle is retained there. Long-term off-host history should use dedicated object storage rather than the proxy disk.
 
 ## 9. Arthur and AI workers
 
-Arthur Core is the target orchestration layer, not yet the running production control plane. A separate `arthur-staging` stack is now verified on the live host with isolated PostgreSQL, migrations and an internal-only Core API. Existing production services stay independently callable while Arthur is introduced incrementally through explicit APIs/skills.
+Arthur Core is now running in production as a **Core-only foundation**: isolated PostgreSQL, migrations, and an internal-only API with no published host port. The canonical owner profile `sergey` exists with timezone `Asia/Vladivostok`. Telegram Gateway, n8n, mail access, KPI automation, and external AI-provider actions remain disabled. Existing production services stay independently callable while Arthur is introduced incrementally through explicit APIs/skills.
 
 The Kimi worker is installed as an isolated systemd service under `kimiworker` and its timer is deliberately enabled after a controlled end-to-end validation. It uses the mainland Kimi Code session through the configured proxy path, checks quota reserve, works in isolated Git worktrees, and may create pull requests but must not merge or deploy production automatically.
 ## 10. Known boundaries and risks
@@ -115,7 +118,7 @@ The Kimi worker is installed as an isolated systemd service under `kimiworker` a
 3. Normalize Git deployment flow and retire stale worktrees only after branch verification.
 4. Harden management/CMS surfaces without breaking owner access.
 5. Keep the autonomous code worker PR-only, quota-guarded and sandboxed.
-6. Promote Arthur Core from verified staging to production in phases: Core first, then Telegram, then read-only skills, then scheduled automation.
+6. Keep the current Arthur Core production foundation stable; next activate Telegram Gateway as a separate phase, then read-only skills, then scheduled automation.
 7. Keep local-model compute on a separate node sized for GPU workloads.
 
 Any future architecture document that conflicts with this file must explicitly state whether it is a target design or a verified running-state update.

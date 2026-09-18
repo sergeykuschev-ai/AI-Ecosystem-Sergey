@@ -26,7 +26,7 @@ trap 'rm -rf "$WORK"' EXIT HUP INT TERM
 eval "$(python3 - "$BASE/last.json" <<'PY'
 import json, shlex, sys
 data=json.load(open(sys.argv[1]))
-for env,key in [('STORES','stores_web'),('KPI','business_kpi'),('UPLOADS','uploads')]:
+for env,key in [('STORES','stores_web'),('KPI','business_kpi'),('ARTHUR','arthur_core'),('UPLOADS','uploads')]:
     value=data.get(key)
     if not isinstance(value,str) or not value:
         raise SystemExit(f'missing {key} in last.json')
@@ -37,19 +37,20 @@ PY
 PURCHASING=$(find /opt/miska-purchasing/backups -maxdepth 1 -type f -name 'miska-purchasing-*.tar.gz' -printf '%T@ %p\n' \
   | sort -nr | head -1 | cut -d' ' -f2-)
 
-for file in "$STORES" "$KPI" "$UPLOADS" "$PURCHASING"; do
+for file in "$STORES" "$KPI" "$ARTHUR" "$UPLOADS" "$PURCHASING"; do
   [ -n "$file" ] && [ -s "$file" ] || { echo "missing backup input: $file" >&2; exit 1; }
 done
 
 cp "$STORES" "$WORK/stores-web.dump"
 cp "$KPI" "$WORK/business-kpi.dump"
+cp "$ARTHUR" "$WORK/arthur-core.dump"
 cp "$UPLOADS" "$WORK/directus-uploads.tar.gz"
 cp "$PURCHASING" "$WORK/miska-purchasing.tar.gz"
 
-python3 - "$WORK" "$STAMP" "$STORES" "$KPI" "$UPLOADS" "$PURCHASING" <<'PY'
+python3 - "$WORK" "$STAMP" "$STORES" "$KPI" "$ARTHUR" "$UPLOADS" "$PURCHASING" <<'PY'
 import hashlib, json, os, sys
 work, stamp, *sources = sys.argv[1:]
-names=['stores-web.dump','business-kpi.dump','directus-uploads.tar.gz','miska-purchasing.tar.gz']
+names=['stores-web.dump','business-kpi.dump','arthur-core.dump','directus-uploads.tar.gz','miska-purchasing.tar.gz']
 items=[]
 for name,src in zip(names,sources):
     path=os.path.join(work,name)
@@ -58,7 +59,7 @@ for name,src in zip(names,sources):
         for chunk in iter(lambda:f.read(1024*1024),b''):
             h.update(chunk)
     items.append({'name':name,'source':src,'bytes':os.path.getsize(path),'sha256':h.hexdigest()})
-manifest={'created_at':stamp,'format':'sergey-offhost-v1','items':items}
+manifest={'created_at':stamp,'format':'sergey-offhost-v2','items':items}
 with open(os.path.join(work,'manifest.json'),'w') as f:
     json.dump(manifest,f,ensure_ascii=False,indent=2)
     f.write('\n')
@@ -66,7 +67,7 @@ PY
 
 ARCHIVE="$STAGING/sergey-offhost-$STAMP.tar.gz"
 ENCRYPTED="$ARCHIVE.age"
-tar -C "$WORK" -czf "$ARCHIVE" manifest.json stores-web.dump business-kpi.dump directus-uploads.tar.gz miska-purchasing.tar.gz
+tar -C "$WORK" -czf "$ARCHIVE" manifest.json stores-web.dump business-kpi.dump arthur-core.dump directus-uploads.tar.gz miska-purchasing.tar.gz
 age -R "$RECIPIENTS" -o "$ENCRYPTED.tmp" "$ARCHIVE"
 head -1 "$ENCRYPTED.tmp" | grep -qx 'age-encryption.org/v1'
 mv "$ENCRYPTED.tmp" "$ENCRYPTED"

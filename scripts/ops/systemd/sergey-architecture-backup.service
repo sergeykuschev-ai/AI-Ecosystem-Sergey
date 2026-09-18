@@ -1,5 +1,5 @@
 [Unit]
-Description=Daily backup for Stores Web and Business KPI
+Description=Daily backup for Stores Web, Business KPI, and Arthur Core
 After=docker.service
 Requires=docker.service
 
