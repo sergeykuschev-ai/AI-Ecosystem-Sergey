@@ -55,6 +55,7 @@ describe('docker/arthur/compose.yml network topology', () => {
     assert.ok(networks.includes('arthur_outbound'), 'telegram-gateway must be on arthur_outbound');
     assert.ok(networks.includes('arthur_services'), 'telegram-gateway must be on arthur_services');
     assert.equal(gateway.depends_on['telegram-proxy'].condition, 'service_healthy');
+    assert.deepEqual(gateway.group_add, ['${ARTHUR_PURCHASING_SHARED_GID:-1888}']);
     assert.equal(gateway.environment.HTTP_PROXY, '${TELEGRAM_HTTP_PROXY:-http://telegram-proxy:18443}');
     assert.equal(gateway.environment.HTTPS_PROXY, '${TELEGRAM_HTTPS_PROXY:-http://telegram-proxy:18443}');
     assert.match(gateway.environment.NO_PROXY, /api/);

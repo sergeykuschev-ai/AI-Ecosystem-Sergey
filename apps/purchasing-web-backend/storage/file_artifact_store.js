@@ -50,6 +50,7 @@ function fsyncDirectory(directoryPath, fsModule = fs) {
 
 function atomicWriteFile(filePath, content, options = {}) {
   const fsModule = options.fsModule || fs;
+  const mode = Number.isInteger(options.mode) ? options.mode : 0o600;
   const directoryPath = path.dirname(filePath);
   fsModule.mkdirSync(directoryPath, { recursive: true });
   const suffix = `${process.pid}-${crypto.randomBytes(6).toString('hex')}`;
@@ -59,7 +60,7 @@ function atomicWriteFile(filePath, content, options = {}) {
   );
   let descriptor;
   try {
-    descriptor = fsModule.openSync(temporaryPath, 'wx', 0o600);
+    descriptor = fsModule.openSync(temporaryPath, 'wx', mode);
     fsModule.writeFileSync(descriptor, content, 'utf8');
     fsModule.fsyncSync(descriptor);
     fsModule.closeSync(descriptor);
