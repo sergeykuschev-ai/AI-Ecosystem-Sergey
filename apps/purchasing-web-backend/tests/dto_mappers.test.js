@@ -56,6 +56,7 @@ before(async () => {
 test('RunSummaryDTO separates all five monetary amounts', () => {
   const summary = mapRunSummary(bundle);
   assert.deepEqual(Object.keys(summary.amounts).sort(), [
+    'analyzer_order_lines',
     'analyzer_order_sum',
     'auto_approved_sum',
     'financially_assessed_sum',
@@ -64,6 +65,7 @@ test('RunSummaryDTO separates all five monetary amounts', () => {
   ]);
   assert.equal('total_order_sum' in summary, false);
   assert.equal('total_order_sum' in summary.amounts, false);
+  assert.equal(summary.amounts.analyzer_order_lines, bundle.agentResult[0].json.order_rows_count);
   Object.values(summary.amounts).forEach(value => {
     assert.ok(value === null || Number.isFinite(value));
   });

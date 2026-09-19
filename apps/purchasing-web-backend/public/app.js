@@ -1872,7 +1872,7 @@
       initialRecommendation: initialAmount !== null
         ? 'Исходная рекомендация агента: ' +
           `${formatRub(initialAmount)} · ` +
-          `${displayCount(initial.itemCount)} SKU`
+          `${displayCount(initial.itemCount)} позиций`
         : '—',
     };
   }

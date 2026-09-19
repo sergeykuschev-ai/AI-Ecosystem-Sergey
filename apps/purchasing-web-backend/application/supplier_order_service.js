@@ -92,7 +92,7 @@ class SupplierOrderService {
       maximumSafeOrderAmount:
         summary?.financial?.maximum_safe_order_amount ?? null,
       initialRecommendation: {
-        itemCount: summary?.sku_count ?? null,
+        itemCount: summary?.amounts?.analyzer_order_lines ?? null,
         totalAmount: summary?.amounts?.analyzer_order_sum ?? null,
       },
     });

@@ -138,6 +138,7 @@ function mapRunSummary(bundle) {
     currency: assessment.currency || null,
     amounts: {
       analyzer_order_sum: analyzerOrderSum,
+      analyzer_order_lines: agent.order_rows_count ?? null,
       auto_approved_sum: roundCurrency(agent.autoApprovedSum),
       pending_review_sum: roundCurrency(
         agent.pendingReviewProvisionalSum

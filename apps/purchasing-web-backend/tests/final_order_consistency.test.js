@@ -184,7 +184,7 @@ test('snapshot summary сохраняет исходную рекомендац�
   );
   assert.equal(
     state.body.data.initialRecommendation.itemCount,
-    snapshotSummary.sku_count
+    snapshotSummary.amounts.analyzer_order_lines
   );
 });
 

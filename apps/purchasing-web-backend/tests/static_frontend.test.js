@@ -574,8 +574,8 @@ test('GET / serves the Russian frontend with secure headers', async () => {
     'Скачать optimized-order.json',
     'Итоговый заказ',
     'Финансовое решение',
-    'Безопасный бюджет',
-    'Автоматически одобрено',
+    'Остаток бюджета после заказа',
+    'Одобрено по товарным правилам',
     'Общий статус запуска',
   ]) {
     assert.match(body, new RegExp(label));
@@ -586,8 +586,8 @@ test('GET / serves the Russian frontend with secure headers', async () => {
   for (const [label, valueId] of [
     ['Итоговый заказ', 'analyzer-order-sum'],
     ['Финансовое решение', 'financial-status'],
-    ['Безопасный бюджет', 'reserve-surplus'],
-    ['Автоматически одобрено', 'auto-approved-sum'],
+    ['Остаток бюджета после заказа', 'reserve-surplus'],
+    ['Одобрено по товарным правилам', 'auto-approved-sum'],
     ['Нужны решения Сергея', 'pending-review-sum'],
     ['Общий статус запуска', 'run-status'],
   ]) {
