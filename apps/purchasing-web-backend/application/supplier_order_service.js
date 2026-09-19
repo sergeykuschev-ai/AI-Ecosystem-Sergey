@@ -87,12 +87,20 @@ class SupplierOrderService {
     ensureCompleted(this.queryService.getRunStatus(runId));
     const items = this.queryService.getDecoratedItems(runId);
     const summary = this.registry.getRunSummary(runId);
+    const agentArtifact = this.registry.getAgentResult(runId);
+    const agent = Array.isArray(agentArtifact)
+      ? agentArtifact[0]?.json
+      : agentArtifact?.json || agentArtifact;
     return buildFinalOrderState({
       items,
       maximumSafeOrderAmount:
         summary?.financial?.maximum_safe_order_amount ?? null,
       initialRecommendation: {
-        itemCount: summary?.amounts?.analyzer_order_lines ?? null,
+        // Older completed runs have a persisted summary created before
+        // analyzer_order_lines was added. Fall back to the immutable agent
+        // artifact so the UI can still show the real Min/Max line count.
+        itemCount: summary?.amounts?.analyzer_order_lines ??
+          agent?.order_rows_count ?? null,
         totalAmount: summary?.amounts?.analyzer_order_sum ?? null,
       },
     });
