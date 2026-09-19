@@ -1397,6 +1397,22 @@ async function readPurchaseOrderStatusBody(request) {
   return status;
 }
 
+async function readPurchaseOrderInvoiceBody(request) {
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of request) {
+    size += chunk.length;
+    if (size > MAX_PURCHASE_ORDER_STATUS_BODY_BYTES) throw new HttpError('PURCHASE_LEDGER_INVALID_INPUT', 'Тело запроса счёта слишком большое.');
+    chunks.push(chunk);
+  }
+  let input;
+  try { input = JSON.parse(Buffer.concat(chunks).toString('utf8')); }
+  catch (cause) { throw new HttpError('PURCHASE_LEDGER_INVALID_INPUT', 'Некорректный JSON суммы счёта.', { cause }); }
+  const amount = Number(input?.amount);
+  if (!Number.isFinite(amount) || amount < 0) throw new HttpError('PURCHASE_LEDGER_INVALID_INPUT', 'Сумма счёта должна быть неотрицательным числом.');
+  return amount;
+}
+
 function reportDateDependencies(reportDate) {
   if (!reportDate) return {};
   return {
@@ -1637,6 +1653,12 @@ function createRunHandlers(options) {
           orders: purchaseLedgerService.listOrders(filters),
         },
       };
+    },
+
+    async setPurchaseOrderInvoice(orderId, request) {
+      if (!purchaseLedgerService) throw new HttpError('PURCHASE_LEDGER_CORRUPTED', 'Реестр закупок недоступен.');
+      const amount = await readPurchaseOrderInvoiceBody(request);
+      return { statusCode: 200, data: purchaseLedgerService.setInvoiceAmount(orderId, amount, now()) };
     },
 
     async changePurchaseOrderStatus(orderId, request) {

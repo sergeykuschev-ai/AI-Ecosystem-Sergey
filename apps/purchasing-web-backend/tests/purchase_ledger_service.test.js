@@ -226,3 +226,23 @@ test('orderFingerprint is stable for canonical supplier aliases', () => {
     orderFingerprint('ЗООГРАД-ХАБАРОВСК ООО', fixtureOrder().rows)
   );
 });
+
+
+test('invoice amount replaces ordered reserve in monthly spend', () => {
+  withService(service => {
+    service.configureMonth({ limit: 200000, purchased: 50000, at: '2026-09-17T10:00:00.000Z' });
+    const recorded = service.recordOrder({
+      runId: 'invoice-run',
+      supplier: 'Валта',
+      order: fixtureOrder(100000),
+      orderedAt: '2026-09-17T10:05:00.000Z',
+    });
+    assert.equal(service.getMonthSummary('2026-09-17T10:06:00.000Z').purchased, 150000);
+    const changed = service.setInvoiceAmount(recorded.order.orderId, 92000, '2026-09-17T10:07:00.000Z');
+    assert.equal(changed.order.totalAmount, 100000);
+    assert.equal(changed.order.invoiceAmount, 92000);
+    const summary = service.getMonthSummary('2026-09-17T10:08:00.000Z');
+    assert.equal(summary.purchased, 142000);
+    assert.equal(summary.remaining, 58000);
+  });
+});

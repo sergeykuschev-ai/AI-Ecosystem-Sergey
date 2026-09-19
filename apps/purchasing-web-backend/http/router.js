@@ -68,6 +68,8 @@ const PURCHASE_BUDGET_CURRENT_ROUTE =
 const PURCHASE_ORDERS_ROUTE = '/api/v1/purchase-orders';
 const PURCHASE_ORDER_STATUS_ROUTE =
   /^\/api\/v1\/purchase-orders\/([^/]+)\/status$/;
+const PURCHASE_ORDER_INVOICE_ROUTE =
+  /^\/api\/v1\/purchase-orders\/([^/]+)\/invoice$/;
 
 function queryObject(searchParams) {
   const query = {};
@@ -141,6 +143,12 @@ function createRouter(handlers, options = {}) {
         url.pathname === PURCHASE_ORDERS_ROUTE
       ) {
         result = handlers.listPurchaseOrders(queryObject(url.searchParams));
+      } else if (
+        request.method === 'POST' &&
+        url.pathname.match(PURCHASE_ORDER_INVOICE_ROUTE)
+      ) {
+        const match = url.pathname.match(PURCHASE_ORDER_INVOICE_ROUTE);
+        result = await handlers.setPurchaseOrderInvoice(match[1], request);
       } else if (
         request.method === 'POST' &&
         url.pathname.match(PURCHASE_ORDER_STATUS_ROUTE)

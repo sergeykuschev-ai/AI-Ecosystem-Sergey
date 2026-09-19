@@ -246,7 +246,7 @@ class PurchaseLedgerService {
         continue;
       }
       ledgerOrdersPurchased = roundMoney(
-        ledgerOrdersPurchased + Number(order.totalAmount || 0)
+        ledgerOrdersPurchased + Number(order.invoiceAmount ?? order.totalAmount ?? 0)
       );
       orderCount += 1;
     }
@@ -340,6 +340,31 @@ class PurchaseLedgerService {
         existing.totalAmount !== totalAmount,
       order: structuredClone(record),
       month: this.getMonthSummary(when),
+    };
+  }
+
+  setInvoiceAmount(orderId, amount, at = this.now()) {
+    const invoiceAmount = finiteNonNegative(amount, 'Сумма итогового счёта');
+    const when = validIso(at, 'Дата счёта');
+    const ledger = this.load();
+    const index = ledger.orders.findIndex(order => order?.orderId === orderId);
+    if (index < 0) {
+      throw new PurchaseLedgerError(
+        'PURCHASE_LEDGER_ORDER_NOT_FOUND',
+        'Заказ в реестре не найден.'
+      );
+    }
+    ledger.orders[index] = {
+      ...ledger.orders[index],
+      invoiceAmount,
+      invoiceUpdatedAt: when,
+      updatedAt: when,
+    };
+    ledger.updatedAt = when;
+    this.save(ledger);
+    return {
+      order: structuredClone(ledger.orders[index]),
+      month: this.getMonthSummary(ledger.orders[index].orderedAt),
     };
   }
 

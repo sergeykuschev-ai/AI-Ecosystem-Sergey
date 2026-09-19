@@ -7018,6 +7018,33 @@
 
         const actions = documentObject.createElement('div');
         actions.className = 'purchase-order-actions';
+
+        const invoiceInput = documentObject.createElement('input');
+        invoiceInput.type = 'number';
+        invoiceInput.min = '0';
+        invoiceInput.step = '0.01';
+        invoiceInput.inputMode = 'decimal';
+        invoiceInput.className = 'purchase-order-invoice-input';
+        invoiceInput.placeholder = 'Сумма счёта';
+        invoiceInput.value = order.invoiceAmount == null ? '' : String(order.invoiceAmount);
+
+        const invoiceButton = documentObject.createElement('button');
+        invoiceButton.type = 'button';
+        invoiceButton.className = 'secondary-button purchase-order-action';
+        invoiceButton.textContent = order.invoiceAmount == null ? 'Внести счёт' : 'Изменить счёт';
+        invoiceButton.addEventListener('click', async () => {
+          const amount = Number(invoiceInput.value);
+          if (!Number.isFinite(amount) || amount < 0) {
+            elements.purchaseOrdersError.textContent = 'Введите корректную сумму итогового счёта.';
+            elements.purchaseOrdersError.hidden = false;
+            return;
+          }
+          invoiceButton.disabled = true;
+          try { await savePurchaseOrderInvoice(order.orderId, amount); }
+          finally { invoiceButton.disabled = false; }
+        });
+        actions.append(invoiceInput, invoiceButton);
+
         for (const [targetStatus, label] of
           purchaseOrderTransitions[order.status] || []) {
           const button = documentObject.createElement('button');
@@ -7060,6 +7087,29 @@
           'Не удалось загрузить журнал закупок. Нажмите «Обновить».';
         elements.purchaseOrdersError.hidden = false;
         return [];
+      }
+    }
+
+    async function savePurchaseOrderInvoice(orderId, amount) {
+      if (typeof orderId !== 'string' || orderId.trim() === '') return null;
+      try {
+        const result = await requestJson(
+          fetchFunction,
+          `/api/v1/purchase-orders/${encodeURIComponent(orderId)}/invoice`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ amount }),
+          }
+        );
+        await loadPersistedMonthlyBudget(true);
+        await loadPurchaseOrders(result?.month?.month || null);
+        return result;
+      } catch {
+        elements.purchaseOrdersError.textContent =
+          'Не удалось сохранить сумму счёта. Проверьте сумму и попробуйте ещё раз.';
+        elements.purchaseOrdersError.hidden = false;
+        return null;
       }
     }
 

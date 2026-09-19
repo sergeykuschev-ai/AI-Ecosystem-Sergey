@@ -97,3 +97,27 @@ test('purchase order status API moves an order to received and removes duplicate
     fs.rmSync(f.root, { recursive: true, force: true });
   }
 });
+
+
+test('purchase order invoice API replaces reserve with actual invoice amount', async () => {
+  const f = await fixture();
+  try {
+    const changed = await json(
+      `${f.base}/api/v1/purchase-orders/${encodeURIComponent(f.orderId)}/invoice`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: 8500 }),
+      }
+    );
+    assert.equal(changed.response.status, 200);
+    assert.equal(changed.body.data.order.totalAmount, 10000);
+    assert.equal(changed.body.data.order.invoiceAmount, 8500);
+    const budget = await json(`${f.base}/api/v1/purchase-budget/current`);
+    assert.equal(budget.body.data.purchased, 288500);
+    assert.equal(budget.body.data.remaining, 61500);
+  } finally {
+    f.server.close();
+    fs.rmSync(f.root, { recursive: true, force: true });
+  }
+});

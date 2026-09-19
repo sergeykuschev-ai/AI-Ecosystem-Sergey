@@ -3502,9 +3502,9 @@ test('purchase journal renders current order and changes status safely', async (
   const card = list.children[0];
   assert.equal(card.children[0].children[0].textContent, 'АО "ВАЛТА ПЕТ ПРОДАКТС"');
   assert.equal(card.children[0].children[1].textContent, 'Заказан');
-  assert.equal(card.children[2].children.length, 3);
+  assert.equal(card.children[2].children.length, 5);
 
-  await card.children[2].children[0].listeners.click[0]();
+  await card.children[2].children[2].listeners.click[0]();
   const statusRequest = requests.find(
     entry => entry.url ===
       '/api/v1/purchase-orders/purchase-order-test/status'
