@@ -22,6 +22,11 @@ const CRITICAL_INPUT_FIELDS = Object.freeze([
   'proposed_order_amount',
 ]);
 
+const MONTHLY_BUDGET_FIELDS = Object.freeze([
+  'monthly_purchase_limit',
+  'purchased_this_month',
+]);
+
 function roundMoney(value) {
   if (value === null || value === undefined) return null;
   const sign = Math.sign(value) || 1;
@@ -91,6 +96,14 @@ function validateKnownInputs(input, missingFields) {
   if (!missingFields.includes('acquiring_rate') && input.acquiring_rate > 1) {
     throw new TypeError('acquiring_rate must be a fraction between 0 and 1.');
   }
+
+  const monthlyPresent = MONTHLY_BUDGET_FIELDS.map(field => !isMissing(input[field]));
+  if (monthlyPresent.some(Boolean) && !monthlyPresent.every(Boolean)) {
+    throw new TypeError('monthly_purchase_limit and purchased_this_month must be provided together.');
+  }
+  for (const field of MONTHLY_BUDGET_FIELDS) {
+    if (!isMissing(input[field])) assertNonNegativeFinite(field, input[field]);
+  }
 }
 
 function calculateFinancialValues(input, fixedExpenses) {
@@ -124,10 +137,18 @@ function calculateFinancialValues(input, fixedExpenses) {
     !isMissing(input.minimum_reserve)
     ? availableAfterOrder - input.minimum_reserve
     : null;
-  const maximumSafeOrderAmount = availableAfterExpenses !== null &&
+  const liquidityMaximumSafeOrderAmount = availableAfterExpenses !== null &&
     !isMissing(input.minimum_reserve)
     ? availableAfterExpenses - input.minimum_reserve
     : null;
+  const monthlyPurchaseRemaining = !isMissing(input.monthly_purchase_limit) &&
+    !isMissing(input.purchased_this_month)
+    ? input.monthly_purchase_limit - input.purchased_this_month
+    : null;
+  const maximumSafeOrderAmount = liquidityMaximumSafeOrderAmount !== null &&
+    monthlyPurchaseRemaining !== null
+    ? Math.min(liquidityMaximumSafeOrderAmount, Math.max(0, monthlyPurchaseRemaining))
+    : liquidityMaximumSafeOrderAmount;
 
   return {
     total_available_cash: roundMoney(totalAvailableCash),
@@ -137,11 +158,22 @@ function calculateFinancialValues(input, fixedExpenses) {
     available_after_expenses: roundMoney(availableAfterExpenses),
     available_after_order: roundMoney(availableAfterOrder),
     reserve_surplus: roundMoney(reserveSurplus),
+    monthly_purchase_remaining: roundMoney(monthlyPurchaseRemaining),
+    liquidity_maximum_safe_order_amount: roundMoney(liquidityMaximumSafeOrderAmount),
     maximum_safe_order_amount: roundMoney(maximumSafeOrderAmount),
   };
 }
 
-function financialDecision(values, warningThreshold) {
+function financialDecision(values, warningThreshold, input) {
+  if (values.monthly_purchase_remaining !== null &&
+      input.proposed_order_amount > values.monthly_purchase_remaining) {
+    return {
+      status: 'REJECTED',
+      decision_reason: 'monthly_purchase_limit_exceeded',
+      warnings: ['MONTHLY_PURCHASE_LIMIT_EXCEEDED'],
+    };
+  }
+
   if (values.available_after_order < 0) {
     return {
       status: 'REJECTED',
@@ -197,7 +229,7 @@ function evaluateFinancialPurchase(input, options = {}) {
       decision_reason: 'critical_financial_data_missing',
       warnings: ['MISSING_CRITICAL_FINANCIAL_DATA'],
     }
-    : financialDecision(values, warningThreshold);
+    : financialDecision(values, warningThreshold, input);
   const financiallyPermitted = [
     'APPROVED',
     'APPROVED_WITH_WARNING',
@@ -238,6 +270,12 @@ function evaluateFinancialPurchase(input, options = {}) {
       minimum_reserve: isMissing(input.minimum_reserve)
         ? null
         : roundMoney(input.minimum_reserve),
+      monthly_purchase_limit: isMissing(input.monthly_purchase_limit)
+        ? null
+        : roundMoney(input.monthly_purchase_limit),
+      purchased_this_month: isMissing(input.purchased_this_month)
+        ? null
+        : roundMoney(input.purchased_this_month),
       proposed_order_amount: isMissing(input.proposed_order_amount)
         ? null
         : roundMoney(input.proposed_order_amount),
@@ -293,6 +331,10 @@ function statusText(result) {
       'Требуется ручное согласование: ликвидность остаётся положительной, но минимальный резерв нарушен.',
     REJECTED: 'Заказ отклонён: после оплаты возникает отрицательная ликвидность.',
   };
+  if (result.status === 'REJECTED' &&
+      result.decision_reason === 'monthly_purchase_limit_exceeded') {
+    return 'Заказ отклонён: превышен остаток месячного лимита закупок.';
+  }
   return messages[result.status];
 }
 
@@ -341,6 +383,8 @@ function buildFinancialPurchaseReport(result) {
       result.inputs.committed_supplier_payments
     )}`,
     `- Минимальный резерв: ${formatMoneyRu(result.inputs.minimum_reserve)}`,
+    `- Лимит закупок на месяц: ${formatMoneyRu(result.inputs.monthly_purchase_limit)}`,
+    `- Уже закуплено в этом месяце: ${formatMoneyRu(result.inputs.purchased_this_month)}`,
     `- Сумма заказа: ${formatMoneyRu(result.inputs.proposed_order_amount)}`,
     '',
     '## Расчёт',
@@ -354,6 +398,12 @@ function buildFinancialPurchaseReport(result) {
     )}`,
     `- После оплаты заказа: ${formatMoneyRu(result.available_after_order)}`,
     `- Запас сверх минимального резерва: ${formatMoneyRu(result.reserve_surplus)}`,
+    `- Остаток месячного лимита закупок: ${formatMoneyRu(
+      result.monthly_purchase_remaining
+    )}`,
+    `- Лимит по ликвидности и резерву: ${formatMoneyRu(
+      result.liquidity_maximum_safe_order_amount
+    )}`,
     `- Максимальная безопасная сумма заказа: ${formatMoneyRu(
       result.maximum_safe_order_amount
     )}`,
@@ -375,6 +425,10 @@ function financialRecommendation(result) {
   }
   if (result.status === 'APPROVED_WITH_WARNING') {
     return 'Заказ разрешён, но запас сверх минимального резерва меньше 30 000 RUB.';
+  }
+  if (result.status === 'REJECTED' &&
+      result.decision_reason === 'monthly_purchase_limit_exceeded') {
+    return `Заказ превышает остаток месячного лимита закупок (${formatMoneyRu(result.monthly_purchase_remaining)}). Сократите заказ до ${formatMoneyRu(result.maximum_safe_order_amount)}.`;
   }
 
   const budgetExcess = roundMoney(Math.max(
@@ -404,6 +458,9 @@ function buildAgentFinancialSection(assessment) {
     `- Остаток после расходов: ${formatMoneyRu(assessment.available_after_expenses)}`,
     `- Остаток после заказа: ${formatMoneyRu(assessment.available_after_order)}`,
     `- Минимальный резерв: ${formatMoneyRu(assessment.minimum_reserve)}`,
+    `- Месячный лимит закупок: ${formatMoneyRu(assessment.monthly_purchase_limit)}`,
+    `- Уже закуплено в месяце: ${formatMoneyRu(assessment.purchased_this_month)}`,
+    `- Остаток месячного лимита: ${formatMoneyRu(assessment.monthly_purchase_remaining)}`,
     `- Запас сверх резерва: ${formatMoneyRu(assessment.reserve_surplus)}`,
     `- Максимальный безопасный заказ: ${formatMoneyRu(
       assessment.maximum_safe_order_amount
@@ -455,6 +512,9 @@ function buildPurchasingFinancialAssessment(proposedOrderAmount, financialData =
     available_after_expenses: result.available_after_expenses,
     available_after_order: result.available_after_order,
     minimum_reserve: result.inputs.minimum_reserve,
+    monthly_purchase_limit: result.inputs.monthly_purchase_limit,
+    purchased_this_month: result.inputs.purchased_this_month,
+    monthly_purchase_remaining: result.monthly_purchase_remaining,
     reserve_surplus: result.reserve_surplus,
     maximum_safe_order_amount: result.maximum_safe_order_amount,
     safe_budget_excess: budgetExcess,

@@ -315,6 +315,7 @@ async function runPurchasingWebOrchestrator(
       { purchasingProfile: 'miska' },
       {
         financialDataPath: request.financialDataPath,
+        financialDataOverrides: request.financialDataOverrides,
         assortmentMatrixPath: request.matrixPath,
         ownerDecisionsPath: request.ownerDecisionsPath,
         ownerDecisionNow: request.generatedAt,

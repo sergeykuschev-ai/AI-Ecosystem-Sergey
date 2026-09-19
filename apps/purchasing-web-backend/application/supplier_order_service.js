@@ -20,6 +20,10 @@ const MINMAX_SAFETY_BLOCKED_MESSAGE =
   'Заказ поставщику заблокирован: Min/Max не содержит обязательные позиции ' +
   'или содержит неоднозначное сопоставление. Сначала проверьте остатки 1С ' +
   'и привязку номенклатуры.';
+const DUPLICATE_ORDER_RISK_CODE = 'DUPLICATE_ORDER_RISK';
+const DUPLICATE_ORDER_RISK_MESSAGE =
+  'Заказ поставщику заблокирован: найден недавно сформированный идентичный активный заказ. ' +
+  'Проверьте, что предыдущий заказ уже получен или отменён.';
 
 class SupplierOrderService {
   constructor(options = {}) {
@@ -31,6 +35,7 @@ class SupplierOrderService {
     }
     this.queryService = options.queryService;
     this.registry = options.registry;
+    this.purchaseLedgerService = options.purchaseLedgerService || null;
     this.now = options.now || (() => new Date());
   }
 
@@ -75,14 +80,14 @@ class SupplierOrderService {
   }
 
   /**
-   * Каноническое финальное состояние заказа run. Единый источник
-   * правды для UI summary, supplier-order API и Excel.
+   * Полная каноническая модель финального заказа. Не отдаётся наружу
+   * напрямую: она содержит included/excluded rows для экспортёров.
    */
-  getFinalOrderState(runId) {
+  buildCanonicalFinalOrderState(runId) {
     ensureCompleted(this.queryService.getRunStatus(runId));
     const items = this.queryService.getDecoratedItems(runId);
     const summary = this.registry.getRunSummary(runId);
-    const state = buildFinalOrderState({
+    return buildFinalOrderState({
       items,
       maximumSafeOrderAmount:
         summary?.financial?.maximum_safe_order_amount ?? null,
@@ -91,6 +96,14 @@ class SupplierOrderService {
         totalAmount: summary?.amounts?.analyzer_order_sum ?? null,
       },
     });
+  }
+
+  /**
+   * Публичный DTO финального заказа для UI/API. Единственный источник
+   * чисел — полная каноническая модель выше.
+   */
+  getFinalOrderState(runId) {
+    const state = this.buildCanonicalFinalOrderState(runId);
     return {
       run_id: runId,
       status: state.status,
@@ -116,14 +129,60 @@ class SupplierOrderService {
     };
   }
 
+  nowIso() {
+    const value = this.now();
+    return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+  }
+
+  duplicateRiskFor(runId, supplier, order) {
+    if (!this.purchaseLedgerService) return null;
+    return this.purchaseLedgerService.findDuplicateRisk({
+      runId,
+      supplier,
+      order,
+      asOf: this.nowIso(),
+    });
+  }
+
+  recordDownloadedOrder(runId, order) {
+    if (!this.purchaseLedgerService || !order) return null;
+    const items = this.queryService.getDecoratedItems(runId);
+    const supplier = this.supplierFor(runId, items);
+    return this.purchaseLedgerService.recordOrder({
+      runId,
+      supplier,
+      order,
+      orderedAt: this.nowIso(),
+    });
+  }
+
   buildOrder(runId) {
     this.assertMinMaxSafety(runId);
     const items = this.queryService.getDecoratedItems(runId);
-    return buildSupplierOrder({
+    const state = this.buildCanonicalFinalOrderState(runId);
+    if (Number.isFinite(state.remainingBudget) && state.remainingBudget < 0) {
+      throw new SupplierOrderError(
+        SUPPLIER_ORDER_BLOCKED_CODE,
+        `Заказ поставщику заблокирован: сумма превышает разрешённый бюджет на ${Math.abs(state.remainingBudget).toFixed(2)} ₽. Сначала сократите заказ до разрешённой суммы.`
+      );
+    }
+    const supplier = this.supplierFor(runId, items);
+    const order = buildSupplierOrder({
       items,
-      supplier: this.supplierFor(runId, items),
+      state,
+      supplier,
       generatedAt: this.now(),
     });
+    const duplicateRisk = this.duplicateRiskFor(runId, supplier, order);
+    if (duplicateRisk?.exactDuplicate) {
+      throw new SupplierOrderError(
+        DUPLICATE_ORDER_RISK_CODE,
+        DUPLICATE_ORDER_RISK_MESSAGE,
+        { details: duplicateRisk }
+      );
+    }
+    order.duplicateRisk = duplicateRisk;
+    return order;
   }
 
   getSupplierOrder(runId) {
@@ -138,12 +197,15 @@ class SupplierOrderService {
         downloadUrl: `/api/v1/runs/${runId}/supplier-order/download`,
         itemCount: order.itemCount,
         totalAmount: order.totalAmount,
+        duplicateRisk: order.duplicateRisk || null,
         blockedReason: null,
       };
     } catch (error) {
       if (
         error instanceof SupplierOrderError &&
-        error.code === SUPPLIER_ORDER_BLOCKED_CODE
+        [SUPPLIER_ORDER_BLOCKED_CODE, DUPLICATE_ORDER_RISK_CODE].includes(
+          error.code
+        )
       ) {
         return {
           run_id: runId,
@@ -153,6 +215,7 @@ class SupplierOrderService {
           downloadUrl: null,
           itemCount: 0,
           totalAmount: null,
+          duplicateRisk: error.details || null,
           blockedReason: error.message,
         };
       }
@@ -169,11 +232,14 @@ class SupplierOrderService {
       content: Buffer.from(buildSupplierOrderXlsx(order)),
       itemCount: order.itemCount,
       totalAmount: order.totalAmount,
+      order,
     };
   }
 }
 
 module.exports = {
+  DUPLICATE_ORDER_RISK_CODE,
+  DUPLICATE_ORDER_RISK_MESSAGE,
   MINMAX_SAFETY_BLOCKED_MESSAGE,
   SupplierOrderService,
 };

@@ -3279,3 +3279,57 @@ h2 {
     transition: none !important;
   }
 }
+
+.monthly-budget-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 18px 0 8px;
+}
+.monthly-budget-fields label { display: grid; gap: 6px; font-weight: 700; }
+.monthly-budget-fields input { width: 100%; padding: 11px 12px; border: 1px solid var(--line); border-radius: 10px; font: inherit; background: var(--surface); color: inherit; }
+.monthly-budget-remaining { grid-column: 1 / -1; margin: 0; }
+@media (max-width: 640px) { .monthly-budget-fields { grid-template-columns: 1fr; } }
+
+.purchase-ledger-panel {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+.purchase-ledger-heading,
+.purchase-order-heading,
+.purchase-order-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.purchase-ledger-heading {
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.purchase-ledger-heading h3 { margin: 0 0 4px; }
+.purchase-ledger-heading p,
+.purchase-order-meta { margin: 0; color: var(--muted); }
+.purchase-orders-list { display: grid; gap: 10px; margin-top: 12px; }
+.purchase-order-card {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.purchase-order-heading { justify-content: space-between; }
+.purchase-order-status {
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.purchase-order-meta { margin-top: 6px; font-size: 0.9rem; }
+.purchase-order-actions { flex-wrap: wrap; margin-top: 10px; }
+.purchase-order-action { padding: 7px 10px; }
+@media (max-width: 640px) {
+  .purchase-ledger-heading,
+  .purchase-order-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

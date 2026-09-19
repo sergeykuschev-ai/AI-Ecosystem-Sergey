@@ -1,6 +1,8 @@
 const http = require('node:http');
+const path = require('node:path');
 
 const {
+  DEFAULT_PURCHASE_LEDGER_PATH,
   DEFAULT_REQUEST_TIMEOUT_MS,
   DEFAULT_RUNS_ROOT,
   DEFAULT_SERVER_PATHS,
@@ -53,6 +55,9 @@ const {
 const {
   SupplierOrderService,
 } = require('./application/supplier_order_service');
+const {
+  PurchaseLedgerService,
+} = require('./application/purchase_ledger_service');
 const {
   FileRunRegistry,
 } = require('./storage/file_run_registry');
@@ -135,6 +140,15 @@ function createPurchasingWebServer(options = {}) {
     serverPaths.ownerLearningRuleEffectivenessFilePath ||
     DEFAULT_SERVER_PATHS.ownerLearningRuleEffectivenessFilePath;
   const runsRoot = options.runsRoot || resolveRunsRoot();
+  const purchaseLedgerService = options.purchaseLedgerService ||
+    new PurchaseLedgerService({
+      filePath: options.purchaseLedgerPath || (
+        options.runsRoot
+          ? path.join(path.resolve(options.runsRoot), 'purchase-ledger.json')
+          : DEFAULT_PURCHASE_LEDGER_PATH
+      ),
+      now: options.now,
+    });
   const registry = options.registry || new FileRunRegistry({
     runsRoot,
     ownerLearningHistoryPath: options.ownerLearningHistoryPath || (
@@ -143,6 +157,9 @@ function createPurchasingWebServer(options = {}) {
         : serverPaths.ownerLearningHistoryPath
     ),
     approvedRulesPath,
+    autoApproveStrictItemRules:
+      options.autoApproveStrictItemRules ??
+      process.env.PURCHASING_AUTO_APPROVE_STRICT_ITEM_RULES === 'true',
     logger: options.logger,
   });
   const ownerDecisionService = options.ownerDecisionService ||
@@ -283,10 +300,12 @@ function createPurchasingWebServer(options = {}) {
     ownerKnowledgeHealthService,
     ownerRuleStatusService,
     ownerLearningCenterService,
+    purchaseLedgerService,
     supplierOrderService: options.supplierOrderService ||
       new SupplierOrderService({
         queryService,
         registry,
+        purchaseLedgerService,
         now: options.now,
       }),
     logger: options.logger,

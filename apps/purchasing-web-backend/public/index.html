@@ -62,16 +62,40 @@
               <span class="file-status-dot" aria-hidden="true"></span>
               <span id="selected-file-name"></span>
             </div>
+            <div class="monthly-budget-fields" aria-label="Месячный бюджет закупок">
+              <label>
+                <span>Лимит закупок на месяц, ₽</span>
+                <input id="monthly-purchase-limit" type="number" min="0" step="0.01" inputmode="decimal">
+              </label>
+              <label>
+                <span>Уже закуплено в этом месяце, ₽</span>
+                <input id="purchased-this-month" type="number" min="0" step="0.01" inputmode="decimal">
+              </label>
+              <p class="monthly-budget-remaining">Остаток лимита: <strong id="monthly-budget-remaining">—</strong></p>
+            </div>
             <p class="field-help" id="file-help">
-              Исходный файл используется только для текущего локального
-              расчёта.
+              Поля необязательные. Если укажете оба значения, лимит учитывается вместе с ликвидностью и резервом; разрешённая сумма заказа берётся по меньшему ограничению.
             </p>
+            <p class="inline-error" id="monthly-budget-error" role="alert" hidden></p>
             <p class="inline-error" id="file-error" role="alert" hidden></p>
 
             <button class="primary-button" id="run-button" type="submit" disabled>
               Рассчитать заказ
             </button>
           </form>
+
+          <section class="purchase-ledger-panel" aria-labelledby="purchase-orders-title">
+            <div class="purchase-ledger-heading">
+              <div>
+                <h3 id="purchase-orders-title">Заказы этого месяца</h3>
+                <p>Статусы нужны, чтобы закупщик не предлагал повторно товар, который ещё в пути.</p>
+              </div>
+              <button id="purchase-orders-refresh" class="secondary-button" type="button">Обновить</button>
+            </div>
+            <p id="purchase-orders-empty" class="field-help">Заказов пока нет.</p>
+            <p id="purchase-orders-error" class="inline-error" role="alert" hidden></p>
+            <div id="purchase-orders-list" class="purchase-orders-list" aria-live="polite"></div>
+          </section>
         </article>
 
         <article class="card status-card" aria-labelledby="status-title">
@@ -1861,6 +1885,7 @@
           >
             <span class="result-card-label">Безопасный бюджет</span>
             <strong id="reserve-surplus">—</strong>
+            <small id="maximum-safe-order-amount">Разрешено на текущий заказ: —</small>
           </article>
         </div>
 

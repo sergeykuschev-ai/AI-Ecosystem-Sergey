@@ -153,6 +153,9 @@ function mapRunSummary(bundle) {
       maximum_safe_order_amount: roundCurrency(
         assessment.maximum_safe_order_amount
       ),
+      monthly_purchase_limit: roundCurrency(assessment.monthly_purchase_limit),
+      purchased_this_month: roundCurrency(assessment.purchased_this_month),
+      monthly_purchase_remaining: roundCurrency(assessment.monthly_purchase_remaining),
       recommendation: assessment.recommendation || null,
       advisory_only: assessment.advisory_only === true,
     },

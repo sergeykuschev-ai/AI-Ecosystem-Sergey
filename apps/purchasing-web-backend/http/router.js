@@ -63,6 +63,11 @@ const SUPPLIER_ORDER_DOWNLOAD_ROUTE =
   /^\/api\/v1\/runs\/([^/]+)\/supplier-order\/download$/;
 const FINAL_ORDER_ROUTE =
   /^\/api\/v1\/runs\/([^/]+)\/final-order$/;
+const PURCHASE_BUDGET_CURRENT_ROUTE =
+  '/api/v1/purchase-budget/current';
+const PURCHASE_ORDERS_ROUTE = '/api/v1/purchase-orders';
+const PURCHASE_ORDER_STATUS_ROUTE =
+  /^\/api\/v1\/purchase-orders\/([^/]+)\/status$/;
 
 function queryObject(searchParams) {
   const query = {};
@@ -126,6 +131,22 @@ function createRouter(handlers, options = {}) {
         url.pathname === '/api/v1/runs'
       ) {
         result = await handlers.createRun(request, { requestId });
+      } else if (
+        request.method === 'GET' &&
+        url.pathname === PURCHASE_BUDGET_CURRENT_ROUTE
+      ) {
+        result = handlers.getPurchaseBudgetCurrent();
+      } else if (
+        request.method === 'GET' &&
+        url.pathname === PURCHASE_ORDERS_ROUTE
+      ) {
+        result = handlers.listPurchaseOrders(queryObject(url.searchParams));
+      } else if (
+        request.method === 'POST' &&
+        url.pathname.match(PURCHASE_ORDER_STATUS_ROUTE)
+      ) {
+        const match = url.pathname.match(PURCHASE_ORDER_STATUS_ROUTE);
+        result = await handlers.changePurchaseOrderStatus(match[1], request);
       } else if (
         request.method === 'GET' &&
         url.pathname === OWNER_LEARNING_CENTER_ROUTE
@@ -435,6 +456,9 @@ module.exports = {
   OWNER_RULE_EFFECTIVENESS_DETAIL_ROUTE,
   OWNER_RULE_EFFECTIVENESS_EVENTS_ROUTE,
   FINAL_ORDER_ROUTE,
+  PURCHASE_BUDGET_CURRENT_ROUTE,
+  PURCHASE_ORDERS_ROUTE,
+  PURCHASE_ORDER_STATUS_ROUTE,
   RUN_ROUTE,
   SUMMARY_ROUTE,
   SUPPLIER_ORDER_DOWNLOAD_ROUTE,

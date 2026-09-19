@@ -184,9 +184,9 @@ function parseExcelUpload(request, options = {}) {
       limits: {
         fileSize: maxFileBytes,
         files: 2,
-        fields: 2,
+        fields: 3,
         fieldSize: 64,
-        parts: 4,
+        parts: 5,
       },
       preservePath: false,
     });
@@ -205,6 +205,10 @@ function parseExcelUpload(request, options = {}) {
     let fileMetadata = null;
     let reportDate = null;
     let reportDateSeen = false;
+    let monthlyPurchaseLimit = null;
+    let monthlyPurchaseLimitSeen = false;
+    let purchasedThisMonth = null;
+    let purchasedThisMonthSeen = false;
     let deferredError = null;
     let requestBytes = 0;
     const writes = [];
@@ -301,19 +305,24 @@ function parseExcelUpload(request, options = {}) {
       }
     });
     parser.on('field', (fieldName, value) => {
-      if (fieldName !== 'report_date' || reportDateSeen) {
-        deferredError ||= new HttpError(
-          'INVALID_MULTIPART',
-          'Multipart содержит неподдерживаемые или повторяющиеся поля.'
-        );
+      if (fieldName === 'report_date' && !reportDateSeen) {
+        reportDateSeen = true;
+        try { reportDate = validateReportDate(value); } catch (error) { deferredError ||= error; }
         return;
       }
-      reportDateSeen = true;
-      try {
-        reportDate = validateReportDate(value);
-      } catch (error) {
-        deferredError ||= error;
+      const isLimit = fieldName === 'monthly_purchase_limit' && !monthlyPurchaseLimitSeen;
+      const isSpent = fieldName === 'purchased_this_month' && !purchasedThisMonthSeen;
+      if (isLimit || isSpent) {
+        const number = Number(value);
+        if (!Number.isFinite(number) || number < 0 || String(value).trim() === '') {
+          deferredError ||= new HttpError('INVALID_MULTIPART', 'Лимит закупок и уже закупленная сумма должны быть неотрицательными числами.');
+          return;
+        }
+        if (isLimit) { monthlyPurchaseLimitSeen = true; monthlyPurchaseLimit = number; }
+        else { purchasedThisMonthSeen = true; purchasedThisMonth = number; }
+        return;
       }
+      deferredError ||= new HttpError('INVALID_MULTIPART', 'Multipart содержит неподдерживаемые или повторяющиеся поля.');
     });
     parser.once('filesLimit', () => {
       deferredError ||= new HttpError(
@@ -338,6 +347,12 @@ function parseExcelUpload(request, options = {}) {
         const writeFailure = results.find(result => result.status === 'rejected');
         if (writeFailure) throw writeFailure.reason;
         if (deferredError) throw deferredError;
+        if (monthlyPurchaseLimitSeen !== purchasedThisMonthSeen) {
+          throw new HttpError(
+            'INVALID_MULTIPART',
+            'Лимит закупок и уже закупленная сумма должны передаваться вместе.'
+          );
+        }
         if (fileCount === 0 || !fileMetadata) {
           throw new HttpError(
             'FILE_REQUIRED',
@@ -347,6 +362,12 @@ function parseExcelUpload(request, options = {}) {
         finish(null, {
           ...fileMetadata,
           reportDate,
+          financialDataOverrides: monthlyPurchaseLimitSeen
+            ? {
+              monthly_purchase_limit: monthlyPurchaseLimit,
+              purchased_this_month: purchasedThisMonth,
+            }
+            : null,
           cleanup: () => cleanupUploadDirectory(
             uploadRoot,
             requestId,

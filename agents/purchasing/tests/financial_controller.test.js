@@ -83,6 +83,20 @@ test('APPROVED_WITH_WARNING covers the 103389.40 RUB Miska order', () => {
   assert.deepEqual(result.warnings, ['LOW_RESERVE_SURPLUS']);
 });
 
+test('monthly purchase limit caps the permitted order amount and blocks excess', () => {
+  const result = evaluateFinancialPurchase(completeInput({
+    monthly_purchase_limit: 350000,
+    purchased_this_month: 280000,
+    proposed_order_amount: 80000,
+  }));
+
+  assert.equal(result.monthly_purchase_remaining, 70000);
+  assert.equal(result.maximum_safe_order_amount, 70000);
+  assert.equal(result.status, 'REJECTED');
+  assert.equal(result.decision_reason, 'monthly_purchase_limit_exceeded');
+  assert.equal(result.financially_permitted, false);
+});
+
 test('MANUAL_APPROVAL_REQUIRED is used for positive liquidity below reserve', () => {
   const result = evaluateFinancialPurchase(completeInput({
     proposed_order_amount: 130000,

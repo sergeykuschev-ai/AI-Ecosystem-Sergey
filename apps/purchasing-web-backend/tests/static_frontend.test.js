@@ -3392,6 +3392,131 @@ test('effectiveness detail renders quality, codes and at most 20 safe events', (
   );
 });
 
+test('monthly budget is restored from persistent purchase ledger', async () => {
+  const documentObject = fakeDocumentWithAllElements();
+  function mockFetch(url) {
+    if (url === '/api/v1/purchase-budget/current') {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({
+          data: {
+            month: '2026-09',
+            limit: 350000,
+            purchased: 280000,
+            remaining: 70000,
+          },
+        }),
+      });
+    }
+    return Promise.resolve({
+      ok: false,
+      status: 404,
+      json: () => Promise.resolve({ error: { code: 'ROUTE_NOT_FOUND' } }),
+    });
+  }
+
+  createApplication(documentObject, mockFetch);
+  await new Promise(resolve => setImmediate(resolve));
+
+  assert.equal(
+    documentObject.getElementById('monthly-purchase-limit').value,
+    '350000'
+  );
+  assert.equal(
+    documentObject.getElementById('purchased-this-month').value,
+    '280000'
+  );
+  assert.match(
+    documentObject.getElementById('monthly-budget-remaining').textContent,
+    /70[\s\u00a0]000/
+  );
+});
+
+test('purchase journal renders current order and changes status safely', async () => {
+  const documentObject = fakeDocumentWithAllElements();
+  const requests = [];
+  function mockFetch(url, options = {}) {
+    requests.push({ url, options });
+    if (url === '/api/v1/purchase-budget/current') {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({
+          data: {
+            month: '2026-09',
+            limit: 350000,
+            purchased: 12500,
+            remaining: 337500,
+          },
+        }),
+      });
+    }
+    if (url === '/api/v1/purchase-orders?month=2026-09') {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({
+          data: {
+            orders: [{
+              orderId: 'purchase-order-test',
+              supplier: 'АО "ВАЛТА ПЕТ ПРОДАКТС"',
+              canonicalSupplier: 'валта',
+              status: 'ORDERED',
+              orderedAt: '2026-09-18T01:00:00.000Z',
+              totalAmount: 12500,
+              itemCount: 4,
+            }],
+          },
+        }),
+      });
+    }
+    if (
+      url === '/api/v1/purchase-orders/purchase-order-test/status' &&
+      options.method === 'POST'
+    ) {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({
+          data: {
+            orderId: 'purchase-order-test',
+            status: 'IN_TRANSIT',
+          },
+        }),
+      });
+    }
+    return Promise.resolve({
+      ok: false,
+      status: 404,
+      json: () => Promise.resolve({ error: { code: 'ROUTE_NOT_FOUND' } }),
+    });
+  }
+
+  createApplication(documentObject, mockFetch);
+  await new Promise(resolve => setImmediate(resolve));
+  await new Promise(resolve => setImmediate(resolve));
+
+  const list = documentObject.getElementById('purchase-orders-list');
+  assert.equal(list.children.length, 1);
+  assert.equal(
+    documentObject.getElementById('purchase-orders-empty').hidden,
+    true
+  );
+  const card = list.children[0];
+  assert.equal(card.children[0].children[0].textContent, 'АО "ВАЛТА ПЕТ ПРОДАКТС"');
+  assert.equal(card.children[0].children[1].textContent, 'Заказан');
+  assert.equal(card.children[2].children.length, 3);
+
+  await card.children[2].children[0].listeners.click[0]();
+  const statusRequest = requests.find(
+    entry => entry.url ===
+      '/api/v1/purchase-orders/purchase-order-test/status'
+  );
+  assert.ok(statusRequest);
+  assert.equal(statusRequest.options.method, 'POST');
+  assert.deepEqual(
+    JSON.parse(statusRequest.options.body),
+    { status: 'IN_TRANSIT' }
+  );
+});
+
 test('successful run flow renders completed status after 201+200+200', async () => {
   const runId = '11111111-1111-4111-8111-111111111111';
   const summaryPayload = {

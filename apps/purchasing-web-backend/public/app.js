@@ -1629,6 +1629,7 @@
         financial.code ? `Код: ${financial.code}` : 'Код не указан',
       financialTone: financial.tone,
       reserveSurplus: budget.label,
+      maximumSafeOrderAmount: `Разрешено на текущий заказ: ${formatRub(summary?.financial?.maximum_safe_order_amount)}`,
       budgetTone: budget.tone,
       runStatus: run.label,
       runStatusCode: run.code ? `Код: ${run.code}` : 'Код не указан',
@@ -4875,6 +4876,14 @@
       fileInput: documentObject.getElementById('file-input'),
       fileDropZone: documentObject.getElementById('file-drop-zone'),
       fileError: documentObject.getElementById('file-error'),
+      monthlyPurchaseLimit: documentObject.getElementById('monthly-purchase-limit'),
+      purchasedThisMonth: documentObject.getElementById('purchased-this-month'),
+      monthlyBudgetRemaining: documentObject.getElementById('monthly-budget-remaining'),
+      monthlyBudgetError: documentObject.getElementById('monthly-budget-error'),
+      purchaseOrdersList: documentObject.getElementById('purchase-orders-list'),
+      purchaseOrdersEmpty: documentObject.getElementById('purchase-orders-empty'),
+      purchaseOrdersError: documentObject.getElementById('purchase-orders-error'),
+      purchaseOrdersRefresh: documentObject.getElementById('purchase-orders-refresh'),
       selectedFile: documentObject.getElementById('selected-file'),
       selectedFileName: documentObject.getElementById('selected-file-name'),
       runButton: documentObject.getElementById('run-button'),
@@ -5537,6 +5546,8 @@
           documentObject.getElementById('financial-status-code'),
         reserveSurplus:
           documentObject.getElementById('reserve-surplus'),
+        maximumSafeOrderAmount:
+          documentObject.getElementById('maximum-safe-order-amount'),
         runStatus: documentObject.getElementById('run-status'),
         runStatusCode: documentObject.getElementById('run-status-code'),
         ownerReviewCount:
@@ -6915,6 +6926,190 @@
       elements.statusMessage.textContent = message;
     }
 
+    function monthlyBudgetValues() {
+      const limitRaw = elements.monthlyPurchaseLimit?.value?.trim() || '';
+      const spentRaw = elements.purchasedThisMonth?.value?.trim() || '';
+      const limit = Number(limitRaw);
+      const spent = Number(spentRaw);
+      const enabled = limitRaw !== '' || spentRaw !== '';
+      const valid = !enabled || (
+        limitRaw !== '' && spentRaw !== '' &&
+        Number.isFinite(limit) && Number.isFinite(spent) && limit >= 0 && spent >= 0
+      );
+      return {
+        enabled,
+        valid,
+        limit: enabled ? limit : null,
+        spent: enabled ? spent : null,
+        remaining: enabled && valid ? limit - spent : null,
+      };
+    }
+
+    function updateMonthlyBudgetView() {
+      const budget = monthlyBudgetValues();
+      if (elements.monthlyBudgetRemaining) {
+        elements.monthlyBudgetRemaining.textContent = budget.valid
+          ? formatRub(budget.remaining)
+          : '—';
+      }
+      if (elements.monthlyBudgetError) {
+        const over = budget.valid && budget.remaining < 0;
+        elements.monthlyBudgetError.textContent = over
+          ? 'Уже закуплено больше установленного месячного лимита. Новые закупки будут заблокированы.'
+          : '';
+        elements.monthlyBudgetError.hidden = !over;
+      }
+      return budget;
+    }
+
+    const purchaseOrderStatusLabels = Object.freeze({
+      ORDERED: 'Заказан',
+      IN_TRANSIT: 'В пути',
+      PARTIALLY_RECEIVED: 'Получен частично',
+      RECEIVED: 'Получен',
+      CANCELLED: 'Отменён',
+    });
+
+    const purchaseOrderTransitions = Object.freeze({
+      ORDERED: [
+        ['IN_TRANSIT', 'В пути'],
+        ['RECEIVED', 'Получен'],
+        ['CANCELLED', 'Отменить'],
+      ],
+      IN_TRANSIT: [
+        ['PARTIALLY_RECEIVED', 'Частично получен'],
+        ['RECEIVED', 'Получен'],
+        ['CANCELLED', 'Отменить'],
+      ],
+      PARTIALLY_RECEIVED: [
+        ['RECEIVED', 'Получен полностью'],
+        ['CANCELLED', 'Отменить остаток'],
+      ],
+      RECEIVED: [],
+      CANCELLED: [],
+    });
+
+    function renderPurchaseOrders(orders) {
+      const safeOrders = Array.isArray(orders) ? orders : [];
+      elements.purchaseOrdersList.replaceChildren();
+      elements.purchaseOrdersEmpty.hidden = safeOrders.length > 0;
+      for (const order of safeOrders.slice(0, 20)) {
+        const card = documentObject.createElement('article');
+        card.className = 'purchase-order-card';
+
+        const heading = documentObject.createElement('div');
+        heading.className = 'purchase-order-heading';
+        const title = documentObject.createElement('strong');
+        title.textContent =
+          order.supplier || order.canonicalSupplier || 'Поставщик';
+        const status = documentObject.createElement('span');
+        status.className = 'purchase-order-status';
+        status.textContent =
+          purchaseOrderStatusLabels[order.status] || order.status || '—';
+        heading.append(title, status);
+
+        const meta = documentObject.createElement('p');
+        meta.className = 'purchase-order-meta';
+        meta.textContent = [
+          formatRub(order.totalAmount),
+          `${Number(order.itemCount || 0)} поз.`,
+          formatHistoryDateTime(order.orderedAt),
+        ].join(' · ');
+
+        const actions = documentObject.createElement('div');
+        actions.className = 'purchase-order-actions';
+        for (const [targetStatus, label] of
+          purchaseOrderTransitions[order.status] || []) {
+          const button = documentObject.createElement('button');
+          button.type = 'button';
+          button.className =
+            'secondary-button purchase-order-action';
+          button.textContent = label;
+          button.addEventListener('click', async () => {
+            button.disabled = true;
+            try {
+              await changePurchaseOrderStatus(order.orderId, targetStatus);
+            } finally {
+              button.disabled = false;
+            }
+          });
+          actions.append(button);
+        }
+
+        card.append(heading, meta, actions);
+        elements.purchaseOrdersList.append(card);
+      }
+    }
+
+    async function loadPurchaseOrders(month = null) {
+      const query =
+        typeof month === 'string' && /^\d{4}-\d{2}$/.test(month)
+          ? `?month=${encodeURIComponent(month)}`
+          : '';
+      try {
+        const payload = await requestJson(
+          fetchFunction,
+          `/api/v1/purchase-orders${query}`
+        );
+        renderPurchaseOrders(payload?.orders);
+        elements.purchaseOrdersError.textContent = '';
+        elements.purchaseOrdersError.hidden = true;
+        return payload?.orders || [];
+      } catch {
+        elements.purchaseOrdersError.textContent =
+          'Не удалось загрузить журнал закупок. Нажмите «Обновить».';
+        elements.purchaseOrdersError.hidden = false;
+        return [];
+      }
+    }
+
+    async function changePurchaseOrderStatus(orderId, status) {
+      if (typeof orderId !== 'string' || orderId.trim() === '') return null;
+      try {
+        const result = await requestJson(
+          fetchFunction,
+          `/api/v1/purchase-orders/${encodeURIComponent(orderId)}/status`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status }),
+          }
+        );
+        await loadPersistedMonthlyBudget(true);
+        return result;
+      } catch {
+        elements.purchaseOrdersError.textContent =
+          'Не удалось изменить статус заказа. Обновите список и попробуйте ещё раз.';
+        elements.purchaseOrdersError.hidden = false;
+        return null;
+      }
+    }
+
+    async function loadPersistedMonthlyBudget(force = false) {
+      try {
+        const snapshot = await requestJson(
+          fetchFunction,
+          '/api/v1/purchase-budget/current'
+        );
+        const untouched =
+          (elements.monthlyPurchaseLimit?.value?.trim() || '') === '' &&
+          (elements.purchasedThisMonth?.value?.trim() || '') === '';
+        if ((force || untouched) && Number.isFinite(snapshot?.limit)) {
+          elements.monthlyPurchaseLimit.value = String(snapshot.limit);
+          elements.purchasedThisMonth.value =
+            Number.isFinite(snapshot?.purchased)
+              ? String(snapshot.purchased)
+              : '0';
+          updateMonthlyBudgetView();
+        }
+        await loadPurchaseOrders(snapshot?.month);
+        return snapshot;
+      } catch {
+        await loadPurchaseOrders();
+        return null;
+      }
+    }
+
     function validateFile(file) {
       if (!file) return 'FILE_REQUIRED';
       if (!ALLOWED_FILE_PATTERN.test(file.name || '')) return 'INVALID_FILE';
@@ -7077,6 +7272,13 @@
         setFieldError(ERROR_MESSAGES[code]);
         return;
       }
+      const monthlyBudget = updateMonthlyBudgetView();
+      if (!monthlyBudget.valid) {
+        elements.monthlyBudgetError.textContent =
+          'Укажите оба значения: месячный лимит закупок и сумму уже сделанных закупок.';
+        elements.monthlyBudgetError.hidden = false;
+        return;
+      }
 
       active = true;
       elements.runButton.disabled = true;
@@ -7098,6 +7300,10 @@
       try {
         const formData = new FormData();
         formData.append('file', selectedFile, selectedFile.name);
+        if (monthlyBudget.enabled) {
+          formData.append('monthly_purchase_limit', String(monthlyBudget.limit));
+          formData.append('purchased_this_month', String(monthlyBudget.spent));
+        }
         let status = await requestJson(fetchFunction, '/api/v1/runs', {
           method: 'POST',
           body: formData,
@@ -7250,6 +7456,14 @@
     }
 
     elements.fileInput.addEventListener('change', updateFileSelection);
+    elements.monthlyPurchaseLimit.addEventListener('input', updateMonthlyBudgetView);
+    elements.purchasedThisMonth.addEventListener('input', updateMonthlyBudgetView);
+    elements.purchaseOrdersRefresh.addEventListener(
+      'click',
+      () => loadPersistedMonthlyBudget(true)
+    );
+    updateMonthlyBudgetView();
+    void loadPersistedMonthlyBudget();
     for (const eventName of ['dragenter', 'dragover']) {
       elements.fileDropZone.addEventListener(eventName, event => {
         event.preventDefault();

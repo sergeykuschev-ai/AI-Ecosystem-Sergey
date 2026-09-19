@@ -9,6 +9,10 @@ const DEFAULT_UPLOAD_ROOT = path.join(
   REPOSITORY_ROOT,
   'output/purchasing-web/uploads'
 );
+const DEFAULT_PURCHASE_LEDGER_PATH = path.join(
+  REPOSITORY_ROOT,
+  'data/purchasing/miska-purchase-ledger.json'
+);
 const DEFAULT_HTTP_HOST = '127.0.0.1';
 const DEFAULT_HTTP_PORT = 3210;
 const MAX_UPLOAD_FILE_BYTES = 20 * 1024 * 1024;
@@ -159,6 +163,7 @@ module.exports = {
   DEFAULT_HTTP_HOST,
   DEFAULT_HTTP_PORT,
   DEFAULT_PAGE_SIZE,
+  DEFAULT_PURCHASE_LEDGER_PATH,
   DEFAULT_REQUEST_TIMEOUT_MS,
   DEFAULT_RETENTION_TTL_MS,
   DEFAULT_RUNS_ROOT,

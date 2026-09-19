@@ -66,6 +66,7 @@ function runOrderAgent(items, options = {}) {
     detectedColumns,
     financialData: options.financialData,
     financialDataPath: options.financialDataPath,
+    financialDataOverrides: options.financialDataOverrides,
   });
 }
 
@@ -85,6 +86,7 @@ function runOrderAgentFromAdapterResult(adapterResult, options = {}) {
     detectedColumns: guardedAdapterResult.headerPaths,
     financialData: options.financialData,
     financialDataPath: options.financialDataPath,
+    financialDataOverrides: options.financialDataOverrides,
     additionalResultFields: {
       normalized_product_rows_count: rows.length,
       adapter_source: guardedAdapterResult.source,
@@ -233,6 +235,7 @@ function runOrderAgentFromAdapterResultWithDemand(
     detectedColumns: guardedAdapterResult.headerPaths,
     financialData: options.financialData,
     financialDataPath: options.financialDataPath,
+    financialDataOverrides: options.financialDataOverrides,
     proposedOrderAmount: workingOrderResult.summary.workingMaximumSum,
     orderSummary: workingOrderResult.summary,
     additionalReportText: assortmentReport,

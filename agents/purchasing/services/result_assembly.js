@@ -10,12 +10,16 @@ const { validateResult } = require('./validator');
 function buildResult(rows, analysis, options = {}) {
   const sourceRowsCount = options.sourceRowsCount ?? rows.length;
   const financialDataResult = resolveFinancialDataSource(options);
+  const financialData = financialDataResult.financialData &&
+    options.financialDataOverrides
+    ? { ...financialDataResult.financialData, ...options.financialDataOverrides }
+    : financialDataResult.financialData;
   const proposedOrderAmount = Number.isFinite(options.proposedOrderAmount)
     ? options.proposedOrderAmount
     : analysis.totalOrderSum;
   const baseFinancialAssessment = buildPurchasingFinancialAssessment(
     proposedOrderAmount,
-    financialDataResult.financialData
+    financialData
   );
   const financialContextLines = [
     '### Источник финансовых данных',

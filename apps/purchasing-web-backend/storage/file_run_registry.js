@@ -24,6 +24,7 @@ const {
 );
 const {
   DEFAULT_REGISTRY_PATH: DEFAULT_APPROVED_RULES_PATH,
+  approveProposal,
   loadApprovedRules,
 } = require(
   '../../../agents/purchasing/owner_learning/owner_rule_registry'
@@ -85,6 +86,27 @@ function readJson(fsModule, filePath, notFoundCode) {
   }
 }
 
+function strictItemProposalForAutoApproval(proposal) {
+  const evidence = proposal?.evidence || {};
+  return Boolean(
+    proposal?.status === 'PENDING' &&
+    proposal?.ruleType === 'ITEM_DECISION' &&
+    ['BUY', 'SKIP', 'DEFER'].includes(proposal?.proposedDecision) &&
+    typeof proposal?.stableItemKey === 'string' &&
+    proposal.stableItemKey.startsWith('sku:') &&
+    evidence.totalOwnerDecisions >= 4 &&
+    evidence.dominantDecisionRate === 100 &&
+    evidence.consecutiveSameDecisionCount >= 4 &&
+    evidence.overrideCount === 0 &&
+    evidence.usuallyAgreesWithAgent === true
+  );
+}
+
+function approvedRulesMarkdownPath(registryPath) {
+  const parsed = path.parse(registryPath);
+  return path.join(parsed.dir, `${parsed.name}.md`);
+}
+
 class FileRunRegistry {
   constructor(options = {}) {
     this.runsRoot = path.resolve(options.runsRoot || DEFAULT_RUNS_ROOT);
@@ -98,6 +120,9 @@ class FileRunRegistry {
     );
     this.approvedRulesLoader = options.approvedRulesLoader ||
       loadApprovedRules;
+    this.autoApproveStrictItemRules =
+      options.autoApproveStrictItemRules === true;
+    this.ruleApprover = options.ruleApprover || approveProposal;
     this.logger = options.logger || console;
     this.artifactStore = options.artifactStore || new FileArtifactStore({
       runsRoot: this.runsRoot,
@@ -118,7 +143,7 @@ class FileRunRegistry {
     atomicWriteFile(
       this.runFile(runId, name),
       serializeJson(value),
-      { fsModule: this.fs }
+      { fsModule: this.fs, mode: 0o640 }
     );
   }
 
@@ -149,6 +174,35 @@ class FileRunRegistry {
     });
     this.writeJson(input.runId, 'run.json', status);
     return status;
+  }
+
+  autoApproveStrictProposals(proposals, generatedAt) {
+    if (!this.autoApproveStrictItemRules) return [];
+    const approved = [];
+    for (const proposal of proposals?.proposals || []) {
+      if (!strictItemProposalForAutoApproval(proposal)) continue;
+      try {
+        const rule = this.ruleApprover(proposal, {
+          registryPath: this.approvedRulesPath,
+          markdownPath: approvedRulesMarkdownPath(this.approvedRulesPath),
+          approvedAt: generatedAt,
+          createdFromVersion: proposals.reportVersion,
+          recordDecisionHistory: false,
+          notes:
+            'Автоподтверждено строгим правилом: ≥4 одинаковых решения владельца, 100% повторяемость, без override.',
+          fsModule: this.fs,
+          logger: this.logger,
+        });
+        approved.push(rule);
+      } catch (error) {
+        try {
+          this.logger.warn(
+            `[STRICT_RULE_AUTO_APPROVAL_SKIPPED] ${error?.code || error?.message || 'unknown'}`
+          );
+        } catch {}
+      }
+    }
+    return approved;
   }
 
   saveCompletedRun(bundle, options = {}) {
@@ -210,6 +264,13 @@ class FileRunRegistry {
           ownerRuleProposalsReport:
             buildOwnerRuleProposalsMarkdown(proposals),
         };
+        const strictAutoApproved = this.autoApproveStrictProposals(
+          proposals,
+          bundle.generated_at
+        );
+        if (strictAutoApproved.length > 0) {
+          bundleWithProposals.strictAutoApprovedRules = strictAutoApproved;
+        }
       } catch (proposalError) {
         const proposalErrorCode = proposalError.code ||
           'PROPOSALS_UNAVAILABLE';
@@ -424,6 +485,7 @@ class FileRunRegistry {
 module.exports = {
   FileRunRegistry,
   PUBLISHED_JSON_FILES,
+  strictItemProposalForAutoApproval,
   RunRegistryError,
   assertRunId,
   readJson,

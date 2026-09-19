@@ -19,6 +19,9 @@ const {
   SupplierOrderService,
 } = require('../application/supplier_order_service');
 const {
+  ORDER_STATUSES,
+} = require('../application/purchase_ledger_service');
+const {
   DEFAULT_RUN_EXECUTION_LOCK,
 } = require('../application/run_execution_lock');
 const {
@@ -90,6 +93,7 @@ const {
 );
 
 const MAX_DECISION_BODY_BYTES = 4096;
+const MAX_PURCHASE_ORDER_STATUS_BODY_BYTES = 1024;
 const MAX_BUDGET_OPTIMIZATION_BODY_BYTES = 1024;
 const MAX_LIFECYCLE_BODY_BYTES = 4096;
 const MAX_MATERIALIZATION_BODY_BYTES = 1024;
@@ -1306,6 +1310,93 @@ async function readRuleStatusBody(request) {
   return readRuleStatusJson(request, RULE_STATUS_BODY_FIELDS);
 }
 
+function parsePurchaseOrdersQuery(query = {}) {
+  const allowed = new Set(['month', 'status']);
+  for (const name of Object.keys(query)) {
+    if (!allowed.has(name)) {
+      throw new HttpError(
+        'PURCHASE_LEDGER_INVALID_INPUT',
+        `Параметр ${name} не поддерживается.`
+      );
+    }
+  }
+  const result = {};
+  if (query.month !== undefined) {
+    if (!/^\d{4}-(?:0[1-9]|1[0-2])$/.test(query.month)) {
+      throw new HttpError(
+        'PURCHASE_LEDGER_INVALID_INPUT',
+        'Параметр month должен иметь формат YYYY-MM.'
+      );
+    }
+    result.month = query.month;
+  }
+  if (query.status !== undefined) {
+    const status = String(query.status).trim().toUpperCase();
+    if (!ORDER_STATUSES.includes(status)) {
+      throw new HttpError(
+        'PURCHASE_LEDGER_INVALID_INPUT',
+        'Неизвестный статус заказа.'
+      );
+    }
+    result.status = status;
+  }
+  return result;
+}
+
+async function readPurchaseOrderStatusBody(request) {
+  const contentType = String(request.headers['content-type'] || '')
+    .split(';')[0]
+    .trim()
+    .toLowerCase();
+  if (contentType !== 'application/json') {
+    throw new HttpError(
+      'PURCHASE_LEDGER_INVALID_INPUT',
+      'Статус заказа должен быть передан как application/json.'
+    );
+  }
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of request) {
+    size += chunk.length;
+    if (size > MAX_PURCHASE_ORDER_STATUS_BODY_BYTES) {
+      throw new HttpError(
+        'PURCHASE_LEDGER_INVALID_INPUT',
+        'Тело запроса статуса заказа слишком большое.'
+      );
+    }
+    chunks.push(chunk);
+  }
+  let input;
+  try {
+    input = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  } catch (cause) {
+    throw new HttpError(
+      'PURCHASE_LEDGER_INVALID_INPUT',
+      'Некорректный JSON статуса заказа.',
+      { cause }
+    );
+  }
+  if (
+    !input ||
+    typeof input !== 'object' ||
+    Array.isArray(input) ||
+    Object.keys(input).some(name => name !== 'status')
+  ) {
+    throw new HttpError(
+      'PURCHASE_LEDGER_INVALID_INPUT',
+      'Запрос статуса заказа содержит неподдерживаемые поля.'
+    );
+  }
+  const status = String(input.status || '').trim().toUpperCase();
+  if (!ORDER_STATUSES.includes(status)) {
+    throw new HttpError(
+      'PURCHASE_LEDGER_INVALID_INPUT',
+      'Неизвестный статус заказа.'
+    );
+  }
+  return status;
+}
+
 function reportDateDependencies(reportDate) {
   if (!reportDate) return {};
   return {
@@ -1374,6 +1465,7 @@ function createRunHandlers(options) {
     ownerKnowledgeHealthService,
     ownerRuleStatusService,
     ownerLearningCenterService,
+    purchaseLedgerService = null,
     supplierOrderService,
   } = options;
 
@@ -1389,7 +1481,11 @@ function createRunHandlers(options) {
   }
 
   const resolvedSupplierOrderService = supplierOrderService ||
-    new SupplierOrderService({ queryService, registry });
+    new SupplierOrderService({
+      queryService,
+      registry,
+      purchaseLedgerService,
+    });
 
   return {
     async createRun(request, context) {
@@ -1424,11 +1520,19 @@ function createRunHandlers(options) {
         });
         processingCreated = true;
 
+        const financialDataOverrides = purchaseLedgerService
+          ? purchaseLedgerService.resolveFinancialOverrides(
+            upload.financialDataOverrides,
+            generatedAt
+          )
+          : upload.financialDataOverrides;
+
         const bundle = await orchestrator({
           runId,
           inputPath: upload.inputPath,
           generatedAt,
           financialDataPath: serverPaths.financialDataPath,
+          financialDataOverrides,
           configPath: serverPaths.configPath,
           matrixPath: serverPaths.matrixPath,
           ownerDecisionsPath: serverPaths.ownerDecisionsPath,
@@ -1503,6 +1607,49 @@ function createRunHandlers(options) {
         statusCode: 200,
         data: queryService.getRunStatus(runId),
         runId,
+      };
+    },
+
+    getPurchaseBudgetCurrent() {
+      if (!purchaseLedgerService) {
+        throw new HttpError(
+          'PURCHASE_LEDGER_CORRUPTED',
+          'Реестр закупок недоступен.'
+        );
+      }
+      return {
+        statusCode: 200,
+        data: purchaseLedgerService.getMonthSummary(now()),
+      };
+    },
+
+    listPurchaseOrders(query) {
+      if (!purchaseLedgerService) {
+        throw new HttpError(
+          'PURCHASE_LEDGER_CORRUPTED',
+          'Реестр закупок недоступен.'
+        );
+      }
+      const filters = parsePurchaseOrdersQuery(query);
+      return {
+        statusCode: 200,
+        data: {
+          orders: purchaseLedgerService.listOrders(filters),
+        },
+      };
+    },
+
+    async changePurchaseOrderStatus(orderId, request) {
+      if (!purchaseLedgerService) {
+        throw new HttpError(
+          'PURCHASE_LEDGER_CORRUPTED',
+          'Реестр закупок недоступен.'
+        );
+      }
+      const status = await readPurchaseOrderStatusBody(request);
+      return {
+        statusCode: 200,
+        data: purchaseLedgerService.changeOrderStatus(orderId, status, now()),
       };
     },
 
@@ -1620,6 +1767,7 @@ function createRunHandlers(options) {
 
     async downloadSupplierOrder(runId, response) {
       const file = resolvedSupplierOrderService.buildSupplierOrderFile(runId);
+      resolvedSupplierOrderService.recordDownloadedOrder(runId, file.order);
       response.writeHead(200, {
         'Cache-Control': 'no-store',
         'Content-Disposition':
