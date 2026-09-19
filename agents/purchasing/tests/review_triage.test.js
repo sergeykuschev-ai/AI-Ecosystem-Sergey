@@ -1493,3 +1493,28 @@ test('final ABC/XYZ risk is an ACTIVE owner decision when order data is otherwis
   assert.equal(triage.current_manual_sections.owner_decisions.count, 1);
   assert.equal(triage.comparison.real_owner_decisions_after, 1);
 });
+
+test('status: sales spike blocker is a business review, not BLOCKED_BY_DATA', () => {
+  const { item } = singleItemTriage(() => bundle({
+    drafts: [draftItem({ rowIdentity: 'r-spike-active', article: 'SPIKE-1' })],
+    products: [workProduct({
+      rowIdentity: 'r-spike-active',
+      article: 'SPIKE-1',
+      extra: {
+        workflowStatus: 'pending_manual_review',
+        blockingReason: 'sales_spike_quantity_requires_review',
+      },
+    })],
+    ownerReview: {
+      items: [ownerReviewEntry({
+        rowIdentity: 'r-spike-active',
+        owner_review_reasons: ['commercial_review'],
+        owner_action_required: true,
+        owner_action_class: 'OWNER_ACTION_REQUIRED',
+      })],
+    },
+  }));
+  assert.equal(item.reason_code, TRIAGE_CATEGORIES.SALES_SPIKE_REVIEW);
+  assert.equal(item.owner_decision_status, 'ACTIVE');
+  assert.equal(item.owner_decision_blocker, null);
+});

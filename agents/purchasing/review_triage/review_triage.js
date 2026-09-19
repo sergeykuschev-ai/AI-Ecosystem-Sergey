@@ -625,7 +625,15 @@ function matrixLinkUnmatched(candidate) {
 function hasDataOrLinkageProblem(candidate, bundle) {
   const authoritative = authoritativePendingBlocker(candidate);
   if (authoritative) {
-    if (authoritative.startsWith('abc_xyz_risk:')) return false;
+    // Demand anomalies are business-review signals, not corrupt data.
+    // They must remain ACTIVE owner decisions so the compactor can package
+    // or learn them instead of blocking the entire supplier order as a
+    // data/linkage failure.
+    if (
+      authoritative.startsWith('abc_xyz_risk:') ||
+      authoritative === 'sales_spike_quantity_requires_review' ||
+      authoritative === 'short_long_trend_conflict'
+    ) return false;
     if (
       authoritative === 'unmatched_product_no_assortment_policy' ||
       authoritative === 'ambiguous_assortment_match' ||

@@ -87,7 +87,9 @@ class SupplierOrderService {
     ensureCompleted(this.queryService.getRunStatus(runId));
     const items = this.queryService.getDecoratedItems(runId);
     const summary = this.registry.getRunSummary(runId);
-    const agentArtifact = this.registry.getAgentResult(runId);
+    const agentArtifact = typeof this.registry.getAgentResult === 'function'
+      ? this.registry.getAgentResult(runId)
+      : null;
     const agent = Array.isArray(agentArtifact)
       ? agentArtifact[0]?.json
       : agentArtifact?.json || agentArtifact;
