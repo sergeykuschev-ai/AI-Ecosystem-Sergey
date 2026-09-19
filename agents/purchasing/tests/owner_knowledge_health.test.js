@@ -521,3 +521,19 @@ test('analyzeRuleHealth exposes the required signals', () => {
   assert.equal(result.signals.materializationAvailable, true);
   assert.equal(result.signals.statusHistoryAvailable, true);
 });
+
+test('owner-approved legacy rule does not require Owner Learning provenance', () => {
+  const legacy = rule('owner-approved', {
+    source: null,
+    provenance: null,
+    ruleType: 'ITEM_DECISION',
+  });
+  const result = analyzeKnowledgeHealth(input([legacy], {
+    materializations: [],
+    lifecycleStates: [],
+  }));
+  assert.equal(
+    result.findings.some(item => item.type === 'RULE_MISSING_PROVENANCE'),
+    false
+  );
+});

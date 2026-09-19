@@ -358,22 +358,22 @@ test('practical read-only materialized rules registry is safe and fail-soft',
         );
         assert.equal(list.statusCode, 200);
         assert.deepEqual(list.body.data.summary, {
-          totalRules: 4,
-          activeRules: 1,
+          totalRules: 5,
+          activeRules: 2,
           disabledRules: 3,
-          buyRules: 2,
+          buyRules: 3,
           skipRules: 1,
           deferRules: 1,
           currentCandidateAvailable: 1,
-          currentCandidateUnavailable: 3,
+          currentCandidateUnavailable: 4,
         });
-        assert.equal(list.body.data.rules.length, 4);
-        assert.equal(
-          list.body.data.rules.some(value =>
-            value.ruleId === 'approved-rule-legacy-practical'
-          ),
-          false
+        assert.equal(list.body.data.rules.length, 5);
+        const legacy = list.body.data.rules.find(value =>
+          value.ruleId === 'approved-rule-legacy-practical'
         );
+        assert.ok(legacy);
+        assert.equal(legacy.source.type, 'OWNER_APPROVED_RULE');
+        assert.equal(legacy.management.manageable, false);
         assert.equal(
           list.body.data.rules.find(value =>
             value.status === 'ACTIVE'
@@ -389,10 +389,10 @@ test('practical read-only materialized rules registry is safe and fail-soft',
 
         for (const [query, expected] of [
           ['status=DISABLED', 3],
-          ['decision=BUY', 2],
+          ['decision=BUY', 3],
           ['confidenceLevel=VERY_HIGH', 1],
           ['priorityLevel=CRITICAL', 1],
-          ['candidateAvailability=UNAVAILABLE', 3],
+          ['candidateAvailability=UNAVAILABLE', 4],
           ['dateFrom=2026-07-23&dateTo=2026-07-23', 1],
           ['search=DEFER%20product', 1],
           ['sortBy=confidenceScore&sortDirection=asc&limit=2', 2],
@@ -413,7 +413,7 @@ test('practical read-only materialized rules registry is safe and fail-soft',
           sorted.body.data.rules.map(value =>
             value.provenance.confidenceScore
           ),
-          [58, 75]
+          [null, 58]
         );
         const detail = await request(
           server,
@@ -477,7 +477,7 @@ test('practical read-only materialized rules registry is safe and fail-soft',
           '/api/v1/owner-learning/materialized-rules'
         );
         assert.equal(journalFallback.statusCode, 200);
-        assert.equal(journalFallback.body.data.rules.length, 4);
+        assert.equal(journalFallback.body.data.rules.length, 5);
         assert.equal(
           journalFallback.body.data.warning,
           'OWNER_RULE_MATERIALIZATION_HISTORY_UNAVAILABLE'

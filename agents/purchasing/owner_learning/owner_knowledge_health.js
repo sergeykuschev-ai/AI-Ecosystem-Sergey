@@ -660,7 +660,9 @@ function perRuleFindings(rule, context, index = 0) {
       ['RULE_REQUIRES_MANUAL_REVIEW']
     ));
   }
-  if (!provenance || Object.keys(provenance).length === 0) {
+  const ownerLearningRule = upper(rule?.source?.type ?? rule?.source) ===
+    'OWNER_LEARNING_CANDIDATE';
+  if (ownerLearningRule && (!provenance || Object.keys(provenance).length === 0)) {
     add(make(
       'RULE_MISSING_PROVENANCE',
       'HIGH',

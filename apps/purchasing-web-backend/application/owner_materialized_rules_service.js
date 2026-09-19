@@ -313,8 +313,12 @@ function buildRuleView({
           : null,
     },
     source: {
-      type: 'OWNER_LEARNING_CANDIDATE',
-      label: 'Кандидат Owner Learning',
+      type: provenance.source === 'OWNER_LEARNING_CANDIDATE'
+        ? 'OWNER_LEARNING_CANDIDATE'
+        : 'OWNER_APPROVED_RULE',
+      label: provenance.source === 'OWNER_LEARNING_CANDIDATE'
+        ? 'Кандидат Owner Learning'
+        : 'Правило, утверждённое владельцем',
     },
     provenance: {
       candidateId: safeText(provenance.candidateId),
@@ -691,16 +695,14 @@ class OwnerMaterializedRulesService {
       ])
     );
     return sources.registry.rules
-      .filter(rule =>
-        rule.provenance?.source === 'OWNER_LEARNING_CANDIDATE'
-      )
+      .filter(rule => rule && typeof rule === 'object' && !Array.isArray(rule))
       .map(rule => {
-        const candidateId = rule.provenance.candidateId;
+        const candidateId = rule.provenance?.candidateId || null;
         const candidate = candidatesById.get(candidateId) || null;
         const event = sources.journal
           ? findMaterializationByRule(sources.journal, rule.ruleId)
           : null;
-        const lifecycleState = sources.lifecycle
+        const lifecycleState = sources.lifecycle && candidateId
           ? getCandidateLifecycleState({
             lifecycle: sources.lifecycle,
             candidateId,

@@ -420,7 +420,7 @@ test('knowledge health tolerates damaged entries without weakening strict read',
   }
 });
 
-test('materialized disabled and active rules are listed; legacy is excluded', () => {
+test('materialized and owner-approved legacy rules are all visible', () => {
   const disabled = rule();
   const active = rule({
     ruleId: 'approved-rule-b',
@@ -447,38 +447,18 @@ test('materialized disabled and active rules are listed; legacy is excluded', ()
   const result = service({
     rules: [disabled, active, legacyRule()],
   }).listRules();
-  assert.equal(result.summary.totalRules, 2);
-  assert.equal(result.summary.activeRules, 1);
+  assert.equal(result.summary.totalRules, 3);
+  assert.equal(result.summary.activeRules, 2);
   assert.equal(result.summary.disabledRules, 1);
-  assert.equal(result.summary.buyRules, 1);
+  assert.equal(result.summary.buyRules, 2);
   assert.equal(result.summary.skipRules, 1);
-  assert.equal(result.rules[0].ruleId, active.ruleId);
-  assert.deepEqual(result.rules.map(value => value.safety), [
-    {
-      affectsPurchasing: true,
-      message: 'Правило активно и может влиять на закупку.',
-    },
-    {
-      affectsPurchasing: false,
-      message: 'Правило неактивно и не влияет на закупку.',
-    },
-  ]);
-  assert.deepEqual(result.rules.map(value => value.management), [
-    {
-      manageable: true,
-      availableActions: ['DEACTIVATE'],
-      lastStatusChangeAt: null,
-      lastStatusAction: null,
-      previewRequired: true,
-    },
-    {
-      manageable: true,
-      availableActions: ['ACTIVATE'],
-      lastStatusChangeAt: null,
-      lastStatusAction: null,
-      previewRequired: true,
-    },
-  ]);
+  const legacy = result.rules.find(value => value.ruleId === 'approved-rule-legacy');
+  assert.ok(legacy);
+  assert.equal(legacy.source.type, 'OWNER_APPROVED_RULE');
+  assert.equal(legacy.source.label, 'Правило, утверждённое владельцем');
+  assert.equal(legacy.safety.affectsPurchasing, true);
+  assert.equal(legacy.management.manageable, false);
+  assert.deepEqual(legacy.management.availableActions, []);
 });
 
 test('status journal enriches management overlay', () => {
