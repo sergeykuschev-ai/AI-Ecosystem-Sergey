@@ -4879,6 +4879,9 @@
       monthlyPurchaseLimit: documentObject.getElementById('monthly-purchase-limit'),
       purchasedThisMonth: documentObject.getElementById('purchased-this-month'),
       monthlyBudgetRemaining: documentObject.getElementById('monthly-budget-remaining'),
+      monthlyBudgetBaseline: documentObject.getElementById('monthly-budget-baseline'),
+      monthlyBudgetLedgerOrders: documentObject.getElementById('monthly-budget-ledger-orders'),
+      monthlyBudgetTotalPurchased: documentObject.getElementById('monthly-budget-total-purchased'),
       monthlyBudgetError: documentObject.getElementById('monthly-budget-error'),
       purchaseOrdersList: documentObject.getElementById('purchase-orders-list'),
       purchaseOrdersEmpty: documentObject.getElementById('purchase-orders-empty'),
@@ -7144,6 +7147,15 @@
         const untouched =
           (elements.monthlyPurchaseLimit?.value?.trim() || '') === '' &&
           (elements.purchasedThisMonth?.value?.trim() || '') === '';
+        if (elements.monthlyBudgetBaseline) {
+          elements.monthlyBudgetBaseline.textContent = Number.isFinite(snapshot?.baselinePurchased) ? formatRub(snapshot.baselinePurchased) : '—';
+        }
+        if (elements.monthlyBudgetLedgerOrders) {
+          elements.monthlyBudgetLedgerOrders.textContent = Number.isFinite(snapshot?.ledgerOrdersPurchased) ? formatRub(snapshot.ledgerOrdersPurchased) : '—';
+        }
+        if (elements.monthlyBudgetTotalPurchased) {
+          elements.monthlyBudgetTotalPurchased.textContent = Number.isFinite(snapshot?.purchased) ? formatRub(snapshot.purchased) : '—';
+        }
         if ((force || untouched) && Number.isFinite(snapshot?.limit)) {
           elements.monthlyPurchaseLimit.value = String(snapshot.limit);
           elements.purchasedThisMonth.value =

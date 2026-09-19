@@ -71,7 +71,12 @@
                 <span>Уже закуплено в этом месяце, ₽</span>
                 <input id="purchased-this-month" type="number" min="0" step="0.01" inputmode="decimal">
               </label>
-              <p class="monthly-budget-remaining">Остаток лимита: <strong id="monthly-budget-remaining">—</strong></p>
+              <div class="monthly-budget-breakdown" aria-label="Расшифровка бюджета">
+                <p>Внесено на начало месяца: <strong id="monthly-budget-baseline">—</strong></p>
+                <p>Заказы из журнала: <strong id="monthly-budget-ledger-orders">—</strong></p>
+                <p class="monthly-budget-remaining">Всего учтено: <strong id="monthly-budget-total-purchased">—</strong></p>
+                <p class="monthly-budget-remaining">Доступный остаток: <strong id="monthly-budget-remaining">—</strong></p>
+              </div>
             </div>
             <p class="field-help" id="file-help">
               Поля необязательные. Если укажете оба значения, лимит учитывается вместе с ликвидностью и резервом; разрешённая сумма заказа берётся по меньшему ограничению.
