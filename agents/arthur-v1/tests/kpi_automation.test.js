@@ -205,6 +205,19 @@ describe('KpiAutomation daily report', () => {
     assert.ok(!report.text.includes('Кущев'));
   });
 
+  test('uses shift journal when today summary incorrectly says NO_DATA', async () => {
+    const skill = createFakeSkill({
+      getTodaySummary: async () => ({ date: '2026-08-28', dataStatus: 'NO_DATA' }),
+    });
+    const automation = createKpiAutomation(skill, createFakeStateStore());
+    const report = await automation.buildDailyReport({ storeId: 'miska', timezone: DEFAULT_TIMEZONE });
+
+    assert.ok(report.text.includes('📊 Миска — итоги дня'), report.text);
+    assert.ok(normalizeSpaces(report.text).includes('28 500 ₽'), report.text);
+    assert.ok(report.text.includes('Капитанова'), report.text);
+    assert.ok(!report.text.includes('ещё не загружены'), report.text);
+  });
+
   test('reports partial data status', async () => {
     const skill = createFakeSkill({
       getTodaySummary: async () => ({

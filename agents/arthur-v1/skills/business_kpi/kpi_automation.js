@@ -450,16 +450,33 @@ function rankSellers(sellers, key) {
 
 async function buildDailyReport(skill, { storeId, timezone = DEFAULT_TIMEZONE }) {
   const { store, performance, settings, today } = await fetchCurrentMonthContext(skill, storeId, timezone);
-  const todaySummary = await executeSkill(skill, 'getTodaySummary', { storeId, timezone });
+  let todaySummary = await executeSkill(skill, 'getTodaySummary', { storeId, timezone });
 
   const todayDate = todaySummary.date || today;
+  // The shift journal is the authoritative fact that sellers entered a shift.
+  // Do not suppress a real shift merely because the derived /today endpoint is stale/NO_DATA.
+  const todayShifts = await fetchShiftsForRange(skill, storeId, todayDate, todayDate);
+  if ((todaySummary.dataStatus || 'NO_DATA') === 'NO_DATA' && todayShifts.length > 0) {
+    const aggregate = aggregateShifts(todayShifts);
+    todaySummary = {
+      ...todaySummary,
+      date: todayDate,
+      dataStatus: todayShifts.every(shift => (shift.missingFields || []).length === 0) ? 'COMPLETE' : 'PARTIAL',
+      revenue: aggregate.revenue,
+      receipts: aggregate.receipts,
+      averageCheck: aggregate.averageCheck,
+      itemsPerCheck: aggregate.itemsPerCheck,
+      itemsPerCheckFormatted: formatNumber(aggregate.itemsPerCheck, 2),
+      qrShare: aggregate.qrShare,
+      qrShareFormatted: formatPercent(aggregate.qrShare),
+      shifts: aggregate.shiftsCount,
+    };
+  }
   const dataStatus = todaySummary.dataStatus || 'NO_DATA';
   const isNoData = dataStatus === 'NO_DATA';
   const isPartial = dataStatus === 'PARTIAL';
   const isFinal = dataStatus === 'COMPLETE';
   const title = isFinal ? '📊 Миска — итоги дня' : '📊 Миска — предварительные итоги дня';
-
-  const todayShifts = isNoData ? [] : await fetchShiftsForRange(skill, storeId, todayDate, todayDate);
   const todaySellers = aggregateShiftsBySeller(todayShifts)
     .filter(hasMeaningfulMetrics)
     .filter(s => !isOwnerSeller(s));
