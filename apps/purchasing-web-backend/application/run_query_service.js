@@ -394,9 +394,33 @@ class RunQueryService {
   getRunSummary(runId) {
     ensureCompleted(this.getRunStatus(runId));
     const summary = this.registry.getRunSummary(runId);
+    let firstOrderCandidates = [];
+    try {
+      const result = this.registry.getAgentResult(runId);
+      const payload = Array.isArray(result) ? result[0]?.json : result?.json;
+      firstOrderCandidates = Array.isArray(payload?.firstOrderCandidates)
+        ? payload.firstOrderCandidates
+        : [];
+    } catch {
+      firstOrderCandidates = [];
+    }
+    const firstOrderSummary = {
+      count: firstOrderCandidates.length,
+      total_quantity: firstOrderCandidates.reduce(
+        (sum, item) => sum + (Number(item.recommendedQuantity) || 0), 0
+      ),
+      priced_count: firstOrderCandidates.filter(
+        item => Number.isFinite(Number(item.unitPrice ?? item.price))
+      ).length,
+      blocked_missing_price: firstOrderCandidates.filter(
+        item => item.requiresSupplierPrice === true &&
+          !Number.isFinite(Number(item.unitPrice ?? item.price))
+      ).length,
+      items: firstOrderCandidates,
+    };
     const triageIndex = reviewTriageIndex(this.registry, runId);
     const compaction = triageIndex?.triage?.owner_review_compaction || null;
-    if (!compaction) return summary;
+    if (!compaction) return { ...summary, first_order_from_matrix: firstOrderSummary };
     const legacy = summary?.owner_review || {};
     const decorated = this.getDecoratedItems(runId);
     const activeSummary = ownerDecisionSummary(decorated);
@@ -409,6 +433,7 @@ class RunQueryService {
     ).length;
     return {
       ...summary,
+      first_order_from_matrix: firstOrderSummary,
       owner_review: {
         ...legacy,
         legacy_action_required: legacy.action_required ?? 0,
