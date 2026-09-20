@@ -186,8 +186,7 @@ function storeRouteAllowed(route) {
 
 function applyStoreNavigation() {
   document.querySelectorAll('[data-route]').forEach(link => {
-    const storeAllowed = storeRouteAllowed(link.dataset.route);
-    link.hidden = !storeAllowed;
+    link.hidden = !canViewRoute(link.dataset.route);
   });
   const bonusLink = document.querySelector('[data-route="bonuses"]');
   if (bonusLink) bonusLink.textContent = isStoreMode() ? 'Премия магазина' : 'Премии';
