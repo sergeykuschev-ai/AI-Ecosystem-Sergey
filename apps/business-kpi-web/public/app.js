@@ -188,8 +188,15 @@ function applyStoreNavigation() {
   document.querySelectorAll('[data-route]').forEach(link => {
     link.hidden = !canViewRoute(link.dataset.route);
   });
+  const sellerRole = state.currentUser?.role === 'SELLER';
+  const sellersLink = document.querySelector('[data-route="sellers"]');
+  if (sellersLink) sellersLink.textContent = sellerRole ? 'Мои показатели' : 'Продавцы';
+  const sellersTitle = element('sellers-title');
+  if (sellersTitle) sellersTitle.textContent = sellerRole ? 'Мои показатели' : 'Продавцы';
   const bonusLink = document.querySelector('[data-route="bonuses"]');
-  if (bonusLink) bonusLink.textContent = isStoreMode() ? 'Премия магазина' : 'Премии';
+  if (bonusLink) bonusLink.textContent = sellerRole ? 'Моя премия' : (isStoreMode() ? 'Премия магазина' : 'Премии');
+  const bonusesTitle = element('bonuses-title');
+  if (bonusesTitle) bonusesTitle.textContent = sellerRole ? 'Моя премия' : 'Премии продавцов';
   const settingsLink = document.querySelector('[data-route="settings"]');
   if (settingsLink) settingsLink.textContent = isStoreMode() ? 'План' : 'Настройки';
   document.querySelectorAll('[data-miska-settings]').forEach(node => { node.hidden = isStoreMode(); });

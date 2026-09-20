@@ -520,7 +520,7 @@ test('me endpoint does not expose password hash or lockout state', async () => {
   assert.equal(body.data.password_hash, undefined);
 });
 
-test('SELLER bonus API redacts other sellers amounts', async () => {
+test('SELLER bonus API returns only own seller row', async () => {
   await authService.createUser({
     id: 'owner-bonus-seed',
     externalId: 'owner.bonus.seed',
@@ -586,11 +586,8 @@ test('SELLER bonus API redacts other sellers amounts', async () => {
   const own = body.data.items.find(i => i.employeeId === SELLER_EMPLOYEE.id);
   const other = body.data.items.find(i => i.employeeId === OTHER_EMPLOYEE.id);
   assert.ok(own, 'own seller missing');
-  assert.ok(other, 'other seller missing');
+  assert.equal(other, undefined, 'other seller must be hidden');
   assert.notEqual(own.bonusStatus, 'ACCESS_DENIED');
-  assert.equal(other.bonusStatus, 'ACCESS_DENIED');
-  assert.equal(other.bonus, null);
-  assert.equal(other.bonusDetails, null);
 });
 
 test('SELLER cannot edit imported historical shift', async () => {

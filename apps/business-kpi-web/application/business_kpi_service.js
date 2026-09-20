@@ -582,7 +582,14 @@ class BusinessKpiService {
 
   async listShifts(filters = {}, actor = null) {
     requireActorStore(actor, filters.storeId);
-    const shifts = await this.store.listShifts(filters);
+    let shifts = await this.store.listShifts(filters);
+    if (actor?.role === 'SELLER') {
+      const employeeId = await linkedEmployeeId(this.store, actor);
+      if (!employeeId) {
+        throw new ApplicationError('FORBIDDEN', 'Учётная запись продавца не связана с сотрудником.', 403);
+      }
+      shifts = shifts.filter(shift => shift.employeeId === employeeId);
+    }
     return Promise.all(shifts.map(shift => this.decorateShift(this.store, shift)));
   }
 
@@ -592,6 +599,12 @@ class BusinessKpiService {
       throw new ApplicationError('SHIFT_NOT_FOUND', 'Смена не найдена.', 404);
     }
     requireActorStore(actor, shift.storeId);
+    if (actor?.role === 'SELLER') {
+      const employeeId = await linkedEmployeeId(this.store, actor);
+      if (!employeeId || shift.employeeId !== employeeId) {
+        throw new ApplicationError('FORBIDDEN', 'Нет доступа к чужой смене.', 403);
+      }
+    }
     const decorated = await this.decorateShift(this.store, shift);
     const audit = await this.store.listAudit({ entityId: id });
     return { ...decorated, audit };
@@ -824,15 +837,8 @@ class BusinessKpiService {
     const canSeeOwn = hasPermission(actor.role, PERMISSIONS.BONUS_READ_OWN_AMOUNT);
     if (canSeeAll || !canSeeOwn) return sellers;
     const ownEmployeeId = await linkedEmployeeId(this.store, actor);
-    return sellers.map(seller => {
-      if (seller.employeeId === ownEmployeeId) return seller;
-      return {
-        ...seller,
-        bonus: null,
-        bonusStatus: 'ACCESS_DENIED',
-        bonusDetails: null,
-      };
-    });
+    if (!ownEmployeeId) return [];
+    return sellers.filter(seller => seller.employeeId === ownEmployeeId);
   }
 
   async getToday(input) {
