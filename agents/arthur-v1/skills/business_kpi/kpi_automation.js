@@ -448,11 +448,11 @@ function rankSellers(sellers, key) {
     .sort((a, b) => b[key] - a[key]);
 }
 
-async function buildDailyReport(skill, { storeId, timezone = DEFAULT_TIMEZONE }) {
+async function buildDailyReport(skill, { storeId, timezone = DEFAULT_TIMEZONE, reportDate = null }) {
   const { store, performance, settings, today } = await fetchCurrentMonthContext(skill, storeId, timezone);
-  let todaySummary = await executeSkill(skill, 'getTodaySummary', { storeId, timezone });
+  let todaySummary = reportDate ? { date: reportDate, dataStatus: 'NO_DATA' } : await executeSkill(skill, 'getTodaySummary', { storeId, timezone });
 
-  const todayDate = todaySummary.date || today;
+  const todayDate = reportDate || todaySummary.date || today;
   // The shift journal is the authoritative fact that sellers entered a shift.
   // Do not suppress a real shift merely because the derived /today endpoint is stale/NO_DATA.
   const todayShifts = await fetchShiftsForRange(skill, storeId, todayDate, todayDate);

@@ -218,6 +218,15 @@ describe('KpiAutomation daily report', () => {
     assert.ok(!report.text.includes('ещё не загружены'), report.text);
   });
 
+  test('can backfill a daily report from the shift journal for an explicit date', async () => {
+    const skill = createFakeSkill();
+    const automation = createKpiAutomation(skill, createFakeStateStore());
+    const report = await automation.buildDailyReport({ storeId: 'miska', timezone: DEFAULT_TIMEZONE, reportDate: '2026-08-28' });
+    assert.ok(report.text.includes('28 августа'), report.text);
+    assert.ok(normalizeSpaces(report.text).includes('28 500 ₽'), report.text);
+    assert.ok(report.text.includes('Капитанова'), report.text);
+  });
+
   test('reports partial data status', async () => {
     const skill = createFakeSkill({
       getTodaySummary: async () => ({
