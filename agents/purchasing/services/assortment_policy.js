@@ -333,6 +333,29 @@ function buildUnmatchedActiveRuleDiagnostics(rules, matchedRuleSkus, reportSuppl
       assortmentStatus: rule.assortment_status,
       severity: 'warning',
     });
+    // Approved TEST assortment that is not yet present in the supplier/1C
+    // source must remain visible as a first-order candidate.  We deliberately
+    // do not fabricate price or stock: quantity is capped by the approved
+    // matrix target/max and the candidate still requires supplier availability
+    // before it can become a payable order line.
+    if (rule.assortment_status === 'TEST' && rule.purchase_hold !== true) {
+      const startQuantity = rule.target_stock ?? rule.max_stock ?? rule.min_stock ?? 1;
+      if (Number.isFinite(startQuantity) && startQuantity > 0) {
+        diagnostics.push({
+          code: 'NEW_ASSORTMENT_FIRST_ORDER_CANDIDATE',
+          sku: rule.sku,
+          supplierSku: rule.canonical?.supplier_sku ?? rule.sku,
+          supplier: rule.canonical?.supplier ?? null,
+          brand: rule.canonical?.brand ?? null,
+          category: rule.canonical?.category ?? rule.category ?? null,
+          assortmentStatus: rule.assortment_status,
+          recommendedQuantity: startQuantity,
+          requiresSupplierAvailability: true,
+          requiresSupplierPrice: true,
+          severity: 'action',
+        });
+      }
+    }
     if (rule.mandatory_assortment) {
       diagnostics.push({
         code: 'MANDATORY_SKU_MISSING_FROM_SOURCE',

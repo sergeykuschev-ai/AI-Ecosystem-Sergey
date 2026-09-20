@@ -494,3 +494,22 @@ test('Monge does not duplicate existing canonical SKUs', () => {
     assert.ok(MONGE_TEST.some(m => m.sku === rule.sku), `${rule.sku} is one of the approved 14`);
   }
 });
+
+test('Approved Monge TEST missing from source becomes an explicit first-order candidate', () => {
+  const src = source();
+  const products = applyAssortmentPolicyToProducts(
+    [{ article: 'OTHER', freeStock: 0, availableStock: 0, finalRecommendedQuantity: 0 }],
+    src.store
+  );
+  for (const { sku } of MONGE_TEST) {
+    const candidate = products.unmatchedActiveRules.find(
+      d => d.sku === sku && d.code === 'NEW_ASSORTMENT_FIRST_ORDER_CANDIDATE'
+    );
+    assert.ok(candidate, `${sku} must become a first-order candidate`);
+    assert.equal(candidate.recommendedQuantity, 1, sku);
+    assert.equal(candidate.supplier, 'Валта', sku);
+    assert.equal(candidate.brand, 'Monge', sku);
+    assert.equal(candidate.requiresSupplierAvailability, true, sku);
+    assert.equal(candidate.requiresSupplierPrice, true, sku);
+  }
+});
