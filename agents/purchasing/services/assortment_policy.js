@@ -338,7 +338,17 @@ function buildUnmatchedActiveRuleDiagnostics(rules, matchedRuleSkus, reportSuppl
     // do not fabricate price or stock: quantity is capped by the approved
     // matrix target/max and the candidate still requires supplier availability
     // before it can become a payable order line.
-    if (rule.assortment_status === 'TEST' && rule.purchase_hold !== true) {
+    const explicitlyApprovedNewTest =
+      rule.assortment_status === 'TEST' &&
+      rule.purchase_hold !== true &&
+      (
+        /(?:Утверждено владельцем|Утверждённый владельцем|Owner review|Добавлено из MASTER)/i.test(
+          rule.owner_comment || rule.canonical?.rule_reason || ''
+        ) ||
+        Boolean(rule.canonical?.test_start_date) &&
+          !/OWNER_ACTION_REQUIRED|автоматический заказ запрещён|отлож/i.test(rule.owner_comment || rule.canonical?.rule_reason || '')
+      );
+    if (explicitlyApprovedNewTest) {
       const startQuantity = rule.target_stock ?? rule.max_stock ?? rule.min_stock ?? 1;
       if (Number.isFinite(startQuantity) && startQuantity > 0) {
         diagnostics.push({
