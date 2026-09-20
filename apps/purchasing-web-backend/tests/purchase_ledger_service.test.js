@@ -246,3 +246,37 @@ test('invoice amount replaces ordered reserve in monthly spend', () => {
     assert.equal(summary.remaining, 58000);
   });
 });
+
+
+test('re-export preserves invoice and received audit metadata and monthly spend', () => {
+  withService(service => {
+    service.configureMonth({ limit: 10000, purchased: 0, at: '2026-09-17T09:00:00.000Z' });
+    const input = { runId: 'repeat', supplier: 'Валта', order: fixtureOrder(1000), orderedAt: '2026-09-17T10:00:00.000Z' };
+    const first = service.recordOrder(input);
+    service.setInvoiceAmount(first.order.orderId, 850, '2026-09-17T11:00:00.000Z');
+    service.changeOrderStatus(first.order.orderId, 'RECEIVED', '2026-09-17T12:00:00.000Z');
+    const repeated = service.recordOrder({ ...input, orderedAt: '2026-09-17T13:00:00.000Z' });
+    assert.equal(repeated.changed, false);
+    assert.equal(repeated.order.invoiceAmount, 850);
+    assert.equal(repeated.order.invoiceUpdatedAt, '2026-09-17T11:00:00.000Z');
+    assert.equal(repeated.order.receivedAt, '2026-09-17T12:00:00.000Z');
+    assert.equal(repeated.month.purchased, 850);
+    assert.equal(repeated.month.remaining, 9150);
+  });
+});
+
+test('invalid monetary types cannot overwrite invoice or month budget', () => {
+  withService(service => {
+    const first = service.recordOrder({ runId: 'invalid', supplier: 'Валта', order: fixtureOrder() });
+    for (const value of [null, '', '  ', false, true, [], [100], {}, NaN, Infinity, -1, 1e308]) {
+      const before = fs.readFileSync(service.filePath, 'utf8');
+      assert.throws(() => service.setInvoiceAmount(first.order.orderId, value), { code: 'PURCHASE_LEDGER_INVALID_INPUT' });
+      if (value !== null) {
+        assert.throws(() => service.configureMonth({ limit: value, purchased: 0 }), { code: 'PURCHASE_LEDGER_INVALID_INPUT' });
+      }
+      assert.equal(fs.readFileSync(service.filePath, 'utf8'), before);
+    }
+    assert.equal(service.setInvoiceAmount(first.order.orderId, 0).order.invoiceAmount, 0);
+    assert.equal(service.setInvoiceAmount(first.order.orderId, '12.50').order.invoiceAmount, 12.5);
+  });
+});

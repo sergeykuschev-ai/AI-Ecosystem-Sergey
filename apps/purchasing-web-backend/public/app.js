@@ -5650,6 +5650,7 @@
     };
 
     let selectedFile = null;
+    let restoredMonthlyBudget = null;
     let active = false;
     let availableArtifacts = {};
     let itemRequestSequence = 0;
@@ -7036,8 +7037,9 @@
         invoiceButton.className = 'secondary-button purchase-order-action';
         invoiceButton.textContent = order.invoiceAmount == null ? 'Внести счёт' : 'Изменить счёт';
         invoiceButton.addEventListener('click', async () => {
-          const amount = Number(invoiceInput.value);
-          if (!Number.isFinite(amount) || amount < 0) {
+          const rawAmount = String(invoiceInput.value ?? '').trim();
+          const amount = Number(rawAmount);
+          if (rawAmount === '' || !Number.isFinite(amount) || amount < 0) {
             elements.purchaseOrdersError.textContent = 'Введите корректную сумму итогового счёта.';
             elements.purchaseOrdersError.hidden = false;
             return;
@@ -7162,6 +7164,10 @@
             Number.isFinite(snapshot?.purchased)
               ? String(snapshot.purchased)
               : '0';
+          restoredMonthlyBudget = {
+            limit: snapshot.limit,
+            spent: Number.isFinite(snapshot?.purchased) ? snapshot.purchased : 0,
+          };
           updateMonthlyBudgetView();
         }
         await loadPurchaseOrders(snapshot?.month);
@@ -7362,7 +7368,12 @@
       try {
         const formData = new FormData();
         formData.append('file', selectedFile, selectedFile.name);
-        if (monthlyBudget.enabled) {
+        // Unchanged restored values are a display snapshot, not a new
+        // owner baseline. The backend must include subsequent ledger orders.
+        const budgetChanged = !restoredMonthlyBudget ||
+          monthlyBudget.limit !== restoredMonthlyBudget.limit ||
+          monthlyBudget.spent !== restoredMonthlyBudget.spent;
+        if (monthlyBudget.enabled && budgetChanged) {
           formData.append('monthly_purchase_limit', String(monthlyBudget.limit));
           formData.append('purchased_this_month', String(monthlyBudget.spent));
         }
@@ -7370,6 +7381,9 @@
           method: 'POST',
           body: formData,
         });
+        if (monthlyBudget.enabled && budgetChanged) {
+          restoredMonthlyBudget = { limit: monthlyBudget.limit, spent: monthlyBudget.spent };
+        }
         clearTimeout(processingHint);
 
         if (status?.status !== 'completed') {

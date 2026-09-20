@@ -220,3 +220,19 @@ test('present: отсутствующие источники не ломают �
   assert.equal(presented.blocked[0].sales, null);
   assert.equal(presentOwnerReviewCompaction(null, {}), null);
 });
+
+
+test('sparse package SKU IDs never shift onto a different product', () => {
+  const { compactOwnerReview } = require('../../../agents/purchasing/review_triage/owner_review_compactor');
+  const compaction = compactOwnerReview({ items: [
+    { row_identity: 'row-a', supplier_sku: 'ART-A', sku_id: null },
+    { row_identity: 'row-c', supplier_sku: 'ART-C', sku_id: 'SKU-C' },
+  ].map(item => ({
+    ...item, requires_owner_decision: true, owner_decision_status: 'ACTIVE',
+    owner_signals: ['commercial_review'], evidence: ['reason_codes=[supplier_recommends_order]'],
+  })) });
+  const presented = presentOwnerReviewCompaction(compaction, { canonicalMatrix });
+  assert.deepEqual(presented.packages[0].members.map(item => [item.article, item.sku_id]), [
+    ['ART-A', null], ['ART-C', 'SKU-C'],
+  ]);
+});

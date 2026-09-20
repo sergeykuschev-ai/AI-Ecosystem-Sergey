@@ -1408,8 +1408,11 @@ async function readPurchaseOrderInvoiceBody(request) {
   let input;
   try { input = JSON.parse(Buffer.concat(chunks).toString('utf8')); }
   catch (cause) { throw new HttpError('PURCHASE_LEDGER_INVALID_INPUT', 'Некорректный JSON суммы счёта.', { cause }); }
-  const amount = Number(input?.amount);
-  if (!Number.isFinite(amount) || amount < 0) throw new HttpError('PURCHASE_LEDGER_INVALID_INPUT', 'Сумма счёта должна быть неотрицательным числом.');
+  const value = input?.amount;
+  const numericInput = typeof value === 'number' ||
+    (typeof value === 'string' && value.trim() !== '');
+  const amount = Number(value);
+  if (!numericInput || !Number.isFinite(amount) || amount < 0) throw new HttpError('PURCHASE_LEDGER_INVALID_INPUT', 'Сумма счёта должна быть неотрицательным числом.');
   return amount;
 }
 

@@ -121,3 +121,21 @@ test('purchase order invoice API replaces reserve with actual invoice amount', a
     fs.rmSync(f.root, { recursive: true, force: true });
   }
 });
+
+
+test('invoice API rejects coerced zero and malformed payloads without changing spend', async () => {
+  const f = await fixture();
+  try {
+    for (const input of [{ amount: null }, { amount: '' }, { amount: ' ' }, { amount: false }, { amount: [] }, { amount: [100] }, { amount: 1e308 }, null, [], {}]) {
+      const result = await json(`${f.base}/api/v1/purchase-orders/${f.orderId}/invoice`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input),
+      });
+      assert.equal(result.response.status, 400, JSON.stringify(input));
+      assert.equal(result.body.error.code, 'PURCHASE_LEDGER_INVALID_INPUT');
+      assert.equal(f.service.getMonthSummary().purchased, 290000);
+    }
+  } finally {
+    f.server.close();
+    fs.rmSync(f.root, { recursive: true, force: true });
+  }
+});

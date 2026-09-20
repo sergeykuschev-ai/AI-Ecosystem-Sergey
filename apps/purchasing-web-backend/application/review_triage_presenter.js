@@ -156,7 +156,9 @@ function presentOwnerReviewCompaction(compaction, sources = {}) {
     const skuIds = asArray(pkg.sku_ids);
     const members = articles
       .map((article, index) => mergePosition(
-        { sku_id: display(skuIds[index]) },
+        // The compactor omits absent IDs. A sparse list is not positional;
+        // fall back to the article lookup instead of assigning a neighbor's ID.
+        { sku_id: skuIds.length === articles.length ? display(skuIds[index]) : null },
         resolvePosition(lookup, rowIdentities[index] || null, article)
       ))
       .sort((a, b) => (a.article || '').localeCompare(b.article || '', 'ru'));

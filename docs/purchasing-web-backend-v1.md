@@ -138,6 +138,31 @@ Upload limits and validation:
   `source.xlsx` or `source.xls`;
 - temporary upload data is removed after success, failure, abort, or timeout.
 
+### Monthly purchase ledger
+
+`GET /api/v1/purchase-budget/current` returns the current business month
+(`Asia/Vladivostok`), limit, manual baseline, subsequent ledger purchases,
+and remaining monthly spend. Active orders and received orders count;
+cancelled orders do not. An entered invoice amount replaces the calculated
+order reserve. Re-exporting the same run preserves its invoice and lifecycle
+metadata and does not create a second ledger entry.
+
+The run upload optionally accepts `monthly_purchase_limit` and
+`purchased_this_month` together as non-negative monetary values. Explicitly
+submitted values replace the month's manual baseline at submission time;
+orders already included in that baseline are not counted twice. With those
+fields omitted, the backend reads the current persisted ledger. The browser
+omits unchanged values restored from the ledger so an older page snapshot
+cannot erase subsequent purchases. Editing the fields explicitly still
+submits a new baseline. The financial ceiling is capped by remaining monthly
+spend as well as the existing liquidity calculation.
+
+`POST /api/v1/purchase-orders/:orderId/invoice` accepts `{ "amount": 8500 }`.
+Zero is valid; nulls, blank strings, booleans, arrays, negative values, and
+values that overflow monetary rounding are rejected with
+`400 PURCHASE_LEDGER_INVALID_INPUT` without changing the ledger. Nonempty
+finite numeric strings remain accepted for compatibility.
+
 ### Run status
 
 `GET /api/v1/runs/:runId`

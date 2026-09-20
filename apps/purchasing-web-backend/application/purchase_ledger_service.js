@@ -50,7 +50,10 @@ function roundMoney(value) {
 
 function finiteNonNegative(value, field) {
   const number = Number(value);
-  if (!Number.isFinite(number) || number < 0) {
+  const numericInput = typeof value === 'number' ||
+    (typeof value === 'string' && value.trim() !== '');
+  if (!numericInput || !Number.isFinite(number) || number < 0 ||
+      !Number.isFinite(roundMoney(number))) {
     throw new PurchaseLedgerError(
       'PURCHASE_LEDGER_INVALID_INPUT',
       `${field} должен быть неотрицательным числом.`
@@ -315,6 +318,8 @@ class PurchaseLedgerService {
     const existingIndex = ledger.orders.findIndex(entry => entry?.runId === runId);
     const existing = existingIndex >= 0 ? ledger.orders[existingIndex] : null;
     const record = {
+      // Re-export updates calculated rows, not invoice or lifecycle facts.
+      ...existing,
       orderId: existing?.orderId || `purchase-order-${crypto.createHash('sha256')
         .update(`${runId}|${fingerprint}`, 'utf8')
         .digest('hex')

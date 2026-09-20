@@ -3650,3 +3650,99 @@ test('successful run flow renders completed status after 201+200+200', async () 
     /8 позиций для решения/
   );
 });
+
+
+test('unchanged restored budget is not resubmitted as a fresh manual baseline', async () => {
+  const documentObject = fakeDocumentWithAllElements();
+  const submissions = [];
+  const mockFetch = async (url, options) => {
+    if (url === '/api/v1/purchase-budget/current') {
+      return { ok: true, json: async () => ({ data: { month: '2026-09', limit: 10000, purchased: 1000 } }) };
+    }
+    if (url === '/api/v1/runs' && options?.method === 'POST') submissions.push(options.body);
+    return { ok: false, status: 404, json: async () => ({ error: { code: 'ROUTE_NOT_FOUND' } }) };
+  };
+  const app = createApplication(documentObject, mockFetch);
+  await new Promise(resolve => setImmediate(resolve));
+  const fileInput = documentObject.getElementById('file-input');
+  fileInput.files = [new File(['xlsx'], 'test.xlsx')];
+  app.updateFileSelection();
+  await app.submitRun({ preventDefault() {} });
+  assert.equal(submissions.length, 1);
+  // The ledger may have gained orders since the page loaded. Let the backend
+  // read its current total instead of resetting it to the displayed snapshot.
+  assert.equal(submissions[0].has('monthly_purchase_limit'), false);
+  assert.equal(submissions[0].has('purchased_this_month'), false);
+  documentObject.getElementById('purchased-this-month').value = '2500';
+  await app.submitRun({ preventDefault() {} });
+  assert.equal(submissions[1].get('monthly_purchase_limit'), '10000');
+  assert.equal(submissions[1].get('purchased_this_month'), '2500');
+});
+
+
+test('blank invoice field is rejected instead of being saved as zero', async () => {
+  const documentObject = fakeDocumentWithAllElements();
+  const requests = [];
+  function mockFetch(url, options = {}) {
+    requests.push({ url, options });
+    if (url === '/api/v1/purchase-budget/current') {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({
+          data: {
+            month: '2026-09',
+            limit: 350000,
+            purchased: 12500,
+            remaining: 337500,
+          },
+        }),
+      });
+    }
+    if (url === '/api/v1/purchase-orders?month=2026-09') {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({
+          data: {
+            orders: [{
+              orderId: 'purchase-order-blank-invoice',
+              supplier: 'Валта',
+              canonicalSupplier: 'валта',
+              status: 'ORDERED',
+              orderedAt: '2026-09-18T01:00:00.000Z',
+              totalAmount: 12500,
+              itemCount: 4,
+            }],
+          },
+        }),
+      });
+    }
+    return Promise.resolve({
+      ok: false,
+      status: 404,
+      json: () => Promise.resolve({ error: { code: 'ROUTE_NOT_FOUND' } }),
+    });
+  }
+
+  createApplication(documentObject, mockFetch);
+  await new Promise(resolve => setImmediate(resolve));
+  await new Promise(resolve => setImmediate(resolve));
+
+  const card = documentObject.getElementById('purchase-orders-list').children[0];
+  const actions = card.children[2];
+  const invoiceInput = actions.children[0];
+  const invoiceButton = actions.children[1];
+  invoiceInput.value = '   ';
+  await invoiceButton.listeners.click[0]();
+
+  assert.equal(
+    requests.some(entry =>
+      entry.url === '/api/v1/purchase-orders/purchase-order-blank-invoice/invoice'
+    ),
+    false
+  );
+  assert.equal(documentObject.getElementById('purchase-orders-error').hidden, false);
+  assert.match(
+    documentObject.getElementById('purchase-orders-error').textContent,
+    /корректную сумму/
+  );
+});
