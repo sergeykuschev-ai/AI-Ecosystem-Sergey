@@ -72,6 +72,8 @@ const state = {
   taskProposals: [],
   taskHistory: [],
   learningProgress: null,
+  certification: null,
+  teamLearning: null,
 };
 
 function element(id) { return document.getElementById(id); }
@@ -1943,6 +1945,152 @@ function renderLearning() {
   renderLearningProgress();
 }
 
+function certificationAnsweredCount() {
+  return document.querySelectorAll('#certification-questions input[type="radio"]:checked').length;
+}
+
+function updateCertificationAnsweredCount() {
+  const total = state.certification?.total || 100;
+  element('certification-complete-count').textContent =
+    'Отвечено ' + certificationAnsweredCount() + ' из ' + total;
+}
+
+function renderCertificationSummary() {
+  const box = element('certification-summary');
+  const attempt = state.certification?.latestAttempt;
+  if (!state.certification?.employeeId) {
+    box.textContent = 'Аттестация доступна продавцу с привязанным профилем.';
+    element('certification-submit').disabled = true;
+    return;
+  }
+  element('certification-submit').disabled = false;
+  if (!attempt) {
+    box.textContent = 'Аттестация ещё не проходилась.';
+    return;
+  }
+  const result = attempt.passed ? 'Сдано' : 'Не сдано';
+  box.textContent = result + ': ' + attempt.score + ' из ' + attempt.total +
+    ' (' + attempt.percent + '%). Проходной балл — ' + state.certification.passPercent + '%.';
+}
+
+function renderSellerCertification() {
+  const container = element('certification-questions');
+  const questions = state.certification?.questions || [];
+  const groups = [];
+  for (let start = 0; start < questions.length; start += 10) {
+    const details = document.createElement('details');
+    details.className = 'certification-group';
+    if (start === 0) details.open = true;
+    const summary = document.createElement('summary');
+    summary.textContent = 'Вопросы ' + (start + 1) + '–' + Math.min(start + 10, questions.length);
+    details.appendChild(summary);
+    for (const question of questions.slice(start, start + 10)) {
+      const fieldset = document.createElement('fieldset');
+      fieldset.className = 'certification-question';
+      const legend = document.createElement('legend');
+      legend.textContent = question.id.replace('CERT-', '') + '. ' + question.prompt;
+      fieldset.appendChild(legend);
+      question.options.forEach((option, optionIndex) => {
+        const label = document.createElement('label');
+        label.className = 'certification-option';
+        const input = document.createElement('input');
+        input.type = 'radio';
+        input.name = 'cert-' + question.id;
+        input.value = String(optionIndex);
+        input.dataset.questionId = question.id;
+        input.addEventListener('change', updateCertificationAnsweredCount);
+        label.appendChild(input);
+        const text = document.createElement('span');
+        text.textContent = option;
+        label.appendChild(text);
+        fieldset.appendChild(label);
+      });
+      details.appendChild(fieldset);
+    }
+    groups.push(details);
+  }
+  container.replaceChildren(...groups);
+  renderCertificationSummary();
+  updateCertificationAnsweredCount();
+}
+
+function renderTeamLearning() {
+  const items = state.teamLearning?.items || [];
+  const body = element('team-learning-table');
+  const empty = element('team-learning-empty');
+  empty.hidden = items.length > 0;
+  body.replaceChildren(...items.map(item => {
+    const row = document.createElement('tr');
+    const seller = document.createElement('td');
+    seller.textContent = item.displayName;
+    const learning = document.createElement('td');
+    learning.textContent = item.modulesCompleted + ' из ' + item.modulesTotal +
+      ' (' + item.learningPercent + '%)';
+    const attempt = document.createElement('td');
+    attempt.textContent = item.latestAttempt
+      ? item.latestAttempt.score + ' из ' + item.latestAttempt.total +
+        ' (' + item.latestAttempt.percent + '%)'
+      : 'Не проходил';
+    const result = document.createElement('td');
+    if (!item.latestAttempt) {
+      result.textContent = '—';
+    } else {
+      const badge = document.createElement('span');
+      badge.className = 'learning-status learning-status-' +
+        (item.latestAttempt.passed ? 'completed' : 'review');
+      badge.textContent = item.latestAttempt.passed ? 'Сдано' : 'Не сдано';
+      result.appendChild(badge);
+    }
+    row.append(seller, learning, attempt, result);
+    return row;
+  }));
+}
+
+function renderCertification() {
+  const ownerMode = canManageTasks();
+  element('certification-seller').hidden = ownerMode;
+  element('certification-owner').hidden = !ownerMode;
+  if (ownerMode) renderTeamLearning();
+  else renderSellerCertification();
+}
+
+async function submitCertification() {
+  if (!state.certification?.employeeId) {
+    showMessage('Аттестация доступна только продавцу с привязанным профилем.', 'error');
+    return;
+  }
+  const checked = document.querySelectorAll(
+    '#certification-questions input[type="radio"]:checked'
+  );
+  if (checked.length !== state.certification.total) {
+    showMessage(
+      'Нужно ответить на все ' + state.certification.total + ' вопросов. Сейчас отвечено: ' +
+        checked.length + '.',
+      'error'
+    );
+    return;
+  }
+  const answers = {};
+  checked.forEach(input => {
+    answers[input.dataset.questionId] = Number(input.value);
+  });
+  try {
+    const result = await api('/api/business-kpi/seller-learning/certification', {
+      method: 'POST',
+      body: JSON.stringify({ answers }),
+    });
+    state.certification.latestAttempt = result;
+    renderCertification();
+    showMessage(
+      result.passed
+        ? 'Аттестация сдана: ' + result.percent + '%.'
+        : 'Аттестация не сдана: ' + result.percent + '%. Нужно не менее 80%.'
+    );
+  } catch (error) {
+    showMessage(error.message, 'error');
+  }
+}
+
 function renderManualTaskLibrary() {
   const select = element('manual-task-library');
   const current = select.value;
@@ -2088,19 +2236,24 @@ async function loadTasks() {
   }
   if (!ownerMode) {
     switchTaskTab('learning');
-    const [library, progress] = await Promise.all([
+    const [library, progress, certification] = await Promise.all([
       api('/api/business-kpi/seller-tasks/library'),
       api('/api/business-kpi/seller-learning/progress'),
+      api('/api/business-kpi/seller-learning/certification'),
     ]);
     state.tasksLibrary = library.items;
     state.learningProgress = progress;
+    state.certification = certification;
+    state.teamLearning = null;
     state.taskProposals = [];
     state.taskHistory = [];
     renderLearning();
+    renderCertification();
     return;
   }
 
   state.learningProgress = null;
+  state.certification = null;
   if (!element('task-shift-date').value) {
     element('task-shift-date').value = taskDefaultShiftDate();
   }
@@ -2114,6 +2267,10 @@ async function loadTasks() {
     showMessage(error.message, 'error');
   }
   await refreshTasks();
+  state.teamLearning = await api(
+    '/api/business-kpi/seller-learning/team?store=' + encodeURIComponent(selectedStoreId())
+  );
+  renderCertification();
 }
 
 async function renderRoute() {
@@ -2853,6 +3010,7 @@ element('task-shift-date').addEventListener('change', () => {
     .catch(error => showMessage(error.message, 'error'));
 });
 element('manual-task-assign').addEventListener('click', assignManualTask);
+element('certification-submit').addEventListener('click', submitCertification);
 element('manual-task-library').addEventListener('change', () => {
   element('manual-custom-fields').hidden = element('manual-task-library').value !== '';
 });

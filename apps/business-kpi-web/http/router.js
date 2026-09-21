@@ -626,6 +626,37 @@ function createRouter(options) {
 
       if (sellerTasksService &&
           request.method === 'GET' &&
+          url.pathname === '/api/business-kpi/seller-learning/certification') {
+        const actor = await auth.requireActor(request);
+        auth.requirePermission(actor, PERMISSIONS.LEARNING_READ);
+        success(response, await sellerTasksService.certification(actor));
+        return;
+      }
+
+      if (sellerTasksService &&
+          request.method === 'POST' &&
+          url.pathname === '/api/business-kpi/seller-learning/certification') {
+        auth.validateCsrf(request);
+        const body = await readJson(request);
+        const actor = await auth.requireActor(request);
+        auth.requirePermission(actor, PERMISSIONS.LEARNING_READ);
+        success(response, await sellerTasksService.submitCertification(body, actor), 201);
+        return;
+      }
+
+      if (sellerTasksService &&
+          request.method === 'GET' &&
+          url.pathname === '/api/business-kpi/seller-learning/team') {
+        const actor = await auth.requireActor(request);
+        auth.requirePermission(actor, PERMISSIONS.TASKS_READ);
+        success(response, await sellerTasksService.teamLearningOverview({
+          storeId: url.searchParams.get('store'),
+        }, actor));
+        return;
+      }
+
+      if (sellerTasksService &&
+          request.method === 'GET' &&
           url.pathname === '/api/business-kpi/seller-tasks/shift-seller') {
         const actor = await auth.requireActor(request);
         auth.requirePermission(actor, PERMISSIONS.TASKS_READ);

@@ -1197,3 +1197,76 @@ dialog::backdrop { background: rgba(11, 27, 21, 0.55); backdrop-filter: blur(3px
 
 .manual-field-grow { flex: 1; min-width: 260px; }
 .manual-field-full { width: 100%; }
+
+/* ---- Аттестация продавцов ---- */
+.certification-summary {
+  margin: 14px 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--surface-secondary);
+  font-weight: 600;
+}
+
+.certification-toolbar {
+  position: sticky;
+  top: 8px;
+  z-index: 4;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin: 14px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-elevated);
+}
+
+.certification-questions {
+  display: grid;
+  gap: 12px;
+}
+
+.certification-group {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-elevated);
+}
+
+.certification-group > summary {
+  cursor: pointer;
+  padding: 14px;
+  font-weight: 700;
+}
+
+.certification-question {
+  margin: 0 14px 16px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.certification-question legend {
+  padding: 0 6px;
+  font-weight: 650;
+}
+
+.certification-option {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  margin-top: 9px;
+  cursor: pointer;
+}
+
+.certification-option input {
+  margin-top: 3px;
+}
+
+@media (max-width: 640px) {
+  .certification-toolbar {
+    position: static;
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

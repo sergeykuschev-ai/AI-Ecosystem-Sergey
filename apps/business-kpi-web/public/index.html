@@ -464,6 +464,7 @@
             <button type="button" class="task-subtab active" data-task-tab="review">На согласование</button>
             <button type="button" class="task-subtab" data-task-tab="history">История</button>
             <button type="button" class="task-subtab" data-task-tab="learning">Обучение</button>
+            <button type="button" class="task-subtab" data-task-tab="certification">Аттестация</button>
             <button type="button" class="task-subtab" data-task-tab="standard">Стандарт</button>
           </div>
 
@@ -573,6 +574,46 @@
                 </div>
               </div>
               <div id="task-learning" class="task-list"></div>
+            </article>
+          </div>
+
+          <div data-task-panel="certification" hidden>
+            <article class="content-card">
+              <div class="card-heading">
+                <div><p class="eyebrow">Контроль знаний</p><h2>Итоговая аттестация</h2></div>
+                <span class="status-pill">проходной балл 80%</span>
+              </div>
+              <div id="certification-seller">
+                <p class="field-help">
+                  100 вопросов по 25 учебным модулям. Нужно ответить на все вопросы.
+                  Правильные ответы проверяются на сервере.
+                </p>
+                <div id="certification-summary" class="certification-summary"></div>
+                <div class="certification-toolbar">
+                  <span id="certification-complete-count">Отвечено 0 из 100</span>
+                  <button class="primary-button" id="certification-submit" type="button">Завершить аттестацию</button>
+                </div>
+                <div id="certification-questions" class="certification-questions"></div>
+              </div>
+              <div id="certification-owner" hidden>
+                <p class="field-help">
+                  Прогресс обучения и последняя итоговая аттестация каждого продавца.
+                </p>
+                <div class="responsive-table">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Продавец</th>
+                        <th>Обучение</th>
+                        <th>Последняя аттестация</th>
+                        <th>Результат</th>
+                      </tr>
+                    </thead>
+                    <tbody id="team-learning-table"></tbody>
+                  </table>
+                </div>
+                <p class="empty-copy" id="team-learning-empty" hidden>Нет продавцов с привязанным профилем.</p>
+              </div>
             </article>
           </div>
 

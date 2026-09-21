@@ -133,6 +133,7 @@ class InMemoryBusinessKpiStore {
       sortOrder: index + 1,
     }));
     this.taskProposals = [];
+    this.learningAttempts = [];
     this.settings = seed ? [{
       id: '30000000-0000-4000-8000-000000000001',
       storeId: DEV_STORE.id,
@@ -161,6 +162,7 @@ class InMemoryBusinessKpiStore {
       importRuns: this.importRuns,
       taskLibrary: this.taskLibrary,
       taskProposals: this.taskProposals,
+      learningAttempts: this.learningAttempts,
     });
     try {
       return await work(this);
@@ -491,6 +493,25 @@ class InMemoryBusinessKpiStore {
     });
     items = items.sort((left, right) =>
       right.shiftDate.localeCompare(left.shiftDate) || right.createdAt.localeCompare(left.createdAt));
+    if (Number.isInteger(filters.limit) && filters.limit > 0) {
+      items = items.slice(0, filters.limit);
+    }
+    return clone(items);
+  }
+
+  async createLearningAttempt(record) {
+    const stored = clone(record);
+    this.learningAttempts.push(stored);
+    return clone(stored);
+  }
+
+  async listLearningAttempts(filters = {}) {
+    let items = this.learningAttempts.filter(attempt => {
+      if (filters.storeId && attempt.storeId !== filters.storeId) return false;
+      if (filters.employeeId && attempt.employeeId !== filters.employeeId) return false;
+      return true;
+    });
+    items = items.sort((left, right) => String(right.createdAt).localeCompare(String(left.createdAt)));
     if (Number.isInteger(filters.limit) && filters.limit > 0) {
       items = items.slice(0, filters.limit);
     }

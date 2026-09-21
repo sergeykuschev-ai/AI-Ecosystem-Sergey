@@ -15,6 +15,10 @@ const {
   SELLER_TASK_LIBRARY,
 } = require('../../../agents/business-kpi/rules/seller_task_library');
 const {
+  CERTIFICATION_BANK,
+  PASS_PERCENT,
+} = require('../../../agents/business-kpi/rules/seller_certification_bank');
+const {
   buildTaskProposals,
 } = require('../../../agents/business-kpi/services/seller_task_planner');
 
@@ -186,6 +190,18 @@ test('library composition matches training v2: 16 STORE + 25 KNOWLEDGE + 10 SALE
   }
   assert.deepEqual(counts, { STORE: 16, KNOWLEDGE: 25, SALES: 10 });
   assert.equal(SELLER_TASK_LIBRARY.length, 51);
+});
+
+
+test('certification bank contains 100 unique questions across all 25 modules', () => {
+  assert.equal(CERTIFICATION_BANK.length, 100);
+  assert.equal(PASS_PERCENT, 80);
+  assert.equal(new Set(CERTIFICATION_BANK.map(question => question.id)).size, 100);
+  assert.equal(new Set(CERTIFICATION_BANK.map(question => question.moduleCode)).size, 25);
+  assert.deepEqual(CERTIFICATION_BANK.reduce((counts, question) => {
+    counts[question.correctIndex] += 1;
+    return counts;
+  }, [0, 0, 0, 0]), [25, 25, 25, 25]);
 });
 
 /* ---- HTTP contract ---- */
@@ -455,6 +471,51 @@ test('seller can read learning but is denied task management and owner task data
   assert.equal(progressBody.total, 25);
   assert.equal(progressBody.employeeId, DEV_EMPLOYEES.find(e => e.employeeCode === 'seller-cherednichenko').id);
   assert.equal(progressBody.items.length, 25);
+});
+
+test('seller certification hides answer keys, grades on server, and owner sees result', async () => {
+  const certificationResponse = await fetch(baseUrl + '/api/business-kpi/seller-learning/certification', {
+    headers: authHeaders(sellerHeaders),
+  });
+  assert.equal(certificationResponse.status, 200);
+  const certification = (await certificationResponse.json()).data;
+  assert.equal(certification.total, 100);
+  assert.equal(certification.passPercent, 80);
+  assert.equal(certification.questions.length, 100);
+  assert.ok(certification.questions.every(question => question.correctIndex === undefined));
+
+  const incomplete = await post('/api/business-kpi/seller-learning/certification', sellerHeaders, {
+    answers: { 'CERT-001': 0 },
+  });
+  assert.equal(incomplete.status, 422);
+
+  const answers = Object.fromEntries(
+    CERTIFICATION_BANK.map(question => [question.id, question.correctIndex])
+  );
+  const submitted = await post('/api/business-kpi/seller-learning/certification', sellerHeaders, { answers });
+  assert.equal(submitted.status, 201);
+  const result = (await submitted.json()).data;
+  assert.equal(result.score, 100);
+  assert.equal(result.percent, 100);
+  assert.equal(result.passed, true);
+
+  const team = await fetch(baseUrl + '/api/business-kpi/seller-learning/team?store=' + DEV_STORE.id, {
+    headers: authHeaders(ownerHeaders),
+  });
+  assert.equal(team.status, 200);
+  const teamBody = (await team.json()).data;
+  const sellerEmployeeId = DEV_EMPLOYEES.find(e => e.employeeCode === 'seller-cherednichenko').id;
+  const sellerRow = teamBody.items.find(item => item.employeeId === sellerEmployeeId);
+  assert.ok(sellerRow);
+  assert.equal(sellerRow.latestAttempt.percent, 100);
+  assert.equal(sellerRow.latestAttempt.passed, true);
+});
+
+test('seller cannot read the owner team learning overview', async () => {
+  const response = await fetch(baseUrl + '/api/business-kpi/seller-learning/team?store=' + DEV_STORE.id, {
+    headers: authHeaders(sellerHeaders),
+  });
+  assert.equal(response.status, 403);
 });
 
 test('approve produces bitrix text, complete marks result, reject discards', async () => {
