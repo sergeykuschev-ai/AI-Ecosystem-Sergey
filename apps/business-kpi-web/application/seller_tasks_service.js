@@ -29,6 +29,7 @@ const PROPOSAL_STATUSES = Object.freeze({
 
 const HISTORY_WINDOW_DAYS = 45;
 const LIST_DEFAULT_LIMIT = 500;
+const MODULE_PASS_PERCENT = 75;
 
 /* A planner-eligible seller: active store employee participating in seller KPI
    with a linked portal account. Employees without an account (demo/technical
@@ -63,33 +64,50 @@ function shiftDateText(value) {
   return value instanceof Date ? value.toISOString().slice(0, 10) : String(value).slice(0, 10);
 }
 
-function learningProgressFromHistory(library, history) {
+function passedModuleCodes(attempts) {
+  return new Set(
+    (attempts || [])
+      .filter(attempt =>
+        attempt.attemptType === 'MODULE' &&
+        attempt.passed === true &&
+        attempt.moduleCode)
+      .map(attempt => attempt.moduleCode)
+  );
+}
+
+function latestCertificationAttempt(attempts) {
+  return (attempts || [])
+    .filter(attempt => attempt.attemptType === 'CERTIFICATION')
+    .sort((left, right) =>
+      String(right.createdAt).localeCompare(String(left.createdAt)))[0] || null;
+}
+
+function learningProgressFromHistory(library, history, moduleAttempts = []) {
   const byCode = new Map();
-  const completedCodes = new Set();
   for (const proposal of history) {
     if (proposal.taskType !== 'KNOWLEDGE' || !proposal.libraryCode) continue;
     if (proposal.status === PROPOSAL_STATUSES.REJECTED) continue;
-    if (proposal.status === PROPOSAL_STATUSES.COMPLETED) {
-      completedCodes.add(proposal.libraryCode);
-    }
     const current = byCode.get(proposal.libraryCode);
     if (!current || String(proposal.shiftDate).localeCompare(String(current.shiftDate)) >= 0) {
       byCode.set(proposal.libraryCode, proposal);
     }
   }
+  const completedCodes = passedModuleCodes(moduleAttempts);
   let completed = 0;
   const items = library.map(task => {
     const latest = byCode.get(task.code);
-    const completedEver = completedCodes.has(task.code);
-    if (completedEver) completed += 1;
-    let status = completedEver ? 'COMPLETED' : 'NOT_STARTED';
-    if (latest?.status === PROPOSAL_STATUSES.NOT_COMPLETED) status = 'REVIEW';
-    else if (latest && [PROPOSAL_STATUSES.PENDING, PROPOSAL_STATUSES.APPROVED].includes(latest.status)) status = 'ASSIGNED';
-    else if (latest?.status === PROPOSAL_STATUSES.COMPLETED) status = 'COMPLETED';
+    const completedByQuiz = completedCodes.has(task.code);
+    if (completedByQuiz) completed += 1;
+    let status = completedByQuiz ? 'COMPLETED' : 'NOT_STARTED';
+    if (!completedByQuiz && latest?.status === PROPOSAL_STATUSES.NOT_COMPLETED) status = 'REVIEW';
+    else if (!completedByQuiz && latest &&
+      [PROPOSAL_STATUSES.PENDING, PROPOSAL_STATUSES.APPROVED, PROPOSAL_STATUSES.COMPLETED].includes(latest.status)) {
+      status = 'ASSIGNED';
+    }
     return {
       code: task.code,
       status,
-      completed: completedEver,
+      completed: completedByQuiz,
       shiftDate: latest?.shiftDate || null,
     };
   });
@@ -98,6 +116,25 @@ function learningProgressFromHistory(library, history) {
     completed,
     percent: library.length ? Math.round((completed / library.length) * 100) : 0,
     items,
+  };
+}
+
+function publicModuleQuestions(moduleCode) {
+  return CERTIFICATION_BANK
+    .filter(question => question.moduleCode === moduleCode)
+    .map(({ correctIndex, ...question }) => question);
+}
+
+function moduleQuizSummary(attempt) {
+  if (!attempt) return null;
+  return {
+    id: attempt.id,
+    moduleCode: attempt.moduleCode,
+    score: attempt.score,
+    total: attempt.total,
+    percent: attempt.percent,
+    passed: attempt.passed,
+    createdAt: attempt.createdAt,
   };
 }
 
@@ -168,12 +205,19 @@ class SellerTasksService {
         onboarding: buildOnboardingProgress(progress.items, library),
       };
     }
-    const history = await this.store.listProposals({
-      storeId: employee.storeId,
-      employeeId: employee.id,
-      limit: LIST_DEFAULT_LIMIT,
-    });
-    const progress = learningProgressFromHistory(library, history);
+    const [history, attempts] = await Promise.all([
+      this.store.listProposals({
+        storeId: employee.storeId,
+        employeeId: employee.id,
+        limit: LIST_DEFAULT_LIMIT,
+      }),
+      this.store.listLearningAttempts({
+        employeeId: employee.id,
+        attemptType: 'MODULE',
+        limit: 5000,
+      }),
+    ]);
+    const progress = learningProgressFromHistory(library, history, attempts);
     return {
       employeeId: employee.id,
       ...progress,
@@ -181,19 +225,161 @@ class SellerTasksService {
     };
   }
 
+  async moduleQuiz(moduleCodeInput, actor) {
+    requirePermission(actor, PERMISSIONS.LEARNING_READ);
+    const moduleCode = requireString(moduleCodeInput, 'moduleCode').toUpperCase();
+    const employee = await this.store.getEmployeeByUserId(actor.id);
+    if (!employee || employee.participatesInSellerKpi === false) {
+      throw new ApplicationError(
+        'SELLER_NOT_LINKED',
+        'Проверка модуля доступна только продавцу с привязанным профилем.',
+        403
+      );
+    }
+    const library = await this.store.listLibraryTasks();
+    const task = library.find(item =>
+      item.taskType === 'KNOWLEDGE' && item.code === moduleCode);
+    if (!task) {
+      throw new ApplicationError('MODULE_NOT_FOUND', 'Учебный модуль не найден.', 404);
+    }
+    const questions = publicModuleQuestions(moduleCode);
+    if (!questions.length) {
+      throw new ApplicationError(
+        'MODULE_QUIZ_NOT_READY',
+        'Для модуля пока нет проверочных вопросов.',
+        409
+      );
+    }
+    const attempts = await this.store.listLearningAttempts({
+      employeeId: employee.id,
+      attemptType: 'MODULE',
+      moduleCode,
+      limit: 1,
+    });
+    return {
+      moduleCode,
+      title: task.title,
+      total: questions.length,
+      passPercent: MODULE_PASS_PERCENT,
+      latestAttempt: moduleQuizSummary(attempts[0]),
+      questions,
+    };
+  }
+
+  async submitModuleQuiz(moduleCodeInput, input, actor) {
+    requirePermission(actor, PERMISSIONS.LEARNING_READ);
+    const moduleCode = requireString(moduleCodeInput, 'moduleCode').toUpperCase();
+    const employee = await this.store.getEmployeeByUserId(actor.id);
+    if (!employee || employee.participatesInSellerKpi === false) {
+      throw new ApplicationError(
+        'SELLER_NOT_LINKED',
+        'Проверка модуля доступна только продавцу с привязанным профилем.',
+        403
+      );
+    }
+    const questions = CERTIFICATION_BANK.filter(
+      question => question.moduleCode === moduleCode
+    );
+    if (!questions.length) {
+      throw new ApplicationError('MODULE_NOT_FOUND', 'Учебный модуль не найден.', 404);
+    }
+    const answers = input?.answers;
+    if (!answers || typeof answers !== 'object' || Array.isArray(answers)) {
+      throw new ApplicationError('VALIDATION_ERROR', 'Ответы проверки обязательны.', 422);
+    }
+    let score = 0;
+    const normalized = {};
+    for (const question of questions) {
+      const answer = answers[question.id];
+      if (!Number.isInteger(answer) || answer < 0 || answer >= question.options.length) {
+        throw new ApplicationError(
+          'VALIDATION_ERROR',
+          'Нужно ответить на все вопросы модуля.',
+          422
+        );
+      }
+      normalized[question.id] = answer;
+      if (answer === question.correctIndex) score += 1;
+    }
+    const percent = Math.round((score / questions.length) * 100);
+    const now = this.now().toISOString();
+    const attempt = await this.store.createLearningAttempt({
+      id: this.uuid(),
+      storeId: employee.storeId,
+      employeeId: employee.id,
+      score,
+      total: questions.length,
+      percent,
+      passed: percent >= MODULE_PASS_PERCENT,
+      answers: normalized,
+      attemptType: 'MODULE',
+      moduleCode,
+      createdAt: now,
+    });
+
+    if (attempt.passed) {
+      const proposals = await this.store.listProposals({
+        storeId: employee.storeId,
+        employeeId: employee.id,
+        limit: LIST_DEFAULT_LIMIT,
+      });
+      const current = proposals
+        .filter(proposal =>
+          proposal.libraryCode === moduleCode &&
+          proposal.status !== PROPOSAL_STATUSES.REJECTED)
+        .sort((left, right) =>
+          String(right.shiftDate).localeCompare(String(left.shiftDate)))[0];
+      if (current && current.status !== PROPOSAL_STATUSES.COMPLETED) {
+        await this.store.updateProposal(current.id, {
+          status: PROPOSAL_STATUSES.COMPLETED,
+          resultNote: 'Модуль пройден через мини-проверку: ' + score + '/' + questions.length + '.',
+          resultMarkedAt: now,
+        });
+      }
+    }
+    return moduleQuizSummary(attempt);
+  }
+
   async certification(actor) {
     requirePermission(actor, PERMISSIONS.LEARNING_READ);
     const employee = await this.store.getEmployeeByUserId(actor.id);
-    const attempts = employee
-      ? await this.store.listLearningAttempts({ employeeId: employee.id, limit: 1 })
-      : [];
+    if (!employee) {
+      return {
+        title: 'Итоговая аттестация продавца «Миски»',
+        total: CERTIFICATION_BANK.length,
+        passPercent: PASS_PERCENT,
+        employeeId: null,
+        eligible: false,
+        modulesCompleted: 0,
+        modulesTotal: 25,
+        latestAttempt: null,
+        questions: [],
+      };
+    }
+    const [library, history, attempts] = await Promise.all([
+      this.store.listLibraryTasks(),
+      this.store.listProposals({
+        storeId: employee.storeId,
+        employeeId: employee.id,
+        limit: LIST_DEFAULT_LIMIT,
+      }),
+      this.store.listLearningAttempts({ employeeId: employee.id, limit: 5000 }),
+    ]);
+    const knowledge = library.filter(task => task.taskType === 'KNOWLEDGE');
+    const moduleAttempts = attempts.filter(attempt => attempt.attemptType === 'MODULE');
+    const progress = learningProgressFromHistory(knowledge, history, moduleAttempts);
+    const eligible = progress.total > 0 && progress.completed === progress.total;
+    const latestAttempt = latestCertificationAttempt(attempts);
     return {
       title: 'Итоговая аттестация продавца «Миски»',
       total: CERTIFICATION_BANK.length,
       passPercent: PASS_PERCENT,
-      employeeId: employee?.id || null,
-      latestAttempt: certificationSummary(attempts[0]),
-      questions: publicCertificationQuestions(),
+      employeeId: employee.id,
+      eligible,
+      modulesCompleted: progress.completed,
+      modulesTotal: progress.total,
+      latestAttempt: certificationSummary(latestAttempt),
+      questions: eligible ? publicCertificationQuestions() : [],
     };
   }
 
@@ -205,6 +391,23 @@ class SellerTasksService {
         'SELLER_NOT_LINKED',
         'Аттестация доступна только продавцу с привязанным профилем.',
         403
+      );
+    }
+    const [library, moduleAttempts] = await Promise.all([
+      this.store.listLibraryTasks(),
+      this.store.listLearningAttempts({
+        employeeId: employee.id,
+        attemptType: 'MODULE',
+        limit: 5000,
+      }),
+    ]);
+    const knowledge = library.filter(task => task.taskType === 'KNOWLEDGE');
+    const passed = passedModuleCodes(moduleAttempts);
+    if (knowledge.some(task => !passed.has(task.code))) {
+      throw new ApplicationError(
+        'CERTIFICATION_LOCKED',
+        'Сначала нужно успешно пройти проверки всех 25 учебных модулей.',
+        409
       );
     }
     const answers = input?.answers;
@@ -236,6 +439,8 @@ class SellerTasksService {
       percent,
       passed: percent >= PASS_PERCENT,
       answers: normalized,
+      attemptType: 'CERTIFICATION',
+      moduleCode: null,
       createdAt: now,
     });
     return certificationSummary(attempt);
@@ -285,14 +490,14 @@ class SellerTasksService {
       totalModules: knowledge.length,
       certificationQuestions: CERTIFICATION_BANK.length,
       items: sellers.map(employee => {
+        const employeeAttempts = attempts.filter(item => item.employeeId === employee.id);
         const progress = learningProgressFromHistory(
           knowledge,
-          history.filter(item => item.employeeId === employee.id)
+          history.filter(item => item.employeeId === employee.id),
+          employeeAttempts.filter(item => item.attemptType === 'MODULE')
         );
         const onboarding = buildOnboardingProgress(progress.items, knowledge);
-        const latestAttempt = attempts
-          .filter(item => item.employeeId === employee.id)
-          .sort((left, right) => String(right.createdAt).localeCompare(String(left.createdAt)))[0];
+        const latestAttempt = latestCertificationAttempt(employeeAttempts);
         const weakModules = certificationWeakModules(
           latestAttempt,
           CERTIFICATION_BANK,
@@ -319,6 +524,169 @@ class SellerTasksService {
           recommendation,
         };
       }),
+    };
+  }
+
+  async autoAssignForShift(shift) {
+    if (!shift?.storeId || !shift?.employeeId || !shift?.shiftDate) {
+      return { created: [], skipped: 'INVALID_SHIFT' };
+    }
+    const shiftDate = shiftDateText(shift.shiftDate);
+    const todayText = shiftDateText(this.now());
+    if (shiftDate !== todayText) {
+      return { created: [], skipped: 'NOT_TODAY' };
+    }
+
+    const [storeRecord, employee] = await Promise.all([
+      this.store.getStore(shift.storeId),
+      this.store.getEmployee(shift.employeeId),
+    ]);
+    if (storeRecord?.code !== 'miska' || !isEligibleSeller(employee)) {
+      return { created: [], skipped: 'NOT_ELIGIBLE' };
+    }
+
+    const year = Number(shiftDate.slice(0, 4));
+    const month = Number(shiftDate.slice(5, 7));
+    const windowStartTotal = year * 12 + (month - 1) - 3;
+    const windowStartYear = Math.floor(windowStartTotal / 12);
+    const windowStartMonth = (windowStartTotal % 12) + 1;
+    const windowStartDate = windowStartYear + '-' +
+      String(windowStartMonth).padStart(2, '0') + '-01';
+    const windowEndDate = new Date(Date.UTC(year, month, 0))
+      .toISOString().slice(0, 10);
+
+    const [settingsRecord, library, existing, shifts, attempts] = await Promise.all([
+      this.store.getEffectiveSettings(shift.storeId, shiftDate),
+      this.store.listLibraryTasks(),
+      this.store.listProposals({
+        storeId: shift.storeId,
+        employeeId: employee.id,
+        dateFrom: shiftDateText(new Date(
+          this.now().getTime() - HISTORY_WINDOW_DAYS * 86400000
+        )),
+        limit: LIST_DEFAULT_LIMIT,
+      }),
+      this.store.listShifts({
+        storeId: shift.storeId,
+        dateFrom: windowStartDate,
+        dateTo: windowEndDate,
+      }),
+      this.store.listLearningAttempts({
+        storeId: shift.storeId,
+        employeeId: employee.id,
+        limit: 5000,
+      }),
+    ]);
+
+    const performance = buildSellerPerformance({
+      shifts,
+      employees: [employee],
+      settings: settingsRecord?.settings || null,
+      year,
+      month,
+      mode: TREND_MODES.SHIFTS,
+    });
+    const historyEntries = existing.map(proposal => ({
+      employeeId: proposal.employeeId,
+      shiftDate: proposal.shiftDate,
+      libraryCode: proposal.libraryCode,
+      status: proposal.status,
+      source: proposal.source,
+    }));
+    for (const code of passedModuleCodes(attempts)) {
+      historyEntries.push({
+        employeeId: employee.id,
+        shiftDate: '2000-01-01',
+        libraryCode: code,
+        status: PROPOSAL_STATUSES.COMPLETED,
+        source: 'QUIZ',
+      });
+    }
+
+    const knowledge = library.filter(task => task.taskType === 'KNOWLEDGE');
+    const latestAttempt = latestCertificationAttempt(attempts);
+    const weakModules = certificationWeakModules(
+      latestAttempt,
+      CERTIFICATION_BANK,
+      knowledge
+    );
+    const proposals = buildTaskProposals({
+      sellers: [employee],
+      targets: settingsRecord?.settings?.targets || null,
+      performanceItems: performance.items,
+      historyEntries,
+      shiftDate,
+      today: todayText,
+      library,
+      knowledgePriorityByEmployee: {
+        [employee.id]: weakModules.map(item => item.code),
+      },
+    }).filter(proposal =>
+      proposal.taskType === 'KNOWLEDGE' || proposal.taskType === 'SALES');
+
+    const todayAssignments = existing.filter(proposal =>
+      proposal.shiftDate === shiftDate &&
+      proposal.status !== PROPOSAL_STATUSES.REJECTED);
+    const occupiedTypes = new Set(
+      todayAssignments
+        .filter(proposal =>
+          proposal.taskType === 'KNOWLEDGE' || proposal.taskType === 'SALES')
+        .map(proposal => proposal.taskType)
+    );
+    const existingKeys = new Set(
+      todayAssignments.map(proposal =>
+        proposal.employeeId + '|' + proposal.shiftDate + '|' + proposal.libraryCode)
+    );
+    const libraryByCode = new Map(library.map(task => [task.code, task]));
+    const created = [];
+
+    for (const proposal of proposals) {
+      if (occupiedTypes.has(proposal.taskType)) continue;
+      const task = libraryByCode.get(proposal.libraryCode);
+      if (!task) continue;
+      const key = proposal.employeeId + '|' + proposal.shiftDate + '|' + proposal.libraryCode;
+      if (existingKeys.has(key)) continue;
+      const timestamp = this.now().toISOString();
+      try {
+        const bitrixText = buildBitrixText({
+          title: task.title,
+          description: task.description,
+          expectedResult: task.expectedResult,
+          materialText: task.materialText,
+          questions: task.questions,
+        });
+        const record = await this.store.createProposal({
+          id: this.uuid(),
+          storeId: shift.storeId,
+          employeeId: employee.id,
+          shiftDate,
+          libraryTaskId: task.id,
+          taskType: task.taskType,
+          title: task.title,
+          description: task.description,
+          expectedResult: task.expectedResult,
+          reason: 'Автоматически на смену. ' + proposal.reason,
+          source: 'ARTHUR',
+          status: PROPOSAL_STATUSES.APPROVED,
+          bitrixText,
+          createdByUserId: null,
+          decidedByUserId: null,
+          decidedAt: timestamp,
+          approvedAt: timestamp,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        });
+        created.push(record);
+        occupiedTypes.add(proposal.taskType);
+        existingKeys.add(key);
+      } catch (error) {
+        if (!(error instanceof StorageConflictError)) throw error;
+      }
+    }
+    return {
+      created,
+      sellerId: employee.id,
+      shiftDate,
     };
   }
 
@@ -417,13 +785,27 @@ class SellerTasksService {
       status: proposal.status,
       source: proposal.source,
     }));
+    for (const employee of sellers) {
+      const completedByQuiz = passedModuleCodes(
+        attempts.filter(item => item.employeeId === employee.id)
+      );
+      for (const code of completedByQuiz) {
+        historyEntries.push({
+          employeeId: employee.id,
+          shiftDate: '2000-01-01',
+          libraryCode: code,
+          status: PROPOSAL_STATUSES.COMPLETED,
+          source: 'QUIZ',
+        });
+      }
+    }
 
     const knowledge = library.filter(task => task.taskType === 'KNOWLEDGE');
     const knowledgePriorityByEmployee = Object.fromEntries(
       sellers.map(employee => {
-        const latestAttempt = attempts
-          .filter(item => item.employeeId === employee.id)
-          .sort((left, right) => String(right.createdAt).localeCompare(String(left.createdAt)))[0];
+        const latestAttempt = latestCertificationAttempt(
+          attempts.filter(item => item.employeeId === employee.id)
+        );
         const weakModules = certificationWeakModules(
           latestAttempt,
           CERTIFICATION_BANK,

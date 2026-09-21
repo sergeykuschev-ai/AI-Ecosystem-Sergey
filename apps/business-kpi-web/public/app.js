@@ -73,6 +73,7 @@ const state = {
   taskHistory: [],
   learningProgress: null,
   certification: null,
+  moduleQuiz: null,
   teamLearning: null,
 };
 
@@ -1979,12 +1980,132 @@ function renderLearning() {
         }
         card.appendChild(list);
       }
+      if (state.learningProgress?.employeeId) {
+        const quizButton = document.createElement('button');
+        quizButton.type = 'button';
+        quizButton.className = progress?.completed ? 'secondary-button' : 'primary-button';
+        quizButton.textContent = progress?.completed
+          ? 'Повторить проверку'
+          : 'Пройти проверку (4 вопроса)';
+        quizButton.addEventListener('click', () => openModuleQuiz(task.code));
+        card.appendChild(quizButton);
+      }
       section.appendChild(card);
     }
     return section;
   });
   container.replaceChildren(...blocks);
   renderLearningProgress();
+}
+
+function closeModuleQuiz() {
+  state.moduleQuiz = null;
+  element('module-quiz').hidden = true;
+  element('module-quiz-questions').replaceChildren();
+}
+
+function renderModuleQuiz() {
+  const panel = element('module-quiz');
+  const quiz = state.moduleQuiz;
+  if (!quiz) {
+    panel.hidden = true;
+    return;
+  }
+  panel.hidden = false;
+  element('module-quiz-title').textContent = quiz.title;
+  element('module-quiz-pass').textContent =
+    'проходной балл ' + quiz.passPercent + '%';
+  const latest = quiz.latestAttempt;
+  element('module-quiz-summary').textContent = latest
+    ? ((latest.passed ? 'Последняя проверка сдана: ' : 'Последняя проверка не сдана: ') +
+      latest.score + ' из ' + latest.total + ' (' + latest.percent + '%).')
+    : 'Ответь на все ' + quiz.total +
+      ' вопроса. Модуль засчитывается после результата не ниже ' + quiz.passPercent + '%.';
+
+  const container = element('module-quiz-questions');
+  const blocks = quiz.questions.map((question, questionIndex) => {
+    const fieldset = document.createElement('fieldset');
+    fieldset.className = 'certification-question';
+    const legend = document.createElement('legend');
+    legend.textContent = (questionIndex + 1) + '. ' + question.prompt;
+    fieldset.appendChild(legend);
+    question.options.forEach((option, optionIndex) => {
+      const label = document.createElement('label');
+      label.className = 'certification-option';
+      const input = document.createElement('input');
+      input.type = 'radio';
+      input.name = 'module-' + question.id;
+      input.value = String(optionIndex);
+      input.dataset.questionId = question.id;
+      label.appendChild(input);
+      const text = document.createElement('span');
+      text.textContent = option;
+      label.appendChild(text);
+      fieldset.appendChild(label);
+    });
+    return fieldset;
+  });
+  container.replaceChildren(...blocks);
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function openModuleQuiz(moduleCode) {
+  try {
+    state.moduleQuiz = await api(
+      '/api/business-kpi/seller-learning/modules/' + encodeURIComponent(moduleCode) + '/quiz'
+    );
+    renderModuleQuiz();
+  } catch (error) {
+    showMessage(error.message, 'error');
+  }
+}
+
+async function submitModuleQuiz() {
+  const quiz = state.moduleQuiz;
+  if (!quiz) return;
+  const checked = document.querySelectorAll(
+    '#module-quiz-questions input[type="radio"]:checked'
+  );
+  if (checked.length !== quiz.total) {
+    showMessage(
+      'Нужно ответить на все ' + quiz.total + ' вопроса. Сейчас отвечено: ' +
+        checked.length + '.',
+      'error'
+    );
+    return;
+  }
+  const answers = {};
+  checked.forEach(input => {
+    answers[input.dataset.questionId] = Number(input.value);
+  });
+  try {
+    const result = await api(
+      '/api/business-kpi/seller-learning/modules/' +
+        encodeURIComponent(quiz.moduleCode) + '/quiz',
+      {
+        method: 'POST',
+        body: JSON.stringify({ answers }),
+      }
+    );
+    if (result.passed) {
+      closeModuleQuiz();
+      await refreshTasks();
+      showMessage(
+        'Модуль пройден: ' + result.score + ' из ' + result.total +
+          ' (' + result.percent + '%).'
+      );
+    } else {
+      state.moduleQuiz.latestAttempt = result;
+      renderModuleQuiz();
+      showMessage(
+        'Пока не пройдено: ' + result.score + ' из ' + result.total +
+          '. Нужно минимум 3 правильных ответа.',
+        'error'
+      );
+    }
+  } catch (error) {
+    showMessage(error.message, 'error');
+  }
 }
 
 function certificationAnsweredCount() {
@@ -2005,9 +2126,17 @@ function renderCertificationSummary() {
     element('certification-submit').disabled = true;
     return;
   }
+  if (!state.certification.eligible) {
+    element('certification-submit').disabled = true;
+    box.textContent = 'Допуск закрыт: пройдено ' +
+      state.certification.modulesCompleted + ' из ' +
+      state.certification.modulesTotal +
+      ' учебных модулей. Сначала пройди мини-проверки всех тем.';
+    return;
+  }
   element('certification-submit').disabled = false;
   if (!attempt) {
-    box.textContent = 'Аттестация ещё не проходилась.';
+    box.textContent = 'Все модули пройдены. Итоговая аттестация доступна.';
     return;
   }
   const result = attempt.passed ? 'Сдано' : 'Не сдано';
@@ -3097,6 +3226,8 @@ element('task-shift-date').addEventListener('change', () => {
 });
 element('manual-task-assign').addEventListener('click', assignManualTask);
 element('certification-submit').addEventListener('click', submitCertification);
+element('module-quiz-submit').addEventListener('click', submitModuleQuiz);
+element('module-quiz-close').addEventListener('click', closeModuleQuiz);
 element('manual-task-library').addEventListener('change', () => {
   element('manual-custom-fields').hidden = element('manual-task-library').value !== '';
 });

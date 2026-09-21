@@ -1373,3 +1373,33 @@ dialog::backdrop { background: rgba(11, 27, 21, 0.55); backdrop-filter: blur(3px
     grid-template-columns: 1fr;
   }
 }
+
+
+/* ---- Мини-проверка учебного модуля ---- */
+.module-quiz {
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-elevated);
+}
+
+.task-learning-item > button {
+  margin-top: 12px;
+}
+
+.module-quiz-toolbar {
+  position: static;
+  justify-content: flex-end;
+}
+
+@media (max-width: 640px) {
+  .module-quiz {
+    padding: 12px;
+  }
+
+  .module-quiz-toolbar {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+}

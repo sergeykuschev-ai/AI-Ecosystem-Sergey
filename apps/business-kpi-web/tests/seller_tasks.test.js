@@ -474,6 +474,22 @@ test('seller can read learning but is denied task management and owner task data
 });
 
 test('seller certification hides answer keys, grades on server, and owner sees result', async () => {
+  const moduleCodes = [...new Set(CERTIFICATION_BANK.map(question => question.moduleCode))];
+  for (const moduleCode of moduleCodes) {
+    const moduleAnswers = Object.fromEntries(
+      CERTIFICATION_BANK
+        .filter(question => question.moduleCode === moduleCode)
+        .map(question => [question.id, question.correctIndex])
+    );
+    const moduleResult = await post(
+      '/api/business-kpi/seller-learning/modules/' + moduleCode + '/quiz',
+      sellerHeaders,
+      { answers: moduleAnswers }
+    );
+    assert.equal(moduleResult.status, 201);
+    assert.equal((await moduleResult.json()).data.passed, true);
+  }
+
   const certificationResponse = await fetch(baseUrl + '/api/business-kpi/seller-learning/certification', {
     headers: authHeaders(sellerHeaders),
   });

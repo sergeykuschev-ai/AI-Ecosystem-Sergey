@@ -161,6 +161,8 @@ function mapLearningAttempt(row) {
     percent: Number(row.percent),
     passed: row.passed,
     answers: row.answers_json || {},
+    attemptType: row.attempt_type || 'CERTIFICATION',
+    moduleCode: row.module_code || null,
     createdAt: new Date(row.created_at).toISOString(),
   };
 }
@@ -884,8 +886,8 @@ class PostgresBusinessKpiStore {
   async createLearningAttempt(record) {
     const sql =
       'INSERT INTO business_kpi.seller_learning_attempts ' +
-      '(id, store_id, employee_id, score, total, percent, passed, answers_json, created_at) ' +
-      'VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *';
+      '(id, store_id, employee_id, score, total, percent, passed, answers_json, attempt_type, module_code, created_at) ' +
+      'VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *';
     const result = await this.client.query(sql, [
       record.id,
       record.storeId,
@@ -895,6 +897,8 @@ class PostgresBusinessKpiStore {
       record.percent,
       record.passed,
       jsonParameter(record.answers),
+      record.attemptType || 'CERTIFICATION',
+      record.moduleCode || null,
       record.createdAt,
     ]);
     return mapLearningAttempt(result.rows[0]);
@@ -909,6 +913,8 @@ class PostgresBusinessKpiStore {
     };
     if (filters.storeId) add(filters.storeId, 'store_id = ?');
     if (filters.employeeId) add(filters.employeeId, 'employee_id = ?');
+    if (filters.attemptType) add(filters.attemptType, 'attempt_type = ?');
+    if (filters.moduleCode) add(filters.moduleCode, 'module_code = ?');
     const where = clauses.length ? 'WHERE ' + clauses.join(' AND ') : '';
     const limit = Number.isInteger(filters.limit) && filters.limit > 0 ? filters.limit : 500;
     const sql =

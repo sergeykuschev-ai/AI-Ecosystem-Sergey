@@ -509,6 +509,8 @@ class InMemoryBusinessKpiStore {
     let items = this.learningAttempts.filter(attempt => {
       if (filters.storeId && attempt.storeId !== filters.storeId) return false;
       if (filters.employeeId && attempt.employeeId !== filters.employeeId) return false;
+      if (filters.attemptType && attempt.attemptType !== filters.attemptType) return false;
+      if (filters.moduleCode && attempt.moduleCode !== filters.moduleCode) return false;
       return true;
     });
     items = items.sort((left, right) => String(right.createdAt).localeCompare(String(left.createdAt)));

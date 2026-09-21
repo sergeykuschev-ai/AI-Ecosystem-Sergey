@@ -14,6 +14,8 @@ const PLAN_ROUTE = /^\/api\/business-kpi\/plans\/(\d{4})\/(\d{1,2})$/;
 const IMPORT_COMMIT_ROUTE = /^\/api\/business-kpi\/imports\/([0-9a-f-]{36})\/commit$/i;
 const SELLER_TASK_ACTION_ROUTE =
   /^\/api\/business-kpi\/seller-tasks\/([0-9a-f-]{36})\/(approve|approve-edited|reject|complete|not-complete)$/i;
+const SELLER_MODULE_QUIZ_ROUTE =
+  /^\/api\/business-kpi\/seller-learning\/modules\/(KNOW-\d+)\/quiz$/i;
 const MAX_JSON_BYTES = 64 * 1024;
 const MAX_XLSX_BYTES = 20 * 1024 * 1024;
 
@@ -298,6 +300,16 @@ function createRouter(options) {
             correlationId: requestId,
             reason: request.headers['x-change-reason'],
           });
+          if (sellerTasksService) {
+            try {
+              await sellerTasksService.autoAssignForShift(created);
+            } catch (error) {
+              console.error('Automatic seller training assignment failed', {
+                shiftId: created.id,
+                errorMessage: error.message,
+              });
+            }
+          }
           success(response, created, 201, {
             location: `/api/business-kpi/shifts/${created.id}`,
           });
@@ -317,7 +329,7 @@ function createRouter(options) {
         if (request.method === 'PATCH') {
           auth.validateCsrf(request);
           const actor = await auth.requireActor(request);
-          success(response, await businessKpiService.updateShift(
+          const updated = await businessKpiService.updateShift(
             shiftId,
             await readJson(request),
             actor,
@@ -325,7 +337,18 @@ function createRouter(options) {
               correlationId: requestId,
               reason: request.headers['x-change-reason'],
             }
-          ));
+          );
+          if (sellerTasksService) {
+            try {
+              await sellerTasksService.autoAssignForShift(updated);
+            } catch (error) {
+              console.error('Automatic seller training assignment failed', {
+                shiftId: updated.id,
+                errorMessage: error.message,
+              });
+            }
+          }
+          success(response, updated);
           return;
         }
         if (request.method === 'DELETE') {
@@ -622,6 +645,29 @@ function createRouter(options) {
         auth.requirePermission(actor, PERMISSIONS.LEARNING_READ);
         success(response, await sellerTasksService.learningProgress(actor));
         return;
+      }
+
+      const moduleQuizMatch = SELLER_MODULE_QUIZ_ROUTE.exec(url.pathname);
+      if (sellerTasksService && moduleQuizMatch) {
+        const moduleCode = moduleQuizMatch[1];
+        if (request.method === 'GET') {
+          const actor = await auth.requireActor(request);
+          auth.requirePermission(actor, PERMISSIONS.LEARNING_READ);
+          success(response, await sellerTasksService.moduleQuiz(moduleCode, actor));
+          return;
+        }
+        if (request.method === 'POST') {
+          auth.validateCsrf(request);
+          const body = await readJson(request);
+          const actor = await auth.requireActor(request);
+          auth.requirePermission(actor, PERMISSIONS.LEARNING_READ);
+          success(
+            response,
+            await sellerTasksService.submitModuleQuiz(moduleCode, body, actor),
+            201
+          );
+          return;
+        }
       }
 
       if (sellerTasksService &&

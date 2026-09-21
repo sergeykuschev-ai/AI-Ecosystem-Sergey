@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="Business Portal — ежедневные KPI магазинов">
     <title>Business Portal · KPI</title>
-    <link rel="stylesheet" href="/styles.css?v=training-auto-1">
+    <link rel="stylesheet" href="/styles.css?v=training-flow-1">
     <script src="/formatters.js" defer></script>
-    <script src="/app.js?v=training-auto-1" defer></script>
+    <script src="/app.js?v=training-flow-1" defer></script>
   </head>
   <body class="auth-loading">
     <div class="app-shell">
@@ -575,6 +575,23 @@
               </div>
               <div id="learning-route" class="learning-route" hidden></div>
               <div id="task-learning" class="task-list"></div>
+              <div id="module-quiz" class="module-quiz" hidden>
+                <div class="card-heading">
+                  <div>
+                    <p class="eyebrow">Мини-проверка</p>
+                    <h3 id="module-quiz-title">Проверка модуля</h3>
+                  </div>
+                  <span class="status-pill" id="module-quiz-pass">нужно 3 из 4</span>
+                </div>
+                <p class="field-help" id="module-quiz-summary">
+                  Ответь на вопросы — только после успешной проверки модуль считается пройденным.
+                </p>
+                <div id="module-quiz-questions" class="certification-questions"></div>
+                <div class="certification-toolbar module-quiz-toolbar">
+                  <button class="secondary-button" id="module-quiz-close" type="button">Закрыть</button>
+                  <button class="primary-button" id="module-quiz-submit" type="button">Проверить ответы</button>
+                </div>
+              </div>
             </article>
           </div>
 
