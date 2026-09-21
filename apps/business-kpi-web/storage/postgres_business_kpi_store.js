@@ -150,6 +150,21 @@ function mapLibraryTask(row) {
   };
 }
 
+function mapLearningAttempt(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    storeId: row.store_id,
+    employeeId: row.employee_id,
+    score: Number(row.score),
+    total: Number(row.total),
+    percent: Number(row.percent),
+    passed: row.passed,
+    answers: row.answers_json || {},
+    createdAt: new Date(row.created_at).toISOString(),
+  };
+}
+
 function mapProposal(row) {
   if (!row) return null;
   return {
@@ -864,6 +879,43 @@ class PostgresBusinessKpiStore {
       values
     );
     return result.rows.map(row => mapProposal(row));
+  }
+
+  async createLearningAttempt(record) {
+    const sql =
+      'INSERT INTO business_kpi.seller_learning_attempts ' +
+      '(id, store_id, employee_id, score, total, percent, passed, answers_json, created_at) ' +
+      'VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *';
+    const result = await this.client.query(sql, [
+      record.id,
+      record.storeId,
+      record.employeeId,
+      record.score,
+      record.total,
+      record.percent,
+      record.passed,
+      jsonParameter(record.answers),
+      record.createdAt,
+    ]);
+    return mapLearningAttempt(result.rows[0]);
+  }
+
+  async listLearningAttempts(filters = {}) {
+    const clauses = [];
+    const values = [];
+    const add = (value, sql) => {
+      values.push(value);
+      clauses.push(sql.replace('?', '$' + values.length));
+    };
+    if (filters.storeId) add(filters.storeId, 'store_id = ?');
+    if (filters.employeeId) add(filters.employeeId, 'employee_id = ?');
+    const where = clauses.length ? 'WHERE ' + clauses.join(' AND ') : '';
+    const limit = Number.isInteger(filters.limit) && filters.limit > 0 ? filters.limit : 500;
+    const sql =
+      'SELECT * FROM business_kpi.seller_learning_attempts ' + where +
+      ' ORDER BY created_at DESC LIMIT ' + limit;
+    const result = await this.client.query(sql, values);
+    return result.rows.map(row => mapLearningAttempt(row));
   }
 
   async ensureDevReferenceData() {
