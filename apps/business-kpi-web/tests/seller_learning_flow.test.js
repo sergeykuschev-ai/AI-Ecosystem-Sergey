@@ -331,3 +331,176 @@ test('passed module becomes due for spaced review after 30 days and is auto-assi
   assert.equal(row.repeatDue[0].code, 'KNOW-19');
   assert.ok(row.todayAssignments.some(item => item.libraryCode === 'KNOW-19'));
 });
+
+function syntheticKpiShift(employee, date, idSuffix) {
+  return {
+    id: '95000000-0000-4000-8000-' + String(idSuffix).padStart(12, '0'),
+    storeId: DEV_STORE.id,
+    employeeId: employee.id,
+    employeeName: employee.displayName,
+    shiftDate: date,
+    shiftKey: 'effect-' + idSuffix,
+    cash: 10000,
+    acquiring: 10000,
+    qr: 1000,
+    receipts: 20,
+    itemsSold: 30,
+    upsellReceipts: 2,
+    treatsRevenue: 500,
+    treatsReceipts: 2,
+    comment: 'KPI effect test',
+    source: 'web_manual',
+    sourceRef: null,
+    archivedAt: null,
+    archivedBy: null,
+    createdAt: date + 'T10:00:00.000Z',
+    updatedAt: date + 'T10:00:00.000Z',
+    importRunId: null,
+    historicalRevenue: null,
+    revenueSource: 'payments',
+    paymentBreakdownAvailable: true,
+    sourceReference: null,
+    originalImportedInput: null,
+  };
+}
+
+async function createCompletedSalesExercise(store, employee, code, date, idSuffix) {
+  const library = await store.listLibraryTasks();
+  const task = library.find(item => item.code === code);
+  return store.createProposal({
+    id: '94000000-0000-4000-8000-' + String(idSuffix).padStart(12, '0'),
+    storeId: DEV_STORE.id,
+    employeeId: employee.id,
+    shiftDate: date,
+    libraryTaskId: task.id,
+    taskType: task.taskType,
+    title: task.title,
+    description: task.description,
+    expectedResult: task.expectedResult,
+    reason: 'KPI effect test',
+    source: 'ARTHUR',
+    status: 'COMPLETED',
+    bitrixText: 'test',
+    createdByUserId: null,
+    decidedByUserId: null,
+    decidedAt: date + 'T10:00:00.000Z',
+    approvedAt: date + 'T10:00:00.000Z',
+    resultNote: 'Выполнено',
+    resultMarkedByUserId: null,
+    resultMarkedAt: date + 'T20:00:00.000Z',
+    createdAt: date + 'T10:00:00.000Z',
+    updatedAt: date + 'T20:00:00.000Z',
+  });
+}
+
+test('completed KPI exercise is observed for three later shifts before new sales task', async () => {
+  const { store, service } = fixture();
+  const employee = DEV_EMPLOYEES.find(
+    item => item.employeeCode === 'seller-kapitanova'
+  );
+
+  let id = 1;
+  for (const date of ['2026-09-16', '2026-09-17', '2026-09-18']) {
+    await store.createShift(syntheticKpiShift(employee, date, id++));
+  }
+  await createCompletedSalesExercise(store, employee, 'SALE-02', '2026-09-19', id++);
+  await store.createShift(syntheticKpiShift(employee, '2026-09-20', id++));
+  const todayShift = await store.createShift(
+    syntheticKpiShift(employee, '2026-09-21', id++)
+  );
+
+  const result = await service.autoAssignForShift(todayShift);
+  assert.equal(
+    result.created.filter(item => item.taskType === 'SALES').length,
+    0
+  );
+
+  const team = await service.teamLearningOverview(
+    { storeId: DEV_STORE.id },
+    { id: 'owner', role: 'OWNER', storeId: DEV_STORE.id }
+  );
+  const row = team.items.find(item => item.employeeId === employee.id);
+  assert.equal(row.salesImpact.status, 'OBSERVING');
+  assert.equal(row.salesImpact.afterShifts, 2);
+  assert.equal(row.salesImpact.remainingShifts, 1);
+});
+
+test('after three shifts without KPI improvement system switches to alternate exercise', async () => {
+  const { store, service } = fixture();
+  const employee = DEV_EMPLOYEES.find(
+    item => item.employeeCode === 'seller-kapitanova'
+  );
+
+  let id = 101;
+  for (const date of ['2026-09-14', '2026-09-15', '2026-09-16']) {
+    await store.createShift(syntheticKpiShift(employee, date, id++));
+  }
+  await createCompletedSalesExercise(store, employee, 'SALE-02', '2026-09-17', id++);
+  for (const date of ['2026-09-18', '2026-09-19', '2026-09-20']) {
+    await store.createShift(syntheticKpiShift(employee, date, id++));
+  }
+  const todayShift = await store.createShift(
+    syntheticKpiShift(employee, '2026-09-21', id++)
+  );
+
+  const result = await service.autoAssignForShift(todayShift);
+  const sales = result.created.find(item => item.taskType === 'SALES');
+  assert.ok(sales);
+  assert.equal(sales.libraryCode, 'SALE-04');
+  assert.match(sales.reason, /Предыдущее KPI-упражнение не дало/);
+
+  const team = await service.teamLearningOverview(
+    { storeId: DEV_STORE.id },
+    { id: 'owner', role: 'OWNER', storeId: DEV_STORE.id }
+  );
+  const row = team.items.find(item => item.employeeId === employee.id);
+  assert.equal(row.salesImpact.status, 'OBSERVING');
+  assert.equal(row.salesImpact.libraryCode, 'SALE-04');
+  assert.equal(row.salesImpact.afterShifts, 0);
+  assert.ok(row.todayAssignments.some(item =>
+    item.libraryCode === 'SALE-04' &&
+    /Предыдущее KPI-упражнение не дало/.test(item.reason)
+  ));
+});
+
+test('automatic KPI practice needs no manual completion before effect evaluation', async () => {
+  const { store, service } = fixture();
+  const employee = DEV_EMPLOYEES.find(
+    item => item.employeeCode === 'seller-kapitanova'
+  );
+
+  let id = 201;
+  for (const date of ['2026-09-14', '2026-09-15', '2026-09-16']) {
+    await store.createShift(syntheticKpiShift(employee, date, id++));
+  }
+  const exercise = await createCompletedSalesExercise(
+    store,
+    employee,
+    'SALE-02',
+    '2026-09-17',
+    id++
+  );
+  await store.updateProposal(exercise.id, {
+    status: 'APPROVED',
+    reason: 'Автоматически на смену. KPI-проблема: средний чек.',
+    resultNote: null,
+    resultMarkedAt: null,
+  });
+
+  for (const date of ['2026-09-18', '2026-09-19', '2026-09-20']) {
+    await store.createShift(syntheticKpiShift(employee, date, id++));
+  }
+  const todayShift = await store.createShift(
+    syntheticKpiShift(employee, '2026-09-21', id++)
+  );
+
+  const result = await service.autoAssignForShift(todayShift);
+  const switched = result.created.find(item => item.taskType === 'SALES');
+  assert.ok(switched);
+  assert.equal(switched.libraryCode, 'SALE-04');
+
+  const measured = await store.getProposal(exercise.id);
+  assert.equal(measured.status, 'COMPLETED');
+  assert.match(measured.resultNote, /Автооценка после 3 последующих смен/);
+  assert.match(measured.resultNote, /Недостаточного улучшения нет/);
+});

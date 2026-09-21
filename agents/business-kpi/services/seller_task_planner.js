@@ -129,6 +129,9 @@ function pickRotationCode(type, blockedCodes, historyEntries, todayText, library
 }
 
 function buildReason(task, performanceItem, signal) {
+  if (signal.kind === 'effect_switch') {
+    return 'Предыдущее KPI-упражнение не дало достаточного улучшения за 3 последующие смены. Назначена другая практика на тот же показатель.';
+  }
   if (signal.kind === 'kpi') {
     const metricLabel = performanceItem?.attentionMetric?.label
       || signal.key
@@ -144,13 +147,19 @@ function buildReason(task, performanceItem, signal) {
   return 'Критичных проблем нет — назначена очередная учебная тема для развития знаний о товаре.';
 }
 
-function proposeForSeller({ employeeId, employeeName, performanceItem, targets, historyEntries, shiftDate, todayText, libraryByCode, knowledgePriorityCodes = [] }) {
+function proposeForSeller({ employeeId, employeeName, performanceItem, targets, historyEntries, shiftDate, todayText, libraryByCode, knowledgePriorityCodes = [], salesPriorityCodes = [] }) {
   const blocked = recentCodes(historyEntries, todayText);
   const proposals = [];
   const signals = [];
 
   const kpiCodes = pickKpiTaskCodes(performanceItem, targets);
-  const kpiCode = resolveFirstAvailable(kpiCodes, blocked, libraryByCode);
+  const prioritySalesCode = resolveFirstAvailable(
+    salesPriorityCodes,
+    blocked,
+    libraryByCode
+  );
+  const kpiCode = prioritySalesCode ||
+    resolveFirstAvailable(kpiCodes, blocked, libraryByCode);
   if (kpiCode) {
     const task = libraryByCode.get(kpiCode);
     proposals.push({
@@ -158,7 +167,10 @@ function proposeForSeller({ employeeId, employeeName, performanceItem, targets, 
       employeeName,
       libraryCode: kpiCode,
       taskType: task.type,
-      reason: buildReason(task, performanceItem, { kind: 'kpi', key: performanceItem?.attentionMetric?.key }),
+      reason: buildReason(task, performanceItem, {
+        kind: prioritySalesCode ? 'effect_switch' : 'kpi',
+        key: performanceItem?.attentionMetric?.key,
+      }),
     });
     signals.push('kpi');
   }
@@ -216,6 +228,7 @@ function buildTaskProposals(options) {
     today,
     library,
     knowledgePriorityByEmployee = {},
+    salesPriorityByEmployee = {},
   } = options;
 
   const todayText = typeof today === 'string' ? today : today.toISOString().slice(0, 10);
@@ -245,6 +258,7 @@ function buildTaskProposals(options) {
       todayText,
       libraryByCode,
       knowledgePriorityCodes: knowledgePriorityByEmployee[seller.id] || [],
+      salesPriorityCodes: salesPriorityByEmployee[seller.id] || [],
     }));
   }
   return proposals;
@@ -254,5 +268,6 @@ module.exports = {
   DEFAULT_TASKS_PER_SELLER,
   MAX_TASKS_PER_SELLER,
   ROTATION_DAYS,
+  KPI_TASK_MAP,
   buildTaskProposals,
 };

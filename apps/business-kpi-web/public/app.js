@@ -2207,6 +2207,64 @@ function taskStatusLabel(status) {
   return labels[status] || status || '—';
 }
 
+function trainingEffectStatusLabel(status) {
+  const labels = {
+    OBSERVING: 'Наблюдаем',
+    EFFECTIVE: 'Есть эффект',
+    NO_IMPROVEMENT: 'Сменить упражнение',
+    INSUFFICIENT_BASELINE: 'Мало данных до',
+    INSUFFICIENT_AFTER: 'Мало данных после',
+  };
+  return labels[status] || '—';
+}
+
+function formatTrainingMetric(value, metricKey) {
+  if (value === null || value === undefined) return '—';
+  if (metricKey === 'itemsPerReceipt') return String(value);
+  return Math.round(value).toLocaleString('ru-RU') + ' ₽';
+}
+
+function renderSalesImpactCell(item) {
+  const cell = document.createElement('td');
+  const impact = item.salesImpact;
+  if (!impact) {
+    cell.textContent = 'Нет измерения';
+    return cell;
+  }
+
+  const badge = document.createElement('span');
+  badge.className = 'training-impact training-impact-' +
+    String(impact.status || '').toLowerCase();
+  badge.textContent = trainingEffectStatusLabel(impact.status);
+
+  const title = document.createElement('strong');
+  title.className = 'training-impact-title';
+  title.textContent = impact.metricLabel + ' · ' + impact.title;
+
+  const detail = document.createElement('small');
+  detail.className = 'training-impact-detail';
+  if (impact.status === 'OBSERVING') {
+    detail.textContent =
+      'После упражнения: ' + impact.afterShifts + ' из ' +
+      impact.windowShifts + ' смен. Осталось ' + impact.remainingShifts + '.';
+  } else if (impact.status === 'INSUFFICIENT_BASELINE') {
+    detail.textContent =
+      'Для сравнения нужно минимум ' + impact.windowShifts +
+      ' смены до упражнения.';
+  } else if (impact.baseline !== null && impact.after !== null) {
+    const sign = impact.deltaPercent > 0 ? '+' : '';
+    detail.textContent =
+      formatTrainingMetric(impact.baseline, impact.metricKey) + ' → ' +
+      formatTrainingMetric(impact.after, impact.metricKey) +
+      ' · ' + sign + impact.deltaPercent + '%';
+  } else {
+    detail.textContent = 'Недостаточно данных для вывода.';
+  }
+
+  cell.append(badge, title, detail);
+  return cell;
+}
+
 function renderOwnerToday() {
   const items = state.teamLearning?.items || [];
   const body = element('owner-today-table');
@@ -2222,7 +2280,8 @@ function renderOwnerToday() {
     item.carryover?.knowledge ||
     item.carryover?.sales ||
     (item.repeatDue?.length || 0) > 0 ||
-    item.latestAttempt?.passed === false
+    item.latestAttempt?.passed === false ||
+    item.salesImpact?.status === 'NO_IMPROVEMENT'
   ).length;
 
   element('owner-today-date').textContent = state.teamLearning?.asOfDate || '—';
@@ -2236,12 +2295,14 @@ function renderOwnerToday() {
     const leftAttention = Boolean(
       left.carryover?.knowledge || left.carryover?.sales ||
       (left.repeatDue?.length || 0) > 0 ||
-      left.latestAttempt?.passed === false
+      left.latestAttempt?.passed === false ||
+      left.salesImpact?.status === 'NO_IMPROVEMENT'
     );
     const rightAttention = Boolean(
       right.carryover?.knowledge || right.carryover?.sales ||
       (right.repeatDue?.length || 0) > 0 ||
-      right.latestAttempt?.passed === false
+      right.latestAttempt?.passed === false ||
+      right.salesImpact?.status === 'NO_IMPROVEMENT'
     );
     if (leftAttention !== rightAttention) return leftAttention ? -1 : 1;
     return left.displayName.localeCompare(right.displayName, 'ru');
@@ -2273,6 +2334,13 @@ function renderOwnerToday() {
           (assignment.taskType === 'KNOWLEDGE' ? 'Обучение: ' : 'Практика: ') +
           assignment.title + ' · ' + taskStatusLabel(assignment.status);
         list.appendChild(task);
+        if (assignment.reason &&
+            /Предыдущее KPI-упражнение не дало/.test(assignment.reason)) {
+          const reason = document.createElement('small');
+          reason.className = 'training-impact-detail';
+          reason.textContent = 'Заменено автоматически: предыдущее упражнение не дало достаточного эффекта.';
+          list.appendChild(reason);
+        }
       }
       tasks.appendChild(list);
     } else {
@@ -2294,6 +2362,12 @@ function renderOwnerToday() {
     if (item.latestAttempt?.passed === false) {
       issues.push('Аттестация не сдана: ' + item.latestAttempt.percent + '%');
     }
+    if (item.salesImpact?.status === 'NO_IMPROVEMENT') {
+      issues.push(
+        'KPI без улучшения: ' + item.salesImpact.metricLabel +
+        ' — система сменит упражнение'
+      );
+    }
     if (issues.length) {
       const stack = document.createElement('div');
       stack.className = 'today-attention-stack';
@@ -2307,11 +2381,13 @@ function renderOwnerToday() {
       issue.textContent = 'Нет';
     }
 
+    const impact = renderSalesImpactCell(item);
+
     const progress = document.createElement('td');
     progress.textContent = item.modulesCompleted + ' из ' + item.modulesTotal +
       ' (' + item.learningPercent + '%)';
 
-    row.append(seller, shift, tasks, issue, progress);
+    row.append(seller, shift, tasks, issue, impact, progress);
     return row;
   }));
 }

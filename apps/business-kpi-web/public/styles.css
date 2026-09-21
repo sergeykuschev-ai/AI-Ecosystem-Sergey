@@ -1453,3 +1453,45 @@ dialog::backdrop { background: rgba(11, 27, 21, 0.55); backdrop-filter: blur(3px
     grid-template-columns: 1fr;
   }
 }
+
+
+/* ---- Эффект KPI после упражнения ---- */
+.training-impact,
+.training-impact-title,
+.training-impact-detail {
+  display: block;
+}
+
+.training-impact {
+  width: max-content;
+  max-width: 100%;
+  margin-bottom: 5px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--surface-secondary);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.training-impact-effective {
+  border: 1px solid var(--success);
+}
+
+.training-impact-no_improvement {
+  border: 1px solid var(--danger);
+}
+
+.training-impact-observing {
+  border: 1px solid var(--border);
+}
+
+.training-impact-title {
+  margin-bottom: 3px;
+  font-size: 12px;
+}
+
+.training-impact-detail {
+  max-width: 240px;
+  color: var(--text-secondary);
+  line-height: 1.35;
+}

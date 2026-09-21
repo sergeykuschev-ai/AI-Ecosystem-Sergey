@@ -6,7 +6,7 @@ const {
   buildSellerPerformance,
   TREND_MODES,
 } = require('../../../agents/business-kpi/services/seller_performance_analytics');
-const { buildTaskProposals } = require('../../../agents/business-kpi/services/seller_task_planner');
+const { buildTaskProposals, KPI_TASK_MAP } = require('../../../agents/business-kpi/services/seller_task_planner');
 const { StorageConflictError } = require('../storage/storage_errors');
 const {
   CERTIFICATION_BANK,
@@ -18,6 +18,9 @@ const {
   buildTodayTrainingRecommendation,
   certificationWeakModules,
 } = require('../../../agents/business-kpi/rules/seller_training_path');
+const {
+  latestMeasurableSalesImpact,
+} = require('../../../agents/business-kpi/rules/seller_training_effect');
 
 const PROPOSAL_STATUSES = Object.freeze({
   PENDING: 'PENDING',
@@ -115,6 +118,12 @@ function unresolvedCarryover(existing, attempts, todayText) {
   for (const item of prior) {
     if (byType.has(item.taskType)) continue;
     if (item.taskType === 'SALES') {
+      const automaticKpiPractice =
+        item.status === PROPOSAL_STATUSES.APPROVED &&
+        item.source === 'ARTHUR' &&
+        item.createdByUserId === null &&
+        String(item.reason || '').startsWith('Автоматически на смену.');
+      if (automaticKpiPractice) continue;
       if ([PROPOSAL_STATUSES.APPROVED, PROPOSAL_STATUSES.NOT_COMPLETED].includes(item.status)) {
         byType.set(item.taskType, item);
       }
@@ -568,6 +577,12 @@ class SellerTasksService {
           knowledge
         );
         const performanceItem = performanceByEmployee.get(employee.id) || null;
+        const salesImpact = latestMeasurableSalesImpact({
+          proposals: employeeHistory,
+          shifts,
+          settings: settingsRecord?.settings || null,
+          targets: settingsRecord?.settings?.targets || null,
+        });
         const carryover = unresolvedCarryover(employeeHistory, moduleAttempts, todayText);
         const repeatDue = repeatDueModuleCodes(moduleAttempts, todayText);
         const todayAssignments = employeeHistory
@@ -581,6 +596,7 @@ class SellerTasksService {
             title: item.title,
             status: item.status,
             libraryCode: item.libraryCode,
+            reason: item.reason || null,
           }));
         let recommendation = buildTodayTrainingRecommendation({
           onboarding,
@@ -634,6 +650,7 @@ class SellerTasksService {
           workingToday: shifts.some(shift =>
             shift.employeeId === employee.id && shift.shiftDate === todayText),
           todayAssignments,
+          salesImpact,
           recommendation,
         };
       }),
@@ -725,11 +742,44 @@ class SellerTasksService {
     );
     const carryover = unresolvedCarryover(existing, attempts, todayText);
     const repeatDue = repeatDueModuleCodes(attempts, todayText);
+    const salesImpact = latestMeasurableSalesImpact({
+      proposals: existing,
+      shifts,
+      settings: settingsRecord?.settings || null,
+      targets: settingsRecord?.settings?.targets || null,
+    });
+    if (salesImpact &&
+        ['EFFECTIVE', 'NO_IMPROVEMENT'].includes(salesImpact.status)) {
+      const measured = existing.find(item => item.id === salesImpact.proposalId);
+      if (measured?.status === PROPOSAL_STATUSES.APPROVED) {
+        const effectText = salesImpact.status === 'EFFECTIVE'
+          ? 'Есть эффект'
+          : 'Недостаточного улучшения нет';
+        const deltaText = Number.isFinite(salesImpact.deltaPercent)
+          ? (salesImpact.deltaPercent > 0 ? '+' : '') +
+            salesImpact.deltaPercent + '%'
+          : 'н/д';
+        await this.store.updateProposal(measured.id, {
+          status: PROPOSAL_STATUSES.COMPLETED,
+          resultNote:
+            'Автооценка после ' + salesImpact.windowShifts +
+            ' последующих смен. ' + effectText + ': ' +
+            salesImpact.metricLabel + ' ' +
+            salesImpact.baseline + ' → ' + salesImpact.after +
+            ' (' + deltaText + ').',
+          resultMarkedAt: this.now().toISOString(),
+        });
+      }
+    }
     const knowledgePriority = [
       ...(carryover.knowledge?.libraryCode ? [carryover.knowledge.libraryCode] : []),
       ...weakModules.map(item => item.code),
       ...repeatDue.map(item => item.code),
     ];
+    const alternateSalesCodes = salesImpact?.status === 'NO_IMPROVEMENT'
+      ? (KPI_TASK_MAP[salesImpact.metricKey] || [])
+        .filter(code => code !== salesImpact.libraryCode)
+      : [];
     let proposals = buildTaskProposals({
       sellers: [employee],
       targets: settingsRecord?.settings?.targets || null,
@@ -741,8 +791,15 @@ class SellerTasksService {
       knowledgePriorityByEmployee: {
         [employee.id]: knowledgePriority,
       },
+      salesPriorityByEmployee: {
+        [employee.id]: alternateSalesCodes,
+      },
     }).filter(proposal =>
       proposal.taskType === 'KNOWLEDGE' || proposal.taskType === 'SALES');
+
+    if (salesImpact?.status === 'OBSERVING') {
+      proposals = proposals.filter(proposal => proposal.taskType !== 'SALES');
+    }
 
     const libraryByCodeForPriority = new Map(library.map(task => [task.code, task]));
     if (carryover.sales?.libraryCode) {

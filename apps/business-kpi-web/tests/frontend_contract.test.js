@@ -178,3 +178,11 @@ test('owner tasks page exposes automatic Today training control', () => {
   assert.match(javascript, /item\.carryover\?\.knowledge/);
   assert.match(javascript, /item\.repeatDue\?\.length/);
 });
+
+test('owner Today view shows measured KPI training effect', () => {
+  assert.match(html, /<th>Эффект KPI<\/th>/);
+  assert.match(javascript, /function renderSalesImpactCell\(item\)/);
+  assert.match(javascript, /Сменить упражнение/);
+  assert.match(javascript, /После упражнения:/);
+  assert.match(javascript, /item\.salesImpact\?\.status === 'NO_IMPROVEMENT'/);
+});
