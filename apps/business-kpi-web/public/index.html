@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="Business Portal — ежедневные KPI магазинов">
     <title>Business Portal · KPI</title>
-    <link rel="stylesheet" href="/styles.css?v=training-flow-1">
+    <link rel="stylesheet" href="/styles.css?v=training-cycle-1">
     <script src="/formatters.js" defer></script>
-    <script src="/app.js?v=training-flow-1" defer></script>
+    <script src="/app.js?v=training-cycle-1" defer></script>
   </head>
   <body class="auth-loading">
     <div class="app-shell">
@@ -461,11 +461,59 @@
         <!-- Задачи и обучение -->
         <section class="route-panel" data-panel="tasks" hidden>
           <div class="task-subnav" role="tablist" aria-label="Разделы задач">
-            <button type="button" class="task-subtab active" data-task-tab="review">На согласование</button>
+            <button type="button" class="task-subtab active" data-task-tab="today">Сегодня</button>
+            <button type="button" class="task-subtab" data-task-tab="review">На согласование</button>
             <button type="button" class="task-subtab" data-task-tab="history">История</button>
             <button type="button" class="task-subtab" data-task-tab="learning">Обучение</button>
             <button type="button" class="task-subtab" data-task-tab="certification">Аттестация</button>
             <button type="button" class="task-subtab" data-task-tab="standard">Стандарт</button>
+          </div>
+
+          <div data-task-panel="today">
+            <article class="content-card">
+              <div class="card-heading">
+                <div>
+                  <p class="eyebrow">Автоматический контроль</p>
+                  <h2>Сегодня · обучение продавцов</h2>
+                </div>
+                <span class="status-pill" id="owner-today-date">—</span>
+              </div>
+              <p class="field-help">
+                Здесь только то, что требует внимания сегодня: кто в смене, что назначено,
+                что перенесено с прошлой смены и какие знания пора закрепить повторно.
+              </p>
+              <div class="training-today-summary">
+                <div class="training-today-stat">
+                  <span>В смене</span>
+                  <strong id="owner-today-working">0</strong>
+                </div>
+                <div class="training-today-stat">
+                  <span>Назначено сегодня</span>
+                  <strong id="owner-today-assigned">0</strong>
+                </div>
+                <div class="training-today-stat">
+                  <span>Требуют внимания</span>
+                  <strong id="owner-today-attention">0</strong>
+                </div>
+              </div>
+              <div class="responsive-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Продавец</th>
+                      <th>Смена</th>
+                      <th>Задания сегодня</th>
+                      <th>Требует внимания</th>
+                      <th>Обучение</th>
+                    </tr>
+                  </thead>
+                  <tbody id="owner-today-table"></tbody>
+                </table>
+              </div>
+              <p class="empty-copy" id="owner-today-empty" hidden>
+                Нет продавцов для отображения.
+              </p>
+            </article>
           </div>
 
           <div data-task-panel="review">

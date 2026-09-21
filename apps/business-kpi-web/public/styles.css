@@ -1403,3 +1403,53 @@ dialog::backdrop { background: rgba(11, 27, 21, 0.55); backdrop-filter: blur(3px
     flex-direction: column-reverse;
   }
 }
+
+
+/* ---- Владелец: обучение сегодня ---- */
+.training-today-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.training-today-stat {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-secondary);
+}
+
+.training-today-stat span {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.training-today-stat strong {
+  font-size: 24px;
+}
+
+.today-task-stack,
+.today-attention-stack {
+  display: grid;
+  gap: 5px;
+}
+
+.today-task-line,
+.today-attention-stack span {
+  display: block;
+  line-height: 1.35;
+}
+
+.today-attention-stack span {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+@media (max-width: 720px) {
+  .training-today-summary {
+    grid-template-columns: 1fr;
+  }
+}

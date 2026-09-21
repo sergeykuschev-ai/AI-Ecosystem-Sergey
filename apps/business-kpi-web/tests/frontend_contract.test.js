@@ -167,3 +167,14 @@ test('store daily input hides seller and shift key while preserving Miska form',
   assert.match(app, /element\('shift-employee-field'\)\.hidden = !miskaMode/);
   assert.match(app, /employeeCode === `\$\{store\?\.code\}-store-input`/);
 });
+
+test('owner tasks page exposes automatic Today training control', () => {
+  assert.match(html, /data-task-tab="today"/);
+  assert.match(html, /id="owner-today-table"/);
+  assert.match(html, /id="owner-today-working"/);
+  assert.match(html, /id="owner-today-assigned"/);
+  assert.match(html, /id="owner-today-attention"/);
+  assert.match(javascript, /function renderOwnerToday\(\)/);
+  assert.match(javascript, /item\.carryover\?\.knowledge/);
+  assert.match(javascript, /item\.repeatDue\?\.length/);
+});

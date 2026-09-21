@@ -30,6 +30,7 @@ const PROPOSAL_STATUSES = Object.freeze({
 const HISTORY_WINDOW_DAYS = 45;
 const LIST_DEFAULT_LIMIT = 500;
 const MODULE_PASS_PERCENT = 75;
+const REPEAT_INTERVAL_DAYS = 30;
 
 /* A planner-eligible seller: active store employee participating in seller KPI
    with a linked portal account. Employees without an account (demo/technical
@@ -75,6 +76,62 @@ function passedModuleCodes(attempts) {
   );
 }
 
+function latestPassedModuleAttempts(attempts) {
+  const latest = new Map();
+  for (const attempt of attempts || []) {
+    if (attempt.attemptType !== 'MODULE' || !attempt.passed || !attempt.moduleCode) continue;
+    const current = latest.get(attempt.moduleCode);
+    if (!current || String(attempt.createdAt).localeCompare(String(current.createdAt)) > 0) {
+      latest.set(attempt.moduleCode, attempt);
+    }
+  }
+  return latest;
+}
+
+function repeatDueModuleCodes(attempts, todayText, intervalDays = REPEAT_INTERVAL_DAYS) {
+  const today = new Date(todayText + 'T00:00:00.000Z');
+  return [...latestPassedModuleAttempts(attempts).entries()]
+    .map(([code, attempt]) => {
+      const passedAt = new Date(String(attempt.createdAt).slice(0, 10) + 'T00:00:00.000Z');
+      const ageDays = Math.floor((today - passedAt) / 86400000);
+      return { code, ageDays, passedAt: attempt.createdAt };
+    })
+    .filter(item => item.ageDays >= intervalDays)
+    .sort((left, right) => right.ageDays - left.ageDays || left.code.localeCompare(right.code));
+}
+
+function unresolvedCarryover(existing, attempts, todayText) {
+  const latestPass = latestPassedModuleAttempts(attempts);
+  const prior = (existing || [])
+    .filter(item =>
+      item.shiftDate < todayText &&
+      item.status !== PROPOSAL_STATUSES.REJECTED &&
+      (item.taskType === 'KNOWLEDGE' || item.taskType === 'SALES'))
+    .sort((left, right) =>
+      String(right.shiftDate).localeCompare(String(left.shiftDate)) ||
+      String(right.createdAt || '').localeCompare(String(left.createdAt || '')));
+
+  const byType = new Map();
+  for (const item of prior) {
+    if (byType.has(item.taskType)) continue;
+    if (item.taskType === 'SALES') {
+      if ([PROPOSAL_STATUSES.APPROVED, PROPOSAL_STATUSES.NOT_COMPLETED].includes(item.status)) {
+        byType.set(item.taskType, item);
+      }
+      continue;
+    }
+    const passed = latestPass.get(item.libraryCode);
+    const passedDate = passed ? String(passed.createdAt).slice(0, 10) : null;
+    if (!passedDate || item.shiftDate > passedDate) {
+      byType.set(item.taskType, item);
+    }
+  }
+  return {
+    knowledge: byType.get('KNOWLEDGE') || null,
+    sales: byType.get('SALES') || null,
+  };
+}
+
 function latestCertificationAttempt(attempts) {
   return (attempts || [])
     .filter(attempt => attempt.attemptType === 'CERTIFICATION')
@@ -82,7 +139,7 @@ function latestCertificationAttempt(attempts) {
       String(right.createdAt).localeCompare(String(left.createdAt)))[0] || null;
 }
 
-function learningProgressFromHistory(library, history, moduleAttempts = []) {
+function learningProgressFromHistory(library, history, moduleAttempts = [], todayText = null) {
   const byCode = new Map();
   for (const proposal of history) {
     if (proposal.taskType !== 'KNOWLEDGE' || !proposal.libraryCode) continue;
@@ -93,13 +150,17 @@ function learningProgressFromHistory(library, history, moduleAttempts = []) {
     }
   }
   const completedCodes = passedModuleCodes(moduleAttempts);
+  const repeatDueCodes = new Set(
+    todayText ? repeatDueModuleCodes(moduleAttempts, todayText).map(item => item.code) : []
+  );
   let completed = 0;
   const items = library.map(task => {
     const latest = byCode.get(task.code);
     const completedByQuiz = completedCodes.has(task.code);
     if (completedByQuiz) completed += 1;
     let status = completedByQuiz ? 'COMPLETED' : 'NOT_STARTED';
-    if (!completedByQuiz && latest?.status === PROPOSAL_STATUSES.NOT_COMPLETED) status = 'REVIEW';
+    if (completedByQuiz && repeatDueCodes.has(task.code)) status = 'REVIEW';
+    else if (!completedByQuiz && latest?.status === PROPOSAL_STATUSES.NOT_COMPLETED) status = 'REVIEW';
     else if (!completedByQuiz && latest &&
       [PROPOSAL_STATUSES.PENDING, PROPOSAL_STATUSES.APPROVED, PROPOSAL_STATUSES.COMPLETED].includes(latest.status)) {
       status = 'ASSIGNED';
@@ -198,7 +259,7 @@ class SellerTasksService {
       .filter(task => task.taskType === 'KNOWLEDGE');
     const employee = await this.store.getEmployeeByUserId(actor.id);
     if (!employee) {
-      const progress = learningProgressFromHistory(library, []);
+      const progress = learningProgressFromHistory(library, [], [], shiftDateText(this.now()));
       return {
         employeeId: null,
         ...progress,
@@ -217,7 +278,7 @@ class SellerTasksService {
         limit: 5000,
       }),
     ]);
-    const progress = learningProgressFromHistory(library, history, attempts);
+    const progress = learningProgressFromHistory(library, history, attempts, shiftDateText(this.now()));
     return {
       employeeId: employee.id,
       ...progress,
@@ -491,10 +552,13 @@ class SellerTasksService {
       certificationQuestions: CERTIFICATION_BANK.length,
       items: sellers.map(employee => {
         const employeeAttempts = attempts.filter(item => item.employeeId === employee.id);
+        const employeeHistory = history.filter(item => item.employeeId === employee.id);
+        const moduleAttempts = employeeAttempts.filter(item => item.attemptType === 'MODULE');
         const progress = learningProgressFromHistory(
           knowledge,
-          history.filter(item => item.employeeId === employee.id),
-          employeeAttempts.filter(item => item.attemptType === 'MODULE')
+          employeeHistory,
+          moduleAttempts,
+          todayText
         );
         const onboarding = buildOnboardingProgress(progress.items, knowledge);
         const latestAttempt = latestCertificationAttempt(employeeAttempts);
@@ -504,7 +568,21 @@ class SellerTasksService {
           knowledge
         );
         const performanceItem = performanceByEmployee.get(employee.id) || null;
-        const recommendation = buildTodayTrainingRecommendation({
+        const carryover = unresolvedCarryover(employeeHistory, moduleAttempts, todayText);
+        const repeatDue = repeatDueModuleCodes(moduleAttempts, todayText);
+        const todayAssignments = employeeHistory
+          .filter(item =>
+            item.shiftDate === todayText &&
+            item.status !== PROPOSAL_STATUSES.REJECTED &&
+            (item.taskType === 'KNOWLEDGE' || item.taskType === 'SALES'))
+          .map(item => ({
+            id: item.id,
+            taskType: item.taskType,
+            title: item.title,
+            status: item.status,
+            libraryCode: item.libraryCode,
+          }));
+        let recommendation = buildTodayTrainingRecommendation({
           onboarding,
           latestAttempt,
           weakModules,
@@ -512,6 +590,23 @@ class SellerTasksService {
           targets: settingsRecord?.settings?.targets || null,
           library,
         });
+        if (carryover.knowledge || carryover.sales) {
+          const firstCarry = carryover.knowledge || carryover.sales;
+          recommendation = {
+            kind: 'CARRYOVER',
+            title: firstCarry.title,
+            reason: 'Невыполненное задание с предыдущей смены имеет приоритет.',
+          };
+        } else if (repeatDue.length) {
+          const repeatTask = knowledge.find(item => item.code === repeatDue[0].code);
+          recommendation = {
+            kind: 'SPACED_REVIEW',
+            title: repeatTask?.title || repeatDue[0].code,
+            moduleCode: repeatDue[0].code,
+            reason: 'Прошло ' + repeatDue[0].ageDays +
+              ' дн. после успешной проверки — пора закрепить знания.',
+          };
+        }
         return {
           employeeId: employee.id,
           displayName: employee.displayName,
@@ -521,6 +616,24 @@ class SellerTasksService {
           onboarding,
           latestAttempt: certificationSummary(latestAttempt),
           weakModules: weakModules.slice(0, 3),
+          repeatDue: repeatDue.slice(0, 3),
+          carryover: {
+            knowledge: carryover.knowledge ? {
+              title: carryover.knowledge.title,
+              libraryCode: carryover.knowledge.libraryCode,
+              shiftDate: carryover.knowledge.shiftDate,
+              status: carryover.knowledge.status,
+            } : null,
+            sales: carryover.sales ? {
+              title: carryover.sales.title,
+              libraryCode: carryover.sales.libraryCode,
+              shiftDate: carryover.sales.shiftDate,
+              status: carryover.sales.status,
+            } : null,
+          },
+          workingToday: shifts.some(shift =>
+            shift.employeeId === employee.id && shift.shiftDate === todayText),
+          todayAssignments,
           recommendation,
         };
       }),
@@ -610,7 +723,14 @@ class SellerTasksService {
       CERTIFICATION_BANK,
       knowledge
     );
-    const proposals = buildTaskProposals({
+    const carryover = unresolvedCarryover(existing, attempts, todayText);
+    const repeatDue = repeatDueModuleCodes(attempts, todayText);
+    const knowledgePriority = [
+      ...(carryover.knowledge?.libraryCode ? [carryover.knowledge.libraryCode] : []),
+      ...weakModules.map(item => item.code),
+      ...repeatDue.map(item => item.code),
+    ];
+    let proposals = buildTaskProposals({
       sellers: [employee],
       targets: settingsRecord?.settings?.targets || null,
       performanceItems: performance.items,
@@ -619,10 +739,44 @@ class SellerTasksService {
       today: todayText,
       library,
       knowledgePriorityByEmployee: {
-        [employee.id]: weakModules.map(item => item.code),
+        [employee.id]: knowledgePriority,
       },
     }).filter(proposal =>
       proposal.taskType === 'KNOWLEDGE' || proposal.taskType === 'SALES');
+
+    const libraryByCodeForPriority = new Map(library.map(task => [task.code, task]));
+    if (carryover.sales?.libraryCode) {
+      const carryTask = libraryByCodeForPriority.get(carryover.sales.libraryCode);
+      if (carryTask) {
+        proposals = proposals.filter(proposal => proposal.taskType !== 'SALES');
+        proposals.unshift({
+          employeeId: employee.id,
+          employeeName: employee.displayName,
+          libraryCode: carryTask.code,
+          taskType: 'SALES',
+          shiftDate,
+          reason: 'Перенос с предыдущей смены: задание не было выполнено.',
+        });
+      }
+    }
+    proposals = proposals.map(proposal => {
+      if (carryover.knowledge?.libraryCode === proposal.libraryCode) {
+        return {
+          ...proposal,
+          reason: 'Перенос с предыдущей смены: учебная тема не закрыта мини-проверкой.',
+        };
+      }
+      if (repeatDue.some(item => item.code === proposal.libraryCode) &&
+          !weakModules.some(item => item.code === proposal.libraryCode)) {
+        const due = repeatDue.find(item => item.code === proposal.libraryCode);
+        return {
+          ...proposal,
+          reason: 'Закрепление знаний: прошло ' + due.ageDays +
+            ' дн. после успешной мини-проверки.',
+        };
+      }
+      return proposal;
+    });
 
     const todayAssignments = existing.filter(proposal =>
       proposal.shiftDate === shiftDate &&

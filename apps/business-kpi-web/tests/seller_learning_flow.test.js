@@ -172,3 +172,162 @@ test('automatic shift training is idempotent and excludes store-control tasks', 
   const second = await service.autoAssignForShift(shift);
   assert.equal(second.created.length, 0);
 });
+
+test('unfinished learning and sales tasks carry over to the next worked shift', async () => {
+  const { store, service } = fixture();
+  const employee = DEV_EMPLOYEES.find(
+    item => item.employeeCode === 'seller-kapitanova'
+  );
+  const library = await store.listLibraryTasks();
+  const knowledge = library.find(item => item.code === 'KNOW-19');
+  const sales = library.find(item => item.code === 'SALE-02');
+
+  await store.createProposal({
+    id: '97000000-0000-4000-8000-000000000001',
+    storeId: DEV_STORE.id,
+    employeeId: employee.id,
+    shiftDate: '2026-09-20',
+    libraryTaskId: knowledge.id,
+    taskType: knowledge.taskType,
+    title: knowledge.title,
+    description: knowledge.description,
+    expectedResult: knowledge.expectedResult,
+    reason: 'Вчерашнее обучение',
+    source: 'ARTHUR',
+    status: 'APPROVED',
+    bitrixText: 'test',
+    createdByUserId: null,
+    createdAt: '2026-09-20T10:00:00.000Z',
+    updatedAt: '2026-09-20T10:00:00.000Z',
+  });
+  await store.createProposal({
+    id: '97000000-0000-4000-8000-000000000002',
+    storeId: DEV_STORE.id,
+    employeeId: employee.id,
+    shiftDate: '2026-09-20',
+    libraryTaskId: sales.id,
+    taskType: sales.taskType,
+    title: sales.title,
+    description: sales.description,
+    expectedResult: sales.expectedResult,
+    reason: 'Вчерашняя практика',
+    source: 'ARTHUR',
+    status: 'NOT_COMPLETED',
+    bitrixText: 'test',
+    createdByUserId: null,
+    createdAt: '2026-09-20T10:01:00.000Z',
+    updatedAt: '2026-09-20T10:01:00.000Z',
+  });
+
+  const shift = await store.createShift({
+    id: '97000000-0000-4000-8000-000000000003',
+    storeId: DEV_STORE.id,
+    employeeId: employee.id,
+    employeeName: employee.displayName,
+    shiftDate: '2026-09-21',
+    shiftKey: 'carryover',
+    cash: 10000,
+    acquiring: 10000,
+    qr: 1000,
+    receipts: 20,
+    itemsSold: 40,
+    upsellReceipts: 4,
+    treatsRevenue: 500,
+    treatsReceipts: 3,
+    comment: null,
+    source: 'web_manual',
+    sourceRef: null,
+    archivedAt: null,
+    archivedBy: null,
+    createdAt: NOW.toISOString(),
+    updatedAt: NOW.toISOString(),
+    importRunId: null,
+    historicalRevenue: null,
+    revenueSource: 'payments',
+    paymentBreakdownAvailable: true,
+    sourceReference: null,
+    originalImportedInput: null,
+  });
+
+  const result = await service.autoAssignForShift(shift);
+  const learningTask = result.created.find(item => item.taskType === 'KNOWLEDGE');
+  const salesTask = result.created.find(item => item.taskType === 'SALES');
+  assert.equal(learningTask.libraryCode, 'KNOW-19');
+  assert.match(learningTask.reason, /Перенос с предыдущей смены/);
+  assert.equal(salesTask.libraryCode, 'SALE-02');
+  assert.match(salesTask.reason, /Перенос с предыдущей смены/);
+});
+
+test('passed module becomes due for spaced review after 30 days and is auto-assigned', async () => {
+  const { store, service } = fixture();
+  const employee = DEV_EMPLOYEES.find(
+    item => item.employeeCode === 'seller-kapitanova'
+  );
+  await store.createLearningAttempt({
+    id: '96000000-0000-4000-8000-000000000001',
+    storeId: DEV_STORE.id,
+    employeeId: employee.id,
+    score: 4,
+    total: 4,
+    percent: 100,
+    passed: true,
+    answers: {},
+    attemptType: 'MODULE',
+    moduleCode: 'KNOW-19',
+    createdAt: '2026-08-20T10:00:00.000Z',
+  });
+
+  const shift = await store.createShift({
+    id: '96000000-0000-4000-8000-000000000002',
+    storeId: DEV_STORE.id,
+    employeeId: employee.id,
+    employeeName: employee.displayName,
+    shiftDate: '2026-09-21',
+    shiftKey: 'repeat',
+    cash: 12000,
+    acquiring: 18000,
+    qr: 3000,
+    receipts: 25,
+    itemsSold: 60,
+    upsellReceipts: 8,
+    treatsRevenue: 1500,
+    treatsReceipts: 6,
+    comment: null,
+    source: 'web_manual',
+    sourceRef: null,
+    archivedAt: null,
+    archivedBy: null,
+    createdAt: NOW.toISOString(),
+    updatedAt: NOW.toISOString(),
+    importRunId: null,
+    historicalRevenue: null,
+    revenueSource: 'payments',
+    paymentBreakdownAvailable: true,
+    sourceReference: null,
+    originalImportedInput: null,
+  });
+
+  const result = await service.autoAssignForShift(shift);
+  const review = result.created.find(item => item.taskType === 'KNOWLEDGE');
+  assert.equal(review.libraryCode, 'KNOW-19');
+  assert.match(review.reason, /Закрепление знаний/);
+
+  const actor = {
+    id: employee.userId,
+    role: 'SELLER',
+    storeId: DEV_STORE.id,
+  };
+  const progress = await service.learningProgress(actor);
+  const module = progress.items.find(item => item.code === 'KNOW-19');
+  assert.equal(module.completed, true);
+  assert.equal(module.status, 'REVIEW');
+
+  const team = await service.teamLearningOverview(
+    { storeId: DEV_STORE.id },
+    { id: 'owner', role: 'OWNER', storeId: DEV_STORE.id }
+  );
+  const row = team.items.find(item => item.employeeId === employee.id);
+  assert.equal(row.workingToday, true);
+  assert.equal(row.repeatDue[0].code, 'KNOW-19');
+  assert.ok(row.todayAssignments.some(item => item.libraryCode === 'KNOW-19'));
+});

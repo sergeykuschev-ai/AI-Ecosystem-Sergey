@@ -2197,6 +2197,125 @@ function trainingRecommendationLabel(recommendation) {
   return labels[recommendation?.kind] || 'Обучение';
 }
 
+function taskStatusLabel(status) {
+  const labels = {
+    PENDING: 'На согласовании',
+    APPROVED: 'Назначено',
+    COMPLETED: 'Выполнено',
+    NOT_COMPLETED: 'Не выполнено',
+  };
+  return labels[status] || status || '—';
+}
+
+function renderOwnerToday() {
+  const items = state.teamLearning?.items || [];
+  const body = element('owner-today-table');
+  const empty = element('owner-today-empty');
+  if (!body || !empty) return;
+
+  const working = items.filter(item => item.workingToday).length;
+  const assigned = items.reduce(
+    (sum, item) => sum + (item.todayAssignments?.length || 0),
+    0
+  );
+  const attention = items.filter(item =>
+    item.carryover?.knowledge ||
+    item.carryover?.sales ||
+    (item.repeatDue?.length || 0) > 0 ||
+    item.latestAttempt?.passed === false
+  ).length;
+
+  element('owner-today-date').textContent = state.teamLearning?.asOfDate || '—';
+  element('owner-today-working').textContent = String(working);
+  element('owner-today-assigned').textContent = String(assigned);
+  element('owner-today-attention').textContent = String(attention);
+  empty.hidden = items.length > 0;
+
+  const ordered = [...items].sort((left, right) => {
+    if (left.workingToday !== right.workingToday) return left.workingToday ? -1 : 1;
+    const leftAttention = Boolean(
+      left.carryover?.knowledge || left.carryover?.sales ||
+      (left.repeatDue?.length || 0) > 0 ||
+      left.latestAttempt?.passed === false
+    );
+    const rightAttention = Boolean(
+      right.carryover?.knowledge || right.carryover?.sales ||
+      (right.repeatDue?.length || 0) > 0 ||
+      right.latestAttempt?.passed === false
+    );
+    if (leftAttention !== rightAttention) return leftAttention ? -1 : 1;
+    return left.displayName.localeCompare(right.displayName, 'ru');
+  });
+
+  body.replaceChildren(...ordered.map(item => {
+    const row = document.createElement('tr');
+
+    const seller = document.createElement('td');
+    const sellerName = document.createElement('strong');
+    sellerName.textContent = item.displayName;
+    seller.appendChild(sellerName);
+
+    const shift = document.createElement('td');
+    const shiftBadge = document.createElement('span');
+    shiftBadge.className = 'learning-status learning-status-' +
+      (item.workingToday ? 'completed' : 'not_started');
+    shiftBadge.textContent = item.workingToday ? 'Сегодня работает' : 'Нет смены';
+    shift.appendChild(shiftBadge);
+
+    const tasks = document.createElement('td');
+    if (item.todayAssignments?.length) {
+      const list = document.createElement('div');
+      list.className = 'today-task-stack';
+      for (const assignment of item.todayAssignments) {
+        const task = document.createElement('span');
+        task.className = 'today-task-line';
+        task.textContent =
+          (assignment.taskType === 'KNOWLEDGE' ? 'Обучение: ' : 'Практика: ') +
+          assignment.title + ' · ' + taskStatusLabel(assignment.status);
+        list.appendChild(task);
+      }
+      tasks.appendChild(list);
+    } else {
+      tasks.textContent = item.workingToday ? 'Пока нет назначения' : '—';
+    }
+
+    const issue = document.createElement('td');
+    const issues = [];
+    if (item.carryover?.knowledge) {
+      issues.push('Перенести обучение: ' + item.carryover.knowledge.title);
+    }
+    if (item.carryover?.sales) {
+      issues.push('Перенести практику: ' + item.carryover.sales.title);
+    }
+    if (item.repeatDue?.length) {
+      issues.push('Закрепить: ' + item.repeatDue[0].code +
+        ' · ' + item.repeatDue[0].ageDays + ' дн.');
+    }
+    if (item.latestAttempt?.passed === false) {
+      issues.push('Аттестация не сдана: ' + item.latestAttempt.percent + '%');
+    }
+    if (issues.length) {
+      const stack = document.createElement('div');
+      stack.className = 'today-attention-stack';
+      for (const text of issues) {
+        const line = document.createElement('span');
+        line.textContent = text;
+        stack.appendChild(line);
+      }
+      issue.appendChild(stack);
+    } else {
+      issue.textContent = 'Нет';
+    }
+
+    const progress = document.createElement('td');
+    progress.textContent = item.modulesCompleted + ' из ' + item.modulesTotal +
+      ' (' + item.learningPercent + '%)';
+
+    row.append(seller, shift, tasks, issue, progress);
+    return row;
+  }));
+}
+
 function renderTeamLearning() {
   const items = state.teamLearning?.items || [];
   const body = element('team-learning-table');
@@ -2265,8 +2384,12 @@ function renderCertification() {
   const ownerMode = canManageTasks();
   element('certification-seller').hidden = ownerMode;
   element('certification-owner').hidden = !ownerMode;
-  if (ownerMode) renderTeamLearning();
-  else renderSellerCertification();
+  if (ownerMode) {
+    renderTeamLearning();
+    renderOwnerToday();
+  } else {
+    renderSellerCertification();
+  }
 }
 
 async function submitCertification() {
@@ -2446,7 +2569,7 @@ function switchTaskTab(tab) {
 async function loadTasks() {
   const ownerMode = canManageTasks();
   for (const tab of document.querySelectorAll('[data-task-tab]')) {
-    const ownerOnly = ['review', 'history'].includes(tab.dataset.taskTab);
+    const ownerOnly = ['today', 'review', 'history'].includes(tab.dataset.taskTab);
     tab.hidden = ownerOnly && !ownerMode;
   }
   if (!ownerMode) {
