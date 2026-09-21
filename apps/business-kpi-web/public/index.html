@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="Business Portal — ежедневные KPI магазинов">
     <title>Business Portal · KPI</title>
-    <link rel="stylesheet" href="/styles.css?v=training-effect-1">
+    <link rel="stylesheet" href="/styles.css?v=training-owner-1">
     <script src="/formatters.js" defer></script>
-    <script src="/app.js?v=training-effect-1" defer></script>
+    <script src="/app.js?v=training-owner-1" defer></script>
   </head>
   <body class="auth-loading">
     <div class="app-shell">
@@ -514,6 +514,56 @@
               <p class="empty-copy" id="owner-today-empty" hidden>
                 Нет продавцов для отображения.
               </p>
+              <div class="owner-exceptions">
+                <div class="card-heading">
+                  <div>
+                    <p class="eyebrow">Только исключения</p>
+                    <h3>Что требует твоего участия</h3>
+                  </div>
+                  <span class="status-pill" id="owner-exception-count">0</span>
+                </div>
+                <div id="owner-exception-list" class="owner-exception-list"></div>
+                <p class="empty-copy" id="owner-exception-empty">Критичных исключений нет.</p>
+              </div>
+
+              <div class="owner-period-grid">
+                <div class="owner-period-card">
+                  <span>Последние 7 дней</span>
+                  <strong id="owner-summary-7-main">—</strong>
+                  <small id="owner-summary-7-detail">—</small>
+                </div>
+                <div class="owner-period-card">
+                  <span>Последние 30 дней</span>
+                  <strong id="owner-summary-30-main">—</strong>
+                  <small id="owner-summary-30-detail">—</small>
+                </div>
+              </div>
+
+              <div class="owner-ranking">
+                <div class="card-heading">
+                  <div>
+                    <p class="eyebrow">Что реально работает</p>
+                    <h3>Полезность KPI-упражнений</h3>
+                  </div>
+                </div>
+                <div class="responsive-table">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Упражнение</th>
+                        <th>KPI</th>
+                        <th>Оценено циклов</th>
+                        <th>Сработало</th>
+                        <th>Средний эффект</th>
+                      </tr>
+                    </thead>
+                    <tbody id="owner-ranking-table"></tbody>
+                  </table>
+                </div>
+                <p class="empty-copy" id="owner-ranking-empty">
+                  Пока недостаточно завершённых циклов для рейтинга.
+                </p>
+              </div>
             </article>
           </div>
 

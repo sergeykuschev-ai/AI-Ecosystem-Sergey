@@ -2265,11 +2265,108 @@ function renderSalesImpactCell(item) {
   return cell;
 }
 
+function aggregateTrainingPeriod(items, key) {
+  const rows = (items || []).map(item => item.summaries?.[key]).filter(Boolean);
+  return rows.reduce((sum, row) => ({
+    modulesPassed: sum.modulesPassed + row.modulesPassed,
+    moduleChecks: sum.moduleChecks + row.moduleChecks,
+    moduleChecksFailed: sum.moduleChecksFailed + row.moduleChecksFailed,
+    salesExercisesEvaluated: sum.salesExercisesEvaluated + row.salesExercisesEvaluated,
+    salesExercisesEffective: sum.salesExercisesEffective + row.salesExercisesEffective,
+    salesExercisesNoImprovement:
+      sum.salesExercisesNoImprovement + row.salesExercisesNoImprovement,
+    assignments: sum.assignments + row.assignments,
+    assignmentsCompleted: sum.assignmentsCompleted + row.assignmentsCompleted,
+  }), {
+    modulesPassed: 0,
+    moduleChecks: 0,
+    moduleChecksFailed: 0,
+    salesExercisesEvaluated: 0,
+    salesExercisesEffective: 0,
+    salesExercisesNoImprovement: 0,
+    assignments: 0,
+    assignmentsCompleted: 0,
+  });
+}
+
+function renderOwnerExceptions(items) {
+  const list = element('owner-exception-list');
+  const empty = element('owner-exception-empty');
+  const exceptions = [];
+  for (const item of items || []) {
+    for (const issue of item.exceptions || []) {
+      exceptions.push({ ...issue, seller: item.displayName });
+    }
+  }
+  element('owner-exception-count').textContent = String(exceptions.length);
+  empty.hidden = exceptions.length > 0;
+  list.replaceChildren(...exceptions.map(issue => {
+    const card = document.createElement('div');
+    card.className = 'owner-exception owner-exception-' +
+      String(issue.level || 'medium').toLowerCase();
+    const title = document.createElement('strong');
+    title.textContent = issue.seller + ' · ' + issue.title;
+    const detail = document.createElement('small');
+    detail.textContent = issue.detail;
+    card.append(title, detail);
+    return card;
+  }));
+}
+
+function renderOwnerPeriodSummaries(items) {
+  for (const [key, days] of [['days7', 7], ['days30', 30]]) {
+    const summary = aggregateTrainingPeriod(items, key);
+    const main = element('owner-summary-' + days + '-main');
+    const detail = element('owner-summary-' + days + '-detail');
+    main.textContent =
+      summary.salesExercisesEffective + ' из ' +
+      summary.salesExercisesEvaluated + ' KPI-циклов дали эффект';
+    detail.textContent =
+      'Модулей пройдено: ' + summary.modulesPassed +
+      ' · мини-тестов с ошибкой: ' + summary.moduleChecksFailed +
+      ' · заданий выполнено: ' + summary.assignmentsCompleted +
+      ' из ' + summary.assignments;
+  }
+}
+
+function renderExerciseRanking() {
+  const rows = state.teamLearning?.exerciseRanking || [];
+  const body = element('owner-ranking-table');
+  const empty = element('owner-ranking-empty');
+  empty.hidden = rows.length > 0;
+  body.replaceChildren(...rows.map(item => {
+    const row = document.createElement('tr');
+    const title = document.createElement('td');
+    title.textContent = item.title;
+    const metric = document.createElement('td');
+    metric.textContent = item.metricLabel;
+    const evaluated = document.createElement('td');
+    evaluated.textContent = String(item.evaluated);
+    const effective = document.createElement('td');
+    effective.textContent =
+      item.effective + ' · ' + item.effectivenessPercent + '%';
+    const delta = document.createElement('td');
+    if (item.averageDeltaPercent === null) {
+      delta.textContent = '—';
+    } else {
+      delta.textContent =
+        (item.averageDeltaPercent > 0 ? '+' : '') +
+        item.averageDeltaPercent + '%';
+    }
+    row.append(title, metric, evaluated, effective, delta);
+    return row;
+  }));
+}
+
 function renderOwnerToday() {
   const items = state.teamLearning?.items || [];
   const body = element('owner-today-table');
   const empty = element('owner-today-empty');
   if (!body || !empty) return;
+
+  renderOwnerExceptions(items);
+  renderOwnerPeriodSummaries(items);
+  renderExerciseRanking();
 
   const working = items.filter(item => item.workingToday).length;
   const assigned = items.reduce(
@@ -2277,6 +2374,7 @@ function renderOwnerToday() {
     0
   );
   const attention = items.filter(item =>
+    (item.exceptions?.length || 0) > 0 ||
     item.carryover?.knowledge ||
     item.carryover?.sales ||
     (item.repeatDue?.length || 0) > 0 ||
@@ -2293,12 +2391,14 @@ function renderOwnerToday() {
   const ordered = [...items].sort((left, right) => {
     if (left.workingToday !== right.workingToday) return left.workingToday ? -1 : 1;
     const leftAttention = Boolean(
+      (left.exceptions?.length || 0) > 0 ||
       left.carryover?.knowledge || left.carryover?.sales ||
       (left.repeatDue?.length || 0) > 0 ||
       left.latestAttempt?.passed === false ||
       left.salesImpact?.status === 'NO_IMPROVEMENT'
     );
     const rightAttention = Boolean(
+      (right.exceptions?.length || 0) > 0 ||
       right.carryover?.knowledge || right.carryover?.sales ||
       (right.repeatDue?.length || 0) > 0 ||
       right.latestAttempt?.passed === false ||
@@ -2362,7 +2462,12 @@ function renderOwnerToday() {
     if (item.latestAttempt?.passed === false) {
       issues.push('Аттестация не сдана: ' + item.latestAttempt.percent + '%');
     }
-    if (item.salesImpact?.status === 'NO_IMPROVEMENT') {
+    if (item.salesEscalation) {
+      issues.push(
+        'Эскалация: ' + item.salesEscalation.metricLabel +
+        ' — два цикла без результата, нужен разбор'
+      );
+    } else if (item.salesImpact?.status === 'NO_IMPROVEMENT') {
       issues.push(
         'KPI без улучшения: ' + item.salesImpact.metricLabel +
         ' — система сменит упражнение'

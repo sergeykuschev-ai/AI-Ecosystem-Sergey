@@ -186,3 +186,14 @@ test('owner Today view shows measured KPI training effect', () => {
   assert.match(javascript, /После упражнения:/);
   assert.match(javascript, /item\.salesImpact\?\.status === 'NO_IMPROVEMENT'/);
 });
+
+test('owner Today view exposes exceptions, 7/30 summary and exercise ranking', () => {
+  assert.match(html, /id="owner-exception-list"/);
+  assert.match(html, /id="owner-summary-7-main"/);
+  assert.match(html, /id="owner-summary-30-main"/);
+  assert.match(html, /id="owner-ranking-table"/);
+  assert.match(javascript, /function renderOwnerExceptions\(items\)/);
+  assert.match(javascript, /function renderOwnerPeriodSummaries\(items\)/);
+  assert.match(javascript, /function renderExerciseRanking\(\)/);
+  assert.match(javascript, /item\.salesEscalation/);
+});

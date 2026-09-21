@@ -1495,3 +1495,71 @@ dialog::backdrop { background: rgba(11, 27, 21, 0.55); backdrop-filter: blur(3px
   color: var(--text-secondary);
   line-height: 1.35;
 }
+
+
+/* ---- Исключения, сводка и рейтинг обучения ---- */
+.owner-exceptions,
+.owner-ranking {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.owner-exception-list {
+  display: grid;
+  gap: 8px;
+}
+
+.owner-exception {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-secondary);
+}
+
+.owner-exception-critical {
+  border-color: var(--danger);
+}
+
+.owner-exception-high {
+  border-left: 4px solid var(--danger);
+}
+
+.owner-exception-medium {
+  border-left: 4px solid var(--warning, var(--border));
+}
+
+.owner-exception small,
+.owner-period-card small {
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+
+.owner-period-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.owner-period-card {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-secondary);
+}
+
+.owner-period-card > span {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+@media (max-width: 720px) {
+  .owner-period-grid {
+    grid-template-columns: 1fr;
+  }
+}

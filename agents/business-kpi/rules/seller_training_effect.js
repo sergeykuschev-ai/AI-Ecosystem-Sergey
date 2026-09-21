@@ -195,6 +195,107 @@ function latestMeasurableSalesImpact({ proposals, shifts, settings, targets }) {
   return null;
 }
 
+
+function allMeasurableSalesImpacts({ proposals, shifts, settings, targets }) {
+  return (proposals || [])
+    .filter(proposal =>
+      proposal.taskType === 'SALES' &&
+      ['APPROVED', 'COMPLETED'].includes(proposal.status) &&
+      SALES_METRIC_BY_CODE[proposal.libraryCode])
+    .map(proposal => evaluateSalesExercise({
+      proposal,
+      shifts,
+      settings,
+      targets,
+    }))
+    .filter(Boolean)
+    .sort((left, right) =>
+      String(right.assignmentDate).localeCompare(String(left.assignmentDate)) ||
+      String(right.proposalId).localeCompare(String(left.proposalId)));
+}
+
+function matureSalesImpacts(options) {
+  return allMeasurableSalesImpacts(options)
+    .filter(impact => ['EFFECTIVE', 'NO_IMPROVEMENT'].includes(impact.status));
+}
+
+function findSalesEscalation(options) {
+  const mature = matureSalesImpacts(options);
+  const byMetric = new Map();
+  for (const impact of mature) {
+    if (!byMetric.has(impact.metricKey)) byMetric.set(impact.metricKey, []);
+    byMetric.get(impact.metricKey).push(impact);
+  }
+  for (const [metricKey, impacts] of byMetric.entries()) {
+    const recent = impacts.slice(0, 2);
+    if (recent.length === 2 &&
+        recent.every(impact => impact.status === 'NO_IMPROVEMENT')) {
+      return {
+        active: true,
+        metricKey,
+        metricLabel: METRIC_LABELS[metricKey],
+        attempts: 2,
+        exercises: recent.map(impact => ({
+          proposalId: impact.proposalId,
+          libraryCode: impact.libraryCode,
+          title: impact.title,
+          assignmentDate: impact.assignmentDate,
+          deltaPercent: impact.deltaPercent,
+        })),
+        reason:
+          'Два разных цикла упражнений не дали достаточного улучшения KPI. Нужен разбор с владельцем.',
+      };
+    }
+  }
+  return null;
+}
+
+function buildExerciseEffectivenessRanking(options) {
+  const mature = matureSalesImpacts(options);
+  const stats = new Map();
+  for (const impact of mature) {
+    const current = stats.get(impact.libraryCode) || {
+      libraryCode: impact.libraryCode,
+      title: impact.title,
+      metricKey: impact.metricKey,
+      metricLabel: impact.metricLabel,
+      evaluated: 0,
+      effective: 0,
+      noImprovement: 0,
+      deltaTotal: 0,
+      deltaCount: 0,
+    };
+    current.evaluated += 1;
+    if (impact.status === 'EFFECTIVE') current.effective += 1;
+    if (impact.status === 'NO_IMPROVEMENT') current.noImprovement += 1;
+    if (Number.isFinite(impact.deltaPercent)) {
+      current.deltaTotal += impact.deltaPercent;
+      current.deltaCount += 1;
+    }
+    stats.set(impact.libraryCode, current);
+  }
+  return [...stats.values()]
+    .map(item => ({
+      libraryCode: item.libraryCode,
+      title: item.title,
+      metricKey: item.metricKey,
+      metricLabel: item.metricLabel,
+      evaluated: item.evaluated,
+      effective: item.effective,
+      noImprovement: item.noImprovement,
+      effectivenessPercent: item.evaluated
+        ? Math.round((item.effective / item.evaluated) * 100)
+        : null,
+      averageDeltaPercent: item.deltaCount
+        ? Math.round((item.deltaTotal / item.deltaCount) * 10) / 10
+        : null,
+    }))
+    .sort((left, right) =>
+      right.evaluated - left.evaluated ||
+      (right.effectivenessPercent || 0) - (left.effectivenessPercent || 0) ||
+      left.libraryCode.localeCompare(right.libraryCode));
+}
+
 module.exports = {
   EFFECT_WINDOW_SHIFTS,
   MIN_EFFECT_RELATIVE,
@@ -202,4 +303,8 @@ module.exports = {
   TARGET_KEY_BY_METRIC,
   evaluateSalesExercise,
   latestMeasurableSalesImpact,
+  allMeasurableSalesImpacts,
+  matureSalesImpacts,
+  findSalesEscalation,
+  buildExerciseEffectivenessRanking,
 };

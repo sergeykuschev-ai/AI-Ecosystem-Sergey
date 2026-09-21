@@ -20,6 +20,9 @@ const {
 } = require('../../../agents/business-kpi/rules/seller_training_path');
 const {
   latestMeasurableSalesImpact,
+  allMeasurableSalesImpacts,
+  findSalesEscalation,
+  buildExerciseEffectivenessRanking,
 } = require('../../../agents/business-kpi/rules/seller_training_effect');
 
 const PROPOSAL_STATUSES = Object.freeze({
@@ -65,7 +68,21 @@ function requireDate(value, fieldName) {
 }
 
 function shiftDateText(value) {
-  return value instanceof Date ? value.toISOString().slice(0, 10) : String(value).slice(0, 10);
+  if (!(value instanceof Date)) return String(value).slice(0, 10);
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Vladivostok',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(value);
+  const part = type => parts.find(item => item.type === type)?.value;
+  return part('year') + '-' + part('month') + '-' + part('day');
+}
+
+function daysAgoText(todayText, days) {
+  const date = new Date(todayText + 'T00:00:00.000Z');
+  date.setUTCDate(date.getUTCDate() - days);
+  return date.toISOString().slice(0, 10);
 }
 
 function passedModuleCodes(attempts) {
@@ -205,6 +222,64 @@ function moduleQuizSummary(attempt) {
     percent: attempt.percent,
     passed: attempt.passed,
     createdAt: attempt.createdAt,
+  };
+}
+
+function latestModuleFailures(attempts) {
+  const latest = new Map();
+  for (const attempt of (attempts || [])
+    .filter(item => item.attemptType === 'MODULE' && item.moduleCode)
+    .sort((left, right) =>
+      String(right.createdAt).localeCompare(String(left.createdAt)))) {
+    if (!latest.has(attempt.moduleCode)) latest.set(attempt.moduleCode, attempt);
+  }
+  return [...latest.values()].filter(attempt => !attempt.passed);
+}
+
+function buildSellerPeriodSummary({
+  days,
+  todayText,
+  attempts,
+  impacts,
+  proposals,
+}) {
+  const from = daysAgoText(todayText, days - 1);
+  const inWindow = value => String(value || '').slice(0, 10) >= from &&
+    String(value || '').slice(0, 10) <= todayText;
+  const moduleAttempts = (attempts || []).filter(item =>
+    item.attemptType === 'MODULE' && inWindow(item.createdAt));
+  const passedModules = new Set(
+    moduleAttempts.filter(item => item.passed).map(item => item.moduleCode)
+  );
+  const certificationAttempts = (attempts || []).filter(item =>
+    item.attemptType === 'CERTIFICATION' && inWindow(item.createdAt));
+  const mature = (impacts || []).filter(item =>
+    ['EFFECTIVE', 'NO_IMPROVEMENT'].includes(item.status) &&
+    inWindow(item.assignmentDate));
+  const deltaValues = mature
+    .map(item => item.deltaPercent)
+    .filter(Number.isFinite);
+  const taskRows = (proposals || []).filter(item => inWindow(item.shiftDate));
+  return {
+    days,
+    from,
+    to: todayText,
+    modulesPassed: passedModules.size,
+    moduleChecks: moduleAttempts.length,
+    moduleChecksFailed: moduleAttempts.filter(item => !item.passed).length,
+    certifications: certificationAttempts.length,
+    certificationsPassed: certificationAttempts.filter(item => item.passed).length,
+    salesExercisesEvaluated: mature.length,
+    salesExercisesEffective: mature.filter(item => item.status === 'EFFECTIVE').length,
+    salesExercisesNoImprovement: mature.filter(item =>
+      item.status === 'NO_IMPROVEMENT').length,
+    averageKpiDeltaPercent: deltaValues.length
+      ? Math.round((deltaValues.reduce((sum, value) => sum + value, 0) /
+          deltaValues.length) * 10) / 10
+      : null,
+    assignments: taskRows.length,
+    assignmentsCompleted: taskRows.filter(item =>
+      item.status === PROPOSAL_STATUSES.COMPLETED).length,
   };
 }
 
@@ -553,13 +628,13 @@ class SellerTasksService {
     const performanceByEmployee = new Map(
       performance.items.map(item => [item.employeeId, item])
     );
-    return {
-      storeId,
-      asOfDate: todayText,
-      passPercent: PASS_PERCENT,
-      totalModules: knowledge.length,
-      certificationQuestions: CERTIFICATION_BANK.length,
-      items: sellers.map(employee => {
+    const exerciseRanking = buildExerciseEffectivenessRanking({
+      proposals: history,
+      shifts,
+      settings: settingsRecord?.settings || null,
+      targets: settingsRecord?.settings?.targets || null,
+    });
+    const teamItems = sellers.map(employee => {
         const employeeAttempts = attempts.filter(item => item.employeeId === employee.id);
         const employeeHistory = history.filter(item => item.employeeId === employee.id);
         const moduleAttempts = employeeAttempts.filter(item => item.attemptType === 'MODULE');
@@ -583,6 +658,19 @@ class SellerTasksService {
           settings: settingsRecord?.settings || null,
           targets: settingsRecord?.settings?.targets || null,
         });
+        const salesImpacts = allMeasurableSalesImpacts({
+          proposals: employeeHistory,
+          shifts,
+          settings: settingsRecord?.settings || null,
+          targets: settingsRecord?.settings?.targets || null,
+        });
+        const salesEscalation = findSalesEscalation({
+          proposals: employeeHistory,
+          shifts,
+          settings: settingsRecord?.settings || null,
+          targets: settingsRecord?.settings?.targets || null,
+        });
+        const moduleFailures = latestModuleFailures(employeeAttempts);
         const carryover = unresolvedCarryover(employeeHistory, moduleAttempts, todayText);
         const repeatDue = repeatDueModuleCodes(moduleAttempts, todayText);
         const todayAssignments = employeeHistory
@@ -598,6 +686,40 @@ class SellerTasksService {
             libraryCode: item.libraryCode,
             reason: item.reason || null,
           }));
+        const exceptions = [];
+        if (salesEscalation) {
+          exceptions.push({
+            level: 'CRITICAL',
+            kind: 'SALES_ESCALATION',
+            title: salesEscalation.metricLabel + ': нужен разбор',
+            detail: salesEscalation.reason,
+          });
+        }
+        if (latestAttempt?.passed === false) {
+          exceptions.push({
+            level: 'HIGH',
+            kind: 'CERTIFICATION_FAILED',
+            title: 'Аттестация не сдана',
+            detail: 'Последний результат: ' + latestAttempt.percent + '%.',
+          });
+        }
+        if (moduleFailures.length) {
+          exceptions.push({
+            level: 'MEDIUM',
+            kind: 'MODULE_CHECK_FAILED',
+            title: 'Есть непройденные мини-проверки',
+            detail: 'Тем с последней неудачной попыткой: ' + moduleFailures.length + '.',
+          });
+        }
+        if (carryover.knowledge || carryover.sales) {
+          exceptions.push({
+            level: 'MEDIUM',
+            kind: 'CARRYOVER',
+            title: 'Есть перенос с прошлой смены',
+            detail: 'Незакрытые задания получили приоритет.',
+          });
+        }
+
         let recommendation = buildTodayTrainingRecommendation({
           onboarding,
           latestAttempt,
@@ -606,7 +728,13 @@ class SellerTasksService {
           targets: settingsRecord?.settings?.targets || null,
           library,
         });
-        if (carryover.knowledge || carryover.sales) {
+        if (salesEscalation) {
+          recommendation = {
+            kind: 'OWNER_REVIEW',
+            title: salesEscalation.metricLabel + ': нужен разбор',
+            reason: salesEscalation.reason,
+          };
+        } else if (carryover.knowledge || carryover.sales) {
           const firstCarry = carryover.knowledge || carryover.sales;
           recommendation = {
             kind: 'CARRYOVER',
@@ -651,9 +779,41 @@ class SellerTasksService {
             shift.employeeId === employee.id && shift.shiftDate === todayText),
           todayAssignments,
           salesImpact,
+          salesEscalation,
+          latestModuleFailures: moduleFailures.slice(0, 3).map(item => ({
+            moduleCode: item.moduleCode,
+            percent: item.percent,
+            createdAt: item.createdAt,
+          })),
+          summaries: {
+            days7: buildSellerPeriodSummary({
+              days: 7,
+              todayText,
+              attempts: employeeAttempts,
+              impacts: salesImpacts,
+              proposals: employeeHistory,
+            }),
+            days30: buildSellerPeriodSummary({
+              days: 30,
+              todayText,
+              attempts: employeeAttempts,
+              impacts: salesImpacts,
+              proposals: employeeHistory,
+            }),
+          },
+          exceptions,
           recommendation,
         };
-      }),
+      });
+    return {
+      storeId,
+      asOfDate: todayText,
+      passPercent: PASS_PERCENT,
+      totalModules: knowledge.length,
+      certificationQuestions: CERTIFICATION_BANK.length,
+      exerciseRanking,
+      exceptionCount: teamItems.reduce((sum, item) => sum + item.exceptions.length, 0),
+      items: teamItems,
     };
   }
 
@@ -748,6 +908,12 @@ class SellerTasksService {
       settings: settingsRecord?.settings || null,
       targets: settingsRecord?.settings?.targets || null,
     });
+    const salesEscalation = findSalesEscalation({
+      proposals: existing,
+      shifts,
+      settings: settingsRecord?.settings || null,
+      targets: settingsRecord?.settings?.targets || null,
+    });
     if (salesImpact &&
         ['EFFECTIVE', 'NO_IMPROVEMENT'].includes(salesImpact.status)) {
       const measured = existing.find(item => item.id === salesImpact.proposalId);
@@ -797,7 +963,7 @@ class SellerTasksService {
     }).filter(proposal =>
       proposal.taskType === 'KNOWLEDGE' || proposal.taskType === 'SALES');
 
-    if (salesImpact?.status === 'OBSERVING') {
+    if (salesImpact?.status === 'OBSERVING' || salesEscalation) {
       proposals = proposals.filter(proposal => proposal.taskType !== 'SALES');
     }
 

@@ -504,3 +504,46 @@ test('automatic KPI practice needs no manual completion before effect evaluation
   assert.match(measured.resultNote, /Автооценка после 3 последующих смен/);
   assert.match(measured.resultNote, /Недостаточного улучшения нет/);
 });
+
+test('two failed KPI cycles stop automatic sales rotation and escalate to owner', async () => {
+  const { store, service } = fixture();
+  const employee = DEV_EMPLOYEES.find(
+    item => item.employeeCode === 'seller-kapitanova'
+  );
+
+  let id = 301;
+  for (const date of [
+    '2026-09-07', '2026-09-08', '2026-09-09',
+    '2026-09-11', '2026-09-12', '2026-09-13',
+    '2026-09-14', '2026-09-15', '2026-09-16',
+    '2026-09-18', '2026-09-19', '2026-09-20',
+  ]) {
+    await store.createShift(syntheticKpiShift(employee, date, id++));
+  }
+  await createCompletedSalesExercise(store, employee, 'SALE-02', '2026-09-10', id++);
+  await createCompletedSalesExercise(store, employee, 'SALE-04', '2026-09-17', id++);
+  const todayShift = await store.createShift(
+    syntheticKpiShift(employee, '2026-09-21', id++)
+  );
+
+  const result = await service.autoAssignForShift(todayShift);
+  assert.equal(
+    result.created.filter(item => item.taskType === 'SALES').length,
+    0
+  );
+
+  const team = await service.teamLearningOverview(
+    { storeId: DEV_STORE.id },
+    { id: 'owner', role: 'OWNER', storeId: DEV_STORE.id }
+  );
+  const row = team.items.find(item => item.employeeId === employee.id);
+  assert.ok(row.salesEscalation);
+  assert.equal(row.salesEscalation.metricKey, 'averageCheck');
+  assert.equal(row.salesEscalation.attempts, 2);
+  assert.ok(row.exceptions.some(item => item.kind === 'SALES_ESCALATION'));
+  assert.equal(row.recommendation.kind, 'OWNER_REVIEW');
+  assert.ok(row.summaries.days30.salesExercisesEvaluated >= 2);
+  assert.ok(team.exerciseRanking.some(item =>
+    item.libraryCode === 'SALE-02' && item.evaluated >= 1
+  ));
+});
