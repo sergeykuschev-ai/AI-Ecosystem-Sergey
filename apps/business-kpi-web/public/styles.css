@@ -1609,3 +1609,12 @@ dialog::backdrop { background: rgba(11, 27, 21, 0.55); backdrop-filter: blur(3px
 .learning-source-row small {
   color: var(--text-secondary);
 }
+
+.learning-source-row small.learning-source-current {
+  color: var(--text-secondary);
+}
+
+.learning-source-row small.learning-source-review-due {
+  font-weight: 700;
+  color: var(--warning-text, #8a5a00);
+}

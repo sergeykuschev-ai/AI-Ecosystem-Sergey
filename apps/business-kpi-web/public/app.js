@@ -2012,7 +2012,12 @@ function renderLearning() {
           link.rel = 'noopener noreferrer';
           link.textContent = source.name;
           const checked = document.createElement('small');
-          checked.textContent = 'проверено ' + source.checkedAt;
+          checked.className = source.reviewDue
+            ? 'learning-source-review-due'
+            : 'learning-source-current';
+          checked.textContent = source.reviewDue
+            ? 'проверено ' + source.checkedAt + ' · пора перепроверить'
+            : 'проверено ' + source.checkedAt + ' · актуально';
           const row = document.createElement('span');
           row.className = 'learning-source-row';
           row.append(link, checked);

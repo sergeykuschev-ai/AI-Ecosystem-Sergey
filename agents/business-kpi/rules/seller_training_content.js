@@ -1,6 +1,7 @@
 'use strict';
 
 const CHECKED_AT = '2026-09-22';
+const SOURCE_REVIEW_INTERVAL_DAYS = 30;
 
 const SOURCES = Object.freeze({
   AWARD_CATS: Object.freeze({
@@ -299,13 +300,32 @@ const TRAINING_CONTENT = Object.freeze({
   }),
 });
 
-function enrichTrainingTask(task) {
+function sourceReviewStatus(checkedAt, todayText) {
+  const checked = new Date(checkedAt + 'T00:00:00Z');
+  const today = new Date((todayText || CHECKED_AT) + 'T00:00:00Z');
+  const ageDays = Number.isFinite(checked.getTime()) && Number.isFinite(today.getTime())
+    ? Math.max(0, Math.floor((today - checked) / 86_400_000))
+    : null;
+  const reviewDue = ageDays === null || ageDays >= SOURCE_REVIEW_INTERVAL_DAYS;
+  return {
+    ageDays,
+    reviewDue,
+    status: reviewDue ? 'REVIEW_DUE' : 'CURRENT',
+  };
+}
+
+function enrichTrainingTask(task, todayText = CHECKED_AT) {
   if (!task || task.taskType !== 'KNOWLEDGE') return task;
   const extra = TRAINING_CONTENT[task.code];
   if (!extra) return { ...task, sources: [], productExamples: [], consultationScenarios: [] };
   return {
     ...task,
-    sources: extra.sources ? [...extra.sources] : [],
+    sources: extra.sources
+      ? extra.sources.map(source => ({
+          ...source,
+          ...sourceReviewStatus(source.checkedAt, todayText),
+        }))
+      : [],
     productExamples: extra.productExamples ? [...extra.productExamples] : [],
     consultationScenarios: extra.consultationScenarios ? [...extra.consultationScenarios] : [],
   };
@@ -313,7 +333,9 @@ function enrichTrainingTask(task) {
 
 module.exports = {
   CHECKED_AT,
+  SOURCE_REVIEW_INTERVAL_DAYS,
   SOURCES,
   TRAINING_CONTENT,
+  sourceReviewStatus,
   enrichTrainingTask,
 };

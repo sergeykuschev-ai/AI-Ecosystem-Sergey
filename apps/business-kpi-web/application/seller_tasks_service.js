@@ -336,8 +336,9 @@ class SellerTasksService {
     const visible = hasPermission(actor.role, PERMISSIONS.TASKS_READ)
       ? items
       : items.filter(task => task.taskType === 'KNOWLEDGE');
+    const todayText = shiftDateText(this.now());
     return {
-      items: visible.map(enrichTrainingTask),
+      items: visible.map(task => enrichTrainingTask(task, todayText)),
     };
   }
 

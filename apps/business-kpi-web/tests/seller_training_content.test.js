@@ -5,7 +5,9 @@ const test = require('node:test');
 
 const {
   CHECKED_AT,
+  SOURCE_REVIEW_INTERVAL_DAYS,
   TRAINING_CONTENT,
+  sourceReviewStatus,
   enrichTrainingTask,
 } = require('../../../agents/business-kpi/rules/seller_training_content');
 const {
@@ -28,6 +30,22 @@ test('verified product modules expose official sources and current check date', 
       assert.doesNotMatch(source.url, /ozon|wildberries|market\.yandex|amazon/i);
     }
   }
+});
+
+test('official source freshness becomes due after the review interval', () => {
+  assert.equal(SOURCE_REVIEW_INTERVAL_DAYS, 30);
+  assert.deepEqual(sourceReviewStatus('2026-09-22', '2026-10-21'), {
+    ageDays: 29,
+    reviewDue: false,
+    status: 'CURRENT',
+  });
+  assert.deepEqual(sourceReviewStatus('2026-09-22', '2026-10-22'), {
+    ageDays: 30,
+    reviewDue: true,
+    status: 'REVIEW_DUE',
+  });
+  const task = enrichTrainingTask({ code: 'KNOW-01', taskType: 'KNOWLEDGE' }, '2026-10-22');
+  assert.ok(task.sources.every(source => source.reviewDue));
 });
 
 test('real MISKA product examples cover the priority assortment', () => {
