@@ -50,30 +50,37 @@ test('migration supports required roles and append-only audit', () => {
   assert.match(sql, /business_kpi_audit_no_delete/);
 });
 
-test('migration files are ordered and checksummed deterministically', () => {
+test(migration files are ordered and checksummed deterministically, () => {
   assert.deepEqual(listMigrationFiles(migrationsRoot), [
-    '001_initial_schema.up.sql',
-    '002_historical_xlsx_import.up.sql',
-    '003_auth_sessions.up.sql',
-    '004_auth_sessions_privileges.up.sql',
-    '005_seller_tasks.up.sql',
-    '006_store_reference_data.up.sql',
+    001_initial_schema.up.sql,
+    002_historical_xlsx_import.up.sql,
+    003_auth_sessions.up.sql,
+    004_auth_sessions_privileges.up.sql,
+    005_seller_tasks.up.sql,
+    006_store_reference_data.up.sql,
+    007_training_v2_library.up.sql,
   ]);
   const sellerTasksSql = fs.readFileSync(
-    path.join(migrationsRoot, '005_seller_tasks.up.sql'),
-    'utf8'
+    path.join(migrationsRoot, 005_seller_tasks.up.sql),
+    utf8
   );
   assert.match(sellerTasksSql, /CREATE TABLE IF NOT EXISTS business_kpi\.seller_task_library/);
   assert.match(sellerTasksSql, /CREATE TABLE IF NOT EXISTS business_kpi\.seller_task_proposals/);
   assert.match(sellerTasksSql, /business_kpi_task_proposal_identity/);
   const storeReferenceSql = fs.readFileSync(
-    path.join(migrationsRoot, '006_store_reference_data.up.sql'),
-    'utf8'
+    path.join(migrationsRoot, 006_store_reference_data.up.sql),
+    utf8
   );
-  assert.match(storeReferenceSql, /'amper', 'Ампер'/);
-  assert.match(storeReferenceSql, /'ventil', 'Вентиль'/);
-  assert.match(storeReferenceSql, /'amper-store-input'/);
-  assert.match(storeReferenceSql, /'ventil-store-input'/);
+  assert.match(storeReferenceSql, /amper, Ампер/);
+  assert.match(storeReferenceSql, /ventil, Вентиль/);
+  assert.match(storeReferenceSql, /amper-store-input/);
+  assert.match(storeReferenceSql, /ventil-store-input/);
+  const trainingV2Sql = fs.readFileSync(
+    path.join(migrationsRoot, 007_training_v2_library.up.sql),
+    utf8
+  );
+  assert.match(trainingV2Sql, /KNOW-25/);
+  assert.match(trainingV2Sql, /ON CONFLICT \(code\) DO UPDATE SET/);
   assert.equal(computeChecksum(sql), computeChecksum(sql));
   assert.equal(computeChecksum(sql).length, 64);
 });
