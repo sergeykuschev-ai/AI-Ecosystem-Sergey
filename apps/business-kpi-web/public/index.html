@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="Business Portal — ежедневные KPI магазинов">
     <title>Business Portal · KPI</title>
-    <link rel="stylesheet" href="/styles.css?v=training-v2-1">
+    <link rel="stylesheet" href="/styles.css?v=training-auto-1">
     <script src="/formatters.js" defer></script>
-    <script src="/app.js?v=training-v2-1" defer></script>
+    <script src="/app.js?v=training-auto-1" defer></script>
   </head>
   <body class="auth-loading">
     <div class="app-shell">
@@ -573,6 +573,7 @@
                   <span id="learning-progress-bar"></span>
                 </div>
               </div>
+              <div id="learning-route" class="learning-route" hidden></div>
               <div id="task-learning" class="task-list"></div>
             </article>
           </div>
@@ -596,8 +597,15 @@
                 <div id="certification-questions" class="certification-questions"></div>
               </div>
               <div id="certification-owner" hidden>
+                <div class="card-heading team-learning-heading">
+                  <div>
+                    <p class="eyebrow">Автоматический фокус</p>
+                    <h3>Кого чему обучать сегодня</h3>
+                  </div>
+                  <span class="status-pill" id="team-learning-date">—</span>
+                </div>
                 <p class="field-help">
-                  Прогресс обучения и последняя итоговая аттестация каждого продавца.
+                  Приоритет формируется автоматически: ошибки аттестации → слабый KPI → следующий этап маршрута новичка.
                 </p>
                 <div class="responsive-table">
                   <table>
@@ -605,8 +613,10 @@
                       <tr>
                         <th>Продавец</th>
                         <th>Обучение</th>
-                        <th>Последняя аттестация</th>
-                        <th>Результат</th>
+                        <th>Этап</th>
+                        <th>Сегодня</th>
+                        <th>Аттестация</th>
+                        <th>Статус</th>
                       </tr>
                     </thead>
                     <tbody id="team-learning-table"></tbody>

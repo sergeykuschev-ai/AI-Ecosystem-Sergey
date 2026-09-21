@@ -13,6 +13,11 @@ const {
   PASS_PERCENT,
   publicCertificationQuestions,
 } = require('../../../agents/business-kpi/rules/seller_certification_bank');
+const {
+  buildOnboardingProgress,
+  buildTodayTrainingRecommendation,
+  certificationWeakModules,
+} = require('../../../agents/business-kpi/rules/seller_training_path');
 
 const PROPOSAL_STATUSES = Object.freeze({
   PENDING: 'PENDING',
@@ -156,9 +161,11 @@ class SellerTasksService {
       .filter(task => task.taskType === 'KNOWLEDGE');
     const employee = await this.store.getEmployeeByUserId(actor.id);
     if (!employee) {
+      const progress = learningProgressFromHistory(library, []);
       return {
         employeeId: null,
-        ...learningProgressFromHistory(library, []),
+        ...progress,
+        onboarding: buildOnboardingProgress(progress.items, library),
       };
     }
     const history = await this.store.listProposals({
@@ -166,9 +173,11 @@ class SellerTasksService {
       employeeId: employee.id,
       limit: LIST_DEFAULT_LIMIT,
     });
+    const progress = learningProgressFromHistory(library, history);
     return {
       employeeId: employee.id,
-      ...learningProgressFromHistory(library, history),
+      ...progress,
+      onboarding: buildOnboardingProgress(progress.items, library),
     };
   }
 
@@ -235,16 +244,43 @@ class SellerTasksService {
   async teamLearningOverview(input, actor) {
     requirePermission(actor, PERMISSIONS.TASKS_READ);
     const storeId = requireString(input.storeId || actor.storeId, 'storeId');
-    const [employees, library, history, attempts] = await Promise.all([
+    const todayText = shiftDateText(this.now());
+    const year = Number(todayText.slice(0, 4));
+    const month = Number(todayText.slice(5, 7));
+    const windowStartTotal = year * 12 + (month - 1) - 3;
+    const windowStartYear = Math.floor(windowStartTotal / 12);
+    const windowStartMonth = (windowStartTotal % 12) + 1;
+    const windowStartDate = windowStartYear + '-' + String(windowStartMonth).padStart(2, '0') + '-01';
+    const windowEndDate = new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
+
+    const [employees, library, history, attempts, settingsRecord, shifts] = await Promise.all([
       this.store.listEmployees({ storeId }),
       this.store.listLibraryTasks(),
       this.store.listProposals({ storeId, limit: 5000 }),
-      this.store.listLearningAttempts({ storeId, limit: 5000 }),
+      this.store.listLearningAttempts({storeId, limit: 5000 }),
+      this.store.getEffectiveSettings(storeId, todayText),
+      this.store.listShifts({
+        storeId,
+        dateFrom: windowStartDate,
+        dateTo: windowEndDate,
+      }),
     ]);
     const knowledge = library.filter(task => task.taskType === 'KNOWLEDGE');
     const sellers = employees.filter(isEligibleSeller);
+    const performance = buildSellerPerformance({
+      shifts,
+      employees: sellers,
+      settings: settingsRecord?.settings || null,
+      year,
+      month,
+      mode: TREND_MODES.SHIFTS,
+    });
+    const performanceByEmployee = new Map(
+      performance.items.map(item => [item.employeeId, item])
+    );
     return {
       storeId,
+      asOfDate: todayText,
       passPercent: PASS_PERCENT,
       totalModules: knowledge.length,
       certificationQuestions: CERTIFICATION_BANK.length,
@@ -253,16 +289,34 @@ class SellerTasksService {
           knowledge,
           history.filter(item => item.employeeId === employee.id)
         );
+        const onboarding = buildOnboardingProgress(progress.items, knowledge);
         const latestAttempt = attempts
           .filter(item => item.employeeId === employee.id)
           .sort((left, right) => String(right.createdAt).localeCompare(String(left.createdAt)))[0];
+        const weakModules = certificationWeakModules(
+          latestAttempt,
+          CERTIFICATION_BANK,
+          knowledge
+        );
+        const performanceItem = performanceByEmployee.get(employee.id) || null;
+        const recommendation = buildTodayTrainingRecommendation({
+          onboarding,
+          latestAttempt,
+          weakModules,
+          performanceItem,
+          targets: settingsRecord?.settings?.targets || null,
+          library,
+        });
         return {
           employeeId: employee.id,
           displayName: employee.displayName,
           modulesCompleted: progress.completed,
           modulesTotal: progress.total,
           learningPercent: progress.percent,
+          onboarding,
           latestAttempt: certificationSummary(latestAttempt),
+          weakModules: weakModules.slice(0, 3),
+          recommendation,
         };
       }),
     };
@@ -287,7 +341,7 @@ class SellerTasksService {
     const windowStartDate = `${windowStartYear}-${String(windowStartMonth).padStart(2, '0')}-01`;
     const windowEndDate = new Date(Date.UTC(shiftYear, shiftMonth, 0)).toISOString().slice(0, 10);
 
-    const [employees, settingsRecord, library, existing, shifts, dayShifts] = await Promise.all([
+    const [employees, settingsRecord, library, existing, shifts, dayShifts, attempts] = await Promise.all([
       this.store.listEmployees({ storeId }),
       this.store.getEffectiveSettings(storeId, shiftDate),
       this.store.listLibraryTasks(),
@@ -306,6 +360,7 @@ class SellerTasksService {
         dateFrom: shiftDate,
         dateTo: shiftDate,
       }),
+      this.store.listLearningAttempts({ storeId, limit: 5000 }),
     ]);
     const assignedEmployees = new Set(
       existing
@@ -363,6 +418,21 @@ class SellerTasksService {
       source: proposal.source,
     }));
 
+    const knowledge = library.filter(task => task.taskType === 'KNOWLEDGE');
+    const knowledgePriorityByEmployee = Object.fromEntries(
+      sellers.map(employee => {
+        const latestAttempt = attempts
+          .filter(item => item.employeeId === employee.id)
+          .sort((left, right) => String(right.createdAt).localeCompare(String(left.createdAt)))[0];
+        const weakModules = certificationWeakModules(
+          latestAttempt,
+          CERTIFICATION_BANK,
+          knowledge
+        );
+        return [employee.id, weakModules.map(item => item.code)];
+      })
+    );
+
     const proposals = buildTaskProposals({
       sellers,
       targets: settingsRecord?.settings?.targets || null,
@@ -371,6 +441,7 @@ class SellerTasksService {
       shiftDate,
       today: todayText,
       library,
+      knowledgePriorityByEmployee,
     });
 
     const existingKeys = new Set(

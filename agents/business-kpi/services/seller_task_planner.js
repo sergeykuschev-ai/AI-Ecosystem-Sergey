@@ -138,10 +138,13 @@ function buildReason(task, performanceItem, signal) {
   if (signal.kind === 'store') {
     return 'Плановый контроль магазина и товара. Критичных проблем KPI нет — смена используется для поддержания порядка.';
   }
+  if (signal.kind === 'review') {
+    return 'Повторение по итогам аттестации: тема с ошибками получает приоритет перед обычной ротацией.';
+  }
   return 'Критичных проблем нет — назначена очередная учебная тема для развития знаний о товаре.';
 }
 
-function proposeForSeller({ employeeId, employeeName, performanceItem, targets, historyEntries, shiftDate, todayText, libraryByCode }) {
+function proposeForSeller({ employeeId, employeeName, performanceItem, targets, historyEntries, shiftDate, todayText, libraryByCode, knowledgePriorityCodes = [] }) {
   const blocked = recentCodes(historyEntries, todayText);
   const proposals = [];
   const signals = [];
@@ -172,7 +175,13 @@ function proposeForSeller({ employeeId, employeeName, performanceItem, targets, 
     });
   }
 
-  const knowledgeCode = pickRotationCode(TASK_TYPES.KNOWLEDGE, blocked, historyEntries, todayText, libraryByCode);
+  const reviewKnowledgeCode = resolveFirstAvailable(
+    knowledgePriorityCodes,
+    new Set(),
+    libraryByCode
+  );
+  const knowledgeCode = reviewKnowledgeCode ||
+    pickRotationCode(TASK_TYPES.KNOWLEDGE, blocked, historyEntries, todayText, libraryByCode);
   if (knowledgeCode) {
     const task = libraryByCode.get(knowledgeCode);
     proposals.push({
@@ -180,7 +189,9 @@ function proposeForSeller({ employeeId, employeeName, performanceItem, targets, 
       employeeName,
       libraryCode: knowledgeCode,
       taskType: task.type,
-      reason: buildReason(task, performanceItem, { kind: 'knowledge' }),
+      reason: buildReason(task, performanceItem, {
+        kind: reviewKnowledgeCode ? 'review' : 'knowledge',
+      }),
     });
   }
 
@@ -204,6 +215,7 @@ function buildTaskProposals(options) {
     shiftDate,
     today,
     library,
+    knowledgePriorityByEmployee = {},
   } = options;
 
   const todayText = typeof today === 'string' ? today : today.toISOString().slice(0, 10);
@@ -232,6 +244,7 @@ function buildTaskProposals(options) {
       shiftDate,
       todayText,
       libraryByCode,
+      knowledgePriorityCodes: knowledgePriorityByEmployee[seller.id] || [],
     }));
   }
   return proposals;

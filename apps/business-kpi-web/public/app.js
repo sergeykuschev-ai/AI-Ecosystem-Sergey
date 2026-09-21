@@ -1855,17 +1855,59 @@ function renderTaskHistory() {
   element('task-history-count').textContent = `${items.length}`;
 }
 
+function renderLearningRoute() {
+  const container = element('learning-route');
+  const onboarding = state.learningProgress?.onboarding;
+  if (!state.learningProgress?.employeeId || !onboarding?.phases?.length) {
+    container.hidden = true;
+    container.replaceChildren();
+    return;
+  }
+  container.hidden = false;
+
+  const heading = document.createElement('div');
+  heading.className = 'learning-route-heading';
+  const title = document.createElement('strong');
+  title.textContent = onboarding.certificationReady
+    ? 'Маршрут пройден — можно сдавать аттестацию'
+    : 'Маршрут новичка';
+  heading.appendChild(title);
+  if (onboarding.nextModule) {
+    const next = document.createElement('span');
+    next.textContent = 'Дальше: ' + onboarding.nextModule.title;
+    heading.appendChild(next);
+  }
+
+  const phases = document.createElement('div');
+  phases.className = 'learning-route-phases';
+  for (const phase of onboarding.phases) {
+    const card = document.createElement('div');
+    card.className = 'learning-route-phase learning-route-phase-' +
+      String(phase.status || 'NOT_STARTED').toLowerCase();
+    const phaseTitle = document.createElement('strong');
+    phaseTitle.textContent = phase.index + '. ' + phase.title;
+    const phaseProgress = document.createElement('span');
+    phaseProgress.textContent = phase.completed + ' из ' + phase.total;
+    card.append(phaseTitle, phaseProgress);
+    phases.appendChild(card);
+  }
+  container.replaceChildren(heading, phases);
+}
+
 function renderLearningProgress() {
   const box = element('learning-progress');
   const progress = state.learningProgress;
   if (!progress?.employeeId) {
     box.hidden = true;
+    renderLearningRoute();
     return;
   }
   box.hidden = false;
-  element('learning-progress-value').textContent = `${progress.percent}%`;
-  element('learning-progress-copy').textContent = `${progress.completed} из ${progress.total} модулей пройдено`;
-  element('learning-progress-bar').style.width = `${progress.percent}%`;
+  element('learning-progress-value').textContent = progress.percent + '%';
+  element('learning-progress-copy').textContent =
+    progress.completed + ' из ' + progress.total + ' модулей пройдено';
+  element('learning-progress-bar').style.width = progress.percent + '%';
+  renderLearningRoute();
 }
 
 function renderLearning() {
@@ -2014,23 +2056,66 @@ function renderSellerCertification() {
   updateCertificationAnsweredCount();
 }
 
+function trainingRecommendationLabel(recommendation) {
+  const labels = {
+    CERTIFICATION_REVIEW: 'Повторение',
+    KPI_COACHING: 'KPI',
+    ONBOARDING: 'Маршрут',
+    CERTIFICATION: 'Аттестация',
+    MAINTENANCE: 'Поддержание',
+    REVIEW: 'Повторение',
+  };
+  return labels[recommendation?.kind] || 'Обучение';
+}
+
 function renderTeamLearning() {
   const items = state.teamLearning?.items || [];
   const body = element('team-learning-table');
   const empty = element('team-learning-empty');
+  const date = element('team-learning-date');
+  if (date) date.textContent = state.teamLearning?.asOfDate || '—';
   empty.hidden = items.length > 0;
   body.replaceChildren(...items.map(item => {
     const row = document.createElement('tr');
+
     const seller = document.createElement('td');
     seller.textContent = item.displayName;
+
     const learning = document.createElement('td');
     learning.textContent = item.modulesCompleted + ' из ' + item.modulesTotal +
       ' (' + item.learningPercent + '%)';
+
+    const phase = document.createElement('td');
+    if (item.onboarding?.currentPhase) {
+      phase.textContent = item.onboarding.currentPhase.index + '/5 · ' +
+        item.onboarding.currentPhase.title;
+    } else {
+      phase.textContent = 'Маршрут пройден';
+    }
+
+    const today = document.createElement('td');
+    const rec = item.recommendation;
+    if (rec) {
+      const badge = document.createElement('span');
+      badge.className = 'training-focus-kind';
+      badge.textContent = trainingRecommendationLabel(rec);
+      const title = document.createElement('strong');
+      title.className = 'training-focus-title';
+      title.textContent = rec.title;
+      const reason = document.createElement('small');
+      reason.className = 'training-focus-reason';
+      reason.textContent = rec.reason;
+      today.append(badge, title, reason);
+    } else {
+      today.textContent = '—';
+    }
+
     const attempt = document.createElement('td');
     attempt.textContent = item.latestAttempt
       ? item.latestAttempt.score + ' из ' + item.latestAttempt.total +
         ' (' + item.latestAttempt.percent + '%)'
       : 'Не проходил';
+
     const result = document.createElement('td');
     if (!item.latestAttempt) {
       result.textContent = '—';
@@ -2041,7 +2126,8 @@ function renderTeamLearning() {
       badge.textContent = item.latestAttempt.passed ? 'Сдано' : 'Не сдано';
       result.appendChild(badge);
     }
-    row.append(seller, learning, attempt, result);
+
+    row.append(seller, learning, phase, today, attempt, result);
     return row;
   }));
 }
