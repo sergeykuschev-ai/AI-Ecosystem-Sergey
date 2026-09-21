@@ -40,6 +40,76 @@ function sumNullableInteger(items, valueOf) {
     : null;
 }
 
+function mean(values) {
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+}
+
+function dailyRevenueMap(shifts, settings) {
+  const grouped = new Map();
+  for (const shift of shifts.filter(item => !item.archivedAt)) {
+    const revenue = calculateKpiMetrics(shift, settings).revenue;
+    grouped.set(shift.shiftDate, (grouped.get(shift.shiftDate) || 0) + revenue);
+  }
+  return grouped;
+}
+
+function weekdayAdjustedProjection(historyShifts, options) {
+  const {
+    year,
+    month,
+    settings,
+    asOf = new Date(),
+    currentRevenue,
+    baselineProjectedRevenue,
+  } = options;
+  const selected = year * 12 + month;
+  const current = asOf.getUTCFullYear() * 12 + asOf.getUTCMonth() + 1;
+  if (selected !== current || currentRevenue === null || currentRevenue === undefined) {
+    return Object.freeze({
+      projectedRevenue: baselineProjectedRevenue,
+      baselineProjectedRevenue,
+      method: 'month_average',
+      historyCoverage: null,
+    });
+  }
+
+  const daily = dailyRevenueMap(historyShifts || [], settings);
+  const asOfDay = new Date(Date.UTC(year, month - 1, asOf.getUTCDate()));
+  const windowStart = new Date(asOfDay.getTime() - 55 * 86_400_000);
+  const trailing = Array.from(daily.entries())
+    .map(([date, revenue]) => ({ date: new Date(`${date}T00:00:00Z`), revenue }))
+    .filter(item => item.date >= windowStart && item.date <= asOfDay)
+    .sort((left, right) => left.date - right.date);
+  const historyCoverage = trailing.length / 56;
+  if (trailing.length < 21 || historyCoverage < 0.75) {
+    return Object.freeze({
+      projectedRevenue: baselineProjectedRevenue,
+      baselineProjectedRevenue,
+      method: 'month_average',
+      historyCoverage,
+    });
+  }
+
+  const fallback = mean(trailing.slice(-28).map(item => item.revenue));
+  let predictedRemaining = 0;
+  const lastDay = daysInMonth(year, month);
+  for (let day = asOf.getUTCDate() + 1; day <= lastDay; day += 1) {
+    const future = new Date(Date.UTC(year, month - 1, day));
+    const sameWeekday = trailing
+      .filter(item => item.date.getUTCDay() === future.getUTCDay())
+      .slice(-8)
+      .map(item => item.revenue);
+    predictedRemaining += (mean(sameWeekday) ?? fallback ?? 0);
+  }
+
+  return Object.freeze({
+    projectedRevenue: currentRevenue + predictedRemaining,
+    baselineProjectedRevenue,
+    method: 'weekday_56d',
+    historyCoverage,
+  });
+}
+
 function aggregateMonth(shifts, options) {
   const {
     year,
@@ -48,6 +118,7 @@ function aggregateMonth(shifts, options) {
     settings,
     closed = false,
     asOf = new Date(),
+    historyShifts = [],
   } = options;
   const activeShifts = shifts.filter(shift => !shift.archivedAt);
   const calculated = activeShifts.map(shift => ({
@@ -78,6 +149,17 @@ function aggregateMonth(shifts, options) {
     shiftsWithItems,
   });
   const averageRevenuePerDataDay = ratio(totals.revenue, dataDays);
+  const baselineProjectedRevenue = averageRevenuePerDataDay === null
+    ? null
+    : averageRevenuePerDataDay * daysInMonth(year, month);
+  const projection = weekdayAdjustedProjection(historyShifts, {
+    year,
+    month,
+    settings,
+    asOf,
+    currentRevenue: totals.revenue,
+    baselineProjectedRevenue,
+  });
   const remainingDays = remainingCalendarDays(year, month, asOf);
   const remainingToPlan = plan === null ? null : plan - totals.revenue;
 
@@ -116,9 +198,10 @@ function aggregateMonth(shifts, options) {
     dataDays,
     forecast: Object.freeze({
       averageRevenuePerDataDay,
-      projectedRevenue: averageRevenuePerDataDay === null
-        ? null
-        : averageRevenuePerDataDay * daysInMonth(year, month),
+      projectedRevenue: projection.projectedRevenue,
+      baselineProjectedRevenue: projection.baselineProjectedRevenue,
+      method: projection.method,
+      historyCoverage: projection.historyCoverage,
       remainingToPlan,
       remainingCalendarDays: remainingDays,
       requiredAveragePerRemainingDay:
@@ -251,4 +334,5 @@ module.exports = {
   aggregateSellers,
   daysInMonth,
   remainingCalendarDays,
+  weekdayAdjustedProjection,
 };

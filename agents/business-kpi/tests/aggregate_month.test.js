@@ -73,6 +73,47 @@ test('month aggregation sums facts and derives ratios from totals', () => {
   assert.deepEqual(days.map(day => day.itemsPerReceipt), [2.5, 1]);
 });
 
+test('current month forecast uses weekday history when coverage is sufficient', () => {
+  const asOf = new Date('2026-08-21T00:00:00Z');
+  const weekdayRevenue = [10000, 11000, 12000, 13000, 14000, 15000, 16000];
+  const historyShifts = [];
+  for (let offset = 55; offset >= 0; offset -= 1) {
+    const date = new Date(asOf.getTime() - offset * 86_400_000);
+    const dateText = date.toISOString().slice(0, 10);
+    historyShifts.push(shift({
+      id: 'history-' + dateText,
+      shiftDate: dateText,
+      cash: weekdayRevenue[date.getUTCDay()],
+      acquiring: 0,
+      qr: 0,
+      receipts: 1,
+      itemsSold: 1,
+      upsellReceipts: 0,
+      treatsRevenue: 0,
+      treatsReceipts: 0,
+    }));
+  }
+  const currentShifts = historyShifts.filter(item => item.shiftDate.startsWith('2026-08-'));
+
+  const result = aggregateMonth(currentShifts, {
+    year: 2026,
+    month: 8,
+    plan: 745000,
+    settings: MISKA_AUGUST_2026_SETTINGS,
+    asOf,
+    historyShifts,
+  });
+
+  let expected = 0;
+  for (let day = 1; day <= 31; day += 1) {
+    expected += weekdayRevenue[new Date(Date.UTC(2026, 7, day)).getUTCDay()];
+  }
+  assert.equal(result.forecast.method, 'weekday_56d');
+  assert.equal(result.forecast.historyCoverage, 1);
+  assert.equal(result.forecast.projectedRevenue, expected);
+  assert.notEqual(result.forecast.projectedRevenue, result.forecast.baselineProjectedRevenue);
+});
+
 test('seller aggregation uses exact totals and confirmed bonus formula', () => {
   const month = aggregateMonth([
     shift(),

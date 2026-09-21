@@ -748,7 +748,11 @@ class BusinessKpiService {
       throw new ApplicationError('STORE_NOT_FOUND', 'Магазин не найден.', 404);
     }
     const firstDay = `${input.year}-${String(input.month).padStart(2, '0')}-01`;
-    const [shifts, planRecord, settingsRecord, employees] = await Promise.all([
+    const asOf = this.now();
+    const forecastHistoryFrom = new Date(asOf.getTime() - 55 * 86_400_000)
+      .toISOString().slice(0, 10);
+    const forecastHistoryTo = asOf.toISOString().slice(0, 10);
+    const [shifts, planRecord, settingsRecord, employees, forecastHistoryShifts] = await Promise.all([
       this.store.listShifts({
         storeId: input.storeId,
         year: input.year,
@@ -757,12 +761,18 @@ class BusinessKpiService {
       this.store.getMonthlyPlan(input.storeId, input.year, input.month),
       this.store.getEffectiveSettings(input.storeId, firstDay),
       this.store.listEmployees({ storeId: input.storeId }),
+      this.store.listShifts({
+        storeId: input.storeId,
+        dateFrom: forecastHistoryFrom,
+        dateTo: forecastHistoryTo,
+      }),
     ]);
     const month = aggregateMonth(shifts, {
       ...input,
       plan: planRecord?.revenuePlan ?? null,
       settings: settingsRecord?.settings || null,
-      asOf: this.now(),
+      asOf,
+      historyShifts: forecastHistoryShifts,
     });
     const participatingSellerIds = new Set(
       employees
@@ -901,6 +911,15 @@ class BusinessKpiService {
       throw new ApplicationError('STORE_NOT_FOUND', 'Магазин не найден.', 404);
     }
     const months = [];
+    const asOf = this.now();
+    const forecastHistoryFrom = new Date(asOf.getTime() - 55 * 86_400_000)
+      .toISOString().slice(0, 10);
+    const forecastHistoryTo = asOf.toISOString().slice(0, 10);
+    const forecastHistoryShifts = await this.store.listShifts({
+      storeId: input.storeId,
+      dateFrom: forecastHistoryFrom,
+      dateTo: forecastHistoryTo,
+    });
     let previousRevenue = null;
     for (let month = 1; month <= 12; month += 1) {
       const firstDay = `${input.year}-${String(month).padStart(2, '0')}-01`;
@@ -918,7 +937,8 @@ class BusinessKpiService {
         month,
         plan: planRecord?.revenuePlan ?? null,
         settings: settingsRecord?.settings || null,
-        asOf: this.now(),
+        asOf,
+        historyShifts: forecastHistoryShifts,
       });
       const dataStatus = resolveDataStatus(aggregate);
       const change = previousRevenue !== null && dataStatus !== DATA_STATUS.NO_DATA
