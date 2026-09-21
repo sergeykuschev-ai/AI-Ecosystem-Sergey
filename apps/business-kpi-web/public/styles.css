@@ -1563,3 +1563,49 @@ dialog::backdrop { background: rgba(11, 27, 21, 0.55); backdrop-filter: blur(3px
     grid-template-columns: 1fr;
   }
 }
+
+
+/* ---- Официальные источники и товарные сценарии обучения ---- */
+.learning-product-examples,
+.learning-scenarios,
+.learning-sources {
+  display: grid;
+  gap: 7px;
+  margin-top: 12px;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-secondary);
+}
+
+.learning-product-examples ul,
+.learning-scenarios ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.learning-product-examples li,
+.learning-scenarios li {
+  margin: 4px 0;
+  line-height: 1.45;
+}
+
+.learning-source-links {
+  display: grid;
+  gap: 7px;
+}
+
+.learning-source-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: baseline;
+}
+
+.learning-source-row a {
+  font-weight: 600;
+}
+
+.learning-source-row small {
+  color: var(--text-secondary);
+}

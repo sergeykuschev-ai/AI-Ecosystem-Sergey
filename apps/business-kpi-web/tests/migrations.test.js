@@ -61,6 +61,7 @@ test('migration files are ordered and checksummed deterministically', () => {
     '009_training_v2_library.up.sql',
     '010_seller_learning_attempts.up.sql',
     '011_learning_module_attempts.up.sql',
+    '012_verified_product_training.up.sql',
   ]);
   const sellerTasksSql = fs.readFileSync(
     path.join(migrationsRoot, '005_seller_tasks.up.sql'),
@@ -95,6 +96,14 @@ test('migration files are ordered and checksummed deterministically', () => {
   );
   assert.match(moduleAttemptsSql, /attempt_type IN \('CERTIFICATION', 'MODULE'\)/);
   assert.match(moduleAttemptsSql, /module_code text/);
+  const verifiedProductTrainingSql = fs.readFileSync(
+    path.join(migrationsRoot, '012_verified_product_training.up.sql'),
+    'utf8'
+  );
+  assert.match(verifiedProductTrainingSql, /KNOW-01/);
+  assert.match(verifiedProductTrainingSql, /AWARD Sterilized/);
+  assert.match(verifiedProductTrainingSql, /KNOW-25/);
+  assert.match(verifiedProductTrainingSql, /Japan Premium Pet/);
   assert.equal(computeChecksum(sql), computeChecksum(sql));
   assert.equal(computeChecksum(sql).length, 64);
 });

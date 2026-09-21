@@ -197,3 +197,11 @@ test('owner Today view exposes exceptions, 7/30 summary and exercise ranking', (
   assert.match(javascript, /function renderExerciseRanking\(\)/);
   assert.match(javascript, /item\.salesEscalation/);
 });
+
+test('learning cards show real product examples, consultation scenarios and official sources', () => {
+  assert.match(javascript, /На товарах «Миски»/);
+  assert.match(javascript, /Сценарий консультации/);
+  assert.match(javascript, /Официальные источники/);
+  assert.match(javascript, /source\.checkedAt/);
+  assert.match(javascript, /noopener noreferrer/);
+});

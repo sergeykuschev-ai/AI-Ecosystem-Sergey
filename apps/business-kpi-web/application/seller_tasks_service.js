@@ -24,6 +24,9 @@ const {
   findSalesEscalation,
   buildExerciseEffectivenessRanking,
 } = require('../../../agents/business-kpi/rules/seller_training_effect');
+const {
+  enrichTrainingTask,
+} = require('../../../agents/business-kpi/rules/seller_training_content');
 
 const PROPOSAL_STATUSES = Object.freeze({
   PENDING: 'PENDING',
@@ -330,10 +333,11 @@ class SellerTasksService {
   async listLibrary(actor) {
     requirePermission(actor, PERMISSIONS.LEARNING_READ);
     const items = await this.store.listLibraryTasks();
+    const visible = hasPermission(actor.role, PERMISSIONS.TASKS_READ)
+      ? items
+      : items.filter(task => task.taskType === 'KNOWLEDGE');
     return {
-      items: hasPermission(actor.role, PERMISSIONS.TASKS_READ)
-        ? items
-        : items.filter(task => task.taskType === 'KNOWLEDGE'),
+      items: visible.map(enrichTrainingTask),
     };
   }
 

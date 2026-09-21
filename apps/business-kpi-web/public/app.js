@@ -1967,6 +1967,60 @@ function renderLearning() {
         material.textContent = task.materialText;
         card.appendChild(material);
       }
+      if (Array.isArray(task.productExamples) && task.productExamples.length) {
+        const examples = document.createElement('div');
+        examples.className = 'learning-product-examples';
+        const label = document.createElement('strong');
+        label.textContent = 'На товарах «Миски»';
+        examples.appendChild(label);
+        const list = document.createElement('ul');
+        for (const example of task.productExamples) {
+          const item = document.createElement('li');
+          item.textContent = example;
+          list.appendChild(item);
+        }
+        examples.appendChild(list);
+        card.appendChild(examples);
+      }
+      if (Array.isArray(task.consultationScenarios) && task.consultationScenarios.length) {
+        const scenarios = document.createElement('div');
+        scenarios.className = 'learning-scenarios';
+        const label = document.createElement('strong');
+        label.textContent = 'Сценарий консультации';
+        scenarios.appendChild(label);
+        const list = document.createElement('ul');
+        for (const scenario of task.consultationScenarios) {
+          const item = document.createElement('li');
+          item.textContent = scenario;
+          list.appendChild(item);
+        }
+        scenarios.appendChild(list);
+        card.appendChild(scenarios);
+      }
+      if (Array.isArray(task.sources) && task.sources.length) {
+        const sources = document.createElement('div');
+        sources.className = 'learning-sources';
+        const label = document.createElement('strong');
+        label.textContent = 'Официальные источники';
+        sources.appendChild(label);
+        const list = document.createElement('div');
+        list.className = 'learning-source-links';
+        for (const source of task.sources) {
+          const link = document.createElement('a');
+          link.href = source.url;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.textContent = source.name;
+          const checked = document.createElement('small');
+          checked.textContent = 'проверено ' + source.checkedAt;
+          const row = document.createElement('span');
+          row.className = 'learning-source-row';
+          row.append(link, checked);
+          list.appendChild(row);
+        }
+        sources.appendChild(list);
+        card.appendChild(sources);
+      }
       if (Array.isArray(task.questions) && task.questions.length) {
         const questionTitle = document.createElement('strong');
         questionTitle.className = 'learning-question-title';
