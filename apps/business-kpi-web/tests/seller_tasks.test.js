@@ -49,6 +49,7 @@ test('planner proposes STORE + KNOWLEDGE for a calm seller without KPI problems'
   assert.equal(proposals.length, 2);
   assert.equal(proposals[0].taskType, 'STORE');
   assert.equal(proposals[1].taskType, 'KNOWLEDGE');
+  assert.equal(proposals[1].libraryCode, 'KNOW-19');
   assert.ok(proposals.every(p => p.employeeId === 'e1' && p.shiftDate === SHIFT_DATE));
   assert.match(proposals[0].reason, /контроль магазина/i);
 });
@@ -175,7 +176,7 @@ test('overall KPI drop without a specific metric falls back to rotation', () => 
   assert.deepEqual(proposals.map(p => p.taskType), ['STORE', 'KNOWLEDGE']);
 });
 
-test('library composition matches the approved set: 16 STORE + 18 KNOWLEDGE + 10 SALES = 44', () => {
+test('library composition matches training v2: 16 STORE + 25 KNOWLEDGE + 10 SALES = 51', () => {
   const counts = { STORE: 0, KNOWLEDGE: 0, SALES: 0 };
   const codes = new Set();
   for (const task of SELLER_TASK_LIBRARY) {
@@ -183,8 +184,8 @@ test('library composition matches the approved set: 16 STORE + 18 KNOWLEDGE + 10
     assert.ok(!codes.has(task.code), `duplicate code ${task.code}`);
     codes.add(task.code);
   }
-  assert.deepEqual(counts, { STORE: 16, KNOWLEDGE: 18, SALES: 10 });
-  assert.equal(SELLER_TASK_LIBRARY.length, 44);
+  assert.deepEqual(counts, { STORE: 16, KNOWLEDGE: 25, SALES: 10 });
+  assert.equal(SELLER_TASK_LIBRARY.length, 51);
 });
 
 /* ---- HTTP contract ---- */
@@ -254,6 +255,9 @@ before(async () => {
     role: 'SELLER',
     password: 'seller-test-password',
   });
+  const linkedSeller = server.businessKpiStore.employees
+    .find(employee => employee.employeeCode === 'seller-cherednichenko');
+  linkedSeller.userId = '00000000-0000-4000-8000-000000000003';
 });
 
 after(async () => {
@@ -267,7 +271,7 @@ test('library endpoint returns the full seeded task library', async () => {
   });
   const body = await response.json();
   assert.equal(response.status, 200);
-  assert.ok(body.data.items.length >= 44);
+  assert.ok(body.data.items.length >= 51);
   const types = new Set(body.data.items.map(task => task.taskType));
   assert.ok(types.has('STORE') && types.has('KNOWLEDGE') && types.has('SALES'));
   const knowledge = body.data.items.find(task => task.code === 'KNOW-07');
@@ -423,7 +427,7 @@ test('manual assignment rejects demo employees without a linked account', async 
   assert.equal(response.status, 404);
 });
 
-test('seller role is denied task management and reading', async () => {
+test('seller can read learning but is denied task management and owner task data', async () => {
   const generate = await post('/api/business-kpi/seller-tasks/generate', sellerHeaders, {
     storeId: DEV_STORE.id,
     shiftDate: SHIFT_DATE,
@@ -433,7 +437,24 @@ test('seller role is denied task management and reading', async () => {
   const library = await fetch(`${baseUrl}/api/business-kpi/seller-tasks/library`, {
     headers: authHeaders(sellerHeaders),
   });
-  assert.equal(library.status, 403);
+  assert.equal(library.status, 200);
+  const libraryItems = (await library.json()).data.items;
+  assert.equal(libraryItems.length, 25);
+  assert.ok(libraryItems.every(item => item.taskType === 'KNOWLEDGE'));
+
+  const proposals = await fetch(`${baseUrl}/api/business-kpi/seller-tasks/proposals?store=${DEV_STORE.id}`, {
+    headers: authHeaders(sellerHeaders),
+  });
+  assert.equal(proposals.status, 403);
+
+  const progress = await fetch(`${baseUrl}/api/business-kpi/seller-learning/progress`, {
+    headers: authHeaders(sellerHeaders),
+  });
+  assert.equal(progress.status, 200);
+  const progressBody = (await progress.json()).data;
+  assert.equal(progressBody.total, 25);
+  assert.equal(progressBody.employeeId, DEV_EMPLOYEES.find(e => e.employeeCode === 'seller-cherednichenko').id);
+  assert.equal(progressBody.items.length, 25);
 });
 
 test('approve produces bitrix text, complete marks result, reject discards', async () => {
@@ -452,10 +473,12 @@ test('approve produces bitrix text, complete marks result, reject discards', asy
   assert.ok(approvedBody.data.bitrixText.includes('Задача:'));
   assert.ok(approvedBody.data.bitrixText.includes('Битрикс24'));
 
-  const completed = await post(`/api/business-kpi/seller-tasks/${proposals[0].id}/complete`, ownerHeaders, { note: 'Сделано' });
+  const completed = await post(`/api/business-kpi/seller-tasks/${target.id}/complete`, ownerHeaders, { note: 'Сделано' });
   assert.equal((await completed.json()).data.status, 'COMPLETED');
 
-  const rejected = await post(`/api/business-kpi/seller-tasks/${proposals[1].id}/reject`, ownerHeaders);
+  const rejectTarget = proposals.find(proposal => proposal.id !== target.id);
+  assert.ok(rejectTarget);
+  const rejected = await post(`/api/business-kpi/seller-tasks/${rejectTarget.id}/reject`, ownerHeaders);
   assert.equal((await rejected.json()).data.status, 'REJECTED');
 });
 

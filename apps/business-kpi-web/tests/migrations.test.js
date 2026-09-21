@@ -57,6 +57,7 @@ test('migration files are ordered and checksummed deterministically', () => {
     '003_auth_sessions.up.sql',
     '004_auth_sessions_privileges.up.sql',
     '005_seller_tasks.up.sql',
+    '006_training_v2_library.up.sql',
   ]);
   const sellerTasksSql = fs.readFileSync(
     path.join(migrationsRoot, '005_seller_tasks.up.sql'),
@@ -65,6 +66,12 @@ test('migration files are ordered and checksummed deterministically', () => {
   assert.match(sellerTasksSql, /CREATE TABLE IF NOT EXISTS business_kpi\.seller_task_library/);
   assert.match(sellerTasksSql, /CREATE TABLE IF NOT EXISTS business_kpi\.seller_task_proposals/);
   assert.match(sellerTasksSql, /business_kpi_task_proposal_identity/);
+  const trainingV2Sql = fs.readFileSync(
+    path.join(migrationsRoot, '006_training_v2_library.up.sql'),
+    'utf8'
+  );
+  assert.match(trainingV2Sql, /KNOW-25/);
+  assert.match(trainingV2Sql, /ON CONFLICT \(code\) DO UPDATE SET/);
   assert.equal(computeChecksum(sql), computeChecksum(sql));
   assert.equal(computeChecksum(sql).length, 64);
 });

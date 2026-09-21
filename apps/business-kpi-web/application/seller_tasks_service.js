@@ -1,7 +1,7 @@
 'use strict';
 
 const { ApplicationError } = require('./application_error');
-const { PERMISSIONS, requirePermission } = require('./permissions');
+const { PERMISSIONS, hasPermission, requirePermission } = require('./permissions');
 const {
   buildSellerPerformance,
   TREND_MODES,
@@ -86,8 +86,74 @@ class SellerTasksService {
   }
 
   async listLibrary(actor) {
-    requirePermission(actor, PERMISSIONS.TASKS_READ);
-    return { items: await this.store.listLibraryTasks() };
+    requirePermission(actor, PERMISSIONS.LEARNING_READ);
+    const items = await this.store.listLibraryTasks();
+    return {
+      items: hasPermission(actor.role, PERMISSIONS.TASKS_READ)
+        ? items
+        : items.filter(task => task.taskType === 'KNOWLEDGE'),
+    };
+  }
+
+  async learningProgress(actor) {
+    requirePermission(actor, PERMISSIONS.LEARNING_READ);
+    const library = (await this.store.listLibraryTasks())
+      .filter(task => task.taskType === 'KNOWLEDGE');
+    const employee = await this.store.getEmployeeByUserId(actor.id);
+    if (!employee) {
+      return {
+        employeeId: null,
+        total: library.length,
+        completed: 0,
+        percent: 0,
+        items: library.map(task => ({ code: task.code, status: 'NOT_STARTED' })),
+      };
+    }
+    const history = await this.store.listProposals({
+      storeId: employee.storeId,
+      employeeId: employee.id,
+      limit: LIST_DEFAULT_LIMIT,
+    });
+    const byCode = new Map();
+    const completedCodes = new Set();
+    for (const proposal of history) {
+      if (proposal.taskType !== 'KNOWLEDGE' || !proposal.libraryCode) continue;
+      if (proposal.status === PROPOSAL_STATUSES.REJECTED) continue;
+      if (proposal.status === PROPOSAL_STATUSES.COMPLETED) {
+        completedCodes.add(proposal.libraryCode);
+      }
+      const current = byCode.get(proposal.libraryCode);
+      if (!current || String(proposal.shiftDate).localeCompare(String(current.shiftDate)) >= 0) {
+        byCode.set(proposal.libraryCode, proposal);
+      }
+    }
+    let completed = 0;
+    const items = library.map(task => {
+      const latest = byCode.get(task.code);
+      const completedEver = completedCodes.has(task.code);
+      if (completedEver) completed += 1;
+      let status = completedEver ? 'COMPLETED' : 'NOT_STARTED';
+      if (latest?.status === PROPOSAL_STATUSES.NOT_COMPLETED) {
+        status = 'REVIEW';
+      } else if (latest && [PROPOSAL_STATUSES.PENDING, PROPOSAL_STATUSES.APPROVED].includes(latest.status)) {
+        status = 'ASSIGNED';
+      } else if (latest?.status === PROPOSAL_STATUSES.COMPLETED) {
+        status = 'COMPLETED';
+      }
+      return {
+        code: task.code,
+        status,
+        completed: completedEver,
+        shiftDate: latest?.shiftDate || null,
+      };
+    });
+    return {
+      employeeId: employee.id,
+      total: library.length,
+      completed,
+      percent: library.length ? Math.round((completed / library.length) * 100) : 0,
+      items,
+    };
   }
 
   async generateProposals(input, actor) {

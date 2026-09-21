@@ -598,8 +598,17 @@ function createRouter(options) {
           request.method === 'GET' &&
           url.pathname === '/api/business-kpi/seller-tasks/library') {
         const actor = await auth.requireActor(request);
-        auth.requirePermission(actor, PERMISSIONS.TASKS_READ);
+        auth.requirePermission(actor, PERMISSIONS.LEARNING_READ);
         success(response, await sellerTasksService.listLibrary(actor));
+        return;
+      }
+
+      if (sellerTasksService &&
+          request.method === 'GET' &&
+          url.pathname === '/api/business-kpi/seller-learning/progress') {
+        const actor = await auth.requireActor(request);
+        auth.requirePermission(actor, PERMISSIONS.LEARNING_READ);
+        success(response, await sellerTasksService.learningProgress(actor));
         return;
       }
 

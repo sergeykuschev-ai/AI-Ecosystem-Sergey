@@ -32,6 +32,7 @@ const PERMISSIONS = Object.freeze({
   EXPORT_RUN: 'export.run',
   USERS_MANAGE: 'users.manage',
   SELLER_PERFORMANCE_READ: 'seller_performance.read',
+  LEARNING_READ: 'learning.read',
   TASKS_READ: 'tasks.read',
   TASKS_MANAGE: 'tasks.manage',
 });
@@ -54,6 +55,7 @@ const ROLE_PERMISSIONS = Object.freeze({
     PERMISSIONS.IMPORT_READ,
     PERMISSIONS.IMPORT_WRITE,
     PERMISSIONS.EXPORT_RUN,
+    PERMISSIONS.LEARNING_READ,
   ]),
   [ROLES.SELLER]: Object.freeze([
     PERMISSIONS.DASHBOARD_READ,
@@ -66,6 +68,7 @@ const ROLE_PERMISSIONS = Object.freeze({
     PERMISSIONS.SHIFT_CREATE_OWN,
     PERMISSIONS.SHIFT_EDIT_OWN,
     PERMISSIONS.SHIFT_ARCHIVE_OWN,
+    PERMISSIONS.LEARNING_READ,
   ]),
   [ROLES.SERVICE]: Object.freeze([
     PERMISSIONS.DASHBOARD_READ,

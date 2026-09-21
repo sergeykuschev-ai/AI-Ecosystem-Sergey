@@ -5,7 +5,7 @@
    library using KPI attention signals, targets, and assignment history.
    No LLM, no randomness: identical inputs produce identical proposals. */
 
-const { TASK_TYPES } = require('../rules/seller_task_library');
+const { KNOWLEDGE_PATH, TASK_TYPES } = require('../rules/seller_task_library');
 
 const ROTATION_DAYS = 30;
 const DEFAULT_TASKS_PER_SELLER = 2;
@@ -104,9 +104,15 @@ function resolveFirstAvailable(codes, blockedCodes, libraryByCode) {
 }
 
 function pickRotationCode(type, blockedCodes, historyEntries, todayText, libraryByCode) {
+  const knowledgeOrder = new Map(KNOWLEDGE_PATH.map((code, index) => [code, index]));
   const candidates = [...libraryByCode.values()]
     .filter(task => task.type === type)
-    .sort((left, right) => left.code.localeCompare(right.code));
+    .sort((left, right) => {
+      if (type !== TASK_TYPES.KNOWLEDGE) return left.code.localeCompare(right.code);
+      const leftOrder = knowledgeOrder.get(left.code) ?? Number.MAX_SAFE_INTEGER;
+      const rightOrder = knowledgeOrder.get(right.code) ?? Number.MAX_SAFE_INTEGER;
+      return leftOrder - rightOrder || left.code.localeCompare(right.code);
+    });
   const usedCodes = new Set(
     historyEntries
       .filter(entry => entry.status !== 'NOT_COMPLETED')

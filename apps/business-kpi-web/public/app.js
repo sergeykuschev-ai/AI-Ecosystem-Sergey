@@ -58,6 +58,7 @@ const state = {
   tasksLibrary: [],
   taskProposals: [],
   taskHistory: [],
+  learningProgress: null,
 };
 
 function element(id) { return document.getElementById(id); }
@@ -88,12 +89,16 @@ function canViewRoute(route) {
   const role = state.currentUser?.role;
   if (role === 'OWNER') return true;
   if (role === 'MANAGER') {
-    return !['settings', 'tasks'].includes(route);
+    return route !== 'settings';
   }
   if (role === 'SELLER') {
-    return ['dashboard', 'shifts', 'months', 'year', 'sellers', 'bonuses'].includes(route);
+    return ['dashboard', 'shifts', 'months', 'year', 'sellers', 'bonuses', 'tasks'].includes(route);
   }
   return false;
+}
+
+function canManageTasks() {
+  return state.currentUser?.role === 'OWNER';
 }
 
 function canCreateShift() {
@@ -1774,16 +1779,47 @@ function renderTaskHistory() {
   element('task-history-count').textContent = `${items.length}`;
 }
 
+function renderLearningProgress() {
+  const box = element('learning-progress');
+  const progress = state.learningProgress;
+  if (!progress?.employeeId) {
+    box.hidden = true;
+    return;
+  }
+  box.hidden = false;
+  element('learning-progress-value').textContent = `${progress.percent}%`;
+  element('learning-progress-copy').textContent = `${progress.completed} из ${progress.total} модулей пройдено`;
+  element('learning-progress-bar').style.width = `${progress.percent}%`;
+}
+
 function renderLearning() {
   const container = element('task-learning');
   const knowledge = state.tasksLibrary.filter(task => task.taskType === 'KNOWLEDGE');
+  const progressByCode = new Map((state.learningProgress?.items || []).map(item => [item.code, item]));
+  const statusLabels = {
+    COMPLETED: 'Пройдено',
+    ASSIGNED: 'Назначено',
+    REVIEW: 'Повторить',
+    NOT_STARTED: 'Не начато',
+  };
+  const categoryOrder = [
+    'продажи', 'корма', 'ветдиеты', 'лакомства', 'наполнители', 'паразитарка',
+    'уход', 'витамины/добавки', 'туалеты/аксессуары', 'игрушки', 'амуниция', 'одежда',
+  ];
   const byCategory = new Map();
   for (const task of knowledge) {
     const list = byCategory.get(task.category) || [];
     list.push(task);
     byCategory.set(task.category, list);
   }
-  const categories = [...byCategory.keys()].sort((left, right) => left.localeCompare(right, 'ru'));
+  const categories = [...byCategory.keys()].sort((left, right) => {
+    const leftIndex = categoryOrder.indexOf(left);
+    const rightIndex = categoryOrder.indexOf(right);
+    if (leftIndex === -1 && rightIndex === -1) return left.localeCompare(right, 'ru');
+    if (leftIndex === -1) return 1;
+    if (rightIndex === -1) return -1;
+    return leftIndex - rightIndex;
+  });
   const blocks = categories.map(category => {
     const section = document.createElement('section');
     section.className = 'task-category';
@@ -1793,15 +1829,30 @@ function renderLearning() {
     for (const task of byCategory.get(category)) {
       const card = document.createElement('article');
       card.className = 'task-learning-item';
+      const header = document.createElement('div');
+      header.className = 'task-learning-header';
       const title = document.createElement('h4');
       title.textContent = task.title;
-      card.appendChild(title);
+      header.appendChild(title);
+      const progress = progressByCode.get(task.code);
+      if (state.learningProgress?.employeeId) {
+        const badge = document.createElement('span');
+        const status = progress?.status || 'NOT_STARTED';
+        badge.className = `learning-status learning-status-${status.toLowerCase()}`;
+        badge.textContent = statusLabels[status] || status;
+        header.appendChild(badge);
+      }
+      card.appendChild(header);
       if (task.materialText) {
         const material = document.createElement('p');
         material.textContent = task.materialText;
         card.appendChild(material);
       }
       if (Array.isArray(task.questions) && task.questions.length) {
+        const questionTitle = document.createElement('strong');
+        questionTitle.className = 'learning-question-title';
+        questionTitle.textContent = 'Проверь себя';
+        card.appendChild(questionTitle);
         const list = document.createElement('ol');
         for (const question of task.questions) {
           const item = document.createElement('li');
@@ -1815,6 +1866,7 @@ function renderLearning() {
     return section;
   });
   container.replaceChildren(...blocks);
+  renderLearningProgress();
 }
 
 function renderManualTaskLibrary() {
@@ -1955,6 +2007,26 @@ function switchTaskTab(tab) {
 }
 
 async function loadTasks() {
+  const ownerMode = canManageTasks();
+  for (const tab of document.querySelectorAll('[data-task-tab]')) {
+    const ownerOnly = ['review', 'history'].includes(tab.dataset.taskTab);
+    tab.hidden = ownerOnly && !ownerMode;
+  }
+  if (!ownerMode) {
+    switchTaskTab('learning');
+    const [library, progress] = await Promise.all([
+      api('/api/business-kpi/seller-tasks/library'),
+      api('/api/business-kpi/seller-learning/progress'),
+    ]);
+    state.tasksLibrary = library.items;
+    state.learningProgress = progress;
+    state.taskProposals = [];
+    state.taskHistory = [];
+    renderLearning();
+    return;
+  }
+
+  state.learningProgress = null;
   if (!element('task-shift-date').value) {
     element('task-shift-date').value = taskDefaultShiftDate();
   }
