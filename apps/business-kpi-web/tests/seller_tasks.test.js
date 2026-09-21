@@ -538,7 +538,7 @@ test('approve produces bitrix text, complete marks result, reject discards', asy
   assert.equal((await completed.json()).data.status, 'COMPLETED');
 
   const rejectTarget = proposals.find(p => p.id !== target.id);
-  assert.ok(rejectTarget, expected a second pending proposal to reject);
+  assert.ok(rejectTarget, 'expected a second pending proposal to reject');
   const rejected = await post(`/api/business-kpi/seller-tasks/${rejectTarget.id}/reject`, ownerHeaders);
   assert.equal((await rejected.json()).data.status, 'REJECTED');
 });

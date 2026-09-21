@@ -146,7 +146,7 @@ test('Amper and Ventil navigation is store-centric and premium page does not use
   const app = fs.readFileSync(path.join(__dirname, '../public/app.js'), 'utf8');
   assert.match(html, /id="store-bonus-panel" hidden/);
   assert.match(app, /return !\['sellers', 'tasks', 'import-export'\]\.includes\(route\)/);
-  assert.match(app, /bonusLink\.textContent = isStoreMode\(\) \? 'Премия магазина' : 'Премии'/);
+  assert.match(app, /bonusLink\.textContent = sellerRole \? 'Моя премия' : \(isStoreMode\(\) \? 'Премия магазина' : 'Премии'\)/);
   assert.match(app, /if \(isStoreMode\(\)\) await loadStoreBonus\(\)/);
 });
 
