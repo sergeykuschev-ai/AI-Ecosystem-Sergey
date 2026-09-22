@@ -78,7 +78,7 @@ test('future orders are automatically added after the manual baseline', () => {
   });
 });
 
-test('orders before a refreshed baseline are not double counted', () => {
+test('refreshed actual baseline keeps reserve for orders without invoice', () => {
   withService(service => {
     service.recordOrder({
       runId: 'run-before',
@@ -91,10 +91,11 @@ test('orders before a refreshed baseline are not double counted', () => {
       purchased: 150000,
       at: '2026-09-17T10:00:00.000Z',
     });
-    assert.equal(
-      service.getMonthSummary('2026-09-17T10:01:00.000Z').purchased,
-      150000
-    );
+    const summary = service.getMonthSummary('2026-09-17T10:01:00.000Z');
+    assert.equal(summary.actualPurchased, 150000);
+    assert.equal(summary.ledgerReservedAmount, 10000);
+    assert.equal(summary.committed, 160000);
+    assert.equal(summary.purchased, 160000);
   });
 });
 

@@ -244,22 +244,37 @@ class PurchaseLedgerService {
     const config = ledger.months[key] || null;
     const baselinePurchased = config?.baselinePurchased ?? 0;
     const baselineAt = config?.baselineAt || null;
-    let ledgerOrdersPurchased = 0;
+    let ledgerInvoiceAmount = 0;
+    let ledgerReservedAmount = 0;
     let orderCount = 0;
     let activeOrderCount = 0;
     for (const order of ledger.orders) {
       if (!order || !PURCHASED_ORDER_STATUSES.has(order.status)) continue;
       if (!order.orderedAt || monthKey(order.orderedAt, this.timeZone) !== key) continue;
       if (ACTIVE_ORDER_STATUSES.has(order.status)) activeOrderCount += 1;
-      if (baselineAt && Date.parse(order.orderedAt) <= Date.parse(baselineAt)) {
-        continue;
+      if (Number.isFinite(Number(order.invoiceAmount))) {
+        const invoiceAt = order.invoiceUpdatedAt || order.orderedAt;
+        if (!baselineAt || Date.parse(invoiceAt) > Date.parse(baselineAt)) {
+          ledgerInvoiceAmount = roundMoney(
+            ledgerInvoiceAmount + Number(order.invoiceAmount)
+          );
+        }
+      } else {
+        // A manual baseline is actual purchases from accounting. An order
+        // without a supplier invoice is not part of that fact yet, so keep
+        // its reserve even when the order predates the refreshed baseline.
+        ledgerReservedAmount = roundMoney(
+          ledgerReservedAmount + Number(order.totalAmount || 0)
+        );
       }
-      ledgerOrdersPurchased = roundMoney(
-        ledgerOrdersPurchased + Number(order.invoiceAmount ?? order.totalAmount ?? 0)
-      );
       orderCount += 1;
     }
-    const purchased = roundMoney(baselinePurchased + ledgerOrdersPurchased);
+    const actualPurchased = roundMoney(
+      baselinePurchased + ledgerInvoiceAmount
+    );
+    const committed = roundMoney(
+      actualPurchased + ledgerReservedAmount
+    );
     const limit = config?.limit ?? null;
     return {
       month: key,
@@ -267,9 +282,17 @@ class PurchaseLedgerService {
       limit,
       baselinePurchased: roundMoney(baselinePurchased),
       baselineAt,
-      ledgerOrdersPurchased,
-      purchased,
-      remaining: limit === null ? null : roundMoney(limit - purchased),
+      ledgerInvoiceAmount,
+      ledgerReservedAmount,
+      // Backward-compatible alias: amount currently consuming the monthly limit.
+      ledgerOrdersPurchased: roundMoney(
+        ledgerInvoiceAmount + ledgerReservedAmount
+      ),
+      actualPurchased,
+      committed,
+      // Keep purchased as the safe amount used by the ordering engine.
+      purchased: committed,
+      remaining: limit === null ? null : roundMoney(limit - committed),
       orderCount,
       activeOrderCount,
       updatedAt: config?.updatedAt ?? ledger.updatedAt ?? null,
@@ -389,6 +412,18 @@ class PurchaseLedgerService {
       throw new PurchaseLedgerError(
         'PURCHASE_LEDGER_ORDER_NOT_FOUND',
         'Заказ в реестре не найден.'
+      );
+    }
+    if (ledger.orders[index].status === 'DRAFT') {
+      throw new PurchaseLedgerError(
+        'PURCHASE_LEDGER_STATUS_CONFLICT',
+        'Счёт нельзя привязать к неподтверждённому заказу.'
+      );
+    }
+    if (ledger.orders[index].status === 'CANCELLED') {
+      throw new PurchaseLedgerError(
+        'PURCHASE_LEDGER_STATUS_CONFLICT',
+        'Счёт нельзя привязать к отменённому заказу.'
       );
     }
     ledger.orders[index] = {

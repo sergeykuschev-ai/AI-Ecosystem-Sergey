@@ -4880,7 +4880,9 @@
       purchasedThisMonth: documentObject.getElementById('purchased-this-month'),
       monthlyBudgetRemaining: documentObject.getElementById('monthly-budget-remaining'),
       monthlyBudgetBaseline: documentObject.getElementById('monthly-budget-baseline'),
-      monthlyBudgetLedgerOrders: documentObject.getElementById('monthly-budget-ledger-orders'),
+      monthlyBudgetInvoices: documentObject.getElementById('monthly-budget-invoices'),
+      monthlyBudgetReserved: documentObject.getElementById('monthly-budget-reserved'),
+      monthlyBudgetActual: documentObject.getElementById('monthly-budget-actual'),
       monthlyBudgetTotalPurchased: documentObject.getElementById('monthly-budget-total-purchased'),
       monthlyBudgetError: documentObject.getElementById('monthly-budget-error'),
       purchaseOrdersList: documentObject.getElementById('purchase-orders-list'),
@@ -6951,19 +6953,32 @@
 
     function updateMonthlyBudgetView() {
       const budget = monthlyBudgetValues();
+      let effectiveRemaining = budget.remaining;
+      if (budget.valid && budget.enabled && restoredMonthlyBudget) {
+        const sameManualFact = budget.spent === restoredMonthlyBudget.spent;
+        const trackedInvoices = sameManualFact
+          ? Number(restoredMonthlyBudget.invoices || 0)
+          : 0;
+        const trackedReserve = Number(restoredMonthlyBudget.reserved || 0);
+        effectiveRemaining =
+          budget.limit - budget.spent - trackedInvoices - trackedReserve;
+      }
       if (elements.monthlyBudgetRemaining) {
         elements.monthlyBudgetRemaining.textContent = budget.valid
-          ? formatRub(budget.remaining)
+          ? formatRub(effectiveRemaining)
           : '—';
       }
       if (elements.monthlyBudgetError) {
-        const over = budget.valid && budget.remaining < 0;
+        const over = budget.valid && effectiveRemaining < 0;
         elements.monthlyBudgetError.textContent = over
-          ? 'Уже закуплено больше установленного месячного лимита. Новые закупки будут заблокированы.'
+          ? 'Факт по закупкам и резерв отправленных заказов превышают месячный лимит.'
           : '';
         elements.monthlyBudgetError.hidden = !over;
       }
-      return budget;
+      return {
+        ...budget,
+        remaining: effectiveRemaining,
+      };
     }
 
     const purchaseOrderStatusLabels = Object.freeze({
@@ -7020,7 +7035,8 @@
         const meta = documentObject.createElement('p');
         meta.className = 'purchase-order-meta';
         meta.textContent = [
-          formatRub(order.totalAmount),
+          `Заказ: ${formatRub(order.totalAmount)}`,
+          `Счёт: ${order.invoiceAmount == null ? '—' : formatRub(order.invoiceAmount)}`,
           `${Number(order.itemCount || 0)} поз.`,
           formatHistoryDateTime(order.orderedAt || order.preparedAt || order.updatedAt),
         ].join(' · ');
@@ -7028,32 +7044,34 @@
         const actions = documentObject.createElement('div');
         actions.className = 'purchase-order-actions';
 
-        const invoiceInput = documentObject.createElement('input');
-        invoiceInput.type = 'number';
-        invoiceInput.min = '0';
-        invoiceInput.step = '0.01';
-        invoiceInput.inputMode = 'decimal';
-        invoiceInput.className = 'purchase-order-invoice-input';
-        invoiceInput.placeholder = 'Сумма счёта';
-        invoiceInput.value = order.invoiceAmount == null ? '' : String(order.invoiceAmount);
+        if (!['DRAFT', 'CANCELLED'].includes(order.status)) {
+          const invoiceInput = documentObject.createElement('input');
+          invoiceInput.type = 'number';
+          invoiceInput.min = '0';
+          invoiceInput.step = '0.01';
+          invoiceInput.inputMode = 'decimal';
+          invoiceInput.className = 'purchase-order-invoice-input';
+          invoiceInput.placeholder = 'Сумма счёта';
+          invoiceInput.value = order.invoiceAmount == null ? '' : String(order.invoiceAmount);
 
-        const invoiceButton = documentObject.createElement('button');
-        invoiceButton.type = 'button';
-        invoiceButton.className = 'secondary-button purchase-order-action';
-        invoiceButton.textContent = order.invoiceAmount == null ? 'Внести счёт' : 'Изменить счёт';
-        invoiceButton.addEventListener('click', async () => {
-          const rawAmount = String(invoiceInput.value ?? '').trim();
-          const amount = Number(rawAmount);
-          if (rawAmount === '' || !Number.isFinite(amount) || amount < 0) {
-            elements.purchaseOrdersError.textContent = 'Введите корректную сумму итогового счёта.';
-            elements.purchaseOrdersError.hidden = false;
-            return;
-          }
-          invoiceButton.disabled = true;
-          try { await savePurchaseOrderInvoice(order.orderId, amount); }
-          finally { invoiceButton.disabled = false; }
-        });
-        actions.append(invoiceInput, invoiceButton);
+          const invoiceButton = documentObject.createElement('button');
+          invoiceButton.type = 'button';
+          invoiceButton.className = 'secondary-button purchase-order-action';
+          invoiceButton.textContent = order.invoiceAmount == null ? 'Внести счёт' : 'Изменить счёт';
+          invoiceButton.addEventListener('click', async () => {
+            const rawAmount = String(invoiceInput.value ?? '').trim();
+            const amount = Number(rawAmount);
+            if (rawAmount === '' || !Number.isFinite(amount) || amount < 0) {
+              elements.purchaseOrdersError.textContent = 'Введите корректную сумму итогового счёта.';
+              elements.purchaseOrdersError.hidden = false;
+              return;
+            }
+            invoiceButton.disabled = true;
+            try { await savePurchaseOrderInvoice(order.orderId, amount); }
+            finally { invoiceButton.disabled = false; }
+          });
+          actions.append(invoiceInput, invoiceButton);
+        }
 
         for (const [targetStatus, label] of
           purchaseOrderTransitions[order.status] || []) {
@@ -7163,21 +7181,36 @@
         if (elements.monthlyBudgetBaseline) {
           elements.monthlyBudgetBaseline.textContent = Number.isFinite(snapshot?.baselinePurchased) ? formatRub(snapshot.baselinePurchased) : '—';
         }
-        if (elements.monthlyBudgetLedgerOrders) {
-          elements.monthlyBudgetLedgerOrders.textContent = Number.isFinite(snapshot?.ledgerOrdersPurchased) ? formatRub(snapshot.ledgerOrdersPurchased) : '—';
+        if (elements.monthlyBudgetInvoices) {
+          elements.monthlyBudgetInvoices.textContent = Number.isFinite(snapshot?.ledgerInvoiceAmount) ? formatRub(snapshot.ledgerInvoiceAmount) : '—';
+        }
+        if (elements.monthlyBudgetReserved) {
+          elements.monthlyBudgetReserved.textContent = Number.isFinite(snapshot?.ledgerReservedAmount) ? formatRub(snapshot.ledgerReservedAmount) : '—';
+        }
+        if (elements.monthlyBudgetActual) {
+          elements.monthlyBudgetActual.textContent = Number.isFinite(snapshot?.actualPurchased) ? formatRub(snapshot.actualPurchased) : '—';
         }
         if (elements.monthlyBudgetTotalPurchased) {
-          elements.monthlyBudgetTotalPurchased.textContent = Number.isFinite(snapshot?.purchased) ? formatRub(snapshot.purchased) : '—';
+          elements.monthlyBudgetTotalPurchased.textContent = Number.isFinite(snapshot?.committed ?? snapshot?.purchased) ? formatRub(snapshot?.committed ?? snapshot?.purchased) : '—';
         }
         if ((force || untouched) && Number.isFinite(snapshot?.limit)) {
+          const manualFact = Number.isFinite(snapshot?.baselinePurchased)
+            ? snapshot.baselinePurchased
+            : 0;
           elements.monthlyPurchaseLimit.value = String(snapshot.limit);
-          elements.purchasedThisMonth.value =
-            Number.isFinite(snapshot?.purchased)
-              ? String(snapshot.purchased)
-              : '0';
+          elements.purchasedThisMonth.value = String(manualFact);
           restoredMonthlyBudget = {
             limit: snapshot.limit,
-            spent: Number.isFinite(snapshot?.purchased) ? snapshot.purchased : 0,
+            spent: manualFact,
+            invoices: Number.isFinite(snapshot?.ledgerInvoiceAmount)
+              ? snapshot.ledgerInvoiceAmount
+              : 0,
+            reserved: Number.isFinite(snapshot?.ledgerReservedAmount)
+              ? snapshot.ledgerReservedAmount
+              : 0,
+            remaining: Number.isFinite(snapshot?.remaining)
+              ? snapshot.remaining
+              : null,
           };
           updateMonthlyBudgetView();
         }
@@ -7393,7 +7426,13 @@
           body: formData,
         });
         if (monthlyBudget.enabled && budgetChanged) {
-          restoredMonthlyBudget = { limit: monthlyBudget.limit, spent: monthlyBudget.spent };
+          restoredMonthlyBudget = {
+            limit: monthlyBudget.limit,
+            spent: monthlyBudget.spent,
+            invoices: 0,
+            reserved: Number(restoredMonthlyBudget?.reserved || 0),
+            remaining: monthlyBudget.remaining,
+          };
         }
         clearTimeout(processingHint);
 

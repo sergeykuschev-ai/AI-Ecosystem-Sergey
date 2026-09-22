@@ -3402,6 +3402,11 @@ test('monthly budget is restored from persistent purchase ledger', async () => {
           data: {
             month: '2026-09',
             limit: 350000,
+            baselinePurchased: 250000,
+            ledgerInvoiceAmount: 10000,
+            ledgerReservedAmount: 20000,
+            actualPurchased: 260000,
+            committed: 280000,
             purchased: 280000,
             remaining: 70000,
           },
@@ -3424,7 +3429,19 @@ test('monthly budget is restored from persistent purchase ledger', async () => {
   );
   assert.equal(
     documentObject.getElementById('purchased-this-month').value,
-    '280000'
+    '250000'
+  );
+  assert.match(
+    documentObject.getElementById('monthly-budget-invoices').textContent,
+    /10[\s\u00a0]000/
+  );
+  assert.match(
+    documentObject.getElementById('monthly-budget-reserved').textContent,
+    /20[\s\u00a0]000/
+  );
+  assert.match(
+    documentObject.getElementById('monthly-budget-actual').textContent,
+    /260[\s\u00a0]000/
   );
   assert.match(
     documentObject.getElementById('monthly-budget-remaining').textContent,
