@@ -1,10 +1,24 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getMiskaCatalogPreview } from "@/lib/miska/catalog";
 
 export const dynamic = "force-dynamic";
-export const metadata = { robots: { index: false, follow: false } };
 
-export default async function Page({ params }: { params: Promise<{ section: string }> }) {
+interface PageProps {
+  params: Promise<{ section: string }>;
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { section } = await params;
+  const { categories } = await getMiskaCatalogPreview();
+  const selected = categories.find((category) => category.slug === section);
+  return {
+    title: selected ? `${selected.name} — проверка каталога` : "Каталог «Миски» — проверка",
+    robots: { index: false, follow: false },
+  };
+}
+
+export default async function Page({ params }: PageProps) {
   const { section } = await params;
   const { categories, products } = await getMiskaCatalogPreview();
   const selected = categories.find((category) => category.slug === section);

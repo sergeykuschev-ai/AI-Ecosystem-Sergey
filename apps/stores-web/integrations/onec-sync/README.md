@@ -13,8 +13,14 @@ Supported modes: `checkauth`, `init`, `file`, `import`.
 The receiver returns `zip=no` and supports chunked uploads via repeated `file`
 requests for the same filename.
 
-Run protocol tests:
+Run all tests, including the CommerceML parser/model/snapshot/importer tests:
 
 ```bash
-node --test integrations/onec-sync/server.test.mjs
+npm test
+```
+
+Or run only the 1C integration tests:
+
+```bash
+node --test integrations/onec-sync/*.test.mjs
 ```

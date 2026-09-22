@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
-    "test": "SITE_URL=https://stores-test.local node --import tsx --test tests/*.test.ts",
+    "test": "SITE_URL=https://stores-test.local node --import tsx --test tests/*.test.ts && SITE_URL=https://stores-test.local node --test integrations/onec-sync/*.test.mjs",
     "smoke:production": "tsx scripts/smoke/production.ts",
     "diagnose:production": "tsx scripts/diagnostics/production.ts",
     "audit:seo": "tsx scripts/seo-audit/production.ts",

@@ -18,7 +18,10 @@ export default async function Page() {
 
   for (const product of products) {
     let category = product.category_external_id ? byId.get(product.category_external_id) : undefined;
-    while (category?.parent_external_id && category.parent_external_id !== root?.external_id) {
+    const seen = new Set<string>();
+    while (category?.parent_external_id && !seen.has(category.external_id)) {
+      if (category.parent_external_id === root?.external_id) break;
+      seen.add(category.external_id);
       category = byId.get(category.parent_external_id);
     }
     if (category && category.parent_external_id === root?.external_id) {
