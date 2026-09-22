@@ -34,9 +34,8 @@ function unit(productXml) {
 }
 
 export function parseCommerceMl(xml) {
-  const groups = blocks(xml, "Группа")
-    .map((block) => ({ externalId: directText(block, "Ид"), name: directText(block, "Наименование") }))
-    .filter((item) => item.externalId && item.name);
+  const groups = [...xml.matchAll(/<Группа>\s*<Ид>([^<]+)<\/Ид>\s*<Наименование>([^<]+)<\/Наименование>/g)]
+    .map((match) => ({ externalId: decodeXml(match[1].trim()), name: decodeXml(match[2].trim()) }));
 
   const products = blocks(xml, "Товар")
     .map((block) => ({
