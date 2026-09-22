@@ -36,7 +36,9 @@ function fromMinorUnits(value) {
 }
 
 function ratio(numerator, denominator) {
-  return denominator === 0 ? ZERO_DIVISION_RESULT : numerator / denominator;
+  return denominator === 0 || denominator === null || denominator === undefined
+    ? ZERO_DIVISION_RESULT
+    : numerator / denominator;
 }
 
 function boundedScore(actual, target, weight) {
@@ -105,7 +107,9 @@ function calculateKpiMetrics(input, settings) {
     revenue = fromMinorUnits(toMinorUnits(input.historicalRevenue, 'historicalRevenue'));
   }
 
-  const receipts = requireNonNegativeInteger(input.receipts, 'receipts');
+  const receipts = settings === null
+    ? optionalNonNegativeInteger(input.receipts, 'receipts')
+    : requireNonNegativeInteger(input.receipts, 'receipts');
   const itemsSold = optionalNonNegativeInteger(input.itemsSold, 'itemsSold');
   const upsellReceipts = optionalNonNegativeInteger(
     input.upsellReceipts,
@@ -116,10 +120,10 @@ function calculateKpiMetrics(input, settings) {
     'treatsReceipts'
   );
   const treatsRevenue = optionalMoney(input.treatsRevenue, 'treatsRevenue');
-  if (upsellReceipts !== null && upsellReceipts > receipts) {
+  if (receipts !== null && upsellReceipts !== null && upsellReceipts > receipts) {
     throw new TypeError('upsellReceipts must not exceed receipts');
   }
-  if (treatsReceipts !== null && treatsReceipts > receipts) {
+  if (receipts !== null && treatsReceipts !== null && treatsReceipts > receipts) {
     throw new TypeError('treatsReceipts must not exceed receipts');
   }
 

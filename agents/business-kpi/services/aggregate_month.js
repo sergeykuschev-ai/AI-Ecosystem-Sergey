@@ -135,7 +135,7 @@ function aggregateMonth(shifts, options) {
       shift => shift.treatsRevenue,
       'treatsRevenue'
     ),
-    receipts: activeShifts.reduce((sum, shift) => sum + shift.receipts, 0),
+    receipts: sumNullableInteger(activeShifts, shift => shift.receipts),
     itemsSold: sumNullableInteger(activeShifts, shift => shift.itemsSold),
     upsellReceipts: sumNullableInteger(activeShifts, shift => shift.upsellReceipts),
     treatsReceipts: sumNullableInteger(activeShifts, shift => shift.treatsReceipts),
@@ -268,10 +268,7 @@ function aggregateSellers(monthAggregate, settings) {
 
   return Array.from(grouped.values()).map(group => {
     const revenue = sumMoney(group.shifts, item => item.metrics.revenue, 'revenue');
-    const receipts = group.shifts.reduce(
-      (sum, item) => sum + item.shift.receipts,
-      0
-    );
+    const receipts = sumNullableInteger(group.shifts, item => item.shift.receipts);
     const itemsSold = sumNullableInteger(group.shifts, item => item.shift.itemsSold);
     const qr = sumNullableMoney(group.shifts, item => item.shift.qr, 'qr');
     const missingFields = sellerMissingFields(group);
@@ -351,7 +348,7 @@ function aggregateDays(monthAggregate) {
   return Array.from(grouped.entries()).map(([date, items]) => {
     const revenue = sumMoney(items, item => item.metrics.revenue, 'revenue');
     const qr = sumNullableMoney(items, item => item.shift.qr, 'qr');
-    const receipts = items.reduce((sum, item) => sum + item.shift.receipts, 0);
+    const receipts = sumNullableInteger(items, item => item.shift.receipts);
     const itemsSold = sumNullableInteger(items, item => item.shift.itemsSold);
     return Object.freeze({
       date,
