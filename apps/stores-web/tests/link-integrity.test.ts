@@ -74,6 +74,7 @@ const EXPECTED_STATIC_PAGES = [
   "/kontakty/",
   "/metiz-market/",
   "/miska/",
+  "/miska/catalog-preview/",
   "/o-kompanii/",
   "/politika-konfidencialnosti/",
   "/soglasie-na-obrabotku-dannyh/",
@@ -81,6 +82,15 @@ const EXPECTED_STATIC_PAGES = [
   "/vakansii/",
   "/ventil/",
 ];
+
+// Static pages served with robots: noindex. They must exist in the route
+// registry but are intentionally excluded from indexing and from the
+// internal-link coverage requirements.
+const NOINDEX_STATIC_PAGES = new Set([
+  "/politika-konfidencialnosti/",
+  "/soglasie-na-obrabotku-dannyh/",
+  "/miska/catalog-preview/",
+]);
 
 const citySlugs = new Set(mockCities.filter((city) => city.active).map((city) => city.slug));
 const storeSlugsByCity = new Map<string, Set<string>>();
@@ -104,9 +114,7 @@ const routeModel: RouteModel = {
 };
 
 const INDEXABLE_PATHS = new Set([
-  ...EXPECTED_STATIC_PAGES.filter(
-    (path) => !["/politika-konfidencialnosti/", "/soglasie-na-obrabotku-dannyh/"].includes(path),
-  ),
+  ...EXPECTED_STATIC_PAGES.filter((path) => !NOINDEX_STATIC_PAGES.has(path)),
   ...CANONICAL_BRAND_SLUGS.map((slug) => `/${slug}/`),
   ...[...citySlugs].map((slug) => `/stores/${slug}/`),
   ...[...storeSlugsByCity.entries()].flatMap(([citySlug, storeSlugs]) =>
@@ -144,6 +152,8 @@ const ALLOWED_TEMPLATE_HREFS = new Set([
   "/ventil/${category.slug}/",
   "/metiz-market/${category.slug}/",
   "/miska/${category.slug}/",
+  // 1C catalog section slugs interpolated from the staged Miska catalog preview.
+  "/miska/catalog-preview/${section.slug}/",
   // City/store slugs interpolated from content data.
   "/stores/${city.slug}/",
   "/stores/${city.slug}/${store.slug}/",
@@ -181,7 +191,7 @@ describe("route registry matches the app structure", () => {
   test("required sections are covered by at least one internal link", () => {
     const linked = new Set(internalLinks.map((link) => link.href));
     for (const path of EXPECTED_STATIC_PAGES) {
-      if (path === "/") continue;
+      if (path === "/" || NOINDEX_STATIC_PAGES.has(path)) continue;
       assert.ok(linked.has(path), `expected at least one internal link to ${path}`);
     }
     for (const slug of CANONICAL_BRAND_SLUGS) {
