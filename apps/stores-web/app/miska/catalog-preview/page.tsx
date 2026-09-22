@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getMiskaCatalogPreview } from "@/lib/miska/catalog";
 
 export const dynamic = "force-dynamic";
@@ -34,7 +35,7 @@ export default async function Page() {
         <div className="miska-category-grid">
           {sections.map((section) => (
             <article className="miska-category-card" key={section.external_id}>
-              <h2>{section.name}</h2>
+              <h2><Link href={`/miska/catalog-preview/${section.slug}/`}>{section.name}</Link></h2>
               <p>{countBySection.get(section.external_id) ?? 0} товаров</p>
             </article>
           ))}
