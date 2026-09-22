@@ -1672,6 +1672,10 @@ function createRunHandlers(options) {
         );
       }
       const status = await readPurchaseOrderStatusBody(request);
+      if (status === 'ORDERED' &&
+          typeof resolvedSupplierOrderService.assertDraftCurrent === 'function') {
+        resolvedSupplierOrderService.assertDraftCurrent(orderId);
+      }
       return {
         statusCode: 200,
         data: purchaseLedgerService.changeOrderStatus(orderId, status, now()),

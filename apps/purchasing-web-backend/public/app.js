@@ -7141,9 +7141,11 @@
         elements.purchaseOrdersError.textContent =
           error?.code === 'PURCHASE_LEDGER_DUPLICATE_CONFIRMATION'
             ? 'Заказ не подтверждён: уже есть идентичный активный заказ. Обновите расчёт перед отправкой.'
-            : error?.code === 'PURCHASE_LEDGER_ORDER_CONFLICT'
-              ? 'Заказ уже подтверждён и изменился. Создайте новый расчёт вместо перезаписи отправленного заказа.'
-              : 'Не удалось изменить статус заказа. Обновите список и попробуйте ещё раз.';
+            : error?.code === 'PURCHASE_LEDGER_STALE_DRAFT'
+              ? 'Подготовленный Excel устарел после изменения заказа. Скачайте актуальный файл и подтвердите его заново.'
+              : error?.code === 'PURCHASE_LEDGER_ORDER_CONFLICT'
+                ? 'Заказ уже подтверждён и изменился. Создайте новый расчёт вместо перезаписи отправленного заказа.'
+                : 'Не удалось изменить статус заказа. Обновите список и попробуйте ещё раз.';
         elements.purchaseOrdersError.hidden = false;
         return null;
       }

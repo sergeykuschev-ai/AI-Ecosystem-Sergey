@@ -196,6 +196,23 @@ class SupplierOrderService {
     return order;
   }
 
+  assertDraftCurrent(orderId) {
+    if (!this.purchaseLedgerService ||
+        typeof this.purchaseLedgerService.getOrder !== 'function' ||
+        typeof this.purchaseLedgerService.assertDraftMatchesCurrent !== 'function') {
+      return null;
+    }
+    const draft = this.purchaseLedgerService.getOrder(orderId);
+    if (!draft || draft.status !== 'DRAFT') return draft;
+    const order = this.buildOrder(draft.runId);
+    const items = this.queryService.getDecoratedItems(draft.runId);
+    const supplier = this.supplierFor(draft.runId, items);
+    return this.purchaseLedgerService.assertDraftMatchesCurrent(orderId, {
+      supplier,
+      order,
+    });
+  }
+
   getSupplierOrder(runId) {
     ensureCompleted(this.queryService.getRunStatus(runId));
     try {

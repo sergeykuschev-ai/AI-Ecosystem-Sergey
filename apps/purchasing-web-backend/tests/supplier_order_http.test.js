@@ -268,6 +268,24 @@ test('повторное решение владельца обновляет з
   const skipped = await putDecision(RUN_ID, target.row_id, 'SKIP', 0);
   assert.equal(skipped.response.status, 200);
 
+  const journalBeforeRefresh = await jsonResponse(
+    `${baseUrl}/api/v1/purchase-orders`
+  );
+  const staleDraft = journalBeforeRefresh.body.data.orders.find(
+    order => order.runId === RUN_ID && order.status === 'DRAFT'
+  );
+  assert.ok(staleDraft, 'скачанный до изменения заказ должен остаться черновиком');
+  const staleConfirm = await jsonResponse(
+    `${baseUrl}/api/v1/purchase-orders/${encodeURIComponent(staleDraft.orderId)}/status`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'ORDERED' }),
+    }
+  );
+  assert.equal(staleConfirm.response.status, 409);
+  assert.equal(staleConfirm.body.error.code, 'PURCHASE_LEDGER_STALE_DRAFT');
+
   const metadata = await jsonResponse(
     `${baseUrl}/api/v1/runs/${RUN_ID}/supplier-order`
   );

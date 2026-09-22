@@ -420,6 +420,33 @@ class PurchaseLedgerService {
       );
   }
 
+  getOrder(orderId) {
+    const order = this.load().orders.find(entry => entry?.orderId === orderId);
+    return order ? structuredClone(order) : null;
+  }
+
+  assertDraftMatchesCurrent(orderId, { supplier, order } = {}) {
+    const current = this.getOrder(orderId);
+    if (!current) {
+      throw new PurchaseLedgerError(
+        'PURCHASE_LEDGER_ORDER_NOT_FOUND',
+        'Заказ в реестре не найден.'
+      );
+    }
+    if (current.status !== 'DRAFT') return current;
+    const rows = stableRows(order?.rows);
+    const totalAmount = finiteNonNegative(order?.totalAmount, 'Сумма заказа');
+    const fingerprint = orderFingerprint(supplier || current.supplier, rows);
+    if (fingerprint !== current.fingerprint || totalAmount !== current.totalAmount) {
+      throw new PurchaseLedgerError(
+        'PURCHASE_LEDGER_STALE_DRAFT',
+        'Подготовленный Excel устарел: после его скачивания состав или сумма ' +
+          'заказа изменились. Скачайте актуальный заказ перед отправкой.'
+      );
+    }
+    return current;
+  }
+
   changeOrderStatus(orderId, targetStatus, at = this.now()) {
     const status = String(targetStatus || '').trim().toUpperCase();
     if (!ORDER_STATUSES.includes(status)) {
