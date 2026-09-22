@@ -11,9 +11,7 @@ const MODULE_MATCHERS = Object.freeze({
   'KNOW-02': item =>
     includesAll(item.name, ['award', 'monoprotein']) &&
     includesAny(item.name, ['кош', 'cat']),
-  'KNOW-03': item =>
-    includesAny(item.name, ['вет диета', 'ветеринарная диета', 'veterinary diet']) ||
-    includesAll(item.name, ['award', 'urinary']),
+  'KNOW-03': item => includesAll(item.name, ['award', 'urinary']),
   'KNOW-06': item => includesAny(item.name, ['мнямс', 'mnyams']),
   'KNOW-07': item =>
     includesAny(item.name, ["cat's choice", 'cats choice']) &&
@@ -21,7 +19,9 @@ const MODULE_MATCHERS = Object.freeze({
   'KNOW-08': item => includesAny(item.name, ["cat's choice", 'cats choice']),
   'KNOW-09': item => includesAny(item.name, ['inspector', 'инспектор', 'барс']),
   'KNOW-10': item => includesAny(item.name, ['japan premium pet', 'premium pet']),
-  'KNOW-22': item => includesAny(item.name, ['craftia']),
+  'KNOW-22': item =>
+    includesAny(item.name, ['craftia']) &&
+    !includesAny(item.name, ['galena', 'вет диета', 'ветеринарная диета']),
   'KNOW-23': item => includesAny(item.name, ['bambini pets', 'bambini']),
   'KNOW-24': item =>
     includesAny(item.name, ['ферма кота федора', 'ферма кота фёдора']),
