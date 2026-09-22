@@ -3,9 +3,13 @@
 }
 
 amurskmarket.ru {
-    @onec path /api/1c/exchange*
-    reverse_proxy @onec onec-sync:8080
-    reverse_proxy web:3000
+    handle /api/1c/exchange* {
+        reverse_proxy onec-sync:8080
+    }
+
+    handle {
+        reverse_proxy web:3000
+    }
 }
 
 www.amurskmarket.ru {
