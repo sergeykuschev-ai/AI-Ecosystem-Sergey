@@ -1,0 +1,2 @@
+import Link from 'next/link'
+export default function BrandsPage(){return <main className="simplePage"><header className="subHeader"><Link className="logo" href="/">VOZDOOH</Link><Link href="/catalog">Каталог</Link></header><section><span className="eyebrow">Бренды</span><h1>Коллекция брендов</h1><p>Список будет сформирован из фактического ассортимента после импорта из 1С. Бренды не добавляются вручную без подтверждённых данных.</p></section></main>}

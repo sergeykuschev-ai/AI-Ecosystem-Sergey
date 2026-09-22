@@ -1,10 +1,16 @@
 export type ProductId = string
+export type ProductCategory = 'diffuser'|'candle'|'spray'|'refill'|'car'|'gift'|string
 
 export type CatalogProduct = {
   id: ProductId
   slug: string
   sku: string
   name: string
+  brand: string|null
+  category: ProductCategory
+  volume: string|null
+  price: number|null
+  stock: number|null
   isActive: boolean
 }
 

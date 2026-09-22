@@ -1,0 +1,2 @@
+import Link from 'next/link'
+export default function CartPage(){return <main className="simplePage"><header className="subHeader"><Link className="logo" href="/">VOZDOOH</Link><Link href="/catalog">Продолжить покупки</Link></header><section><span className="eyebrow">Корзина</span><h1>Корзина пока пуста</h1><p>Механика заказа будет подключена к реальному каталогу, остаткам и платёжному провайдеру. Фиктивные заказы и оплаты не создаются.</p><Link className="primary" href="/catalog">Перейти в каталог</Link></section></main>}

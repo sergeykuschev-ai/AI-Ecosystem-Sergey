@@ -1,0 +1,3 @@
+import Link from 'next/link'
+const steps=['Характер аромата','Помещение','Интенсивность','Формат']
+export default function FinderPage(){return <main className="simplePage darkPage"><header className="subHeader"><Link className="logo" href="/">VOZDOOH</Link><Link href="/catalog">Каталог</Link></header><section><span className="eyebrow">Подобрать аромат</span><h1>Начнём с ощущения</h1><p>Сценарий подготовлен без выдуманных товарных характеристик. После импорта ответы будут фильтровать только реальные товары.</p><div className="finderSteps">{steps.map((x,i)=><div key={x}><span>0{i+1}</span><strong>{x}</strong></div>)}</div></section></main>}
