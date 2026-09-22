@@ -29,6 +29,26 @@ test('revenue does not count QR twice when acquiring already includes it', () =>
   assert.equal(result.paymentBreakdown.qrIncludedInAcquiring, true);
 });
 
+test('morning and evening shifts use half of absolute KPI targets', () => {
+  const result = calculateKpiMetrics({
+    ...VALID_SHIFT,
+    shiftKey: 'morning',
+    cash: 6000,
+    acquiring: 6000,
+    qr: 1200,
+    receipts: 10,
+    itemsSold: 25,
+    upsellReceipts: 3,
+    treatsRevenue: 600,
+    treatsReceipts: 2,
+  });
+
+  assert.equal(result.shiftFraction, 0.5);
+  assert.equal(result.effectiveTargets.shiftRevenue, 12000);
+  assert.equal(result.effectiveTargets.treatsRevenue, 600);
+  assert.equal(result.kpiScore, 100);
+});
+
 test('zero receipts produce null ratios instead of division errors', () => {
   const result = calculateKpiMetrics({
     ...VALID_SHIFT,

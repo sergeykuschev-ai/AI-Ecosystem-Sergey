@@ -44,6 +44,10 @@ function boundedScore(actual, target, weight) {
   return Math.min(weight, (actual / target) * weight);
 }
 
+function shiftFraction(input) {
+  return input?.shiftKey === 'morning' || input?.shiftKey === 'evening' ? 0.5 : 1;
+}
+
 function resolveKpiLevel(score, settings) {
   return settings.levels.find(level => score >= level.minimumScore) ||
     settings.levels[settings.levels.length - 1];
@@ -125,12 +129,19 @@ function calculateKpiMetrics(input, settings) {
   const treatsReceiptShare = treatsReceipts === null ? null : ratio(treatsReceipts, receipts);
   const qrShare = paymentBreakdownAvailable ? ratio(qr, revenue) : null;
 
+  const workFraction = shiftFraction(input);
+  const effectiveShiftRevenueTarget = settings === null
+    ? null
+    : settings.targets.shiftRevenue * workFraction;
+  const effectiveTreatsRevenueTarget = settings === null
+    ? null
+    : settings.targets.treatsRevenue * workFraction;
   const completeKpiInput = settings !== null && itemsSold !== null &&
     upsellReceipts !== null && treatsRevenue !== null && treatsReceipts !== null;
   const scores = completeKpiInput ? Object.freeze({
     shiftPlan: boundedScore(
       revenue,
-      settings.targets.shiftRevenue,
+      effectiveShiftRevenueTarget,
       settings.weights.shiftPlan
     ),
     averageCheck: boundedScore(
@@ -150,7 +161,7 @@ function calculateKpiMetrics(input, settings) {
     ),
     treats: boundedScore(
       (
-        treatsRevenue / settings.targets.treatsRevenue +
+        treatsRevenue / effectiveTreatsRevenueTarget +
         (treatsReceiptShare || 0) / settings.targets.treatsReceiptShare
       ) / 2,
       1,
@@ -180,6 +191,11 @@ function calculateKpiMetrics(input, settings) {
     scores,
     revenueSource: paymentBreakdownAvailable ? 'payment_breakdown' : 'historical_total',
     paymentBreakdownAvailable,
+    shiftFraction: workFraction,
+    effectiveTargets: settings === null ? null : Object.freeze({
+      shiftRevenue: effectiveShiftRevenueTarget,
+      treatsRevenue: effectiveTreatsRevenueTarget,
+    }),
     paymentBreakdown: paymentBreakdownAvailable ? Object.freeze({
       cash,
       acquiring,
@@ -198,5 +214,6 @@ module.exports = {
   requireNonNegativeNumber,
   resolveKpiLevel,
   resolveQrCoefficient,
+  shiftFraction,
   toMinorUnits,
 };

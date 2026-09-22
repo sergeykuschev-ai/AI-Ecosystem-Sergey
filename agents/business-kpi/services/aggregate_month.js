@@ -213,6 +213,29 @@ function aggregateMonth(shifts, options) {
   });
 }
 
+function halfShiftPolicyApplies(shift, settings) {
+  const policy = settings?.halfShiftPolicy;
+  if (!policy?.enabled || !['morning', 'evening'].includes(shift.shiftKey)) return false;
+  if (policy.from && shift.shiftDate < policy.from) return false;
+  if (policy.to && shift.shiftDate > policy.to) return false;
+  return true;
+}
+
+function halfShiftBonus(group, settings) {
+  const policy = settings?.halfShiftPolicy;
+  if (!policy?.enabled || typeof policy.bonusRate !== 'number') {
+    return Object.freeze({ revenue: 0, amount: 0 });
+  }
+  const eligible = group.shifts.filter(item => halfShiftPolicyApplies(item.shift, settings));
+  const revenue = eligible.length
+    ? sumMoney(eligible, item => item.metrics.revenue, 'halfShiftBonusRevenue')
+    : 0;
+  return Object.freeze({
+    revenue,
+    amount: Math.round(revenue * policy.bonusRate),
+  });
+}
+
 function sellerMissingFields(group) {
   const missing = [];
   if (group.shifts.some(item => item.shift.itemsSold === null || item.shift.itemsSold === undefined)) {
@@ -252,13 +275,17 @@ function aggregateSellers(monthAggregate, settings) {
     const itemsSold = sumNullableInteger(group.shifts, item => item.shift.itemsSold);
     const qr = sumNullableMoney(group.shifts, item => item.shift.qr, 'qr');
     const missingFields = sellerMissingFields(group);
+    const shiftUnits = group.shifts.reduce(
+      (sum, item) => sum + (item.metrics.shiftFraction || 1),
+      0
+    );
     const kpiComplete = Boolean(settings) && group.shifts.every(
       item => item.metrics.kpiScore !== null
     );
-    const averageKpi = kpiComplete ? group.shifts.reduce(
-      (sum, item) => sum + item.metrics.kpiScore,
+    const averageKpi = kpiComplete && shiftUnits > 0 ? group.shifts.reduce(
+      (sum, item) => sum + item.metrics.kpiScore * (item.metrics.shiftFraction || 1),
       0
-    ) / group.shifts.length : null;
+    ) / shiftUnits : null;
     const level = kpiComplete ? resolveKpiLevel(averageKpi, settings) : null;
     const qrCoefficient = kpiComplete
       ? resolveQrCoefficient(monthAggregate.qrShare, settings)
@@ -270,15 +297,20 @@ function aggregateSellers(monthAggregate, settings) {
       : (qrCoefficient === null ? null : Math.min(1, qrCoefficient));
     const shiftCoefficient = settings ? Math.min(
       1,
-      group.shifts.length / settings.targets.sellerShifts
+      shiftUnits / settings.targets.sellerShifts
     ) : null;
+    const extraHalfShiftBonus = halfShiftBonus(group, settings);
+    const kpiBonus = kpiComplete
+      ? Math.round(level.bonusBase * shiftCoefficient * appliedQrCoefficient)
+      : null;
 
     return Object.freeze({
       employeeId: group.employeeId,
       employeeName: group.employeeName,
       shiftsCount: group.shifts.length,
+      shiftUnits,
       revenue,
-      revenuePerShift: revenue / group.shifts.length,
+      revenuePerShift: shiftUnits > 0 ? revenue / shiftUnits : null,
       receipts,
       averageCheck: ratio(revenue, receipts),
       itemsSold,
@@ -287,15 +319,22 @@ function aggregateSellers(monthAggregate, settings) {
       qrShare: qr === null ? null : ratio(qr, revenue),
       averageKpi,
       kpiLevel: level?.name || null,
-      bonus: kpiComplete
-        ? Math.round(level.bonusBase * shiftCoefficient * appliedQrCoefficient)
-        : null,
+      bonus: kpiComplete ? kpiBonus + extraHalfShiftBonus.amount : null,
       bonusStatus: kpiComplete ? 'COMPLETE' : 'UNRESOLVED',
       bonusDetails: kpiComplete ? Object.freeze({
         bonusBase: level.bonusBase,
         shiftCoefficient,
         shiftNorm: settings.targets.sellerShifts,
+        shiftUnits,
         qrCoefficient: appliedQrCoefficient,
+        kpiBonus,
+        halfShiftBonus: extraHalfShiftBonus.amount,
+        halfShiftBonusRevenue: extraHalfShiftBonus.revenue,
+        halfShiftBonusRate: settings.halfShiftPolicy?.enabled
+          ? settings.halfShiftPolicy.bonusRate
+          : null,
+        halfShiftPolicyFrom: settings.halfShiftPolicy?.from || null,
+        halfShiftPolicyTo: settings.halfShiftPolicy?.to || null,
       }) : null,
       missingFields,
     });

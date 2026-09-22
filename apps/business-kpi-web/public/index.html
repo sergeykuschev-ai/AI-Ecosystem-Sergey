@@ -7,7 +7,7 @@
     <title>Business Portal · KPI</title>
     <link rel="stylesheet" href="/styles.css?v=training-minmax-1">
     <script src="/formatters.js" defer></script>
-    <script src="/app.js?v=training-minmax-1" defer></script>
+    <script src="/app.js?v=halfshift-kpi-1" defer></script>
   </head>
   <body class="auth-loading">
     <div class="app-shell">
@@ -842,7 +842,19 @@
                 </div>
               </fieldset>
               <fieldset>
-                <legend>B. Платежи</legend>
+                <legend>B. Полусмены</legend>
+                <div class="form-grid three">
+                  <label>Режим полусмен
+                    <select id="settings-half-shift-enabled"><option value="false">Выключен</option><option value="true">Включён</option></select>
+                  </label>
+                  <label>Действует с<input id="settings-half-shift-from" type="date"></label>
+                  <label>Действует по<input id="settings-half-shift-to" type="date"></label>
+                  <label>Доп. премия от личной выручки, %<input id="settings-half-shift-rate" class="percent-input" type="number" min="0" max="100" step="0.1"></label>
+                </div>
+                <p class="field-help">Для «Утро» и «Вечер»: план выручки и цель лакомств считаются как 50% полной смены; средний чек, товаров/чек, допродажи и QR не меняются. Дополнительная премия считается только в выбранный период.</p>
+              </fieldset>
+              <fieldset>
+                <legend>C. Платежи</legend>
                 <div class="form-grid three">
                   <label>Комиссия эквайринга, %<input id="settings-acquiring-fee" class="percent-input" type="number" min="0" max="100" step="0.01" required></label>
                   <label>Комиссия QR, %<input id="settings-qr-fee" class="percent-input" type="number" min="0" max="100" step="0.01" required></label>
@@ -852,7 +864,7 @@
                 </div>
               </fieldset>
               <fieldset>
-                <legend>C. Веса KPI (сумма = 100)</legend>
+                <legend>D. Веса KPI (сумма = 100)</legend>
                 <div class="form-grid three">
                   <label>Вес плана смены<input id="settings-weight-shift" type="number" min="0" max="100" step="1" required></label>
                   <label>Вес среднего чека<input id="settings-weight-average" type="number" min="0" max="100" step="1" required></label>
@@ -862,11 +874,11 @@
                 </div>
               </fieldset>
               <fieldset>
-                <legend>D. Уровни премирования</legend>
+                <legend>E. Уровни премирования</legend>
                 <div id="settings-levels"></div>
               </fieldset>
               <fieldset>
-                <legend>E. QR tiers</legend>
+                <legend>F. QR tiers</legend>
                 <div id="settings-qr-tiers"></div>
               </fieldset>
               <label>Действует с<input id="settings-effective-from" type="date" required></label>

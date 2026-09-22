@@ -458,7 +458,7 @@ function renderDashboardSellers(items) {
   for (const seller of items) {
     const row = document.createElement('tr');
     appendCell(row, seller.employeeName || NA_TEXT);
-    appendCell(row, formatInteger(seller.shiftsCount), 'numeric');
+    appendCell(row, formatNumber(seller.shiftUnits ?? seller.shiftsCount), 'numeric');
     appendCell(row, formatMoney(seller.revenuePerShift), 'numeric');
     appendCell(row, formatMoney(seller.averageCheck), 'numeric');
     appendCell(row, formatNumber(seller.itemsPerReceipt), 'numeric');
@@ -859,7 +859,7 @@ function renderSellers(items) {
     const row = document.createElement('tr');
     row.className = 'clickable-row';
     appendCell(row, seller.employeeName || NA_TEXT);
-    appendCell(row, formatInteger(seller.shiftsCount), 'numeric');
+    appendCell(row, formatNumber(seller.shiftUnits ?? seller.shiftsCount), 'numeric');
     appendCell(row, formatMoney(seller.revenuePerShift), 'numeric');
     appendCell(row, formatMoney(targets.shiftRevenue), 'numeric');
     appendCell(row, formatMoney(seller.averageCheck), 'numeric');
@@ -895,7 +895,7 @@ async function openSellerDetail(seller) {
     ? `${formatNumber(perf.currentKpi)} ${trendArrowHtml(perf.trendDirection, perf.kpiDelta)}`
     : kpiLabel(seller.averageKpi, seller.kpiLevel);
   const metricItems = [
-    ['Смены', formatInteger(seller.shiftsCount)],
+    ['Смены', formatNumber(seller.shiftUnits ?? seller.shiftsCount)],
     ['Выручка', formatMoney(seller.revenue)],
     ['На смену', formatMoney(seller.revenuePerShift)],
     ['Цель на смену', formatMoney(targets.shiftRevenue)],
@@ -1166,15 +1166,16 @@ function renderBonuses(data) {
   for (const item of data.items) {
     const row = document.createElement('tr');
     const shiftNormText = item.shiftNorm ? formatInteger(item.shiftNorm) : '—';
+    const shiftUnits = item.shiftUnits ?? item.shiftsCount;
     const shiftCoefficient = item.bonusDetails
       ? item.bonusDetails.shiftCoefficient
-      : (item.shiftNorm ? Math.min(1, item.shiftsCount / item.shiftNorm) : null);
+      : (item.shiftNorm ? Math.min(1, shiftUnits / item.shiftNorm) : null);
 
     appendCell(row, item.employeeName || NA_TEXT);
     appendCell(row, kpiLabel(item.averageKpi, item.kpiLevel), 'numeric');
     appendCell(row, item.kpiLevel || NA_TEXT);
     appendCell(row, item.bonusDetails ? formatMoney(item.bonusDetails.bonusBase) : NA_TEXT, 'numeric');
-    appendCell(row, `${formatInteger(item.shiftsCount)} / ${shiftNormText}`, 'numeric');
+    appendCell(row, `${formatNumber(shiftUnits)} / ${shiftNormText}`, 'numeric');
     appendCell(row, shiftCoefficient !== null ? formatNumber(shiftCoefficient) : NA_TEXT, 'numeric');
     appendCell(row, formatPercent(item.qrShare), 'numeric');
     appendCell(row, item.bonusDetails ? formatNumber(item.bonusDetails.qrCoefficient) : NA_TEXT, 'numeric');
@@ -1186,7 +1187,11 @@ function renderBonuses(data) {
     if (item.bonusStatus === 'ACCESS_DENIED') {
       detailsCell.textContent = 'Нет доступа';
     } else if (item.bonusDetails) {
-      const formula = `${formatMoney(item.bonusDetails.bonusBase)} × ${formatNumber(item.bonusDetails.shiftCoefficient)} × ${formatNumber(item.bonusDetails.qrCoefficient)} = ${formatMoney(item.bonus)}`;
+      const kpiFormula = `KPI: ${formatMoney(item.bonusDetails.bonusBase)} × ${formatNumber(item.bonusDetails.shiftCoefficient)} × ${formatNumber(item.bonusDetails.qrCoefficient)} = ${formatMoney(item.bonusDetails.kpiBonus ?? item.bonus)}`;
+      const halfShiftFormula = item.bonusDetails.halfShiftBonusRate !== null
+        ? ` Полусмены: ${formatMoney(item.bonusDetails.halfShiftBonusRevenue)} × ${formatPercent(item.bonusDetails.halfShiftBonusRate)} = ${formatMoney(item.bonusDetails.halfShiftBonus)}.`
+        : '';
+      const formula = `${kpiFormula}.${halfShiftFormula} Итого: ${formatMoney(item.bonus)}`;
       const expand = document.createElement('button');
       expand.type = 'button';
       expand.className = 'table-button';
@@ -1212,8 +1217,8 @@ function renderBonuses(data) {
       reason.className = 'bonus-unresolved-reason';
       if (item.missingFields?.length) {
         reason.textContent = `Нет данных: ${item.missingFields.map(russianMissingField).join(', ')}`;
-      } else if (item.shiftNorm && item.shiftsCount < item.shiftNorm) {
-        reason.textContent = `Мало смен: ${item.shiftsCount} из ${item.shiftNorm}`;
+      } else if (item.shiftNorm && shiftUnits < item.shiftNorm) {
+        reason.textContent = `Мало смен: ${formatNumber(shiftUnits)} из ${item.shiftNorm}`;
       } else {
         reason.textContent = 'Расчёт недоступен';
       }
@@ -1271,6 +1276,9 @@ function renderSettings(record) {
     ['Цель QR', settings.targets.qrShare === null ? NA_TEXT : formatPercent(settings.targets.qrShare)],
     ['Цель смены', formatMoney(settings.targets.shiftRevenue)],
     ['Норма смен продавца', formatInteger(settings.targets.sellerShifts)],
+    ['Полусмены', settings.halfShiftPolicy?.enabled
+      ? `${formatDate(settings.halfShiftPolicy.from)}–${formatDate(settings.halfShiftPolicy.to)}, +${formatPercent(settings.halfShiftPolicy.bonusRate)} от личной выручки`
+      : 'Выключены'],
     ['Комиссия эквайринга', formatPercent(settings.fees.acquiring)],
     ['Комиссия QR', formatPercent(settings.fees.qr)],
     ['QR входит в эквайринг', settings.payment.qrIncludedInAcquiring ? 'Да' : 'Нет'],
@@ -1300,6 +1308,12 @@ function populateSettingsEditor(settings) {
   element('settings-qr-share').value = percentInput(settings.targets.qrShare);
   element('settings-shift-revenue').value = settings.targets.shiftRevenue ?? '';
   element('settings-seller-shifts').value = settings.targets.sellerShifts ?? '';
+  element('settings-half-shift-enabled').value = String(settings.halfShiftPolicy?.enabled === true);
+  element('settings-half-shift-from').value = settings.halfShiftPolicy?.from || '';
+  element('settings-half-shift-to').value = settings.halfShiftPolicy?.to || '';
+  element('settings-half-shift-rate').value = settings.halfShiftPolicy
+    ? percentInput(settings.halfShiftPolicy.bonusRate)
+    : '';
   element('settings-acquiring-fee').value = percentInput(settings.fees.acquiring);
   element('settings-qr-fee').value = percentInput(settings.fees.qr);
   element('settings-qr-included').value = String(settings.payment.qrIncludedInAcquiring);
@@ -1367,6 +1381,12 @@ function readSettingsForm() {
       shiftRevenue: Number(element('settings-shift-revenue').value),
       sellerShifts: Number(element('settings-seller-shifts').value),
     },
+    halfShiftPolicy: {
+      enabled: element('settings-half-shift-enabled').value === 'true',
+      from: element('settings-half-shift-from').value || null,
+      to: element('settings-half-shift-to').value || null,
+      bonusRate: percentValue(element('settings-half-shift-rate').value) ?? 0,
+    },
     weights: {
       shiftPlan: Number(element('settings-weight-shift').value),
       averageCheck: Number(element('settings-weight-average').value),
@@ -1421,6 +1441,17 @@ function validateSettingsForm() {
   }
   checkFinite(s.targets.shiftRevenue, 'Цель смены');
   checkFinite(s.targets.sellerShifts, 'Норма смен продавца');
+
+  checkFinite(s.halfShiftPolicy.bonusRate, 'Полусмены: ставка премии');
+  if (Number.isFinite(s.halfShiftPolicy.bonusRate) && s.halfShiftPolicy.bonusRate > 1) {
+    errors.push('Полусмены: ставка премии не может превышать 100%.');
+  }
+  if (s.halfShiftPolicy.enabled && (!s.halfShiftPolicy.from || !s.halfShiftPolicy.to)) {
+    errors.push('Полусмены: укажите даты начала и окончания.');
+  }
+  if (s.halfShiftPolicy.from && s.halfShiftPolicy.to && s.halfShiftPolicy.from > s.halfShiftPolicy.to) {
+    errors.push('Полусмены: дата окончания не может быть раньше даты начала.');
+  }
 
   checkFinite(s.fees.acquiring, 'Комиссия эквайринга');
   if (Number.isFinite(s.fees.acquiring) && s.fees.acquiring > 1) {
@@ -1568,6 +1599,17 @@ function formatSettingsDiff(current, next) {
   }
   if (current.targets.sellerShifts !== next.targets.sellerShifts) {
     diffs.push(`Норма смен: ${fmt(current.targets.sellerShifts)} → ${fmt(next.targets.sellerShifts)}`);
+  }
+  const currentHalf = current.halfShiftPolicy || { enabled: false, from: null, to: null, bonusRate: 0 };
+  const nextHalf = next.halfShiftPolicy || { enabled: false, from: null, to: null, bonusRate: 0 };
+  if (currentHalf.enabled !== nextHalf.enabled) {
+    diffs.push(`Полусмены: ${currentHalf.enabled ? 'включены' : 'выключены'} → ${nextHalf.enabled ? 'включены' : 'выключены'}`);
+  }
+  if (currentHalf.from !== nextHalf.from || currentHalf.to !== nextHalf.to) {
+    diffs.push(`Период полусмен: ${fmt(currentHalf.from)}–${fmt(currentHalf.to)} → ${fmt(nextHalf.from)}–${fmt(nextHalf.to)}`);
+  }
+  if (currentHalf.bonusRate !== nextHalf.bonusRate) {
+    diffs.push(`Премия полусмен: ${fmtPct(currentHalf.bonusRate)} → ${fmtPct(nextHalf.bonusRate)}`);
   }
   if (current.fees.acquiring !== next.fees.acquiring) {
     diffs.push(`Комиссия эквайринга: ${fmtPct(current.fees.acquiring)} → ${fmtPct(next.fees.acquiring)}`);

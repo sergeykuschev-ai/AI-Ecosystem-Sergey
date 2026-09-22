@@ -374,6 +374,23 @@ function validateKpiSettings(settings) {
     requireNumber(level.bonusBase, `Уровень ${i + 1}: база премии`, 0);
   }
 
+  const halfShiftPolicy = settings.halfShiftPolicy;
+  if (halfShiftPolicy !== undefined && halfShiftPolicy !== null) {
+    if (typeof halfShiftPolicy.enabled !== 'boolean') {
+      errors.push('Полусмены: enabled должен быть true или false.');
+    }
+    requireNumber(halfShiftPolicy.bonusRate, 'Полусмены: ставка премии', 0, 1);
+    if (halfShiftPolicy.from && !DATE_PATTERN.test(halfShiftPolicy.from)) {
+      errors.push('Полусмены: дата начала должна быть YYYY-MM-DD.');
+    }
+    if (halfShiftPolicy.to && !DATE_PATTERN.test(halfShiftPolicy.to)) {
+      errors.push('Полусмены: дата окончания должна быть YYYY-MM-DD.');
+    }
+    if (halfShiftPolicy.from && halfShiftPolicy.to && halfShiftPolicy.from > halfShiftPolicy.to) {
+      errors.push('Полусмены: дата окончания не может быть раньше даты начала.');
+    }
+  }
+
   const tiers = settings.qrCoefficientTiers || [];
   let previousUpper = -1;
   for (let i = 0; i < tiers.length; i += 1) {
@@ -1084,6 +1101,7 @@ class BusinessKpiService {
         employeeId: seller.employeeId,
         employeeName: seller.employeeName,
         shiftsCount: seller.shiftsCount,
+        shiftUnits: seller.shiftUnits,
         shiftNorm,
         revenuePerShift: seller.revenuePerShift,
         averageKpi: seller.averageKpi,

@@ -175,6 +175,46 @@ test('seller aggregation reports shift norm and coefficient in bonus details', (
   assert.equal(seller.bonusDetails.shiftCoefficient, 0.4);
 });
 
+test('half shifts count as 0.5 and add the configured revenue bonus in the active period', () => {
+  const settings = {
+    ...MISKA_AUGUST_2026_SETTINGS,
+    halfShiftPolicy: {
+      enabled: true,
+      from: '2026-09-22',
+      to: '2026-09-25',
+      bonusRate: 0.015,
+    },
+  };
+  const month = aggregateMonth([
+    shift({
+      shiftDate: '2026-09-22',
+      shiftKey: 'morning',
+      cash: 6000,
+      acquiring: 6000,
+      qr: 1200,
+      receipts: 10,
+      itemsSold: 25,
+      upsellReceipts: 3,
+      treatsRevenue: 600,
+      treatsReceipts: 2,
+    }),
+  ], {
+    year: 2026,
+    month: 9,
+    plan: 800000,
+    settings,
+    asOf: new Date('2026-09-22T00:00:00Z'),
+  });
+  const [seller] = aggregateSellers(month, settings);
+
+  assert.equal(seller.shiftsCount, 1);
+  assert.equal(seller.shiftUnits, 0.5);
+  assert.equal(seller.bonusDetails.shiftCoefficient, 0.5 / 15);
+  assert.equal(seller.bonusDetails.halfShiftBonusRevenue, 12000);
+  assert.equal(seller.bonusDetails.halfShiftBonus, 180);
+  assert.equal(seller.bonus, seller.bonusDetails.kpiBonus + 180);
+});
+
 test('seller aggregation exposes missing fields instead of zero bonus for partial data', () => {
   const month = aggregateMonth([
     shift({ itemsSold: null, upsellReceipts: null }),
