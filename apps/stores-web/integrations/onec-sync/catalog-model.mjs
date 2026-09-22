@@ -5,10 +5,10 @@ function slugify(value) {
 function parseGroupTree(xml) {
   const result = [];
   const stack = [];
-  const token = /<Группа>|<\/Группа>|<Ид>([^<]+)<\/Ид>|<Наименование>([^<]+)<\/Наименование>/g;
+  const token = /<Группа(?:\s[^>]*)?>|<\/Группа>|<Ид>([^<]+)<\/Ид>|<Наименование>([^<]+)<\/Наименование>/g;
   let match;
   while ((match = token.exec(xml))) {
-    if (match[0] === "<Группа>") {
+    if (match[0].startsWith("<Группа")) {
       stack.push({ externalId: "", name: "", parentExternalId: stack.at(-1)?.externalId || null });
     } else if (match[0] === "</Группа>") {
       const item = stack.pop();
@@ -28,13 +28,22 @@ function parseGroupTree(xml) {
 export function buildCatalogModel(xml, parsed) {
   const tree = parseGroupTree(xml);
   const hierarchy = new Map(tree.map((item) => [item.externalId, item]));
-  const categories = parsed.groups.map((group, index) => ({
-    externalId: group.externalId,
-    parentExternalId: hierarchy.get(group.externalId)?.parentExternalId ?? null,
-    name: group.name,
-    slug: slugify(group.name) || group.externalId,
-    sortOrder: index,
-  }));
+  const usedSlugs = new Set();
+  const categories = parsed.groups.map((group, index) => {
+    const baseSlug = slugify(group.name) || group.externalId;
+    let slug = baseSlug;
+    for (let suffix = 2; usedSlugs.has(slug); suffix++) {
+      slug = `${baseSlug}-${suffix}`;
+    }
+    usedSlugs.add(slug);
+    return {
+      externalId: group.externalId,
+      parentExternalId: hierarchy.get(group.externalId)?.parentExternalId ?? null,
+      name: group.name,
+      slug,
+      sortOrder: index,
+    };
+  });
   const known = new Set(categories.map((item) => item.externalId));
   const products = parsed.products.map((product) => ({
     ...product,
