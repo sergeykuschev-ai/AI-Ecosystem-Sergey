@@ -160,6 +160,32 @@ test('downloaded draft does not count as purchased until owner confirms sending'
   });
 });
 
+test('draft confirmation rechecks exact duplicate risk at apply time', () => {
+  withService(service => {
+    const first = service.recordOrder({
+      runId: 'run-a', supplier: 'Валта', order: fixtureOrder(1000),
+      orderedAt: '2026-09-17T10:00:00.000Z', initialStatus: 'DRAFT',
+    });
+    const second = service.recordOrder({
+      runId: 'run-b', supplier: 'Валта', order: fixtureOrder(1000),
+      orderedAt: '2026-09-17T10:01:00.000Z', initialStatus: 'DRAFT',
+    });
+    service.changeOrderStatus(
+      first.order.orderId, 'ORDERED', '2026-09-17T11:00:00.000Z'
+    );
+    assert.throws(
+      () => service.changeOrderStatus(
+        second.order.orderId, 'ORDERED', '2026-09-17T11:01:00.000Z'
+      ),
+      error => error?.code === 'PURCHASE_LEDGER_DUPLICATE_CONFIRMATION'
+    );
+    assert.equal(
+      service.listOrders().find(order => order.orderId === second.order.orderId).status,
+      'DRAFT'
+    );
+  });
+});
+
 test('confirmed order cannot be silently rewritten by a later download from same run', () => {
   withService(service => {
     service.recordOrder({

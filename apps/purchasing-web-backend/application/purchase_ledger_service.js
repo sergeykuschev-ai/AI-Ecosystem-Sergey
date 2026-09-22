@@ -445,6 +445,21 @@ class PurchaseLedgerService {
         `Переход ${current.status} → ${status} запрещён.`
       );
     }
+    if (current.status === 'DRAFT' && status === 'ORDERED') {
+      const duplicateRisk = this.findDuplicateRisk({
+        runId: current.runId,
+        supplier: current.supplier,
+        order: { rows: current.items },
+        asOf: when,
+      });
+      if (duplicateRisk.exactDuplicate) {
+        throw new PurchaseLedgerError(
+          'PURCHASE_LEDGER_DUPLICATE_CONFIRMATION',
+          'Подтверждение заблокировано: после подготовки файла уже появился ' +
+            'идентичный активный заказ. Обновите расчёт перед отправкой.'
+        );
+      }
+    }
     ledger.orders[index] = {
       ...current,
       status,
