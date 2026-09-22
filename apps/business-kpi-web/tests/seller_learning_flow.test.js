@@ -547,3 +547,54 @@ test('two failed KPI cycles stop automatic sales rotation and escalate to owner'
     item.libraryCode === 'SALE-02' && item.evaluated >= 1
   ));
 });
+
+test('automatic shift training follows MinMax assortment priority and embeds current SKU', async () => {
+  const { store, actor } = fixture();
+  const employee = DEV_EMPLOYEES.find(
+    item => item.employeeCode === 'seller-kapitanova'
+  );
+  const minMaxCatalog = {
+    totalItems: 1,
+    fileUpdatedAt: '2026-09-22T00:00:00.000Z',
+    items: [{
+      article: 'CRAFT-1',
+      name: 'Сухой корм CRAFTIA HARMONA для стерилизованных кошек 1,4 кг',
+      supplier: 'Зооград',
+      abc: 'A',
+      xyz: 'X',
+      price: 1500,
+      sales: 25,
+      freeStock: 8,
+      inTransit: 4,
+      supplierOrderQty: 4,
+    }],
+  };
+  let uuidCounter = 800;
+  const service = new SellerTasksService({
+    store,
+    now: () => new Date(NOW),
+    minMaxPath: '/fake/minmax.xlsx',
+    minMaxCatalogLoader: async () => minMaxCatalog,
+    uuid: () => '93000000-0000-4000-8000-' +
+      String(uuidCounter++).padStart(12, '0'),
+  });
+  const shift = await store.createShift(
+    syntheticKpiShift(employee, '2026-09-21', 901)
+  );
+
+  const result = await service.autoAssignForShift(shift);
+  const knowledge = result.created.find(item => item.taskType === 'KNOWLEDGE');
+  assert.ok(knowledge);
+  assert.equal(knowledge.libraryCode, 'KNOW-22');
+  assert.match(knowledge.reason, /Приоритет Min\/Max/);
+  assert.match(knowledge.bitrixText, /CRAFTIA HARMONA/);
+  assert.match(knowledge.bitrixText, /Актуально по Min\/Max/);
+
+  const library = await service.listLibrary(actor);
+  const craftia = library.items.find(item => item.code === 'KNOW-22');
+  const premium = library.items.find(item => item.code === 'KNOW-25');
+  assert.equal(craftia.minMax.matchedItems, 1);
+  assert.deepEqual(craftia.productExamples, [minMaxCatalog.items[0].name]);
+  assert.equal(premium.minMax.matchedItems, 0);
+  assert.deepEqual(premium.productExamples, []);
+});

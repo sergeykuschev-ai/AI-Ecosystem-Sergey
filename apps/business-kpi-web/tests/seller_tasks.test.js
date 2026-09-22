@@ -642,3 +642,59 @@ test('approved proposals expose library codes for the planner rotation window', 
   assert.ok(items.every(item => item.status === 'APPROVED'));
   assert.ok(items.some(item => item.libraryCode));
 });
+
+test('MinMax assortment priority reorders fresh knowledge without breaking rotation', () => {
+  const first = buildTaskProposals({
+    sellers: [seller('e1', 'Капитанова')],
+    targets: null,
+    performanceItems: [],
+    historyEntries: [],
+    shiftDate: SHIFT_DATE,
+    today: TODAY,
+    library: SELLER_TASK_LIBRARY,
+    knowledgeRotationPriorityByEmployee: {
+      e1: ['KNOW-22', 'KNOW-06'],
+    },
+  });
+  const firstKnowledge = first.find(item => item.taskType === 'KNOWLEDGE');
+  assert.equal(firstKnowledge.libraryCode, 'KNOW-22');
+  assert.match(firstKnowledge.reason, /Min\/Max/);
+
+  const second = buildTaskProposals({
+    sellers: [seller('e1', 'Капитанова')],
+    targets: null,
+    performanceItems: [],
+    historyEntries: [historyEntry({
+      libraryCode: 'KNOW-22',
+      taskType: 'KNOWLEDGE',
+      status: 'COMPLETED',
+    })],
+    shiftDate: SHIFT_DATE,
+    today: TODAY,
+    library: SELLER_TASK_LIBRARY,
+    knowledgeRotationPriorityByEmployee: {
+      e1: ['KNOW-22', 'KNOW-06'],
+    },
+  });
+  assert.equal(
+    second.find(item => item.taskType === 'KNOWLEDGE').libraryCode,
+    'KNOW-06'
+  );
+});
+
+test('certification review priority still outranks MinMax assortment priority', () => {
+  const proposals = buildTaskProposals({
+    sellers: [seller('e1', 'Капитанова')],
+    targets: null,
+    performanceItems: [],
+    historyEntries: [],
+    shiftDate: SHIFT_DATE,
+    today: TODAY,
+    library: SELLER_TASK_LIBRARY,
+    knowledgePriorityByEmployee: { e1: ['KNOW-03'] },
+    knowledgeRotationPriorityByEmployee: { e1: ['KNOW-22', 'KNOW-06'] },
+  });
+  const knowledge = proposals.find(item => item.taskType === 'KNOWLEDGE');
+  assert.equal(knowledge.libraryCode, 'KNOW-03');
+  assert.match(knowledge.reason, /аттестации/);
+});

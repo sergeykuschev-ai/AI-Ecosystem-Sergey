@@ -103,12 +103,27 @@ function resolveFirstAvailable(codes, blockedCodes, libraryByCode) {
   return null;
 }
 
-function pickRotationCode(type, blockedCodes, historyEntries, todayText, libraryByCode) {
+function pickRotationCode(
+  type,
+  blockedCodes,
+  historyEntries,
+  todayText,
+  libraryByCode,
+  priorityCodes = []
+) {
   const knowledgeOrder = new Map(KNOWLEDGE_PATH.map((code, index) => [code, index]));
+  const priorityOrder = new Map(priorityCodes.map((code, index) => [code, index]));
   const candidates = [...libraryByCode.values()]
     .filter(task => task.type === type)
     .sort((left, right) => {
       if (type !== TASK_TYPES.KNOWLEDGE) return left.code.localeCompare(right.code);
+      const leftPriority = priorityOrder.get(left.code);
+      const rightPriority = priorityOrder.get(right.code);
+      if (leftPriority !== undefined || rightPriority !== undefined) {
+        if (leftPriority === undefined) return 1;
+        if (rightPriority === undefined) return -1;
+        if (leftPriority !== rightPriority) return leftPriority - rightPriority;
+      }
       const leftOrder = knowledgeOrder.get(left.code) ?? Number.MAX_SAFE_INTEGER;
       const rightOrder = knowledgeOrder.get(right.code) ?? Number.MAX_SAFE_INTEGER;
       return leftOrder - rightOrder || left.code.localeCompare(right.code);
@@ -144,10 +159,25 @@ function buildReason(task, performanceItem, signal) {
   if (signal.kind === 'review') {
     return 'Повторение по итогам аттестации: тема с ошибками получает приоритет перед обычной ротацией.';
   }
+  if (signal.kind === 'assortment') {
+    return 'Приоритет Min/Max: тема связана с текущим ассортиментом «Миски» и поднята выше обычной учебной ротации.';
+  }
   return 'Критичных проблем нет — назначена очередная учебная тема для развития знаний о товаре.';
 }
 
-function proposeForSeller({ employeeId, employeeName, performanceItem, targets, historyEntries, shiftDate, todayText, libraryByCode, knowledgePriorityCodes = [], salesPriorityCodes = [] }) {
+function proposeForSeller({
+  employeeId,
+  employeeName,
+  performanceItem,
+  targets,
+  historyEntries,
+  shiftDate,
+  todayText,
+  libraryByCode,
+  knowledgePriorityCodes = [],
+  knowledgeRotationPriorityCodes = [],
+  salesPriorityCodes = [],
+}) {
   const blocked = recentCodes(historyEntries, todayText);
   const proposals = [];
   const signals = [];
@@ -193,16 +223,30 @@ function proposeForSeller({ employeeId, employeeName, performanceItem, targets, 
     libraryByCode
   );
   const knowledgeCode = reviewKnowledgeCode ||
-    pickRotationCode(TASK_TYPES.KNOWLEDGE, blocked, historyEntries, todayText, libraryByCode);
+    pickRotationCode(
+      TASK_TYPES.KNOWLEDGE,
+      blocked,
+      historyEntries,
+      todayText,
+      libraryByCode,
+      knowledgeRotationPriorityCodes
+    );
   if (knowledgeCode) {
     const task = libraryByCode.get(knowledgeCode);
+    const assortmentPriority =
+      !reviewKnowledgeCode &&
+      knowledgeRotationPriorityCodes.includes(knowledgeCode);
     proposals.push({
       employeeId,
       employeeName,
       libraryCode: knowledgeCode,
       taskType: task.type,
       reason: buildReason(task, performanceItem, {
-        kind: reviewKnowledgeCode ? 'review' : 'knowledge',
+        kind: reviewKnowledgeCode
+          ? 'review'
+          : assortmentPriority
+            ? 'assortment'
+            : 'knowledge',
       }),
     });
   }
@@ -228,6 +272,7 @@ function buildTaskProposals(options) {
     today,
     library,
     knowledgePriorityByEmployee = {},
+    knowledgeRotationPriorityByEmployee = {},
     salesPriorityByEmployee = {},
   } = options;
 
@@ -258,6 +303,8 @@ function buildTaskProposals(options) {
       todayText,
       libraryByCode,
       knowledgePriorityCodes: knowledgePriorityByEmployee[seller.id] || [],
+      knowledgeRotationPriorityCodes:
+        knowledgeRotationPriorityByEmployee[seller.id] || [],
       salesPriorityCodes: salesPriorityByEmployee[seller.id] || [],
     }));
   }

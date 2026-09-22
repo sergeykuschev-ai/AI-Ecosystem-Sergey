@@ -7,6 +7,7 @@ const {
   decodeEntities,
   parseMinMaxWorkbook,
   matchesForModule,
+  trainingModulePriority,
   applyMinMaxToTrainingTask,
 } = require('../application/seller_minmax_catalog');
 
@@ -121,4 +122,28 @@ test('current MISKA Min/Max matcher recognizes core brand assortment shapes', ()
   assert.equal(matchesForModule(parsed, 'KNOW-22').length, 1);
   assert.equal(matchesForModule(parsed, 'KNOW-23').length, 1);
   assert.equal(matchesForModule(parsed, 'KNOW-24').length, 1);
+});
+
+test('training module priority favors current in-stock ABC and incoming assortment', () => {
+  const parsed = parseMinMaxWorkbook(workbook([
+    product('Влажный корм Мнямс A 85 г', {
+      abc: 'A', freeStock: 10, sales: 20, orderQty: 5,
+    }),
+    product('Влажный корм Мнямс B 85 г', {
+      abc: 'B', freeStock: 5, sales: 10,
+    }),
+    product('Сухой корм CRAFTIA HARMONA 1,4 кг', {
+      abc: 'C', freeStock: 1, sales: 2,
+    }),
+    product('Inspector Mini', {
+      abc: 'A', freeStock: 0, sales: 50, orderQty: 0,
+    }),
+  ]));
+  const priority = trainingModulePriority(parsed);
+  assert.deepEqual(priority.map(item => item.moduleCode), [
+    'KNOW-06', 'KNOW-22', 'KNOW-09',
+  ]);
+  assert.equal(priority[0].inStockItems, 2);
+  assert.equal(priority[0].highPriorityItems, 2);
+  assert.equal(priority[0].incomingItems, 1);
 });

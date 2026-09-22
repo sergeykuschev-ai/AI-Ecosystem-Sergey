@@ -134,6 +134,47 @@ function minMaxTaskContext(catalog, moduleCode, limit = DEFAULT_LIMIT) {
   };
 }
 
+
+function trainingModulePriority(catalog) {
+  if (!catalog?.items) return [];
+  const rows = [];
+  for (const [moduleCode, matcher] of Object.entries(MODULE_MATCHERS)) {
+    const matched = catalog.items.filter(matcher);
+    if (!matched.length) continue;
+    const inStockItems = matched.filter(item => (item.freeStock || 0) > 0).length;
+    const highPriorityItems = matched.filter(item =>
+      ['A', 'B'].includes(String(item.abc || '').toUpperCase())
+    ).length;
+    const incomingItems = matched.filter(item =>
+      (item.inTransit || 0) > 0 || (item.supplierOrderQty || 0) > 0
+    ).length;
+    const totalSales = matched.reduce((sum, item) => sum + (item.sales || 0), 0);
+    const totalFreeStock = matched.reduce(
+      (sum, item) => sum + Math.max(0, item.freeStock || 0),
+      0
+    );
+    rows.push({
+      moduleCode,
+      matchedItems: matched.length,
+      inStockItems,
+      highPriorityItems,
+      incomingItems,
+      totalSales: Math.round(totalSales * 100) / 100,
+      totalFreeStock: Math.round(totalFreeStock * 100) / 100,
+    });
+  }
+
+  return rows.sort((left, right) =>
+    (right.inStockItems > 0 ? 1 : 0) - (left.inStockItems > 0 ? 1 : 0) ||
+    right.highPriorityItems - left.highPriorityItems ||
+    right.incomingItems - left.incomingItems ||
+    right.totalSales - left.totalSales ||
+    right.totalFreeStock - left.totalFreeStock ||
+    right.matchedItems - left.matchedItems ||
+    left.moduleCode.localeCompare(right.moduleCode)
+  );
+}
+
 let cache = null;
 
 async function loadMinMaxCatalog(filePath, options = {}) {
@@ -182,6 +223,7 @@ module.exports = {
   parseMinMaxWorkbook,
   matchesForModule,
   minMaxTaskContext,
+  trainingModulePriority,
   loadMinMaxCatalog,
   applyMinMaxToTrainingTask,
 };

@@ -30,6 +30,7 @@ const {
 const {
   loadMinMaxCatalog,
   applyMinMaxToTrainingTask,
+  trainingModulePriority,
 } = require('./seller_minmax_catalog');
 
 const PROPOSAL_STATUSES = Object.freeze({
@@ -306,6 +307,13 @@ function buildBitrixText(proposal) {
   const lines = [`Задача: ${proposal.title}`, ''];
   if (proposal.materialText) {
     lines.push(proposal.materialText, '');
+    if (Array.isArray(proposal.productExamples) && proposal.productExamples.length) {
+      lines.push('Актуально по Min/Max «Миски»:');
+      proposal.productExamples.slice(0, 5).forEach((example, index) => {
+        lines.push((index + 1) + '. ' + example);
+      });
+      lines.push('');
+    }
     if (Array.isArray(proposal.questions) && proposal.questions.length) {
       lines.push('Ответь:');
       proposal.questions.forEach((question, index) => {
@@ -338,6 +346,18 @@ class SellerTasksService {
     this.minMaxCatalogLoader = options.minMaxCatalogLoader || loadMinMaxCatalog;
   }
 
+  async currentMinMaxCatalog() {
+    if (!this.minMaxPath) return null;
+    try {
+      return await this.minMaxCatalogLoader(this.minMaxPath);
+    } catch (error) {
+      console.error('MISKA Min/Max training catalog unavailable', {
+        errorMessage: error.message,
+      });
+      return null;
+    }
+  }
+
   async listLibrary(actor) {
     requirePermission(actor, PERMISSIONS.LEARNING_READ);
     const items = await this.store.listLibraryTasks();
@@ -345,16 +365,7 @@ class SellerTasksService {
       ? items
       : items.filter(task => task.taskType === 'KNOWLEDGE');
     const todayText = shiftDateText(this.now());
-    let minMaxCatalog = null;
-    if (this.minMaxPath) {
-      try {
-        minMaxCatalog = await this.minMaxCatalogLoader(this.minMaxPath);
-      } catch (error) {
-        console.error('MISKA Min/Max training catalog unavailable', {
-          errorMessage: error.message,
-        });
-      }
-    }
+    const minMaxCatalog = await this.currentMinMaxCatalog();
     return {
       minMax: minMaxCatalog ? {
         source: 'MINMAX',
@@ -878,7 +889,7 @@ class SellerTasksService {
     const windowEndDate = new Date(Date.UTC(year, month, 0))
       .toISOString().slice(0, 10);
 
-    const [settingsRecord, library, existing, shifts, attempts] = await Promise.all([
+    const [settingsRecord, library, existing, shifts, attempts, minMaxCatalog] = await Promise.all([
       this.store.getEffectiveSettings(shift.storeId, shiftDate),
       this.store.listLibraryTasks(),
       this.store.listProposals({
@@ -899,6 +910,7 @@ class SellerTasksService {
         employeeId: employee.id,
         limit: 5000,
       }),
+      this.currentMinMaxCatalog(),
     ]);
 
     const performance = buildSellerPerformance({
@@ -975,6 +987,8 @@ class SellerTasksService {
       ...weakModules.map(item => item.code),
       ...repeatDue.map(item => item.code),
     ];
+    const assortmentPriority = trainingModulePriority(minMaxCatalog);
+    const assortmentPriorityCodes = assortmentPriority.map(item => item.moduleCode);
     const alternateSalesCodes = salesImpact?.status === 'NO_IMPROVEMENT'
       ? (KPI_TASK_MAP[salesImpact.metricKey] || [])
         .filter(code => code !== salesImpact.libraryCode)
@@ -989,6 +1003,9 @@ class SellerTasksService {
       library,
       knowledgePriorityByEmployee: {
         [employee.id]: knowledgePriority,
+      },
+      knowledgeRotationPriorityByEmployee: {
+        [employee.id]: assortmentPriorityCodes,
       },
       salesPriorityByEmployee: {
         [employee.id]: alternateSalesCodes,
@@ -1031,6 +1048,23 @@ class SellerTasksService {
             ' дн. после успешной мини-проверки.',
         };
       }
+      const assortmentRow = assortmentPriority.find(
+        item => item.moduleCode === proposal.libraryCode
+      );
+      if (proposal.taskType === 'KNOWLEDGE' &&
+          assortmentRow &&
+          !carryover.knowledge &&
+          !weakModules.some(item => item.code === proposal.libraryCode) &&
+          !repeatDue.some(item => item.code === proposal.libraryCode)) {
+        return {
+          ...proposal,
+          reason:
+            'Приоритет Min/Max: в теме сейчас ' +
+            assortmentRow.inStockItems + ' поз. в наличии, ' +
+            assortmentRow.highPriorityItems + ' поз. ABC A/B, ' +
+            assortmentRow.incomingItems + ' поз. в пути/заказе.',
+        };
+      }
       return proposal;
     });
 
@@ -1054,16 +1088,23 @@ class SellerTasksService {
       if (occupiedTypes.has(proposal.taskType)) continue;
       const task = libraryByCode.get(proposal.libraryCode);
       if (!task) continue;
+      const assignmentTask = proposal.taskType === 'KNOWLEDGE'
+        ? applyMinMaxToTrainingTask(
+          enrichTrainingTask(task, todayText),
+          minMaxCatalog
+        )
+        : task;
       const key = proposal.employeeId + '|' + proposal.shiftDate + '|' + proposal.libraryCode;
       if (existingKeys.has(key)) continue;
       const timestamp = this.now().toISOString();
       try {
         const bitrixText = buildBitrixText({
-          title: task.title,
-          description: task.description,
-          expectedResult: task.expectedResult,
-          materialText: task.materialText,
-          questions: task.questions,
+          title: assignmentTask.title,
+          description: assignmentTask.description,
+          expectedResult: assignmentTask.expectedResult,
+          materialText: assignmentTask.materialText,
+          questions: assignmentTask.questions,
+          productExamples: assignmentTask.productExamples,
         });
         const record = await this.store.createProposal({
           id: this.uuid(),
