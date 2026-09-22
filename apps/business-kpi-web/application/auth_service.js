@@ -72,6 +72,19 @@ class AuthService {
     return this.store.updateUserPasswordHash(userId, passwordHash);
   }
 
+  async changePassword(userId, currentPassword, newPassword) {
+    if (typeof newPassword !== 'string' || newPassword.length < 12) {
+      throw new ApplicationError('VALIDATION_ERROR', 'Новый пароль должен содержать минимум 12 символов.', 422);
+    }
+    const user = await this.store.getUserById(userId);
+    if (!user || !user.active || !await verifyPassword(currentPassword, user.passwordHash)) {
+      throw new ApplicationError('AUTH_INVALID_CREDENTIALS', 'Текущий пароль указан неверно.', 401);
+    }
+    await this.setPassword(userId, newPassword);
+    await this.logoutAll(userId);
+    return { changed: true };
+  }
+
   async authenticate({ externalId, password, ipAddress, userAgent }) {
     const user = await this.store.getUserByExternalId(externalId);
     if (!user || !user.active) {

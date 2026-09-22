@@ -270,6 +270,18 @@ function createRouter(options) {
         return;
       }
 
+      if (request.method === 'POST' && url.pathname === '/api/business-kpi/auth/change-password') {
+        const actor = await auth.requireActor(request);
+        const body = await readJson(request);
+        if (!body.currentPassword || !body.newPassword) {
+          throw new ApplicationError('VALIDATION_ERROR', 'Текущий и новый пароль обязательны.', 422);
+        }
+        await authService.changePassword(actor.id, body.currentPassword, body.newPassword);
+        auth.clearSessionCookies(response);
+        success(response, { changed: true });
+        return;
+      }
+
       if (request.method === 'GET' &&
           url.pathname === '/api/business-kpi/reference-data') {
         const actor = await auth.requireActor(request);

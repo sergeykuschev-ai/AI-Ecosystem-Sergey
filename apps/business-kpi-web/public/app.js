@@ -3581,6 +3581,36 @@ function renderSidebar() {
   });
 }
 
+function openPasswordDialog() {
+  element('password-form').reset();
+  element('password-error').hidden = true;
+  element('password-dialog').showModal();
+}
+
+async function changePassword(event) {
+  event.preventDefault();
+  const currentPassword = element('current-password').value;
+  const newPassword = element('new-password').value;
+  const confirmPassword = element('confirm-password').value;
+  const errorBox = element('password-error');
+  errorBox.hidden = true;
+  if (newPassword !== confirmPassword) {
+    errorBox.textContent = 'Новые пароли не совпадают.';
+    errorBox.hidden = false;
+    return;
+  }
+  try {
+    await api('/api/business-kpi/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    window.location.replace('/login.html?passwordChanged=1');
+  } catch (error) {
+    errorBox.textContent = error.message || 'Не удалось сменить пароль.';
+    errorBox.hidden = false;
+  }
+}
+
 async function logout() {
   try {
     await api('/api/business-kpi/auth/logout', { method: 'POST' });
@@ -3707,6 +3737,10 @@ element('commit-import').addEventListener('click', commitImport);
 element('export-month').addEventListener('click', exportSelectedMonth);
 element('close-shift-summary').addEventListener('click', () => element('shift-summary-dialog').close());
 element('shift-summary-ok').addEventListener('click', () => element('shift-summary-dialog').close());
+element('change-password-button').addEventListener('click', openPasswordDialog);
+element('close-password-form').addEventListener('click', () => element('password-dialog').close());
+element('cancel-password-form').addEventListener('click', () => element('password-dialog').close());
+element('password-form').addEventListener('submit', changePassword);
 element('logout-button').addEventListener('click', logout);
 for (const button of document.querySelectorAll('[data-performance-mode]')) {
   button.addEventListener('click', async () => {

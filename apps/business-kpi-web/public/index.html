@@ -49,6 +49,7 @@
           <div class="profile" aria-label="Текущая роль" id="user-profile" hidden>
             <span class="avatar" aria-hidden="true" id="user-avatar">В</span>
             <span><strong id="user-name">Владелец</strong><small id="user-role">Администратор</small></span>
+            <button class="secondary-button" id="change-password-button" type="button">Сменить пароль</button>
             <button class="secondary-button" id="logout-button" type="button">Выйти</button>
           </div>
         </header>
@@ -996,6 +997,28 @@
         </section>
       </main>
     </div>
+
+    <dialog id="password-dialog">
+      <form id="password-form" novalidate>
+        <div class="dialog-heading">
+          <div><p class="eyebrow">Профиль</p><h2>Сменить пароль</h2></div>
+          <button class="icon-button" id="close-password-form" type="button" aria-label="Закрыть">×</button>
+        </div>
+        <fieldset>
+          <div class="form-grid">
+            <label>Текущий пароль<input id="current-password" type="password" autocomplete="current-password" required></label>
+            <label>Новый пароль<input id="new-password" type="password" minlength="12" autocomplete="new-password" required></label>
+            <label>Повторите новый пароль<input id="confirm-password" type="password" minlength="12" autocomplete="new-password" required></label>
+          </div>
+        </fieldset>
+        <p class="inline-error" id="password-error" role="alert" hidden></p>
+        <div class="dialog-actions">
+          <span></span>
+          <button class="secondary-button" id="cancel-password-form" type="button">Отмена</button>
+          <button class="primary-button" type="submit">Сохранить пароль</button>
+        </div>
+      </form>
+    </dialog>
 
     <dialog id="shift-dialog">
       <form id="shift-form" novalidate>
