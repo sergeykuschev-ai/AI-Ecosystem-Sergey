@@ -1,34 +1,44 @@
 function slugify(value) {
   return value.toLowerCase().replaceAll("ё", "е").replace(/[^a-zа-я0-9]+/giu, "-").replace(/^-+|-+$/g, "");
 }
-function categoryParents(xml) {
-  const result = new Map();
-  const token = /<(\/?)Группа(?:\s[^>]*)?>|<Ид>([^<]+)<\/Ид>|<Наименование>([^<]+)<\/Наименование>/g;
+
+function parseGroupTree(xml) {
+  const result = [];
   const stack = [];
+  const token = /<Группа>|<\/Группа>|<Ид>([^<]+)<\/Ид>|<Наименование>([^<]+)<\/Наименование>/g;
   let match;
   while ((match = token.exec(xml))) {
-    if (match[0].startsWith("<Группа")) stack.push({ id: "", name: "", parentId: stack.at(-1)?.id || null });
-    else if (match[0].startsWith("</Группа")) {
+    if (match[0] === "<Группа>") {
+      stack.push({ externalId: "", name: "", parentExternalId: stack.at(-1)?.externalId || null });
+    } else if (match[0] === "</Группа>") {
       const item = stack.pop();
-      if (item?.id && item.name) result.set(item.id, item);
-    } else if (stack.length && match[2] && !stack.at(-1).id) stack.at(-1).id = match[2].trim();
-    else if (stack.length && match[3] && !stack.at(-1).name) stack.at(-1).name = match[3].trim();
+      if (item?.externalId && item.name) result.push(item);
+    } else if (stack.length && match[1] && !stack.at(-1).externalId) {
+      stack.at(-1).externalId = match[1].trim();
+      for (let i = stack.length - 2; i >= 0; i--) {
+        if (stack[i].externalId) { stack.at(-1).parentExternalId = stack[i].externalId; break; }
+      }
+    } else if (stack.length && match[2] && !stack.at(-1).name) {
+      stack.at(-1).name = match[2].trim();
+    }
   }
   return result;
 }
+
 export function buildCatalogModel(xml, parsed) {
-  const hierarchy = categoryParents(xml);
-  const categories = parsed.groups.map((g, index) => ({
-    externalId: g.externalId,
-    parentExternalId: hierarchy.get(g.externalId)?.parentId ?? null,
-    name: g.name,
-    slug: slugify(g.name) || g.externalId,
+  const tree = parseGroupTree(xml);
+  const hierarchy = new Map(tree.map((item) => [item.externalId, item]));
+  const categories = parsed.groups.map((group, index) => ({
+    externalId: group.externalId,
+    parentExternalId: hierarchy.get(group.externalId)?.parentExternalId ?? null,
+    name: group.name,
+    slug: slugify(group.name) || group.externalId,
     sortOrder: index,
   }));
-  const known = new Set(categories.map((c) => c.externalId));
-  const products = parsed.products.map((p) => ({
-    ...p,
-    categoryExternalId: p.groupIds.find((id) => known.has(id)) ?? null,
+  const known = new Set(categories.map((item) => item.externalId));
+  const products = parsed.products.map((product) => ({
+    ...product,
+    categoryExternalId: product.groupIds.find((id) => known.has(id)) ?? null,
   }));
   return { categories, products };
 }
