@@ -6967,6 +6967,7 @@
     }
 
     const purchaseOrderStatusLabels = Object.freeze({
+      DRAFT: 'Подготовлен',
       ORDERED: 'Заказан',
       IN_TRANSIT: 'В пути',
       PARTIALLY_RECEIVED: 'Получен частично',
@@ -6975,6 +6976,10 @@
     });
 
     const purchaseOrderTransitions = Object.freeze({
+      DRAFT: [
+        ['ORDERED', 'Заказ отправлен'],
+        ['CANCELLED', 'Отменить черновик'],
+      ],
       ORDERED: [
         ['IN_TRANSIT', 'В пути'],
         ['RECEIVED', 'Получен'],
@@ -7017,7 +7022,7 @@
         meta.textContent = [
           formatRub(order.totalAmount),
           `${Number(order.itemCount || 0)} поз.`,
-          formatHistoryDateTime(order.orderedAt),
+          formatHistoryDateTime(order.orderedAt || order.preparedAt || order.updatedAt),
         ].join(' · ');
 
         const actions = documentObject.createElement('div');

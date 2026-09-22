@@ -115,6 +115,70 @@ test('same run download is idempotent and updates instead of duplicating', () =>
   });
 });
 
+test('downloaded draft does not count as purchased until owner confirms sending', () => {
+  withService(service => {
+    service.configureMonth({
+      limit: 10000, purchased: 0, at: '2026-09-17T09:00:00.000Z',
+    });
+    const prepared = service.recordOrder({
+      runId: 'run-draft',
+      supplier: 'Валта',
+      order: fixtureOrder(1000),
+      orderedAt: '2026-09-17T10:00:00.000Z',
+      initialStatus: 'DRAFT',
+    });
+    assert.equal(prepared.order.status, 'DRAFT');
+    assert.equal(prepared.order.orderedAt, null);
+    assert.equal(prepared.order.preparedAt, '2026-09-17T10:00:00.000Z');
+    assert.equal(
+      service.getMonthSummary('2026-09-17T10:01:00.000Z').purchased,
+      0
+    );
+    assert.equal(
+      service.findDuplicateRisk({
+        runId: 'other-run', supplier: 'Валта', order: fixtureOrder(1000),
+        asOf: '2026-09-17T10:02:00.000Z',
+      }).exactDuplicate,
+      null
+    );
+
+    const confirmed = service.changeOrderStatus(
+      prepared.order.orderId,
+      'ORDERED',
+      '2026-09-17T11:00:00.000Z'
+    );
+    assert.equal(confirmed.status, 'ORDERED');
+    assert.equal(confirmed.orderedAt, '2026-09-17T11:00:00.000Z');
+    assert.equal(
+      service.getMonthSummary('2026-09-17T11:01:00.000Z').purchased,
+      1000
+    );
+    assert.ok(service.findDuplicateRisk({
+      runId: 'other-run', supplier: 'Валта', order: fixtureOrder(1000),
+      asOf: '2026-09-17T11:02:00.000Z',
+    }).exactDuplicate);
+  });
+});
+
+test('confirmed order cannot be silently rewritten by a later download from same run', () => {
+  withService(service => {
+    service.recordOrder({
+      runId: 'run-locked', supplier: 'Валта', order: fixtureOrder(1000),
+      orderedAt: '2026-09-17T10:00:00.000Z',
+    });
+    assert.throws(
+      () => service.recordOrder({
+        runId: 'run-locked', supplier: 'Валта', order: fixtureOrder(1200),
+        orderedAt: '2026-09-17T11:00:00.000Z',
+      }),
+      error => error?.code === 'PURCHASE_LEDGER_ORDER_CONFLICT'
+    );
+    const [order] = service.listOrders();
+    assert.equal(order.totalAmount, 1000);
+    assert.equal(order.status, 'ORDERED');
+  });
+});
+
 test('cancelled order is excluded from monthly purchased amount', () => {
   withService(service => {
     service.configureMonth({

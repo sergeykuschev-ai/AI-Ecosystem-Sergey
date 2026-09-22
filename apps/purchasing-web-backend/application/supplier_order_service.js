@@ -163,6 +163,7 @@ class SupplierOrderService {
       supplier,
       order,
       orderedAt: this.nowIso(),
+      initialStatus: 'DRAFT',
     });
   }
 

@@ -11,6 +11,7 @@ const {
 const LEDGER_SCHEMA_VERSION = 'miska-purchase-ledger-v1';
 const DEFAULT_TIME_ZONE = 'Asia/Vladivostok';
 const ORDER_STATUSES = Object.freeze([
+  'DRAFT',
   'ORDERED',
   'IN_TRANSIT',
   'PARTIALLY_RECEIVED',
@@ -29,6 +30,7 @@ const PURCHASED_ORDER_STATUSES = new Set([
   'RECEIVED',
 ]);
 const STATUS_TRANSITIONS = Object.freeze({
+  DRAFT: new Set(['ORDERED', 'CANCELLED']),
   ORDERED: new Set(['IN_TRANSIT', 'PARTIALLY_RECEIVED', 'RECEIVED', 'CANCELLED']),
   IN_TRANSIT: new Set(['PARTIALLY_RECEIVED', 'RECEIVED', 'CANCELLED']),
   PARTIALLY_RECEIVED: new Set(['RECEIVED', 'CANCELLED']),
@@ -114,6 +116,10 @@ function stableRows(rows) {
     barcode: row?.barcode == null ? null : String(row.barcode).trim() || null,
     brand: row?.brand == null ? null : String(row.brand).trim() || null,
   }));
+}
+
+function orderTimelineDate(order) {
+  return order?.orderedAt || order?.preparedAt || order?.updatedAt || null;
 }
 
 function orderFingerprint(supplier, rows) {
@@ -242,9 +248,9 @@ class PurchaseLedgerService {
     let orderCount = 0;
     let activeOrderCount = 0;
     for (const order of ledger.orders) {
-      if (!order || monthKey(order.orderedAt, this.timeZone) !== key) continue;
+      if (!order || !PURCHASED_ORDER_STATUSES.has(order.status)) continue;
+      if (!order.orderedAt || monthKey(order.orderedAt, this.timeZone) !== key) continue;
       if (ACTIVE_ORDER_STATUSES.has(order.status)) activeOrderCount += 1;
-      if (!PURCHASED_ORDER_STATUSES.has(order.status)) continue;
       if (baselineAt && Date.parse(order.orderedAt) <= Date.parse(baselineAt)) {
         continue;
       }
@@ -297,14 +303,30 @@ class PurchaseLedgerService {
     };
   }
 
-  recordOrder({ runId, supplier, order, orderedAt = this.now() } = {}) {
+  recordOrder({
+    runId,
+    supplier,
+    order,
+    orderedAt = this.now(),
+    initialStatus = 'ORDERED',
+  } = {}) {
     if (typeof runId !== 'string' || runId.trim() === '') {
       throw new PurchaseLedgerError(
         'PURCHASE_LEDGER_INVALID_INPUT',
         'runId заказа обязателен.'
       );
     }
-    const when = validIso(orderedAt, 'Дата заказа');
+    const requestedStatus = String(initialStatus || 'ORDERED').trim().toUpperCase();
+    if (!['DRAFT', 'ORDERED'].includes(requestedStatus)) {
+      throw new PurchaseLedgerError(
+        'PURCHASE_LEDGER_INVALID_INPUT',
+        'Начальный статус заказа должен быть DRAFT или ORDERED.'
+      );
+    }
+    const when = validIso(
+      orderedAt,
+      requestedStatus === 'DRAFT' ? 'Дата подготовки заказа' : 'Дата заказа'
+    );
     const rows = stableRows(order?.rows);
     if (rows.length === 0) {
       throw new PurchaseLedgerError(
@@ -317,8 +339,18 @@ class PurchaseLedgerService {
     const ledger = this.load();
     const existingIndex = ledger.orders.findIndex(entry => entry?.runId === runId);
     const existing = existingIndex >= 0 ? ledger.orders[existingIndex] : null;
+    const changed = !existing || existing.fingerprint !== fingerprint ||
+      existing.totalAmount !== totalAmount;
+    if (existing && existing.status !== 'DRAFT' && changed) {
+      throw new PurchaseLedgerError(
+        'PURCHASE_LEDGER_ORDER_CONFLICT',
+        'Уже подтверждённый или завершённый заказ нельзя молча переписать. ' +
+          'Создайте новый расчёт для изменённого заказа.'
+      );
+    }
+    const status = existing?.status || requestedStatus;
     const record = {
-      // Re-export updates calculated rows, not invoice or lifecycle facts.
+      // Re-export may update only a draft. Confirmed lifecycle facts stay immutable.
       ...existing,
       orderId: existing?.orderId || `purchase-order-${crypto.createHash('sha256')
         .update(`${runId}|${fingerprint}`, 'utf8')
@@ -327,8 +359,9 @@ class PurchaseLedgerService {
       runId,
       supplier: supplier || null,
       canonicalSupplier: canonicalSupplierName(supplier || ''),
-      status: existing?.status || 'ORDERED',
-      orderedAt: existing?.orderedAt || when,
+      status,
+      preparedAt: existing?.preparedAt || when,
+      orderedAt: existing?.orderedAt || (status === 'ORDERED' ? when : null),
       updatedAt: when,
       totalAmount,
       itemCount: rows.length,
@@ -341,8 +374,7 @@ class PurchaseLedgerService {
     this.save(ledger);
     return {
       created: existingIndex < 0,
-      changed: !existing || existing.fingerprint !== fingerprint ||
-        existing.totalAmount !== totalAmount,
+      changed,
       order: structuredClone(record),
       month: this.getMonthSummary(when),
     };
@@ -369,17 +401,23 @@ class PurchaseLedgerService {
     this.save(ledger);
     return {
       order: structuredClone(ledger.orders[index]),
-      month: this.getMonthSummary(ledger.orders[index].orderedAt),
+      month: this.getMonthSummary(orderTimelineDate(ledger.orders[index])),
     };
   }
 
   listOrders({ month = null, status = null } = {}) {
     const ledger = this.load();
     return ledger.orders
-      .filter(order => !month || monthKey(order.orderedAt, this.timeZone) === month)
+      .filter(order => {
+        if (!month) return true;
+        const timelineDate = orderTimelineDate(order);
+        return timelineDate && monthKey(timelineDate, this.timeZone) === month;
+      })
       .filter(order => !status || order.status === status)
       .map(order => structuredClone(order))
-      .sort((a, b) => Date.parse(b.orderedAt) - Date.parse(a.orderedAt));
+      .sort((a, b) =>
+        Date.parse(orderTimelineDate(b) || 0) - Date.parse(orderTimelineDate(a) || 0)
+      );
   }
 
   changeOrderStatus(orderId, targetStatus, at = this.now()) {
@@ -411,6 +449,9 @@ class PurchaseLedgerService {
       ...current,
       status,
       updatedAt: when,
+      ...(current.status === 'DRAFT' && status === 'ORDERED'
+        ? { orderedAt: when }
+        : {}),
       ...(status === 'RECEIVED' ? { receivedAt: when } : {}),
       ...(status === 'CANCELLED' ? { cancelledAt: when } : {}),
     };
