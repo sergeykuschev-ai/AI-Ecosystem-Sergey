@@ -27,6 +27,10 @@ const {
 const {
   enrichTrainingTask,
 } = require('../../../agents/business-kpi/rules/seller_training_content');
+const {
+  loadMinMaxCatalog,
+  applyMinMaxToTrainingTask,
+} = require('./seller_minmax_catalog');
 
 const PROPOSAL_STATUSES = Object.freeze({
   PENDING: 'PENDING',
@@ -328,6 +332,10 @@ class SellerTasksService {
     this.store = options.store;
     this.now = options.now || (() => new Date());
     this.uuid = options.uuid || (() => require('node:crypto').randomUUID());
+    this.minMaxPath = options.minMaxPath ||
+      process.env.MISKA_MINMAX_XLSX_PATH ||
+      null;
+    this.minMaxCatalogLoader = options.minMaxCatalogLoader || loadMinMaxCatalog;
   }
 
   async listLibrary(actor) {
@@ -337,8 +345,28 @@ class SellerTasksService {
       ? items
       : items.filter(task => task.taskType === 'KNOWLEDGE');
     const todayText = shiftDateText(this.now());
+    let minMaxCatalog = null;
+    if (this.minMaxPath) {
+      try {
+        minMaxCatalog = await this.minMaxCatalogLoader(this.minMaxPath);
+      } catch (error) {
+        console.error('MISKA Min/Max training catalog unavailable', {
+          errorMessage: error.message,
+        });
+      }
+    }
     return {
-      items: visible.map(task => enrichTrainingTask(task, todayText)),
+      minMax: minMaxCatalog ? {
+        source: 'MINMAX',
+        sourceLabel: 'Min/Max «Миски»',
+        totalItems: minMaxCatalog.totalItems,
+        fileUpdatedAt: minMaxCatalog.fileUpdatedAt,
+      } : null,
+      items: visible.map(task =>
+        applyMinMaxToTrainingTask(
+          enrichTrainingTask(task, todayText),
+          minMaxCatalog
+        )),
     };
   }
 

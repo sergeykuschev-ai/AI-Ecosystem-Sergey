@@ -75,6 +75,9 @@ services:
       BUSINESS_KPI_HTTP_PORT: 3220
       BUSINESS_KPI_COOKIE_SECURE: ${BUSINESS_KPI_COOKIE_SECURE:-false}
       BUSINESS_KPI_SERVICE_KEYS: ${BUSINESS_KPI_SERVICE_KEYS:-[]}
+      MISKA_MINMAX_XLSX_PATH: /data/minmax/miska-minmax-current.xlsx
+    volumes:
+      - ${MISKA_MINMAX_XLSX_HOST_PATH:-/opt/miska-purchasing/app/data/incoming/miska-minmax-current.xlsx}:/data/minmax/miska-minmax-current.xlsx:ro
     ports:
       - "127.0.0.1:${BUSINESS_KPI_WEB_PORT:-3220}:3220"
     healthcheck:

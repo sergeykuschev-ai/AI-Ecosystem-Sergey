@@ -205,3 +205,10 @@ test('learning cards show real product examples, consultation scenarios and offi
   assert.match(javascript, /source\.checkedAt/);
   assert.match(javascript, /noopener noreferrer/);
 });
+
+test('learning cards visibly use MinMax as current assortment source', () => {
+  assert.match(javascript, /Актуально по Min\/Max «Миски»/);
+  assert.match(javascript, /Источник ассортимента: Min\/Max/);
+  assert.match(javascript, /позиции по этой теме не найдены/);
+  assert.match(javascript, /state\.trainingMinMax/);
+});

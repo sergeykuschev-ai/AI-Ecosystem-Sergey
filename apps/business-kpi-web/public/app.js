@@ -69,6 +69,7 @@ const state = {
   sellerPerformance: null,
   sellerPerformanceMode: 'shifts',
   tasksLibrary: [],
+  trainingMinMax: null,
   taskProposals: [],
   taskHistory: [],
   learningProgress: null,
@@ -1833,6 +1834,7 @@ async function refreshTasks() {
   state.taskProposals = proposals.items;
   state.taskHistory = history.items;
   state.tasksLibrary = library.items;
+  state.trainingMinMax = library.minMax || null;
   renderTaskList('task-proposals', pendingTasks(), 'task-proposals-empty');
   renderTaskHistory();
   renderLearning();
@@ -1971,7 +1973,9 @@ function renderLearning() {
         const examples = document.createElement('div');
         examples.className = 'learning-product-examples';
         const label = document.createElement('strong');
-        label.textContent = 'На товарах «Миски»';
+        label.textContent = task.minMax
+          ? 'Актуально по Min/Max «Миски»'
+          : 'На товарах «Миски»';
         examples.appendChild(label);
         const list = document.createElement('ul');
         for (const example of task.productExamples) {
@@ -1980,7 +1984,23 @@ function renderLearning() {
           list.appendChild(item);
         }
         examples.appendChild(list);
+        if (task.minMax) {
+          const meta = document.createElement('small');
+          meta.className = 'learning-minmax-meta';
+          meta.textContent =
+            'Источник ассортимента: Min/Max · найдено позиций по теме: ' +
+            task.minMax.matchedItems + ' · всего SKU: ' +
+            task.minMax.totalCatalogItems;
+          examples.appendChild(meta);
+        }
         card.appendChild(examples);
+      } else if (task.minMax) {
+        const minMaxEmpty = document.createElement('div');
+        minMaxEmpty.className = 'learning-minmax-empty';
+        minMaxEmpty.textContent =
+          'В текущем Min/Max «Миски» позиции по этой теме не найдены. ' +
+          'Материал ниже остаётся справочным, но товар не показывается как актуальный ассортимент.';
+        card.appendChild(minMaxEmpty);
       }
       if (Array.isArray(task.consultationScenarios) && task.consultationScenarios.length) {
         const scenarios = document.createElement('div');
