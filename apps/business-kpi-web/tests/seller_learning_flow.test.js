@@ -598,3 +598,65 @@ test('automatic shift training follows MinMax assortment priority and embeds cur
   assert.equal(premium.minMax.matchedItems, 0);
   assert.deepEqual(premium.productExamples, []);
 });
+
+test('manual generation, approval and library assignment use the same MinMax assortment', async () => {
+  const { store } = fixture();
+  const employee = DEV_EMPLOYEES.find(
+    item => item.employeeCode === 'seller-kapitanova'
+  );
+  const owner = {
+    id: 'owner-training-test',
+    role: 'OWNER',
+    storeId: DEV_STORE.id,
+  };
+  const minMaxCatalog = {
+    totalItems: 1,
+    fileUpdatedAt: '2026-09-22T00:00:00.000Z',
+    items: [{
+      article: 'CRAFT-2',
+      name: 'Сухой корм CRAFTIA HARMONA с индейкой для кошек 1,4 кг',
+      supplier: 'Зооград',
+      abc: 'A',
+      xyz: 'X',
+      price: 1600,
+      sales: 30,
+      freeStock: 6,
+      inTransit: 2,
+      supplierOrderQty: 2,
+    }],
+  };
+  let uuidCounter = 900;
+  const service = new SellerTasksService({
+    store,
+    now: () => new Date(NOW),
+    minMaxPath: '/fake/minmax.xlsx',
+    minMaxCatalogLoader: async () => minMaxCatalog,
+    uuid: () => '92000000-0000-4000-8000-' +
+      String(uuidCounter++).padStart(12, '0'),
+  });
+
+  const generated = await service.generateProposals({
+    storeId: DEV_STORE.id,
+    shiftDate: '2026-09-21',
+    employeeId: employee.id,
+  }, owner);
+  const knowledge = generated.created.find(item => item.taskType === 'KNOWLEDGE');
+  assert.ok(knowledge);
+  assert.equal(knowledge.libraryCode, 'KNOW-22');
+  assert.match(knowledge.reason, /Min\/Max/);
+
+  const approved = await service.approve(knowledge.id, owner);
+  assert.equal(approved.status, 'APPROVED');
+  assert.match(approved.bitrixText, /CRAFTIA HARMONA/);
+  assert.match(approved.bitrixText, /Актуально по Min\/Max/);
+
+  const manual = await service.assignManual({
+    storeId: DEV_STORE.id,
+    employeeId: employee.id,
+    shiftDate: '2026-09-20',
+    libraryCode: 'KNOW-22',
+  }, owner);
+  assert.equal(manual.status, 'APPROVED');
+  assert.match(manual.bitrixText, /CRAFTIA HARMONA/);
+  assert.match(manual.bitrixText, /Актуально по Min\/Max/);
+});

@@ -1160,7 +1160,7 @@ class SellerTasksService {
     const windowStartDate = `${windowStartYear}-${String(windowStartMonth).padStart(2, '0')}-01`;
     const windowEndDate = new Date(Date.UTC(shiftYear, shiftMonth, 0)).toISOString().slice(0, 10);
 
-    const [employees, settingsRecord, library, existing, shifts, dayShifts, attempts] = await Promise.all([
+    const [employees, settingsRecord, library, existing, shifts, dayShifts, attempts, minMaxCatalog] = await Promise.all([
       this.store.listEmployees({ storeId }),
       this.store.getEffectiveSettings(storeId, shiftDate),
       this.store.listLibraryTasks(),
@@ -1180,6 +1180,9 @@ class SellerTasksService {
         dateTo: shiftDate,
       }),
       this.store.listLearningAttempts({ storeId, limit: 5000 }),
+      storeRecord.code === 'miska'
+        ? this.currentMinMaxCatalog()
+        : Promise.resolve(null),
     ]);
     const assignedEmployees = new Set(
       existing
@@ -1266,6 +1269,12 @@ class SellerTasksService {
       })
     );
 
+    const assortmentPriorityCodes = trainingModulePriority(minMaxCatalog)
+      .map(item => item.moduleCode);
+    const knowledgeRotationPriorityByEmployee = Object.fromEntries(
+      sellers.map(employee => [employee.id, assortmentPriorityCodes])
+    );
+
     const proposals = buildTaskProposals({
       sellers,
       targets: settingsRecord?.settings?.targets || null,
@@ -1275,6 +1284,7 @@ class SellerTasksService {
       today: todayText,
       library,
       knowledgePriorityByEmployee,
+      knowledgeRotationPriorityByEmployee,
     });
 
     const existingKeys = new Set(
@@ -1416,10 +1426,27 @@ class SellerTasksService {
         : proposal.expectedResult,
     };
     const decidedAt = this.now().toISOString();
+    let approvalTask = { ...proposal, ...updated };
+    const proposalStore = await this.store.getStore(proposal.storeId);
+    if (proposalStore?.code === 'miska' &&
+        proposal.taskType === 'KNOWLEDGE' && proposal.libraryCode) {
+      approvalTask = applyMinMaxToTrainingTask(
+        enrichTrainingTask({
+          ...approvalTask,
+          code: proposal.libraryCode,
+        }, shiftDateText(this.now())),
+        await this.currentMinMaxCatalog()
+      );
+    }
     return this.store.updateProposal(id, {
       ...updated,
       status: PROPOSAL_STATUSES.APPROVED,
-      bitrixText: buildBitrixText({ ...proposal, ...updated, materialText: proposal.materialText, questions: proposal.questions }),
+      bitrixText: buildBitrixText({
+        ...approvalTask,
+        materialText: proposal.materialText,
+        questions: proposal.questions,
+        productExamples: approvalTask.productExamples,
+      }),
       decidedByUserId: actor.id,
       decidedAt,
       approvedAt: decidedAt,
@@ -1500,6 +1527,15 @@ class SellerTasksService {
       };
     }
 
+    let assignmentTask = task;
+    if (storeRecord.code === 'miska' &&
+        task.taskType === 'KNOWLEDGE' && task.code) {
+      assignmentTask = applyMinMaxToTrainingTask(
+        enrichTrainingTask(task, shiftDateText(this.now())),
+        await this.currentMinMaxCatalog()
+      );
+    }
+
     const timestamp = this.now().toISOString();
     const record = await this.store.createProposal({
       id: this.uuid(),
@@ -1519,7 +1555,12 @@ class SellerTasksService {
       createdAt: timestamp,
       updatedAt: timestamp,
     });
-    const bitrixText = buildBitrixText(record);
+    const bitrixText = buildBitrixText({
+      ...record,
+      materialText: assignmentTask.materialText,
+      questions: assignmentTask.questions,
+      productExamples: assignmentTask.productExamples,
+    });
     return this.store.updateProposal(record.id, { bitrixText });
   }
 }
