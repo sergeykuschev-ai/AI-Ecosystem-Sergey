@@ -212,3 +212,15 @@ test('learning cards visibly use MinMax as current assortment source', () => {
   assert.match(javascript, /позиции по этой теме не найдены/);
   assert.match(javascript, /state\.trainingMinMax/);
 });
+
+
+test('seller learning page includes an in-product training guide', () => {
+  assert.match(html, /id="seller-learning-guide"/);
+  assert.match(html, /Как проходить обучение/);
+  assert.match(html, /Пройти проверку \(4 вопроса\)/);
+  assert.match(html, /25 из 25 модулей/);
+  assert.match(html, /100 вопросов/);
+  assert.match(html, /проходной результат — 80%/);
+  assert.match(html, /При симптомах — направь к ветеринару/);
+  assert.match(javascript, /learningGuide\.hidden = ownerMode/);
+});

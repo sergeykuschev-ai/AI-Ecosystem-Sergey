@@ -2870,6 +2870,8 @@ function switchTaskTab(tab) {
 
 async function loadTasks() {
   const ownerMode = canManageTasks();
+  const learningGuide = element('seller-learning-guide');
+  if (learningGuide) learningGuide.hidden = ownerMode;
   for (const tab of document.querySelectorAll('[data-task-tab]')) {
     const ownerOnly = ['today', 'review', 'history'].includes(tab.dataset.taskTab);
     tab.hidden = ownerOnly && !ownerMode;
