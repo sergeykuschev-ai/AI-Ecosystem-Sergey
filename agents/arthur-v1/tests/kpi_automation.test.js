@@ -227,6 +227,35 @@ describe('KpiAutomation daily report', () => {
     assert.ok(report.text.includes('Капитанова'), report.text);
   });
 
+  test('shows half-shift units and extra bonus in the daily seller lines', async () => {
+    const skill = createFakeSkill({
+      getShifts: async () => ({
+        shifts: [
+          { id: 'hs1', date: '2026-09-22', shiftKey: 'evening', shiftFraction: 0.5, employeeName: 'Капитанова', revenue: 30170, receipts: 29, itemsSold: 50, qr: 5166, kpi: 92.68 },
+          { id: 'hs2', date: '2026-09-22', shiftKey: 'morning', shiftFraction: 0.5, employeeName: 'Чередниченко', revenue: 9397, receipts: 10, itemsSold: 28, qr: 0, kpi: 89.15 },
+        ],
+        count: 2,
+      }),
+      getSettings: async () => ({
+        found: true,
+        version: 2,
+        effectiveFrom: '2026-09-01',
+        settings: {
+          targets: { averageCheck: 1200, itemsPerReceipt: 2.5 },
+          halfShiftPolicy: { enabled: true, from: '2026-09-22', to: '2026-09-25', bonusRate: 0.015 },
+        },
+      }),
+    });
+    const automation = createKpiAutomation(skill, createFakeStateStore());
+    const report = await automation.buildDailyReport({ storeId: 'miska', timezone: DEFAULT_TIMEZONE, reportDate: '2026-09-22' });
+    const normalized = normalizeSpaces(report.text);
+
+    assert.ok(normalized.includes('Капитанова, 0,5 смены'), report.text);
+    assert.ok(normalized.includes('доплата 1,5% = 452,55 ₽'), report.text);
+    assert.ok(normalized.includes('Чередниченко, 0,5 смены'), report.text);
+    assert.ok(normalized.includes('доплата 1,5% = 140,96 ₽'), report.text);
+  });
+
   test('reports partial data status', async () => {
     const skill = createFakeSkill({
       getTodaySummary: async () => ({

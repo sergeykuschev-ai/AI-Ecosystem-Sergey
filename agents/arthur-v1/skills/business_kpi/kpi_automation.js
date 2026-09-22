@@ -233,6 +233,9 @@ function aggregateShifts(shifts) {
   let itemsSold = null;
   let qr = null;
   let shiftsCount = 0;
+  let shiftUnits = 0;
+  let halfShiftCount = 0;
+  let halfShiftRevenue = 0;
   let kpiSum = 0;
   let kpiCount = 0;
 
@@ -241,6 +244,15 @@ function aggregateShifts(shifts) {
     if (present(shift.receipts)) receipts = (receipts ?? 0) + Number(shift.receipts);
     if (present(shift.itemsSold)) itemsSold = (itemsSold ?? 0) + Number(shift.itemsSold);
     if (present(shift.qr)) qr = (qr ?? 0) + Number(shift.qr);
+    const parsedFraction = Number(shift.shiftFraction);
+    const fraction = Number.isFinite(parsedFraction) && parsedFraction > 0
+      ? parsedFraction
+      : (shift.shiftKey === 'morning' || shift.shiftKey === 'evening' ? 0.5 : 1);
+    shiftUnits += fraction;
+    if (fraction < 1) {
+      halfShiftCount += 1;
+      if (present(shift.revenue)) halfShiftRevenue += Number(shift.revenue);
+    }
     shiftsCount += 1;
     if (present(shift.kpi)) {
       kpiSum += Number(shift.kpi);
@@ -254,6 +266,9 @@ function aggregateShifts(shifts) {
     itemsSold,
     qr,
     shiftsCount,
+    shiftUnits,
+    halfShiftCount,
+    halfShiftRevenue,
     averageCheck: receipts > 0 ? revenue / receipts : null,
     itemsPerCheck: itemsSold > 0 && receipts > 0 ? itemsSold / receipts : null,
     qrShare: revenue > 0 ? qr / revenue : null,
@@ -423,15 +438,32 @@ async function fetchShiftsForRange(skill, storeId, dateFrom, dateTo) {
   return data.shifts || [];
 }
 
+function activeHalfShiftPolicy(settings, date) {
+  const policy = settings?.settings?.halfShiftPolicy;
+  if (!policy?.enabled || !date) return null;
+  if (policy.from && date < policy.from) return null;
+  if (policy.to && date > policy.to) return null;
+  const bonusRate = Number(policy.bonusRate);
+  if (!Number.isFinite(bonusRate) || bonusRate <= 0) return null;
+  return { ...policy, bonusRate };
+}
+
 function buildSellerLines(sellers, options = {}) {
   return sellers.flatMap(s => {
     const parts = [`${s.name}`];
+    if (s.halfShiftCount > 0) parts.push(`${formatNumber(s.shiftUnits, 1)} смены`);
     if (s.averageKpi != null) parts.push(`KPI ${formatKpi(s.averageKpi)}`);
     if (options.includeRevenue && s.revenue != null) parts.push(`${formatMoney(s.revenue)}`);
     if (s.averageCheck != null) parts.push(`ср. чек ${formatMoney(s.averageCheck)}`);
     if (s.itemsPerCheck != null) parts.push(`товаров/чек ${formatNumber(s.itemsPerCheck, 2)}`);
     if (s.qrShare != null) parts.push(`QR ${formatPercent(s.qrShare)}`);
     const lines = [`• ${parts.join(', ')}`];
+    if (s.halfShiftCount > 0 && options.halfShiftPolicy && s.halfShiftRevenue > 0) {
+      const revenueKopecks = Math.round(s.halfShiftRevenue * 100);
+      const rateBasisPoints = Math.round(options.halfShiftPolicy.bonusRate * 10000);
+      const bonus = Math.round(revenueKopecks * rateBasisPoints / 10000) / 100;
+      lines.push(`  ↳ полсмена: выручка ${formatMoney(s.halfShiftRevenue)}; доплата ${formatPercent(options.halfShiftPolicy.bonusRate)} = ${formatMoney(bonus, 2)}`);
+    }
     if (options.targets) {
       const reasons = sellerTargetReasons(s, options.targets);
       if (reasons.length > 0) {
@@ -448,7 +480,7 @@ function rankSellers(sellers, key) {
     .sort((a, b) => b[key] - a[key]);
 }
 
-async function buildDailyReport(skill, { storeId, timezone = DEFAULT_TIMEZONE, reportDate = null }) {
+async function buildDailyReport(skill, { storeId, timezone = DEFAULT_TIMEZONE, reportDate = null, storeName = 'Миска' }) {
   const { store, performance, settings, today } = await fetchCurrentMonthContext(skill, storeId, timezone);
   let todaySummary = reportDate ? { date: reportDate, dataStatus: 'NO_DATA' } : await executeSkill(skill, 'getTodaySummary', { storeId, timezone });
 
@@ -476,12 +508,17 @@ async function buildDailyReport(skill, { storeId, timezone = DEFAULT_TIMEZONE, r
   const isNoData = dataStatus === 'NO_DATA';
   const isPartial = dataStatus === 'PARTIAL';
   const isFinal = dataStatus === 'COMPLETE';
-  const title = isFinal ? '📊 Миска — итоги дня' : '📊 Миска — предварительные итоги дня';
+  const title = isFinal ? `📊 ${storeName} — итоги дня` : `📊 ${storeName} — предварительные итоги дня`;
   const todaySellers = aggregateShiftsBySeller(todayShifts)
     .filter(hasMeaningfulMetrics)
     .filter(s => !isOwnerSeller(s));
   const targets = settings?.settings?.targets || {};
-  const sellerLines = buildSellerLines(todaySellers, { includeRevenue: false, targets });
+  const halfShiftPolicy = activeHalfShiftPolicy(settings, todayDate);
+  const sellerLines = buildSellerLines(todaySellers, {
+    includeRevenue: false,
+    targets,
+    halfShiftPolicy,
+  });
 
   const dayAssessment = computeDayAssessment({
     plan: store.plan,

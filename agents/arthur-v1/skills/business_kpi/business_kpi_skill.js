@@ -331,6 +331,8 @@ function buildShiftsSummary(client, shiftsData, parameters, retrievedAt) {
   const items = (shiftsData.items || []).map(shift => ({
     id: shift.id,
     date: shift.shiftDate,
+    shiftKey: shift.shiftKey ?? null,
+    shiftFraction: shift.metrics?.shiftFraction ?? null,
     employeeName: shift.employeeName,
     revenue: shift.metrics?.revenue ?? null,
     revenueFormatted: formatMoney(shift.metrics?.revenue),
