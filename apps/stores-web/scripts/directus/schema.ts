@@ -214,6 +214,74 @@ const seoGroup = { group: "seo_social" };
 
 export const schema: CollectionSpec[] = [
   {
+    collection: "miska_catalog_products",
+    meta: {
+      ...baseMeta,
+      icon: "pets",
+      display_template: "{{name}}",
+      translations: ru("Каталог Миски (1С)"),
+      hidden: true,
+    },
+    fields: [
+      stringField("external_id", {
+        sort: 1,
+        meta: { translations: ru("ID 1С"), required: true },
+        schema: { data_type: "varchar", length: 64, nullable: false, is_unique: true },
+      }),
+      stringField("sku", { sort: 2, meta: { translations: ru("Артикул") } }),
+      stringField("barcode", { sort: 3, meta: { translations: ru("Штрихкод") } }),
+      stringField("name", {
+        sort: 4,
+        meta: { translations: ru("Название"), required: true },
+        schema: { data_type: "varchar", length: 512, nullable: false },
+      }),
+      stringField("unit", { sort: 5, meta: { translations: ru("Единица") } }),
+      stringField("category_external_id", { sort: 6, meta: { translations: ru("ID категории 1С") } }),
+      textField("description", { sort: 7, meta: { translations: ru("Описание") } }),
+      booleanField("active", {
+        sort: 8,
+        meta: { translations: ru("Активно"), required: true },
+        schema: { data_type: "boolean", nullable: false, default: false },
+      }),
+      timestampField("synced_at", { sort: 9, meta: hiddenSystem }),
+    ],
+  },
+  {
+    collection: "miska_catalog_categories",
+    meta: {
+      ...baseMeta,
+      icon: "account_tree",
+      display_template: "{{name}}",
+      translations: ru("Категории Миски (1С)"),
+      hidden: true,
+    },
+    fields: [
+      stringField("external_id", {
+        sort: 1,
+        meta: { translations: ru("ID 1С"), required: true },
+        schema: { data_type: "varchar", length: 64, nullable: false, is_unique: true },
+      }),
+      stringField("parent_external_id", { sort: 2, meta: { translations: ru("ID родителя 1С") } }),
+      stringField("name", {
+        sort: 3,
+        meta: { translations: ru("Название"), required: true },
+        schema: { data_type: "varchar", length: 255, nullable: false },
+      }),
+      stringField("slug", { sort: 4, meta: { translations: ru("Slug"), required: true } }),
+      integerField("sort_order", {
+        sort: 5,
+        meta: { translations: ru("Порядок"), required: true },
+        schema: { data_type: "integer", nullable: false, default: 0 },
+      }),
+      booleanField("active", {
+        sort: 6,
+        meta: { translations: ru("Активно"), required: true },
+        schema: { data_type: "boolean", nullable: false, default: false },
+      }),
+      timestampField("synced_at", { sort: 7, meta: hiddenSystem }),
+    ],
+  },
+  {
     collection: "brands",
     meta: {
       ...baseMeta,
