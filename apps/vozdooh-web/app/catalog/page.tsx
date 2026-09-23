@@ -20,6 +20,7 @@ export const metadata: Metadata = {
 type Option<V extends string> = { value: V; label: string }
 
 const filterGroups: { group: FilterGroup; title: string; options: Option<string>[] }[] = [
+  { group: 'brand', title: 'Бренд', options: [] },
   { group: 'category', title: 'Категория', options: (Object.entries(categoryLabels) as [DemoCategory, string][]).map(([value, label]) => ({ value, label })) },
   { group: 'family', title: 'Характер', options: (Object.entries(familyLabels) as [DemoFamily, string][]).map(([value, label]) => ({ value, label })) },
   { group: 'mood', title: 'Настроение', options: (Object.entries(moodLabels) as [DemoMood, string][]).map(([value, label]) => ({ value, label })) },
@@ -31,10 +32,15 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
   const allProducts = await (await getCatalogRepository()).list()
   const demo = catalogSource() === 'demo'
   const categories = demo ? categoryLabels : Object.fromEntries(allProducts.map((product) => [product.trade.category, product.trade.category]))
-  const groups = filterGroups.map((group) => group.group === 'category' ? { ...group, options: Object.entries(categories).map(([value, label]) => ({ value, label })) } : group)
-  const filters = parseCatalogFilters(params, categories)
+  const brands = demo ? {} : Object.fromEntries(allProducts.filter((product) => product.trade.brand).map((product) => [product.trade.brand as string, product.trade.brand as string]))
+  const groups = filterGroups.map((group) => group.group === 'category'
+    ? { ...group, options: Object.entries(categories).map(([value, label]) => ({ value, label })) }
+    : group.group === 'brand'
+      ? { ...group, options: Object.entries(brands).sort((a, b) => a[1].localeCompare(b[1], 'ru')).map(([value, label]) => ({ value, label })) }
+      : group)
+  const filters = parseCatalogFilters(params, categories, brands)
   const products = applyCatalogFilters(allProducts, filters)
-  const hasFilters = Boolean(filters.category || filters.family || filters.mood || filters.room)
+  const hasFilters = Boolean(filters.brand || filters.category || filters.family || filters.mood || filters.room)
 
   return (
     <main>

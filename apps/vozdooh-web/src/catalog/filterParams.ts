@@ -15,8 +15,9 @@ function pick<K extends string>(labels: Record<K, string>, value: string | null)
   return Object.prototype.hasOwnProperty.call(labels, value) ? (value as K) : null
 }
 
-export function parseCatalogFilters(params: RawSearchParams, categories: Record<string, string> = categoryLabels): CatalogFilters {
+export function parseCatalogFilters(params: RawSearchParams, categories: Record<string, string> = categoryLabels, brands: Record<string, string> = {}): CatalogFilters {
   return {
+    brand: pick(brands, first(params.brand)),
     category: pick(categories, first(params.category)),
     family: pick(familyLabels, first(params.family)),
     mood: pick(moodLabels, first(params.mood)),
@@ -24,12 +25,13 @@ export function parseCatalogFilters(params: RawSearchParams, categories: Record<
   }
 }
 
-export type FilterGroup = 'category' | 'family' | 'mood' | 'room'
+export type FilterGroup = 'brand' | 'category' | 'family' | 'mood' | 'room'
 
 /** Build a catalog href toggling one filter while preserving the others. */
 export function catalogHref(current: CatalogFilters, group: FilterGroup, value: string | null): string {
   const next: Record<string, string> = {}
-  const entries: [FilterGroup, string | null][] = [
+  const entries: [FilterGroup, string | null | undefined][] = [
+    ['brand', current.brand],
     ['category', current.category],
     ['family', current.family],
     ['mood', current.mood],

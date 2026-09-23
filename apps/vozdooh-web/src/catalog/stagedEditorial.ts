@@ -30,7 +30,7 @@ export function inferStagedCategory(name: string): string {
   if (has(name, /автомобил|vinove|саше для автомобиля|сменный блок ароматизатора/)) return 'Для автомобиля'
   if (has(name, /картридж|аппарат для ароматизации|dispenser|shop 250|shop 300|cafe 1000|hotel 1000/)) return 'Ароматизация помещений'
   if (has(name, /саше|аромапопурри|арома лампы/)) return 'Ароматы для пространства'
-  if (has(name, /палочк|ножницы для фитиля|керамическая ваза/)) return 'Аксессуары'
+  if (has(name, /палоч|ножницы для фитиля|керамическая ваза|сетевое з\/у|microusb/)) return 'Аксессуары'
   if (has(name, /набор/)) return 'Подарочные наборы'
   return 'Другое'
 }

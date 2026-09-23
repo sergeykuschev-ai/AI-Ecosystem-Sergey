@@ -1,6 +1,7 @@
 import type { CatalogProduct } from './contracts'
 
 export type CatalogFilters = {
+  brand?: string | null
   category: string | null
   family: string | null
   mood: string | null
@@ -9,6 +10,7 @@ export type CatalogFilters = {
 
 export function applyCatalogFilters(products: readonly CatalogProduct[], filters: CatalogFilters): CatalogProduct[] {
   return products.filter((p) => {
+    if (filters.brand && p.trade.brand !== filters.brand) return false
     if (filters.category && p.trade.category !== filters.category) return false
     if (filters.family && p.editorial.scentFamily !== filters.family) return false
     if (filters.mood && p.editorial.mood !== filters.mood) return false
