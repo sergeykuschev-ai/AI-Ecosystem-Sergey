@@ -19,7 +19,7 @@ def child_text(node, name):
             return (child.text or "").strip()
     return ""
 
-def latest_staged(root, pattern):
+def staged_candidates(root, pattern):
     matches = []
     for candidate in root.rglob(pattern):
         manifest = candidate.parent / "imports.jsonl"
@@ -31,9 +31,34 @@ def latest_staged(root, pattern):
             continue
         if any(record.get("filename") == candidate.name and record.get("state") == "staged" for record in records):
             matches.append(candidate)
-    if not matches:
-        raise SystemExit(f"Missing staged {pattern} under {root}")
-    return max(matches, key=lambda item: item.stat().st_mtime)
+    return matches
+
+def formation_key(path):
+    for _, root in ET.iterparse(path, events=("start",)):
+        return root.attrib.get("ДатаФормирования", "")
+    return ""
+
+def latest_staged_pair(root):
+    imports = staged_candidates(root, "import*.xml")
+    offers = staged_candidates(root, "offers*.xml")
+    if not imports or not offers:
+        raise SystemExit(f"Missing staged CommerceML pair under {root}")
+    imports_by_key = {}
+    offers_by_key = {}
+    for path in imports:
+        imports_by_key.setdefault(formation_key(path), []).append(path)
+    for path in offers:
+        offers_by_key.setdefault(formation_key(path), []).append(path)
+    common = [key for key in imports_by_key if key and key in offers_by_key]
+    if not common:
+        raise SystemExit("No fully staged import/offers pair with matching formation date")
+    pairs = []
+    for key in common:
+        imp = max(imports_by_key[key], key=lambda item: item.stat().st_mtime)
+        off = max(offers_by_key[key], key=lambda item: item.stat().st_mtime)
+        pairs.append((max(imp.stat().st_mtime, off.stat().st_mtime), imp, off))
+    _, imp, off = max(pairs, key=lambda item: item[0])
+    return imp, off
 def parse_args():
     ap = argparse.ArgumentParser(description="Convert staged CommerceML into VOZDOOH preview snapshot")
     ap.add_argument("--exchange-root", required=True)
@@ -141,8 +166,7 @@ def atomic_write(path, text):
 def main():
     args = parse_args()
     exchange_root = Path(args.exchange_root)
-    import_path = latest_staged(exchange_root, "import*.xml")
-    offers_path = latest_staged(exchange_root, "offers*.xml")
+    import_path, offers_path = latest_staged_pair(exchange_root)
 
     rows = parse_products(import_path)
     offers = parse_offers(offers_path, args.warehouse_id, args.price_type_id)
