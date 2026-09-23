@@ -1,2 +1,7 @@
 # Local catalog snapshots must never be committed.
 .local/
+# Root-owned legacy image tree kept aside during catalog enrichment (same 81 files, now in public/catalog/official).
+public.old/
+# Root-owned legacy build output kept aside so local verification builds can run.
+.next-rootfs/
+.git-objects-tmp/
