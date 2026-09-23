@@ -69,3 +69,28 @@ homepage demo cards described in the earlier refinement.
   and disabled checkout passed with no browser runtime errors. Fixed an assertion
   to account for uppercase CSS rendering of the selection status.
 - All changes are inside `apps/vozdooh-web`. No public deployment performed.
+
+## Final owner-approved color polish — 2026-09-23
+
+This entry supersedes the selection-in-preparation copy described above.
+
+- Preserved the approved header, hero composition, category grid and room discovery.
+- Kept paper #F4F1EA and ink #1C1B17; refined green to #20362A and editorial beige
+  to #EBE5D9. Graded existing hero lighting toward restrained cognac/amber brown.
+- Replaced homepage prelaunch wording with a permanent curation philosophy.
+  Brands/collections now use paired editorial panels with numbered captions,
+  serif titles and existing destinations; no merchandise or claims were invented.
+- Footer uses the unchanged supplied horizontal logo asset with a 44px home link.
+- Darkened muted text to #656156: 4.93:1 against beige. Checked editorial body
+  text (5.15:1), finder secondary text (7.15:1), ink controls (13.74:1) and green
+  titles (10.32:1) on their solid backgrounds. This is a targeted contrast check,
+  not a claim of a complete accessibility audit.
+- Updated README and browser checks for permanent copy and the loaded footer logo.
+  The logo check scrolls into view before decoding the lazy-loaded image.
+- Verification: `npm run verify` passed (TypeScript, zero-warning lint, production
+  build). Chromium layout checks passed at 320, 390, 430, 768 and 1440px; menu,
+  finder, product, cart quantity/persistence/removal and disabled checkout passed
+  without browser runtime errors. Visually reviewed 390px and 430px screenshots
+  for color balance, spacing, readable text and footer logo rendering.
+- All changed paths are inside `apps/vozdooh-web`; routes, commerce behavior,
+  indexing safeguards and the 1C boundary are preserved. No public deployment.

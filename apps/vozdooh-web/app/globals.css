@@ -4,10 +4,10 @@
 :root{
   --ink:#1c1b17;
   --paper:#f4f1ea;
-  --cream:#eae3d4;
-  --green:#25392d;
+  --cream:#ebe5d9;
+  --green:#20362a;
   --night:#1a1b18;
-  --muted:#716d62;
+  --muted:#656156;
   --line:rgba(28,27,23,.14);
   --lineLight:rgba(244,241,234,.2);
   --sans:"Helvetica Neue",Helvetica,"Segoe UI",Arial,sans-serif;
@@ -49,17 +49,17 @@ a:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible{
 
 /* Hero: cinematic warm interior, atmosphere forward */
 .hero{position:relative;display:flex;align-items:flex-end;min-height:min(92vh,840px);overflow:hidden;background:#20160e;color:#f3ead9}
-.heroScene{position:absolute;inset:0;background:radial-gradient(720px 540px at 74% 40%,rgba(233,164,84,.5),transparent 65%),radial-gradient(620px 420px at 14% 92%,rgba(122,76,36,.32),transparent 60%),linear-gradient(180deg,#33210f 0%,#4c3118 42%,#2a1b0f 78%,#1a110a 100%)}
+.heroScene{position:absolute;inset:0;background:radial-gradient(720px 540px at 74% 40%,rgba(193,151,104,.42),transparent 65%),radial-gradient(620px 420px at 14% 92%,rgba(112,84,59,.3),transparent 60%),linear-gradient(180deg,#30251b 0%,#463424 42%,#292017 78%,#1a1410 100%)}
 .heroScene svg{position:absolute;inset:0;width:100%;height:100%}
 .hero::after{content:"";position:absolute;left:0;right:0;bottom:0;height:58%;background:linear-gradient(180deg,transparent,rgba(16,10,6,.8));pointer-events:none}
 .heroText{position:relative;z-index:2;max-width:660px;padding:110px 7vw 90px}
 .hero h1{font-size:clamp(36px,5.2vw,72px);line-height:1.02;letter-spacing:-.032em;color:#f6efe2;margin:24px 0 22px}
 .hero p{max-width:460px;font-size:16px;line-height:1.65;color:#d9cbb4;margin:0}
-.hero .eyebrow{color:#d9ab6b}
+.hero .eyebrow{color:#d6b58e}
 .hero .textLink{color:#d9cbb4;border-color:rgba(243,234,217,.3)}
 .hero .textLink:hover{color:#fff;border-color:#fff}
 .heroActions{display:flex;align-items:center;gap:30px;margin-top:38px;flex-wrap:wrap}
-.edition{position:absolute;right:7vw;bottom:26px;z-index:2;font-size:9px;letter-spacing:.2em;color:rgba(243,234,217,.5)}
+.edition{position:absolute;right:7vw;bottom:26px;z-index:2;font-size:9px;letter-spacing:.2em;color:#bfb09a}
 
 /* Sections */
 .section{padding:96px 7vw}
@@ -125,7 +125,8 @@ a:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible{
 
 /* Footer */
 footer{padding:52px 5vw;display:grid;grid-template-columns:auto 1fr auto;gap:40px;align-items:start;border-top:1px solid var(--line)}
-.footerLogo{font-size:17px;font-weight:700;letter-spacing:.3em}
+.footerLogo{display:flex;align-items:center;width:170px;min-height:44px;line-height:0}
+.footerLogo img{display:block;width:100%;height:auto;mix-blend-mode:multiply}
 footer nav{display:flex;gap:26px;justify-content:center;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;flex-wrap:wrap}
 footer nav a{border-bottom:1px solid transparent;padding:2px 0}
 footer nav a:hover{border-color:currentColor}
@@ -352,7 +353,7 @@ footer nav a:hover{border-color:currentColor}
 .productCardMeta{padding-top:12px}
 .productCardMeta h3{font-size:14px;line-height:1.4;font-weight:500;margin:6px 0}
 .productCardMeta p{font-size:11px}
-.room{display:block;background:#e8e3d9;color:var(--ink);padding:60px 7vw}
+.room{display:block;background:var(--cream);color:var(--ink);padding:60px 7vw}
 .room .light{color:var(--muted)}
 .room p{color:var(--muted);margin-bottom:28px}
 .brandPlaceholder{margin-top:26px}
@@ -400,7 +401,7 @@ footer{grid-template-columns:auto 1fr;gap:24px 40px;padding:36px 7vw}
 .category p{grid-column:1/-1;font-size:12px;margin:8px 0 0;max-width:25ch}
 .category b{position:static;grid-column:2;grid-row:2;font-size:18px;margin:0;font-weight:400}
 .category:hover h3,.brandPlaceholder a:hover h3{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:5px}
-.editorial{display:grid;grid-template-columns:1.1fr 1fr;gap:8vw;align-items:center;background:#eee8dc}
+.editorial{display:grid;grid-template-columns:1.1fr 1fr;gap:8vw;align-items:center;background:var(--cream)}
 .editorial h2{font-size:clamp(28px,3.3vw,44px);line-height:1.2;margin:18px 0 0}
 .editorial h2 i{font-family:var(--serif);font-weight:400}
 .selectionStatus{display:block;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#575b4c}
@@ -418,14 +419,15 @@ footer{grid-template-columns:auto 1fr;gap:24px 40px;padding:36px 7vw}
 .roomLinks .roomCard:first-child h3{font-family:var(--serif);font-size:32px}
 .roomLinks b{margin-left:auto;font-weight:400}
 .brands{background:#fff}
-.brandPlaceholder{gap:32px;border-bottom:0}
-.brandPlaceholder a,.brandPlaceholder a+a{padding:24px 0;border:0;border-bottom:1px solid var(--line);text-transform:none;letter-spacing:0;font-weight:400}
-.brandPlaceholder a:hover,.brandPlaceholder a+a:hover{padding-left:0}
+.brandPlaceholder{gap:24px;border:0}
+.brandPlaceholder a,.brandPlaceholder a+a{padding:32px;min-height:230px;border:1px solid var(--line);background:var(--paper);text-transform:none;letter-spacing:0;font-weight:400;align-items:flex-end}
+.brandPlaceholder a+a{background:var(--cream)}
+.brandPlaceholder a:hover,.brandPlaceholder a+a:hover{padding-left:32px;border-color:var(--green)}
 .brandPlaceholder small{font-size:10px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase}
-.brandPlaceholder h3{font-size:24px;margin:10px 0 6px}
+.brandPlaceholder h3{font-family:var(--serif);font-size:34px;font-weight:400;margin:32px 0 10px;color:var(--green)}
 .brandPlaceholder p{font-size:12px;color:var(--muted);margin:0;max-width:30ch}
-.brandPlaceholder a>span{font-size:22px}
-.manifesto{padding:36px 7vw;background:#e8e3d9}
+.brandPlaceholder a>span{font-size:22px;color:var(--green)}
+.manifesto{padding:36px 7vw;background:var(--cream)}
 .manifesto p{font-size:clamp(23px,2.6vw,32px);margin:16px auto 0}
 footer nav a{display:inline-flex;align-items:center;min-height:44px}
 footer nav{gap:4px 24px}
@@ -443,9 +445,10 @@ footer nav{gap:4px 24px}
   .roomLinks .roomCard{min-height:88px;padding:18px 0}
   .roomLinks .roomCard:first-child{min-height:120px}
   .roomLinks h3{font-size:22px}
-  .brandPlaceholder{gap:0;margin-top:24px}
-  .brandPlaceholder a{padding:20px 0}
-  .brandPlaceholder h3{font-size:22px}
+  .brandPlaceholder{gap:12px;margin-top:24px}
+  .brandPlaceholder a,.brandPlaceholder a+a{padding:24px;min-height:190px}
+  .brandPlaceholder a:hover,.brandPlaceholder a+a:hover{padding-left:24px}
+  .brandPlaceholder h3{font-size:30px;margin-top:24px}
   .manifesto{padding:32px 6vw}
   footer{padding:24px 6vw;gap:16px}
   .footerNote{padding-top:16px}

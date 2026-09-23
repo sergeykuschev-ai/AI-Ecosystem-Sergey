@@ -17,8 +17,8 @@ const baseURL = process.env.VOZDOOH_TEST_URL || 'http://127.0.0.1:3187';
       assert.equal(await page.locator('.category').count(), 6);
       assert.equal(await page.locator('.roomCard').count(), 5);
       assert.equal(await page.locator('.productCard, .demoTag').count(), 0);
-      assert.match(await page.locator('.selectionStatus').innerText(), /Коллекция готовится/i);
-      assert.doesNotMatch(await page.locator('main').innerText(), /DEMO|Демонстрационн|недоступны к покупке|не доступны к покупке|синхронизац|noindex|фото ожидается|Фото после/i);
+      assert.match(await page.locator('.selectionStatus').innerText(), /Искусство выбирать/i);
+      assert.doesNotMatch(await page.locator('main').innerText(), /Коллекция готовится|Готовим знакомство|Мы готовим|DEMO|Демонстрационн|недоступны к покупке|не доступны к покупке|синхронизац|noindex|фото ожидается|Фото после/i);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `Homepage overflow at ${width}`);
       for (const selector of ['.category', '.roomCard', '.brandPlaceholder a', 'footer nav a']) {
         assert.ok(await page.locator(selector).evaluateAll(nodes => nodes.every(node => node.getBoundingClientRect().height >= 44)), `Tap targets: ${selector}`);
@@ -30,6 +30,12 @@ const baseURL = process.env.VOZDOOH_TEST_URL || 'http://127.0.0.1:3187';
         }
       }
       assert.doesNotMatch(await page.locator('footer').innerText(), /1С|noindex|синхронизац/);
+      await page.locator('.footerLogo').scrollIntoViewIfNeeded();
+      assert.ok(await page.locator('.footerLogo img').evaluate(async img => {
+        await img.decode();
+        return img.naturalWidth > 0 && img.getBoundingClientRect().width >= 140;
+      }), 'Footer logo loaded and legible');
+      assert.match(await page.locator('.footerLogo img').getAttribute('src'), /vozdooh-horizontal/);
       await page.screenshot({ path: `/tmp/vozdooh-home-${width}.png`, fullPage: true });
       console.log(`Homepage layout: ${width}px passed`);
     }

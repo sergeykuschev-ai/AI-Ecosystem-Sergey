@@ -53,7 +53,10 @@ requires its standard Linux runtime libraries. Screenshots are written to
 `/tmp/vozdooh-home-<width>.png` for review.
 
 The homepage presents typographic category and room discovery, an honest
-selection-in-preparation feature, and editorial links to brands and collections.
+permanent curation statement, and paired editorial panels for brands and collections.
+The approved palette uses warm paper (#F4F1EA), near-black ink (#1C1B17),
+deep green (#20362A), clean beige (#EBE5D9) and restrained cognac hero lighting.
+The header and footer both use the supplied VOZDOOH logo asset.
 It contains no demo merchandise or simulated product photography. Explicit DEMO
 cards remain on catalog/product routes for verifying filters and cart behavior.
 The browser runner checks homepage copy, discovery links, 44px tap targets and

@@ -28,13 +28,13 @@ export default function Home() {
           <svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
             <defs>
               <radialGradient id="heroGlow" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stopColor="#f4c377" stopOpacity=".8" />
-                <stop offset="45%" stopColor="#e29a4e" stopOpacity=".32" />
-                <stop offset="100%" stopColor="#e29a4e" stopOpacity="0" />
+                <stop offset="0%" stopColor="#d9b58a" stopOpacity=".8" />
+                <stop offset="45%" stopColor="#b58b60" stopOpacity=".32" />
+                <stop offset="100%" stopColor="#b58b60" stopOpacity="0" />
               </radialGradient>
               <linearGradient id="archLight" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#f2c47c" />
-                <stop offset="100%" stopColor="#c07a38" />
+                <stop offset="0%" stopColor="#d5b58b" />
+                <stop offset="100%" stopColor="#98704d" />
               </linearGradient>
             </defs>
             <ellipse cx="1060" cy="580" rx="430" ry="330" fill="url(#heroGlow)" opacity=".55" />
@@ -44,7 +44,7 @@ export default function Home() {
             <line x1="950" y1="470" x2="1270" y2="470" stroke="#241708" strokeOpacity=".45" strokeWidth="6" />
             <rect x="0" y="730" width="1440" height="170" fill="#120b06" />
             <rect x="0" y="728" width="1440" height="2" fill="#000" opacity=".35" />
-            <ellipse cx="1110" cy="734" rx="340" ry="24" fill="#d8913e" opacity=".2" />
+            <ellipse cx="1110" cy="734" rx="340" ry="24" fill="#b18a60" opacity=".2" />
             <g fill="#1c130c">
               <rect x="860" y="580" width="380" height="12" rx="2" />
               <rect x="880" y="592" width="10" height="138" />
@@ -59,12 +59,12 @@ export default function Home() {
                 <line x1="989" y1="505" x2="1014" y2="432" />
                 <line x1="989" y1="505" x2="980" y2="440" />
               </g>
-              <path d="M996 420 C981 382 1014 358 998 322 C986 292 1008 270 1002 244" fill="none" stroke="#e8b878" strokeOpacity=".35" strokeWidth="3" strokeLinecap="round" />
+              <path d="M996 420 C981 382 1014 358 998 322 C986 292 1008 270 1002 244" fill="none" stroke="#cfb18d" strokeOpacity=".35" strokeWidth="3" strokeLinecap="round" />
             </g>
             <ellipse cx="1141" cy="540" rx="95" ry="85" fill="url(#heroGlow)" />
             <rect x="1130" y="512" width="22" height="68" rx="3" fill="#2a1c12" />
-            <line x1="1141" y1="512" x2="1141" y2="500" stroke="#f6d189" strokeWidth="3" strokeLinecap="round" />
-            <circle cx="1141" cy="493" r="7" fill="#f8dfa0" />
+            <line x1="1141" y1="512" x2="1141" y2="500" stroke="#dfc5a0" strokeWidth="3" strokeLinecap="round" />
+            <circle cx="1141" cy="493" r="7" fill="#ead5b4" />
             <g stroke="#150e08" strokeWidth="7" strokeLinecap="round" fill="none" opacity=".9">
               <path d="M1332 730 C1326 650 1340 600 1328 528" />
               <path d="M1330 650 C1302 620 1294 588 1298 554" />
@@ -125,8 +125,8 @@ export default function Home() {
           <h2 id="selection-title">Меньше случайного.<br /><i>Больше личного.</i></h2>
         </div>
         <div className="selectionCopy">
-          <span className="selectionStatus">Коллекция готовится</span>
-          <p>Мы готовим первую подборку ароматов для дома. Здесь появятся предметы, с которыми захочется познакомиться ближе.</p>
+          <span className="selectionStatus">Искусство выбирать</span>
+          <p>В основе выбора VOZDOOH — внимание к пространству и вашим привычкам. Для нас аромат — личная деталь дома: важны характер, уместность и удовольствие от повседневного ритуала.</p>
           <Link className="textLink" href="/finder">Начать со своего настроения <span aria-hidden="true">→</span></Link>
         </div>
       </section>
@@ -152,11 +152,11 @@ export default function Home() {
         <span className="eyebrow">Бренды и коллекции</span>
         <div className="sectionHead">
           <h2>За ароматом —<br />свой мир.</h2>
-          <p>Истории создателей и разные взгляды на атмосферу дома. Готовим знакомство с будущей коллекцией.</p>
+          <p>Два взгляда на выбор аромата: через почерк создателя и через настроение пространства.</p>
         </div>
         <div className="brandPlaceholder">
-          <Link href="/brands"><div><small>Знакомство</small><h3>Бренды</h3><p>Имена и подход к созданию ароматов</p></div><span aria-hidden="true">→</span></Link>
-          <Link href="/collections"><div><small>Вдохновение</small><h3>Коллекции</h3><p>Подборки вокруг настроения и пространства</p></div><span aria-hidden="true">→</span></Link>
+          <Link href="/brands"><div><small>01 / Почерк</small><h3>Бренды</h3><p>Имена и подход к созданию ароматов</p></div><span aria-hidden="true">→</span></Link>
+          <Link href="/collections"><div><small>02 / Настроение</small><h3>Коллекции</h3><p>Подборки вокруг настроения и пространства</p></div><span aria-hidden="true">→</span></Link>
         </div>
       </section>
 
