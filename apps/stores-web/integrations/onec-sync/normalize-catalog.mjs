@@ -193,6 +193,12 @@ export function classifyCatalog(snapshot) {
 }
 
 const BRAND_ALIASES = [
+  ["Petstages", ["petstages"]],
+  ["Red Dingo", ["reddingo", "red dingo"]],
+  ["IMAC", ["imac "]],
+  ["Mr.Alex", ["mr.alex", "mr alex"]],
+  ["Фармавит NEO", ["фармавит neo", "фармавит"]],
+  ["CO PET", ["co pet"]],
   ["Деревенские Лакомства", ["деревенские лакомства"]],
   ["Ферма кота Федора", ["ферма кота федора"]],
   ["Сибирская кошка", ["сибирская кошка"]],

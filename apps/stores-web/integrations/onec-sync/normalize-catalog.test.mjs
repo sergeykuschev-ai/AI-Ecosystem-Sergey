@@ -53,3 +53,12 @@ test("detects a Cyrillic brand after a generic product word", () => {
   const result = classify("Лакомство Мнямс для собак кроличьи уши", ["Собаки", "Корм для собак", "Лакомства"]);
   assert.equal(result.brand, "Мнямс");
 });
+
+
+test("detects explicit accessory and care brands from product names", () => {
+  assert.equal(classifyProduct({ externalId: "x1", name: "Petstages игрушка Dental Вишни", categoryExternalId: null }, []).brand, "Petstages");
+  assert.equal(classifyProduct({ externalId: "x2", name: "RedDingo Поводок светоотражающий", categoryExternalId: null }, []).brand, "Red Dingo");
+  assert.equal(classifyProduct({ externalId: "x3", name: "Imac Поилка Tweety 200мл", categoryExternalId: null }, []).brand, "IMAC");
+  assert.equal(classifyProduct({ externalId: "x4", name: "Фармавит NEO Витамины 60таб", categoryExternalId: null }, []).brand, "Фармавит NEO");
+  assert.equal(classifyProduct({ externalId: "x5", name: "Антибактериальный шампунь CO PET, 300 мл", categoryExternalId: null }, []).brand, "CO PET");
+});
