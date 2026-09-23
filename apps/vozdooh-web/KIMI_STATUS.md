@@ -128,3 +128,14 @@ This entry supersedes the selection-in-preparation copy described above.
 - Chromium verification passes in both default demo mode and `local-1c` synthetic mode at 320/390/430/768/1440px, including menu, finder, product, cart persistence/removal and disabled checkout.
 - Live 1C still requires the real transport/schema, endpoint/authentication method, actual characteristic names, currency/stock units, category mapping, delta/deletion policy and operational retry/audit requirements. No credentials or production endpoint were invented or committed.
 - All changes are inside `apps/vozdooh-web`. AmurskMarket was not modified. No public deployment. `noindex` and robots disallow remain in place.
+
+## Live 1C exchange receiver — 2026-09-23
+
+- Added an isolated VOZDOOH CommerceML receiver for the standard 1C website catalog exchange.
+- Supported catalog modes: `checkauth`, `init`, chunked `file`, and `import`; order exchange remains disabled.
+- Receiver uses dedicated VOZDOOH credentials, signed session cookies, upload size limits and path traversal protection.
+- Real 1C files are staged only. They are not published to the storefront until the first actual export is inspected and mapped to the normalized catalog importer.
+- Receiver tests pass and are included in `npm test`; the full `npm run verify` suite passes.
+- Runtime is isolated in Docker on localhost port 3421 with `restart: unless-stopped`.
+- Tailscale Serve exposes HTTPS on tailnet port 8446; no public internet endpoint was created.
+- Credentials live only in `/opt/vozdooh/secrets/onec-exchange.env` (mode 600), outside Git.
