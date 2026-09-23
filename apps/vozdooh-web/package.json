@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "verify": "npm run test && npm run typecheck && npm run lint && npm run build",
     "test": "node --require ./scripts/register-typescript.cjs --test tests/*.test.cjs && node --test integrations/onec-exchange/server.test.mjs",
-    "catalog:import": "node scripts/import-onec.cjs"
+    "catalog:import": "node scripts/import-onec.cjs",
+    "catalog:stage": "python3 scripts/convert-commerce-ml.py"
   },
   "dependencies": {
     "next": "16.3.3",

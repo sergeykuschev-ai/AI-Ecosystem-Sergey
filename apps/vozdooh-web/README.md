@@ -1,6 +1,6 @@
 # VOZDOOH web
 
-Premium home-fragrance storefront with a default demo catalog and an isolated local synthetic 1C adapter. Live 1C and checkout are not connected.
+Premium home-fragrance storefront with a default demo catalog, a verified 1C CommerceML receiver, and a private staged-real catalog preview. Live storefront publication and checkout are not connected.
 
 ## Local development
 1. Copy `.env.example` to `.env.local`.
@@ -12,14 +12,14 @@ Premium home-fragrance storefront with a default demo catalog and an isolated lo
 ## Routes
 - `/` — homepage in the approved premium visual direction.
 - `/catalog` — selected catalog with working URL-driven filters (category, scent family, mood, room).
-- `/catalog/[slug]` — selected product, with separate trade/editorial fields and explicit demo or internal-test labels.
+- `/catalog/[slug]` — selected product, with separate trade/editorial fields and explicit DEMO or PREVIEW 1C labels.
 - `/brands`, `/collections` — placeholder routes; real brands are never invented and appear only after the 1C import.
 - `/finder` — scent finder quiz that filters the selected catalog.
 - `/cart` — persistent cart (localStorage); imported unit prices can be shown, totals/order creation remain disabled.
 - `/checkout` — checkout UI only; order submission and payment are disabled on purpose.
 
 ## Demo and 1C boundary
-- Default `CATALOG_PROVIDER=demo` uses explicit DEMO placeholders (`src/catalog/demo.ts`); legacy `stub` remains an alias. `local-1c` selects only the imported synthetic snapshot and is forbidden in production. `1c` fails explicitly until a live adapter exists.
+- Default `CATALOG_PROVIDER=demo` uses explicit DEMO placeholders (`src/catalog/demo.ts`); legacy `stub` remains an alias. `local-1c` selects the synthetic fixture snapshot and is forbidden in production. `staged-1c` selects a validated real-CommerceML snapshot for private preview only. `1c` fails explicitly until live publication is approved.
 - 1C trade fields (SKU, name, brand, category, volume, price, stock, barcode, available characteristics) stay inside `TradeProduct` in `src/catalog/contracts.ts` with optional values null when unknown. Demo names/SKUs/categories are explicit placeholders.
 - Editorial content (descriptions, images, scent family, mood, room, recommendations) lives in `EditorialProduct` and never comes from 1C.
 - The cart is local-only; there is no order API and no payment integration. See `src/commerce/contracts.ts` and `src/integrations/README.md`.
@@ -74,7 +74,7 @@ CATALOG_PROVIDER=local-1c npm run dev -- --hostname 127.0.0.1 --port 3188
 
 The first import into a new snapshot reports `created: 1`; the repeat reports
 `unchanged: 1`. The ignored `.local/onec-catalog.json` contains synthetic data only.
-Open `/catalog`: exactly one INTERNAL TEST record, price 12.5 RUB, stock 0, no
+Open `/catalog`: exactly one PREVIEW 1C record, price 12.5 RUB, stock 0, no
 invented editorial attributes. Demo records are absent. Checkout stays disabled.
 Missing/corrupt imports fail explicitly instead of falling back to demo data.
 Stop the dev server when finished; use `CATALOG_PROVIDER=demo` for production
@@ -94,3 +94,13 @@ remain under `/tmp`; no public deployment is needed.
 
 See [integration documentation](src/integrations/README.md) for the exact JSON
 contract, upsert semantics, diagnostics, limits, recovery and live 1C prerequisites.
+
+## Private real-1C preview
+
+The standard 1C receiver stages real CommerceML files without publishing them to the storefront. Convert the latest fully staged catalog/offers pair with:
+
+```sh
+npm run catalog:stage -- --exchange-root /opt/vozdooh/data/onec-exchange --output /opt/vozdooh/data/catalog-staged.json --report /opt/vozdooh/data/catalog-staging-report.json
+```
+
+Run the closed preview with `CATALOG_PROVIDER=staged-1c`, `ONEC_LOCAL_CATALOG_PATH` pointing at that snapshot, and `ONEC_STAGED_PREVIEW_ENABLED=true`. Prices are null by default, only positive-stock rows are visible, checkout stays disabled, and the full staged snapshot keeps zero-stock rows for future inventory transitions.

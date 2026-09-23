@@ -38,7 +38,7 @@ export function CartView({ products, demo }: { products: CatalogProduct[]; demo:
             {rows.map(({ line, product }) => (
               <div className="cartRow" key={line.sku}>
                 {product ? (
-                  <Link className="cartRowVisual" href={`/catalog/${product.editorial.slug}`}>{demo ? 'DEMO' : 'INTERNAL TEST'}</Link>
+                  <Link className="cartRowVisual" href={`/catalog/${product.editorial.slug}`}>{demo ? 'DEMO' : 'PREVIEW 1C'}</Link>
                 ) : <span className="cartRowVisual">Нет в каталоге</span>}
                 <div>
                   <h3>{product?.trade.name ?? 'Позиция отсутствует в текущем каталоге'}</h3>
@@ -62,7 +62,7 @@ export function CartView({ products, demo }: { products: CatalogProduct[]; demo:
         <aside className="cartAside">
           <span className="eyebrow">Итог</span>
           <h2>Оформление пока недоступно</h2>
-          <p>{demo ? 'Корзина работает в демонстрационном режиме и хранится только в вашем браузере. Цены, наличие и стоимость доставки появятся после синхронизации с 1С — до этого заказы не создаются.' : 'Внутренний синтетический тест. Корзина хранится только в вашем браузере. Оформление заказа пока недоступно.'}</p>
+          <p>{demo ? 'Корзина работает в демонстрационном режиме и хранится только в вашем браузере. Цены, наличие и стоимость доставки появятся после синхронизации с 1С — до этого заказы не создаются.' : 'Закрытый предпросмотр данных 1С. Корзина хранится только в вашем браузере. Оформление заказа пока недоступно.'}</p>
           <Link className="primary" href="/checkout">Перейти к оформлению</Link>
           <p className="cartAsideBack"><Link className="textLink" href="/catalog">← Продолжить покупки</Link></p>
         </aside>

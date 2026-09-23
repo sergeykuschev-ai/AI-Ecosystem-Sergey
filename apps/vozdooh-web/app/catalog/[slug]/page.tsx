@@ -22,7 +22,7 @@ export async function generateMetadata({ params }: PageParams): Promise<Metadata
     title: `${product.trade.name} — VOZDOOH`,
     description: catalogSource() === 'demo'
       ? 'Демонстрационная карточка товара VOZDOOH. Цена, наличие и характеристики появятся после синхронизации с 1С.'
-      : 'Внутренняя синтетическая тестовая позиция. Не для продажи.',
+      : 'Закрытый предпросмотр реальной позиции 1С. Не опубликовано.',
     robots: { index: false, follow: false },
   }
 }
@@ -40,7 +40,7 @@ export default async function ProductPage({ params }: PageParams) {
       <SiteHeader />
       <div className="productLayout">
         <div className="productHeroPlaceholder">
-          <span className="demoTag">{demo ? 'DEMO' : 'INTERNAL TEST'}</span>
+          <span className="demoTag">{demo ? 'DEMO' : 'PREVIEW 1C'}</span>
           <span className="productHeroMark">PRODUCT IMAGE · ПОСЛЕ КОНТЕНТ-ИМПОРТА</span>
         </div>
         <div className="productInfo">
@@ -64,7 +64,7 @@ export default async function ProductPage({ params }: PageParams) {
             ))}
           </dl>
           <AddToCartButton sku={product.trade.sku} />
-          <p className="resultNote">{demo ? 'Корзина работает в демонстрационном режиме: оформление заказа откроется после подключения 1С и платёжного провайдера.' : 'Внутренняя синтетическая тестовая позиция, не для продажи. Корзина хранится только в браузере; оформление заказа недоступно.'}</p>
+          <p className="resultNote">{demo ? 'Корзина работает в демонстрационном режиме: оформление заказа откроется после подключения 1С и платёжного провайдера.' : 'Закрытый предпросмотр данных 1С. Цена пока не публикуется; оформление заказа недоступно.'}</p>
         </div>
       </div>
       {recommendations.length > 0 && (

@@ -6,7 +6,7 @@ const { tmpdir } = require('node:os')
 const { join, resolve } = require('node:path')
 const { spawnSync } = require('node:child_process')
 const { normalizeTrade, importCatalog } = require('../src/catalog/onec.ts')
-const { importLocalFile, readLocalCatalog, assertLocalMode } = require('../src/catalog/localStore.ts')
+const { importLocalFile, readLocalCatalog, assertLocalMode, assertStagedPreviewMode } = require('../src/catalog/localStore.ts')
 const { mergeCatalog, createCatalogRepository, emptyEditorial } = require('../src/catalog/repository.ts')
 const { catalogSource, getCatalogRepository } = require('../src/catalog/source.ts')
 const { applyCatalogFilters, getRecommendations } = require('../src/catalog/filters.ts')
@@ -90,9 +90,12 @@ test('explicit source selection, demo compatibility and production safeguards', 
   assert.equal(catalogSource('stub'), 'demo')
   assert.equal(catalogSource('demo'), 'demo')
   assert.equal(catalogSource('local-1c'), 'local-1c')
+  assert.equal(catalogSource('staged-1c'), 'staged-1c')
   assert.equal(catalogSource('1c'), '1c')
   assert.throws(() => catalogSource('unknown'), /INVALID_CATALOG_PROVIDER/)
   assert.throws(() => assertLocalMode('production'), /LOCAL_1C_FORBIDDEN/)
+  assert.throws(() => assertStagedPreviewMode('production', undefined), /STAGED_1C_PREVIEW_DISABLED/)
+  assert.doesNotThrow(() => assertStagedPreviewMode('production', 'true'))
   const previous = process.env.CATALOG_PROVIDER
   try {
     process.env.CATALOG_PROVIDER = '1c'

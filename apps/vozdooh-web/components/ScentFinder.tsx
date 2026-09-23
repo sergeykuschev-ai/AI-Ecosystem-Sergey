@@ -70,7 +70,7 @@ export function ScentFinder({ products, demo }: { products: CatalogProduct[]; de
 
       <div className="quizResult">
         <p>
-          {!demo ? `Найдено внутренних тестовых позиций: ${matched.length}.` : matched.length > 0
+          {!demo ? `Найдено позиций предпросмотра: ${matched.length}.` : matched.length > 0
             ? `Под выбранные критерии сейчас попадает ${matched.length} демонстрационных позиций.`
             : 'Под выбранные критерии демонстрационных позиций нет — попробуйте смягчить условия.'}
         </p>

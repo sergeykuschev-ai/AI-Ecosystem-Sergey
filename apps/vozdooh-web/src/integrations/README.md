@@ -1,9 +1,10 @@
 # VOZDOOH integration boundary
 
 External systems connect through the contracts in `src/catalog` and `src/commerce`.
-This implementation provides a validated local synthetic JSON importer and a
-read-only catalog repository. It does **not** implement a live 1C exchange,
-CommerceML parsing, HTTP ingestion, authentication, scheduling or orders.
+This implementation provides a validated catalog repository, a standard 1C
+CommerceML catalog receiver, and a closed staging converter for the owner's real
+1C export. Real CommerceML can be previewed privately without publishing prices.
+Orders, payments and production storefront publication remain disabled.
 
 ## Source selection
 
@@ -11,6 +12,7 @@ CommerceML parsing, HTTP ingestion, authentication, scheduling or orders.
 | --- | --- |
 | unset, `demo`, legacy `stub` | Eight explicit demo placeholders; default |
 | `local-1c` | Read the internal synthetic snapshot; development/test only |
+| `staged-1c` | Read a validated real-CommerceML staging snapshot; private preview only |
 | `1c` | Fail with `ONEC_LIVE_NOT_CONFIGURED`; no fallback |
 | anything else | Fail with `INVALID_CATALOG_PROVIDER` |
 
@@ -20,10 +22,10 @@ no demo products are merged into the imported source. Catalog, product, finder,
 cart and checkout pages read the selected repository dynamically. The homepage
 retains the approved permanent editorial design. Brands/collections remain placeholders.
 
-Both local import and local reads reject `NODE_ENV=production`. Use `next dev`
-for local synthetic verification, and the demo source for `next build/start`.
-Let Next.js set `NODE_ENV`; do not override it to bypass this guard. Keep local
-servers bound to `127.0.0.1`; noindex/robots alone is not access control.
+Synthetic `local-1c` always rejects `NODE_ENV=production`. Real `staged-1c`
+production-mode preview is fail-closed unless `ONEC_STAGED_PREVIEW_ENABLED=true`;
+it must stay on a private endpoint. The live `1c` source is still intentionally
+unconfigured. `noindex`/robots are preserved but are not treated as access control.
 
 ## Trade and editorial ownership
 
@@ -122,13 +124,20 @@ source guards, CLI exit status, atomic rejection, corrupt files and snapshot
 limits. `npm run verify` adds TypeScript, zero-warning ESLint and production build.
 See the app README for existing Chromium checks in demo and local modes.
 
-Before live 1C work: confirm transport/schema (CommerceML is not assumed),
-endpoint/authentication, actual characteristic names, currency/stock units,
-category mapping, delta/deletion policy, operational ownership and retry/audit
-requirements. No credentials, endpoint values or production data are committed.
+Before live storefront publication: confirm the final retail price source,
+category mapping, delta/deletion policy, automatic refresh ownership, and retry/audit
+requirements. The current receiver/schema/authentication path is verified, but
+prices stay suppressed and checkout remains disabled. No credentials or production
+CommerceML files are committed.
 
 Commerce remains local-only UI. Missing cart SKUs stay visible and removable
 after source changes. Checkout is disabled even with imported prices and stock;
 there is no order API, payment, delivery integration or contact-data submission.
 The site retains noindex and robots disallow. AmurskMarket (`apps/stores-web`)
 code, configuration, analytics and secrets remain isolated.
+
+## Real CommerceML staging
+
+The receiver accepts standard 1C catalog modes (`checkauth`, `init`, `file`, `import`) and stages files only. Order exchange is rejected. The converter only considers files that have a matching staged record in `imports.jsonl`, joins catalog rows to offers by 1C ID, uses the configured VOZDOOH warehouse for stock, and keeps price null unless `--publish-price` is explicitly passed.
+
+`staged-1c` is a private preview source. It shows only positive-stock products, while the complete staged snapshot retains zero-stock rows. The snapshot is written atomically. Editorial fields remain outside 1C and are left empty until the separate verified-content workflow fills them.

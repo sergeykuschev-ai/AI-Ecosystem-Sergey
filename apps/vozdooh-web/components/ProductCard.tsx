@@ -6,7 +6,7 @@ export function ProductCard({ product, index = 0, demo = false }: { product: Cat
   return (
     <Link className="productCard" href={`/catalog/${product.editorial.slug}`}>
       <div className={`productCardVisual tone${index % 4}`}>
-        <span className="demoTag">{demo ? 'DEMO' : 'INTERNAL TEST'}</span>
+        <span className="demoTag">{demo ? 'DEMO' : 'PREVIEW 1C'}</span>
         <span className="productCardMark">Фото ожидается</span>
       </div>
       <div className="productCardMeta">

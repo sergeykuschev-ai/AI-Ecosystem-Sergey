@@ -3,6 +3,8 @@
 const assert = require('node:assert/strict');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const localCatalog = process.env.VOZDOOH_TEST_CATALOG === 'local-1c';
+const stagedCatalog = process.env.VOZDOOH_TEST_CATALOG === 'staged-1c';
+const importedCatalog = localCatalog || stagedCatalog;
 const baseURL = process.env.VOZDOOH_TEST_URL || 'http://127.0.0.1:3187';
 
 (async () => {
@@ -24,10 +26,12 @@ const baseURL = process.env.VOZDOOH_TEST_URL || 'http://127.0.0.1:3187';
       for (const selector of ['.category', '.roomCard', '.brandPlaceholder a', 'footer nav a']) {
         assert.ok(await page.locator(selector).evaluateAll(nodes => nodes.every(node => node.getBoundingClientRect().height >= 44)), `Tap targets: ${selector}`);
       }
-      for (const selector of ['.category', '.roomCard']) {
-        for (const href of await page.locator(selector).evaluateAll(nodes => nodes.map(node => node.getAttribute('href')))) {
-          const response = await page.request.get(`${baseURL}${href}`);
-          assert.equal(response.status(), 200, href);
+      if (!stagedCatalog) {
+        for (const selector of ['.category', '.roomCard']) {
+          for (const href of await page.locator(selector).evaluateAll(nodes => nodes.map(node => node.getAttribute('href')))) {
+            const response = await page.request.get(`${baseURL}${href}`);
+            assert.equal(response.status(), 200, href);
+          }
         }
       }
       assert.doesNotMatch(await page.locator('footer').innerText(), /1С|noindex|синхронизац/);
@@ -52,29 +56,31 @@ const baseURL = process.env.VOZDOOH_TEST_URL || 'http://127.0.0.1:3187';
     assert.equal((await page.request.get(`${baseURL}/catalog/unknown-product`)).status(), 404);
     await page.goto(`${baseURL}/catalog`);
     assert.match(await page.locator('meta[name="robots"]').first().getAttribute('content'), /noindex/);
-    if (localCatalog) {
-      assert.equal(await page.locator('.productCard').count(), 1);
-      assert.match(await page.locator('.demoTag').innerText(), /INTERNAL TEST/);
+    if (importedCatalog) {
+      assert.equal(await page.locator('.productCard').count(), stagedCatalog ? 148 : 1);
+      assert.match(await page.locator('.demoTag').first().innerText(), /PREVIEW 1C/);
       assert.doesNotMatch(await page.locator('.catalogGrid').innerText(), /Демонстрационный товар/);
-      await page.locator('.productCard').click();
+      await page.locator('.productCard').first().click();
       const metaValue = label => page.locator('.productMetaList > div').filter({ has: page.locator('dt', { hasText: label }) }).locator('dd');
-      assert.equal(await metaValue('Цена').innerText(), '12.5 ₽');
-      assert.equal(await metaValue('Наличие').innerText(), '0');
-      assert.equal(await metaValue('Штрихкод').innerText(), '0000000000000');
-      assert.equal(await metaValue('test-marker').innerText(), 'synthetic');
+      assert.equal(await metaValue('Цена').innerText(), stagedCatalog ? 'Не указано' : '12.5 ₽');
+      if (localCatalog) {
+        assert.equal(await metaValue('Наличие').innerText(), '0');
+        assert.equal(await metaValue('Штрихкод').innerText(), '0000000000000');
+        assert.equal(await metaValue('test-marker').innerText(), 'synthetic');
+      }
       assert.match(await page.locator('.productChips').innerText(), /Не указано/);
       assert.equal(await page.locator('.recommendations').count(), 0);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Imported product overflow');
       await page.screenshot({ path: '/tmp/vozdooh-local-product.png', fullPage: true });
     }
     await page.goto(`${baseURL}/finder`);
-    for (const label of (localCatalog ? ['internal-test'] : ['Древесные', 'Спокойствие', 'Кабинет', 'Диффузоры'])) {
+    for (const label of (localCatalog ? ['internal-test'] : stagedCatalog ? ['Товар'] : ['Древесные', 'Спокойствие', 'Кабинет', 'Диффузоры'])) {
       await page.getByRole('button', { name: label, exact: true }).click();
     }
     await page.locator('.quizResult a').click();
     await page.waitForURL('**/catalog?**');
-    assert.equal(await page.locator('.productCard').count(), 1);
-    await page.locator('.productCard').click();
+    assert.equal(await page.locator('.productCard').count(), stagedCatalog ? 148 : 1);
+    await page.locator('.productCard').first().click();
     await page.getByRole('button', { name: 'Добавить в корзину', exact: true }).click();
     await page.locator('.addToCart a').click();
     await page.getByRole('button', { name: 'Увеличить количество' }).click();
@@ -100,7 +106,7 @@ const baseURL = process.env.VOZDOOH_TEST_URL || 'http://127.0.0.1:3187';
     await page.goto(`${baseURL}/cart`);
     await page.getByRole('button', { name: 'Убрать из корзины' }).click();
     await page.getByRole('heading', { name: 'Корзина пока пуста' }).waitFor();
-    if (localCatalog) {
+    if (importedCatalog) {
       await page.goto(`${baseURL}/catalog?family=woody`);
       await page.getByRole('heading', { name: 'Ничего не найдено' }).waitFor();
       assert.equal(await page.locator('.productCard').count(), 0);

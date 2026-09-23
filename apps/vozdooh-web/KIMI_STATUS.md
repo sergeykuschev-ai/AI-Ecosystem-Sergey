@@ -137,5 +137,16 @@ This entry supersedes the selection-in-preparation copy described above.
 - Real 1C files are staged only. They are not published to the storefront until the first actual export is inspected and mapped to the normalized catalog importer.
 - Receiver tests pass and are included in `npm test`; the full `npm run verify` suite passes.
 - Runtime is isolated in Docker on localhost port 3421 with `restart: unless-stopped`.
-- Tailscale Serve exposes HTTPS on tailnet port 8446; no public internet endpoint was created.
+- Exchange now uses the existing HTTPS reverse proxy at `/api/vozdooh-1c/exchange`; the temporary Tailscale 8446/Funnel exposure is disabled.
 - Credentials live only in `/opt/vozdooh/secrets/onec-exchange.env` (mode 600), outside Git.
+
+## Real CommerceML staging preview — 2026-09-23
+
+- First real 1C CommerceML 2.07 export received and staged successfully: 803 catalog rows and 803 offers.
+- Added a converter that joins import/offers by 1C ID, reads stock only from the selected VOZDOOH warehouse, suppresses prices by default, cleans control characters and falls back to stable 1C IDs when articles are unsafe or duplicated.
+- Staging report: 148 positive-stock products, 2 negative stock values clamped to zero, 793 rows with a nonzero selected price present but not published, 138 SKU fallbacks.
+- `staged-1c` is a private preview source. The preview exposes only positive-stock products while the full snapshot retains all 803 rows for future stock transitions.
+- Product/editorial content stays separate: no 1C descriptions or fragrance claims are published. Checkout and price publication remain disabled.
+- Production-mode staged preview is fail-closed unless explicitly enabled and remains noindex.
+- Chromium verification passed at 320/390/430/768/1440px plus finder, product, cart persistence/removal and disabled checkout.
+- Private preview is served only inside Tailscale on port 8447.

@@ -42,7 +42,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
       <section className="pageIntro">
         <span className="eyebrow">Каталог</span>
         <h1>Ароматы для пространства</h1>
-        <p>{demo ? 'Структура каталога готова к реальным данным из 1С. До импорта здесь используются только явные демонстрационные placeholders: цены, наличие и бренды не отображаются, пока их не подтвердит учётная система.' : 'Внутренний тестовый каталог 1С. Синтетические данные, не для продажи.'}</p>
+        <p>{demo ? 'Структура каталога готова к реальным данным из 1С. До импорта здесь используются только явные демонстрационные placeholders: цены, наличие и бренды не отображаются, пока их не подтвердит учётная система.' : 'Закрытый предпросмотр реального каталога 1С. Цены пока не публикуются.'}</p>
       </section>
 
       <div className="filtersBar">
@@ -67,7 +67,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
       </div>
 
       <p className="resultNote">
-        {!demo ? `Внутренние тестовые позиции: ${products.length}.` : hasFilters
+        {!demo ? `Позиции предпросмотра: ${products.length}.` : hasFilters
           ? `Найдено демонстрационных позиций: ${products.length}. Фильтры работают на demo-данных и после импорта будут применяться к реальному каталогу.`
           : `Демонстрационные позиции: ${products.length}.`}
       </p>
