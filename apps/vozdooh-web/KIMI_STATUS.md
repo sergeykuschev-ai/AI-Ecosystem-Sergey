@@ -94,3 +94,24 @@ This entry supersedes the selection-in-preparation copy described above.
   for color balance, spacing, readable text and footer logo rendering.
 - All changed paths are inside `apps/vozdooh-web`; routes, commerce behavior,
   indexing safeguards and the 1C boundary are preserved. No public deployment.
+
+## Final hero-light micro-polish — 2026-09-23
+
+- Increased only the existing central amber CSS glow opacity from .42 to .48
+  for a subtle midtone lift; retained its RGB color, SVG composition, geometry,
+  copy, CTA placement and strong bottom vignette.
+- `npm run verify` passed in this app (typecheck, zero-warning lint, build).
+- Existing Chromium checks passed at 320, 390, 430, 768 and 1440px, including
+  menu, finder, product, cart persistence/removal and disabled checkout checks;
+  no browser runtime errors.
+- Visually inspected 390px and 430px mobile screenshots and compared the original
+  glow: restrained cognac/amber lighting, legible hero text and the unchanged
+  transition into the white catalog section. Screenshots remain under `/tmp`.
+- Only this app's hero CSS and status note changed. No public deployment.
+
+## Final hero light micro-polish — 2026-09-23
+
+- Increased only the existing central cognac/amber hero glow opacity from 0.42 to 0.48 (about 14% relative, a subtle perceived 5–10% lift).
+- Hero composition, copy, logo, bottom vignette and all other sections remain unchanged.
+- `npm run verify` passed. Chromium checks passed at 320, 390, 430, 768 and 1440px, including menu, finder, product, cart and disabled checkout flows.
+- Mobile hero screenshots were generated at 390px and 430px for before/after comparison. No public deployment.
