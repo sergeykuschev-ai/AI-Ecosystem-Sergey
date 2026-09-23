@@ -12,9 +12,9 @@ export function inferStagedBrand(name: string): string | null {
   if (has(name, /woodwick/)) return 'WoodWick'
   if (has(name, /vellutier/)) return 'Vellutier'
   if (has(name, /danhera/)) return 'DANHERA'
-  if (has(name, /ladenac/)) return 'Ladenac'
+  if (has(name, /ladenac|africa |oud collection|urban senses|vent d.arabie|dynastie senteur royale/)) return 'Ladenac Milano'
   if (has(name, /aramara|aqqua|tessuto|mediterranea|mareminerale|supreme amber|stile classic|stile limited|stile colours|decor classic|decor limited|décor limited/)) return 'CULTI MILANO'
-  if (has(name, /aromagroup|romagroup|картридж ag|картридж аg/)) return 'AROMAgroup'
+  if (has(name, /aromagroup|romagroup|картридж ag|картридж аg|катридж ag|магма, 150/)) return 'AROMAgroup'
   return null
 }
 
@@ -50,6 +50,12 @@ const curated: Record<string, Partial<EditorialProduct>> = {
   'ROU250TFU': { slug: 'teatro-rose-oud-250', description: 'Насыщенная композиция, построенная вокруг уда и дамасской розы.', scentFamily: 'woody', mood: 'cozy', room: 'living' },
   '8c80d0e5-231d-11ef-b412-e92179844ed4': { slug: 'teatro-ceresia-250', description: 'Яркая фруктово-цветочная композиция: в старте вишня, бергамот, лист инжира и миндальное молоко; в базе ваниль, сандал и мускус.', scentFamily: 'floral', mood: 'airy', room: 'living' },
   'CE500TFU.23': { slug: 'teatro-ceresia-500', description: 'Яркая фруктово-цветочная композиция: в старте вишня, бергамот, лист инжира и миндальное молоко; в базе ваниль, сандал и мускус.', scentFamily: 'floral', mood: 'airy', room: 'living' },
+  'DV250TFU': { slug: 'teatro-dolce-vaniglia-250', description: 'Гурманская ваниль с сахарной пудрой, тёмным шоколадом и карамелью.', scentFamily: 'warm', mood: 'cozy', room: 'living' },
+  'FF250TFU': { slug: 'teatro-foglie-di-fico-250', description: 'Зелёные листья инжира, смягчённые ландышем, цитрусовыми и древесными оттенками.', scentFamily: 'fresh', mood: 'calm', room: 'living' },
+  'VM250TFU': { slug: 'teatro-vento-di-mare-250', description: 'Морская композиция с мускусом, мягкими морскими нотами и жасмином.', scentFamily: 'fresh', mood: 'airy', room: 'living' },
+  '3232434': { slug: 'ladenac-urban-senses-caviar-lime-500', description: 'Свежая цитрусово-морская композиция вокруг австралийского finger lime, с бергамотом, морскими оттенками и древесной базой.', scentFamily: 'citrus', mood: 'airy', room: 'living' },
+  '55777': { slug: 'ladenac-africa-predator-set', description: 'Коллекция Africa: экзотическая композиция Predator с пряностями, дикими цветами, древесиной, ладаном и миррой.', scentFamily: 'spicy', mood: 'focused', room: 'living' },
+  '983858': { slug: 'ladenac-vent-arabie-chergui-500', description: 'Свежая древесно-цитрусовая композиция с лимоном, перцем, петитгрейном, кедром и ветивером.', scentFamily: 'woody', mood: 'focused', room: 'living' },
 }
 
 export function stagedTrade(trade: TradeProduct): TradeProduct {
