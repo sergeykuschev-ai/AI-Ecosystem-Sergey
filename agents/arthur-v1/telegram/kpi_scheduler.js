@@ -44,6 +44,7 @@ class KpiScheduler {
     this.ownerChatId = options.ownerChatId;
     this.ownerId = options.ownerId || options.ownerChatId;
     this.storeId = options.storeId;
+    this.storeName = options.storeName || 'Миска';
     this.timezone = options.timezone || DEFAULT_TIMEZONE;
     this.pool = options.pool || null;
     this.databaseUrl = options.databaseUrl;
@@ -165,6 +166,7 @@ class KpiScheduler {
       const report = await this.automation.buildDailyReport({
         storeId: this.storeId,
         timezone: this.timezone,
+        storeName: this.storeName,
       });
 
       const testLabel = typeof options.test === 'string' ? options.test : (options.test ? 'ТЕСТ' : '');

@@ -173,6 +173,7 @@ class ArthurTelegramGateway {
       },
     });
     this.scheduler = options.kpiScheduler || null;
+    this.schedulers = this.scheduler ? [this.scheduler] : [];
     this.dbPool = options.dbPool || null;
     this.running = false;
     this.shutdownRequested = false;
@@ -202,19 +203,18 @@ class ArthurTelegramGateway {
       if (!ownerChatId) {
         throw new Error('KPI automation requires exactly one allowed Telegram user ID');
       }
-      this.scheduler = createKpiScheduler({
-        config: kpiConfig,
-        logger: this.logger,
-        telegramClient: this.telegram,
-        businessKpiSkill: this.businessKpiSkill,
-        ownerChatId,
-        ownerId: this.config.ownerProfileId,
-        storeId: process.env.BUSINESS_KPI_DEFAULT_STORE_ID || '',
-        timezone: kpiConfig.timezone,
-        pool: this.dbPool,
-      });
-      await this.scheduler.initialize();
-      this.scheduler.start();
+      const stores = [
+        { id: process.env.BUSINESS_KPI_DEFAULT_STORE_ID || '', name: 'Миска' },
+        { id: process.env.BUSINESS_KPI_AMPER_STORE_ID || '', name: 'Ампер' },
+        { id: process.env.BUSINESS_KPI_VENTIL_STORE_ID || '', name: 'Вентиль' },
+      ].filter(store => store.id);
+      this.schedulers = stores.map(store => createKpiScheduler({
+        config: kpiConfig, logger: this.logger, telegramClient: this.telegram,
+        businessKpiSkill: this.businessKpiSkill, ownerChatId, ownerId: this.config.ownerProfileId,
+        storeId: store.id, storeName: store.name, timezone: kpiConfig.timezone, pool: this.dbPool,
+      }));
+      for (const scheduler of this.schedulers) { await scheduler.initialize(); scheduler.start(); }
+      this.scheduler = this.schedulers[0] || null;
     } catch (error) {
       this.logger.error('kpi_scheduler_init_failed', null, {
         errorCode: error.code || error.name,
@@ -403,15 +403,15 @@ class ArthurTelegramGateway {
     this.shutdownRequested = true;
     this.logger.info('gateway_shutdown_requested', null, {});
 
-    try {
-      if (this.scheduler) {
-        this.scheduler.stop();
+    for (const scheduler of this.schedulers || []) {
+      try {
+        scheduler.stop();
+      } catch (error) {
+        this.logger.error('kpi_scheduler_stop_failed', null, {
+          errorCode: error.code || error.name,
+          errorMessage: error.message,
+        });
       }
-    } catch (error) {
-      this.logger.error('kpi_scheduler_stop_failed', null, {
-        errorCode: error.code || error.name,
-        errorMessage: error.message,
-      });
     }
 
     try {
@@ -444,6 +444,11 @@ class ArthurTelegramGateway {
       lastError: this.lastError,
       configValid: validateConfig(this.config).valid,
       kpiScheduler: this.scheduler ? this.scheduler.getHealth() : { running: false, automations: { daily: false, weekly: false, alerts: false } },
+      kpiSchedulers: (this.schedulers || []).map(scheduler => ({
+        storeId: scheduler.storeId || null,
+        storeName: scheduler.storeName || null,
+        ...scheduler.getHealth(),
+      })),
     };
   }
 }
