@@ -460,3 +460,11 @@ footer nav{gap:4px 24px}
 .productHeroPlaceholder.hasImage{overflow:hidden;background:#f3f0e8}
 .productHeroImage{object-fit:contain;padding:8%}
 .productCardVisual.hasImage .demoTag,.productHeroPlaceholder.hasImage .demoTag{z-index:2}
+
+.brandGrid{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line);border-left:1px solid var(--line);margin-top:42px}
+.brandTile{min-height:180px;padding:26px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);display:flex;flex-direction:column;justify-content:space-between;transition:background .2s}
+.brandTile:hover{background:#ebe6dc}
+.brandTile small{font-size:9px;letter-spacing:.13em;color:var(--muted);text-transform:uppercase}
+.brandTile h2{font-size:22px;font-weight:500;letter-spacing:-.02em;margin:28px 0}
+.brandTile span{font-size:10px;letter-spacing:.08em;color:var(--muted)}
+@media(max-width:760px){.brandGrid{grid-template-columns:1fr 1fr}.brandTile{min-height:150px;padding:20px}.brandTile h2{font-size:18px}}
