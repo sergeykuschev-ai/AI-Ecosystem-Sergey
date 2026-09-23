@@ -24,14 +24,14 @@ function bootstrapDefinitions(env = process.env) {
       displayName: 'Сергей Кущев',
       password: env.BUSINESS_KPI_OWNER_PASSWORD,
     },    {
-      role: 'MANAGER',
+      role: 'SELLER',
       code: 'amper',
       externalId: env.BUSINESS_KPI_AMPER_LOGIN || 'amper',
       displayName: 'Ампер',
       password: env.BUSINESS_KPI_AMPER_PASSWORD,
     },
     {
-      role: 'MANAGER',
+      role: 'SELLER',
       code: 'ventil',
       externalId: env.BUSINESS_KPI_VENTIL_LOGIN || 'ventil',
       displayName: 'Вентиль',
