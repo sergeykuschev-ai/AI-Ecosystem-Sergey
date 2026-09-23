@@ -99,6 +99,18 @@ function integerField(field: string, overrides: Partial<FieldSpec> = {}): FieldS
   );
 }
 
+function decimalField(field: string, precision: number, scale: number, overrides: Partial<FieldSpec> = {}): FieldSpec {
+  return mergeField(
+    {
+      field,
+      type: "decimal",
+      meta: { interface: "input", special: null, width: "full" },
+      schema: { data_type: "numeric", numeric_precision: precision, numeric_scale: scale, nullable: true },
+    },
+    overrides,
+  );
+}
+
 function booleanField(field: string, overrides: Partial<FieldSpec> = {}): FieldSpec {
   return mergeField(
     {
@@ -238,12 +250,16 @@ export const schema: CollectionSpec[] = [
       stringField("unit", { sort: 5, meta: { translations: ru("Единица") } }),
       stringField("category_external_id", { sort: 6, meta: { translations: ru("ID категории 1С") } }),
       textField("description", { sort: 7, meta: { translations: ru("Описание") } }),
+      decimalField("price", 12, 2, { sort: 8, meta: { translations: ru("Цена Миска") } }),
+      decimalField("stock_quantity", 14, 3, { sort: 9, meta: { translations: ru("Остаток Миска") } }),
+      decimalField("stock_quantity_raw", 14, 3, { sort: 10, meta: hiddenSystem }),
+      timestampField("offers_synced_at", { sort: 11, meta: hiddenSystem }),
       booleanField("active", {
-        sort: 8,
+        sort: 12,
         meta: { translations: ru("Активно"), required: true },
         schema: { data_type: "boolean", nullable: false, default: false },
       }),
-      timestampField("synced_at", { sort: 9, meta: hiddenSystem }),
+      timestampField("synced_at", { sort: 13, meta: hiddenSystem }),
     ],
   },
   {

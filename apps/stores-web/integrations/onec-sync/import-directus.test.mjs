@@ -61,6 +61,7 @@ test("importSnapshot posts new categories and products with active false", async
   const productPost = posts.find((call) => call.url.includes("/items/miska_catalog_products"));
   assert.equal(productPost.body.external_id, "p1");
   assert.equal(productPost.body.category_external_id, "g1");
+  assert.equal(productPost.body.description, undefined);
   assert.equal(productPost.body.active, false);
   assert.match(categoryPost.url, /^http:\/\/directus\.test\/items\//);
 });

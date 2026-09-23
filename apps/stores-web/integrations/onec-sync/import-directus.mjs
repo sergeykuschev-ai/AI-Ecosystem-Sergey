@@ -58,7 +58,7 @@ export async function importSnapshot(snapshotPath) {
     await upsert(config, "miska_catalog_products", item.externalId, {
       external_id: item.externalId, sku: item.sku || null, barcode: item.barcode || null,
       name: item.name, unit: item.unit || null, category_external_id: item.categoryExternalId,
-      description: item.description || null, active: false, synced_at: syncedAt,
+      active: false, synced_at: syncedAt,
     });
     products++;
   }

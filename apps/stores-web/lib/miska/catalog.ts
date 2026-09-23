@@ -16,6 +16,8 @@ export interface MiskaCatalogProduct {
   unit: string | null;
   category_external_id: string | null;
   description: string | null;
+  price: number | string | null;
+  stock_quantity: number | string | null;
 }
 
 export async function getMiskaCatalogPreview() {
@@ -26,7 +28,7 @@ export async function getMiskaCatalogPreview() {
   );
   const products = await readDirectusItems<MiskaCatalogProduct>(
     "miska_catalog_products",
-    ["external_id", "sku", "barcode", "name", "unit", "category_external_id", "description"],
+    ["external_id", "sku", "barcode", "name", "unit", "category_external_id", "description", "price", "stock_quantity"],
     "sort=name&limit=-1",
   );
   return { categories: categories ?? [], products: products ?? [] };

@@ -36,6 +36,7 @@ export default async function Page({ params }: PageProps) {
     return false;
   };
   const sectionProducts = products.filter((product) => belongsToSection(product.category_external_id));
+  const rub = new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB", maximumFractionDigits: 2 });
 
   return (
     <main className="page-shell">
@@ -49,6 +50,8 @@ export default async function Page({ params }: PageProps) {
               <h2>{product.name}</h2>
               {product.sku ? <p>Артикул: {product.sku}</p> : null}
               {product.barcode ? <p>Штрихкод: {product.barcode}</p> : null}
+              <p>{product.price == null ? "Цена не задана" : rub.format(Number(product.price))}</p>
+              <p>Остаток: {Number(product.stock_quantity ?? 0)}</p>
             </article>
           ))}
         </div>
