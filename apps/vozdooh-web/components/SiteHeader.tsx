@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { BrandLogo } from './BrandLogo'
+import { CartLink } from './CartLink'
 
 export function SiteHeader() {
   return (
@@ -9,11 +10,11 @@ export function SiteHeader() {
         <Link href="/catalog">Каталог</Link>
         <Link href="/finder">Подобрать аромат</Link>
         <Link href="/brands">Бренды</Link>
+        <Link href="/collections">Коллекции</Link>
         <Link href="/#about">О нас</Link>
       </nav>
       <div className="actions">
-        <Link href="/catalog">Поиск</Link>
-        <span>Корзина · 0</span>
+        <CartLink />
       </div>
     </header>
   )

@@ -1,17 +1,119 @@
 import Link from 'next/link'
+import { ProductCard } from '../components/ProductCard'
+import { SiteFooter } from '../components/SiteFooter'
 import { SiteHeader } from '../components/SiteHeader'
-const categories=[['Диффузоры','Аромат как часть интерьера'],['Свечи','Тихий свет и сложные композиции'],['Спреи','Мгновенно изменить настроение'],['Рефилы','Продлить любимый аромат'],['Для автомобиля','Знакомый аромат в дороге'],['Подарки','Готовые знаки внимания']]
-const families=['Древесные','Свежие','Цитрусовые','Цветочные','Пряные','Тёплые']
-const rooms=['Гостиная','Спальня','Ванная','Кабинет','Прихожая']
-const demo=[['№ 01','Демонстрационный товар 01','PLACEHOLDER'],['№ 02','Демонстрационный товар 02','PLACEHOLDER'],['№ 03','Демонстрационный товар 03','PLACEHOLDER'],['№ 04','Демонстрационный товар 04','PLACEHOLDER']]
-export default function Home(){return <main>
-<SiteHeader />
-<section className="hero"><div className="eyebrow">Премиальная парфюмерия для дома</div><h1>Атмосфера<br/>начинается с аромата.</h1><p>Ароматы, которые становятся частью пространства — так же естественно, как свет, музыка и любимые вещи.</p><div className="heroActions"><Link className="primary" href="/catalog">Смотреть коллекцию</Link><Link className="textLink" href="/finder">Помочь с выбором →</Link></div><div className="heroObject"><div className="sticks"/><div className="bottle"><span>VOZDOOH</span><small>HOME FRAGRANCE</small></div><div className="shadow"/></div><span className="edition">CURATED HOME FRAGRANCE · 2026</span></section>
-<section id="catalog" className="section"><div className="sectionHead"><div><span className="eyebrow">Каталог</span><h2>Выберите способ<br/>наполнить дом ароматом</h2></div><p>Начните с формата. Реальный ассортимент и наличие появятся здесь после синхронизации с 1С.</p></div><div className="categoryGrid">{categories.map(([n,d],i)=><Link className="category" href={`/catalog?category=${['diffusers', 'candles', 'sprays', 'refills', 'car', 'gifts'][i]}`} key={n}><span>0{i+1}</span><h3>{n}</h3><p>{d}</p><b>Смотреть →</b></Link>)}</div></section>
-<section id="finder" className="finder"><div><span className="eyebrow light">Подбор аромата</span><h2>Как должен<br/>ощущаться ваш дом?</h2><p>Не обязательно знать ноты и парфюмерные термины. Выберите настроение — мы сузим выбор.</p><Link className="creamButton" href="/finder">Подобрать аромат</Link></div><div id="moods" className="finderOptions"><span>По характеру</span>{families.map((x,i)=><button key={x}><em>0{i+1}</em>{x}<b>→</b></button>)}</div></section>
-<section className="section editorial"><div><span className="eyebrow">Кураторский выбор</span><h2>Не сотни случайных позиций.<br/>Только то, что стоит вашего пространства.</h2></div><div className="products">{demo.map(([n,notes,mood],i)=><article key={n}><div className={'productVisual p'+i}><div className="miniSticks"/><div className="miniBottle"><small>VOZDOOH</small><strong>{n}</strong></div></div><div className="productMeta"><span>{mood}</span><h3>{notes}</h3><p>Демонстрационная карточка · цена и наличие из 1С</p></div></article>)}</div></section>
-<section className="room"><div><span className="eyebrow light">По пространству</span><h2>У каждой комнаты<br/>свой характер.</h2><p>Мы подскажем интенсивность и направление аромата под назначение пространства.</p></div><div className="roomLinks">{rooms.map((x,i)=><a href="#" key={x}><span>0{i+1}</span>{x}<b>→</b></a>)}</div></section>
-<section id="brands" className="section brands"><span className="eyebrow">Бренды</span><div className="sectionHead"><h2>Коллекция без компромиссов.</h2><p>После импорта каталога здесь появятся только бренды, которые действительно есть в ассортименте VOZDOOH.</p></div><div className="brandPlaceholder">REAL BRANDS FROM 1C <span>→</span></div></section>
-<section id="about" className="manifesto"><span>VOZDOOH / МАНИФЕСТ</span><p>Мы выбираем аромат не по громкости, а по тому, <i>что он делает с пространством.</i></p><small>Интернет-магазин премиальной парфюмерии для дома</small></section>
-<footer><Link className="logo" href="/">VOZDOOH</Link><p>Каталог · Бренды · Доставка и оплата · Контакты</p><p>© 2026 VOZDOOH</p></footer>
-</main>}
+import { demoProducts, familyLabels, roomLabels, type DemoCategory, type DemoFamily, type DemoRoom } from '../src/catalog/demo'
+
+const categories: { slug: DemoCategory; name: string; text: string }[] = [
+  { slug: 'diffusers', name: 'Диффузоры', text: 'Аромат как часть интерьера' },
+  { slug: 'candles', name: 'Свечи', text: 'Тихий свет и сложные композиции' },
+  { slug: 'sprays', name: 'Спреи', text: 'Мгновенно изменить настроение' },
+  { slug: 'refills', name: 'Рефилы', text: 'Продлить любимый аромат' },
+  { slug: 'car', name: 'Для автомобиля', text: 'Знакомый аромат в дороге' },
+  { slug: 'gifts', name: 'Подарки', text: 'Готовые знаки внимания' },
+]
+
+const families = Object.entries(familyLabels) as [DemoFamily, string][]
+const rooms = Object.entries(roomLabels) as [DemoRoom, string][]
+
+export default function Home() {
+  return (
+    <main>
+      <SiteHeader />
+      <section className="hero">
+        <div className="eyebrow">Премиальная парфюмерия для дома</div>
+        <h1>Атмосфера<br />начинается с аромата.</h1>
+        <p>Ароматы, которые становятся частью пространства — так же естественно, как свет, музыка и любимые вещи.</p>
+        <div className="heroActions">
+          <Link className="primary" href="/catalog">Смотреть коллекцию</Link>
+          <Link className="textLink" href="/finder">Помочь с выбором →</Link>
+        </div>
+        <div className="heroObject" aria-hidden="true">
+          <div className="sticks" />
+          <div className="bottle"><span>VOZDOOH</span><small>HOME FRAGRANCE</small></div>
+          <div className="shadow" />
+        </div>
+        <span className="edition">CURATED HOME FRAGRANCE · 2026</span>
+      </section>
+
+      <section id="catalog" className="section">
+        <div className="sectionHead">
+          <div>
+            <span className="eyebrow">Каталог</span>
+            <h2>Выберите способ<br />наполнить дом ароматом</h2>
+          </div>
+          <p>Начните с формата. Реальный ассортимент и наличие появятся здесь после синхронизации с 1С.</p>
+        </div>
+        <div className="categoryGrid">
+          {categories.map((category, index) => (
+            <Link className="category" href={`/catalog?category=${category.slug}`} key={category.slug}>
+              <span>0{index + 1}</span>
+              <h3>{category.name}</h3>
+              <p>{category.text}</p>
+              <b>Смотреть →</b>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <section id="finder" className="finder">
+        <div>
+          <span className="eyebrow light">Подбор аромата</span>
+          <h2>Как должен<br />ощущаться ваш дом?</h2>
+          <p>Не обязательно знать ноты и парфюмерные термины. Выберите настроение — мы сузим выбор.</p>
+          <Link className="creamButton" href="/finder">Подобрать аромат</Link>
+        </div>
+        <div className="finderOptions">
+          <span>По характеру</span>
+          {families.map(([slug, label], index) => (
+            <Link href={`/catalog?family=${slug}`} key={slug}><em>0{index + 1}</em>{label}<b>→</b></Link>
+          ))}
+        </div>
+      </section>
+
+      <section className="section editorial">
+        <div>
+          <span className="eyebrow">Кураторский выбор</span>
+          <h2>Не сотни случайных позиций.<br />Только то, что стоит вашего пространства.</h2>
+        </div>
+        <div className="products">
+          {demoProducts.slice(0, 4).map((product, index) => (
+            <ProductCard product={product} index={index} key={product.id} />
+          ))}
+        </div>
+      </section>
+
+      <section className="room">
+        <div>
+          <span className="eyebrow light">По пространству</span>
+          <h2>У каждой комнаты<br />свой характер.</h2>
+          <p>Мы подскажем интенсивность и направление аромата под назначение пространства.</p>
+        </div>
+        <div className="roomLinks">
+          {rooms.map(([slug, label], index) => (
+            <Link href={`/catalog?room=${slug}`} key={slug}><span>0{index + 1}</span>{label}<b>→</b></Link>
+          ))}
+        </div>
+      </section>
+
+      <section id="brands" className="section brands">
+        <span className="eyebrow">Бренды и коллекции</span>
+        <div className="sectionHead">
+          <h2>Коллекция без компромиссов.</h2>
+          <p>После импорта каталога здесь появятся только бренды, которые действительно есть в ассортименте VOZDOOH.</p>
+        </div>
+        <div className="brandPlaceholder">
+          <Link href="/brands">REAL BRANDS FROM 1C <span>→</span></Link>
+          <Link href="/collections">EDITORIAL COLLECTIONS <span>→</span></Link>
+        </div>
+      </section>
+
+      <section id="about" className="manifesto">
+        <span>VOZDOOH / МАНИФЕСТ</span>
+        <p>Мы выбираем аромат не по громкости, а по тому, <i>что он делает с пространством.</i></p>
+        <small>Интернет-магазин премиальной парфюмерии для дома</small>
+      </section>
+      <SiteFooter />
+    </main>
+  )
+}
