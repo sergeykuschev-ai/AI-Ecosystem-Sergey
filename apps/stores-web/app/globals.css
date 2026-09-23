@@ -457,3 +457,6 @@ p { margin: 0 0 1rem; }
   .miska-catalog-search { grid-column: auto; }
   .miska-product-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+
+.miska-product-card__brand { margin: -0.2rem 0 0; color: #354250; font-size: 0.8rem; font-weight: 800; }
+.miska-product-card__review { width: fit-content; margin: 0; padding: 0.28rem 0.5rem; border-radius: 999px; background: #fff2dd; color: #8a5000; font-size: 0.72rem; font-weight: 800; }

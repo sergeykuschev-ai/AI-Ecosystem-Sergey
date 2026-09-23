@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 export interface PreviewProduct {
   externalId: string;
   name: string;
+  sourceName: string;
   sku: string | null;
   barcode: string | null;
   price: number | string | null;
@@ -12,11 +13,16 @@ export interface PreviewProduct {
   groupId: string;
   groupName: string;
   categoryName: string;
+  subcategoryName: string | null;
+  brand: string | null;
+  classificationStatus: string | null;
+  classificationConfidence: number | null;
 }
 
 interface Props {
   products: PreviewProduct[];
   groups: Array<{ id: string; name: string; count: number }>;
+  brands: Array<{ name: string; count: number }>;
 }
 const rub = new Intl.NumberFormat("ru-RU", {
   style: "currency",
@@ -29,10 +35,11 @@ function numeric(value: number | string | null) {
   return Number.isFinite(number) ? number : 0;
 }
 
-export function MiskaCatalogPreviewGrid({ products, groups }: Props) {
+export function MiskaCatalogPreviewGrid({ products, groups, brands }: Props) {
   const [query, setQuery] = useState("");
   const [availability, setAvailability] = useState("all");
   const [group, setGroup] = useState("all");
+  const [brand, setBrand] = useState("all");
   const [sort, setSort] = useState("available");
   const [visible, setVisible] = useState(96);
 
@@ -40,16 +47,17 @@ export function MiskaCatalogPreviewGrid({ products, groups }: Props) {
     const needle = query.trim().toLocaleLowerCase("ru-RU");
     const result = products.filter((product) => {
       const stock = numeric(product.stockQuantity);
-      const matchesQuery = !needle || [product.name, product.sku, product.barcode]
+      const matchesQuery = !needle || [product.name, product.sourceName, product.sku, product.barcode, product.brand]
         .filter(Boolean)
         .some((value) => String(value).toLocaleLowerCase("ru-RU").includes(needle));
       const matchesGroup = group === "all" || product.groupId === group;
+      const matchesBrand = brand === "all" || product.brand === brand;
       const matchesAvailability =
         availability === "all" ||
         (availability === "in-stock" && stock > 0) ||
         (availability === "out-of-stock" && stock <= 0) ||
         (availability === "no-price" && product.price == null);
-      return matchesQuery && matchesGroup && matchesAvailability;
+      return matchesQuery && matchesGroup && matchesBrand && matchesAvailability;
     });
 
     return result.sort((left, right) => {
@@ -59,7 +67,7 @@ export function MiskaCatalogPreviewGrid({ products, groups }: Props) {
       const stockDifference = Number(numeric(right.stockQuantity) > 0) - Number(numeric(left.stockQuantity) > 0);
       return stockDifference || left.name.localeCompare(right.name, "ru");
     });
-  }, [availability, group, products, query, sort]);
+  }, [availability, brand, group, products, query, sort]);
 
   const resetVisible = () => setVisible(96);
   const inStock = filtered.filter((product) => numeric(product.stockQuantity) > 0).length;
@@ -83,6 +91,15 @@ export function MiskaCatalogPreviewGrid({ products, groups }: Props) {
             <select value={group} onChange={(event) => { setGroup(event.target.value); resetVisible(); }}>
               <option value="all">Все категории</option>
               {groups.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.count}</option>)}
+            </select>
+          </label>
+        ) : null}
+        {brands.length ? (
+          <label>
+            <span>Бренд</span>
+            <select value={brand} onChange={(event) => { setBrand(event.target.value); resetVisible(); }}>
+              <option value="all">Все бренды</option>
+              {brands.map((item) => <option key={item.name} value={item.name}>{item.name} · {item.count}</option>)}
             </select>
           </label>
         ) : null}
@@ -118,8 +135,14 @@ export function MiskaCatalogPreviewGrid({ products, groups }: Props) {
             <article className="miska-product-card" key={product.externalId}>
               <div className="miska-product-card__image" aria-hidden="true">Фото готовим</div>
               <div className="miska-product-card__body">
-                <p className="miska-product-card__category">{product.categoryName}</p>
+                <p className="miska-product-card__category">
+                  {product.categoryName}{product.subcategoryName ? ` · ${product.subcategoryName}` : ""}
+                </p>
                 <h2>{product.name}</h2>
+                {product.brand ? <p className="miska-product-card__brand">{product.brand}</p> : null}
+                {product.classificationStatus === "review" ? (
+                  <p className="miska-product-card__review">Нужна проверка категории</p>
+                ) : null}
                 <div className="miska-product-card__codes">
                   {product.sku ? <span>Арт. {product.sku}</span> : null}
                   {product.barcode ? <span>{product.barcode}</span> : null}

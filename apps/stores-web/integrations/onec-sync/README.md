@@ -36,3 +36,16 @@ Run all tests with `npm test`, or only the integration suite with:
 ```bash
 node --test integrations/onec-sync/*.test.mjs
 ```
+
+## Website taxonomy
+
+The source 1C hierarchy is retained only as source data. `normalize-catalog.mjs` derives the website taxonomy without changing 1C:
+
+- animal/site section (`site_section`)
+- normalized category and subcategory
+- brand when it can be identified safely
+- confidence and a small review queue
+
+`classify-directus.mjs` writes only derived taxonomy fields. It never overwrites `site_name`, `site_description`, `site_image`, or other curated website content.
+
+The automatic server importer runs classification after every new `import*.xml`, so new 1C products enter the website taxonomy automatically.

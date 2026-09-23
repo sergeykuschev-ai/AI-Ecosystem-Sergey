@@ -1,16 +1,12 @@
 import Link from "next/link";
 import { getMiskaCatalogPreview } from "@/lib/miska/catalog";
+import { MISKA_CATALOG_SECTIONS } from "@/lib/miska/catalog-taxonomy";
 
 export const dynamic = "force-dynamic";
 export const metadata = {
   title: "Каталог Миски — закрытая проверка",
   robots: { index: false, follow: false },
 };
-
-const PRIMARY_ORDER = [
-  "Кошки", "Собаки", "Грызуны", "Птицы", "Рыбы",
-  "Аптека", "Средства ухода и содержания", "Одежда", "Попоны/Воротники", "Поилки",
-];
 
 function syncLabel(value: string | null) {
   if (!value) return "ещё не синхронизировалось";
@@ -20,58 +16,37 @@ function syncLabel(value: string | null) {
     timeZone: "Asia/Vladivostok",
   }).format(new Date(value));
 }
+
 export default async function Page() {
-  const { categories, products } = await getMiskaCatalogPreview();
-  const root = categories.find((category) => category.name === "МИСКА ЗООТОВАРЫ");
-  const sections = root
-    ? categories.filter((category) => category.parent_external_id === root.external_id)
-    : [];
-  const byId = new Map(categories.map((category) => [category.external_id, category]));
-  const countBySection = new Map<string, number>();
-
-  for (const product of products) {
-    let category = product.category_external_id ? byId.get(product.category_external_id) : undefined;
-    const seen = new Set<string>();
-    while (category?.parent_external_id && !seen.has(category.external_id)) {
-      if (category.parent_external_id === root?.external_id) break;
-      seen.add(category.external_id);
-      category = byId.get(category.parent_external_id);
-    }
-    if (category && category.parent_external_id === root?.external_id) {
-      countBySection.set(category.external_id, (countBySection.get(category.external_id) ?? 0) + 1);
-    }
-  }
-
-  const priority = new Map(PRIMARY_ORDER.map((name, index) => [name, index]));
-  const primary = sections
-    .filter((section) => priority.has(section.name))
-    .sort((a, b) => (priority.get(a.name) ?? 99) - (priority.get(b.name) ?? 99));
-  const other = sections
-    .filter((section) => !priority.has(section.name))
-    .sort((a, b) => a.name.localeCompare(b.name, "ru"));
+  const { products } = await getMiskaCatalogPreview();
   const priced = products.filter((product) => product.price != null).length;
   const inStock = products.filter((product) => Number(product.stock_quantity ?? 0) > 0).length;
+  const review = products.filter((product) => product.classification_status === "review").length;
+  const branded = products.filter((product) => Boolean(product.brand)).length;
   const lastSync = products.map((product) => product.offers_synced_at).filter(Boolean).sort().at(-1) ?? null;
 
-  const renderSection = (section: (typeof sections)[number]) => (
-    <article className="miska-category-card miska-catalog-section-card" key={section.external_id}>
-      <h2><Link href={`/miska/catalog-preview/${section.slug}/`}>{section.name}</Link></h2>
-      <p>{countBySection.get(section.external_id) ?? 0} товаров</p>
-    </article>
-  );
+  const sections = MISKA_CATALOG_SECTIONS.map((section) => {
+    const rows = products.filter((product) => product.site_section === section.name);
+    return {
+      ...section,
+      count: rows.length,
+      inStock: rows.filter((product) => Number(product.stock_quantity ?? 0) > 0).length,
+      categories: new Set(rows.map((product) => product.site_category).filter(Boolean)).size,
+    };
+  }).filter((section) => section.count > 0);
 
   return (
     <main className="page-shell brand-landing" data-brand="miska">
       <section className="brand-landing-section miska-catalog-head">
         <p className="eyebrow">Каталог из 1С · закрытая проверка</p>
         <h1>Рабочий каталог «Миски»</h1>
-        <p className="lead">Реальные цены и остатки магазина. Изображения и описания будут добавляться отдельно.</p>
+        <p className="lead">1С отвечает за цену и остаток. Категории, бренды, изображения и контент сайта живут отдельно.</p>
 
         <div className="miska-catalog-stats">
           <div><strong>{products.length}</strong><span>товаров</span></div>
           <div><strong>{inStock}</strong><span>в наличии</span></div>
           <div><strong>{priced}</strong><span>с ценой</span></div>
-          <div><strong>{products.length - priced}</strong><span>без цены</span></div>
+          <div><strong>{branded}</strong><span>бренд определён</span></div>
         </div>
         <p className="miska-catalog-sync">Последнее обновление 1С: {syncLabel(lastSync)}</p>
       </section>
@@ -79,26 +54,35 @@ export default async function Page() {
       <section className="brand-landing-section">
         <div className="miska-catalog-section-heading">
           <div>
-            <p className="eyebrow">Навигация</p>
-            <h2>Основные разделы</h2>
+            <p className="eyebrow">Нормальная структура сайта</p>
+            <h2>Разделы каталога</h2>
           </div>
           <Link className="miska-catalog-all-link" href="/miska/catalog-preview/all/">Все {products.length} товаров →</Link>
         </div>
+
         <div className="miska-category-grid miska-catalog-section-grid">
-          {primary.map(renderSection)}
+          {sections.map((section) => (
+            <article className="miska-category-card miska-catalog-section-card" key={section.slug}>
+              <h2><Link href={`/miska/catalog-preview/${section.slug}/`}>{section.name}</Link></h2>
+              <p>{section.count} товаров · {section.inStock} в наличии · {section.categories} категорий</p>
+            </article>
+          ))}
         </div>
       </section>
 
-      {other.length ? (
-        <section className="brand-landing-section">
-          <p className="eyebrow">Структура 1С</p>
-          <h2>Прочие группы</h2>
-          <p className="miska-catalog-note">Эти группы пока оставлены как в 1С, чтобы ничего не потерять. Перед публичным запуском их разберём.</p>
-          <div className="miska-category-grid miska-catalog-section-grid">
-            {other.map(renderSection)}
-          </div>
-        </section>
-      ) : null}
+      <section className="brand-landing-section">
+        <p className="eyebrow">Контроль качества</p>
+        <h2>Очередь проверки</h2>
+        <p className="miska-catalog-note">
+          Автоматически разобрано {products.length - review} из {products.length}. В ручной очереди осталось {review}.
+        </p>
+        <div className="miska-category-grid miska-catalog-section-grid">
+          <article className="miska-category-card miska-catalog-section-card">
+            <h2><Link href="/miska/catalog-preview/review/">Нужно проверить</Link></h2>
+            <p>{review} товаров с неоднозначной исходной группой или названием</p>
+          </article>
+        </div>
+      </section>
     </main>
   );
 }
