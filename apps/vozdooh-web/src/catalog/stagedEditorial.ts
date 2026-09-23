@@ -28,7 +28,7 @@ export function inferStagedCategory(name: string): string {
   if (has(name, /спрей|room spray/)) return 'Спреи для дома'
   if (has(name, /рефилл|рефил |сменный аромат/)) return 'Рефилы'
   if (has(name, /автомобил|vinove|саше для автомобиля|сменный блок ароматизатора/)) return 'Для автомобиля'
-  if (has(name, /картридж|аппарат для ароматизации|dispenser|shop 250|shop 300|cafe 1000|hotel 1000/)) return 'Ароматизация помещений'
+  if (has(name, /картридж|катридж|магма|аппарат для ароматизации|dispenser|shop 250|shop 300|cafe 1000|hotel 1000/)) return 'Ароматизация помещений'
   if (has(name, /саше|аромапопурри|арома лампы/)) return 'Ароматы для пространства'
   if (has(name, /палоч|ножницы для фитиля|керамическая ваза|сетевое з\/у|microusb/)) return 'Аксессуары'
   if (has(name, /набор/)) return 'Подарочные наборы'
@@ -165,6 +165,17 @@ const curated: Record<string, Partial<EditorialProduct>> = {
   'N020273': { slug: 'vinove-warsaw-original', description: 'Warsaw: ананас, имбирь и шафран; роза, цитрусы и замша; пачули и сандал.', scentFamily: 'spicy', mood: 'focused' },
 }
 
+function aromaGroupFallbackDescription(name: string): string | null {
+  if (/жидкость для промывки/i.test(name)) return 'Сервисная жидкость AROMAgroup для промывки и обслуживания профессиональных систем ароматизации.'
+  if (/аппарат для ароматизации помещений/i.test(name)) return 'Профессиональный аппарат AROMAgroup для интерьерной ароматизации помещений.'
+  if (/кар?тридж/i.test(name)) {
+    const scent = name.replace(/\s*кар?тридж.*$/i, '').replace(/^AROMAgroup\s*/i, '').trim()
+    return scent ? `Ароматический картридж AROMAgroup «${scent}» для профессиональных систем ароматизации.` : 'Ароматический картридж AROMAgroup для профессиональных систем ароматизации.'
+  }
+  if (/магма/i.test(name)) return 'Ароматическая композиция AROMAgroup «Магма» для профессиональной ароматизации помещений.'
+  return null
+}
+
 export function stagedTrade(trade: TradeProduct): TradeProduct {
   return { ...trade, brand: trade.brand ?? inferStagedBrand(trade.name), category: inferStagedCategory(trade.name), volume: trade.volume ?? inferStagedVolume(trade.name), price: null }
 }
@@ -176,7 +187,8 @@ export function stagedEditorial(trades: readonly TradeProduct[]): Record<string,
     const patch = curated[trade.sku] ?? {}
     const brand = inferStagedBrand(trade.name)
     const generated = brand ? `${slugify(brand)}-${slugify(trade.sku)}` : base.slug
-    result[trade.sku] = { ...base, slug: patch.slug ?? generated, ...patch }
+    const fallbackDescription = brand === 'AROMAgroup' ? aromaGroupFallbackDescription(trade.name) : null
+    result[trade.sku] = { ...base, slug: patch.slug ?? generated, description: patch.description ?? fallbackDescription, ...patch }
   }
   return result
 }
