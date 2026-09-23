@@ -6,7 +6,7 @@ export function ProductCard({ product, index = 0 }: { product: DemoProduct; inde
     <Link className="productCard" href={`/catalog/${product.editorial.slug}`}>
       <div className={`productCardVisual tone${index % 4}`}>
         <span className="demoTag">DEMO</span>
-        <span className="productCardMark">VOZDOOH</span>
+        <span className="productCardMark">ФОТО ПОСЛЕ 1С</span>
       </div>
       <div className="productCardMeta">
         <span>{familyLabels[product.editorial.scentFamily]}</span>

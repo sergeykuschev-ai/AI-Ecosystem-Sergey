@@ -38,7 +38,7 @@ export function CartView() {
           <div className="cartList">
             {rows.map(({ line, product }) => (
               <div className="cartRow" key={line.sku}>
-                <Link className="cartRowVisual" href={`/catalog/${product?.editorial.slug}`}>VOZDOOH</Link>
+                <Link className="cartRowVisual" href={`/catalog/${product?.editorial.slug}`}>DEMO</Link>
                 <div>
                   <h3>{product?.trade.name}</h3>
                   <small>SKU: {line.sku} · цена после синхронизации с 1С</small>
