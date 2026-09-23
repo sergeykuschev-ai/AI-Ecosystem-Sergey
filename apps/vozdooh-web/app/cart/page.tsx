@@ -1,7 +1,11 @@
+import { catalogSource, getCatalogRepository } from '../../src/catalog/source'
+
 import type { Metadata } from 'next'
 import { CartView } from '../../components/CartView'
 import { SiteFooter } from '../../components/SiteFooter'
 import { SiteHeader } from '../../components/SiteHeader'
+
+export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   title: 'Корзина — VOZDOOH',
@@ -9,11 +13,13 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 }
 
-export default function CartPage() {
+export default async function CartPage() {
+  const products = await (await getCatalogRepository()).list()
+  const demo = catalogSource() === 'demo'
   return (
     <main>
       <SiteHeader />
-      <CartView />
+      <CartView products={products} demo={demo} />
       <SiteFooter />
     </main>
   )

@@ -1,11 +1,15 @@
+import { catalogSource, getCatalogRepository } from '../../src/catalog/source'
+
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ProductCard } from '../../components/ProductCard'
 import { SiteFooter } from '../../components/SiteFooter'
 import { SiteHeader } from '../../components/SiteHeader'
-import { categoryLabels, familyLabels, moodLabels, roomLabels, type DemoCategory, type DemoFamily, type DemoMood, type DemoRoom } from '../../src/catalog/demo'
-import { catalogHref, parseDemoFilters, type FilterGroup, type RawSearchParams } from '../../src/catalog/filterParams'
-import { applyDemoFilters } from '../../src/catalog/filters'
+import { categoryLabels, familyLabels, moodLabels, roomLabels, type DemoCategory, type DemoFamily, type DemoMood, type DemoRoom } from '../../src/catalog/vocabulary'
+import { catalogHref, parseCatalogFilters, type FilterGroup, type RawSearchParams } from '../../src/catalog/filterParams'
+import { applyCatalogFilters } from '../../src/catalog/filters'
+
+export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   title: 'Каталог — VOZDOOH',
@@ -24,8 +28,12 @@ const filterGroups: { group: FilterGroup; title: string; options: Option<string>
 
 export default async function CatalogPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const params = await searchParams
-  const filters = parseDemoFilters(params)
-  const products = applyDemoFilters(filters)
+  const allProducts = await (await getCatalogRepository()).list()
+  const demo = catalogSource() === 'demo'
+  const categories = demo ? categoryLabels : Object.fromEntries(allProducts.map((product) => [product.trade.category, product.trade.category]))
+  const groups = filterGroups.map((group) => group.group === 'category' ? { ...group, options: Object.entries(categories).map(([value, label]) => ({ value, label })) } : group)
+  const filters = parseCatalogFilters(params, categories)
+  const products = applyCatalogFilters(allProducts, filters)
   const hasFilters = Boolean(filters.category || filters.family || filters.mood || filters.room)
 
   return (
@@ -34,11 +42,11 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
       <section className="pageIntro">
         <span className="eyebrow">Каталог</span>
         <h1>Ароматы для пространства</h1>
-        <p>Структура каталога готова к реальным данным из 1С. До импорта здесь используются только явные демонстрационные placeholders: цены, наличие и бренды не отображаются, пока их не подтвердит учётная система.</p>
+        <p>{demo ? 'Структура каталога готова к реальным данным из 1С. До импорта здесь используются только явные демонстрационные placeholders: цены, наличие и бренды не отображаются, пока их не подтвердит учётная система.' : 'Внутренний тестовый каталог 1С. Синтетические данные, не для продажи.'}</p>
       </section>
 
       <div className="filtersBar">
-        {filterGroups.map(({ group, title, options }) => {
+        {groups.map(({ group, title, options }) => {
           const active = filters[group]
           return (
             <div className="filterGroup" key={group}>
@@ -59,7 +67,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
       </div>
 
       <p className="resultNote">
-        {hasFilters
+        {!demo ? `Внутренние тестовые позиции: ${products.length}.` : hasFilters
           ? `Найдено демонстрационных позиций: ${products.length}. Фильтры работают на demo-данных и после импорта будут применяться к реальному каталогу.`
           : `Демонстрационные позиции: ${products.length}.`}
       </p>
@@ -67,13 +75,13 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
       {products.length > 0 ? (
         <section className="catalogGrid">
           {products.map((product, index) => (
-            <ProductCard product={product} index={index} key={product.id} />
+            <ProductCard product={product} index={index} demo={demo} key={product.id} />
           ))}
         </section>
       ) : (
         <section className="emptyResult">
           <h2>Ничего не найдено</h2>
-          <p>По такой комбинации фильтров демонстрационных позиций нет. Попробуйте сбросить часть условий.</p>
+          <p>{demo ? 'По такой комбинации фильтров демонстрационных позиций нет. Попробуйте сбросить часть условий.' : 'По такой комбинации фильтров позиций нет. Попробуйте сбросить часть условий.'}</p>
           <Link className="primary" href="/catalog">Сбросить фильтры</Link>
         </section>
       )}

@@ -1,21 +1,21 @@
 /**
  * Catalog domain contracts.
  *
- * Boundary rule (pre-1C state):
- * - Trade fields come ONLY from the future 1C exchange: SKU, name, brand,
+ * Boundary rule:
+ * - Trade fields come ONLY from the 1C trade adapter: SKU, name, brand,
  *   category, volume, price, stock, barcode and the available characteristics
  *   that 1C actually provides.
  * - Editorial fields (descriptions, images, scent family, mood, room,
  *   recommendations) are content and NEVER arrive from 1C. They are managed
  *   by the VOZDOOH content process.
  *
- * Until the 1C adapter exists, the demo catalog fills trade fields with
- * explicit nulls and marks every product as a DEMO placeholder.
+ * The default catalog uses explicit DEMO placeholders. The local adapter
+ * accepts synthetic trade records only; the live exchange is not configured.
  */
 
 export type ProductId = string
 
-/** Fields owned by the 1C trade system. All nullable until the first sync. */
+/** Fields owned by the 1C trade system. Optional fields are null when unknown. */
 export type TradeProduct = {
   sku: string
   name: string

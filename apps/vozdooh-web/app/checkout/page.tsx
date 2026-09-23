@@ -1,7 +1,11 @@
+import { catalogSource, getCatalogRepository } from '../../src/catalog/source'
+
 import type { Metadata } from 'next'
 import { CheckoutForm } from '../../components/CheckoutForm'
 import { SiteFooter } from '../../components/SiteFooter'
 import { SiteHeader } from '../../components/SiteHeader'
+
+export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   title: 'Оформление заказа — VOZDOOH',
@@ -9,7 +13,9 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 }
 
-export default function CheckoutPage() {
+export default async function CheckoutPage() {
+  const products = await (await getCatalogRepository()).list()
+  const demo = catalogSource() === 'demo'
   return (
     <main>
       <SiteHeader />
@@ -18,7 +24,7 @@ export default function CheckoutPage() {
         <h1>Проверьте выбор</h1>
         <p>Сценарий оформления подготовлен без фиктивной оплаты и без создания заказов: кнопка отправки останется неактивной до подключения 1С и платёжного провайдера.</p>
       </section>
-      <CheckoutForm />
+      <CheckoutForm products={products} demo={demo} />
       <SiteFooter />
     </main>
   )

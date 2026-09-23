@@ -1,0 +1,2 @@
+# Local catalog snapshots must never be committed.
+.local/

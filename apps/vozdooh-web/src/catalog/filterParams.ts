@@ -1,7 +1,7 @@
-import { categoryLabels, familyLabels, moodLabels, roomLabels } from './demo'
-import type { DemoFilters } from './filters'
+import { categoryLabels, familyLabels, moodLabels, roomLabels } from './vocabulary'
+import type { CatalogFilters } from './filters'
 
-/** Parse and validate raw URL search params into known demo filter keys. Unknown values are ignored. */
+/** Parse and validate raw URL search params into catalog categories and editorial vocabulary. Unknown values are ignored. */
 
 export type RawSearchParams = Record<string, string | string[] | undefined>
 
@@ -15,9 +15,9 @@ function pick<K extends string>(labels: Record<K, string>, value: string | null)
   return Object.prototype.hasOwnProperty.call(labels, value) ? (value as K) : null
 }
 
-export function parseDemoFilters(params: RawSearchParams): DemoFilters {
+export function parseCatalogFilters(params: RawSearchParams, categories: Record<string, string> = categoryLabels): CatalogFilters {
   return {
-    category: pick(categoryLabels, first(params.category)),
+    category: pick(categories, first(params.category)),
     family: pick(familyLabels, first(params.family)),
     mood: pick(moodLabels, first(params.mood)),
     room: pick(roomLabels, first(params.room)),
@@ -27,7 +27,7 @@ export function parseDemoFilters(params: RawSearchParams): DemoFilters {
 export type FilterGroup = 'category' | 'family' | 'mood' | 'room'
 
 /** Build a catalog href toggling one filter while preserving the others. */
-export function catalogHref(current: DemoFilters, group: FilterGroup, value: string | null): string {
+export function catalogHref(current: CatalogFilters, group: FilterGroup, value: string | null): string {
   const next: Record<string, string> = {}
   const entries: [FilterGroup, string | null][] = [
     ['category', current.category],

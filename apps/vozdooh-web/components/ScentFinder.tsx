@@ -1,8 +1,10 @@
 'use client'
 
+import type { CatalogProduct } from '../src/catalog/contracts'
+
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
-import { categoryLabels, demoProducts, familyLabels, moodLabels, roomLabels } from '../src/catalog/demo'
+import { categoryLabels, familyLabels, moodLabels, roomLabels } from '../src/catalog/vocabulary'
 
 type GroupKey = 'family' | 'mood' | 'room' | 'category'
 
@@ -15,18 +17,20 @@ const groups: { key: GroupKey; step: string; title: string; options: Record<stri
   { key: 'category', step: '04', title: 'Формат', options: categoryLabels },
 ]
 
-export function ScentFinder() {
+export function ScentFinder({ products, demo }: { products: CatalogProduct[]; demo: boolean }) {
   const [selection, setSelection] = useState<Selection>({ family: null, mood: null, room: null, category: null })
 
+  const visibleGroups = groups.map((group) => group.key === 'category' && !demo ? { ...group, options: Object.fromEntries(products.map((product) => [product.trade.category, product.trade.category])) } : group)
+
   const matched = useMemo(
-    () => demoProducts.filter((product) => {
+    () => products.filter((product) => {
       if (selection.family && product.editorial.scentFamily !== selection.family) return false
       if (selection.mood && product.editorial.mood !== selection.mood) return false
       if (selection.room && product.editorial.room !== selection.room) return false
       if (selection.category && product.trade.category !== selection.category) return false
       return true
     }),
-    [selection],
+    [selection, products],
   )
 
   const resultHref = useMemo(() => {
@@ -45,7 +49,7 @@ export function ScentFinder() {
 
   return (
     <div className="finderQuiz">
-      {groups.map(({ key, step, title, options }) => (
+      {visibleGroups.map(({ key, step, title, options }) => (
         <div className="quizGroup" key={key}>
           <b>{step} · {title}</b>
           <div className="quizOptions">
@@ -66,7 +70,7 @@ export function ScentFinder() {
 
       <div className="quizResult">
         <p>
-          {matched.length > 0
+          {!demo ? `Найдено внутренних тестовых позиций: ${matched.length}.` : matched.length > 0
             ? `Под выбранные критерии сейчас попадает ${matched.length} демонстрационных позиций.`
             : 'Под выбранные критерии демонстрационных позиций нет — попробуйте смягчить условия.'}
         </p>

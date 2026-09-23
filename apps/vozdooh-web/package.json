@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
-    "verify": "npm run typecheck && npm run lint && npm run build"
+    "verify": "npm run test && npm run typecheck && npm run lint && npm run build",
+    "test": "node --require ./scripts/register-typescript.cjs --test tests/*.test.cjs",
+    "catalog:import": "node scripts/import-onec.cjs"
   },
   "dependencies": {
     "next": "16.3.3",

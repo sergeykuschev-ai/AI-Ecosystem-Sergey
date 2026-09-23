@@ -1,16 +1,14 @@
-import { demoProducts, type DemoCategory, type DemoFamily, type DemoMood, type DemoRoom, type DemoProduct } from './demo'
+import type { CatalogProduct } from './contracts'
 
-/** Pure filter helpers over the demo catalog. Deterministic and URL-driven. */
-
-export type DemoFilters = {
-  category: DemoCategory | null
-  family: DemoFamily | null
-  mood: DemoMood | null
-  room: DemoRoom | null
+export type CatalogFilters = {
+  category: string | null
+  family: string | null
+  mood: string | null
+  room: string | null
 }
 
-export function applyDemoFilters(filters: DemoFilters): DemoProduct[] {
-  return demoProducts.filter((p) => {
+export function applyCatalogFilters(products: readonly CatalogProduct[], filters: CatalogFilters): CatalogProduct[] {
+  return products.filter((p) => {
     if (filters.category && p.trade.category !== filters.category) return false
     if (filters.family && p.editorial.scentFamily !== filters.family) return false
     if (filters.mood && p.editorial.mood !== filters.mood) return false
@@ -19,15 +17,9 @@ export function applyDemoFilters(filters: DemoFilters): DemoProduct[] {
   })
 }
 
-export function getDemoProductBySlug(slug: string): DemoProduct | null {
-  return demoProducts.find((p) => p.editorial.slug === slug) ?? null
-}
-
-/** Editorial recommendations: other demo products from the same scent family. */
-export function getDemoRecommendations(slug: string, limit = 3): DemoProduct[] {
-  const product = getDemoProductBySlug(slug)
-  if (!product) return []
-  return demoProducts
-    .filter((p) => p.editorial.slug !== slug && p.editorial.scentFamily === product.editorial.scentFamily)
-    .slice(0, limit)
+export function getRecommendations(products: readonly CatalogProduct[], product: CatalogProduct, demo = false, limit = 3): CatalogProduct[] {
+  return products.filter((p) => p.id !== product.id && (
+    product.editorial.recommendations.includes(p.editorial.slug) ||
+    (demo && product.editorial.scentFamily !== null && p.editorial.scentFamily === product.editorial.scentFamily)
+  )).slice(0, limit)
 }

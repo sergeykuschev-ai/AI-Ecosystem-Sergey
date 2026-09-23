@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useMemo, useSyncExternalStore } from 'react'
 import { getCartSnapshot, getServerCartSnapshot, subscribeCart } from '../src/cart/storage'
-import { demoProducts } from '../src/catalog/demo'
+import type { CatalogProduct } from '../src/catalog/contracts'
 
 /**
  * Checkout UI (pre-1C state).
@@ -11,14 +11,13 @@ import { demoProducts } from '../src/catalog/demo'
  * is deliberately disabled: no order API exists, no payment is initiated and
  * nothing is sent anywhere. This is UI scaffolding only.
  */
-export function CheckoutForm() {
+export function CheckoutForm({ products, demo }: { products: CatalogProduct[]; demo: boolean }) {
   const cart = useSyncExternalStore(subscribeCart, getCartSnapshot, getServerCartSnapshot)
 
   const rows = useMemo(
     () => cart.lines
-      .map((line) => ({ line, product: demoProducts.find((p) => p.trade.sku === line.sku) }))
-      .filter((row) => row.product !== undefined),
-    [cart],
+      .map((line) => ({ line, product: products.find((p) => p.trade.sku === line.sku) })),
+    [cart, products],
   )
 
   if (rows.length === 0) {
@@ -83,7 +82,7 @@ export function CheckoutForm() {
         <h2>Ваш выбор</h2>
         {rows.map(({ line, product }) => (
           <div className="orderLine" key={line.sku}>
-            <span>{product?.trade.name}</span>
+            <span>{product?.trade.name ?? 'Позиция отсутствует в текущем каталоге'}</span>
             <b>× {line.quantity}</b>
           </div>
         ))}
@@ -92,11 +91,11 @@ export function CheckoutForm() {
           <b>По запросу</b>
         </div>
         <p className="notice">
-          Демонстрационный режим: цены, наличие и стоимость доставки появятся после синхронизации с 1С.
+          {demo ? 'Демонстрационный режим: цены, наличие и стоимость доставки появятся после синхронизации с 1С.' : 'Внутренний синтетический тест. Оформление заказа пока недоступно.'}{' '}
           Кнопка оформления остаётся неактивной — заказы не создаются и данные никуда не отправляются.
         </p>
         <button type="button" className="submitDisabled" disabled>
-          Оформление недоступно до подключения 1С
+          Оформление недоступно
         </button>
         <p className="cartAsideBack"><Link className="textLink" href="/cart">← Вернуться в корзину</Link></p>
       </aside>

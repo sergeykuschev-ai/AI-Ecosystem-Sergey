@@ -115,3 +115,16 @@ This entry supersedes the selection-in-preparation copy described above.
 - Hero composition, copy, logo, bottom vignette and all other sections remain unchanged.
 - `npm run verify` passed. Chromium checks passed at 320, 390, 430, 768 and 1440px, including menu, finder, product, cart and disabled checkout flows.
 - Mobile hero screenshots were generated at 390px and 430px for before/after comparison. No public deployment.
+
+## 1C catalog integration foundation — 2026-09-23
+
+- Added a catalog source boundary with explicit `demo`, development/test-only `local-1c`, and intentionally unconfigured live `1c` modes. There is no silent fallback from a selected 1C source to demo data.
+- Added strict versioned 1C trade-record normalization for SKU, name, brand, category, volume, price, stock, barcode and available characteristics. Editorial descriptions, images, scent family, mood, room, recommendations and SEO remain separate and cannot enter through the trade importer.
+- Added idempotent SKU upsert, duplicate rejection, preservation of explicit zero/fractional price and stock, atomic local snapshot publication, writer locking, size/product limits and structured diagnostics without raw payload values.
+- Added an internal synthetic fixture and CLI import path. Re-importing the same fixture reports unchanged data rather than duplicates; malformed batches preserve the previous snapshot.
+- Catalog, product routes, finder, cart and checkout now consume the selected catalog through the repository boundary. Missing editorial data remains null/empty; missing cart SKUs stay visible and removable. Checkout remains disabled.
+- Added 14 integration/unit tests covering validation, boundaries, idempotency, duplicates, stock=0, price updates, editorial separation, source guards, atomic persistence, CLI behavior, filters and snapshot limits.
+- `npm run verify` passes: all 14 tests, TypeScript, zero-warning ESLint and production build. The earlier Turbopack dynamic-filesystem tracing warning was removed with a development-only tracing exclusion.
+- Chromium verification passes in both default demo mode and `local-1c` synthetic mode at 320/390/430/768/1440px, including menu, finder, product, cart persistence/removal and disabled checkout.
+- Live 1C still requires the real transport/schema, endpoint/authentication method, actual characteristic names, currency/stock units, category mapping, delta/deletion policy and operational retry/audit requirements. No credentials or production endpoint were invented or committed.
+- All changes are inside `apps/vozdooh-web`. AmurskMarket was not modified. No public deployment. `noindex` and robots disallow remain in place.

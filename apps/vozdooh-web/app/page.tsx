@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { SiteFooter } from '../components/SiteFooter'
 import { SiteHeader } from '../components/SiteHeader'
-import { familyLabels, roomLabels, type DemoCategory, type DemoFamily, type DemoRoom } from '../src/catalog/demo'
+import { familyLabels, roomLabels, type DemoCategory, type DemoFamily, type DemoRoom } from '../src/catalog/vocabulary'
 
 const categories: { slug: DemoCategory; name: string; text: string }[] = [
   { slug: 'diffusers', name: 'Диффузоры', text: 'Аромат как часть интерьера' },

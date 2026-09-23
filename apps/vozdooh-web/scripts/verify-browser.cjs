@@ -2,6 +2,7 @@
 // Run against a local production build. Playwright is optional verification tooling.
 const assert = require('node:assert/strict');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const localCatalog = process.env.VOZDOOH_TEST_CATALOG === 'local-1c';
 const baseURL = process.env.VOZDOOH_TEST_URL || 'http://127.0.0.1:3187';
 
 (async () => {
@@ -44,8 +45,30 @@ const baseURL = process.env.VOZDOOH_TEST_URL || 'http://127.0.0.1:3187';
     assert.equal(await page.locator('.menuTrigger').getAttribute('aria-expanded'), 'true');
     await page.keyboard.press('Escape');
     assert.equal(await page.locator('.menuTrigger').getAttribute('aria-expanded'), 'false');
+    for (const route of ['/catalog', '/finder', '/cart', '/checkout', '/brands', '/collections', '/api/health']) {
+      assert.equal((await page.request.get(`${baseURL}${route}`)).status(), 200, route);
+    }
+    assert.match(await (await page.request.get(`${baseURL}/robots.txt`)).text(),  /Disallow: \//);
+    assert.equal((await page.request.get(`${baseURL}/catalog/unknown-product`)).status(), 404);
+    await page.goto(`${baseURL}/catalog`);
+    assert.match(await page.locator('meta[name="robots"]').first().getAttribute('content'), /noindex/);
+    if (localCatalog) {
+      assert.equal(await page.locator('.productCard').count(), 1);
+      assert.match(await page.locator('.demoTag').innerText(), /INTERNAL TEST/);
+      assert.doesNotMatch(await page.locator('.catalogGrid').innerText(), /Демонстрационный товар/);
+      await page.locator('.productCard').click();
+      const metaValue = label => page.locator('.productMetaList > div').filter({ has: page.locator('dt', { hasText: label }) }).locator('dd');
+      assert.equal(await metaValue('Цена').innerText(), '12.5 ₽');
+      assert.equal(await metaValue('Наличие').innerText(), '0');
+      assert.equal(await metaValue('Штрихкод').innerText(), '0000000000000');
+      assert.equal(await metaValue('test-marker').innerText(), 'synthetic');
+      assert.match(await page.locator('.productChips').innerText(), /Не указано/);
+      assert.equal(await page.locator('.recommendations').count(), 0);
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Imported product overflow');
+      await page.screenshot({ path: '/tmp/vozdooh-local-product.png', fullPage: true });
+    }
     await page.goto(`${baseURL}/finder`);
-    for (const label of ['Древесные', 'Спокойствие', 'Кабинет', 'Диффузоры']) {
+    for (const label of (localCatalog ? ['internal-test'] : ['Древесные', 'Спокойствие', 'Кабинет', 'Диффузоры'])) {
       await page.getByRole('button', { name: label, exact: true }).click();
     }
     await page.locator('.quizResult a').click();
@@ -66,6 +89,22 @@ const baseURL = process.env.VOZDOOH_TEST_URL || 'http://127.0.0.1:3187';
     await page.goto(`${baseURL}/cart`);
     await page.getByRole('button', { name: 'Убрать из корзины' }).click();
     await page.getByRole('heading', { name: 'Корзина пока пуста' }).waitFor();
+    // Switching sources must not hide persistent cart entries or produce /undefined links.
+    await page.evaluate(() => localStorage.setItem('vozdooh-cart-v1', JSON.stringify({ lines: [{ sku: 'MISSING-SKU', quantity: 1 }] })));
+    await page.goto(`${baseURL}/cart`);
+    await page.getByText('Позиция отсутствует в текущем каталоге', { exact: true }).waitFor();
+    assert.equal(await page.locator('a[href*="undefined"]').count(), 0);
+    await page.goto(`${baseURL}/checkout`);
+    await page.getByText('Позиция отсутствует в текущем каталоге', { exact: true }).waitFor();
+    assert.equal(await page.locator('.submitDisabled').isDisabled(), true);
+    await page.goto(`${baseURL}/cart`);
+    await page.getByRole('button', { name: 'Убрать из корзины' }).click();
+    await page.getByRole('heading', { name: 'Корзина пока пуста' }).waitFor();
+    if (localCatalog) {
+      await page.goto(`${baseURL}/catalog?family=woody`);
+      await page.getByRole('heading', { name: 'Ничего не найдено' }).waitFor();
+      assert.equal(await page.locator('.productCard').count(), 0);
+    }
     assert.deepEqual(errors, [], 'Browser runtime errors');
     console.log('Menu, finder filters, product, cart quantity/persistence/removal, disabled checkout: passed');
   } finally {

@@ -4,8 +4,8 @@ import type { CartLine } from '../commerce/contracts'
 
 /**
  * Client-side persistent cart backed by localStorage.
- * Demo scope: lines reference demo SKUs only; prices and totals are never
- * computed because demo products have no confirmed price.
+ * Lines reference SKUs from the selected catalog. Missing SKUs stay visible
+ * for removal after source changes; checkout and totals remain disabled.
  */
 
 const STORAGE_KEY = 'vozdooh-cart-v1'
