@@ -106,6 +106,7 @@ const routeModel: RouteModel = {
   staticPaths: new Set(EXPECTED_STATIC_PAGES),
   dynamicPatterns: [
     ...CANONICAL_BRAND_SLUGS.map((slug) => new RegExp(`^/${slug}/$`)),
+    /^\/miska\/catalog-preview\/[^/]+\/$/,
     ...[...citySlugs].map((slug) => new RegExp(`^/stores/${slug}/$`)),
     ...[...storeSlugsByCity.entries()].flatMap(([citySlug, storeSlugs]) =>
       [...storeSlugs].map((storeSlug) => new RegExp(`^/stores/${citySlug}/${storeSlug}/$`)),
