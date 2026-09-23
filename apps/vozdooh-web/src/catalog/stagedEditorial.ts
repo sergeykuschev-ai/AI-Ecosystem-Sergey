@@ -29,16 +29,16 @@ export function inferStagedCategory(name: string): string {
   if (has(name, /рефилл|рефил |сменный аромат/)) return 'Рефилы'
   if (has(name, /автомобил|vinove|саше для автомобиля|сменный блок ароматизатора/)) return 'Для автомобиля'
   if (has(name, /картридж|катридж|магма|аппарат для ароматизации|dispenser|shop 250|shop 300|cafe 1000|hotel 1000/)) return 'Ароматизация помещений'
-  if (has(name, /саше|аромапопурри|арома лампы/)) return 'Ароматы для пространства'
+  if (has(name, /саше|аромапопурри|арома лампы|ароматизатор воздуха/)) return 'Ароматы для пространства'
   if (has(name, /палоч|ножницы для фитиля|керамическая ваза|сетевое з\/у|microusb/)) return 'Аксессуары'
   if (has(name, /набор/)) return 'Подарочные наборы'
   return 'Другое'
 }
 
 export function inferStagedVolume(name: string): string | null {
-  const ml = name.match(/(\d+(?:[.,]\d+)?)\s*мл\b/i)
+  const ml = name.match(/(\d+(?:[.,]\d+)?)\s*мл(?=\s|[.,;:()\/-]|$)/i)
   if (ml) return `${ml[1].replace(',', '.')} мл`
-  const gr = name.match(/(\d+(?:[.,]\d+)?)\s*(?:гр|г)\b/i)
+  const gr = name.match(/(\d+(?:[.,]\d+)?)\s*(?:гр|г)(?=\s|[.,;:()\/-]|$)/i)
   return gr ? `${gr[1].replace(',', '.')} г` : null
 }
 

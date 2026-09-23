@@ -11,6 +11,7 @@ const { mergeCatalog, createCatalogRepository, emptyEditorial } = require('../sr
 const { catalogSource, getCatalogRepository } = require('../src/catalog/source.ts')
 const { applyCatalogFilters, getRecommendations } = require('../src/catalog/filters.ts')
 const { parseCatalogFilters } = require('../src/catalog/filterParams.ts')
+const { inferStagedBrand, inferStagedCategory, inferStagedVolume, stagedTrade, stagedEditorial } = require('../src/catalog/stagedEditorial.ts')
 const row = (overrides = {}) => ({ sku: 'TEST-01', name: 'INTERNAL TEST', category: 'test', ...overrides })
 const payload = (...products) => ({ version: 1, products })
 
@@ -84,6 +85,20 @@ test('editorial merge stays independent and repository exposes safe snapshots an
   assert.deepEqual(parseCatalogFilters({ category: 'test' }, { test: 'test' }).category, 'test')
   assert.deepEqual(getRecommendations(mergeCatalog(trades), mergeCatalog(trades)[0]), [])
   assert.throws(() => mergeCatalog([...trades, { ...trades[0], sku: 'TEST-02' }], { ...editorial, 'TEST-02': content }), /INVALID_EDITORIAL_SLUG/)
+})
+
+test('staged enrichment classifies real-style inventory without publishing 1C prices', () => {
+  const cartridge = row({ sku: 'AG-TYPO', name: 'Розовый перец катридж AG 110 мл.', category: 'Товар', brand: null, volume: null, price: 999, stock: 2 })
+  const enriched = stagedTrade(cartridge)
+  assert.equal(enriched.brand, 'AROMAgroup')
+  assert.equal(enriched.category, 'Ароматизация помещений')
+  assert.equal(enriched.volume, '110 мл')
+  assert.equal(enriched.price, null)
+  const content = stagedEditorial([cartridge])['AG-TYPO']
+  assert.match(content.description, /Розовый перец/)
+  assert.equal(inferStagedBrand('Ароматизатор воздуха NIRO, 250 мл, ТМ DANHERA'), 'DANHERA')
+  assert.equal(inferStagedCategory('Ароматизатор воздуха NIRO, 250 мл, ТМ DANHERA'), 'Ароматы для пространства')
+  assert.equal(inferStagedVolume('Свеча 90гр'), '90 г')
 })
 
 test('explicit source selection, demo compatibility and production safeguards', async () => {
