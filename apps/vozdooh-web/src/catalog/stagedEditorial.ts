@@ -43,6 +43,13 @@ export function inferStagedVolume(name: string): string | null {
 }
 
 const curated: Record<string, Partial<EditorialProduct>> = {
+  'N020291': { slug: 'christian-tortu-tuberose-diffuser-250', description: 'Насыщенная современная цветочная композиция вокруг туберозы: гвоздика и апельсиновая цедра, иланг-иланг и абсолют туберозы, цветок апельсина в базе.', scentFamily: 'floral', mood: 'cozy', room: 'living' },
+  'N020713': { slug: 'christian-tortu-tomato-leaf-diffuser-250', description: 'Зелёный цитрусовый аромат раздавленных листьев томата: зелёные стебли и почка чёрной смородины, базилик и томатный лист, сено и гальбанум.', scentFamily: 'fresh', mood: 'airy', room: 'kitchen' },
+  'N019873': { slug: 'christian-tortu-jardin-citrus-potpourri', description: 'Средиземноморская цитрусовая композиция с бергамотом, сосной, кедром, мятой, цветком апельсина, можжевельником, жасмином, цитронеллой и мускусом.', scentFamily: 'citrus', mood: 'airy', room: 'living' },
+  'N019834': { slug: 'christian-tortu-vert-frais-potpourri', description: 'Свежая зелёно-цитрусовая композиция: бергамот, цитрусы и петитгрейн соединяются с выразительной вербеной.', scentFamily: 'fresh', mood: 'airy', room: 'living' },
+  'N019836': { slug: 'christian-tortu-jardin-citrus-potpourri-refresher-15', description: 'Сменный аромат 15 мл для обновления Jardin Citrus — солнечной средиземноморской цитрусовой композиции.', scentFamily: 'citrus', mood: 'airy', room: 'living' },
+  'N019900': { slug: 'christian-tortu-vert-frais-potpourri-refresher-15', description: 'Сменный аромат 15 мл для обновления Vert Frais — свежей композиции бергамота, цитрусов, петитгрейна и вербены.', scentFamily: 'fresh', mood: 'airy', room: 'living' },
+  'N019901': { slug: 'christian-tortu-potpourri-vase', description: 'Керамическая ваза Christian Tortu для декоративного аромапопурри.', room: 'living' },
   'df29d344-d192-11ec-be83-7c8bca00854e': { slug: 'culti-stile-aramara-250', images: ['/catalog/official/df29d344-d192-11ec-be83-7c8bca00854e.jpg'], description: 'Цитрусово-древесная композиция с горьким апельсином, бергамотом и сандалом.', scentFamily: 'citrus', mood: 'airy', room: 'living' },
   'df29d346-d192-11ec-be83-7c8bca00854e': { slug: 'culti-stile-tessuto-250', images: ['/catalog/official/df29d346-d192-11ec-be83-7c8bca00854e.jpg'], description: 'Мягкая композиция с листьями чёрной смородины и мускусом.', scentFamily: 'fresh', mood: 'calm', room: 'bedroom' },
   'df29d34a-d192-11ec-be83-7c8bca00854e': { slug: 'culti-stile-aqqua-250', images: ['/catalog/official/df29d34a-d192-11ec-be83-7c8bca00854e.jpg'], description: 'Свежая древесная композиция с бергамотом и сандалом.', scentFamily: 'fresh', mood: 'airy', room: 'living' },
