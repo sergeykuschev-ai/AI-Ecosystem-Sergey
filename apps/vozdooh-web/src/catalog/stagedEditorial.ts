@@ -8,6 +8,8 @@ export function inferStagedBrand(name: string): string | null {
   if (has(name, /teatro/)) return 'TEATRO Fragranze Uniche'
   if (has(name, /mami milano/)) return 'MAMI MILANO'
   if (has(name, /christian tortu/)) return 'Christian Tortu'
+  if (has(name, /butterflies|coconut ароматическое саше|цветы хлопка \/ cotton flower ароматическое саше/)) return 'Castelbel'
+  if (has(name, /les secrets d.antoine|flowersof japan|cottonflower|cotton flower.*200|sandalwood.*200|ambre\/амбра/)) return 'Lothantique'
   if (has(name, /vinove|silverstone|maranello|miami|paris \/ париж/)) return 'VINOVE'
   if (has(name, /woodwick/)) return 'WoodWick'
   if (has(name, /vellutier/)) return 'Vellutier'
@@ -19,6 +21,7 @@ export function inferStagedBrand(name: string): string | null {
 }
 
 export function inferStagedCategory(name: string): string {
+  if (has(name, /подарочный набор|набор ваза/)) return 'Подарочные наборы'
   if (has(name, /диффузор|аромадиффузор/)) return 'Диффузоры'
   if (has(name, /свеч/)) return 'Свечи'
   if (has(name, /спрей|room spray/)) return 'Спреи для дома'
@@ -56,6 +59,15 @@ const curated: Record<string, Partial<EditorialProduct>> = {
   '3232434': { slug: 'ladenac-urban-senses-caviar-lime-500', description: 'Свежая цитрусово-морская композиция вокруг австралийского finger lime, с бергамотом, морскими оттенками и древесной базой.', scentFamily: 'citrus', mood: 'airy', room: 'living' },
   '55777': { slug: 'ladenac-africa-predator-set', description: 'Коллекция Africa: экзотическая композиция Predator с пряностями, дикими цветами, древесиной, ладаном и миррой.', scentFamily: 'spicy', mood: 'focused', room: 'living' },
   '983858': { slug: 'ladenac-vent-arabie-chergui-500', description: 'Свежая древесно-цитрусовая композиция с лимоном, перцем, петитгрейном, кедром и ветивером.', scentFamily: 'woody', mood: 'focused', room: 'living' },
+  '382873': { slug: 'castelbel-butterflies-diffuser-250', description: 'Свежая цитрусовая композиция сахарного тростника и лемонграсса.', scentFamily: 'citrus', mood: 'airy', room: 'living' },
+  '382777': { slug: 'castelbel-cotton-flower-sachet', description: 'Чистый, мягкий и успокаивающий аромат хлопка, напоминающий свежее бельё.', scentFamily: 'floral', mood: 'calm', room: 'bedroom' },
+  '382784': { slug: 'castelbel-coconut-sachet', description: 'Кремовый кокосовый аромат для небольших пространств, гардероба и текстиля.', scentFamily: 'warm', mood: 'cozy', room: 'bedroom' },
+  'N020465': { slug: 'lothantique-sandalwood-diffuser-200', description: 'Тёплая древесная композиция с пряным вступлением, мускусным сердцем и сандаловой древесной базой.', scentFamily: 'woody', mood: 'cozy', room: 'living' },
+  'N020468': { slug: 'lothantique-cotton-flower-diffuser-200', description: 'Мягкая композиция цветка хлопка: роза, альдегидные ноты и мускус.', scentFamily: 'floral', mood: 'calm', room: 'bedroom' },
+  'N020469': { slug: 'lothantique-flowers-of-japan-diffuser-200', description: 'Лёгкая цветочная композиция с мандарином, цветущей вишней и мускусом.', scentFamily: 'floral', mood: 'airy', room: 'living' },
+  'N020458': { slug: 'lothantique-les-secrets-antoine-diffuser-200', description: 'Французский интерьерный аромат линии Les Secrets d’Antoine, созданный парфюмерами в Грассе.', scentFamily: 'spicy', mood: 'cozy', room: 'study' },
+  'N020480': { slug: 'lothantique-cotton-flower-refill-200', description: 'Рефилл аромата Cotton Flower с мягкими нотами розы, альдегидов и мускуса.', scentFamily: 'floral', mood: 'calm', room: 'bedroom' },
+  '089864': { slug: 'ladenac-dynastie-senteur-royale-500', description: 'Восточно-пряная композиция сухой амбры, чёрного перца, мускатного ореха, кедра, мирры, мёда, ванили и ладана.', scentFamily: 'spicy', mood: 'cozy', room: 'living' },
 }
 
 export function stagedTrade(trade: TradeProduct): TradeProduct {
