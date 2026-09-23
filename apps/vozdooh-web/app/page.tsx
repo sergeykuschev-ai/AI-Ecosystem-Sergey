@@ -21,12 +21,14 @@ export default function Home() {
     <main>
       <SiteHeader />
       <section className="hero">
-        <div className="eyebrow">Премиальная парфюмерия для дома</div>
-        <h1>Атмосфера<br />начинается с аромата.</h1>
-        <p>Ароматы, которые становятся частью пространства — так же естественно, как свет, музыка и любимые вещи.</p>
-        <div className="heroActions">
-          <Link className="primary" href="/catalog">Смотреть коллекцию</Link>
-          <Link className="textLink" href="/finder">Помочь с выбором →</Link>
+        <div className="heroText">
+          <div className="eyebrow">Парфюмерия для дома</div>
+          <h1>Атмосфера начинается с аромата.</h1>
+          <p>Коллекция для тех, кто выбирает аромат для дома так же внимательно, как свет, музыку и текстиль.</p>
+          <div className="heroActions">
+            <Link className="primary" href="/catalog">Смотреть коллекцию</Link>
+            <Link className="textLink quiet" href="/finder">Подобрать аромат →</Link>
+          </div>
         </div>
         <div className="heroObject" aria-hidden="true">
           <div className="sticks" />
@@ -40,7 +42,7 @@ export default function Home() {
         <div className="sectionHead">
           <div>
             <span className="eyebrow">Каталог</span>
-            <h2>Выберите способ<br />наполнить дом ароматом</h2>
+            <h2>Выберите способ наполнить дом ароматом</h2>
           </div>
           <p>Начните с формата. Реальный ассортимент и наличие появятся здесь после синхронизации с 1С.</p>
         </div>
@@ -59,7 +61,7 @@ export default function Home() {
       <section id="finder" className="finder">
         <div>
           <span className="eyebrow light">Подбор аромата</span>
-          <h2>Как должен<br />ощущаться ваш дом?</h2>
+          <h2>Как должен ощущаться ваш дом?</h2>
           <p>Не обязательно знать ноты и парфюмерные термины. Выберите настроение — мы сузим выбор.</p>
           <Link className="creamButton" href="/finder">Подобрать аромат</Link>
         </div>
@@ -74,7 +76,7 @@ export default function Home() {
       <section className="section editorial">
         <div>
           <span className="eyebrow">Кураторский выбор</span>
-          <h2>Не сотни случайных позиций.<br />Только то, что стоит вашего пространства.</h2>
+          <h2>Только то, что стоит вашего пространства.</h2>
         </div>
         <div className="products">
           {demoProducts.slice(0, 4).map((product, index) => (
@@ -86,7 +88,7 @@ export default function Home() {
       <section className="room">
         <div>
           <span className="eyebrow light">По пространству</span>
-          <h2>У каждой комнаты<br />свой характер.</h2>
+          <h2>У каждой комнаты свой характер.</h2>
           <p>Мы подскажем интенсивность и направление аромата под назначение пространства.</p>
         </div>
         <div className="roomLinks">

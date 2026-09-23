@@ -9,8 +9,9 @@ export function CartLink() {
   const count = cartItemCount(cart)
 
   return (
-    <Link className="cartLink" href="/cart">
-      Корзина · {count}
+    <Link className="cartLink" href="/cart" aria-label={`Корзина, товаров: ${count}`}>
+      <span>Корзина</span>
+      <b>{count}</b>
     </Link>
   )
 }

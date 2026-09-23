@@ -11,14 +11,16 @@ export const metadata: Metadata = {
 
 export default function FinderPage() {
   return (
-    <main className="finderPage">
+    <main>
       <SiteHeader />
-      <section className="finderIntro">
-        <span className="eyebrow light">Подобрать аромат</span>
-        <h1>Начнём с ощущения</h1>
-        <p>Не обязательно знать ноты и парфюмерные термины. Выберите характер, настроение, помещение и формат — сценарий сузит выбор. Сейчас он работает на демонстрационных позициях; после импорта будет фильтровать только реальный каталог.</p>
-      </section>
-      <ScentFinder />
+      <div className="finderPage">
+        <section className="finderIntro">
+          <span className="eyebrow light">Подобрать аромат</span>
+          <h1>Начнём с ощущения</h1>
+          <p>Не обязательно знать ноты и парфюмерные термины. Выберите характер, настроение, помещение и формат — сценарий сузит выбор. Сейчас он работает на демонстрационных позициях; после импорта будет фильтровать только реальный каталог.</p>
+        </section>
+        <ScentFinder />
+      </div>
       <SiteFooter />
     </main>
   )

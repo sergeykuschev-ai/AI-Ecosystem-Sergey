@@ -3,7 +3,7 @@
 Date: 2026-09-23 · Branch: `ai/kimi-vozdooh-store`
 
 ## Completed work
-- Homepage finished in the approved premium direction; mobile responsiveness rebuilt (header wraps with scrollable nav, hero/sections/cards stack at 1000/800/520px breakpoints).
+- Homepage finished in the approved premium direction; responsive behavior at 1000/880/800/520px breakpoints (see the redesign entry below).
 - Catalog with working URL-driven filters (category, scent family, mood, room) over explicit DEMO placeholders only; invalid params are ignored, empty results show a reset state.
 - Brands (`/brands`) and collections (`/collections`) routes exist as honest placeholders — no real brands are invented.
 - Product page per demo slug: editorial demo attributes, explicit 1C placeholder rows, working add-to-cart, same-family recommendations, 404 for unknown slugs.
@@ -13,10 +13,12 @@ Date: 2026-09-23 · Branch: `ai/kimi-vozdooh-store`
 - Clean 1C boundary: `TradeProduct` (SKU, name, brand, category, volume, price, stock, barcode, available characteristics) vs `EditorialProduct` (descriptions, images, scent families, mood, room, recommendations). Demo catalog merged into one module (`src/catalog/demo.ts`); the duplicate `placeholders.ts` was removed.
 - robots: every page sets `noindex, nofollow`; `app/robots.ts` disallows all crawling until production data/domain are ready.
 - Docs updated: `README.md`, `AGENTS.md`, `src/integrations/README.md` describe the demo state and the 1C boundary.
+- **Visual layer redesigned after owner review (2026-09-23).** Header: compact premium mobile bar — restrained menu trigger (two-line icon + Меню/Закрыть label), centered balanced logo with deliberate whitespace, compact cart with count badge; no wrapped five-link nav. Desktop keeps inline nav (11px uppercase, centered). Hero: shorter copy, one primary CTA, muted secondary link, two-column grid with the product object forward. Typography moved off giant Georgia display to a restrained sans scale with hairline rules, consistent spacing and hierarchy across catalog, product, cart, checkout, finder, brands, collections; Georgia kept only as a small italic accent in the manifesto. Finder page chrome restructured so the header sits on paper and the dark green band holds intro + quiz. All routes, filters, cart, quiz, DEMO markers and the 1C boundary unchanged; `public/brand/vozdooh-horizontal.webp` untouched.
 
 ## Verification
 - `npm run verify` (typecheck + lint + build) — passes.
 - Production smoke test on a local port: all routes 200; robots.txt returns `Disallow: /`; filters return correct subsets (e.g. `category=diffusers&family=woody&mood=calm` → только «Демонстрационный товар 01»); unknown product slug → 404; product pages show SKU + explicit 1C placeholders; health endpoint OK.
+- Post-redesign smoke (2026-09-23): all routes re-checked on a production build (`/`, catalog with filters, demo product, unknown slug → 404, finder, cart, checkout, brands, collections, robots, health) — all behave as before; rendered HTML contains the new header (menu trigger, nav panel, cart badge) and hero structure.
 
 ## Requires user input
 - 1C exchange credentials/endpoint and the list of characteristics 1C will actually provide (to finalize `TradeProduct.characteristics` usage).
