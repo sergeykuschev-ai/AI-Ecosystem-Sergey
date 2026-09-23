@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useMemo, useState } from "react";
 
 export interface PreviewProduct {
@@ -17,6 +18,9 @@ export interface PreviewProduct {
   brand: string | null;
   classificationStatus: string | null;
   classificationConfidence: number | null;
+  contentStatus: string | null;
+  imageId: string | null;
+  description: string | null;
 }
 
 interface Props {
@@ -42,6 +46,7 @@ export function MiskaCatalogPreviewGrid({ products, groups, brands }: Props) {
   const [brand, setBrand] = useState("all");
   const [sort, setSort] = useState("available");
   const [visible, setVisible] = useState(96);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase("ru-RU");
@@ -74,7 +79,15 @@ export function MiskaCatalogPreviewGrid({ products, groups, brands }: Props) {
 
   return (
     <div className="miska-catalog-browser">
-      <div className="miska-catalog-toolbar">
+      <button
+        type="button"
+        className="miska-catalog-filter-toggle"
+        aria-expanded={filtersOpen}
+        onClick={() => setFiltersOpen((value) => !value)}
+      >
+        {filtersOpen ? "Скрыть фильтры" : "Фильтры и сортировка"}
+      </button>
+      <div className={`miska-catalog-toolbar${filtersOpen ? " miska-catalog-toolbar--open" : ""}`}>
         <label className="miska-catalog-search">
           <span>Поиск</span>
           <input
@@ -133,7 +146,17 @@ export function MiskaCatalogPreviewGrid({ products, groups, brands }: Props) {
           const stock = numeric(product.stockQuantity);
           return (
             <article className="miska-product-card" key={product.externalId}>
-              <div className="miska-product-card__image" aria-hidden="true">Фото готовим</div>
+              <div className={product.imageId ? "miska-product-card__image" : "miska-product-card__image miska-product-card__image--empty"}>
+                {product.imageId ? (
+                  <Image
+                    src={`/api/assets/${product.imageId}`}
+                    alt={product.name}
+                    width={420}
+                    height={420}
+                    sizes="(max-width: 719px) 100vw, (max-width: 1079px) 50vw, 33vw"
+                  />
+                ) : <span aria-hidden="true">Фото готовим</span>}
+              </div>
               <div className="miska-product-card__body">
                 <p className="miska-product-card__category">
                   {product.categoryName}{product.subcategoryName ? ` · ${product.subcategoryName}` : ""}
@@ -143,6 +166,13 @@ export function MiskaCatalogPreviewGrid({ products, groups, brands }: Props) {
                 {product.classificationStatus === "review" ? (
                   <p className="miska-product-card__review">Нужна проверка категории</p>
                 ) : null}
+                {product.contentStatus === "review" ? (
+                  <p className="miska-product-card__review">Нужна проверка контента</p>
+                ) : null}
+                {product.contentStatus === "review" ? (
+                  <p className="miska-product-card__review">Нужна проверка контента</p>
+                ) : null}
+                {product.description ? <p className="miska-product-card__description">{product.description}</p> : null}
                 <div className="miska-product-card__codes">
                   {product.sku ? <span>Арт. {product.sku}</span> : null}
                   {product.barcode ? <span>{product.barcode}</span> : null}

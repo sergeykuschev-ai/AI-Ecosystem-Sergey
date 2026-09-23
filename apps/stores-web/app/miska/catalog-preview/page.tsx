@@ -21,7 +21,7 @@ export default async function Page() {
   const { products } = await getMiskaCatalogPreview();
   const priced = products.filter((product) => product.price != null).length;
   const inStock = products.filter((product) => Number(product.stock_quantity ?? 0) > 0).length;
-  const review = products.filter((product) => product.classification_status === "review").length;
+  const review = products.filter((product) => product.classification_status === "review" || product.content_status === "review").length;
   const branded = products.filter((product) => Boolean(product.brand)).length;
   const lastSync = products.map((product) => product.offers_synced_at).filter(Boolean).sort().at(-1) ?? null;
 

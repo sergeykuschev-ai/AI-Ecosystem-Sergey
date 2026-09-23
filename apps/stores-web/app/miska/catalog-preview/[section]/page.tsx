@@ -34,7 +34,7 @@ export default async function Page({ params }: PageProps) {
   const sectionDef = sectionBySlug(section);
   const filtered = products.filter((product) => {
     if (section === "all") return true;
-    if (section === "review") return product.classification_status === "review";
+    if (section === "review") return product.classification_status === "review" || product.content_status === "review";
     return product.site_section === sectionDef?.name;
   });
 
@@ -53,6 +53,9 @@ export default async function Page({ params }: PageProps) {
     brand: product.brand,
     classificationStatus: product.classification_status,
     classificationConfidence: product.classification_confidence,
+    contentStatus: product.content_status,
+    imageId: product.site_image,
+    description: product.site_description,
   }));
 
   const groupCounts = new Map<string, { id: string; name: string; count: number }>();
