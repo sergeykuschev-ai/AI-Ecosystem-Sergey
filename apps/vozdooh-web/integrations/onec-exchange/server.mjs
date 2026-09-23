@@ -178,10 +178,22 @@ export async function handleRequest(req, res) {
   if (type !== "catalog") { fail(res, "only catalog exchange is enabled"); return; }
 
   if (mode === "checkauth") {
+    const credentials = parseBasicAuth(req);
+    const expectedUser = env("ONEC_EXCHANGE_USERNAME");
+    const expectedPassword = env("ONEC_EXCHANGE_PASSWORD");
+    const authState = {
+      hasAuthorization: Boolean(req.headers.authorization),
+      hasBasicCredentials: Boolean(credentials),
+      usernameMatches: Boolean(credentials && expectedUser && constantTimeEqual(credentials.username, expectedUser)),
+      passwordMatches: Boolean(credentials && expectedPassword && constantTimeEqual(credentials.password, expectedPassword)),
+      userAgent: String(req.headers["user-agent"] ?? "").slice(0, 120),
+    };
     if (!authenticated(req)) {
+      console.warn("VOZDOOH 1C auth rejected", authState);
       fail(res, "authentication failed", 401, { "WWW-Authenticate": 'Basic realm="VOZDOOH 1C"' });
       return;
     }
+    console.info("VOZDOOH 1C auth accepted", authState);
     const token = createSessionToken();
     const cookie = `${COOKIE_NAME}=${token}; Path=/api/1c/exchange; HttpOnly; Secure; SameSite=Lax; Max-Age=3600`;
     send(res, 200, `success\n${COOKIE_NAME}\n${token}`, { "Set-Cookie": cookie });
