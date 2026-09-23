@@ -453,3 +453,10 @@ footer nav{gap:4px 24px}
   footer{padding:24px 6vw;gap:16px}
   .footerNote{padding-top:16px}
 }
+
+/* Verified official catalog imagery in the closed 1C preview. */
+.productCardVisual.hasImage:before{display:none}
+.productCardImage{object-fit:contain;padding:9%;background:#f3f0e8}
+.productHeroPlaceholder.hasImage{overflow:hidden;background:#f3f0e8}
+.productHeroImage{object-fit:contain;padding:8%}
+.productCardVisual.hasImage .demoTag,.productHeroPlaceholder.hasImage .demoTag{z-index:2}

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Image from 'next/image'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { AddToCartButton } from '../../../components/AddToCartButton'
@@ -34,14 +35,19 @@ export default async function ProductPage({ params }: PageParams) {
   if (!product) notFound()
   const demo = catalogSource() === 'demo'
   const recommendations = getRecommendations(await repository.list(), product, demo)
+  const heroImage = product.editorial.images[0] ?? null
 
   return (
     <main>
       <SiteHeader />
       <div className="productLayout">
-        <div className="productHeroPlaceholder">
+        <div className={`productHeroPlaceholder${heroImage ? ' hasImage' : ''}`}>
           <span className="demoTag">{demo ? 'DEMO' : 'PREVIEW 1C'}</span>
-          <span className="productHeroMark">PRODUCT IMAGE · ПОСЛЕ КОНТЕНТ-ИМПОРТА</span>
+          {heroImage ? (
+            <Image className="productHeroImage" src={heroImage} alt={product.trade.name} fill sizes="(max-width: 760px) 100vw, 58vw" priority />
+          ) : (
+            <span className="productHeroMark">PRODUCT IMAGE · ПОСЛЕ КОНТЕНТ-ИМПОРТА</span>
+          )}
         </div>
         <div className="productInfo">
           <span className="eyebrow">Категория · {labelFor(categoryLabels, product.trade.category)}</span>
