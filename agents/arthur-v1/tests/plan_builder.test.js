@@ -278,6 +278,7 @@ test('Business KPI intents are deterministic and route to business_kpi skill', (
   const builder = createRuleBasedPlanBuilder({ availableSkills: ['business_kpi'] });
   const scenarios = [
     ['Как дела у Миски?', INTENTS.BUSINESS_KPI_STORE_SUMMARY, 'getStoreSummary'],
+    ['Процент qr в миске за месяц', INTENTS.BUSINESS_KPI_STORE_SUMMARY, 'getStoreSummary'],
     ['Кто сейчас лучше работает?', INTENTS.BUSINESS_KPI_SELLERS, 'getSellers'],
     ['Как Капитанова?', INTENTS.BUSINESS_KPI_SELLER, 'getSeller'],
     ['Сравни Капитанову и Чередниченко', INTENTS.BUSINESS_KPI_COMPARE_SELLERS, 'compareSellers'],
