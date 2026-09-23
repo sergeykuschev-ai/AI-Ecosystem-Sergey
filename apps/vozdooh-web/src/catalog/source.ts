@@ -3,6 +3,7 @@ import type { CatalogRepository, EditorialProduct } from './contracts'
 import { demoProducts } from './demo'
 import { assertLocalMode, readLocalCatalog, readStagedCatalog } from './localStore'
 import { createCatalogRepository, mergeCatalog } from './repository'
+import { stagedEditorial, stagedTrade } from './stagedEditorial'
 
 export type CatalogSource = 'demo' | 'local-1c' | 'staged-1c' | '1c'
 
@@ -32,9 +33,10 @@ export async function getCatalogRepository(
     if (!stagedCache || stagedCache.path !== path || Date.now() - stagedCache.loadedAt > 30_000) {
       stagedCache = { path, loadedAt: Date.now(), products: await readStagedCatalog(path) }
     }
-    products = stagedCache.products.filter((product) => (product.stock ?? 0) > 0)
+    products = stagedCache.products.filter((product) => (product.stock ?? 0) > 0).map(stagedTrade)
   } else {
     products = await readLocalCatalog(path)
   }
-  return createCatalogRepository(mergeCatalog(products, editorial))
+  const content = source === 'staged-1c' ? { ...stagedEditorial(products), ...editorial } : editorial
+  return createCatalogRepository(mergeCatalog(products, content))
 }
