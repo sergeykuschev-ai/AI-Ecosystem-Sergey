@@ -1,20 +1,23 @@
 import Link from 'next/link'
-import { ProductCard } from '../components/ProductCard'
 import { SiteFooter } from '../components/SiteFooter'
 import { SiteHeader } from '../components/SiteHeader'
-import { demoProducts, familyLabels, roomLabels, type DemoCategory, type DemoFamily, type DemoRoom } from '../src/catalog/demo'
+import { familyLabels, roomLabels, type DemoCategory, type DemoFamily, type DemoRoom } from '../src/catalog/demo'
 
 const categories: { slug: DemoCategory; name: string; text: string }[] = [
   { slug: 'diffusers', name: 'Диффузоры', text: 'Аромат как часть интерьера' },
-  { slug: 'candles', name: 'Свечи', text: 'Тихий свет и сложные композиции' },
+  { slug: 'candles', name: 'Свечи', text: 'Для неспешных вечеров' },
   { slug: 'sprays', name: 'Спреи', text: 'Мгновенно изменить настроение' },
   { slug: 'refills', name: 'Рефилы', text: 'Продлить любимый аромат' },
   { slug: 'car', name: 'Для автомобиля', text: 'Знакомый аромат в дороге' },
-  { slug: 'gifts', name: 'Подарки', text: 'Готовые знаки внимания' },
+  { slug: 'gifts', name: 'Подарки', text: 'Внимание в каждой детали' },
 ]
 
 const families = Object.entries(familyLabels) as [DemoFamily, string][]
 const rooms = Object.entries(roomLabels) as [DemoRoom, string][]
+const roomMoments: Record<DemoRoom, string> = {
+  living: 'Время вместе', bedroom: 'Личное пространство', bathroom: 'Пауза среди дня',
+  study: 'В своём ритме', hallway: 'С возвращением домой',
+}
 
 export default function Home() {
   return (
@@ -91,11 +94,11 @@ export default function Home() {
         </div>
         <div className="categoryGrid">
           {categories.map((category, index) => (
-            <Link className={`category category-${category.slug}`} href={`/catalog?category=${category.slug}`} key={category.slug}>
-              <span className="categoryArt" aria-hidden="true"><i /><em>0{index + 1}</em></span>
+            <Link className="category" href={`/catalog?category=${category.slug}`} key={category.slug}>
+              <span className="categoryIndex" aria-hidden="true">0{index + 1}</span>
               <h3>{category.name}</h3>
               <p>{category.text}</p>
-              <b aria-hidden="true">↗</b>
+              <b aria-hidden="true">→</b>
             </Link>
           ))}
         </div>
@@ -116,16 +119,15 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="section editorial">
-        <div>
+      <section className="section editorial" aria-labelledby="selection-title">
+        <div className="selectionHeading">
           <span className="eyebrow">Кураторский выбор</span>
-          <h2>Детали, задающие настроение.</h2>
+          <h2 id="selection-title">Меньше случайного.<br /><i>Больше личного.</i></h2>
         </div>
-        <p className="selectionNote">DEMO / Знакомство с коллекцией. Товары пока не доступны к покупке.</p>
-        <div className="products">
-          {demoProducts.slice(0, 4).map((product, index) => (
-            <ProductCard product={product} index={index} key={product.id} />
-          ))}
+        <div className="selectionCopy">
+          <span className="selectionStatus">Коллекция готовится</span>
+          <p>Мы готовим первую подборку ароматов для дома. Здесь появятся предметы, с которыми захочется познакомиться ближе.</p>
+          <Link className="textLink" href="/finder">Начать со своего настроения <span aria-hidden="true">→</span></Link>
         </div>
       </section>
 
@@ -137,7 +139,11 @@ export default function Home() {
         </div>
         <div className="roomLinks">
           {rooms.map(([slug, label], index) => (
-            <Link className={`roomCard room-${slug}`} href={`/catalog?room=${slug}`} key={slug}><div className="roomScene" aria-hidden="true"><i /><em /></div><span>0{index + 1}</span><h3>{label}</h3><b aria-hidden="true">↗</b></Link>
+            <Link className="roomCard" href={`/catalog?room=${slug}`} key={slug}>
+              <span className="roomIndex" aria-hidden="true">0{index + 1}</span>
+              <div><p>{roomMoments[slug]}</p><h3>{label}</h3></div>
+              <b aria-hidden="true">→</b>
+            </Link>
           ))}
         </div>
       </section>
@@ -145,19 +151,18 @@ export default function Home() {
       <section id="brands" className="section brands">
         <span className="eyebrow">Бренды и коллекции</span>
         <div className="sectionHead">
-          <h2>Имена и вдохновение.</h2>
-          <p>Готовим знакомство с брендами и тематические подборки для вашего дома.</p>
+          <h2>За ароматом —<br />свой мир.</h2>
+          <p>Истории создателей и разные взгляды на атмосферу дома. Готовим знакомство с будущей коллекцией.</p>
         </div>
         <div className="brandPlaceholder">
-          <Link href="/brands">Бренды <span>→</span></Link>
-          <Link href="/collections">Коллекции <span>→</span></Link>
+          <Link href="/brands"><div><small>Знакомство</small><h3>Бренды</h3><p>Имена и подход к созданию ароматов</p></div><span aria-hidden="true">→</span></Link>
+          <Link href="/collections"><div><small>Вдохновение</small><h3>Коллекции</h3><p>Подборки вокруг настроения и пространства</p></div><span aria-hidden="true">→</span></Link>
         </div>
       </section>
 
       <section id="about" className="manifesto">
-        <span>VOZDOOH / МАНИФЕСТ</span>
+        <span>Искусство атмосферы</span>
         <p>Мы выбираем аромат не по громкости, а по тому, <i>что он делает с пространством.</i></p>
-        <small>Интернет-магазин премиальной парфюмерии для дома</small>
       </section>
       <SiteFooter />
     </main>

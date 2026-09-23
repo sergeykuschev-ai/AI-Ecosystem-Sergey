@@ -44,7 +44,7 @@ With Playwright and its Chromium browser available, run:
 node scripts/verify-browser.cjs
 ```
 
-The standalone CommonJS runner checks 320/390/768/1440px layouts, the mobile
+The standalone CommonJS runner checks 320/390/430/768/1440px layouts, the mobile
 menu, finder-to-catalog filtering, cart persistence and disabled checkout.
 Set `PLAYWRIGHT_MODULE` to an absolute Playwright module path when using a
 temporary external installation; set `VOZDOOH_TEST_URL` for a different local
@@ -52,6 +52,9 @@ port. Playwright is optional tooling, not a storefront dependency. Chromium
 requires its standard Linux runtime libraries. Screenshots are written to
 `/tmp/vozdooh-home-<width>.png` for review.
 
-The homepage uses decorative CSS material studies and abstract room scenes.
-These are not product photographs. DEMO cards remain explicit and unavailable
-for purchase until real catalog data and approved editorial imagery are ready.
+The homepage presents typographic category and room discovery, an honest
+selection-in-preparation feature, and editorial links to brands and collections.
+It contains no demo merchandise or simulated product photography. Explicit DEMO
+cards remain on catalog/product routes for verifying filters and cart behavior.
+The browser runner checks homepage copy, discovery links, 44px tap targets and
+absence of demo cards as well as existing commerce interactions.

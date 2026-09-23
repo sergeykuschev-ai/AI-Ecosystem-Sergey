@@ -10,17 +10,24 @@ const baseURL = process.env.VOZDOOH_TEST_URL || 'http://127.0.0.1:3187';
     const page = await browser.newPage();
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
-    for (const width of [320, 390, 768, 1440]) {
+    for (const width of [320, 390, 430, 768, 1440]) {
       await page.setViewportSize({ width, height: 844 });
       await page.goto(baseURL);
-      await page.locator('.categoryArt').first().waitFor();
+      await page.locator('.category').first().waitFor();
       assert.equal(await page.locator('.category').count(), 6);
       assert.equal(await page.locator('.roomCard').count(), 5);
-      assert.equal(await page.locator('.products .demoTag').count(), 4);
+      assert.equal(await page.locator('.productCard, .demoTag').count(), 0);
+      assert.match(await page.locator('.selectionStatus').innerText(), /Коллекция готовится/i);
+      assert.doesNotMatch(await page.locator('main').innerText(), /DEMO|Демонстрационн|недоступны к покупке|не доступны к покупке|синхронизац|noindex|фото ожидается|Фото после/i);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `Homepage overflow at ${width}`);
-      if (width < 800) {
-        const cards = await page.locator('.products .productCard').evaluateAll(nodes => nodes.slice(0, 2).map(node => node.getBoundingClientRect().top));
-        assert.equal(cards[0], cards[1], 'Mobile products must be two-up');
+      for (const selector of ['.category', '.roomCard', '.brandPlaceholder a', 'footer nav a']) {
+        assert.ok(await page.locator(selector).evaluateAll(nodes => nodes.every(node => node.getBoundingClientRect().height >= 44)), `Tap targets: ${selector}`);
+      }
+      for (const selector of ['.category', '.roomCard']) {
+        for (const href of await page.locator(selector).evaluateAll(nodes => nodes.map(node => node.getAttribute('href')))) {
+          const response = await page.request.get(`${baseURL}${href}`);
+          assert.equal(response.status(), 200, href);
+        }
       }
       assert.doesNotMatch(await page.locator('footer').innerText(), /1С|noindex|синхронизац/);
       await page.screenshot({ path: `/tmp/vozdooh-home-${width}.png`, fullPage: true });

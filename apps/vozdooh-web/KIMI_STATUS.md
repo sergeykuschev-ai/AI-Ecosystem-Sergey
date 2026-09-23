@@ -40,3 +40,32 @@ Date: 2026-09-23 · Branch: `ai/kimi-vozdooh-store`
 - Local production route smoke passed for homepage, catalog, filtered catalog, product, finder, cart, checkout, brands, collections, robots and health; unknown product returns 404. Robots still disallows crawling and homepage retains noindex.
 - Reusable browser check: `scripts/verify-browser.cjs`. Screenshots are temporary artifacts under `/tmp/vozdooh-home-*.png`, not committed. No public deployment performed.
 - Final `npm run verify` passed (typecheck, zero-warning lint, production build). Mobile category/finder/product screenshots were visually inspected. All changed paths are inside `apps/vozdooh-web`; the supplied logo and catalog/cart/checkout/1C implementation files are unchanged.
+
+## Owner-approved art-direction pass 2 — 2026-09-23
+
+This entry supersedes the homepage material studies, repeated room scenes and
+homepage demo cards described in the earlier refinement.
+
+- Kept the white header, supplied logo asset and warm cinematic hero unchanged.
+- Replaced geometric category placeholders with a restrained typographic index;
+  all six category filter destinations remain intact.
+- Replaced repeated room illustrations with an editorial lead room and compact
+  discovery rows, preserving all five room filter destinations.
+- Removed demo products and development-status language from the homepage.
+  The curated section now honestly says the first selection is being prepared;
+  no products, brands, prices, stock or fragrance claims were invented.
+- Added context to the brands/collections bridge and tightened the manifesto
+  and footer. Footer navigation has a minimum 44px target height.
+- Catalog demos remain explicitly labeled on their existing routes. Cart,
+  finder, checkout, indexing safeguards and the 1C boundary are unchanged.
+- Updated README and browser regression checks for the pre-catalog homepage.
+- `npm run verify` passed: TypeScript, zero-warning ESLint and production build.
+  An initial overlapping build lock was resolved by running verification serially.
+- Chromium checks passed at 320, 390, 430, 768 and 1440px: no horizontal overflow,
+  six category/five room links returning 200, no homepage demo cards or technical
+  copy, and minimum 44px discovery/footer targets. Visually inspected full-page
+  screenshots at 390 and 430px, stored temporarily under `/tmp`.
+- Menu/Escape, finder filters, product selection, cart quantity/persistence/removal
+  and disabled checkout passed with no browser runtime errors. Fixed an assertion
+  to account for uppercase CSS rendering of the selection status.
+- All changes are inside `apps/vozdooh-web`. No public deployment performed.
