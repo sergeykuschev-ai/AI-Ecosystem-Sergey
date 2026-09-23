@@ -90,6 +90,16 @@ const curated: Record<string, Partial<EditorialProduct>> = {
   'MF-REFILL.12': { slug: 'mami-via-delle-spezie-refill-250', images: ['/catalog/official/MF-REFILL.12.png'], description: 'Рефилл Via delle Spezie: цитрусы, тёплые специи и мирт на древесно-пачулиевой базе.', scentFamily: 'spicy', mood: 'cozy', room: 'living' },
   'GI-FRAGR2.02': { slug: 'mami-fior-di-loto-200', images: ['/catalog/official/GI-FRAGR2.02.png'], scentFamily: 'floral', mood: 'calm', room: 'bedroom' },
   'GI-FRAGR2.04': { slug: 'mami-rose-in-fiore-200', images: ['/catalog/official/GI-FRAGR2.04.png'], scentFamily: 'floral', mood: 'calm', room: 'living' },
+  'N020445': { slug: 'vinove-rome-evolution-excellence', images: ['/catalog/official/N020445.jpg'], description: 'Rome: слива, корица и тмин; шафран, кедр и пачули; в базе — табак, сандал, ваниль и кожа.', scentFamily: 'woody', mood: 'focused' },
+  'N020438': { slug: 'vinove-indianapolis-leather-espresso', images: ['/catalog/official/N020438.jpg'], description: 'Indianapolis: бергамот и кардамон, ирис и лаванда, затем кедр, амбра и мускус.', scentFamily: 'woody', mood: 'focused' },
+  'N020434': { slug: 'vinove-monza-leather-ivory', images: ['/catalog/official/N020434.jpg'], description: 'Monza: нероли, бергамот, ананас и персик; фиалка, жасмин и роза; шоколад, карамель и пачули.', scentFamily: 'floral', mood: 'cozy' },
+  'N020325': { slug: 'vinove-london-jewelry', images: ['/catalog/official/N020325.jpg'], description: 'London Riverwood: ананас, тонка, какао, кофе и апельсин; цветы, орехи и специи; гваяковое дерево, мёд и ваниль.', scentFamily: 'woody', mood: 'cozy' },
+  'N020316': { slug: 'vinove-silverstone-refill', images: ['/catalog/official/N020316.jpg'], description: 'Silverstone: лимон, травы и лаванда; древесные ноты и цветок апельсина; мускус, пудровые ноты и пачули.', scentFamily: 'fresh', mood: 'focused' },
+  'N020408': { slug: 'vinove-maranello-refill', images: ['/catalog/official/N020408.jpg'], description: 'Maranello: перец, мандарин и груша; цветок апельсина и жасмин; кофе и ваниль.', scentFamily: 'warm', mood: 'cozy' },
+  'N020566': { slug: 'vinove-miami-refill', images: ['/catalog/official/N020566.jpg'], description: 'Miami: лимон, мандарин и красный перец; жасмин, ландыш, лилия и элеми; сандал, кедр, ветивер, амбра и мускус.', scentFamily: 'fresh', mood: 'airy' },
+  '0b044a39-8588-11ed-b530-7c8bca00854e': { slug: 'vinove-rome-leather-espresso', images: ['/catalog/official/0b044a39-8588-11ed-b530-7c8bca00854e.jpg'], description: 'Rome: слива, корица и тмин; шафран, кедр и пачули; в базе — табак, сандал, ваниль и кожа.', scentFamily: 'woody', mood: 'focused' },
+  'N020334': { slug: 'vinove-paris-refill', images: ['/catalog/official/N020334.jpg'], description: 'Paris: мандарин, персик и шафран; жасмин, гардения и роза; кожа, пачули, ваниль и уд.', scentFamily: 'woody', mood: 'cozy' },
+  'N020273': { slug: 'vinove-warsaw-original', description: 'Warsaw: ананас, имбирь и шафран; роза, цитрусы и замша; пачули и сандал.', scentFamily: 'spicy', mood: 'focused' },
 }
 
 export function stagedTrade(trade: TradeProduct): TradeProduct {
