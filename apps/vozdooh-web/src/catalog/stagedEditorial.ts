@@ -8,12 +8,12 @@ export function inferStagedBrand(name: string): string | null {
   if (has(name, /teatro/)) return 'TEATRO Fragranze Uniche'
   if (has(name, /mami milano/)) return 'MAMI MILANO'
   if (has(name, /christian tortu/)) return 'Christian Tortu'
-  if (has(name, /vinove/)) return 'VINOVE'
+  if (has(name, /vinove|silverstone|maranello|miami|paris \/ париж/)) return 'VINOVE'
   if (has(name, /woodwick/)) return 'WoodWick'
   if (has(name, /vellutier/)) return 'Vellutier'
   if (has(name, /danhera/)) return 'DANHERA'
   if (has(name, /ladenac|africa |oud collection|urban senses|vent d.arabie|dynastie senteur royale/)) return 'Ladenac Milano'
-  if (has(name, /aramara|aqqua|tessuto|mediterranea|mareminerale|supreme amber|stile classic|stile limited|stile colours|decor classic|decor limited|décor limited/)) return 'CULTI MILANO'
+  if (has(name, /aramara|aqqua|tessuto|mediterranea|mareminerale|supreme amber|stile classic|stile limited|stile colours|decor classic|decor limited|décor limited|spray.*\bera\b|spray.*\bthe\b|рефил.*\bthe\b/)) return 'CULTI MILANO'
   if (has(name, /aromagroup|romagroup|картридж ag|картридж аg|катридж ag|магма, 150/)) return 'AROMAgroup'
   return null
 }
