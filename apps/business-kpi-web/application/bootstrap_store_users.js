@@ -73,9 +73,8 @@ async function ensureUser({
         500
       );
     }
-    await authService.setPassword(existing.id, password);
     return {
-      action: 'password-updated',
+      action: 'existing-unchanged',
       externalId: existing.externalId,
       storeCode: definition.code,
       role: definition.role,

@@ -35,7 +35,7 @@ test('bootstrap creates isolated seller accounts for Amper and Ventil', async ()
   assert.equal(await verifyPassword(SECRET_B, ventil.passwordHash), true);
 });
 
-test('bootstrap rotates secret only for matching existing store seller', async () => {
+test('bootstrap leaves an existing store seller password unchanged', async () => {
   const store = new InMemoryBusinessKpiStore();
   const authService = new AuthService({ store });
   await bootstrapStoreUsers({
@@ -44,12 +44,14 @@ test('bootstrap rotates secret only for matching existing store seller', async (
     uuid: () => 'bootstrap-amper',
     env: { BUSINESS_KPI_AMPER_PASSWORD: SECRET_A },
   });
-  const rotated = 'N3wS3cretValue!';
+  const differentConfiguredSecret = 'N3wS3cretValue!';
   const [result] = await bootstrapStoreUsers({
-    store,    authService,
-    env: { BUSINESS_KPI_AMPER_PASSWORD: rotated },
+    store,
+    authService,
+    env: { BUSINESS_KPI_AMPER_PASSWORD: differentConfiguredSecret },
   });
-  assert.equal(result.action, 'password-updated');
+  assert.equal(result.action, 'existing-unchanged');
   const amper = await store.getUserByExternalId('amper');
-  assert.equal(await verifyPassword(rotated, amper.passwordHash), true);
+  assert.equal(await verifyPassword(SECRET_A, amper.passwordHash), true);
+  assert.equal(await verifyPassword(differentConfiguredSecret, amper.passwordHash), false);
 });
