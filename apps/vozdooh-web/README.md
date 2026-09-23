@@ -33,3 +33,25 @@ Premium home-fragrance storefront in a verified pre-1C demo state.
 - `src/commerce/` — order/payment contracts (reserved, no demo implementation).
 - `src/cart/` — localStorage cart storage helpers.
 - `src/integrations/` — adapter boundary documentation for future providers.
+
+### Optional responsive browser verification
+
+After `npm run verify`, start the production build locally with
+`npm run start -- --hostname 127.0.0.1 --port 3187`.
+With Playwright and its Chromium browser available, run:
+
+```sh
+node scripts/verify-browser.cjs
+```
+
+The standalone CommonJS runner checks 320/390/768/1440px layouts, the mobile
+menu, finder-to-catalog filtering, cart persistence and disabled checkout.
+Set `PLAYWRIGHT_MODULE` to an absolute Playwright module path when using a
+temporary external installation; set `VOZDOOH_TEST_URL` for a different local
+port. Playwright is optional tooling, not a storefront dependency. Chromium
+requires its standard Linux runtime libraries. Screenshots are written to
+`/tmp/vozdooh-home-<width>.png` for review.
+
+The homepage uses decorative CSS material studies and abstract room scenes.
+These are not product photographs. DEMO cards remain explicit and unavailable
+for purchase until real catalog data and approved editorial imagery are ready.

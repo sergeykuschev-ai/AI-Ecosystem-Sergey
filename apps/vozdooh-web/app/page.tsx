@@ -85,17 +85,17 @@ export default function Home() {
         <div className="sectionHead">
           <div>
             <span className="eyebrow">Каталог</span>
-            <h2>Выберите способ наполнить дом ароматом</h2>
+            <h2>Маленькие ритуалы для дома</h2>
           </div>
-          <p>Начните с формата. Реальный ассортимент и наличие появятся здесь после синхронизации с 1С.</p>
+          <p>От света свечи до любимого диффузора — найдите свой формат.</p>
         </div>
         <div className="categoryGrid">
           {categories.map((category, index) => (
-            <Link className="category" href={`/catalog?category=${category.slug}`} key={category.slug}>
-              <span>0{index + 1}</span>
+            <Link className={`category category-${category.slug}`} href={`/catalog?category=${category.slug}`} key={category.slug}>
+              <span className="categoryArt" aria-hidden="true"><i /><em>0{index + 1}</em></span>
               <h3>{category.name}</h3>
               <p>{category.text}</p>
-              <b>Смотреть →</b>
+              <b aria-hidden="true">↗</b>
             </Link>
           ))}
         </div>
@@ -119,8 +119,9 @@ export default function Home() {
       <section className="section editorial">
         <div>
           <span className="eyebrow">Кураторский выбор</span>
-          <h2>Только то, что стоит вашего пространства.</h2>
+          <h2>Детали, задающие настроение.</h2>
         </div>
+        <p className="selectionNote">DEMO / Знакомство с коллекцией. Товары пока не доступны к покупке.</p>
         <div className="products">
           {demoProducts.slice(0, 4).map((product, index) => (
             <ProductCard product={product} index={index} key={product.id} />
@@ -132,11 +133,11 @@ export default function Home() {
         <div>
           <span className="eyebrow light">По пространству</span>
           <h2>У каждой комнаты свой характер.</h2>
-          <p>Мы подскажем интенсивность и направление аромата под назначение пространства.</p>
+          <p>Начните с места, где хочется задержаться.</p>
         </div>
         <div className="roomLinks">
           {rooms.map(([slug, label], index) => (
-            <Link href={`/catalog?room=${slug}`} key={slug}><span>0{index + 1}</span>{label}<b>→</b></Link>
+            <Link className={`roomCard room-${slug}`} href={`/catalog?room=${slug}`} key={slug}><div className="roomScene" aria-hidden="true"><i /><em /></div><span>0{index + 1}</span><h3>{label}</h3><b aria-hidden="true">↗</b></Link>
           ))}
         </div>
       </section>
@@ -144,12 +145,12 @@ export default function Home() {
       <section id="brands" className="section brands">
         <span className="eyebrow">Бренды и коллекции</span>
         <div className="sectionHead">
-          <h2>Коллекция без компромиссов.</h2>
-          <p>После импорта каталога здесь появятся только бренды, которые действительно есть в ассортименте VOZDOOH.</p>
+          <h2>Имена и вдохновение.</h2>
+          <p>Готовим знакомство с брендами и тематические подборки для вашего дома.</p>
         </div>
         <div className="brandPlaceholder">
-          <Link href="/brands">REAL BRANDS FROM 1C <span>→</span></Link>
-          <Link href="/collections">EDITORIAL COLLECTIONS <span>→</span></Link>
+          <Link href="/brands">Бренды <span>→</span></Link>
+          <Link href="/collections">Коллекции <span>→</span></Link>
         </div>
       </section>
 

@@ -28,3 +28,15 @@ Date: 2026-09-23 · Branch: `ai/kimi-vozdooh-store`
 - Payment provider and delivery terms before the checkout submit can be enabled.
 - Real domain + decision when to lift `noindex`/robots disallow.
 - Editorial content (descriptions, images, approved fragrance vocabulary) to replace demo editorial values.
+
+## Mobile editorial refinement — 2026-09-23
+
+- Preserved the supplied logo asset and white header; retained the warm hero scene with a refined mobile type scale and viewport sizing.
+- Replaced table-like categories with compact two-column mobile material studies; all six category filters remain linked.
+- Replaced oversized room rows with five abstract interior tiles, with a wide lead tile on mobile. These are decorative illustrations, not product imagery.
+- Made mobile product grids two-up across homepage, catalog and recommendations. Neutral abstract placeholders retain DEMO labels; no products, brands, prices or stock were fabricated.
+- Compressed the finder into a six-choice swatch grid, reduced manifesto height, and aligned section spacing and typography. Removed 1C/noindex jargon from homepage and footer; indexing safeguards and integration contracts remain unchanged.
+- Browser checks passed at 320, 390, 768 and 1440px: no homepage horizontal overflow, expected discovery/card counts, and mobile products on the same row. Interaction checks passed for menu/Escape, four-part finder filtering, product selection, add-to-cart, quantity changes, reload persistence, removal and disabled checkout. No browser runtime errors.
+- Local production route smoke passed for homepage, catalog, filtered catalog, product, finder, cart, checkout, brands, collections, robots and health; unknown product returns 404. Robots still disallows crawling and homepage retains noindex.
+- Reusable browser check: `scripts/verify-browser.cjs`. Screenshots are temporary artifacts under `/tmp/vozdooh-home-*.png`, not committed. No public deployment performed.
+- Final `npm run verify` passed (typecheck, zero-warning lint, production build). Mobile category/finder/product screenshots were visually inspected. All changed paths are inside `apps/vozdooh-web`; the supplied logo and catalog/cart/checkout/1C implementation files are unchanged.
