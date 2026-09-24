@@ -1,3 +1,4 @@
+import type { Article } from "@/lib/articles/types";
 import type { Brand } from "@/types/brand";
 import type { City } from "@/types/city";
 import type { FAQ } from "@/types/faq";
@@ -23,6 +24,39 @@ export function createWebsiteJsonLd(): JsonLdObject {
     name: "Магазины Амурска: Ампер, Вентиль, Метиз Маркет и Миска",
     url: siteUrl.href,
     inLanguage: "ru-RU",
+  };
+}
+
+
+const articleBrandAuthors: Partial<Record<Article["brand"], { name: string; path: string }>> = {
+  amper: { name: "Ампер", path: "/amper/" },
+  ventil: { name: "Вентиль", path: "/ventil/" },
+  "metiz-market": { name: "Метиз Маркет", path: "/metiz-market/" },
+  miska: { name: "Миска", path: "/miska/" },
+};
+
+export function createArticleJsonLd(article: Article): JsonLdObject {
+  const path = `/stati/${article.slug}/`;
+  const url = canonicalUrl(path);
+  const author = articleBrandAuthors[article.brand];
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "@id": `${url}#article`,
+    headline: article.title,
+    description: article.description,
+    url,
+    mainEntityOfPage: url,
+    datePublished: article.publishedAt,
+    dateModified: article.updatedAt,
+    inLanguage: "ru-RU",
+    ...(author
+      ? {
+          author: { "@type": "Organization", name: author.name, url: canonicalUrl(author.path) },
+          publisher: { "@type": "Organization", name: author.name, url: canonicalUrl(author.path) },
+        }
+      : {}),
   };
 }
 
