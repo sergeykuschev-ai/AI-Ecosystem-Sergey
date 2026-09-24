@@ -104,3 +104,27 @@ npm run catalog:stage -- --exchange-root /opt/vozdooh/data/onec-exchange --outpu
 ```
 
 Run the closed preview with `CATALOG_PROVIDER=staged-1c`, `ONEC_LOCAL_CATALOG_PATH` pointing at that snapshot, and `ONEC_STAGED_PREVIEW_ENABLED=true`. Prices are null by default, only positive-stock rows are visible, checkout stays disabled, and the full staged snapshot keeps zero-stock rows for future inventory transitions.
+
+### Editorial catalog presentation
+
+`/catalog` presents products with existing local raster images; missing/empty files
+are excluded from the customer grid without changing repository records. Demo
+mode remains explicitly labeled. `?debugCatalog=1` includes products without
+images and shows internal source labels and stock diagnostics. This query is a
+presentation switch, not authentication; existing private-preview access controls
+and noindex remain required. Filter submissions, chips and product links preserve
+the explicit debug mode.
+
+Display titles are derived only in `src/catalog/presentation.ts`: known brand,
+format and volume tokens are separated, bilingual labels use the first named
+part, and the full unmodified trade name stays in expandable product details.
+Unknown names fall back to their original text. No scent facts are generated.
+The curator introduction selects up to four distinct brands with an image,
+description and at least one scent/mood/room field, in the approved brand order.
+All pictured products remain in the full collection and all brands remain in
+filters. No popularity, novelty or rating claims are inferred.
+
+The native filter disclosure and GET form require no UI dependency and retain
+brand/category/family/mood/room URL parameters. Prices are not rendered and the
+product page has no purchase action. Staged prices remain null. Presentation
+regressions run with `npm test`; full checks run with `npm run verify`.
