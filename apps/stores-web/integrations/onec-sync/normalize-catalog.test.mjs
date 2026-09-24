@@ -89,3 +89,22 @@ test("detects additional explicit brands from product names", () => {
     assert.equal(classifyProduct({ externalId: "x", name, categoryExternalId: null }, []).brand, brand);
   }
 });
+
+test("prefers Ferma kota Fyodora over generic Mnyams marker", () => {
+  assert.equal(
+    classifyProduct({
+      externalId: "fedya-1",
+      name: "Влажный корм Мнямс сочные кусочки для кошек с индейкой линия Кот Федор 85г",
+      categoryExternalId: null,
+    }, []).brand,
+    "Ферма кота Фёдора",
+  );
+  assert.equal(
+    classifyProduct({
+      externalId: "fedya-2",
+      name: "Влажный корм Ферма кота Фёдора нежные кусочки с индейкой 85г",
+      categoryExternalId: null,
+    }, []).brand,
+    "Ферма кота Фёдора",
+  );
+});

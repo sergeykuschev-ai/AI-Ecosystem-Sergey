@@ -25,9 +25,11 @@ export function parseMnyamsSearch(json, expectedSku) {
   return {
     sku,
     title: String(doc.name).trim(),
+    brand: String(doc.brand ?? "").trim(),
     slug: String(doc.slug).trim(),
     imageUrl: String(doc.image ?? "").trim(),
     sourceUrl: ROOT + "/product/" + String(doc.slug).trim(),
+    searchSourceUrl: ROOT + "/search/?q=" + encodeURIComponent(sku),
   };
 }
 
@@ -68,12 +70,35 @@ export async function findMnyamsBySku(sku) {
   const search = JSON.parse(await fetchText(searchUrl));
   const hit = parseMnyamsSearch(search, value);
   if (!hit) return null;
-  const html = await fetchText(hit.sourceUrl);
-  const product = parseAwardProductPage(html, hit.sourceUrl);
-  if (String(product.sku).trim() !== value) {
-    throw new Error("Mnyams SKU mismatch: expected " + value + ", got " + product.sku);
+  try {
+    const html = await fetchText(hit.sourceUrl);
+    const product = parseAwardProductPage(html, hit.sourceUrl);
+    if (String(product.sku).trim() !== value) {
+      throw new Error("Mnyams SKU mismatch: expected " + value + ", got " + product.sku);
+    }
+    return {
+      ...product,
+      brand: hit.brand,
+      imageUrl: await liveImage(html, product.imageUrl),
+      searchTitle: hit.title,
+      searchImageUrl: hit.imageUrl,
+      searchOnly: false,
+    };
+  } catch (error) {
+    const imageUrl = await liveImage("", hit.imageUrl);
+    if (!imageUrl) throw error;
+    return {
+      sku: value,
+      title: hit.title,
+      brand: hit.brand,
+      description: "",
+      imageUrl,
+      sourceUrl: hit.searchSourceUrl,
+      searchTitle: hit.title,
+      searchImageUrl: hit.imageUrl,
+      searchOnly: true,
+    };
   }
-  return { ...product, imageUrl: await liveImage(html, product.imageUrl), searchTitle: hit.title, searchImageUrl: hit.imageUrl };
 }
 
 async function mapLimit(items, limit, worker) {
