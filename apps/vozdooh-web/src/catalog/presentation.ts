@@ -1,9 +1,15 @@
 import type { CatalogProduct } from './contracts'
+import { demandRank } from './demandPriority'
 import { confirmedProductTranslation } from './productTranslations'
 import type { RawSearchParams } from './filterParams'
 import { categoryLabels, labelFor } from './vocabulary'
 
 export const brandPriority = ['CULTI MILANO', 'TEATRO Fragranze Uniche', 'Millefiori Milano', 'Lothantique', 'Christian Tortu', 'Castelbel', 'DANHERA', 'MAMI MILANO']
+
+function brandRank(brand: string | null): number {
+  const index = brandPriority.indexOf(brand ?? '')
+  return index < 0 ? brandPriority.length : index
+}
 
 export function isDebugCatalog(params: RawSearchParams): boolean {
   return params.debugCatalog === '1'
@@ -16,11 +22,16 @@ export function catalogImage(product: CatalogProduct): string | null {
 
 export function storefrontProducts(products: readonly CatalogProduct[], debug = false): CatalogProduct[] {
   return products.filter((product) => debug || catalogImage(product)).sort((a, b) => {
-    const rank = (brand: string | null) => {
-      const index = brandPriority.indexOf(brand ?? '')
-      return index < 0 ? brandPriority.length : index
-    }
-    return rank(a.trade.brand) - rank(b.trade.brand)
+    // Internal merchandising signal first: researched higher-priority in-stock
+    // products lead the default catalog; the rank itself is never displayed.
+    const rankA = demandRank(a.trade.sku)
+    const rankB = demandRank(b.trade.sku)
+    if (rankA !== rankB) return (rankA ?? Number.MAX_SAFE_INTEGER) - (rankB ?? Number.MAX_SAFE_INTEGER)
+    const brand = brandRank(a.trade.brand) - brandRank(b.trade.brand)
+    if (brand !== 0) return brand
+    const tieA = `${a.editorial.slug ?? ''}\u0000${a.trade.sku}`
+    const tieB = `${b.editorial.slug ?? ''}\u0000${b.trade.sku}`
+    return tieA < tieB ? -1 : tieA > tieB ? 1 : 0
   })
 }
 

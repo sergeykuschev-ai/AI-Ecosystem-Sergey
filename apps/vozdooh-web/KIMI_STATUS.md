@@ -150,3 +150,72 @@ This entry supersedes the selection-in-preparation copy described above.
 - Production-mode staged preview is fail-closed unless explicitly enabled and remains noindex.
 - Chromium verification passed at 320/390/430/768/1440px plus finder, product, cart persistence/removal and disabled checkout.
 - Private preview is served only inside Tailscale on port 8447.
+
+## Demand-priority merchandising + catalog quality pass — 2026-09-24
+
+### Implemented (all inside apps/vozdooh-web)
+- `src/catalog/demandPriority.ts`: small checked-in INTERNAL merchandising mapping from
+  `research/demand-priority-2026-09` — exactly the researched TOP-25 SKU ranks (1–25) plus a
+  conservative externally-confirmed popularity set limited to the 4 CORE fragrances
+  (Aramara ×3 formats, Tessuto). The three CULTI Thé SKUs (`46091`, `465636`,
+  `802e8b01-…`) carry NO rank and NO popularity treatment — the preliminary Bloomingdale's
+  "bestseller" signal failed re-verification on 2026-09-24 and is refuted. Tier names are
+  never rendered to customers; the 650KB research JSON is not bundled.
+- `storefrontProducts` default ordering: researched higher-priority in-stock products first
+  in research order, then approved brand order with a deterministic slug tiebreak. Filters,
+  brand/category semantics and demo behavior unchanged.
+- Conservative popularity cue: `Популярный аромат` card badge + product-page note
+  «Популярность аромата подтверждена внешними источниками; это не рейтинг продаж VOZDOOH.»
+  Only for the 4 externally confirmed CORE fragrances.
+- 14 CORE/STRONG cards: 4 descriptions improved strictly per confirmed card_preparation
+  facts (Tessuto notes + official 3-month duration + floral family; Mareminerale auto-sachet
+  7×7 см format; Dolce Vaniglia 250/500 enriched with the confirmed six notes); Tessuto →
+  «Ткань» translation binding added (Candlesbox-confirmed); same-fragrance recommendation
+  links for Aramara/Aqqua/Dolce Vaniglia formats; NIRO category corrected to «Диффузоры»
+  (external Bosco/TSUM cards confirm the type). 7 of 14 cards were already sufficient and
+  keep their verified copy (all 3 Aqqua, both Aramara Decor, Les Secrets d'Antoine, Bianco
+  Divino, Dolce Vaniglia refill, NIRO copy). All 14 images verified byte-identical to the
+  research `best_existing_image`; no imagery changed. `trade.name`/`trade.price` untouched;
+  staged prices stay null; no numeric prices introduced.
+- Tests: new `tests/merchandising.test.cjs` (7 tests) — mapping covers exactly the TOP-25
+  with unchanged ranks; Thé SKUs excluded from rank and popularity; popularity cue limited
+  to the 4 eligible SKUs; deterministic, price-blind priority ordering; price never
+  rendered; rendered catalog/page leaks no internal labels and shows priority order.
+- Audit: `research/catalog-quality-after-merchandising.md` — unresolved problems only
+  (12 without exact image, 5 unknown brand, 27 AROMAgroup template descriptions, identity
+  conflicts/mismatches, format/volume inconsistencies, 0 CORE/STRONG cards blocked).
+
+### Validation (all PASS, run 2026-09-24 in this environment)
+- `node research/validate-demand-2026-09.cjs` — 148 SKU / 220 units, TOP-25, high-stock consistent.
+- `npm run typecheck` PASS · `npm test` 31/31 PASS (29 app + 2 exchange integration) ·
+  `npm run lint` zero warnings · `npm run build` PASS (`.next` rotated aside first: previous
+  build output was root-owned and blocked the build as kimiworker) · `git diff --check` PASS.
+- Preview evidence: new production build served with the documented staged mechanism on a
+  temporary loopback port (3413) because 3411 is held by a root-owned process (see blocker
+  B2). Verified: `/catalog` and `/brands` 200; all 14 CORE/STRONG product pages 200; all 14
+  CORE/STRONG images 200; rendered grid first-25 == research TOP-25 order; popularity badge
+  only on the 4 CORE cards; Thé product pages carry no cue; brand/category filters and debug
+  view intact; homepage untouched; no internal tier labels; no prices rendered.
+
+### BLOCKERS (permissions; no workaround attempted per policy)
+- B1 — git commit/push: `git add` fails with «insufficient permission for adding an object
+  to repository database /var/lib/kimi-worker/repo/.git/objects». The shared object store
+  has mixed root/kimiworker ownership; the fanout directories needed by the new blobs are
+  root-owned (`drwxr-xr-x root`). User kimiworker has no sudo. All changes are validated and
+  left uncommitted in the worktree; the index is clean (failed add was atomic). A maintainer
+  with write access to the object store (or a re-owned objects dir) can commit the exact
+  file list from the final report. Per task policy no object-store workarounds were attempted.
+- B2 — staged preview restart on 127.0.0.1:3411: the existing preview (next-server PID
+  2409879, started as root) cannot be signalled (kill → EPERM as kimiworker) and the port
+  stays bound, so the new build cannot take over 3411. The old build keeps serving 3411
+  unchanged. A maintainer can restart it with the documented mechanism:
+  `CATALOG_PROVIDER=staged-1c ONEC_LOCAL_CATALOG_PATH=/opt/vozdooh/data/catalog-staged.json
+  ONEC_STAGED_PREVIEW_ENABLED=true npx next start -H 127.0.0.1 -p 3411`.
+- `apps/vozdooh-web/next-env.d.ts` is modified by the build tooling and was intentionally
+  NOT staged for commit.
+
+### Authorized finalization — 2026-09-25
+- The earlier Git-permission blocker was resolved from the authorized server context; the normal repository object store is used, with no alternate object-store workaround.
+- The root-owned staged preview blocker was resolved: the previous listener was stopped and the freshly validated production build now serves staged-1C on `127.0.0.1:3411`.
+- Final preview verification: `/catalog` and `/brands` return 200; all 14 CORE/STRONG product routes and exact image URLs return 200; the main catalog grid has 136 pictured products and its first 25 exactly match the checked-in research priority order; normal customer HTML leaks no internal research tiers, preview noise or currency prices.
+- A final source hygiene pass removed two literal NUL bytes from `src/catalog/presentation.ts` by expressing the same separator as `\\u0000`; validation was rerun afterward.

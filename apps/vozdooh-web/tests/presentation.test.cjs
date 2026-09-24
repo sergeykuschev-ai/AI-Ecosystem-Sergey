@@ -119,9 +119,9 @@ test('rendered catalog and product pages hide source noise and preserve debug/fi
 
 const { confirmedProductTranslations } = require('../src/catalog/productTranslations.ts')
 test('all confirmed bindings preserve trade data and reject unreviewed matches', () => {
-  assert.equal(confirmedProductTranslations.length, 6)
+  assert.equal(confirmedProductTranslations.length, 7)
   for (const entry of confirmedProductTranslations) for (const binding of entry.products) {
-    const item = product(binding.name)
+    const item = product(binding.name, entry.brands[0])
     item.trade.sku = binding.sku
     const before = structuredClone(item)
     const display = productPresentation(item)
@@ -146,7 +146,7 @@ test('real cards place confirmed translation below original and above type/volum
   const { ProductCard } = require('../components/ProductCard.tsx')
   for (const entry of confirmedProductTranslations) {
     const binding = entry.products[0]
-    const item = product(binding.name)
+    const item = product(binding.name, entry.brands[0])
     item.trade.sku = binding.sku
     item.editorial.slug = 'synthetic-product'
     const html = renderToStaticMarkup(ProductCard({ product: item }))

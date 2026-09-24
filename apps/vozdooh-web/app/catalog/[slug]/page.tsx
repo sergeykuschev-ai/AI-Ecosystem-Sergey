@@ -7,6 +7,7 @@ import { SiteFooter } from '../../../components/SiteFooter'
 import { SiteHeader } from '../../../components/SiteHeader'
 import { labelFor, familyLabels, moodLabels, roomLabels } from '../../../src/catalog/vocabulary'
 import { catalogImage, isDebugCatalog, productPresentation, storefrontProducts } from '../../../src/catalog/presentation'
+import { isExternallyConfirmedPopular, POPULARITY_NOTE } from '../../../src/catalog/demandPriority'
 import { withValidImages } from '../../../src/catalog/validImages'
 import type { RawSearchParams } from '../../../src/catalog/filterParams'
 import { getRecommendations } from '../../../src/catalog/filters'
@@ -58,6 +59,7 @@ export default async function ProductPage({ params, searchParams }: PageParams) 
           <h1>{display.title}</h1>
           {display.russianTitle && <p className="productTranslation">{display.russianTitle}</p>}
           <p className="productSubtitle">{display.subtitle}</p>
+          {isExternallyConfirmedPopular(product.trade.sku) && <p className="popularityNote">{POPULARITY_NOTE}</p>}
           <Link className="productBack" href={debug ? "/catalog?debugCatalog=1" : "/catalog"}>← Каталог</Link>
           <div className="productChips">
             {product.editorial.scentFamily && <span>Характер: {labelFor(familyLabels, product.editorial.scentFamily)}</span>}

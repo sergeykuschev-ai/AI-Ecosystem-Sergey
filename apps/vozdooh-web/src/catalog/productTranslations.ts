@@ -1,6 +1,8 @@
 import type { TradeProduct } from './contracts'
 
-/** Approved starter translations from the storefront brief (2026-09-24).
+/** Approved starter translations from the storefront brief (2026-09-24), plus the
+ * CULTI Tessuto binding confirmed by the checked-in demand research
+ * (research/demand-priority-2026-09.md: «Ткань» подтверждается текстом Candlesbox).
  * Bindings checked against the current staged catalog; no fuzzy or cross-brand lookup.
  * Keep translations here, separate from trade data and JSX.
  */
@@ -8,6 +10,7 @@ export const confirmedProductTranslations = [
   {
     "original": "ORO",
     "russian": "Золото",
+    "brands": ["TEATRO Fragranze Uniche", "TEATRO"],
     "products": [
       {
         "sku": "ORO100STFU",
@@ -34,6 +37,7 @@ export const confirmedProductTranslations = [
   {
     "original": "LOVE",
     "russian": "Любовь",
+    "brands": ["TEATRO Fragranze Uniche", "TEATRO"],
     "products": [
       {
         "sku": "LO250TFU",
@@ -56,6 +60,7 @@ export const confirmedProductTranslations = [
   {
     "original": "DOLCE VANIGLIA",
     "russian": "Сладкая ваниль",
+    "brands": ["TEATRO Fragranze Uniche", "TEATRO"],
     "products": [
       {
         "sku": "DV250TFU",
@@ -74,6 +79,7 @@ export const confirmedProductTranslations = [
   {
     "original": "FOGLIE DI FICO",
     "russian": "Листья инжира",
+    "brands": ["TEATRO Fragranze Uniche", "TEATRO"],
     "products": [
       {
         "sku": "FF250TFU",
@@ -84,6 +90,7 @@ export const confirmedProductTranslations = [
   {
     "original": "VENTO DI MARE",
     "russian": "Морской ветер",
+    "brands": ["TEATRO Fragranze Uniche", "TEATRO"],
     "products": [
       {
         "sku": "VM250TFU",
@@ -94,6 +101,7 @@ export const confirmedProductTranslations = [
   {
     "original": "ROSE OUD",
     "russian": "Роза и уд",
+    "brands": ["TEATRO Fragranze Uniche", "TEATRO"],
     "products": [
       {
         "sku": "ROU250TFU",
@@ -112,13 +120,24 @@ export const confirmedProductTranslations = [
         "name": "TEATRO Ароматическая свеча ROSE OUD / Роза & Уд Luxury Сollection, 180 г"
       }
     ]
+  },
+  {
+    "original": "Tessuto",
+    "russian": "Ткань",
+    "brands": ["CULTI MILANO"],
+    "products": [
+      {
+        "sku": "df29d346-d192-11ec-be83-7c8bca00854e",
+        "name": "Stile Classic диффузор Tessuto 250мл"
+      }
+    ]
   }
 ] as const
 
-/** Both source name and SKU must still match the reviewed product. */
+/** Both source name and SKU must still match the reviewed product within the entry's brands. */
 export function confirmedProductTranslation(trade: TradeProduct) {
-  if (trade.brand !== 'TEATRO Fragranze Uniche' && trade.brand !== 'TEATRO') return null
   return confirmedProductTranslations.find((entry) =>
+    (entry.brands as readonly string[]).includes(trade.brand ?? '') &&
     entry.products.some((product) => product.sku === trade.sku && product.name === trade.name),
   ) ?? null
 }

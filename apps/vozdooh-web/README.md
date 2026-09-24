@@ -154,3 +154,30 @@ Lothantique. Do not infer translations from scent descriptions or translate bran
 
 `npm test` covers approved bindings, mismatches, unresolved names, source immutability,
 display-title regressions and actual card/detail markup.
+
+### Demand-priority merchandising (internal signal)
+
+`src/catalog/demandPriority.ts` is a small checked-in mapping derived from the verified
+research in `research/demand-priority-2026-09.md` (external sources verified live on
+2026-09-24). It is an INTERNAL signal only:
+
+- Default `/catalog` ordering leads with the 25 researched higher-priority in-stock SKUs
+  in research `promotion_rank` order, then keeps the approved brand order with a
+  deterministic slug tiebreak. Brand/category/family/mood/room filters and search
+  semantics are unchanged; demo records carry no ranks and keep previous behavior.
+- The 650KB research JSON is never imported into the client bundle; tests cross-check the
+  mapping against the research file (exact TOP-25 coverage, unchanged ranks).
+- The three CULTI Thé SKUs (`46091`, `465636`, `802e8b01-…`) receive NO priority or
+  popularity treatment: the preliminary Bloomingdale's "bestseller" signal failed
+  re-verification and was refuted.
+- The only visible popularity cue is a conservative `Популярный аромат` badge (with a
+  clarifying note on the product page) for the four CORE fragrances whose popularity is
+  confirmed at fragrance level by two independent external bestseller statements. It never
+  claims VOZDOOH sales. Internal tier names (CORE/STRONG/NORMAL/SLOW/CLEARANCE) are never
+  rendered to customers.
+- Prices remain unpublished: merchandising never reads `trade.price`, and staged prices
+  stay null.
+
+Post-implementation catalog findings live in
+`research/catalog-quality-after-merchandising.md` (unresolved problems only; uncertain
+facts were left unchanged, not "fixed").
