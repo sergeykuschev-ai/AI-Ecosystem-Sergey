@@ -82,8 +82,8 @@ test('rendered catalog and product pages hide source noise and preserve debug/fi
   const originalSource = source.catalogSource
   const asset = fs.readdirSync('public/catalog/official').find((name) => /\.(jpg|webp|png)$/.test(name))
   assert.ok(asset)
-  const pictured = product('TEATRO Диффузор с палочками ROSE OUD / Роза & Уд, 250 мл')
-  pictured.trade = { ...pictured.trade, sku: 'TEST-PICTURED', characteristics: {}, price: null }
+  const pictured = product('TEATRO Диффузор с палочками ROSE OUD / Роза & Уд Luxury collection, 250 мл')
+  pictured.trade = { ...pictured.trade, sku: 'ROU250TFU', characteristics: {}, price: null }
   pictured.editorial = { ...pictured.editorial, images: [`/catalog/official/${asset}`], slug: 'test-pictured', recommendations: [] }
   const missing = structuredClone(pictured)
   missing.id = 'missing'
@@ -107,10 +107,52 @@ test('rendered catalog and product pages hide source noise and preserve debug/fi
     assert.match(debug, /Убрать фильтр Бренд/)
     const details = renderToStaticMarkup(await Product({ params: Promise.resolve({ slug: 'test-pictured' }), searchParams: Promise.resolve({}) }))
     assert.doesNotMatch(details, /PREVIEW 1C|Пока не в продаже|Добавить в корзину/)
-    assert.match(details, /Роза &amp; Уд, 250 мл/)
+    assert.match(details, /Роза &amp; Уд Luxury collection, 250 мл/)
+    assert.match(details, /<h1>ROSE OUD<\/h1><p class="productTranslation">Роза и уд<\/p>/)
+    assert.match(normal, /class="productTranslation">Роза и уд/)
     assert.match(details, /Verified description/)
   } finally {
     source.getCatalogRepository = originalRepository
     source.catalogSource = originalSource
+  }
+})
+
+const { confirmedProductTranslations } = require('../src/catalog/productTranslations.ts')
+test('all confirmed bindings preserve trade data and reject unreviewed matches', () => {
+  assert.equal(confirmedProductTranslations.length, 6)
+  for (const entry of confirmedProductTranslations) for (const binding of entry.products) {
+    const item = product(binding.name)
+    item.trade.sku = binding.sku
+    const before = structuredClone(item)
+    const display = productPresentation(item)
+    assert.equal(display.title, entry.original)
+    assert.equal(display.russianTitle, entry.russian)
+    assert.match(display.subtitle, /250 мл/)
+    assert.deepEqual(item, before)
+    for (const changed of [
+      { ...item.trade, sku: 'UNKNOWN' },
+      { ...item.trade, name: item.trade.name + ' new' },
+      { ...item.trade, brand: 'Other' },
+    ]) assert.equal(productPresentation({ ...item, trade: changed }).russianTitle, null)
+  }
+  for (const name of ['BIANCO DIVINO', 'ERA', 'THÉ', 'MAREMINERALE', 'PATCHOULOVE', 'Unknown / Самовольный перевод']) {
+    const display = productPresentation(product(name))
+    assert.equal(display.russianTitle, null)
+    assert.equal(display.title, name.split('/')[0].trim())
+  }
+})
+test('real cards place confirmed translation below original and above type/volume', () => {
+  const { renderToStaticMarkup } = require('react-dom/server')
+  const { ProductCard } = require('../components/ProductCard.tsx')
+  for (const entry of confirmedProductTranslations) {
+    const binding = entry.products[0]
+    const item = product(binding.name)
+    item.trade.sku = binding.sku
+    item.editorial.slug = 'synthetic-product'
+    const html = renderToStaticMarkup(ProductCard({ product: item }))
+    assert.ok(html.includes(`<h3>${entry.original}</h3><p class="productTranslation">${entry.russian}</p><p>`))
+    assert.match(html, /250 мл/)
+    item.trade.sku = 'UNKNOWN'
+    assert.doesNotMatch(renderToStaticMarkup(ProductCard({ product: item })), /class="productTranslation"/)
   }
 })

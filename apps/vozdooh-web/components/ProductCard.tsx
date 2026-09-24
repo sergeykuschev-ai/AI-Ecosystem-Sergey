@@ -19,6 +19,7 @@ export function ProductCard({ product, index = 0, demo = false, debug = false }:
       <div className="productCardMeta">
         <span>{product.trade.brand ?? ''}</span>
         <h3>{display.title}</h3>
+        {display.russianTitle && <p className="productTranslation">{display.russianTitle}</p>}
         <p>{display.subtitle}</p>
       </div>
     </Link>

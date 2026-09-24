@@ -128,3 +128,29 @@ The native filter disclosure and GET form require no UI dependency and retain
 brand/category/family/mood/room URL parameters. Prices are not rendered and the
 product page has no purchase action. Staged prices remain null. Presentation
 regressions run with `npm test`; full checks run with `npm run verify`.
+
+### Confirmed bilingual product names
+
+`src/catalog/productTranslations.ts` owns the presentation-only translation registry.
+The original fragrance title remains primary, followed by a smaller Russian line
+and the existing type/volume subtitle. Shared cards and product details use the same
+presentation result. Trade data and brand labels are unchanged.
+
+The first batch uses six starter translations approved in the storefront brief
+(2026-09-24), checked against 18 exact SKU/name bindings in the staged catalog:
+ORO → Золото; LOVE → Любовь; DOLCE VANIGLIA → Сладкая ваниль;
+FOGLIE DI FICO → Листья инжира; VENTO DI MARE → Морской ветер;
+ROSE OUD → Роза и уд. Both SKU and complete source name must match, within TEATRO.
+Unknown or changed bindings receive no translation. Slash-separated source text
+is not automatically accepted as verified translation.
+
+Unresolved: BIANCO DIVINO, ERA, THÉ, MAREMINERALE and all names outside this registry.
+Further research priority: TEATRO, Lothantique, CULTI MILANO, Millefiori Milano,
+Christian Tortu, Castelbel, VINOVE, AROMAgroup, DANHERA, MAMI MILANO, Vellutier,
+Ladenac Milano, WoodWick. This order does not change storefront sorting.
+Before extending the registry, record official brand/distributor evidence and review
+exact current bindings. For Lothantique, consult Небо Фрагранс first, then official
+Lothantique. Do not infer translations from scent descriptions or translate brands.
+
+`npm test` covers approved bindings, mismatches, unresolved names, source immutability,
+display-title regressions and actual card/detail markup.

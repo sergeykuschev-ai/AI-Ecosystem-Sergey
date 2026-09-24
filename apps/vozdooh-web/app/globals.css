@@ -539,3 +539,7 @@ footer nav{gap:4px 24px}
 .productPage .productLayout{margin:24px 6vw 44px;grid-template-columns:minmax(0,1fr);gap:10px}
 .productPage .productInfo{padding:24px 0 0}
 }
+
+/* Confirmed Russian names remain secondary to the original product title. */
+.productCard .productCardMeta p.productTranslation{font-size:12px;line-height:1.45;font-weight:400;color:var(--muted);margin:0 0 6px;overflow-wrap:anywhere}
+.productInfo p.productTranslation{font-size:16px;line-height:1.5;font-weight:400;color:var(--muted);margin:0 0 8px;overflow-wrap:anywhere}

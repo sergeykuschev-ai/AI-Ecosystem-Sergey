@@ -56,6 +56,7 @@ export default async function ProductPage({ params, searchParams }: PageParams) 
         <div className="productInfo">
           <span className="eyebrow">{product.trade.brand}</span>
           <h1>{display.title}</h1>
+          {display.russianTitle && <p className="productTranslation">{display.russianTitle}</p>}
           <p className="productSubtitle">{display.subtitle}</p>
           <Link className="productBack" href={debug ? "/catalog?debugCatalog=1" : "/catalog"}>← Каталог</Link>
           <div className="productChips">

@@ -1,4 +1,5 @@
 import type { CatalogProduct } from './contracts'
+import { confirmedProductTranslation } from './productTranslations'
 import type { RawSearchParams } from './filterParams'
 import { categoryLabels, labelFor } from './vocabulary'
 
@@ -54,8 +55,10 @@ export function productPresentation(product: CatalogProduct) {
   // A bilingual label carries the same fragrance twice. Keep the first named part.
   title = title.split('/').map((part) => part.trim()).find(Boolean) ?? name
   title = title.replace(/[,.]?\s*(?:Luxury [CС]ollection|Christmas Collection|Коллекция .*)$/i, '').trim()
+  const translation = confirmedProductTranslation(product.trade)
   return {
-    title: title || name,
+    title: translation?.original ?? (title || name),
+    russianTitle: translation?.russian ?? null,
     subtitle: [labelFor(categoryLabels, category), volume ?? name.match(/\d+(?:[.,]\d+)?\s*ml\b/i)?.[0]].filter(Boolean).join(' · '),
   }
 }
