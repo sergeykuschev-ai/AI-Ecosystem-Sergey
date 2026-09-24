@@ -43,6 +43,7 @@ export function inferStagedVolume(name: string): string | null {
 }
 
 const curated: Record<string, Partial<EditorialProduct>> = {
+  '99889898': { slug: 'aromagroup-magma-500', images: ['/catalog/official/99889898.webp'] },
   '137897': { slug: 'aromagroup-berberi-110', images: ['/catalog/official/137897.webp'], description: 'Парфюмерная композиция с лаймом, лавандой и грушей; зелёным миндалём, белым пионом, сандалом и жасмином; красным деревом, смолой, амброй и ванилью в базе.', scentFamily: 'woody', mood: 'focused', room: 'living' },
   'fc7e824a-136a-11ef-b412-e92179844ed4': { slug: 'aromagroup-berberi-180', images: ['/catalog/official/fc7e824a-136a-11ef-b412-e92179844ed4.webp'], description: 'Парфюмерная композиция с лаймом, лавандой и грушей; зелёным миндалём, белым пионом, сандалом и жасмином; красным деревом, смолой, амброй и ванилью в базе.', scentFamily: 'woody', mood: 'focused', room: 'living' },
   '675483': { slug: 'aromagroup-berberi-150', images: ['/catalog/official/675483.webp'], description: 'Парфюмерная композиция с лаймом, лавандой и грушей; зелёным миндалём, белым пионом, сандалом и жасмином; красным деревом, смолой, амброй и ванилью в базе.', scentFamily: 'woody', mood: 'focused', room: 'living' },
