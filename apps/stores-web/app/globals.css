@@ -401,3 +401,14 @@ p { margin: 0 0 1rem; }
   .brand-card { transition: none; }
   .category-grid--brand-landing .category-card { transition: none; }
 }
+
+.article-meta { margin: 0 0 0.65rem; color: var(--muted); font-size: 0.9rem; }
+.article-index { display: grid; gap: 1rem; }
+.article-index__item { padding: 1rem 0; border-top: 1px solid var(--line); }
+.article-index__item:last-child { border-bottom: 1px solid var(--line); }
+.article-index__item h3 { margin: 0 0 0.5rem; }
+.article-index__item p:last-child { margin-bottom: 0; max-width: 52rem; }
+.article-page > .section { max-width: 52rem; }
+.article-page li + li { margin-top: 0.4rem; }
+.article-sources { display: grid; gap: 0.65rem; padding-left: 1.25rem; }
+.article-sources a { overflow-wrap: anywhere; }
