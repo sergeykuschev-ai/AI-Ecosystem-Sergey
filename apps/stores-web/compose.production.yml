@@ -8,8 +8,9 @@ services:
     image: caddy:2.9.1-alpine
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
+      - "${CADDY_BIND_IP:-0.0.0.0}:80:80"
+      - "${CADDY_BIND_IP:-0.0.0.0}:443:443"
+      - "${CADDY_BIND_IP:-0.0.0.0}:8445:8445"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - /opt/stores-web/data/caddy/data:/data
@@ -21,6 +22,7 @@ services:
         condition: service_healthy
     networks:
       - stores-web
+      - business_kpi_edge
 
   postgres:
     image: postgres:17.6-alpine3.22
@@ -99,6 +101,32 @@ services:
     networks:
       - stores-web
 
+  onec-sync:
+    build:
+      context: ./integrations/onec-sync
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      ONEC_EXCHANGE_ENABLED: ${ONEC_EXCHANGE_ENABLED:-false}
+      ONEC_EXCHANGE_USERNAME: ${ONEC_EXCHANGE_USERNAME:-}
+      ONEC_EXCHANGE_PASSWORD: ${ONEC_EXCHANGE_PASSWORD:-}
+      ONEC_EXCHANGE_STORAGE_DIR: /var/lib/onec-exchange
+      ONEC_EXCHANGE_FILE_LIMIT: ${ONEC_EXCHANGE_FILE_LIMIT:-5242880}
+      ONEC_EXCHANGE_MAX_FILE_SIZE: ${ONEC_EXCHANGE_MAX_FILE_SIZE:-268435456}
+    volumes:
+      - /opt/stores-web/data/onec-exchange:/var/lib/onec-exchange
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - stores-web
+
 networks:
   stores-web:
     name: stores-web
+  business_kpi_edge:
+    external: true
+    name: business_kpi_edge

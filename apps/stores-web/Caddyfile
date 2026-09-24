@@ -3,11 +3,30 @@
 }
 
 amurskmarket.ru {
-    reverse_proxy web:3000
+    handle /api/1c/exchange* {
+        reverse_proxy onec-sync:8080
+    }
+
+    handle /api/vozdooh-1c/exchange* {
+        uri replace /api/vozdooh-1c/exchange /api/1c/exchange
+        reverse_proxy vozdooh-onec-exchange:8080
+    }
+
+    handle {
+        reverse_proxy web:3000
+    }
 }
 
 www.amurskmarket.ru {
     redir https://amurskmarket.ru{uri} permanent
+}
+
+https://amurskmarket.ru:8445 {
+    header {
+        X-Content-Type-Options nosniff
+        Referrer-Policy no-referrer
+    }
+    reverse_proxy business-kpi-web-1:3220
 }
 
 cms.amurskmarket.ru {
