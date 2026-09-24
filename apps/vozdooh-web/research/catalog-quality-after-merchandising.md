@@ -1,98 +1,99 @@
-# VOZDOOH: каталог-аудит после мерчандайзинга — 24 сентября 2026
+# VOZDOOH catalog quality after merchandising — 24 September 2026
 
-Скоуп: текущий положительный остаток (148 SKU / 220 ед.) staged-каталога после внедрения
-приоритета спроса (`src/catalog/demandPriority.ts`) и доработки 14 карточек CORE/STRONG.
-Перечислены ТОЛЬКО нерешённые проблемы; сомнительные факты не «чинились» ради чистоты списка.
-Все 14 CORE/STRONG-карточек завершены или признаны уже достаточными; остаточные проверки
-указаны явно. Источник данных: `research/demand-evidence-2026-09.json`, живые источники
-проверены 24.09.2026; staged snapshot не изменялся.
+Scope: 148 positive-stock SKU / 220 units. Follow-up to the merchandising review,
+starting from `218f8ba2`. Staged source is read-only. The demand JSON/CSV and TOP-25
+remain unchanged. Resolved findings are separated below; unresolved issues have
+not been removed. Full sources, access limitations and per-SKU searches:
+[catalog cleanup evidence](catalog-cleanup-evidence-2026-09.md).
 
-## 1. Нет точного изображения (12 SKU)
+## RESOLVED
 
-Товары без пригодного локального фото скрыты из клиентской сетки и остаются доступны
-только во внутреннем просмотре `?debugCatalog=1`.
+| Original finding | Resolution and evidence |
+|---|---|
+| Five generic VINOVE titles | `N020445` Rome / Evolution Excellence, `N020438` Indianapolis / Leather Espresso, `N020434` Monza / Leather Ivory, `N020325` London / Jewelry, `0b044a39-8588-11ed-b530-7c8bca00854e` Rome / Leather Espresso. All facts already occur in their exact source names. Presentation binding fixes slash truncation; no invented translation. |
+| CULTI `65576` spelling | Display title is Automobili Lamborghini, supported by [official 1000 ml product](https://www.culti.com/en/diffusore-1000-ml-automobili-lamborghini.html). Source typo remains untouched. Physical finish/limited edition question remains below. |
+| Aramara 250 ml apparent duplicate | [Decor](https://www.culti.com/en/diffusore-decor-aramara-250ml.html) and [Stile](https://www.culti.com/it/diffusore-stile-aramara-250ml.html) are separate collections. `802e8ae5-d19b-11ec-be83-7c8bca00854e` and `df29d344-d192-11ec-be83-7c8bca00854e` retain separate names, slugs, images and stock. Regression covered. |
+| 24 of 27 AROMAgroup template descriptions | Exact fragrance sections in the [representative catalog](https://aroma-group.by/aromaty/) confirm brief note summaries. All 24 bindings are listed in the evidence supplement. Model compatibility is explicitly not promised. The remaining three are below. |
+| Refill and stick category errors | Source-name precedence now detects refills and accessory boxes before the word “диффузор”. Gift sets stay sets. Matches the research product-type distinction. No quantity conversion. |
+| `BD500TFU` format evidence | [Official Bianco Divino 500 ml with sticks](https://teatrofragranzeuniche.it/eu/bianco-divino-ml-500-with-sticks) and [exact retailer article](https://www.de-light.ru/catalog/teatro/diffuzor-bd500tfu-bianco_divino/) confirm diffuser, not linen spray. Indexed source text; direct opens failed. No production-year/collection claim added. |
+| `22fimr` broad format category | [Official Mimosa Flower](https://millefiorimilano.com/en/products/selected-water-soluble-fragrance-mimosa-flower) confirms water-soluble 15 ml for Hydro ultrasonic diffusers. Now in “Водорастворимые ароматы”; demand rank unchanged. |
+| `N020465` review-scope handling | [Sandalwood review source](https://lothantique.ca/products/lothantique-200ml-diffuser-refill-sandalwood) is a refill, not this diffuser. No ratings/reviews transferred; regression locks this boundary. Historical research caveat remains valid. |
+| `V63011` review-scope handling | The existing research's Allegro reviews are for wax, not this 90 g candle. No review block, score or claim added; regression covers the boundary. Historical caveat remains valid. |
+| Missing volume on non-liquid formats | No fabricated ml. Product details omit the inapplicable empty volume row; accessory subtitles no longer present destination-bottle volume as their own liquid volume. Original source name remains in details. |
+| Unsupported XMAS composition in existing editorial | Removed the previously asserted 250 ml + 250 ml composition and aroma claims. Neutral description now explicitly requires composition confirmation. Actual composition remains unresolved below. |
+| Unsupported N020486 dimensions in existing editorial | Removed the unverified 23 × 3 mm and pack-count assertion from the editorial description. Original source wording remains traceable in details. Identity/specification remains unresolved below. |
 
-| SKU | Товар | Примечание |
+## UNRESOLVED — exact images (12 SKU)
+
+All 12 remain excluded from normal product grids and discovery. No lookalike was
+substituted. Internal `?debugCatalog=1` remains available. Existing product URLs
+can still be opened directly; this review has not introduced a new access policy.
+
+| SKU | Item | Remaining evidence needed |
 |---|---|---|
-| `98049E` | WoodWick Свеча маленькая Пряная ежевика 85 г | плюс конфликт идентичности (см. §4); фото не публикуем до сверки |
-| `9a227639-b1a0-11ed-a1a3-7c8bca00854e` | Жидкость для промывки картридж AG 110 мл | сервисная позиция |
-| `445445` | 39 Сетевое з/у microUSB (СЗУ) 1.2 м | плюс неизвестен бренд и характеристики |
-| `4356` | Жидкость для промывки картридж AG 150 мл | сервисная позиция |
-| `1113` | Ротанговые палочки 1000 мл | плюс неизвестен бренд |
-| `121211` | Ротанговые палочки 500 мл | плюс неизвестен бренд |
-| `N020486` | Комплект светлых палочек из ротанга 18 шт. 23 × 3 мм | плюс неизвестен бренд; параметры не подтверждены |
-| `344565` | Ladenac room spray Lui&Lei black gold | вариант аромата в 1С не указан; фото варианта не привязано |
-| `045850b2-9e1f-11ee-b408-d069cd63062f` | Салями картридж AG 100 мл | B2B-картридж |
-| `CAPP-XMTFU` | TEATRO Подарочный набор XMAS (шляпная коробка) | состав набора обрезан в 1С; фото сезонного набора не заархивировано |
-| `0189` | Ножницы для фитиля | плюс неизвестен бренд |
-| `132689` | Благородная кожа картридж AG 100 мл | B2B-картридж |
+| `98049E` | WoodWick small candle, source says Spiced Blackberry 85 g | Physical label: official article says Coastal Sunset. Identity conflict prevents photo/description assignment. |
+| `9a227639-b1a0-11ed-a1a3-7c8bca00854e` | AG service liquid 110 ml | Exact packaging/model association and reusable product photograph. |
+| `445445` | microUSB adapter, source 1.2 m | Manufacturer/article label, electrical ratings, compatibility and exact photo. |
+| `4356` | AG service liquid 150 ml | Exact 150 ml packaging and photo; 110 ml image cannot be transferred. |
+| `1113` | Rattan sticks, 1000 ml designation | Brand, physical dimensions/count and exact photo. |
+| `121211` | Rattan sticks, 500 ml designation | Brand, physical dimensions/count and exact photo. |
+| `N020486` | Light rattan sticks | Brand/label, correct dimensions/unit and pack count; exact photo. |
+| `344565` | Ladenac Lui&Lei black gold room spray | Label identifying fragrance, size and generation. Jet Lag Black Gold is only a candidate. |
+| `045850b2-9e1f-11ee-b408-d069cd63062f` | AG Salami cartridge 100 ml | Aroma now documented; exact cartridge package/model and photo rights are not. |
+| `CAPP-XMTFU` | TEATRO XMAS hat-box set | Complete label/contents and photograph of this exact seasonal set. |
+| `0189` | Wick scissors | Manufacturer/article and exact photograph. |
+| `132689` | AG Noble Leather cartridge 100 ml | Exact aroma identity, package/model and photograph. |
 
-## 2. Бренд не установлен (5 SKU)
+Image provenance/reuse permission was not established for a new asset in this
+pass. Supplier-provided or owner-shot exact product photographs remain needed.
 
-`445445`, `1113`, `121211`, `N020486`, `0189` — аксессуары без бренда в 1С.
-По правилу исследования бренд не додумывается; присваивание возможно только по физической
-этикетке/поставщику. Все пять — SLOW-очередь уточнения, продвижение заблокировано.
+## UNRESOLVED — unknown brands (5 SKU)
 
-## 3. Слабое или отсутствующее проверенное описание
+`445445`, `1113`, `121211`, `N020486`, `0189` remain unbranded. Similar accessories,
+matching piece counts or cable lengths do not identify a manufacturer. Search
+candidates and rejected matches are recorded in the evidence supplement.
 
-- **`98049E` WoodWick** — описание отсутствует намеренно: конфликт Coastal Sunset /
-  Пряная ежевика не разрешён, ароматические утверждения не публикуются.
-- **27 SKU AROMAgroup** — только шаблонное fallback-описание
-  («Ароматический картридж AROMAgroup «…» для профессиональных систем ароматизации» /
-  «Сервисная жидкость…» / «Профессиональный аппарат…»), парфюмерные факты по этим ароматам
-  в проверке 24.09.2026 не подтверждены: `323244211`, `454569087`,
-  `7c1b6caa-5341-11ed-8c25-7c8bca00854e`, `3246675`, `33421956`, `5432311112`,
-  `9a227639-b1a0-11ed-a1a3-7c8bca00854e`, `223211`, `32131`, `787532`, `0789`, `99889898`,
-  `2332`, `4356`, `3534657`, `088976`, `5445098`, `045850b2-9e1f-11ee-b408-d069cd63062f`,
-  `084e10f7-dad6-11ee-b40a-f198e863aac1`, `fcf32570-dad6-11ee-b40a-f198e863aac1`, `876687`,
-  `1112211`, `87654`, `45360`, `3444567`, `087654`, `132689`.
-  Это B2B-позиции; розничная выдача не отражает весь B2B-спрос, продажа картриджей требует
-  модели аппарата.
+## UNRESOLVED — descriptions and compatibility
 
-## 4. Подозрительные дубли / несовпадения
+- **WoodWick `98049E`:** no fragrance description until source/physical identity is
+  reconciled. [Official article](https://www.yankeecandle.co.uk/woodwick/candles/shop-by-type/mini-jars/coastal-sunset-candle/SAP_98049E_PR.html) conflicts with the source name.
+- **Three remaining AROMAgroup fallback descriptions:** service liquids
+  `9a227639-b1a0-11ed-a1a3-7c8bca00854e`, `4356`, and Noble Leather `132689`.
+  No invented pyramid or model compatibility. This accounts for the original
+  27 together with the 24 resolved bindings in the evidence supplement.
+- **`32131` AG Bordeaux 110 ml:** scent notes now supported, but connector and
+  apparatus model are still unknown. No universal compatibility; confirmation
+  required for this and the other cartridges before a transaction.
 
-- **`98049E` WoodWick** — официальный SKU соответствует Coastal Sunset, в 1С назван
-  «Пряная ежевика». Идентичность не разрешена; карточка нейтральная, продвижение заблокировано.
-- **`65576` CULTI Automobili Lamborghini 1000 мл** — в исходном имени опечатка
-  «Lambordhini»; официальный флакон найден, но лимитированность/оформление требуют сверки
-  с физическим товаром до заметного продвижения (остановлено на NORMAL).
-- **Два SKU Aramara 250 мл** (`802e8ae5-…` Decor Classic и `df29d344-…` Stile Classic) —
-  разные коллекции и флаконы; остатки намеренно НЕ объединяются, карточки не сливаются.
-- **VINOVE: обезличенные display titles (5 SKU)** — `N020445` (Rome), `N020438`
-  (Indianapolis), `N020434` (Monza), `N020325` (London), `0b044a39-…` (Rome) показывают
-  заголовок «Ароматизатор для автомобиля» без названия аромата/города; фото само по себе
-  имя не заменяет. Требуется решение по naming варианта (без переноса чужих названий).
-- **`344565` Ladenac Lui&Lei black gold** — в 1С не указан вариант аромата; фото и пирамида
-  намеренно не подставляются.
-- **`CAPP-XMTFU` TEATRO XMAS набор** — состав набора обрезан в выгрузке; нужна сверка
-  физической этикетки.
-- **`N020465` Lothantique Sandalwood** — внешние отзывы относятся к рефиллу (перенос между
-  форматами, 2 отзыва 4.00/5); в карточку не переносятся как факты о диффузоре.
-- **`V63011` Vellutier Oudwood Journey** — отзывы Allegro относятся к воску, не к нашей
-  свече 90 г; в карточку не переносятся.
+## UNRESOLVED — physical variants, sets and accessories
 
-## 5. Несоответствия категории / формата / объёма
+- **CULTI `65576`:** limited-edition attribution and actual bottle finish must be
+  checked against the physical item. Spelling resolution does not resolve this.
+- **Ladenac `344565`:** no verified binding from the internal article to a fragrance.
+  No pyramid or variant photo added despite a plausible retailer candidate.
+- **TEATRO `CAPP-XMTFU`:** source set composition is truncated. A separate XMAS
+  diffuser and an ORO hat-box set do not prove its contents.
+- **TEATRO sticks:** `08d97776-bb50-11ef-b425-ed110731e4f3`, `BAST500NTFU`,
+  `63a36c45-bb50-11ef-b425-ed110731e4f3`, `83763644-bb50-11ef-b425-ed110731e4f3`;
+  and rattan `N020486`: length, diameter and actual pack count need supplier/label
+  verification. Source descriptions are not external proof. Stock is still boxes,
+  not recalculated into loose sticks. Not promoted as fragrance bestsellers.
+- **`445445`:** manufacturer, output ratings and compatibility are unknown. No
+  bundle assignment or technical recommendation.
+- **Non-ml formats:** sachets, VINOVE car items and AROMAgroup apparatus have no
+  invented liquid volume. The existing Mareminerale 7 × 7 cm description is retained.
 
-- **Палочки TEATRO и ротанг** (`08d97776-…`, `BAST500NTFU`, `63a36c45-…`, `83763644-…`,
-  `N020486`) — длина/диаметр/количество в упаковке требуют подтверждения; учётный остаток
-  коробки не пересчитан в отдельные палочки. Не выдавать за аромат-бестселлер.
-- **`445445` СЗУ microUSB** — неизвестны производитель, выходные параметры и совместимость;
-  до проверки не включать в комплекты и продвижение.
-- **`32131` Бордо картридж AG 110 мл** — модель аппарата и формат картриджа не уточнены;
-  B2B-продажа только после уточнения, универсальность не обещается.
-- **Объём законно отсутствует** у саше, автотоваров VINOVE и аппаратов AROMAgroup
-  (не мл-форматы): в интерфейсе «Не указано»; размер автосаше Mareminerale 7×7 см
-  зафиксирован в описании карточки, мл не присваивается.
-- **`BD500TFU` Bianco Divino 500 мл** — у внешнего продавца (Candlesbox) представлен спрей
-  для белья; характеристики спрея НЕ перенесены на наш диффузор. Точный флакон/коллекция
-  нашей 500 мл позиции внешне не подтверждены — карточка остаётся с существующим
-  проверенным описанием, без заявлений о коллекции.
-- **`22fimr` Millefiori Mimosa Flower 15 мл** — водорастворимый концентрат (не диффузор);
-  сильный спрос не подтверждён (NORMAL), популярность диффузоров бренда на него не переносится.
+## CORE/STRONG completion and launch review
 
-## 6. Карточки CORE/STRONG, которые не удалось безопасно завершить
+No newly blocked CORE/STRONG card. The original 14 completed/sufficient cards
+remain so, and TOP-25 is regression-checked unchanged. Physical comparison of
+photos and labels for all 14 remains necessary before promotion; Aramara 250 ml
+Decor and Stile must remain separately selectable.
 
-Нет: все 14 карточек завершены или уже были достаточными, ни одна не заблокирована.
-Остаточные эксплуатационные проверки (не блокируют публикацию, но обязательны до запуска
-продвижения): сверка фотографий с физическими флаконами и этикетками для всех 14 SKU;
-отдельный выбор варианта для двух Aramara 250 мл при выкладке.
+Sergey/supplier decisions still needed: resolve the physical identities and
+specifications above; supply/authorize exact imagery; confirm cartridge models;
+and approve production domain/indexing and any future commerce launch. Checkout,
+payments and order submission remain disabled. No procurement recommendation.
+
+Implementation and environment verification are recorded separately in
+[catalog cleanup QA](catalog-cleanup-qa-2026-09.md).

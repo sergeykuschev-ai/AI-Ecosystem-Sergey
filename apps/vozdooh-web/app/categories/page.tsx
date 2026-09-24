@@ -7,21 +7,21 @@ import { getCatalogRepository } from '../../src/catalog/source'
 import { withValidImages } from '../../src/catalog/validImages'
 
 export const dynamic = 'force-dynamic'
-export const metadata: Metadata = { title: 'Бренды — VOZDOOH', description: 'Знакомство с брендами интерьерной парфюмерии в коллекции VOZDOOH.',
-  alternates: { canonical: '/brands' }, robots: { index: false, follow: false } }
+export const metadata: Metadata = { title: 'Категории — VOZDOOH', description: 'Диффузоры, свечи, спреи и другие форматы интерьерных ароматов VOZDOOH.',
+  alternates: { canonical: '/categories' }, robots: { index: false, follow: false } }
 
 export default async function DiscoveryPage() {
   const products = await withValidImages(await (await getCatalogRepository()).list())
-  const landings = availableLandings(products, 'brand')
+  const landings = availableLandings(products, 'category')
   return <main className="simplePage discoveryPage">
     <SiteHeader />
     <section className="simpleSection">
-      <span className="eyebrow">Бренды</span>
-      <h1>Коллекция брендов</h1>
-      <p>Знакомство с брендами интерьерной парфюмерии в коллекции VOZDOOH.</p>
-      <nav className="landingLinks" aria-label="Навигация по каталогу"><Link href="/catalog">Все ароматы</Link><Link href="/categories">Категории</Link></nav>
+      <span className="eyebrow">Категории</span>
+      <h1>Ароматы по форматам</h1>
+      <p>Диффузоры, свечи, спреи и другие форматы интерьерных ароматов VOZDOOH.</p>
+      <nav className="landingLinks" aria-label="Навигация по каталогу"><Link href="/catalog">Все ароматы</Link><Link href="/brands">Бренды</Link></nav>
       {landings.length > 0 ? <div className="brandGrid">
-        {landings.map((landing) => <Link className="brandTile" href={landingPath('brand', landing.slug)} key={landing.slug}>
+        {landings.map((landing) => <Link className="brandTile" href={landingPath('category', landing.slug)} key={landing.slug}>
           <h2>{landing.name}</h2><p>{landing.description}</p><span>Смотреть коллекцию →</span>
         </Link>)}
       </div> : <p>Коллекция готовится к знакомству.</p>}

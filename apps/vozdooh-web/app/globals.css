@@ -547,3 +547,21 @@ footer nav{gap:4px 24px}
 /* Conservative popularity cue: fragrance-level external signal only, never a VOZDOOH sales claim. */
 .popularityBadge{display:inline-block;margin:0 0 0 8px;padding:3px 8px;border:1px solid var(--line);border-radius:999px;font-size:8px;font-weight:600;text-transform:uppercase;letter-spacing:.14em;color:var(--green);background:rgba(32,54,42,.07);vertical-align:1px}
 .popularityNote{font-size:11px;line-height:1.5;color:var(--muted);margin:10px 0 0;padding:8px 12px;border-left:2px solid var(--green);background:rgba(32,54,42,.05);max-width:520px}
+
+/* Inventory discovery reuses the catalog image frames and title hierarchy. */
+.landingLinks{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center}
+.landingLinks a,.landingGuide>.textLink{display:inline-flex;align-items:center;min-height:44px;font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+.landingGuide{margin:0 7vw;padding:24px 0;border-block:1px solid var(--line)}
+.landingGuide h2{font-size:24px;font-weight:400;margin:0 0 12px}
+.landingGuide p{max-width:680px;font-size:14px;line-height:1.7;color:var(--muted)}
+.landingRelated{margin:0 7vw 40px}
+.discoveryPage .brandGrid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.discoveryPage .brandTile{min-width:0;gap:16px;justify-content:flex-start}
+.discoveryPage .brandTile h2{margin:0;overflow-wrap:anywhere}
+.discoveryPage .brandTile p{font-size:13px;line-height:1.65;margin:0}
+.discoveryPage .brandTile>span{margin-top:auto;line-height:1.5}
+.discoveryPage :is(a,summary,button):focus-visible{outline:2px solid #20362A;outline-offset:4px}
+@media(max-width:760px){
+  .discoveryPage .brandGrid{grid-template-columns:minmax(0,1fr)}
+  .landingGuide,.landingRelated{margin-inline:6vw}
+}

@@ -55,6 +55,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
         <span className="eyebrow">Каталог</span>
         <h1>Ароматы для пространства</h1>
         <p>{demo ? 'Демонстрационная коллекция VOZDOOH.' : 'Ароматы, которые становятся частью дома. Найдите свой характер пространства.'}</p>
+        <nav className="landingLinks" aria-label="Знакомство с коллекцией"><Link href="/brands">Бренды</Link><Link href="/categories">Категории</Link></nav>
       </section>
 
       <div className="catalogControls">
@@ -94,7 +95,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
       {products.length > 0 ? (
         <section className="catalogGrid">
           {products.map((product, index) => (
-            <ProductCard product={product} index={index} demo={demo} debug={debug} key={product.id} />
+            <ProductCard product={product} filters={filters} index={index} demo={demo} debug={debug} key={product.id} />
           ))}
         </section>
       ) : (

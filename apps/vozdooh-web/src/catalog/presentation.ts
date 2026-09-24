@@ -1,4 +1,5 @@
 import type { CatalogProduct } from './contracts'
+import { reviewedTitle } from './reviewedContent'
 import { demandRank } from './demandPriority'
 import { confirmedProductTranslation } from './productTranslations'
 import type { RawSearchParams } from './filterParams'
@@ -68,8 +69,8 @@ export function productPresentation(product: CatalogProduct) {
   title = title.replace(/[,.]?\s*(?:Luxury [CС]ollection|Christmas Collection|Коллекция .*)$/i, '').trim()
   const translation = confirmedProductTranslation(product.trade)
   return {
-    title: translation?.original ?? (title || name),
+    title: reviewedTitle(product.trade) ?? translation?.original ?? (title || name),
     russianTitle: translation?.russian ?? null,
-    subtitle: [labelFor(categoryLabels, category), volume ?? name.match(/\d+(?:[.,]\d+)?\s*ml\b/i)?.[0]].filter(Boolean).join(' · '),
+    subtitle: [labelFor(categoryLabels, category), category === 'Аксессуары' ? null : volume ?? name.match(/\d+(?:[.,]\d+)?\s*ml\b/i)?.[0]].filter(Boolean).join(' · '),
   }
 }

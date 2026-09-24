@@ -1,5 +1,6 @@
 import type { EditorialProduct, TradeProduct } from './contracts'
 import { emptyEditorial } from './repository'
+import { reviewedDescription } from './reviewedContent'
 
 const slugify = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 const has = (name: string, pattern: RegExp) => pattern.test(name.toLowerCase())
@@ -23,10 +24,11 @@ export function inferStagedBrand(name: string): string | null {
 
 export function inferStagedCategory(name: string): string {
   if (has(name, /подарочный набор|набор ваза/)) return 'Подарочные наборы'
+  if (has(name, /(?:бокс|комплект|ротанговые).*палоч|палочки.*для диффузора/)) return 'Аксессуары'
+  if (has(name, /рефилл|рефил |сменный аромат/)) return 'Рефилы'
   if (has(name, /диффузор|аромадиффузор/)) return 'Диффузоры'
   if (has(name, /свеч/)) return 'Свечи'
   if (has(name, /спрей|room spray/)) return 'Спреи для дома'
-  if (has(name, /рефилл|рефил |сменный аромат/)) return 'Рефилы'
   if (has(name, /автомобил|vinove|саше для автомобиля|сменный блок ароматизатора/)) return 'Для автомобиля'
   if (has(name, /картридж|катридж|магма|аппарат для ароматизации|dispenser|shop 250|shop 300|cafe 1000|hotel 1000/)) return 'Ароматизация помещений'
   if (has(name, /саше|аромапопурри|арома лампы|ароматизатор воздуха/)) return 'Ароматы для пространства'
@@ -96,8 +98,8 @@ const curated: Record<string, Partial<EditorialProduct>> = {
   'CAND-ROU180': { slug: 'teatro-rose-oud-candle-180', images: ['/catalog/official/CAND-ROU180.jpg'], description: 'Ароматическая свеча Rose Oud с насыщенной древесно-цветочной композицией вокруг уда и дамасской розы.', scentFamily: 'woody', mood: 'cozy', room: 'living' },
   'CAND-XM180': { slug: 'teatro-xmas-candle-180', images: ['/catalog/official/CAND-XM180.jpg'], description: 'Праздничная композиция XMAS: апельсин, лимон и мандарин, корица и гвоздика на базе белого мускуса.', scentFamily: 'spicy', mood: 'cozy', room: 'living' },
   'CAND-HOME180': { slug: 'teatro-home-candle-180', images: ['/catalog/official/CAND-HOME180.jpg'], description: 'Ароматическая свеча HOME Luxury Collection 180 г: пряное вступление корицы, гвоздики и полыни, сердце из светлого табака, ветивера и кокоса, тёплая база ванили и амбры.', scentFamily: 'warm', mood: 'cozy', room: 'living' },
-  // Exact hat-box XMAS set confirmed on the official site via an archived product page (Xmas – Hat Giftbox, sticks 250 ml + refill 250 ml); the photo itself was never archived and no authorized seller lists this seasonal set, so no image is published.
-  'CAPP-XMTFU': { slug: 'teatro-xmas-gift-set', description: 'Подарочный набор XMAS с диффузором 250 мл и рефиллом 250 мл; аромат сочетает цитрусы, корицу, гвоздику и белый мускус.', scentFamily: 'spicy', mood: 'cozy', room: 'living' },
+  // The previous archive claim has no reproducible source binding here. Keep the set neutral until its complete physical label is verified; see the cleanup evidence report.
+  'CAPP-XMTFU': { slug: 'teatro-xmas-gift-set', description: 'Подарочный набор TEATRO XMAS в шляпной коробке. Состав требует уточнения.' },
   'BAST500NTFU': { slug: 'teatro-black-reeds-500', images: ['/catalog/official/BAST500NTFU.jpg'], description: 'Комплект чёрных бамбуковых палочек 36 см для диффузоров формата 500 мл.' },
   '08d97776-bb50-11ef-b425-ed110731e4f3': { slug: 'teatro-natural-reeds-250', images: ['/catalog/official/08d97776-bb50-11ef-b425-ed110731e4f3.jpg'], description: 'Комплект натуральных бамбуковых палочек 30 см для диффузоров формата 250 мл.' },
   '63a36c45-bb50-11ef-b425-ed110731e4f3': { slug: 'teatro-black-reeds-250', images: ['/catalog/official/63a36c45-bb50-11ef-b425-ed110731e4f3.jpg'], description: 'Комплект чёрных бамбуковых палочек 30 см для диффузоров формата 250 мл.' },
@@ -131,8 +133,8 @@ const curated: Record<string, Partial<EditorialProduct>> = {
   '39393848': { slug: 'ladenac-urban-senses-eau-de-cypres-500', images: ['/catalog/official/39393848.jpg'], description: 'Eau de Cyprès: герань, розмарин, гальбанум и эвкалипт переходят в кипарис, сосну, лесные ягоды и белые цветы; база — пихтовый бальзам, сандал, кедр и ирис.', scentFamily: 'woody', mood: 'calm', room: 'living' },
   '8411299000985': { slug: 'ladenac-urban-senses-fleurs-de-fruit-500', images: ['/catalog/official/8411299000985.jpg'], description: 'Fleurs de Fruit: апельсин, маракуйя, манго и комбава раскрываются тиаре, жасмином, розой и иланг-илангом; база — мускус, кокос, карамелизированная ваниль и мох.', scentFamily: 'fruity', mood: 'airy', room: 'living' },
   '54556': { slug: 'ladenac-vents-arabie-rose-des-sables-500', images: ['/catalog/official/54556.jpg'], description: 'Rose des Sables: свежая цветочно-древесная композиция с бергамотом и можжевельником, пачули, цветком апельсина, жасмином и кедром, на тёплой амбровой базе.', scentFamily: 'floral', mood: 'cozy', room: 'living' },
-  // No photo: the Lui&Lei black-gold spray bottle is shared by named variants (Jet Lag, Details, On Time…); 1C does not state the variant, so a specific variant photo would be an unconfirmed match.
-  '344565': { slug: 'ladenac-lui-lei-room-spray-black-gold', description: 'Интерьерный спрей Ladenac Lui&Lei в чёрно-золотом исполнении. В 1С не указан вариант аромата, поэтому парфюмерная пирамида намеренно не подставляется.' },
+  // No exact variant binding: color alone cannot reconcile the internal SKU with the collection generation. Keep the photo and fragrance unspecified.
+  '344565': { slug: 'ladenac-lui-lei-room-spray-black-gold', description: 'Интерьерный спрей Ladenac Lui&Lei в чёрно-золотом исполнении. Вариант аромата требует уточнения.' },
   '453478': { slug: 'ladenac-satin-oud-golden-750', images: ['/catalog/official/453478.jpg'], description: 'Декоративный диффузор Ladenac Oud Collection Satin Oud Golden, 750 мл. Парфюмерные ноты не добавлены без подтверждения точного аромата первоисточником.', scentFamily: 'woody', mood: 'cozy', room: 'living' },
   '78768575': { slug: 'culti-stile-limited-alba-250', images: ['/catalog/official/78768575.png'], description: 'Лимитированный диффузор CULTI MILANO Stile Alba 250 мл: чай матча, цветок вишни и рис.', scentFamily: 'floral', mood: 'calm', room: 'bedroom' },
   '90877': { slug: 'culti-decor-van-gogh-irises-500', images: ['/catalog/official/90877.png'], description: 'Лимитированный диффузор CULTI MILANO Décor Van Gogh Irises 500 мл — коллаборация с Getty Museum: горький апельсин, кардамом, ирис и кедровое дерево.', scentFamily: 'floral', mood: 'calm', room: 'living' },
@@ -156,7 +158,7 @@ const curated: Record<string, Partial<EditorialProduct>> = {
   '802e8b03-d19b-11ec-be83-7c8bca00854e': { slug: 'culti-stile-gratia-500', images: ['/catalog/official/802e8b03-d19b-11ec-be83-7c8bca00854e.jpg'], description: 'Цветочная композиция с ревенем, розой центифолией и пачули.', scentFamily: 'floral', mood: 'calm', room: 'living' },
   '1113': { slug: 'rattan-reeds-1000', description: 'Ротанговые палочки для интерьерных диффузоров формата 1000 мл.' },
   '121211': { slug: 'rattan-reeds-500', description: 'Ротанговые палочки для интерьерных диффузоров формата 500 мл.' },
-  'N020486': { slug: 'light-rattan-reeds-18', description: 'Комплект из 18 светлых ротанговых палочек размером 23 × 3 мм для интерьерных диффузоров.' },
+  'N020486': { slug: 'light-rattan-reeds-18', description: 'Светлые ротанговые палочки. Размер и комплектация требуют уточнения.' },
   '0189': { slug: 'wick-scissors', description: 'Ножницы для аккуратной подрезки фитиля ароматических свечей.' },
   '445445': { slug: 'microusb-power-adapter-1-2m', description: 'Сетевое зарядное устройство microUSB с кабелем 1,2 м.' },
   'N020445': { slug: 'vinove-rome-evolution-excellence', images: ['/catalog/official/N020445.jpg'], description: 'Rome: слива, корица и тмин; шафран, кедр и пачули; в базе — табак, сандал, ваниль и кожа.', scentFamily: 'woody', mood: 'focused' },
@@ -213,6 +215,7 @@ function aromaGroupFallbackDescription(name: string): string | null {
  */
 const stagedCategoryOverrides: Record<string, string> = {
   'DANHNIR250DEC': 'Диффузоры',
+  '22fimr': 'Водорастворимые ароматы',
 }
 
 export function stagedTrade(trade: TradeProduct): TradeProduct {
@@ -228,7 +231,8 @@ export function stagedEditorial(trades: readonly TradeProduct[]): Record<string,
     const brand = inferStagedBrand(trade.name)
     const generated = brand ? `${slugify(brand)}-${slugify(trade.sku)}` : base.slug
     const fallbackDescription = brand === 'AROMAgroup' ? aromaGroupFallbackDescription(trade.name) : null
-    result[trade.sku] = { ...base, slug: patch.slug ?? generated, description: patch.description ?? fallbackDescription, ...patch }
+    const reviewed = reviewedDescription(trade)
+    result[trade.sku] = { ...base, slug: patch.slug ?? generated, description: fallbackDescription, ...patch, ...(reviewed ? { description: reviewed } : {}) }
   }
   return result
 }
