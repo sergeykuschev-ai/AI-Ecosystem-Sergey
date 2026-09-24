@@ -62,3 +62,30 @@ test("detects explicit accessory and care brands from product names", () => {
   assert.equal(classifyProduct({ externalId: "x4", name: "Фармавит NEO Витамины 60таб", categoryExternalId: null }, []).brand, "Фармавит NEO");
   assert.equal(classifyProduct({ externalId: "x5", name: "Антибактериальный шампунь CO PET, 300 мл", categoryExternalId: null }, []).brand, "CO PET");
 });
+
+test("detects additional explicit brands from product names", () => {
+  const samples = [
+    ["PetActive Relax", "PetActive"],
+    ["Good Neem Биокапли", "Good Neem"],
+    ["Green Fort Neo Биокапли", "Green Fort Neo"],
+    ["КонтрСекс NEO Капли", "КонтрСекс NEO"],
+    ["Бриллиантовые Глаза Капли", "Бриллиантовые Глаза"],
+    ["DoggyMan салфетки", "DoggyMan"],
+    ["FURminator M", "FURminator"],
+    ["Bio-Groom Shampoo", "Bio-Groom"],
+    ["V.I.Pet Адресник", "V.I.Pet"],
+    ["Fitodoc Рыбий жир", "Fitodoc"],
+    ["Dog Luck спрей", "Dog Luck"],
+    ["Пижон Дождевик", "Пижон"],
+    ["РедПластик Гамак", "РедПластик"],
+    ["Good Dog&Cat Спрей", "Good Dog&Cat"],
+    ["Апиценна паспорт", "Апиценна"],
+    ["Альпийские луга Травка", "Альпийские луга"],
+    ["Лактобифид комплекс", "Лактобифид"],
+    ["Ветом 1 пробиотик", "Ветом"],
+    ["салфетки Кемаль", "Кемаль"],
+  ];
+  for (const [name, brand] of samples) {
+    assert.equal(classifyProduct({ externalId: "x", name, categoryExternalId: null }, []).brand, brand);
+  }
+});

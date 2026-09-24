@@ -4,6 +4,8 @@ export const EKOPROM_BRANDS = {
   "Relaxivet": { url: "https://ekoprom.org/brands/neoterica/relaxivet/" },
   "Cliny": { url: "https://ekoprom.org/brands/neoterica/cliny/" },
   "Animal Play": { url: "https://ekoprom.org/brands/ekoprom/animal-play/" },
+  "Альпийские луга": { url: "https://ekoprom.org/brands/ekoprom/alpiiskie-luga/" },
+  "Green Fort Neo": { url: "https://ekoprom.org/brands/neoterica/greenfort/" },
 };
 
 export function getEkopromBrandConfig(brand) {

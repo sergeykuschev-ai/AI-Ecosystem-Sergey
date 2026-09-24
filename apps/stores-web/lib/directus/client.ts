@@ -74,7 +74,7 @@ export async function readDirectusItems<T>(
   const token = process.env.DIRECTUS_SERVER_TOKEN;
   const response = await fetch(`${directusUrl}/items/${collection}?${queryString}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    next: { revalidate: 300, tags: [collection] },
+    cache: "no-store",
   });
 
   if (!response.ok) {
