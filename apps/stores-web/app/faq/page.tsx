@@ -47,6 +47,7 @@ export default async function FAQPage() {
             <li><Link href="/kontakty/">Контакты, адреса и телефоны магазинов</Link></li>
             <li><Link href="/stores/">Магазины по городам и страницы торговых точек</Link></li>
             <li><Link href="/bonus/">Бонусная программа</Link></li>
+            <li><Link href="/stati/">Полезные статьи</Link></li>
           </ul>
         </section>
       </StaticPage>

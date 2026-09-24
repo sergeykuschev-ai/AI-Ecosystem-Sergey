@@ -78,6 +78,7 @@ const EXPECTED_STATIC_PAGES = [
   "/politika-konfidencialnosti/",
   "/soglasie-na-obrabotku-dannyh/",
   "/stores/",
+  "/stati/",
   "/vakansii/",
   "/ventil/",
 ];
@@ -147,6 +148,7 @@ const ALLOWED_TEMPLATE_HREFS = new Set([
   // City/store slugs interpolated from content data.
   "/stores/${city.slug}/",
   "/stores/${city.slug}/${store.slug}/",
+  "/stati/${article.slug}/",
 ]);
 
 const internalLinks: LinkRef[] = [];
