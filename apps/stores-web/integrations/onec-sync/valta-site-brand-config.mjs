@@ -7,6 +7,9 @@ export const VALTA_SITE_BRANDS = {
   "Tetra": { urlTokens: ["tetra"] },
   "Ranova": { urlTokens: ["ranova"] },
   "Protexin": { urlTokens: ["protexin"] },
+  "Petstages": { urlTokens: ["petstages"] },
+  "FURminator": { urlTokens: ["furminator"] },
+  "Bio-Groom": { urlTokens: ["bio-groom"] },
 };
 
 export function getValtaSiteBrandConfig(brand) {
