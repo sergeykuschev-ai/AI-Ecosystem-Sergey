@@ -71,6 +71,36 @@ export function parseRequest(value: unknown): RequestInput {
   }).sort((a, b) => a.sku.localeCompare(b.sku))
   return { retryKey: raw.retryKey.toLowerCase(), lines, contact: { name, phone }, delivery: { method: delivery.method, address: delivery.method === 'courier' ? address : '', comment }, consent: true }
 }
+/** Validate persisted receipts before replay; corruption must never look like acceptance. */
+export function validateStoredRequest(value: unknown, key: string): OrderRequest {
+  try {
+    const record = object(value)
+    const input = parseRequest(record.input)
+    const fingerprint = createHash('sha256').update(JSON.stringify(input)).digest('hex')
+    if (record.version !== 1 || input.retryKey !== key || record.fingerprint !== fingerprint ||
+        record.catalogSource !== 'staged-1c' || record.status !== 'request_received' ||
+        record.currency !== 'RUB' || record.consentVersion !== 'request-contact-v1' ||
+        typeof record.id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(record.id) ||
+        typeof record.createdAt !== 'string' || !Number.isFinite(Date.parse(record.createdAt)) ||
+        !Array.isArray(record.lines) || record.lines.length !== input.lines.length) throw new Error()
+    let total = 0
+    record.lines.forEach((value, index) => {
+      const line = object(value)
+      const expected = input.lines[index]
+      if (line.sku !== expected.sku || line.quantity !== expected.quantity ||
+          line.unitPriceMinor !== expected.expectedPriceMinor ||
+          typeof line.name !== 'string' || !line.name.trim() ||
+          typeof line.stockAtRequest !== 'number' || !Number.isFinite(line.stockAtRequest) || line.stockAtRequest < expected.quantity ||
+          line.totalMinor !== expected.quantity * expected.expectedPriceMinor || !Number.isSafeInteger(line.totalMinor)) throw new Error()
+      total += line.totalMinor as number
+    })
+    if (!Number.isSafeInteger(total) || total !== record.totalMinor) throw new Error()
+    return record as OrderRequest
+  } catch {
+    // Do not include stored contact fields or parsing errors in diagnostics.
+    throw new Error('CORRUPT_REQUEST_STORE')
+  }
+}
 export function receipt(request: OrderRequest) {
   return { id: request.id, createdAt: request.createdAt, totalMinor: request.totalMinor, currency: request.currency, status: request.status }
 }

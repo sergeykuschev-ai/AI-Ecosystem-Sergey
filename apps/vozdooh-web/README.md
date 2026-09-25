@@ -201,3 +201,11 @@ remain in place.
 See [request contract and operating guide](src/integrations/order-requests.md)
 for retries, storage, manual processing and recovery. Tests use synthetic contacts
 only; never commit request records or print customer data into logs.
+
+## Reliability and isolated verification
+
+See [private preview reliability](RELIABILITY.md) for strict staged-converter
+validation, audit/retry recovery, checkout receipt checks and the outstanding
+frozen-research hash discrepancy. To validate without replacing a running
+preview's build artifacts, run `VOZDOOH_ISOLATED_BUILD=true npm run verify`.
+This uses `.next-verify` and still runs the full tests, typecheck, lint and build.

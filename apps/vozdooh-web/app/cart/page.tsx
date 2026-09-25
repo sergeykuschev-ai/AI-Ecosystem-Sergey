@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   title: 'Корзина — VOZDOOH',
-  description: 'Демонстрационная корзина VOZDOOH. Оформление заказа откроется после подключения 1С и платёжного провайдера.',
+  description: 'Корзина VOZDOOH. Проверьте выбранные товары перед отправкой заявки.',
   robots: { index: false, follow: false },
 }
 

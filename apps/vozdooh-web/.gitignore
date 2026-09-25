@@ -5,3 +5,6 @@ public.old/
 # Root-owned legacy build output kept aside so local verification builds can run.
 .next-rootfs/
 .git-objects-tmp/
+
+# Optional isolated build for validating alongside a running private preview.
+.next-verify/

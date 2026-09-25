@@ -96,3 +96,31 @@ test('HTTP boundary rejects demo, cross-origin, malformed and oversized bodies',
     assert.match(invalid.headers.get('x-robots-tag'), /noindex/)
   } finally { if (previous === undefined) delete process.env.CATALOG_PROVIDER; else process.env.CATALOG_PROVIDER = previous }
 })
+
+test('valid JSON with corrupted receipt fields fails closed and remains untouched', async (t) => {
+  const dependencies = await fixture(t)
+  const payload = input()
+  await acceptOrderRequest(payload, dependencies)
+  const filename = path.join(dependencies.dir, 'requests', `${payload.retryKey}.json`)
+  const original = JSON.parse(await fs.readFile(filename, 'utf8'))
+  const mutations = [
+    (r) => { r.totalMinor += 1 },
+    (r) => { r.currency = 'USD' },
+    (r) => { r.status = 'paid' },
+    (r) => { r.createdAt = 'invalid' },
+    (r) => { r.fingerprint = 'invalid' },
+    (r) => { r.input.contact.name = 'Changed' },
+    (r) => { r.lines[0].totalMinor += 1 },
+    (r) => { r.lines[0].stockAtRequest = 0 },
+    (r) => { r.lines = [] },
+    (r) => { r.input = null },
+  ]
+  for (const mutate of mutations) {
+    const record = structuredClone(original)
+    mutate(record)
+    const serialized = JSON.stringify(record)
+    await fs.writeFile(filename, serialized)
+    await assert.rejects(() => acceptOrderRequest(payload, dependencies), /CORRUPT_REQUEST_STORE/)
+    assert.equal(await fs.readFile(filename, 'utf8'), serialized)
+  }
+})

@@ -92,3 +92,16 @@ With Playwright available, run `node scripts/verify-order-request.cjs` against
 127.0.0.1:3411 (set `PLAYWRIGHT_MODULE` if installed outside this app). It creates
 one clearly labeled synthetic request and checks its idempotent retry; prints
 only its receipt ID/key and total. It does not alter the catalog snapshot.
+
+## Reliability checks (2026-09-25)
+
+Browser submissions abort their wait after 15 seconds, release the pending form,
+and retain the same retry key. A timeout is an unknown outcome, not proof that
+storage failed. Retry with unchanged data to recover the original receipt.
+Successful HTTP responses must contain a valid request receipt before success is
+shown. The form exposes its pending state with `aria-busy`.
+
+Before replaying a stored receipt, the local store validates its normalized-input
+fingerprint, source/status/currency/consent markers, ID/date, line snapshots and
+integer totals. Invalid records fail closed without rewriting them. This is an
+integrity check, not a signature against malicious filesystem modification.

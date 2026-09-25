@@ -9,7 +9,7 @@
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "verify": "npm run test && npm run typecheck && npm run lint && npm run build",
-    "test": "node --require ./scripts/register-typescript.cjs --test tests/*.test.cjs && node --test integrations/onec-exchange/server.test.mjs",
+    "test": "node --require ./scripts/register-typescript.cjs --test tests/*.test.cjs && node --test integrations/onec-exchange/server.test.mjs && python3 -B -m unittest discover -s tests -p '*_test.py'",
     "catalog:import": "node scripts/import-onec.cjs",
     "catalog:stage": "python3 scripts/convert-commerce-ml.py"
   },

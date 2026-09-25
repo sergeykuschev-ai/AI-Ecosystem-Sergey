@@ -219,3 +219,31 @@ This entry supersedes the selection-in-preparation copy described above.
 - The root-owned staged preview blocker was resolved: the previous listener was stopped and the freshly validated production build now serves staged-1C on `127.0.0.1:3411`.
 - Final preview verification: `/catalog` and `/brands` return 200; all 14 CORE/STRONG product routes and exact image URLs return 200; the main catalog grid has 136 pictured products and its first 25 exactly match the checked-in research priority order; normal customer HTML leaks no internal research tiers, preview noise or currency prices.
 - A final source hygiene pass removed two literal NUL bytes from `src/catalog/presentation.ts` by expressing the same separator as `\\u0000`; validation was rerun afterward.
+
+## Autonomous reliability pass — 2026-09-25
+
+- Preserved existing staged source/price/stock data, order records, homepage,
+  image mappings, TOP-25 and branch. No external commerce integrations enabled.
+- Hardened complete-snapshot conversion with duplicate/join/numeric/SKU/reader-limit
+  validation, source hash auditing, source-change detection, exclusive locking and
+  unique durable temporary publication. Only synthetic conversion tests executed.
+- Added stored-receipt integrity checks, bounded checkout confirmation wait with
+  retained retry identity, client receipt validation and accessible pending state.
+- Added Russian error/404 recovery screens, corrected duplicate checkout headings,
+  neutralized stale demo metadata, and supplemented noindex with an HTTP header.
+- Added isolated `.next-verify` build mode to preserve a running preview's output.
+- See `RELIABILITY.md` for recovery procedures and the frozen research snapshot-hash
+  discrepancy. The strict frozen audit is not relaxed; 12 image/five brand blockers
+  remain unresolved.
+- Verification passed: `npm test` (47 app + 2 receiver + 9 Python cases),
+  `npm run typecheck`, `npm run lint`, isolated `npm run build`, and
+  `git diff --check`. `npm run verify` also passed with isolated output.
+  Initial sandbox subprocess/build restrictions were resolved through scoped
+  authorized execution and separate build artifacts; no checks were disabled.
+- Read-only Chromium checks passed on loopback port 3419 at 390/430/1440 px:
+  21 route/viewport cases, expected 200/404, one H1, no horizontal overflow,
+  noindex HTTP headers, robots disallow, 136 pictured cards and exact TOP-25.
+  No browser runtime errors or order submissions. Existing port 3411 unchanged.
+- Restored generated `next-env.d.ts`. Snapshot SHA-256 remained unchanged across
+  this pass. The frozen research validator still rejects the pre-existing hash
+  discrepancy documented above; this is not reported as a passing provenance audit.

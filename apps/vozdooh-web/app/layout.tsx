@@ -5,7 +5,7 @@ import './globals.css'
 export const metadata: Metadata = {
   metadataBase: new URL(getEnv().siteUrl),
   title: 'VOZDOOH — парфюмерия для дома',
-  description: 'Кураторская коллекция премиальных ароматов для дома. Демонстрационный режим до синхронизации с 1С.',
+  description: 'VOZDOOH — каталог ароматов для дома. Подбор по бренду и формату.',
   robots: { index: false, follow: false },
 }
 

@@ -1,7 +1,7 @@
 import { mkdir, open, readFile, link, unlink } from 'node:fs/promises'
 import { resolve, join } from 'node:path'
 import { randomUUID } from 'node:crypto'
-import { RequestError, type OrderRequest, type OrderRequestStore } from './orderRequests'
+import { RequestError, validateStoredRequest, type OrderRequest, type OrderRequestStore } from './orderRequests'
 
 /** Single-host POSIX storage: fsync temporary file, publish with exclusive hard link, fsync directory. */
 export function localRequestStore(directory = resolve('.local/order-requests')): OrderRequestStore {
@@ -11,8 +11,7 @@ export function localRequestStore(directory = resolve('.local/order-requests')):
   }
   async function find(key: string): Promise<OrderRequest | null> {
     try {
-      const record = JSON.parse(await readFile(path(key), 'utf8')) as OrderRequest
-      if (record.version !== 1 || record.input.retryKey !== key || !record.id || !record.fingerprint || !Number.isSafeInteger(record.totalMinor)) throw new Error('CORRUPT_REQUEST_STORE')
+      const record = validateStoredRequest(JSON.parse(await readFile(path(key), 'utf8')), key)
       const folder = await open(directory, 'r')
       try { await folder.sync() } finally { await folder.close() }
       return record

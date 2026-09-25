@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { submitRequest } from '../src/commerce/submitRequest'
 import { useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { getCartSnapshot, getServerCartSnapshot, subscribeCart } from '../src/cart/storage'
 import type { CatalogProduct } from '../src/catalog/contracts'
@@ -59,20 +60,16 @@ export function CheckoutForm({ products, enabled }: { products: CatalogProduct[]
       }
       if (attempt.current?.signature !== digest) attempt.current = { signature: digest, retryKey: crypto.randomUUID() }
       try { sessionStorage.setItem('vozdooh-request-attempt', JSON.stringify(attempt.current)) } catch { /* In-memory retry key still protects this tab. */ }
-      const response = await fetch('/api/order-requests', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...payload, retryKey: attempt.current.retryKey }) })
-      const result = await response.json()
-      if (!response.ok) {
-        setError(errors[result.code] ?? 'Заявка не подтверждена. Попробуйте повторить отправку позже.')
-        return
-      }
+      const result = await submitRequest({ ...payload, retryKey: attempt.current.retryKey })
       setSuccess(result)
-    } catch {
-      setError('Не удалось получить подтверждение. Повторите отправку с теми же данными: повторная заявка не создастся.')
+    } catch (failure) {
+      const code = failure && typeof failure === 'object' && 'code' in failure ? String(failure.code) : ''
+      setError(errors[code] ?? 'Не удалось получить подтверждение. Повторите отправку с теми же данными: повторная заявка не создастся.')
     } finally { busy.current = false; setPending(false) }
   }
 
   if (success) return <section className="cartEmpty" role="status">
-    <h1>Заявка получена</h1>
+    <h2>Заявка получена</h2>
     <p>Номер заявки: {success.id}</p>
     <p>Стоимость товаров: {money(success.totalMinor)}.</p>
     <p>Заявка сохранена для ручной обработки. Это не подтверждение заказа или резерва. Оплата не проводилась. Наличие, способ получения и стоимость доставки требуют согласования.</p>
@@ -83,7 +80,7 @@ export function CheckoutForm({ products, enabled }: { products: CatalogProduct[]
     return (
       <section className="cartEmpty">
         <span className="eyebrow">Оформление</span>
-        <h1>Корзина пуста</h1>
+        <h2>Корзина пуста</h2>
         <p>Добавьте позиции из каталога, чтобы увидеть сценарий оформления заказа.</p>
         <Link className="primary" href="/catalog">Перейти в каталог</Link>
       </section>
@@ -92,7 +89,7 @@ export function CheckoutForm({ products, enabled }: { products: CatalogProduct[]
 
   return (
     <section className="checkoutSection">
-      <form id="request-form" className="checkoutForm" onSubmit={submit}>
+      <form id="request-form" className="checkoutForm" onSubmit={submit} aria-busy={pending}>
         <fieldset disabled={pending}>
           <legend>Контактные данные</legend>
           <div className="fieldGrid">
