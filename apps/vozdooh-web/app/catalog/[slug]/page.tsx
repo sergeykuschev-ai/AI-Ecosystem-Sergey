@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { AddToCartButton } from '../../../components/AddToCartButton'
 import { ProductCard } from '../../../components/ProductCard'
 import { SiteFooter } from '../../../components/SiteFooter'
 import { SiteHeader } from '../../../components/SiteHeader'
@@ -95,7 +96,12 @@ export default async function ProductPage({ params, searchParams }: PageParams) 
               ))}
             </dl>
           </details>
-          {debug && <p className="productDiagnostic">PREVIEW 1C · Цены не публикуются. Оформление заказа недоступно.</p>}
+          {catalogSource() === 'staged-1c' && (product.trade.price ?? 0) > 0 && (product.trade.stock ?? 0) >= 1 && <div>
+            <p>{new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(product.trade.price!)}</p>
+            <AddToCartButton sku={product.trade.sku} />
+            <p className="notice">Заявка без онлайн-оплаты. Наличие требует подтверждения.</p>
+          </div>}
+          {debug && <p className="productDiagnostic">PREVIEW 1C · Доступна заявка без оплаты и резерва.</p>}
         </div>
       </div>
       {recommendations.length > 0 && (

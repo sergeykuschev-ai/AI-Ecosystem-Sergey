@@ -3,8 +3,8 @@
 External systems connect through the contracts in `src/catalog` and `src/commerce`.
 This implementation provides a validated catalog repository, a standard 1C
 CommerceML catalog receiver, and a closed staging converter for the owner's real
-1C export. Real CommerceML can be previewed privately without publishing prices.
-Orders, payments and production storefront publication remain disabled.
+1C export. Real CommerceML is previewed privately with the confirmed Habarovsk retail prices.
+Local order requests are enabled for staged-1c; confirmed orders, payments and public launch remain disabled.
 
 ## Source selection
 
@@ -127,12 +127,13 @@ See the app README for existing Chromium checks in demo and local modes.
 Before live storefront publication: confirm the final retail price source,
 category mapping, delta/deletion policy, automatic refresh ownership, and retry/audit
 requirements. The current receiver/schema/authentication path is verified, but
-prices stay suppressed and checkout remains disabled. No credentials or production
+the current staged snapshot retains confirmed prices and supports local order requests. No credentials or production
 CommerceML files are committed.
 
-Commerce remains local-only UI. Missing cart SKUs stay visible and removable
-after source changes. Checkout is disabled even with imported prices and stock;
-there is no order API, payment, delivery integration or contact-data submission.
+Missing cart SKUs stay visible and removable after source changes. Staged-1c checkout
+submits contact data and selected lines to the local request boundary. See
+[order requests](order-requests.md). Demo and synthetic checkout remain disabled.
+There is no payment, 1C order, notification or delivery integration.
 The site retains noindex and robots disallow. AmurskMarket (`apps/stores-web`)
 code, configuration, analytics and secrets remain isolated.
 

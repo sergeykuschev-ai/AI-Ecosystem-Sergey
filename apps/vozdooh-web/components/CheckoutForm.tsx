@@ -1,17 +1,31 @@
 'use client'
 
 import Link from 'next/link'
-import { useMemo, useSyncExternalStore } from 'react'
+import { useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { getCartSnapshot, getServerCartSnapshot, subscribeCart } from '../src/cart/storage'
 import type { CatalogProduct } from '../src/catalog/contracts'
 
-/**
- * Checkout UI (pre-1C state).
- * The form assembles contact and delivery data locally, but order submission
- * is deliberately disabled: no order API exists, no payment is initiated and
- * nothing is sent anywhere. This is UI scaffolding only.
- */
-export function CheckoutForm({ products, demo }: { products: CatalogProduct[]; demo: boolean }) {
+const errors: Record<string, string> = {
+  STOCK_CHANGED: 'Наличие изменилось. Вернитесь в корзину и обновите страницу.',
+  PRICE_CHANGED: 'Цена изменилась. Обновите страницу и проверьте сумму перед повторной отправкой.',
+  PRICE_UNAVAILABLE: 'Для одной из позиций нет доступной цены. Проверьте корзину.',
+  INVALID_PHONE: 'Укажите телефон: от 10 до 15 цифр.',
+  INVALID_CONTACT_OR_DELIVERY: 'Проверьте имя, адрес и комментарий.',
+  INVALID_DELIVERY: 'Выберите способ получения.',
+  INVALID_QUANTITY: 'Количество должно быть целым числом от 1 до 999.',
+  INVALID_CART: 'Проверьте состав корзины.',
+  CONSENT_REQUIRED: 'Для отправки заявки необходимо согласие.',
+  RETRY_CONFLICT: 'Эта попытка уже содержит другую заявку. Обновите страницу.',
+}
+const money = (minor: number) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(minor / 100)
+
+export function CheckoutForm({ products, enabled }: { products: CatalogProduct[]; enabled: boolean }) {
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState('')
+  const [method, setMethod] = useState('pickup')
+  const [success, setSuccess] = useState<{ id: string; totalMinor: number } | null>(null)
+  const attempt = useRef<{ signature: string; retryKey: string } | null>(null)
+  const busy = useRef(false)
   const cart = useSyncExternalStore(subscribeCart, getCartSnapshot, getServerCartSnapshot)
 
   const rows = useMemo(
@@ -19,6 +33,51 @@ export function CheckoutForm({ products, demo }: { products: CatalogProduct[]; d
       .map((line) => ({ line, product: products.find((p) => p.trade.sku === line.sku) })),
     [cart, products],
   )
+
+  const valid = rows.length > 0 && rows.every(({ line, product }) => product && Number.isSafeInteger(line.quantity) && line.quantity > 0 && line.quantity <= 999 && (product.trade.stock ?? 0) >= line.quantity && (product.trade.price ?? 0) > 0)
+  const total = rows.reduce((sum, { line, product }) => sum + Math.round((product?.trade.price ?? 0) * 100) * line.quantity, 0)
+
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (busy.current || !enabled || !valid) return
+    busy.current = true
+    setPending(true)
+    setError('')
+    const fields = new FormData(event.currentTarget)
+    const payload = {
+      lines: rows.map(({ line, product }) => ({ ...line, expectedPriceMinor: Math.round((product?.trade.price ?? 0) * 100) })),
+      contact: { name: fields.get('name'), phone: fields.get('phone') },
+      delivery: { method: fields.get('delivery'), address: fields.get('address') ?? '', comment: fields.get('comment') },
+      consent: fields.get('consent') === 'on',
+    }
+    try {
+      const signature = JSON.stringify(payload)
+      // Persist only the random retry key and a one-way digest, never contact data.
+      const digest = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(signature))), (b) => b.toString(16).padStart(2, '0')).join('')
+      if (!attempt.current) {
+        try { attempt.current = JSON.parse(sessionStorage.getItem('vozdooh-request-attempt') ?? 'null') } catch { /* Storage can be unavailable. */ }
+      }
+      if (attempt.current?.signature !== digest) attempt.current = { signature: digest, retryKey: crypto.randomUUID() }
+      try { sessionStorage.setItem('vozdooh-request-attempt', JSON.stringify(attempt.current)) } catch { /* In-memory retry key still protects this tab. */ }
+      const response = await fetch('/api/order-requests', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...payload, retryKey: attempt.current.retryKey }) })
+      const result = await response.json()
+      if (!response.ok) {
+        setError(errors[result.code] ?? 'Заявка не подтверждена. Попробуйте повторить отправку позже.')
+        return
+      }
+      setSuccess(result)
+    } catch {
+      setError('Не удалось получить подтверждение. Повторите отправку с теми же данными: повторная заявка не создастся.')
+    } finally { busy.current = false; setPending(false) }
+  }
+
+  if (success) return <section className="cartEmpty" role="status">
+    <h1>Заявка получена</h1>
+    <p>Номер заявки: {success.id}</p>
+    <p>Стоимость товаров: {money(success.totalMinor)}.</p>
+    <p>Заявка сохранена для ручной обработки. Это не подтверждение заказа или резерва. Оплата не проводилась. Наличие, способ получения и стоимость доставки требуют согласования.</p>
+    <Link className="primary" href="/catalog">Вернуться в каталог</Link>
+  </section>
 
   if (rows.length === 0) {
     return (
@@ -33,48 +92,46 @@ export function CheckoutForm({ products, demo }: { products: CatalogProduct[]; d
 
   return (
     <section className="checkoutSection">
-      <form className="checkoutForm" onSubmit={(event) => event.preventDefault()}>
-        <fieldset>
+      <form id="request-form" className="checkoutForm" onSubmit={submit}>
+        <fieldset disabled={pending}>
           <legend>Контактные данные</legend>
           <div className="fieldGrid">
             <div className="field">
               <label htmlFor="checkout-name">Имя</label>
-              <input id="checkout-name" name="name" autoComplete="name" required />
+              <input id="checkout-name" name="name" autoComplete="name" maxLength={100} required />
             </div>
             <div className="field">
               <label htmlFor="checkout-phone">Телефон</label>
-              <input id="checkout-phone" name="phone" type="tel" autoComplete="tel" required />
-            </div>
-            <div className="field full">
-              <label htmlFor="checkout-email">E-mail</label>
-              <input id="checkout-email" name="email" type="email" autoComplete="email" />
+              <input id="checkout-phone" name="phone" type="tel" autoComplete="tel" maxLength={32} required />
             </div>
           </div>
         </fieldset>
 
-        <fieldset>
+        <fieldset disabled={pending}>
           <legend>Способ получения</legend>
           <div className="radioRow">
             <label className="radioCard">
-              <input type="radio" name="delivery" value="pickup" defaultChecked />
+              <input type="radio" name="delivery" value="pickup" checked={method === 'pickup'} onChange={() => setMethod('pickup')} />
               <span>Самовывоз</span>
             </label>
             <label className="radioCard">
-              <input type="radio" name="delivery" value="courier" />
+              <input type="radio" name="delivery" value="courier" checked={method === 'courier'} onChange={() => setMethod('courier')} />
               <span>Доставка курьером</span>
             </label>
           </div>
           <div className="fieldGrid deliveryFields">
             <div className="field full">
               <label htmlFor="checkout-address">Адрес</label>
-              <input id="checkout-address" name="address" autoComplete="street-address" />
+              <input id="checkout-address" name="address" autoComplete="street-address" maxLength={500} required={method === 'courier'} disabled={method === 'pickup'} />
             </div>
             <div className="field full">
               <label htmlFor="checkout-comment">Комментарий</label>
-              <textarea id="checkout-comment" name="comment" rows={3} />
+              <textarea id="checkout-comment" name="comment" rows={3} maxLength={1000} />
             </div>
           </div>
         </fieldset>
+        <label><input type="checkbox" name="consent" required disabled={pending} /> Согласен на сохранение имени, телефона и указанных данных получения для обработки этой заявки и связи со мной. Данные хранятся на сервере VOZDOOH.</label>
+        {error && <p role="alert">{error}</p>}
       </form>
 
       <aside className="orderBox">
@@ -88,14 +145,12 @@ export function CheckoutForm({ products, demo }: { products: CatalogProduct[]; d
         ))}
         <div className="orderTotal">
           <span>Итого</span>
-          <b>По запросу</b>
+          <b>{valid ? money(total) : 'Проверьте корзину'}</b>
         </div>
-        <p className="notice">
-          {demo ? 'Демонстрационный режим: цены, наличие и стоимость доставки появятся после синхронизации с 1С.' : 'Закрытый предпросмотр данных 1С. Оформление заказа пока недоступно.'}{' '}
-          Кнопка оформления остаётся неактивной — заказы не создаются и данные никуда не отправляются.
-        </p>
-        <button type="button" className="submitDisabled" disabled>
-          Оформление недоступно
+        <p className="notice">{enabled ? 'Отправляется заявка для ручной обработки. Оплата не подключена. Товары не резервируются. Доступность курьера и стоимость доставки согласуются отдельно и не входят в сумму.' : 'Приём заявок доступен только для действующего каталога 1С.'}</p>
+        {!valid && <p role="alert">Проверьте количество, наличие и цены в корзине.</p>}
+        <button type="submit" form="request-form" className="primary" disabled={!enabled || !valid || pending}>
+          {pending ? 'Сохраняем…' : 'Отправить заявку'}
         </button>
         <p className="cartAsideBack"><Link className="textLink" href="/cart">← Вернуться в корзину</Link></p>
       </aside>

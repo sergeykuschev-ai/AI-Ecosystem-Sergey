@@ -9,7 +9,7 @@ This app is isolated from `apps/stores-web` (AmurskMarket).
 - Editorial content (descriptions, images, scent families, mood, room, recommendations) stays separate from 1C (`EditorialProduct`).
 - Local synthetic imports must remain explicitly labeled, isolated from demo data, excluded from Git, and forbidden under NODE_ENV=production. Never silently fall back to demo when an explicitly selected source fails.
 - Demo placeholders must stay explicit: never invent real products, brands, prices, stock, notes or fragrance claims.
-- Checkout UI is allowed; fake payments and fake order submission are not. There is no order API.
+- Owner-approved request stage: staged-1c checkout may persist real order requests locally through /api/order-requests. Requests are not confirmed orders or reservations. No payment, 1C order creation, delivery booking or notifications are configured; never fabricate them. Keep TypeScript modules consistent with this existing Next.js app.
 - Keep the storefront unindexed (noindex + robots disallow) until production data and domain are ready.
 - Do not copy AmurskMarket business logic, content, analytics IDs, secrets or environment values.
 - External catalog, inventory, payment and delivery systems connect through adapters behind local contracts.

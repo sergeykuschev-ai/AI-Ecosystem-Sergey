@@ -219,7 +219,7 @@ const stagedCategoryOverrides: Record<string, string> = {
 }
 
 export function stagedTrade(trade: TradeProduct): TradeProduct {
-  const enriched = { ...trade, brand: trade.brand ?? inferStagedBrand(trade.name), category: inferStagedCategory(trade.name), volume: trade.volume ?? inferStagedVolume(trade.name), price: null }
+  const enriched = { ...trade, brand: trade.brand ?? inferStagedBrand(trade.name), category: inferStagedCategory(trade.name), volume: trade.volume ?? inferStagedVolume(trade.name) }
   return stagedCategoryOverrides[trade.sku] ? { ...enriched, category: stagedCategoryOverrides[trade.sku] } : enriched
 }
 

@@ -9,22 +9,22 @@ export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   title: 'Оформление заказа — VOZDOOH',
-  description: 'Демонстрационный сценарий оформления заказа VOZDOOH. Заказы не создаются до подключения 1С и платёжного провайдера.',
+  description: 'Заявка на заказ VOZDOOH для ручной обработки. Без онлайн-оплаты.',
   robots: { index: false, follow: false },
 }
 
 export default async function CheckoutPage() {
   const products = await (await getCatalogRepository()).list()
-  const demo = catalogSource() === 'demo'
+  const enabled = catalogSource() === 'staged-1c'
   return (
     <main>
       <SiteHeader />
       <section className="pageIntro">
         <span className="eyebrow">Оформление</span>
         <h1>Проверьте выбор</h1>
-        <p>Сценарий оформления подготовлен без фиктивной оплаты и без создания заказов: кнопка отправки останется неактивной до подключения 1С и платёжного провайдера.</p>
+        <p>Отправьте заявку на выбранные товары. Наличие и получение требуют подтверждения. Онлайн-оплата не подключена.</p>
       </section>
-      <CheckoutForm products={products} demo={demo} />
+      <CheckoutForm products={products} enabled={enabled} />
       <SiteFooter />
     </main>
   )

@@ -16,7 +16,7 @@ const routes = ['/catalog', '/brands', '/categories', '/brands/culti-milano', '/
         const response = await page.goto(baseURL + route, { waitUntil: 'networkidle' })
         assert.equal(response.status(), 200, route)
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `Overflow: ${route}, ${width}`)
-        assert.doesNotMatch(await page.locator('main').innerText(), /PREVIEW 1C|CORE|STRONG|NORMAL|SLOW|CLEARANCE|promotion_rank|₽|\bRUB\b|Добавить в корзину/i)
+        assert.doesNotMatch(await page.locator('main').innerText(), /PREVIEW 1C|CORE|STRONG|NORMAL|SLOW|CLEARANCE|promotion_rank/i)
         assert.match(await page.locator('meta[name="robots"]').first().getAttribute('content'), /noindex/)
         assert.equal(await page.locator('h1').count(), 1)
         assert.ok(await page.locator('.productCardMeta h3').evaluateAll((nodes) => nodes.every((node) => node.getBoundingClientRect().height <= parseFloat(getComputedStyle(node).lineHeight) * 2 + 1)), `Card title height: ${route}`)

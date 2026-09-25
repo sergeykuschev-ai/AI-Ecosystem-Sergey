@@ -1,6 +1,6 @@
 # VOZDOOH web
 
-Premium home-fragrance storefront with a default demo catalog, a verified 1C CommerceML receiver, and a private staged-real catalog preview. Live storefront publication and checkout are not connected.
+Premium home-fragrance storefront with a default demo catalog, a verified 1C CommerceML receiver, and a private staged-real catalog preview. Private staged-1C checkout accepts durable local order requests for manual processing. Public launch, confirmed orders and payment are not connected.
 
 ## Local development
 1. Copy `.env.example` to `.env.local`.
@@ -15,14 +15,15 @@ Premium home-fragrance storefront with a default demo catalog, a verified 1C Com
 - `/catalog/[slug]` — selected product, with separate trade/editorial fields and explicit DEMO or PREVIEW 1C labels.
 - `/brands`, `/collections` — placeholder routes; real brands are never invented and appear only after the 1C import.
 - `/finder` — scent finder quiz that filters the selected catalog.
-- `/cart` — persistent cart (localStorage); imported unit prices can be shown, totals/order creation remain disabled.
-- `/checkout` — checkout UI only; order submission and payment are disabled on purpose.
+- `/cart` — persistent browser cart with current catalog unit prices and a link to request checkout.
+- `/checkout` — staged-1C order-request form with goods total and contact/fulfillment preferences; no payment.
+- `/api/order-requests` — durable local request submission; no confirmed-order or payment actions.
 
 ## Demo and 1C boundary
 - Default `CATALOG_PROVIDER=demo` uses explicit DEMO placeholders (`src/catalog/demo.ts`); legacy `stub` remains an alias. `local-1c` selects the synthetic fixture snapshot and is forbidden in production. `staged-1c` selects a validated real-CommerceML snapshot for private preview only. `1c` fails explicitly until live publication is approved.
 - 1C trade fields (SKU, name, brand, category, volume, price, stock, barcode, available characteristics) stay inside `TradeProduct` in `src/catalog/contracts.ts` with optional values null when unknown. Demo names/SKUs/categories are explicit placeholders.
 - Editorial content (descriptions, images, scent family, mood, room, recommendations) lives in `EditorialProduct` and never comes from 1C.
-- The cart is local-only; there is no order API and no payment integration. See `src/commerce/contracts.ts` and `src/integrations/README.md`.
+- The cart stays in the browser until checkout submits a request to `/api/order-requests`; no payment integration exists. See `src/commerce/contracts.ts` and `src/integrations/README.md`.
 - The site stays invisible to search engines: every page sets `robots: noindex` and `app/robots.ts` disallows crawling until production data and domain are ready.
 
 ## Architecture
@@ -30,7 +31,7 @@ Premium home-fragrance storefront with a default demo catalog, a verified 1C Com
 - `components/` — shared UI: header/footer, product card, cart/checkout/finder client components.
 - `src/config/` — environment configuration.
 - `src/catalog/` — catalog contracts, validated trade importer, atomic local snapshot store, read-only repositories and filter helpers.
-- `src/commerce/` — order/payment contracts (reserved, no demo implementation).
+- `src/commerce/` — validated order-request service, durable local store, and reserved order/payment adapter contracts.
 - `src/cart/` — localStorage cart storage helpers.
 - `src/integrations/` — adapter contracts, local import instructions and remaining live-provider decisions.
 
@@ -103,7 +104,7 @@ The standard 1C receiver stages real CommerceML files without publishing them to
 npm run catalog:stage -- --exchange-root /opt/vozdooh/data/onec-exchange --output /opt/vozdooh/data/catalog-staged.json --report /opt/vozdooh/data/catalog-staging-report.json
 ```
 
-Run the closed preview with `CATALOG_PROVIDER=staged-1c`, `ONEC_LOCAL_CATALOG_PATH` pointing at that snapshot, and `ONEC_STAGED_PREVIEW_ENABLED=true`. Prices are null by default, only positive-stock rows are visible, checkout stays disabled, and the full staged snapshot keeps zero-stock rows for future inventory transitions.
+Run the closed preview with `CATALOG_PROVIDER=staged-1c`, `ONEC_LOCAL_CATALOG_PATH` pointing at that snapshot, and `ONEC_STAGED_PREVIEW_ENABLED=true`. The converter suppresses prices unless explicitly approved for publication. The current preview snapshot already contains the confirmed Habarovsk VOZDOOH retail prices: preserve it and its environment; do not rerun this command over it without the approved price options. Only positive-stock rows are visible. Checkout accepts requests with valid current prices and stock. The full snapshot retains zero-stock rows.
 
 ### Editorial catalog presentation
 
@@ -125,8 +126,7 @@ All pictured products remain in the full collection and all brands remain in
 filters. No popularity, novelty or rating claims are inferred.
 
 The native filter disclosure and GET form require no UI dependency and retain
-brand/category/family/mood/room URL parameters. Prices are not rendered and the
-product page has no purchase action. Staged prices remain null. Presentation
+brand/category/family/mood/room URL parameters. The staged preview now uses the confirmed retail prices and an add-to-cart action on eligible product details. Editorial work never changes those trade values. Presentation
 regressions run with `npm test`; full checks run with `npm run verify`.
 
 ### Confirmed bilingual product names
@@ -175,9 +175,29 @@ research in `research/demand-priority-2026-09.md` (external sources verified liv
   confirmed at fragrance level by two independent external bestseller statements. It never
   claims VOZDOOH sales. Internal tier names (CORE/STRONG/NORMAL/SLOW/CLEARANCE) are never
   rendered to customers.
-- Prices remain unpublished: merchandising never reads `trade.price`, and staged prices
-  stay null.
+- Merchandising does not change `trade.price`; the staged snapshot owns the confirmed retail prices.
 
 Post-implementation catalog findings live in
 `research/catalog-quality-after-merchandising.md` (unresolved problems only; uncertain
 facts were left unchanged, not "fixed").
+
+## Order-request stage (implemented)
+
+`POST /api/order-requests` accepts requests only with `CATALOG_PROVIDER=staged-1c`.
+Checkout collects name, phone, pickup/courier preference, a courier address when
+needed, optional comment and explicit consent. The server rereads the selected
+staged snapshot without the storefront cache and validates SKU, positive stock,
+whole-unit quantity (1–999), and the price shown to the customer. Changed prices
+or insufficient stock require correction; no silent substitutions occur.
+
+Requests are stored outside public assets in ignored `.local/order-requests/`
+relative to the app working directory. Receipt includes a generated ID, UTC time
+and RUB goods total. No payment takes place, no stock is reserved, no confirmed
+order is created in 1C, and no delivery or notification service is called. Manual
+operator review is required. Delivery availability and charges are not confirmed
+or included in the goods total. The private preview and noindex/robots restrictions
+remain in place.
+
+See [request contract and operating guide](src/integrations/order-requests.md)
+for retries, storage, manual processing and recovery. Tests use synthetic contacts
+only; never commit request records or print customer data into logs.

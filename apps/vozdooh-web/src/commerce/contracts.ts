@@ -1,11 +1,6 @@
-/**
- * Commerce domain contracts.
- *
- * Pre-1C boundary: the checkout UI collects a CheckoutDraft, but there is
- * deliberately NO demo implementation of OrderService or PaymentGateway and
- * no API route that accepts orders. Order creation and payment become real
- * only after the 1C stock/order boundary and a confirmed payment provider
- * are connected. Never submit fake orders or fake payments from the UI.
+/** Future confirmed-order and payment adapter contracts.
+ * Order requests use orderRequests.ts and never invoke these adapters.
+ * No payment gateway or 1C order adapter is configured.
  */
 
 export type Money = {
@@ -43,7 +38,7 @@ export type CheckoutDelivery = {
   comment: string
 }
 
-/** Data the checkout form assembles. Held client-side only until ordering opens. */
+/** Legacy draft shape reserved for future confirmed-order adapters. */
 export type CheckoutDraft = {
   lines: CartLine[]
   contact: CheckoutContact

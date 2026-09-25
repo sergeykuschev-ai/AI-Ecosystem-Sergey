@@ -87,13 +87,14 @@ test('editorial merge stays independent and repository exposes safe snapshots an
   assert.throws(() => mergeCatalog([...trades, { ...trades[0], sku: 'TEST-02' }], { ...editorial, 'TEST-02': content }), /INVALID_EDITORIAL_SLUG/)
 })
 
-test('staged enrichment classifies real-style inventory without publishing 1C prices', () => {
+test('staged enrichment classifies real-style inventory while preserving confirmed 1C prices', () => {
   const cartridge = row({ sku: 'AG-TYPO', name: 'Розовый перец катридж AG 110 мл.', category: 'Товар', brand: null, volume: null, price: 999, stock: 2 })
   const enriched = stagedTrade(cartridge)
   assert.equal(enriched.brand, 'AROMAgroup')
   assert.equal(enriched.category, 'Ароматизация помещений')
   assert.equal(enriched.volume, '110 мл')
-  assert.equal(enriched.price, null)
+  assert.equal(enriched.price, cartridge.price)
+  assert.equal(enriched.stock, cartridge.stock)
   const content = stagedEditorial([cartridge])['AG-TYPO']
   assert.match(content.description, /Розовый перец/)
   assert.equal(inferStagedBrand('Ароматизатор воздуха NIRO, 250 мл, ТМ DANHERA'), 'DANHERA')
