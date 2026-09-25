@@ -20,6 +20,7 @@ export function Footer() {
           <nav aria-label="Покупателям">
             <Link href="/akcii/">Акции</Link>
             <Link href="/bonus/">Бонусная программа</Link>
+            <Link href="/stati/">Статьи</Link>
             <Link href="/kontakty/">Контакты</Link>
             <Link href="/faq/">Частые вопросы</Link>
           </nav>

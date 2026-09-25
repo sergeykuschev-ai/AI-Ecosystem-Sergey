@@ -13,6 +13,7 @@ export const primaryLinks: ReadonlyArray<PrimaryNavLink> = [
   { label: "Магазины", href: "/stores/", event: null },
   { label: "Акции", href: "/akcii/", event: "promotion_open" },
   { label: "Бонусы", href: "/bonus/", event: "bonus_open" },
+  { label: "Статьи", href: "/stati/", event: null },
   { label: "Вакансии", href: "/vakansii/", event: "vacancy_open" },
   { label: "Контакты", href: "/kontakty/", event: null },
 ];
