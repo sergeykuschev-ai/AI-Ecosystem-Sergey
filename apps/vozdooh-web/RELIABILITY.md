@@ -58,3 +58,18 @@ Set `PLAYWRIGHT_MODULE` if the module is installed outside this app. It verifies
 21 route/viewport combinations, noindex, headings, overflow, robots, 136 pictured
 products and frozen TOP-25 links. It submits no orders and uses no existing browser
 profile. This is targeted coverage, not a complete accessibility audit.
+
+## Runtime capacity observation
+
+The temporary preview served and decoded product images successfully, but its
+server log reported failed image-cache writes. The filesystem reported zero
+available bytes. Installed Next.js documentation specifies a default disk-image
+cache budget of half the available space at initialization, explaining the zero
+cache budget. No image/cache policy was weakened to conceal this condition.
+
+After stopping only this pass's temporary loopback server, its 148 MB isolated
+`.next-verify` directory was removed. The filesystem then reported 94 MB available
+(still 100% when rounded). Broader host disk cleanup is outside this app-only scope;
+no existing build, staged export, source snapshot, order record or other app was
+removed. Capacity should be restored before another large build or preview restart.
+The existing preview was not restarted, so its cache recovery is not claimed.

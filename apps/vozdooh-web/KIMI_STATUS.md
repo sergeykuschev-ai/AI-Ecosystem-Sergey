@@ -247,3 +247,7 @@ This entry supersedes the selection-in-preparation copy described above.
 - Restored generated `next-env.d.ts`. Snapshot SHA-256 remained unchanged across
   this pass. The frozen research validator still rejects the pre-existing hash
   discrepancy documented above; this is not reported as a passing provenance audit.
+- Shutdown log review exposed disk-pressure image-cache warnings despite successful
+  image delivery/decoding. Removed only this pass's stopped `.next-verify` build
+  (148 MB); available space rose from zero to 94 MB. Broader host cleanup remains
+  out of scope. Existing preview/cache state was not restarted or changed.
