@@ -4,6 +4,7 @@ import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, test } from "node:test";
 import nextConfig from "@/next.config";
+import { getPublishedArticles } from "@/lib/articles/articles";
 import { CANONICAL_BRAND_SLUGS } from "@/lib/constants/brands";
 import { mockActualItems, mockCities, mockStores } from "@/lib/data/mock-data";
 
@@ -78,6 +79,7 @@ const EXPECTED_STATIC_PAGES = [
   "/politika-konfidencialnosti/",
   "/soglasie-na-obrabotku-dannyh/",
   "/stores/",
+  "/stati/",
   "/vakansii/",
   "/ventil/",
 ];
@@ -92,6 +94,8 @@ for (const store of mockStores.filter((item) => item.active)) {
   storeSlugsByCity.set(city.slug, slugs);
 }
 
+const articleSlugs = new Set(getPublishedArticles().map((article) => article.slug));
+
 const routeModel: RouteModel = {
   staticPaths: new Set(EXPECTED_STATIC_PAGES),
   dynamicPatterns: [
@@ -100,6 +104,7 @@ const routeModel: RouteModel = {
     ...[...storeSlugsByCity.entries()].flatMap(([citySlug, storeSlugs]) =>
       [...storeSlugs].map((storeSlug) => new RegExp(`^/stores/${citySlug}/${storeSlug}/$`)),
     ),
+    ...[...articleSlugs].map((slug) => new RegExp(`^/stati/${slug}/$`)),
   ],
 };
 
@@ -112,6 +117,7 @@ const INDEXABLE_PATHS = new Set([
   ...[...storeSlugsByCity.entries()].flatMap(([citySlug, storeSlugs]) =>
     [...storeSlugs].map((storeSlug) => `/stores/${citySlug}/${storeSlug}/`),
   ),
+  ...[...articleSlugs].map((slug) => `/stati/${slug}/`),
 ]);
 
 function isKnownInternalPath(path: string): boolean {
@@ -147,6 +153,7 @@ const ALLOWED_TEMPLATE_HREFS = new Set([
   // City/store slugs interpolated from content data.
   "/stores/${city.slug}/",
   "/stores/${city.slug}/${store.slug}/",
+  "/stati/${article.slug}/",
 ]);
 
 const internalLinks: LinkRef[] = [];
@@ -203,6 +210,7 @@ describe("route registry matches the app structure", () => {
     for (const [citySlug, storeSlugs] of storeSlugsByCity) {
       for (const storeSlug of storeSlugs) contextualTargets.add(`/stores/${citySlug}/${storeSlug}/`);
     }
+    for (const slug of articleSlugs) contextualTargets.add(`/stati/${slug}/`);
     for (const item of mockActualItems.filter((entry) => entry.active && entry.buttonUrl)) {
       contextualTargets.add(item.buttonUrl!);
     }

@@ -1,0 +1,37 @@
+project:
+  domain: "amurskmarket.ru"
+  content_path: "/stati"
+audience:
+  profile: >
+    Жители Амурска и ближайших населённых пунктов, которые выбирают товары
+    для дома, ремонта и питомцев и хотят понять параметры до похода в магазин.
+  jargon_level: "low"
+voice:
+  source: ""
+  forbidden:
+    - "в современном мире"
+    - "не секрет, что"
+cta:
+  offer: "Помочь выбрать подходящий товар в профильном магазине Амурска"
+  url: "https://amurskmarket.ru/stores/amursk/"
+editorial:
+  banned_words:
+    - "гарантированно"
+    - "лучший"
+legal:
+  region: "ru"
+notify:
+  channel: "chat"
+research:
+  youtube:
+    enabled: false
+    transcript_provider: ""
+  daily_balance: ["search", "evergreen", "local"]
+qa:
+  final_review:
+    editor_model: ""
+    reviewer_model: ""
+cms:
+  adapter: "manual"
+image:
+  tool: ""
