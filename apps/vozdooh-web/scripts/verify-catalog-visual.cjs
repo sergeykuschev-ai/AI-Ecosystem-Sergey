@@ -13,7 +13,9 @@ const routes = ['/catalog', '/brands', '/categories', '/brands/culti-milano', '/
     for (const width of [390, 430, 1440]) {
       await page.setViewportSize({ width, height: 900 })
       for (const [index, route] of routes.entries()) {
-        const response = await page.goto(baseURL + route, { waitUntil: 'networkidle' })
+        // Background route prefetches can outlive navigation; check page load and
+        // explicitly decode the displayed images below instead of waiting for idle.
+        const response = await page.goto(baseURL + route, { waitUntil: 'load' })
         assert.equal(response.status(), 200, route)
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `Overflow: ${route}, ${width}`)
         assert.doesNotMatch(await page.locator('main').innerText(), /PREVIEW 1C|CORE|STRONG|NORMAL|SLOW|CLEARANCE|promotion_rank/i)
@@ -22,7 +24,16 @@ const routes = ['/catalog', '/brands', '/categories', '/brands/culti-milano', '/
         assert.ok(await page.locator('.productCardMeta h3').evaluateAll((nodes) => nodes.every((node) => node.getBoundingClientRect().height <= parseFloat(getComputedStyle(node).lineHeight) * 2 + 1)), `Card title height: ${route}`)
         assert.ok(await page.locator('.landingLinks a, .productBack, .filterDisclosure>summary, .catalogFinder, .activeFilters a, .productFacts>summary').evaluateAll((nodes) => nodes.every((node) => node.getBoundingClientRect().height >= 44)), `Touch target: ${route}`)
         assert.ok(await page.locator('.productCardImage, .productHeroImage').evaluateAll(async (nodes) => {
-          await Promise.all(nodes.map((img) => img.decode()))
+          // Offscreen Next.js images are lazy: decode alone does not start loading.
+          // Change only this test page's DOM, never the storefront loading policy.
+          nodes.forEach((img) => { img.loading = 'eager' })
+          let timer
+          try {
+            await Promise.race([
+              Promise.all(nodes.map((img) => img.decode())),
+              new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Image decoding exceeded 60 seconds')), 60_000) }),
+            ])
+          } finally { clearTimeout(timer) }
           return nodes.every((img) => img.naturalWidth > 0 && getComputedStyle(img).objectFit === 'contain')
         }), `Image frame: ${route}`)
         await page.screenshot({ path: `/tmp/vozdooh-catalog-qa-${width}-${index}.png`, fullPage: true })

@@ -46,10 +46,25 @@ The read-only demand validator currently rejects the staged snapshot hash:
 - Frozen study: `05c1dd3a1f01f58fba9eef9c292ea1456b2894de0c127a632ff1195e382ffd91`
 - Current snapshot: `a71400f603b5b8169fa02cf5cdfd78f192973c002832ae2b7f8eddd0d113120f`
 
-The README documents confirmed retail prices in today's snapshot; the frozen
-study used an earlier unpriced state. This context does not establish the exact
-cause of every byte difference. The frozen hash remains strict and unchanged;
-a dated provenance review is still required. Ranking is not recalculated.
+A read-only provenance review on 2026-09-26 established the exact difference.
+Commit `e930519e` froze the unpriced study after `16759b26`; `7a30bd55`
+subsequently documented confirmed retail prices and request checkout. In memory,
+replacing only every current product's `price` with `None`, then serializing with
+Python `json.dumps(snapshot, ensure_ascii=False, indent=2) + "\n"`, reproduces
+**exactly** the frozen SHA-256 above. The real snapshot was never rewritten.
+All 803 rows have non-null prices today (793 nonzero according to the staging
+report); the 148 positive-stock SKUs, original names and 220 stock units match
+the frozen evidence. This establishes a price-only difference under the original
+serialization, not a new demand study or approval to update its inputs.
+
+The current staging report's source digests match the read-only XML files:
+
+- import: `710c322a5f568f2f95372c9275b87c36eb70f327b0b5b47f418fabcc03a1f2f4`
+- offers: `32f5e000ec1f9a982b8fc5c35f9c29d65a3c42476e3af38771dee0018201934e`
+
+The strict research validator still fails on the priced snapshot, as designed.
+No source hash, evidence, ranking or validator was changed. A new dated study
+would be required to certify the priced snapshot as research input.
 The 12 exact-image and five unknown-brand blockers remain unresolved.
 
 Read-only browser verification: with Playwright installed, run
@@ -73,3 +88,42 @@ After stopping only this pass's temporary loopback server, its 148 MB isolated
 no existing build, staged export, source snapshot, order record or other app was
 removed. Capacity should be restored before another large build or preview restart.
 The existing preview was not restarted, so its cache recovery is not claimed.
+
+## Capacity recovery and preview refresh — 2026-09-26
+
+Disk capacity was restored before this pass (9.4 GB free); this pass did not
+clean other applications. `VOZDOOH_ISOLATED_BUILD=true npm run verify` passed:
+47 app tests, two receiver tests, nine Python tests, typecheck, zero-warning lint
+and production build. Generated `next-env.d.ts` was restored afterward.
+
+The prior port-3411 listener lacked the new HTTP noindex header. Its working
+directory and staged-catalog environment were verified before any signal.
+The validated `.next-verify` build first passed the read-only 21-case browser
+preflight on port 3419. Using the documented app-local `next start` mechanism,
+only those two VOZDOOH processes were stopped, then the validated build was
+started on `127.0.0.1:3411` with the original process environment plus
+`VOZDOOH_ISOLATED_BUILD=true`. The `.next` build was not replaced during the
+listener switch. A subsequent full verification after the browser-script fix rebuilt that now-inactive output.
+
+**The active preview now serves `.next-verify`. Do not remove or rebuild that
+directory while it is serving.** The earlier isolated-build command is safe only
+when that output is not active. For a subsequent refresh, build into the inactive
+`.next` using `npm run verify` without the isolated flag, preflight with the same
+staged environment on a separate loopback port, then switch only the identified
+VOZDOOH listener. Preserve the process environment and working directory so
+snapshot selection and local order storage remain unchanged. Never regenerate
+the priced snapshot as part of a build or restart.
+
+The documented `next start` mechanism logs Next.js's standalone-output advisory;
+the runtime checks below, rather than absence of that advisory, establish service
+health. No service manager, public listener or external integration was changed.
+
+The optional visual verifier previously waited indefinitely on `decode()` for
+lazy images outside the viewport. It now sets eager loading only in its test
+page DOM and bounds decoding to 60 seconds. A repeatable filtered-route
+`networkidle` timeout was traced to background RSC prefetch activity after the
+page rendered successfully. The verifier now waits for page load and explicitly
+decodes its images, retaining status, layout, filters, noindex and runtime-error
+assertions. Storefront loading behavior, image
+mappings and product content are unchanged. The live browser suite is the
+regression check for this verification-only change.
