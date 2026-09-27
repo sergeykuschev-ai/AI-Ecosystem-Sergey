@@ -169,3 +169,11 @@ Evidence:
 - https://megadez.pro/produktsiya/aromatizatsiya/ag-zhidkost-dlya-promyvki-110-ml/
 - https://megadez.pro/produktsiya/aromatizatsiya/ag-kartridzh-s-zhidkostyu-dlya-promyvki-150-ml/
 - https://cleanbk.ru/item/0006413-blagorodnaya_koja_kartridj_ag_100ml_plast
+
+## 2026-09-27 — TEATRO XMAS hat-box recovery
+
+- `CAPP-XMTFU`: staged 1C identifies a TEATRO XMAS/Christmas hat-box gift set containing a 250 ml reed diffuser and a 250 ml refill. A Profumix Luxury Brands product page independently identifies the same TEATRO `CAPPELLIERA - ORO - STICK 250ML + REFILL 250ML` set, and its product photograph visibly shows the red `Christmas in Florence` hat box, TEATRO Oro diffuser, refill and reeds. This resolves the former composition/photo uncertainty without copying external price or stock.
+- Local storefront image: `/catalog/official/CAPP-XMTFU.jpg` from the exact Profumix product page.
+
+Evidence:
+- https://profumixluxurybrands.it/en/brands/teatro-fragranze-uniche-cappelliera-oro-stick-250ml-refill-250ml/

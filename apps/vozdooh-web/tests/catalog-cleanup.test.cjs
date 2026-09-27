@@ -60,7 +60,8 @@ test('24 AROMAgroup descriptions are guarded; unverified facts and formats remai
   }
   for (const sku of ['132689', '4356', '9a227639-b1a0-11ed-a1a3-7c8bca00854e']) assert.equal(reviewedDescription(bySku(sku).trade), null)
   assert.match(bySku('32131').editorial.description, /Совместимость/)
-  assert.doesNotMatch(bySku('CAPP-XMTFU').editorial.description, /250|рефилл|корица/)
+  assert.match(bySku('CAPP-XMTFU').editorial.description, /Christmas in Florence.*Oro.*250 мл.*рефилл.*250 мл.*палочки/i)
+  assert.deepEqual(bySku('CAPP-XMTFU').editorial.images, ['/catalog/official/CAPP-XMTFU.jpg'])
   assert.match(bySku('N020486').editorial.description, /18.*23.*3 мм/)
   assert.match(bySku('98049E').editorial.description, /Spiced Blackberry.*ежевика.*кори/i)
   assert.equal(productPresentation(bySku('98049E')).title, 'Spiced Blackberry')
@@ -74,9 +75,9 @@ test('24 AROMAgroup descriptions are guarded; unverified facts and formats remai
 test('barcode-resolved hidden items return only with exact local images; unresolved items stay conservative', () => {
   const snapshotMissing = evidence.products.filter((p) => !p.quality.image_file_exists)
   assert.equal(snapshotMissing.length, 12)
-  const recovered = new Set(['98049E', '1113', 'N020486', '9a227639-b1a0-11ed-a1a3-7c8bca00854e', '4356', '132689'])
+  const recovered = new Set(['98049E', '1113', 'N020486', '9a227639-b1a0-11ed-a1a3-7c8bca00854e', '4356', '132689', 'CAPP-XMTFU'])
   const stillMissing = snapshotMissing.filter((p) => !recovered.has(p.sku))
-  assert.equal(stillMissing.length, 6)
+  assert.equal(stillMissing.length, 5)
   for (const p of stillMissing) assert.deepEqual(bySku(p.sku).editorial.images, [])
   assert.deepEqual(bySku('98049E').editorial.images, ['/catalog/official/98049E.jpg'])
   assert.deepEqual(bySku('1113').editorial.images, ['/catalog/official/1113.jpg'])
@@ -88,7 +89,7 @@ test('barcode-resolved hidden items return only with exact local images; unresol
   assert.match(bySku('N020486').editorial.description, /18.*Lothantique.*23 × 3 мм/)
   assert.ok(storefrontProducts(products).some((p) => p.trade.sku === '1113'))
   assert.ok(storefrontProducts(products).some((p) => p.trade.sku === 'N020486'))
-  for (const sku of ['9a227639-b1a0-11ed-a1a3-7c8bca00854e', '4356', '132689']) {
+  for (const sku of ['9a227639-b1a0-11ed-a1a3-7c8bca00854e', '4356', '132689', 'CAPP-XMTFU']) {
     assert.ok(bySku(sku).editorial.images.length > 0, sku)
     assert.ok(storefrontProducts(products).some((p) => p.trade.sku === sku), sku)
   }
