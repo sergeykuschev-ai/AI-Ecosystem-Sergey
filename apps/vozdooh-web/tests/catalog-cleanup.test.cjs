@@ -74,9 +74,9 @@ test('24 AROMAgroup descriptions are guarded; unverified facts and formats remai
 test('barcode-resolved hidden items return only with exact local images; unresolved items stay conservative', () => {
   const snapshotMissing = evidence.products.filter((p) => !p.quality.image_file_exists)
   assert.equal(snapshotMissing.length, 12)
-  const recovered = new Set(['98049E', '1113', 'N020486'])
+  const recovered = new Set(['98049E', '1113', 'N020486', '9a227639-b1a0-11ed-a1a3-7c8bca00854e', '4356', '132689'])
   const stillMissing = snapshotMissing.filter((p) => !recovered.has(p.sku))
-  assert.equal(stillMissing.length, 9)
+  assert.equal(stillMissing.length, 6)
   for (const p of stillMissing) assert.deepEqual(bySku(p.sku).editorial.images, [])
   assert.deepEqual(bySku('98049E').editorial.images, ['/catalog/official/98049E.jpg'])
   assert.deepEqual(bySku('1113').editorial.images, ['/catalog/official/1113.jpg'])
@@ -88,6 +88,10 @@ test('barcode-resolved hidden items return only with exact local images; unresol
   assert.match(bySku('N020486').editorial.description, /18.*Lothantique.*23 × 3 мм/)
   assert.ok(storefrontProducts(products).some((p) => p.trade.sku === '1113'))
   assert.ok(storefrontProducts(products).some((p) => p.trade.sku === 'N020486'))
+  for (const sku of ['9a227639-b1a0-11ed-a1a3-7c8bca00854e', '4356', '132689']) {
+    assert.ok(bySku(sku).editorial.images.length > 0, sku)
+    assert.ok(storefrontProducts(products).some((p) => p.trade.sku === sku), sku)
+  }
   assert.ok(!storefrontProducts(products).some((p) => p.trade.sku === '445445'))
   const decor = bySku('802e8ae5-d19b-11ec-be83-7c8bca00854e')
   const stile = bySku('df29d344-d192-11ec-be83-7c8bca00854e')

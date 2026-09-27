@@ -198,6 +198,9 @@ const curated: Record<string, Partial<EditorialProduct>> = {
   '087654': { slug: 'aromagroup-tadzh-makhal-100', images: ['/catalog/official/087654.webp'] },
   '1112211': { slug: 'aromagroup-pryanyy-tabak-100', images: ['/catalog/official/1112211.webp'] },
   '45360': { slug: 'aromagroup-magma-150', images: ['/catalog/official/45360.webp'] },
+  '9a227639-b1a0-11ed-a1a3-7c8bca00854e': { slug: 'aromagroup-cleaning-fluid-110', images: ['/catalog/official/9a227639-b1a0-11ed-a1a3-7c8bca00854e.png'] },
+  '4356': { slug: 'aromagroup-cleaning-fluid-150', images: ['/catalog/official/4356.png'] },
+  '132689': { slug: 'aromagroup-noble-leather-100', images: ['/catalog/official/132689.jpg'] },
   'N020273': { slug: 'vinove-warsaw-original', images: ['/catalog/official/N020273.jpg'], description: 'Warsaw: ананас, имбирь и шафран; роза, цитрусы и замша; пачули и сандал.', scentFamily: 'spicy', mood: 'focused' },
 }
 

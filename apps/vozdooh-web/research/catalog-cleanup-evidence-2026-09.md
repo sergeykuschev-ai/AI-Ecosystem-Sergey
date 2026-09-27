@@ -158,3 +158,14 @@ research documents.
 Image evidence used for this pass:
 - TSUM product page: https://www.tsum.ru/product/he00476456-rotangovye-palochki-dlya-diffuzora-1000ml-culti-milano-bestcvetnyi/
 - iFantazie exact LORB23 card: https://www.ifantazie.cz/nahradni-drivka-do-difuzeru-bal-18-ks--23-cm-x-3-mm--prirodni/
+
+## 2026-09-27 — AROMAgroup exact-product recovery
+
+- `9a227639-b1a0-11ed-a1a3-7c8bca00854e`: staged 1C identifies AROMAgroup cleaning fluid, 110 ml. MegaDez has an exact product page titled `АG Жидкость для промывки, 110 мл`; the page uses the same AROMAgroup service-fluid product image now stored locally. 1C price/stock remain authoritative.
+- `4356`: staged 1C identifies AROMAgroup cleaning fluid, 150 ml. MegaDez has an exact `AG Картридж с жидкостью для промывки, 150 мл` listing and uses the same service-fluid image. The image is intentionally shared because the source itself uses the same pack shot for both exact volume pages.
+- `132689`: staged 1C identifies `Благородная кожа картридж AG 100 мл`. CleanBK has an exact product card with the same AROMAgroup product name and 100 ml format; its product-page image is stored locally. No external price or stock was copied.
+
+Evidence:
+- https://megadez.pro/produktsiya/aromatizatsiya/ag-zhidkost-dlya-promyvki-110-ml/
+- https://megadez.pro/produktsiya/aromatizatsiya/ag-kartridzh-s-zhidkostyu-dlya-promyvki-150-ml/
+- https://cleanbk.ru/item/0006413-blagorodnaya_koja_kartridj_ag_100ml_plast
