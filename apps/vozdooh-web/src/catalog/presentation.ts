@@ -7,6 +7,14 @@ import { categoryLabels, labelFor } from './vocabulary'
 
 export const brandPriority = ['CULTI MILANO', 'TEATRO Fragranze Uniche', 'Millefiori Milano', 'Lothantique', 'Christian Tortu', 'Castelbel', 'DANHERA', 'MAMI MILANO']
 
+// Positive stock in 1C can include legacy technical/non-VOZDOOH items. Keep these
+// out of the customer storefront even if a local image is later added by mistake.
+export const storefrontExcludedSkus = new Set(['445445'])
+
+export function isStorefrontExcluded(product: CatalogProduct): boolean {
+  return storefrontExcludedSkus.has(product.trade.sku)
+}
+
 function brandRank(brand: string | null): number {
   const index = brandPriority.indexOf(brand ?? '')
   return index < 0 ? brandPriority.length : index
@@ -22,7 +30,7 @@ export function catalogImage(product: CatalogProduct): string | null {
 }
 
 export function storefrontProducts(products: readonly CatalogProduct[], debug = false): CatalogProduct[] {
-  return products.filter((product) => debug || catalogImage(product)).sort((a, b) => {
+  return products.filter((product) => debug || (!isStorefrontExcluded(product) && catalogImage(product))).sort((a, b) => {
     // Internal merchandising signal first: researched higher-priority in-stock
     // products lead the default catalog; the rank itself is never displayed.
     const rankA = demandRank(a.trade.sku)

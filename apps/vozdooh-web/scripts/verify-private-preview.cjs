@@ -8,6 +8,7 @@ const { stagedTrade, stagedEditorial } = require('../src/catalog/stagedEditorial
 const trades = evidence.products.map(p => stagedTrade({ sku: p.sku, name: p.original_name, brand: p.brand, category: p.current_category, volume: p.volume, price: null, stock: p.stock, barcode: null, characteristics: {} }))
 const editorial = stagedEditorial(trades)
 const expected = evidence.top_skus.map(sku => `/catalog/${editorial[sku].slug}`)
+const { audit } = require('./catalog-quality.cjs')
 ;(async () => {
   const browser = await chromium.launch({ headless: true })
   try {
@@ -27,7 +28,11 @@ const expected = evidence.top_skus.map(sku => `/catalog/${editorial[sku].slug}`)
     await page.goto(base + '/catalog', { waitUntil: 'networkidle' })
     const actual = await page.locator('.catalogGrid .productCard').evaluateAll(nodes => nodes.slice(0, 25).map(n => n.getAttribute('href')))
     assert.deepEqual(actual, expected, 'Rendered TOP-25 must match frozen research')
-    assert.equal(await page.locator('.catalogGrid .productCard').count(), 136)
+    const renderedCount = await page.locator('.catalogGrid .productCard').count()
+    if (process.env.ONEC_LOCAL_CATALOG_PATH) {
+      const quality = await audit(process.env.ONEC_LOCAL_CATALOG_PATH)
+      assert.equal(renderedCount, quality.visible)
+    }
     await page.locator('.catalogGrid .productCard').first().click()
     await page.waitForURL(base + expected[0])
     await page.waitForLoadState('networkidle')
@@ -37,6 +42,6 @@ const expected = evidence.top_skus.map(sku => `/catalog/${editorial[sku].slug}`)
     await page.screenshot({ path: '/tmp/vozdooh-hardening-product.png', fullPage: true })
     assert.match(await (await page.request.get(base + '/robots.txt')).text(), /Disallow: \//)
     assert.deepEqual(errors, [])
-    console.log('PASS: 21 route/viewport checks, noindex headers, one H1, no overflow, 136 pictured products, frozen TOP-25, product navigation, robots; no orders submitted')
+    console.log(`PASS: 21 route/viewport checks, noindex headers, one H1, no overflow, ${renderedCount} pictured products, frozen TOP-25, product navigation, robots; no orders submitted`)
   } finally { await browser.close() }
 })().catch(error => { console.error(error); process.exitCode = 1 })

@@ -4,7 +4,7 @@ const { readStagedCatalog } = require('../src/catalog/localStore.ts')
 const { stagedTrade, stagedEditorial } = require('../src/catalog/stagedEditorial.ts')
 const { mergeCatalog } = require('../src/catalog/repository.ts')
 const { withValidImages } = require('../src/catalog/validImages.ts')
-const { storefrontProducts, productPresentation } = require('../src/catalog/presentation.ts')
+const { storefrontProducts, productPresentation, isStorefrontExcluded } = require('../src/catalog/presentation.ts')
 
 function titleAnomalies(text) {
   return [
@@ -18,6 +18,8 @@ async function audit(path) {
   const trades = (await readStagedCatalog(path)).filter((p) => (p.stock ?? 0) > 0).map(stagedTrade)
   const checked = await withValidImages(mergeCatalog(trades, stagedEditorial(trades)))
   const visible = storefrontProducts(checked)
+  const excluded = checked.filter(isStorefrontExcluded)
+  const eligible = checked.filter((product) => !isStorefrontExcluded(product))
   const missing = (field) => visible.filter((p) => !p.editorial[field]).length
   const rows = visible.map((p) => {
     const display = productPresentation(p)
@@ -32,7 +34,8 @@ async function audit(path) {
     positivePrice: visible.filter((p) => (p.trade.price ?? 0) > 0).length,
     missingPositivePrice: visible.filter((p) => !(p.trade.price > 0)).length,
     verifiedImages: visible.length,
-    hiddenWithoutVerifiedImage: checked.length - visible.length,
+    excludedFromStorefront: excluded.map((p) => p.trade.sku),
+    hiddenWithoutVerifiedImage: eligible.length - visible.length,
     titleAnomalyCount: rows.filter((row) => row.anomalies.length).length,
     titleAnomalies: rows.filter((row) => row.anomalies.length),
     ...(process.argv.includes('--titles') ? { titles: rows } : {}),

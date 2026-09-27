@@ -27,10 +27,12 @@ test('default hides missing images; exact debug opt-in retains records and filte
   const pictured = product('Pictured')
   const missing = product('Missing', 'Other')
   missing.editorial.images = []
-  const products = [missing, pictured]
+  const excluded = product('Legacy charger', null)
+  excluded.trade.sku = '445445'
+  const products = [missing, pictured, excluded]
   assert.deepEqual(storefrontProducts(products), [pictured])
-  assert.equal(storefrontProducts(products, true).length, 2)
-  assert.equal(products.length, 2)
+  assert.equal(storefrontProducts(products, true).length, 3)
+  assert.equal(products.length, 3)
   for (const debugCatalog of [undefined, '0', 'true', ['1']]) assert.equal(isDebugCatalog({ debugCatalog }), false)
   assert.equal(isDebugCatalog({ debugCatalog: '1' }), true)
   for (const image of ['https://example.com/photo.jpg', '//example.com/photo.jpg', '/../../secret.jpg', '/image.svg', '']) {

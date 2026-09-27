@@ -147,3 +147,14 @@ research documents.
 - 121211: no reliable match was found for staged barcode 8050534799088; do not infer the brand from the
   neighbouring 1000 ml item.
 - Other hidden items remain blocked when the exact variant or exact image is not verified.
+
+## 2026-09-27 — exact-image verification follow-up
+
+- 1113: barcode 8055965595063 is confirmed by TSUM and other retailers as CULTI MILANO rattan reeds for 1000 ml diffusers, 43 cm. The local storefront image was copied from the TSUM product page that exposes the same manufacturer article/barcode and depicts the branded CULTI pack. This SKU can now return to the customer storefront.
+- N020486: barcode 3420070023704 and Lothantique reference LORB23 are confirmed as 18 natural rattan sticks, 23 cm × 3 mm. The local storefront image was copied from the iFantazie product card for exact reference LORB23; the package is visibly branded Lothantique. This SKU can now return to the customer storefront.
+- 121211: current public CULTI 500 ml reeds use manufacturer article 8055965595056, which does not match staged barcode 8050534799088. Do not reuse the 500 ml CULTI image or infer brand until the physical label or a source for the staged barcode is found.
+- 445445: barcode 4610024333280 resolves to an AceLine H5B1A black wall charger. It is a legacy non-fragrance item and is explicitly excluded from the normal VOZDOOH storefront even if a product image becomes available. 1C trade data remains untouched.
+
+Image evidence used for this pass:
+- TSUM product page: https://www.tsum.ru/product/he00476456-rotangovye-palochki-dlya-diffuzora-1000ml-culti-milano-bestcvetnyi/
+- iFantazie exact LORB23 card: https://www.ifantazie.cz/nahradni-drivka-do-difuzeru-bal-18-ks--23-cm-x-3-mm--prirodni/
