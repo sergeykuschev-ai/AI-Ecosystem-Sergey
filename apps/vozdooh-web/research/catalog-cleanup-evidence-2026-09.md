@@ -131,3 +131,19 @@ copy and noindex/nofollow. `git diff --check` passed. No live `.next` build or
 preview replacement was performed; synthetic tests did not use existing local
 order records. The reviewed diff contains only the two copy files and two
 research documents.
+
+## 2026-09-27 — barcode resolution pass for previously hidden positive-stock SKUs
+
+- 98049E: staged barcode 5038581056647 repeatedly resolves to WoodWick Spiced Blackberry Mini 85 g.
+  A separate product record identifies manufacturer code 98078E, explaining why the staged SKU itself
+  conflicts with the current 98049E manufacturer mapping. The 1C SKU stays untouched; storefront identity
+  is bound by the staged barcode. The local image comes from a product page carrying the same EAN and 85 g variant.
+- 1113: staged barcode/manufacturer article 8055965595063 resolves to CULTI MILANO rattan reeds for
+  1000 ml diffusers, length 43 cm. Brand and description are now safe to enrich, but the SKU remains
+  hidden until an exact clean local image is obtained.
+- N020486: staged barcode 3420070023704 resolves to Lothantique natural rattan sticks, 18 pieces,
+  23 × 3 mm. Lothantique also lists the exact 23 cm / 3 mm natural-rattan accessory. Brand and description
+  are resolved; the SKU remains hidden until its exact image can be copied locally without a substitute.
+- 121211: no reliable match was found for staged barcode 8050534799088; do not infer the brand from the
+  neighbouring 1000 ml item.
+- Other hidden items remain blocked when the exact variant or exact image is not verified.

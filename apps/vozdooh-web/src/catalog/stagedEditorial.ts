@@ -59,8 +59,14 @@ const curated: Record<string, Partial<EditorialProduct>> = {
   '67787900': { slug: 'aromagroup-dispenser-liquid-pro', images: ['/catalog/official/67787900.jpg'], description: 'Профессиональный аппарат AROMAgroup Dispenser Liquid PRO для интерьерной ароматизации.' },
   '890999': { slug: 'aromagroup-cafe-1000-bt', images: ['/catalog/official/890999.jpg'], description: 'Профессиональный аппарат AROMAgroup Cafe 1000 с Bluetooth-управлением для ароматизации больших помещений.' },
   '54378': { slug: 'aromagroup-hotel-1000-bt', images: ['/catalog/official/54378.jpg'], description: 'Профессиональный аппарат AROMAgroup Hotel 1000 для ароматизации крупных помещений.' },
-  // Official WoodWick SKU 98049E maps to Coastal Sunset, while 1C names it Spiced Blackberry. Keep editorial neutral until the trade record is corrected.
-  '98049E': { slug: 'woodwick-98049e-85' },
+  // 1C SKU 98049E conflicts with the manufacturer article, but barcode 5038581056647
+  // independently resolves to WoodWick Spiced Blackberry Mini 85 g. Keep the 1C SKU untouched.
+  '98049E': {
+    slug: 'woodwick-spiced-blackberry-mini-85',
+    images: ['/catalog/official/98049E.jpg'],
+    description: 'Spiced Blackberry: спелая ежевика с апельсиновой цедрой, корицей и ванильным сахаром. Свеча WoodWick Mini 85 г с деревянным фитилём.',
+    scentFamily: 'fruity',
+  },
   'DANHNIR250DEC': { slug: 'danhera-niro-250', images: ['/catalog/official/DANHNIR250DEC.jpg'], description: 'Пряно-древесная композиция: кипарис, элеми и озон открывают аромат, в сердце — личи и перуанский бальзам, в базе — сандал, уд и пачули.', scentFamily: 'woody', mood: 'cozy', room: 'bedroom' },
   'V61028': { slug: 'vellutier-into-the-wilderness-515', images: ['/catalog/official/V61028.jpg'], description: 'Апельсиновая цедра, чёрная смородина и бергамот переходят в малину, красную смородину и киви; в базе — амбра, мускус и тиковое дерево.', scentFamily: 'fruity', mood: 'focused', room: 'living' },
   'V61014': { slug: 'vellutier-midnight-toast-515', images: ['/catalog/official/V61014.jpg'], description: 'Морские ноты и лимонный тоник переходят в канталупу, цветок апельсина и кокосовую воду; в базе — тик, кедр и замша.', scentFamily: 'woody', mood: 'cozy', room: 'living' },
@@ -156,9 +162,9 @@ const curated: Record<string, Partial<EditorialProduct>> = {
   'GI-FRAGR2.02': { slug: 'mami-fior-di-loto-200', images: ['/catalog/official/GI-FRAGR2.02.png'], description: 'Элегантный цветочный букет пионов и роз, созданный для ощущения цветущего сада в интерьере.', scentFamily: 'floral', mood: 'calm', room: 'bedroom' },
   'GI-FRAGR2.04': { slug: 'mami-rose-in-fiore-200', images: ['/catalog/official/GI-FRAGR2.04.png'], description: 'Романтичный цветочный букет пионов и роз для мягкого аромата цветущего сада.', scentFamily: 'floral', mood: 'calm', room: 'living' },
   '802e8b03-d19b-11ec-be83-7c8bca00854e': { slug: 'culti-stile-gratia-500', images: ['/catalog/official/802e8b03-d19b-11ec-be83-7c8bca00854e.jpg'], description: 'Цветочная композиция с ревенем, розой центифолией и пачули.', scentFamily: 'floral', mood: 'calm', room: 'living' },
-  '1113': { slug: 'rattan-reeds-1000', description: 'Ротанговые палочки для интерьерных диффузоров формата 1000 мл.' },
+  '1113': { slug: 'culti-rattan-reeds-1000', description: 'Ротанговые палочки CULTI MILANO длиной 43 см для диффузоров формата 1000 мл.' },
   '121211': { slug: 'rattan-reeds-500', description: 'Ротанговые палочки для интерьерных диффузоров формата 500 мл.' },
-  'N020486': { slug: 'light-rattan-reeds-18', description: 'Светлые ротанговые палочки. Размер и комплектация требуют уточнения.' },
+  'N020486': { slug: 'lothantique-natural-rattan-reeds-23', description: 'Комплект из 18 светлых ротанговых палочек Lothantique размером 23 × 3 мм для интерьерных диффузоров.' },
   '0189': { slug: 'wick-scissors', description: 'Ножницы для аккуратной подрезки фитиля ароматических свечей.' },
   '445445': { slug: 'microusb-power-adapter-1-2m', description: 'Сетевое зарядное устройство microUSB с кабелем 1,2 м.' },
   'N020445': { slug: 'vinove-rome-evolution-excellence', images: ['/catalog/official/N020445.jpg'], description: 'Rome: слива, корица и тмин; шафран, кедр и пачули; в базе — табак, сандал, ваниль и кожа.', scentFamily: 'woody', mood: 'focused' },
@@ -218,8 +224,18 @@ const stagedCategoryOverrides: Record<string, string> = {
   '22fimr': 'Водорастворимые ароматы',
 }
 
+const stagedBrandOverrides: Record<string, string> = {
+  '1113': 'CULTI MILANO',
+  'N020486': 'Lothantique',
+}
+
 export function stagedTrade(trade: TradeProduct): TradeProduct {
-  const enriched = { ...trade, brand: trade.brand ?? inferStagedBrand(trade.name), category: inferStagedCategory(trade.name), volume: trade.volume ?? inferStagedVolume(trade.name) }
+  const enriched = {
+    ...trade,
+    brand: trade.brand ?? stagedBrandOverrides[trade.sku] ?? inferStagedBrand(trade.name),
+    category: inferStagedCategory(trade.name),
+    volume: trade.volume ?? inferStagedVolume(trade.name),
+  }
   return stagedCategoryOverrides[trade.sku] ? { ...enriched, category: stagedCategoryOverrides[trade.sku] } : enriched
 }
 

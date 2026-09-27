@@ -122,6 +122,17 @@ export const confirmedProductTranslations = [
     ]
   },
   {
+    "original": "Spiced Blackberry",
+    "russian": "Пряная ежевика",
+    "brands": ["WoodWick"],
+    "products": [
+      {
+        "sku": "98049E",
+        "name": "Woodwick/ Свеча маленькая Пряная ежевика 85 гр."
+      }
+    ]
+  },
+  {
     "original": "Tessuto",
     "russian": "Ткань",
     "brands": ["CULTI MILANO"],

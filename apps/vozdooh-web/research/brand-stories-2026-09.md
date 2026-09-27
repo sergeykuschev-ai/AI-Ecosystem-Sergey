@@ -138,3 +138,14 @@ Supported: founded in 2005; professional scent marketing / room scenting; own fr
 R&D; fragrance-development cooperation stated with Givaudan, Symrise, Takasago and MANE; testing and
 certification; part of equipment production moved to Shenzhen in 2013 while preparation/service and
 some advanced production remain in Russia. No individual founder is claimed.
+
+## WoodWick
+
+Sources:
+- https://woodwick.yankeecandle.co.uk/ww-about-woodwick.html
+- https://woodwick.yankeecandle.co.uk/
+
+Supported: WoodWick candles since 2006; brand positioning around refined design, curated fragrance
+and the crackle of a wooden wick; Pluswick Innovation introduced in 2011 as a patented natural-wood
+crackling wick in the hourglass vessel; Hearthwick Flame introduced in 2014 for the ellipse vessel.
+The official history used here does not name an individual founder, so none is invented.

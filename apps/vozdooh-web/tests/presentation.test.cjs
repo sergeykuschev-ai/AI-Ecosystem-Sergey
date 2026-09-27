@@ -135,7 +135,7 @@ test('rendered catalog and product pages hide source noise and preserve debug/fi
 
 const { confirmedProductTranslations } = require('../src/catalog/productTranslations.ts')
 test('all confirmed bindings preserve trade data and reject unreviewed matches', () => {
-  assert.equal(confirmedProductTranslations.length, 7)
+  assert.equal(confirmedProductTranslations.length, 8)
   for (const entry of confirmedProductTranslations) for (const binding of entry.products) {
     const item = product(binding.name, entry.brands[0])
     item.trade.sku = binding.sku

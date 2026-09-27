@@ -1,5 +1,5 @@
 export type DemoCategory = 'diffusers' | 'candles' | 'sprays' | 'refills' | 'car' | 'gifts'
-export type DemoFamily = 'woody' | 'fresh' | 'citrus' | 'floral' | 'spicy' | 'warm'
+export type DemoFamily = 'woody' | 'fresh' | 'citrus' | 'floral' | 'fruity' | 'spicy' | 'warm'
 export type DemoMood = 'calm' | 'airy' | 'cozy' | 'focused'
 export type DemoRoom = 'living' | 'bedroom' | 'bathroom' | 'study' | 'hallway'
 
@@ -17,6 +17,7 @@ export const familyLabels: Record<DemoFamily, string> = {
   fresh: 'Свежие',
   citrus: 'Цитрусовые',
   floral: 'Цветочные',
+  fruity: 'Фруктовые',
   spicy: 'Пряные',
   warm: 'Тёплые',
 }
