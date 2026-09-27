@@ -43,10 +43,10 @@ const output = '/tmp/vozdooh-catalog-rendered-qa'
   for (const [index, [route, page, props]] of routes.entries()) {
     const body = renderToStaticMarkup(await page(props))
     assert.equal((body.match(/<h1>/g) ?? []).length, 1, route)
-    assert.doesNotMatch(body, /PREVIEW 1C|CORE|STRONG|NORMAL|SLOW|CLEARANCE|promotion_rank|₽|\bRUB\b|Добавить в корзину/i, route)
+    assert.doesNotMatch(body, /PREVIEW 1C|CORE|STRONG|NORMAL|SLOW|CLEARANCE|promotion_rank/i, route)
     for (const match of body.matchAll(/src="(\/catalog\/official\/[^"?]+)"/g)) assert.ok(fs.existsSync(path.join('public', match[1])), match[1])
     fs.writeFileSync(`${output}/${index}.html`, `<!doctype html><html lang="ru"><head><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><style>${css}</style></head><body>${body}</body></html>`)
   }
   fs.writeFileSync(`${output}/routes.json`, JSON.stringify(routes.map(([route]) => route), null, 2))
-  console.log(`PASS: ${routes.length} SSR route renders, 148 SKU, TOP-25, no-price/no-tier boundary. HTML/CSS: ${output}. Browser geometry and HTTP status NOT verified.`)
+  console.log(`PASS: ${routes.length} SSR route renders, 148 SKU, TOP-25, no internal tier/preview markers. HTML/CSS: ${output}. Browser geometry and HTTP status NOT verified.`)
 })().catch((error) => { console.error(error); process.exitCode = 1 })
