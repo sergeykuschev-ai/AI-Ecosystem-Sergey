@@ -99,7 +99,7 @@ export function CheckoutForm({ products, enabled }: { products: CatalogProduct[]
             </div>
             <div className="field">
               <label htmlFor="checkout-phone">Телефон</label>
-              <input id="checkout-phone" name="phone" type="tel" autoComplete="tel" maxLength={32} required />
+              <input id="checkout-phone" name="phone" type="tel" inputMode="tel" autoComplete="tel" maxLength={32} required />
             </div>
           </div>
         </fieldset>
@@ -117,22 +117,22 @@ export function CheckoutForm({ products, enabled }: { products: CatalogProduct[]
             </label>
           </div>
           <div className="fieldGrid deliveryFields">
-            <div className="field full">
+            <div className="field full" hidden={method === 'pickup'}>
               <label htmlFor="checkout-address">Адрес</label>
               <input id="checkout-address" name="address" autoComplete="street-address" maxLength={500} required={method === 'courier'} disabled={method === 'pickup'} />
             </div>
             <div className="field full">
-              <label htmlFor="checkout-comment">Комментарий</label>
+              <label htmlFor="checkout-comment">Комментарий (необязательно)</label>
               <textarea id="checkout-comment" name="comment" rows={3} maxLength={1000} />
             </div>
           </div>
         </fieldset>
-        <label><input type="checkbox" name="consent" required disabled={pending} /> Согласен на сохранение имени, телефона и указанных данных получения для обработки этой заявки и связи со мной. Данные хранятся на сервере VOZDOOH.</label>
+        <label className="consentField"><input type="checkbox" name="consent" required disabled={pending} /> Согласен на сохранение имени, телефона и указанных данных получения для обработки этой заявки и связи со мной. Данные хранятся на сервере VOZDOOH.</label>
         {error && <p role="alert">{error}</p>}
       </form>
 
       <aside className="orderBox">
-        <span className="eyebrow">Состав заказа</span>
+        <span className="eyebrow">Состав заявки</span>
         <h2>Ваш выбор</h2>
         {rows.map(({ line, product }) => (
           <div className="orderLine" key={line.sku}>

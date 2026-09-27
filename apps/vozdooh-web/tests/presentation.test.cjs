@@ -111,6 +111,22 @@ test('rendered catalog and product pages hide source noise and preserve debug/fi
     assert.match(details, /<h1>ROSE OUD<\/h1><p class="productTranslation">Роза и уд<\/p>/)
     assert.match(normal, /class="productTranslation">Роза и уд/)
     assert.match(details, /Verified description/)
+    assert.match(details, /Цена не указана/)
+    assert.doesNotMatch(normal, /value="fresh"/)
+    pictured.trade.price = 1234.5
+    pictured.trade.stock = 2
+    const purchasable = renderToStaticMarkup(await Product({ params: Promise.resolve({ slug: 'test-pictured' }), searchParams: Promise.resolve({}) }))
+    assert.match(purchasable, /Добавить в корзину/)
+    assert.match(purchasable, /В наличии по данным каталога/)
+    assert.ok(purchasable.indexOf('productPurchase') < purchasable.indexOf('productDesc'))
+    pictured.trade.stock = 0
+    const unavailable = renderToStaticMarkup(await Product({ params: Promise.resolve({ slug: 'test-pictured' }), searchParams: Promise.resolve({}) }))
+    assert.match(unavailable, /Нет в наличии/)
+    assert.doesNotMatch(unavailable, /Добавить в корзину/)
+    source.getCatalogRepository = async () => ({ list: async () => [pictured, missing], getBySlug: async () => missing })
+    await assert.rejects(() => Product({ params: Promise.resolve({ slug: 'test-missing' }), searchParams: Promise.resolve({}) }), /NEXT_HTTP_ERROR_FALLBACK;404/)
+
+
   } finally {
     source.getCatalogRepository = originalRepository
     source.catalogSource = originalSource
@@ -155,4 +171,18 @@ test('real cards place confirmed translation below original and above type/volum
     item.trade.sku = 'UNKNOWN'
     assert.doesNotMatch(renderToStaticMarkup(ProductCard({ product: item })), /class="productTranslation"/)
   }
+})
+
+test('filter options use supplied catalog data and reviewed vocabulary without changing order', () => {
+  const { availableFilterOptions } = require('../src/catalog/filters.ts')
+  const items = [product('First'), product('Second')]
+  items[1].editorial.scentFamily = 'unreviewed'
+  const before = structuredClone(items)
+  assert.deepEqual(availableFilterOptions(items, 'family', { woody: 'Древесный', fresh: 'Свежий' }), [{ value: 'woody', label: 'Древесный' }])
+  assert.deepEqual(availableFilterOptions([], 'family', { woody: 'Древесный' }), [])
+  assert.deepEqual(items, before)
+  const filters = { brand: 'TEATRO Fragranze Uniche', category: null, family: 'woody', mood: null, room: null }
+  const parsed = require('../src/catalog/filterParams.ts').parseCatalogFilters(Object.fromEntries(new URL(catalogHref(filters, 'category', 'Диффузоры'), 'http://local').searchParams), { 'Диффузоры': 'Диффузоры' }, { 'TEATRO Fragranze Uniche': 'TEATRO' })
+  assert.deepEqual(parsed, { ...filters, category: 'Диффузоры' })
+  assert.deepEqual(applyCatalogFilters(items, { ...filters, family: null }), items)
 })

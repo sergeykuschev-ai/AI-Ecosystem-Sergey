@@ -25,3 +25,12 @@ export function getRecommendations(products: readonly CatalogProduct[], product:
     (demo && product.editorial.scentFamily !== null && p.editorial.scentFamily === product.editorial.scentFamily)
   )).slice(0, limit)
 }
+
+/** Available values from the supplied storefront only; unknown editorial vocabulary is excluded. */
+export function availableFilterOptions(products: readonly CatalogProduct[], group: keyof CatalogFilters, labels: Record<string, string>): { value: string; label: string }[] {
+  const values = new Set(products.map((product) => {
+    if (group === 'brand' || group === 'category') return product.trade[group]
+    return product.editorial[group === 'family' ? 'scentFamily' : group]
+  }))
+  return Object.entries(labels).filter(([value]) => values.has(value)).map(([value, label]) => ({ value, label }))
+}

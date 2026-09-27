@@ -9,7 +9,7 @@ import { categoryLabels, familyLabels, moodLabels, roomLabels, type DemoCategory
 import { catalogHref, parseCatalogFilters, type FilterGroup, type RawSearchParams } from '../../src/catalog/filterParams'
 import { curatorSelection, isDebugCatalog, storefrontProducts } from '../../src/catalog/presentation'
 import { withValidImages } from '../../src/catalog/validImages'
-import { applyCatalogFilters } from '../../src/catalog/filters'
+import { availableFilterOptions, applyCatalogFilters } from '../../src/catalog/filters'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,13 +36,14 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
   const demo = catalogSource() === 'demo'
   const categories = demo ? categoryLabels : Object.fromEntries(allProducts.map((product) => [product.trade.category, product.trade.category]))
   const brands = demo ? {} : Object.fromEntries(allProducts.filter((product) => product.trade.brand).map((product) => [product.trade.brand as string, product.trade.brand as string]))
+  const visibleProducts = storefrontProducts(allProducts, debug || demo)
   const groups = filterGroups.map((group) => group.group === 'category'
     ? { ...group, options: Object.entries(categories).map(([value, label]) => ({ value, label })) }
     : group.group === 'brand'
       ? { ...group, options: Object.entries(brands).sort((a, b) => a[1].localeCompare(b[1], 'ru')).map(([value, label]) => ({ value, label })) }
-      : group)
+      : group).map((group) => ({ ...group, options: availableFilterOptions(visibleProducts, group.group, Object.fromEntries(group.options.map(({ value, label }) => [value, label]))) }))
   const filters = parseCatalogFilters(params, categories, brands)
-  const products = applyCatalogFilters(storefrontProducts(allProducts, debug || demo), filters)
+  const products = applyCatalogFilters(visibleProducts, filters)
   const hasFilters = Boolean(filters.brand || filters.category || filters.family || filters.mood || filters.room)
 
   const curated = !hasFilters && !debug && !demo ? curatorSelection(products) : []
@@ -60,14 +61,18 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
 
       <div className="catalogControls">
         <details className="filterDisclosure">
-          <summary>Фильтры <span aria-hidden="true">＋</span></summary>
+          <summary>Фильтры{hasFilters ? ` · ${Object.values(filters).filter(Boolean).length}` : ''} <span aria-hidden="true">＋</span></summary>
           <form action="/catalog" className="filterPanel">
             {debug && <input type="hidden" name="debugCatalog" value="1" />}
-            {groups.map(({ group, title, options }) => (
+            {groups.filter(({ group, options }) => filters[group] && options.length === 0).map(({ group }) => (
+              <input key={group} type="hidden" name={group} value={filters[group]!} />
+            ))}
+            {groups.filter(({ options }) => options.length > 0).map(({ group, title, options }) => (
               <label key={group}>
                 <span>{title}</span>
                 <select name={group} defaultValue={filters[group] ?? ''} key={`${group}-${filters[group]}`}>
                   <option value="">Все</option>
+                  {filters[group] && !options.some(({ value }) => value === filters[group]) && <option value={filters[group]!} hidden>{filters[group]} — нет товаров</option>}
                   {options.map(({ value, label }) => <option value={value} key={value}>{label}</option>)}
                 </select>
               </label>
@@ -80,7 +85,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
       {hasFilters && <nav className="activeFilters" aria-label="Активные фильтры">
         {groups.map(({ group, title, options }) => filters[group] ? (
           <Link className="chip" key={group} aria-label={`Убрать фильтр ${title}: ${filters[group]}`} href={catalogHref(filters, group, null, debug)}>
-            {options.find((option) => option.value === filters[group])?.label} <span aria-hidden="true">×</span>
+            {options.find((option) => option.value === filters[group])?.label ?? filters[group]} <span aria-hidden="true">×</span>
           </Link>
         ) : null)}
         <Link className="clearFilters" href={resetHref}>Сбросить всё</Link>

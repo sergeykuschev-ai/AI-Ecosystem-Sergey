@@ -52,6 +52,7 @@ export default async function ProductPage({ params, searchParams }: PageParams) 
   const display = productPresentation(product)
   const recommendations = getRecommendations(storefrontProducts(allProducts, debug || demo), product, demo)
   const heroImage = catalogImage((await withValidImages([product]))[0])
+  if (!heroImage && !demo && !debug) notFound()
 
   return (
     <main className="productPage">
@@ -72,6 +73,14 @@ export default async function ProductPage({ params, searchParams }: PageParams) 
           <p className="productSubtitle">{display.subtitle}</p>
           {isExternallyConfirmedPopular(product.trade.sku) && <p className="popularityNote">{POPULARITY_NOTE}</p>}
           <Link className="productBack" href={backHref}>← Каталог</Link>
+          {!demo && <section className="productPurchase" aria-label="Цена и наличие">
+            <p className="productPrice">{(product.trade.price ?? 0) > 0
+              ? new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(product.trade.price!)
+              : 'Цена не указана'}</p>
+            <p className="stockState">{product.trade.stock === null ? 'Наличие не указано' : product.trade.stock >= 1 ? 'В наличии по данным каталога' : 'Нет в наличии'}</p>
+            {catalogSource() === 'staged-1c' && (product.trade.price ?? 0) > 0 && (product.trade.stock ?? 0) >= 1 && <AddToCartButton sku={product.trade.sku} />}
+            <p className="notice">Заявка без онлайн-оплаты и резерва. Наличие требует подтверждения.</p>
+          </section>}
           <div className="productChips">
             {product.editorial.scentFamily && <span>Характер: {labelFor(familyLabels, product.editorial.scentFamily)}</span>}
             {product.editorial.mood && <span>Настроение: {labelFor(moodLabels, product.editorial.mood)}</span>}
@@ -96,18 +105,13 @@ export default async function ProductPage({ params, searchParams }: PageParams) 
               ))}
             </dl>
           </details>
-          {catalogSource() === 'staged-1c' && (product.trade.price ?? 0) > 0 && (product.trade.stock ?? 0) >= 1 && <div>
-            <p>{new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(product.trade.price!)}</p>
-            <AddToCartButton sku={product.trade.sku} />
-            <p className="notice">Заявка без онлайн-оплаты. Наличие требует подтверждения.</p>
-          </div>}
           {debug && <p className="productDiagnostic">PREVIEW 1C · Доступна заявка без оплаты и резерва.</p>}
         </div>
       </div>
       {recommendations.length > 0 && (
         <section className="recommendations">
           <span className="eyebrow">Рекомендации</span>
-          <h2>Похожий характер аромата</h2>
+          <h2>Вам также может понравиться</h2>
           <div className="products">
             {recommendations.map((item, index) => (
               <ProductCard product={item} index={index} demo={demo} debug={debug} key={item.id} />

@@ -1,3 +1,5 @@
+import { storefrontProducts } from '../../src/catalog/presentation'
+import { withValidImages } from '../../src/catalog/validImages'
 import { catalogSource, getCatalogRepository } from '../../src/catalog/source'
 
 import type { Metadata } from 'next'
@@ -14,8 +16,8 @@ export const metadata: Metadata = {
 }
 
 export default async function FinderPage() {
-  const products = await (await getCatalogRepository()).list()
   const demo = catalogSource() === 'demo'
+  const products = storefrontProducts(await withValidImages(await (await getCatalogRepository()).list()), demo)
   return (
     <main>
       <SiteHeader />

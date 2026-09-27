@@ -1,3 +1,4 @@
+import { withValidImages } from '../../src/catalog/validImages'
 import { catalogSource, getCatalogRepository } from '../../src/catalog/source'
 
 import type { Metadata } from 'next'
@@ -14,7 +15,7 @@ export const metadata: Metadata = {
 }
 
 export default async function CartPage() {
-  const products = await (await getCatalogRepository()).list()
+  const products = await withValidImages(await (await getCatalogRepository()).list())
   const demo = catalogSource() === 'demo'
   return (
     <main>

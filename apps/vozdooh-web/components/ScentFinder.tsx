@@ -1,5 +1,6 @@
 'use client'
 
+import { availableFilterOptions } from '../src/catalog/filters'
 import type { CatalogProduct } from '../src/catalog/contracts'
 
 import Link from 'next/link'
@@ -20,7 +21,7 @@ const groups: { key: GroupKey; step: string; title: string; options: Record<stri
 export function ScentFinder({ products, demo }: { products: CatalogProduct[]; demo: boolean }) {
   const [selection, setSelection] = useState<Selection>({ family: null, mood: null, room: null, category: null })
 
-  const visibleGroups = groups.map((group) => group.key === 'category' && !demo ? { ...group, options: Object.fromEntries(products.map((product) => [product.trade.category, product.trade.category])) } : group)
+  const visibleGroups = groups.map((group) => group.key === 'category' && !demo ? { ...group, options: Object.fromEntries(products.map((product) => [product.trade.category, product.trade.category])) } : group).map((group) => ({ ...group, options: Object.fromEntries(availableFilterOptions(products, group.key, group.options).map(({ value, label }) => [value, label])) })).filter((group) => Object.keys(group.options).length > 0)
 
   const matched = useMemo(
     () => products.filter((product) => {
@@ -70,7 +71,7 @@ export function ScentFinder({ products, demo }: { products: CatalogProduct[]; de
 
       <div className="quizResult">
         <p>
-          {!demo ? `Найдено позиций предпросмотра: ${matched.length}.` : matched.length > 0
+          {!demo ? `Найдено товаров: ${matched.length}.` : matched.length > 0
             ? `Под выбранные критерии сейчас попадает ${matched.length} демонстрационных позиций.`
             : 'Под выбранные критерии демонстрационных позиций нет — попробуйте смягчить условия.'}
         </p>

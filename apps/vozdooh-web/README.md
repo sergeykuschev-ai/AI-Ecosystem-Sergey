@@ -208,6 +208,21 @@ See [private preview reliability](RELIABILITY.md) for strict staged-converter
 validation, audit/retry recovery, checkout receipt checks and the dated
 price-only provenance review of the frozen-research hash discrepancy.
 `VOZDOOH_ISOLATED_BUILD=true npm run verify` uses `.next-verify` and runs the full
-tests, typecheck, lint and build. Use it only when the preview serves `.next`.
-After the 2026-09-26 refresh, the preview serves `.next-verify`; use plain
-`npm run verify` to build into inactive `.next`. Never rebuild the active output.
+tests, typecheck, lint and build. For the current storefront work, use this isolated
+command only; preserve the live `.next` output. Do not switch or restart the live
+preview as part of UI verification.
+
+### Product and request UI verification
+
+The product page puts the staged price, stock state and request/cart action before reviewed editorial content. Public product pages without a verified local image return 404; the existing explicit internal preview remains available. Catalog and finder choices use values present in visible products and the existing editorial vocabulary. URL filters and demand ordering are preserved. Cart thumbnails use validated local assets. Pickup hides the disabled address field; request persistence, validation, consent text and retry keys are unchanged.
+
+Optional browser regression (requires an existing Playwright installation and a loopback preview started from the isolated build):
+
+```sh
+PLAYWRIGHT_MODULE=/path/to/playwright \
+PLAYWRIGHT_BROWSERS_PATH=/path/to/browser-cache \
+VOZDOOH_QA_URL=http://127.0.0.1:3427 \
+node scripts/storefront-smoke.cjs
+```
+
+This checks all eight storefront routes at 320, 390, 430 and 1440 CSS pixels, URL filter navigation, cart quantity changes, pickup/courier fields, consent and retry payload stability. It intercepts every order-request call and returns a synthetic failure, so it never creates an order request. Use a staged preview with at least one purchasable pictured product. Chromium viewport emulation is not a substitute for physical iPhone/Safari testing.

@@ -1,6 +1,8 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
+import { catalogImage, productPresentation } from '../src/catalog/presentation'
 import { useMemo, useSyncExternalStore } from 'react'
 import { clearCart, getCartSnapshot, getServerCartSnapshot, setLineQuantity, subscribeCart } from '../src/cart/storage'
 import type { CatalogProduct } from '../src/catalog/contracts'
@@ -38,10 +40,11 @@ export function CartView({ products, demo }: { products: CatalogProduct[]; demo:
             {rows.map(({ line, product }) => (
               <div className="cartRow" key={line.sku}>
                 {product ? (
-                  <Link className="cartRowVisual" href={`/catalog/${product.editorial.slug}`}>{demo ? 'DEMO' : 'PREVIEW 1C'}</Link>
+                  <Link className="cartRowVisual" href={`/catalog/${product.editorial.slug}`}>{catalogImage(product) ? <Image src={catalogImage(product)!} alt={product.trade.name} fill sizes="90px" /> : <span>{demo ? 'DEMO' : 'Фото отсутствует'}</span>}</Link>
                 ) : <span className="cartRowVisual">Нет в каталоге</span>}
                 <div>
-                  <h3>{product?.trade.name ?? 'Позиция отсутствует в текущем каталоге'}</h3>
+                  <h3>{product ? <Link href={`/catalog/${product.editorial.slug}`}>{productPresentation(product).title}</Link> : 'Позиция отсутствует в текущем каталоге'}</h3>
+                  {product && <p className="cartProductMeta">{product.trade.brand} · {productPresentation(product).subtitle}</p>}
                   <small>SKU: {line.sku} · {product?.trade.price == null ? 'цена не указана' : `${product.trade.price} ₽`}</small>
                   <div>
                     <button type="button" className="removeButton" onClick={() => setLineQuantity(line.sku, 0)}>
@@ -63,7 +66,7 @@ export function CartView({ products, demo }: { products: CatalogProduct[]; demo:
           <span className="eyebrow">Итог</span>
           <h2>Заявка на заказ</h2>
           <p>{demo ? 'Корзина работает в демонстрационном режиме и хранится только в вашем браузере. Цены, наличие и стоимость доставки появятся после синхронизации с 1С — до этого заказы не создаются.' : 'Проверьте товары и отправьте заявку для ручной обработки. Оплата не подключена; наличие и получение требуют подтверждения.'}</p>
-          <Link className="primary" href="/checkout">Перейти к оформлению</Link>
+          <Link className="primary" href="/checkout">Оформить заявку</Link>
           <p className="cartAsideBack"><Link className="textLink" href="/catalog">← Продолжить покупки</Link></p>
         </aside>
       </section>
