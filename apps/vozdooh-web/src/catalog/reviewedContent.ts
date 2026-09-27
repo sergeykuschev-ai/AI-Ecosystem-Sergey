@@ -133,6 +133,11 @@ const displayTitles: Record<string, { name: string; brand: string; title: string
     "name": "Decor Limited Lambordhini диффузор 1000 мл",
     "brand": "CULTI MILANO",
     "title": "Automobili Lamborghini"
+  },
+  "344565": {
+    "name": "Ladenac room spray Lui&Lei black gold",
+    "brand": "Ladenac Milano",
+    "title": "Jet Lag Black Gold"
   }
 }
 

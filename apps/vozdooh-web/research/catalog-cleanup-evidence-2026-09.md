@@ -177,3 +177,16 @@ Evidence:
 
 Evidence:
 - https://profumixluxurybrands.it/en/brands/teatro-fragranze-uniche-cappelliera-oro-stick-250ml-refill-250ml/
+
+## 2026-09-27 — Ladenac Lui&Lei Jet Lag Black Gold recovery
+
+- SKU 344565: staged 1C name is Ladenac room spray Lui&Lei black gold, barcode 8411299003023, stock 1.
+- The TSUM product page is an exact match for Спрей для дома Jet lag Black gold (125ml) Ladenac Milano; its page source also contains staged barcode 8411299003023. The exact product photograph is now stored locally as /catalog/official/344565.jpg.
+- LeMa Aroma's public catalog independently lists JET LAG BLACK GOLD спрей 125мл. Lui&Lei LADENAC.
+- KOKU's exact 125 ml Jet Lag room-spray page describes the older black/gold presentation and cedar/tobacco scent. This is used only for the product description, not for price or stock.
+- Current Ladenac pages show the later redesigned 200 ml Lui&Lei line; those current 200 ml details are not applied to this archived 125 ml SKU.
+
+Evidence:
+- https://www.tsum.ru/product/he00855745-sprei-dlya-doma-jet-lag-black-gold-125ml-ladenac-milano-bestcvetnyi/
+- https://lemaaroma.com/karta-sajta/
+- https://www.koku.pl/ladenac-lui-lei-jet-lag-spray-domowy-125ml-w-opakowaniu-prezentowym
