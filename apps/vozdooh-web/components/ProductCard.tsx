@@ -26,6 +26,7 @@ export function ProductCard({ product, index = 0, demo = false, debug = false, f
         <h3>{display.title}</h3>
         {display.russianTitle && <p className="productTranslation">{display.russianTitle}</p>}
         <p>{display.subtitle}</p>
+        {!demo && (product.trade.price ?? 0) > 0 && <p className="productCardPrice">{new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(product.trade.price!)}</p>}
       </div>
     </Link>
   )

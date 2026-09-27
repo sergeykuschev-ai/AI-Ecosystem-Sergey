@@ -7,7 +7,7 @@ import { ProductCard } from '../../../components/ProductCard'
 import { SiteFooter } from '../../../components/SiteFooter'
 import { SiteHeader } from '../../../components/SiteHeader'
 import { labelFor, familyLabels, moodLabels, roomLabels } from '../../../src/catalog/vocabulary'
-import { catalogImage, isDebugCatalog, productPresentation, storefrontProducts } from '../../../src/catalog/presentation'
+import { catalogImage, isDebugCatalog, productPresentation, storefrontProducts, sameBrandProducts } from '../../../src/catalog/presentation'
 import { isExternallyConfirmedPopular, POPULARITY_NOTE } from '../../../src/catalog/demandPriority'
 import { withValidImages } from '../../../src/catalog/validImages'
 import { catalogHref, parseCatalogFilters, type RawSearchParams } from '../../../src/catalog/filterParams'
@@ -51,6 +51,7 @@ export default async function ProductPage({ params, searchParams }: PageParams) 
   const categoryLanding = categoryLandings.find((item) => item.name === product.trade.category)
   const display = productPresentation(product)
   const recommendations = getRecommendations(storefrontProducts(allProducts, debug || demo), product, demo)
+  const brandProducts = demo ? [] : sameBrandProducts(allProducts, product)
   const heroImage = catalogImage((await withValidImages([product]))[0])
   if (!heroImage && !demo && !debug) notFound()
 
@@ -118,6 +119,14 @@ export default async function ProductPage({ params, searchParams }: PageParams) 
             ))}
           </div>
           <p className="backToCatalog"><Link className="textLink" href="/catalog">← Вернуться в каталог</Link></p>
+        </section>
+      )}
+      {brandProducts.length > 0 && (
+        <section className="recommendations" aria-labelledby="same-brand-heading">
+          <h2 id="same-brand-heading">Ещё из бренда</h2>
+          <div className="products">
+            {brandProducts.map((item, index) => <ProductCard product={item} index={index} key={item.id} />)}
+          </div>
         </section>
       )}
       <SiteFooter />

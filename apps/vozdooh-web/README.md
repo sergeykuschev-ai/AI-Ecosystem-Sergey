@@ -225,4 +225,18 @@ VOZDOOH_QA_URL=http://127.0.0.1:3427 \
 node scripts/storefront-smoke.cjs
 ```
 
-This checks all eight storefront routes at 320, 390, 430 and 1440 CSS pixels, URL filter navigation, cart quantity changes, pickup/courier fields, consent and retry payload stability. It intercepts every order-request call and returns a synthetic failure, so it never creates an order request. Use a staged preview with at least one purchasable pictured product. Chromium viewport emulation is not a substitute for physical iPhone/Safari testing.
+This checks all eight storefront routes at 320, 390, 430 and 1440 CSS pixels, URL filter navigation, cart quantity changes, pickup/courier fields, consent and retry payload stability. It intercepts every order-request call and returns a synthetic failure, so it never creates an order request. The smoke test also checks card prices and text geometry, absence of debug labels, and mutually exclusive editorial/brand sections. Use a staged preview with positive-priced pictured products and examples of both cross-sell sections. Chromium viewport emulation is not a substitute for physical iPhone/Safari testing.
+
+### Read-only launch content audit
+
+From `apps/vozdooh-web`, run:
+
+```sh
+node scripts/catalog-quality.cjs /opt/vozdooh/data/catalog-staged.json
+# Include every rendered title/subtitle and its source for manual review:
+node scripts/catalog-quality.cjs /opt/vozdooh/data/catalog-staged.json --titles
+```
+
+The audit uses the storefront's staged adapter, reviewed editorial content and local image validation. It reports visible products, optional editorial gaps, missing trade volume, explicit recommendation coverage, positive prices, verified images and mechanical title/subtitle flags. Flags require review; missing optional content may be inapplicable and is never inferred. The script does not write catalog data.
+
+Cards show positive current trade prices in RUB without discounts. Product pages retain explicit editorial recommendations; only products without explicit links can show a separate “Ещё из бренда” section (up to three visible, pictured, in-stock products of the exact same brand in catalog order). This is brand navigation, not scent similarity or compatibility advice.

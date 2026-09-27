@@ -16,7 +16,30 @@ async function main() {
       await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ code: 'UNAVAILABLE' }) })
     })
     await page.goto(base + '/catalog', { waitUntil: 'networkidle' })
-    const productHref = await page.locator('.catalogGrid .productCard').first().getAttribute('href')
+    const catalogCards = await page.locator('.catalogGrid .productCard').evaluateAll((cards) => cards.map((card) => ({ href: card.getAttribute('href'), price: card.querySelector('.productCardPrice')?.textContent })))
+    assert.ok(catalogCards.length > 0)
+    assert.ok(catalogCards.every((card) => /₽/.test(card.price)), 'Every staged card has a positive RUB price')
+    // Cover both section modes with the actual staged catalog; never submit requests.
+    let explicit = 0, fallback = 0
+    for (const card of catalogCards) {
+      await page.goto(base + card.href, { waitUntil: 'domcontentloaded' })
+      const brandSection = page.locator('section[aria-labelledby="same-brand-heading"]')
+      const editorialHeading = page.getByRole('heading', { name: 'Вам также может понравиться', exact: true })
+      const hasBrand = await brandSection.count()
+      const hasEditorial = await editorialHeading.count()
+      assert.ok(!(hasBrand && hasEditorial), 'Never mix editorial recommendations and brand navigation')
+      if (hasBrand) {
+        fallback++
+        assert.equal(await brandSection.locator('h2').innerText(), 'Ещё из бренда')
+        assert.ok(await brandSection.locator('.productCard').count() <= 3)
+        const brand = await page.locator('.productInfo > .eyebrow').innerText()
+        assert.ok((await brandSection.locator('.productCardMeta > span:first-child').allInnerTexts()).every((value) => value === brand))
+      }
+      if (hasEditorial) explicit++
+      if (explicit && fallback) break
+    }
+    assert.ok(explicit && fallback, 'Staged QA covers explicit and same-brand sections')
+    const productHref = catalogCards[0].href
     assert.ok(productHref)
     await page.goto(base + productHref, { waitUntil: 'networkidle' })
     await page.getByRole('button', { name: 'Добавить в корзину', exact: true }).click()
@@ -57,6 +80,16 @@ async function main() {
         assert.equal(response.status(), 200, route)
         assert.match(response.headers()['x-robots-tag'], /noindex/)
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${route} overflows at ${width}`)
+        assert.doesNotMatch(await page.locator('body').innerText(), /PREVIEW 1C|DEMO|Фото ожидается|debugCatalog|demandRank|demand_score/)
+        assert.ok(await page.locator('.productCard').evaluateAll((cards) => cards.every((card) => {
+          const nodes = [...card.querySelector('.productCardMeta').children]
+          return nodes.every((node, index) => {
+            const rect = node.getBoundingClientRect()
+            const previous = index ? nodes[index - 1].getBoundingClientRect() : null
+            return rect.width > 0 && rect.height > 0 && (!previous || rect.top >= previous.bottom - 1) && node.scrollWidth <= node.clientWidth + 1
+          })
+        })), `${route} card text overlaps or overflows at ${width}`)
+        if (route === productHref) assert.ok(await page.locator('.productPrice').isVisible())
         if (route === '/catalog') {
           await page.locator('.filterDisclosure summary').click()
           assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
@@ -75,7 +108,7 @@ async function main() {
     await page.getByRole('link', { name: '← Каталог', exact: true }).click()
     assert.equal(new URL(page.url()).searchParams.get('brand'), value)
     assert.deepEqual(errors, [])
-    console.log('PASS: 32 route/viewport checks, filters and URL round-trip, cart quantities, consent, pickup/courier, retry payload, noindex; all request writes intercepted.')
+    console.log('PASS: 32 route/viewport checks, card prices/text geometry, cross-sell headings, no debug labels, filters and URL round-trip, cart quantities, consent, pickup/courier, retry payload, noindex; all request writes intercepted.')
   } finally { await browser.close() }
 }
 main().catch((error) => { console.error(error); process.exitCode = 1 })

@@ -186,3 +186,62 @@ test('filter options use supplied catalog data and reviewed vocabulary without c
   assert.deepEqual(parsed, { ...filters, category: 'Диффузоры' })
   assert.deepEqual(applyCatalogFilters(items, { ...filters, family: null }), items)
 })
+
+test('cleanup preserves whole words and accessory object phrases', () => {
+  for (const color of ['Черные', 'Натуральные']) for (const [count, length, volume] of [[10, 30, 250], [12, 36, 500]]) {
+    const text = `Бокс №${count} ${color} бамбуковые палочки ${length}см для диффузора ${volume}мл`
+    const item = product(`TEATRO ${text}`)
+    item.trade.category = 'Аксессуары'
+    assert.equal(productPresentation(item).title, text)
+    assert.equal(productPresentation(item).subtitle, 'Аксессуары')
+  }
+  for (const [name, brand, expected] of [
+    ['Керамическая ваза для аромапопурри Christian Tortu', 'Christian Tortu', 'Керамическая ваза для аромапопурри'],
+    ['Чехол для диффузора', null, 'Чехол для диффузора'],
+    ['Супердиффузор и аромадиффузорный', null, 'Супердиффузор и аромадиффузорный'],
+    ['Диффузор,  TEST  250 мл.', null, 'TEST'],
+  ]) assert.equal(productPresentation(product(name, brand)).title, expected)
+})
+
+test('brand navigation is exact, stocked, pictured, ordered and never supplements editorial links', () => {
+  const { sameBrandProducts } = require('../src/catalog/presentation.ts')
+  const make = (sku, brand = 'Exact') => ({ ...product(sku, brand), id: sku, isActive: true,
+    trade: { ...product(sku, brand).trade, sku, stock: 1 }, editorial: { ...product(sku).editorial, slug: sku, recommendations: [] } })
+  const current = make('current')
+  const items = ['z', 'c', 'a', 'b'].map((sku) => make(sku))
+  const noImage = make('no-image'); noImage.editorial.images = []
+  const noStock = make('no-stock'); noStock.trade.stock = 0
+  const inactive = make('inactive'); inactive.isActive = false
+  const input = [current, ...items, noImage, noStock, inactive, make('different', 'exact')]
+  const before = structuredClone(input)
+  assert.deepEqual(sameBrandProducts(input, current).map((p) => p.id), ['a', 'b', 'c'])
+  assert.deepEqual(input, before)
+  current.editorial.recommendations = ['unavailable-target']
+  assert.deepEqual(sameBrandProducts(input, current), [])
+  current.editorial.recommendations = []; current.trade.brand = null
+  assert.deepEqual(sameBrandProducts(input, current), [])
+  assert.deepEqual(sameBrandProducts([], make('only')), [])
+})
+
+test('cards show exact positive RUB prices and suppress missing/nonpositive/demo prices', () => {
+  const { renderToStaticMarkup } = require('react-dom/server')
+  const { ProductCard } = require('../components/ProductCard.tsx')
+  const item = product('Synthetic'); item.editorial.slug = 'synthetic'
+  for (const price of [1, 1234.56, 1000000]) {
+    item.trade.price = price
+    const html = renderToStaticMarkup(ProductCard({ product: item }))
+    assert.ok(html.includes(new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(price)))
+    assert.match(html, /productCardPrice/)
+    assert.doesNotMatch(renderToStaticMarkup(ProductCard({ product: item, demo: true })), /productCardPrice/)
+  }
+  for (const price of [null, 0, -1]) {
+    item.trade.price = price
+    assert.doesNotMatch(renderToStaticMarkup(ProductCard({ product: item })), /productCardPrice/)
+  }
+})
+
+test('quality audit flags mechanical anomalies without altering text', () => {
+  const { titleAnomalies } = require('../scripts/catalog-quality.cjs')
+  for (const text of ['Бокс для а', 'Ваза для', 'Текст,', 'Два  пробела']) assert.ok(titleAnomalies(text).length)
+  for (const text of ['Ваза для аромапопурри', 'Диффузоры · 250 мл', 'В пустыне']) assert.deepEqual(titleAnomalies(text), [])
+})

@@ -58,9 +58,12 @@ export function productPresentation(product: CatalogProduct) {
   }
   title = title
     .replace(/^Hydro\s*\/\s*концентрат для арома лампы\s*/i, '')
-    .replace(/(?:диффузор с палочками|рефилл? для (?:заправки )?диффузора|спрей для дома|аромадиффузор|ароматическая свеча|свеча (?:большая|маленькая|средняя)|сменный аромат для аромапопурри|сменный аромат|аромапопурри|ароматизатор воздуха|ароматическое саше|диффузор|room spray)/gi, '')
-    .replace(/кар?тридж\s+[aа]g/gi, '')
-    .replace(/\d+(?:[.,]\d+)?\s*(?:мл|ml|гр|г)(?=\s|[.,/]|$)/gi, '')
+    .replace(/(?<![\p{L}\p{N}_])(?:диффузор с палочками|рефилл? для (?:заправки )?диффузора|спрей для дома|аромадиффузор|ароматическая свеча|свеча (?:большая|маленькая|средняя)|сменный аромат для аромапопурри|сменный аромат|аромапопурри|ароматизатор воздуха|ароматическое саше|диффузор|room spray)(?![\p{L}\p{N}_])/giu, (match, offset, source) => {
+      // A type following a preposition describes the object, not redundant packaging.
+      return /(?:^|\s)(?:для|с|со|в|во|из|на)\s+$/iu.test(source.slice(0, offset)) ? match : ''
+    })
+    .replace(/(?<![\p{L}\p{N}_])кар?тридж\s+[aа]g(?![\p{L}\p{N}_])/giu, '')
+    .replace(/(?<![\p{L}\p{N}_])\d+(?:[.,]\d+)?\s*(?:мл|ml|гр|г)(?=\s|[.,/]|$)/giu, (match) => category === 'Аксессуары' ? match : '')
     .replace(/[,\s]*(?:пласт\.|пластик|ТМ)\s*$/gi, '')
     .replace(/^[\s/,]+|[\s/,.]+$/g, '')
     .replace(/\s+/g, ' ')
@@ -73,4 +76,14 @@ export function productPresentation(product: CatalogProduct) {
     russianTitle: translation?.russian ?? null,
     subtitle: [labelFor(categoryLabels, category), category === 'Аксессуары' ? null : volume ?? name.match(/\d+(?:[.,]\d+)?\s*ml\b/i)?.[0]].filter(Boolean).join(' · '),
   }
+}
+
+/** Navigation by exact trade brand only; never a fragrance or compatibility claim.
+ * Call with image-validated catalog records. Explicit editorial links suppress fallback,
+ * including when their targets are unavailable.
+ */
+export function sameBrandProducts(products: readonly CatalogProduct[], product: CatalogProduct): CatalogProduct[] {
+  if (!product.trade.brand || product.editorial.recommendations.length > 0) return []
+  return storefrontProducts(products).filter((item) => item.isActive && item.id !== product.id &&
+    item.trade.brand === product.trade.brand && (item.trade.stock ?? 0) > 0).slice(0, 3)
 }

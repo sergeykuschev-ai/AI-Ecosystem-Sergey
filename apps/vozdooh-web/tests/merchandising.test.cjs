@@ -72,7 +72,7 @@ test('default ordering prefers verified priorities, stays deterministic and pric
   assert.deepEqual(storefrontProducts([rankedA, rankedB]).map((p) => p.trade.sku), ['802e8ae5-d19b-11ec-be83-7c8bca00854e', 'DV250TFU'])
 })
 
-test('price stays unpublished: merchandising and cards never render trade.price', () => {
+test('price changes only the price label, not merchandising or popularity', () => {
   const { renderToStaticMarkup } = require('react-dom/server')
   const { ProductCard } = require('../components/ProductCard.tsx')
   const priced = product('LO250TFU', 'TEATRO Fragranze Uniche')
@@ -89,8 +89,10 @@ test('price stays unpublished: merchandising and cards never render trade.price'
   cheap.trade.price = 1
   const expensive = renderToStaticMarkup(ProductCard({ product: priced }))
   const inexpensive = renderToStaticMarkup(ProductCard({ product: cheap }))
-  assert.equal(expensive, inexpensive)
-  assert.doesNotMatch(expensive, /123456|500000|₽|руб/i)
+  const withoutPrice = (html) => html.replace(/<p class="productCardPrice">[^<]*<\/p>/, '')
+  assert.equal(withoutPrice(expensive), withoutPrice(inexpensive))
+  assert.ok(expensive.includes(new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(123456)))
+  assert.deepEqual(storefrontProducts([priced]).map((p) => p.id), storefrontProducts([cheap]).map((p) => p.id))
 })
 
 test('popularity badge appears only on externally confirmed cards, never for Thé', () => {
