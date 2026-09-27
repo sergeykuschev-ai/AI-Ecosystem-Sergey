@@ -14,6 +14,7 @@ import { catalogHref, parseCatalogFilters, type RawSearchParams } from '../../..
 import { brandLandings, categoryLandings, landingPath } from '../../../src/catalog/landings'
 import { collectionPath, collectionsForProduct } from '../../../src/catalog/collections'
 import { getRecommendations } from '../../../src/catalog/filters'
+import { productStructuredData, serializeStructuredData } from '../../../src/catalog/structuredData'
 
 import { catalogSource, getCatalogRepository } from '../../../src/catalog/source'
 
@@ -56,11 +57,16 @@ export default async function ProductPage({ params, searchParams }: PageParams) 
   const recommendations = getRecommendations(storefrontProducts(allProducts, debug || demo), product, demo)
   const brandProducts = demo ? [] : sameBrandProducts(allProducts, product)
   const productCollections = demo ? [] : collectionsForProduct(product)
+  const hasScentProfile = Boolean(product.editorial.scentFamily || product.editorial.mood || product.editorial.room)
   const heroImage = catalogImage((await withValidImages([product]))[0])
   if (!heroImage && !demo && !debug) notFound()
+  const structuredData = !demo && !debug && heroImage
+    ? serializeStructuredData(productStructuredData(product, heroImage))
+    : null
 
   return (
     <main className="productPage">
+      {structuredData && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: structuredData }} />}
       <SiteHeader />
       <div className="productLayout">
         <div className={`productHeroPlaceholder${heroImage ? ' hasImage' : ''}`}>
@@ -108,10 +114,10 @@ export default async function ProductPage({ params, searchParams }: PageParams) 
       </div>
 
       {(product.editorial.description || product.editorial.scentFamily || product.editorial.mood || product.editorial.room || brandLanding?.story) && (
-        <section className="productEditorial" aria-label="История и характер товара">
+        <section className="productEditorial" aria-label={hasScentProfile ? 'История и характер товара' : 'История и детали товара'}>
           <div className="productComposition">
-            <span className="eyebrow">Композиция</span>
-            <h2>Характер аромата</h2>
+            <span className="eyebrow">{hasScentProfile ? 'Композиция' : 'О товаре'}</span>
+            <h2>{hasScentProfile ? 'Характер аромата' : 'Детали продукта'}</h2>
             {product.editorial.description && <p className="productDesc">{product.editorial.description}</p>}
             <div className="productProfileGrid">
               {product.editorial.scentFamily && <div><small>Характер</small><strong>{labelFor(familyLabels, product.editorial.scentFamily)}</strong></div>}
