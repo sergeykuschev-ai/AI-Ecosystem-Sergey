@@ -92,8 +92,19 @@ Decor and Stile must remain separately selectable.
 
 Sergey/supplier decisions still needed: resolve the physical identities and
 specifications above; supply/authorize exact imagery; confirm cartridge models;
-and approve production domain/indexing and any future commerce launch. Checkout,
-payments and order submission remain disabled. No procurement recommendation.
+and approve public indexing and any future production commerce launch. The private
+preview domain is now `vozdooh27.ru`; staged-1c accepts local requests for manual
+handling under the [request contract](../src/integrations/order-requests.md). Payments,
+reservations and live 1C writeback remain disabled. No procurement recommendation.
 
 Implementation and environment verification are recorded separately in
 [catalog cleanup QA](catalog-cleanup-qa-2026-09.md).
+
+## Recheck — 27 September 2026
+
+All 12 exact-image blockers and five unknown brands remain unresolved. The
+[evidence supplement](catalog-cleanup-evidence-2026-09.md#exact-identity-recheck--27-september-2026)
+records the new manufacturer-page limitations and separate 150 ml cleaning
+cartridge corroboration. None establishes an exact stock-package image or a new
+brand binding. Collections copy and finder metadata were corrected without
+changing catalog facts, merchandising, homepage structure or noindex protections.

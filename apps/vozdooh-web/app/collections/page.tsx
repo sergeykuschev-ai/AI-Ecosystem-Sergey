@@ -5,7 +5,7 @@ import { SiteHeader } from '../../components/SiteHeader'
 
 export const metadata: Metadata = {
   title: 'Коллекции — VOZDOOH',
-  description: 'Редакционные коллекции VOZDOOH. Подборки появятся после согласования контента и не зависят от данных 1С.',
+  description: 'Редакционные коллекции VOZDOOH. Подборки готовятся; доступные товары можно посмотреть в каталоге.',
   robots: { index: false, follow: false },
 }
 
@@ -16,11 +16,11 @@ export default function CollectionsPage() {
       <section className="simpleSection">
         <span className="eyebrow">Коллекции</span>
         <h1>Подборки с характером</h1>
-        <p>Коллекции — редакционный формат: они собираются вручную вокруг настроения, сезона или пространства и никогда не генерируются из учётной системы. До появления реальных товаров здесь будет только структура.</p>
+        <p>Коллекции — подборки вокруг настроения, сезона или пространства. Пока они готовятся, можно выбрать товары в каталоге по бренду и формату.</p>
         <div className="placeholderPanel">
-          <strong>EDITORIAL COLLECTIONS</strong>
-          <p>Первые подборки появятся вместе с реальным каталогом и согласованным контентом.</p>
-          <Link className="primary" href="/catalog">Смотреть структуру каталога</Link>
+          <strong>Подборки готовятся</strong>
+          <p>Товары, описания и доступные характеристики уже представлены в каталоге.</p>
+          <Link className="primary" href="/catalog">Перейти в каталог</Link>
         </div>
       </section>
       <SiteFooter />

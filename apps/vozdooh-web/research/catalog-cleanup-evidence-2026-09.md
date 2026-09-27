@@ -67,3 +67,67 @@ TEATRO accessory searches (`BAST500NTFU`, brand + sticks + 36/500) did not indep
 The 12 brand pages and 10 category pages describe only the pictured, positive-stock inventory. Names, formats and collection examples come from existing staged presentation and this review, not invented brand histories. Specific DANHERA notes already have exact-article evidence in the demand research; CULTI variants and Millefiori format are linked above. No external claims about founding dates, manufacturing quality, sales, reviews or brand prestige were added.
 
 Discovery and cross-links are generated from available products, including the existing demand order. Unknown or empty slugs return 404. WoodWick has no discovery tile while its only stock item remains image/identity-blocked. Metadata uses relative canonicals resolved through the existing `NEXT_PUBLIC_SITE_URL`; a production domain and removal of global noindex/robots blocking require launch approval.
+
+## Exact-identity recheck — 27 September 2026
+
+Rechecked all 12 image blockers and all five unknown brands. Manufacturer pages
+were checked first where a manufacturer is known; unbranded internal articles
+cannot select an authoritative manufacturer by themselves. Exact-article searches
+and the earlier retailer candidates were used only to seek corroboration. No
+image, brand, fragrance, specification or SKU mapping was added. Search misses
+are not evidence of absence. Direct-open failures below mean the browser tool
+could not retrieve the page, not that the product has been discontinued.
+
+### New evidence and limitations
+
+- [Official Ladenac Home Fragrance Jet Lag 200ml](https://www.ladenac.com/en/home-fragrance-jet-lag-200ml), opened: the current page describes black/silver styling and reed-diffuser packaging despite the Home Fragrance title. It does not bind internal `344565` or establish the older black/gold spray. This makes transfer of the current photo or format particularly unsafe; no new scent copy is justified.
+- [Official TEATRO Xmas diffuser](https://teatrofragranzeuniche.it/it/xmas-diffusore-con-bastoncini), opened: identifies a separate reed diffuser. Neither this page nor exact `CAPP-XMTFU` searches establish the hat-box contents or photograph. A fragrance page cannot establish a seasonal set's composition.
+- [Megadez price list](https://megadez.pro/price-list/), opened: separately lists AG cleaning liquid 110 ml and a cleaning cartridge 150 ml. This adds corroboration for the existence of the 150 ml format beyond the previous 110 ml candidate. Neither row supplies our article, a label, a package photo or reuse authorization; it does not resolve either service-liquid SKU. No retailer price is transferred.
+- [Manufacturer SPA 200 instructions](https://aroma-group.ru/upload/iblock/785/ozxdjwspa685gqaf87txkuk4e4p0fzj2/Instruktsiya-dlya-apparata-SPA-200.pdf) surfaced in search with cleaning instructions; direct open failed. The manufacturer homepage also failed to open. Indexed operating instructions do not identify these stock cartridges, and no compatibility was inferred.
+- [AROMAgroup representative fragrance catalog](https://aroma-group.by/aromaty/), opened: Salami remains a fragrance-level entry, not a labeled 100 ml cartridge. A text search did not find Noble Leather. A [third-party presentation mirror](https://ppt-online.org/435794) surfaced Noble Leather, but its provenance/version and exact SKU binding are unverified; rejected as a basis for customer copy. No notes were copied.
+
+### Per-SKU disposition
+
+| SKU | Recheck and exact remaining blocker |
+|---|---|
+| `98049E` | [Official WoodWick page](https://www.yankeecandle.co.uk/woodwick/candles/shop-by-type/mini-jars/coastal-sunset-candle/SAP_98049E_PR.html) opened again: Coastal Sunset, 85 g, article 98049E. Still conflicts with source Spiced Blackberry. Physical label required before choosing either image or scent. |
+| `9a227639-b1a0-11ed-a1a3-7c8bca00854e` | Manufacturer service documentation sought first; Megadez list corroborates 110 ml only at format level. Exact package/model/label and authorized image remain missing. Earlier Megadez product-page open failed. |
+| `4356` | Manufacturer documentation then Megadez list checked. New 150 ml format corroboration does not bind internal 4356 to a package/model or exact photograph. Remains blocked; no transfer from 110 ml. |
+| `445445` | Exact `445445 microUSB`, `445445 адаптер` and manufacturer-domain `site:rexant.ru 445445` searches yielded no usable exact match. The prior Rexant candidate is still not an article match. Brand, ratings, compatibility and image require the physical label. |
+| `1113` | Exact article with палочки/ротанговые/1000 searches returned no usable manufacturer identity. The bottle designation does not establish brand, dimensions, count or image. |
+| `121211` | Exact article with палочки/ротанговые searches returned no usable identity. Remains distinct from 1113; brand, dimensions, count and photograph require label evidence. |
+| `N020486` | Exact article, палочки and `site:lothantique.com N020486` searches yielded no relevant manufacturer binding. Earlier Milfey candidate could not be opened. Neither count nor an unrelated article-number collision establishes brand, dimensions or photo. |
+| `344565` | Official Ladenac page above and exact internal-article search do not bind the black/gold spray. Current styling/format text cannot resolve the older physical variant; label showing fragrance, volume and generation required. |
+| `045850b2-9e1f-11ee-b408-d069cd63062f` | Manufacturer-domain Salami search, then representative catalog and `AROMAgroup Салями 100` search: only fragrance-level support. Exact cartridge package/model and authorized image remain missing. |
+| `CAPP-XMTFU` | Official Xmas page and exact article/hat-box searches do not establish this set. Full contents label and exact set photograph still required. |
+| `0189` | Exact article with ножницы для фитиля and wick searches yielded no usable manufacturer binding. Generic wick scissors cannot establish brand or exact image. |
+| `132689` | Manufacturer-domain Noble Leather search, representative catalog and exact article search do not identify the 100 ml package. Unverified presentation mirror above is insufficient; exact label/model/photo and authoritative fragrance binding remain needed. |
+
+Unknown brands remain exactly `445445`, `1113`, `121211`, `N020486`, `0189`.
+No product/category/brand copy expansion meets the exact-evidence threshold in
+this pass. Existing supported descriptions remain unchanged.
+
+### Customer copy and preview state
+
+The collections page no longer implies that real catalog items have yet to
+arrive, and its link now leads visitors to the catalog rather than its
+“structure”. Finder metadata describes its existing characteristic filters
+without universally calling the catalog a demo. Actual demo-mode labels remain.
+No homepage layout, demand order, catalog facts or private-preview controls change.
+
+The current preview domain is `vozdooh27.ru` (owner-provided context; no domain or
+infrastructure setting changed). The implemented staged-1c flow accepts local
+requests for manual handling; see [request contract](../src/integrations/order-requests.md).
+This is not a production launch, payment, reservation or 1C writeback.
+
+### Verification of this pass
+
+`VOZDOOH_ISOLATED_BUILD=true npm run verify` passed: `npm test` (47 app tests,
+2 exchange tests, 9 Python tests), `npm run typecheck`, `npm run lint`, and the
+isolated `npm run build`. The first sandboxed run lost CLI subprocess output;
+the full rerun outside the sandbox passed without code/test changes. Generated
+`next-env.d.ts` was restored. The isolated collections HTML contains the updated
+copy and noindex/nofollow. `git diff --check` passed. No live `.next` build or
+preview replacement was performed; synthetic tests did not use existing local
+order records. The reviewed diff contains only the two copy files and two
+research documents.
