@@ -753,3 +753,67 @@ select:focus-visible,summary:focus-visible{outline:2px solid var(--green);outlin
   .brandStoryCraft>span{grid-row:auto}
   .brandStoryCraft h3{font-size:23px}
 }
+
+/* Editorial collections built only from verified catalog attributes. */
+.collectionsPage{background:var(--paper)}
+.collectionsIntro{padding:56px 7vw 46px;max-width:920px}
+.collectionsIntro h1{font-size:clamp(42px,6vw,78px);font-weight:400;line-height:1.02;letter-spacing:-.045em;margin:20px 0 24px;max-width:10ch}
+.collectionsIntro p{font-size:17px;line-height:1.75;color:var(--muted);max-width:680px;margin:0}
+.collectionsIntro>small{display:block;margin-top:18px;font-size:10px;letter-spacing:.08em;color:var(--muted)}
+.collectionGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin:0 7vw;border-top:1px solid var(--line);border-left:1px solid var(--line)}
+.collectionTile{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);min-height:430px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:#fff;transition:background .2s}
+.collectionTile:hover{background:#f0ece3}
+.collectionTileVisual{position:relative;min-height:100%;overflow:hidden;background:#ebe5d9}
+.collectionTileVisual img{object-fit:contain;padding:11%;mix-blend-mode:multiply;transition:transform .35s ease}
+.collectionTile:hover .collectionTileVisual img{transform:scale(1.025)}
+.collectionTileVisual>small{position:absolute;left:16px;top:16px;font-size:9px;letter-spacing:.14em;color:var(--muted);z-index:2}
+.collectionTileCopy{display:flex;flex-direction:column;padding:32px;min-width:0}
+.collectionTileCopy>small{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.collectionTileCopy h2{font-family:var(--serif);font-size:clamp(28px,2.6vw,42px);font-weight:400;line-height:1.05;color:var(--green);margin:26px 0 14px}
+.collectionTileCopy p{font-size:13px;line-height:1.7;color:#5e594f;margin:0}
+.collectionTileCopy>span{font-size:9px;line-height:1.5;color:var(--muted);margin-top:auto;padding-top:30px}
+.collectionTileCopy>b{display:flex;justify-content:space-between;gap:20px;align-items:center;border-top:1px solid var(--line);margin-top:14px;padding-top:16px;font-size:10px;font-weight:500;letter-spacing:.08em}
+.collectionTileCopy>b i{font-style:normal;font-size:17px;font-weight:400}
+.collectionManifesto{margin:54px 7vw;padding:42px 0;border-top:1px solid var(--line);display:grid;grid-template-columns:.4fr 1fr auto;gap:28px;align-items:start}
+.collectionManifesto p{font-family:var(--serif);font-size:24px;line-height:1.35;margin:0;max-width:720px;color:var(--green)}
+.collectionHero{padding:48px 7vw 38px;max-width:980px}
+.collectionHero>.eyebrow{display:block;margin-top:34px}
+.collectionHero h1{font-size:clamp(44px,6vw,74px);font-weight:400;line-height:1.03;letter-spacing:-.045em;margin:16px 0 20px;max-width:12ch}
+.collectionHero>p{font-size:17px;line-height:1.7;color:#5e594f;max-width:620px;margin:0}
+.collectionHero>small{display:block;font-size:11px;line-height:1.7;color:var(--muted);max-width:700px;margin-top:18px;padding-left:16px;border-left:2px solid var(--green)}
+.collectionCount{margin-top:14px}
+.collectionOutro{margin:10px 7vw 54px;padding:34px;border:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:30px}
+.collectionOutro p{font-family:var(--serif);font-size:22px;line-height:1.35;margin:0;max-width:620px;color:var(--green)}
+.collectionOutro .primary{min-width:220px;text-align:center}
+@media(max-width:980px){
+  .collectionTile{grid-template-columns:1fr;min-height:0}
+  .collectionTileVisual{aspect-ratio:4/3;min-height:0}
+}
+@media(max-width:760px){
+  .collectionsIntro{padding:36px 6vw 30px}
+  .collectionsIntro h1{font-size:44px;margin:16px 0 18px}
+  .collectionsIntro p{font-size:14px;line-height:1.7}
+  .collectionGrid{grid-template-columns:1fr;margin:0 6vw}
+  .collectionTile{grid-template-columns:42% 58%}
+  .collectionTileVisual{aspect-ratio:auto;min-height:230px}
+  .collectionTileCopy{padding:20px 18px}
+  .collectionTileCopy h2{font-size:28px;margin:18px 0 10px}
+  .collectionTileCopy p{font-size:11px;line-height:1.6}
+  .collectionTileCopy>span{display:none}
+  .collectionTileCopy>b{margin-top:auto;font-size:9px}
+  .collectionManifesto{margin:38px 6vw;padding:30px 0;grid-template-columns:1fr;gap:16px}
+  .collectionManifesto p{font-size:22px}
+  .collectionHero{padding:32px 6vw 28px}
+  .collectionHero>.eyebrow{margin-top:24px}
+  .collectionHero h1{font-size:42px}
+  .collectionHero>p{font-size:14px}
+  .collectionOutro{margin:0 6vw 40px;padding:26px 22px;display:grid}
+  .collectionOutro p{font-size:20px}
+  .collectionOutro .primary{width:100%;min-width:0}
+}
+@media(max-width:430px){
+  .collectionTile{grid-template-columns:40% 60%}
+  .collectionTileVisual{min-height:210px}
+  .collectionTileCopy{padding:18px 14px}
+  .collectionTileCopy h2{font-size:25px}
+}

@@ -15,6 +15,7 @@ const { mergeCatalog, createCatalogRepository } = require('../src/catalog/reposi
 const { productPresentation, storefrontProducts } = require('../src/catalog/presentation.ts')
 const { reviewedDescription, reviewedTitle } = require('../src/catalog/reviewedContent.ts')
 const { availableLandings, landingProducts, brandLandings, categoryLandings } = require('../src/catalog/landings.ts')
+const { availableCollections, collectionProducts, editorialCollections } = require('../src/catalog/collections.ts')
 const evidence = require('../research/demand-evidence-2026-09.json')
 // The checked-in research contains no prices or private source export.
 const trades = evidence.products.map((p) => stagedTrade({ sku: p.sku, name: p.original_name, brand: p.brand, category: p.current_category, volume: p.volume, price: null, stock: p.stock, barcode: null, characteristics: {} }))
@@ -100,6 +101,62 @@ test('discovery uses only positive-stock pictured products and preserves researc
   for (const kind of ['brand', 'category']) for (const landing of availableLandings(products, kind)) {
     assert.ok(landing.products.every((p) => p.trade.stock > 0 && p.editorial.images.length > 0 && p.trade[kind] === landing.name))
     assert.deepEqual(landing.products, storefrontProducts(landing.products))
+  }
+})
+
+
+test('editorial collections use only verified catalog attributes and keep storefront ordering', () => {
+  assert.equal(editorialCollections.length, 7)
+  assert.equal(new Set(editorialCollections.map((collection) => collection.slug)).size, editorialCollections.length)
+  const available = availableCollections(products)
+  assert.equal(available.length, 7)
+  for (const collection of available) {
+    assert.ok(collection.products.length > 0, collection.name)
+    assert.deepEqual(collection.products, storefrontProducts(collection.products))
+    for (const product of collection.products) {
+      assert.ok(product.trade.stock > 0)
+      assert.ok(product.editorial.images.length > 0)
+      const value = collection.rule.field === 'family'
+        ? product.editorial.scentFamily
+        : product.editorial[collection.rule.field]
+      assert.ok(collection.rule.values.includes(value), collection.name + ': ' + product.trade.sku)
+    }
+    assert.deepEqual(collectionProducts(products, collection), collection.products)
+  }
+})
+
+test('collections render real inventory and every detail route stays private', async () => {
+  const source = require('../src/catalog/source.ts')
+  const originalRepository = source.getCatalogRepository
+  const originalSource = source.catalogSource
+  try {
+    source.getCatalogRepository = async () => createCatalogRepository(products)
+    source.catalogSource = () => 'staged-1c'
+    const Index = require('../app/collections/page.tsx')
+    const indexHtml = renderToStaticMarkup(await Index.default())
+    assert.doesNotMatch(indexHtml, /Подборки готовятся/)
+    assert.match(indexHtml, /Подборки с характером/)
+    assert.match(indexHtml, /Тёплый интерьер/)
+    assert.match(indexHtml, /Древесные и пряные/)
+    assert.equal(Index.metadata.robots.index, false)
+
+    const Route = require('../app/collections/[slug]/page.tsx')
+    for (const collection of availableCollections(products)) {
+      const props = { params: Promise.resolve({ slug: collection.slug }) }
+      const html = renderToStaticMarkup(await Route.default(props))
+      assert.equal((html.match(/<h1>/g) ?? []).length, 1)
+      assert.match(html, /В подборке/)
+      assert.ok(html.includes(collection.name))
+      assert.doesNotMatch(html, /PREVIEW 1C|Подборки готовятся|debugCatalog|demandRank/)
+      const meta = await Route.generateMetadata(props)
+      assert.equal(meta.robots.index, false)
+      assert.equal(meta.alternates.canonical, '/collections/' + collection.slug)
+      assert.ok(meta.description.length > 20)
+    }
+    await assert.rejects(Route.default({ params: Promise.resolve({ slug: 'unknown' }) }), /NEXT_HTTP_ERROR_FALLBACK;404/)
+  } finally {
+    source.getCatalogRepository = originalRepository
+    source.catalogSource = originalSource
   }
 })
 
