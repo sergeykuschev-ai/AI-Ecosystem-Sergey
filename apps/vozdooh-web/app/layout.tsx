@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { getEnv } from '../src/config/env'
+import '@dpawlikowski/liquid-glass/css'
 import './globals.css'
 
 export const metadata: Metadata = {
