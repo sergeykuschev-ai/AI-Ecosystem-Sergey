@@ -50,25 +50,25 @@ export default function HeroShaderGradientLayer() {
       >
         <ShaderGradient
           control="props"
-          type="plane"
+          type="waterPlane"
           animate={!reduceMotion && pageVisible ? 'on' : 'off'}
-          uSpeed={0.12}
-          uStrength={2.25}
-          uDensity={1.05}
-          uFrequency={4.25}
-          color1="#e8d7b7"
-          color2="#b67a42"
-          color3="#26382d"
+          uSpeed={0.14}
+          uStrength={3.0}
+          uDensity={1.2}
+          uFrequency={5.5}
+          color1="#ead9bb"
+          color2="#c27a3e"
+          color3="#26372f"
           lightType="3d"
-          brightness={1.05}
-          grain="on"
-          grainBlending={0.12}
-          cAzimuthAngle={165}
-          cPolarAngle={88}
-          cDistance={4.8}
-          positionX={-0.55}
-          positionY={-0.05}
-          rotationZ={28}
+          brightness={1.2}
+          grain="off"
+          grainBlending={0}
+          cAzimuthAngle={180}
+          cPolarAngle={82}
+          cDistance={3.4}
+          positionX={-0.2}
+          positionY={0.25}
+          rotationZ={-28}
           shader="defaults"
         />
       </ShaderGradientCanvas>
