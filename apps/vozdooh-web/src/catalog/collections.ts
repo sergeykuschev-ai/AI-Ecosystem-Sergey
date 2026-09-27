@@ -104,3 +104,12 @@ export function availableCollections(products: readonly CatalogProduct[]) {
 export function collectionPath(slug: string): string {
   return `/collections/${slug}`
 }
+
+
+export function collectionsForProduct(product: CatalogProduct): EditorialCollection[] {
+  if ((product.trade.stock ?? 0) <= 0 || product.editorial.images.length === 0) return []
+  return editorialCollections.filter((collection) =>
+    !collection.excludeCategories?.includes(product.trade.category) &&
+    collection.rule.values.includes(collectionValue(product, collection.rule.field) ?? '')
+  )
+}

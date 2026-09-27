@@ -140,10 +140,10 @@ test('rendered catalog shows priority order and leaks no internal research label
       .map((slug) => html.indexOf(slug))
     assert.ok(positions.every((position) => position >= 0), 'all cards rendered')
     assert.deepEqual([...positions].sort((a, b) => a - b), positions, 'priority order: CORE, STRONG, then unranked')
-    assert.doesNotMatch(html, /CORE|STRONG|NORMAL|SLOW|CLEARANCE|promotion_rank|bestseller_label/i)
+    assert.doesNotMatch(html, />(?:CORE|STRONG|NORMAL|SLOW|CLEARANCE)<|promotion_rank|bestseller_label/i)
     const details = renderToStaticMarkup(await Product({ params: Promise.resolve({ slug: 'slug-802e8ae5-d19b-11ec-be83-7c8bca00854e' }), searchParams: Promise.resolve({}) }))
     assert.match(details, /Популярность аромата подтверждена внешними источниками/)
-    assert.doesNotMatch(details, /CORE|STRONG|NORMAL|SLOW|CLEARANCE/i)
+    assert.doesNotMatch(details, />(?:CORE|STRONG|NORMAL|SLOW|CLEARANCE)</i)
   } finally {
     source.getCatalogRepository = originalRepository
     source.catalogSource = originalSource

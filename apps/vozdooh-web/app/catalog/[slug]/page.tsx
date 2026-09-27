@@ -12,6 +12,7 @@ import { isExternallyConfirmedPopular, POPULARITY_NOTE } from '../../../src/cata
 import { withValidImages } from '../../../src/catalog/validImages'
 import { catalogHref, parseCatalogFilters, type RawSearchParams } from '../../../src/catalog/filterParams'
 import { brandLandings, categoryLandings, landingPath } from '../../../src/catalog/landings'
+import { collectionPath, collectionsForProduct } from '../../../src/catalog/collections'
 import { getRecommendations } from '../../../src/catalog/filters'
 
 import { catalogSource, getCatalogRepository } from '../../../src/catalog/source'
@@ -54,6 +55,7 @@ export default async function ProductPage({ params, searchParams }: PageParams) 
   const display = productPresentation(product)
   const recommendations = getRecommendations(storefrontProducts(allProducts, debug || demo), product, demo)
   const brandProducts = demo ? [] : sameBrandProducts(allProducts, product)
+  const productCollections = demo ? [] : collectionsForProduct(product)
   const heroImage = catalogImage((await withValidImages([product]))[0])
   if (!heroImage && !demo && !debug) notFound()
 
@@ -84,15 +86,8 @@ export default async function ProductPage({ params, searchParams }: PageParams) 
             {catalogSource() === 'staged-1c' && (product.trade.price ?? 0) > 0 && (product.trade.stock ?? 0) >= 1 && <AddToCartButton sku={product.trade.sku} />}
             <p className="notice">Заявка без онлайн-оплаты и резерва. Наличие требует подтверждения.</p>
           </section>}
-          <div className="productChips">
-            {product.editorial.scentFamily && <span>Характер: {labelFor(familyLabels, product.editorial.scentFamily)}</span>}
-            {product.editorial.mood && <span>Настроение: {labelFor(moodLabels, product.editorial.mood)}</span>}
-            {product.editorial.room && <span>Помещение: {labelFor(roomLabels, product.editorial.room)}</span>}
-          </div>
-          {product.editorial.description && <p className="productDesc">{product.editorial.description}</p>}
-          {(brandLanding || categoryLanding) && <nav className="landingLinks" aria-label="Коллекция товара">
-            {brandLanding && <Link href={landingPath('brand', brandLanding.slug)}>{brandLanding.name}</Link>}
-            {categoryLanding && <Link href={landingPath('category', categoryLanding.slug)}>{categoryLanding.name}</Link>}
+          {categoryLanding && <nav className="landingLinks productFormatLink" aria-label="Формат товара">
+            <Link href={landingPath('category', categoryLanding.slug)}>{categoryLanding.name} →</Link>
           </nav>}
           <details className="productFacts">
             <summary>Подробности и характеристики</summary>
@@ -111,6 +106,45 @@ export default async function ProductPage({ params, searchParams }: PageParams) 
           {debug && <p className="productDiagnostic">PREVIEW 1C · Доступна заявка без оплаты и резерва.</p>}
         </div>
       </div>
+
+      {(product.editorial.description || product.editorial.scentFamily || product.editorial.mood || product.editorial.room || brandLanding?.story) && (
+        <section className="productEditorial" aria-label="История и характер товара">
+          <div className="productComposition">
+            <span className="eyebrow">Композиция</span>
+            <h2>Характер аромата</h2>
+            {product.editorial.description && <p className="productDesc">{product.editorial.description}</p>}
+            <div className="productProfileGrid">
+              {product.editorial.scentFamily && <div><small>Характер</small><strong>{labelFor(familyLabels, product.editorial.scentFamily)}</strong></div>}
+              {product.editorial.mood && <div><small>Настроение</small><strong>{labelFor(moodLabels, product.editorial.mood)}</strong></div>}
+              {product.editorial.room && <div><small>Пространство</small><strong>{labelFor(roomLabels, product.editorial.room)}</strong></div>}
+            </div>
+            {productCollections.length > 0 && (
+              <nav className="productCollectionLinks" aria-label="Подборки с этим товаром">
+                <small>В подборках VOZDOOH</small>
+                <div>{productCollections.map((collection) => <Link href={collectionPath(collection.slug)} key={collection.slug}>{collection.name} →</Link>)}</div>
+              </nav>
+            )}
+          </div>
+
+          {brandLanding?.story && (
+            <aside className="productBrandStory">
+              <span className="eyebrow light">История бренда</span>
+              <h2>{brandLanding.name}</h2>
+              <p>{brandLanding.story.paragraphs[0]}</p>
+              <dl>
+                {brandLanding.story.facts.map((fact) => <div key={fact.label}><dt>{fact.label}</dt><dd>{fact.value}</dd></div>)}
+              </dl>
+              <div className="productBrandCraft">
+                <small>ДНК бренда</small>
+                <strong>{brandLanding.story.craft.title}</strong>
+                <p>{brandLanding.story.craft.text}</p>
+              </div>
+              <Link className="brandStoryLink" href={landingPath('brand', brandLanding.slug)}>История {brandLanding.name} →</Link>
+            </aside>
+          )}
+        </section>
+      )}
+
       {recommendations.length > 0 && (
         <section className="recommendations">
           <span className="eyebrow">Рекомендации</span>

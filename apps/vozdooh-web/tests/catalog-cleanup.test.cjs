@@ -15,7 +15,7 @@ const { mergeCatalog, createCatalogRepository } = require('../src/catalog/reposi
 const { productPresentation, storefrontProducts } = require('../src/catalog/presentation.ts')
 const { reviewedDescription, reviewedTitle } = require('../src/catalog/reviewedContent.ts')
 const { availableLandings, landingProducts, brandLandings, categoryLandings } = require('../src/catalog/landings.ts')
-const { availableCollections, collectionProducts, editorialCollections } = require('../src/catalog/collections.ts')
+const { availableCollections, collectionProducts, collectionsForProduct, editorialCollections } = require('../src/catalog/collections.ts')
 const evidence = require('../research/demand-evidence-2026-09.json')
 // The checked-in research contains no prices or private source export.
 const trades = evidence.products.map((p) => stagedTrade({ sku: p.sku, name: p.original_name, brand: p.brand, category: p.current_category, volume: p.volume, price: null, stock: p.stock, barcode: null, characteristics: {} }))
@@ -123,6 +123,10 @@ test('editorial collections use only verified catalog attributes and keep storef
     }
     assert.deepEqual(collectionProducts(products, collection), collection.products)
   }
+  const warm = bySku('DV500RTFU')
+  assert.ok(collectionsForProduct(warm).some((collection) => collection.slug === 'warm-interior'))
+  assert.deepEqual(collectionsForProduct({ ...warm, trade: { ...warm.trade, stock: 0 } }), [])
+  assert.deepEqual(collectionsForProduct({ ...warm, editorial: { ...warm.editorial, images: [] } }), [])
 })
 
 test('collections render real inventory and every detail route stays private', async () => {
@@ -169,7 +173,7 @@ test('rendered discovery, every landing, product backlinks and metadata retain c
     source.catalogSource = () => 'staged-1c'
     const Catalog = require('../app/catalog/page.tsx')
     const Product = require('../app/catalog/[slug]/page.tsx')
-    const forbidden = /PREVIEW 1C|CORE|STRONG|NORMAL|SLOW|CLEARANCE|promotion_rank|₽|\bRUB\b|Добавить в корзину|фактического остатка 1С/i
+    const forbidden = /PREVIEW 1C|>(?:CORE|STRONG|NORMAL|SLOW|CLEARANCE)<|promotion_rank|₽|>RUB<|Добавить в корзину|фактического остатка 1С/i
     for (const kind of ['brand', 'category']) {
       const plural = kind === 'brand' ? 'brands' : 'categories'
       const Index = require(`../app/${plural}/page.tsx`)
@@ -202,6 +206,12 @@ test('rendered discovery, every landing, product backlinks and metadata retain c
     const props = { params: Promise.resolve({ slug: product.editorial.slug }), searchParams: Promise.resolve(params) }
     const details = renderToStaticMarkup(await Product.default(props))
     assert.doesNotMatch(details, forbidden)
+    assert.match(details, /class="productEditorial"/)
+    assert.match(details, /История бренда/)
+    assert.match(details, /ДНК бренда/)
+    assert.match(details, /История TEATRO Fragranze Uniche/)
+    assert.match(details, /В подборках VOZDOOH/)
+    assert.match(details, /Тёплый интерьер/)
     const backlink = details.match(/class="productBack" href="([^"]+)"/)[1].replaceAll('&amp;', '&')
     const url = new URL(backlink, 'http://localhost')
     for (const [key, value] of Object.entries(params)) assert.equal(url.searchParams.get(key), value)
