@@ -4,9 +4,10 @@ import { SiteFooter } from '../components/SiteFooter'
 import { SiteHeader } from '../components/SiteHeader'
 import { HeroShaderGradient } from '../components/HeroShaderGradient'
 import { getCatalogRepository } from '../src/catalog/source'
+import { availableLandings, landingPath } from '../src/catalog/landings'
 import { catalogImage, curatorSelection, productPresentation, storefrontProducts } from '../src/catalog/presentation'
 import { withValidImages } from '../src/catalog/validImages'
-import { familyLabels, roomLabels, type DemoCategory, type DemoFamily, type DemoRoom } from '../src/catalog/vocabulary'
+import { familyLabels, labelFor, roomLabels, type DemoCategory, type DemoFamily, type DemoRoom } from '../src/catalog/vocabulary'
 
 const categories: { slug: DemoCategory; name: string; text: string; catalogCategory: string }[] = [
   { slug: 'diffusers', name: 'Диффузоры', text: 'Аромат как часть интерьера', catalogCategory: 'Диффузоры' },
@@ -24,18 +25,35 @@ const roomMoments: Record<DemoRoom, string> = {
   study: 'В своём ритме', hallway: 'С возвращением домой',
 }
 
+const money = new Intl.NumberFormat('ru-RU', {
+  style: 'currency',
+  currency: 'RUB',
+  maximumFractionDigits: 0,
+})
+
+
 export const dynamic = 'force-dynamic'
 
 export default async function Home() {
   const products = storefrontProducts(await withValidImages(await (await getCatalogRepository()).list()))
-  const curated = curatorSelection(products)
-  const heroProduct = curated[0] ?? products[0] ?? null
+  const sellableProducts = products.filter((product) => (product.trade.stock ?? 0) > 0)
+  const curated = curatorSelection(sellableProducts)
+  const heroProduct = curated[0] ?? sellableProducts[0] ?? products[0] ?? null
   const heroImage = heroProduct ? catalogImage(heroProduct) : null
   const heroDisplay = heroProduct ? productPresentation(heroProduct) : null
   const categoryProducts = Object.fromEntries(categories.map((category) => [
     category.slug,
-    products.find((product) => product.trade.category === category.catalogCategory) ?? null,
+    sellableProducts.find((product) => product.trade.category === category.catalogCategory) ?? null,
   ]))
+  const roomHighlights = rooms
+    .map(([slug, label], index) => ({
+      slug,
+      label,
+      index,
+      product: sellableProducts.find((product) => product.editorial.room === slug) ?? null,
+    }))
+    .filter((item) => item.product !== null)
+  const brandHighlights = availableLandings(sellableProducts, 'brand').slice(0, 6)
 
   return (
     <main>
@@ -161,38 +179,88 @@ export default async function Home() {
           <h2 id="selection-title">Меньше случайного.<br /><i>Больше личного.</i></h2>
         </div>
         <div className="selectionCopy">
-          <span className="selectionStatus">Искусство выбирать</span>
-          <p>В основе выбора VOZDOOH — внимание к пространству и вашим привычкам. Для нас аромат — личная деталь дома: важны характер, уместность и удовольствие от повседневного ритуала.</p>
-          <Link className="textLink" href="/finder">Начать со своего настроения <span aria-hidden="true">→</span></Link>
+          <span className="selectionStatus">Из актуального наличия</span>
+          <p>Четыре позиции из текущего ассортимента с подтверждёнными изображениями и редакционными данными. Без случайных товаров и неподтверждённых обещаний.</p>
+          <Link className="textLink" href="/catalog">Смотреть весь каталог <span aria-hidden="true">→</span></Link>
         </div>
+        {curated.length > 0 && (
+          <div className="curatedGrid">
+            {curated.map((product, index) => {
+              const image = catalogImage(product)
+              const display = productPresentation(product)
+              const room = product.editorial.room ? labelFor(roomLabels, product.editorial.room) : null
+              return (
+                <Link className="curatedCard" href={`/catalog/${product.editorial.slug}`} key={product.trade.sku}>
+                  <span className="curatedVisual">
+                    {image && <Image src={image} alt={product.trade.name} fill sizes="(max-width: 800px) 50vw, 25vw" />}
+                    <small aria-hidden="true">0{index + 1}</small>
+                  </span>
+                  <span className="curatedMeta">
+                    <small>{product.trade.brand}</small>
+                    <strong>{display.title}</strong>
+                    <span>{[display.subtitle, room].filter(Boolean).join(' · ')}</span>
+                    {product.trade.price !== null && <b>{money.format(product.trade.price)}</b>}
+                  </span>
+                </Link>
+              )
+            })}
+          </div>
+        )}
       </section>
 
       <section className="room">
-        <div>
+        <div className="roomIntro">
           <span className="eyebrow light">По пространству</span>
           <h2>У каждой комнаты свой характер.</h2>
-          <p>Начните с места, где хочется задержаться.</p>
+          <p>Показываем только те пространства, для которых в текущем ассортименте уже есть подтверждённая редакционная подборка.</p>
         </div>
-        <div className="roomLinks">
-          {rooms.map(([slug, label], index) => (
-            <Link className="roomCard" href={`/catalog?room=${slug}`} key={slug}>
-              <span className="roomIndex" aria-hidden="true">0{index + 1}</span>
-              <div><p>{roomMoments[slug]}</p><h3>{label}</h3></div>
-              <b aria-hidden="true">→</b>
-            </Link>
-          ))}
+        <div className="roomLinks roomVisualGrid">
+          {roomHighlights.map(({ slug, label, index, product }) => {
+            if (!product) return null
+            const image = catalogImage(product)
+            const display = productPresentation(product)
+            return (
+              <Link className="roomCard roomVisualCard" href={`/catalog?room=${slug}`} key={slug}>
+                {image && <span className="roomVisual"><Image src={image} alt="" fill sizes="(max-width: 800px) 42vw, 24vw" /></span>}
+                <span className="roomIndex" aria-hidden="true">0{index + 1}</span>
+                <div className="roomCardCopy">
+                  <p>{roomMoments[slug]}</p>
+                  <h3>{label}</h3>
+                  <small>{product.trade.brand} · {display.title}</small>
+                </div>
+                <b aria-hidden="true">→</b>
+              </Link>
+            )
+          })}
         </div>
       </section>
 
       <section id="brands" className="section brands">
-        <span className="eyebrow">Бренды и коллекции</span>
+        <span className="eyebrow">Бренды в наличии</span>
         <div className="sectionHead">
           <h2>За ароматом —<br />свой мир.</h2>
-          <p>Два взгляда на выбор аромата: через почерк создателя и через настроение пространства.</p>
+          <p>Показываем бренды через реальные позиции, которые сейчас есть в витрине VOZDOOH.</p>
         </div>
-        <div className="brandPlaceholder">
-          <Link href="/brands"><div><small>01 / Почерк</small><h3>Бренды</h3><p>Имена и подход к созданию ароматов</p></div><span aria-hidden="true">→</span></Link>
-          <Link href="/collections"><div><small>02 / Настроение</small><h3>Коллекции</h3><p>Подборки вокруг настроения и пространства</p></div><span aria-hidden="true">→</span></Link>
+        <div className="homeBrandGrid">
+          {brandHighlights.map((brand, index) => {
+            const representative = brand.products[0]
+            const image = representative ? catalogImage(representative) : null
+            return (
+              <Link className="homeBrandCard" href={landingPath('brand', brand.slug)} key={brand.slug}>
+                {image && <span className="homeBrandVisual"><Image src={image} alt="" fill sizes="(max-width: 800px) 50vw, 24vw" /></span>}
+                <span className="homeBrandCopy">
+                  <small>0{index + 1} / {brand.products.length} поз.</small>
+                  <strong>{brand.name}</strong>
+                  <span>{brand.description}</span>
+                  <b>Смотреть бренд →</b>
+                </span>
+              </Link>
+            )
+          })}
+        </div>
+        <div className="brandActions">
+          <Link className="textLink" href="/brands">Все бренды →</Link>
+          <Link className="textLink" href="/collections">Коллекции →</Link>
         </div>
       </section>
 

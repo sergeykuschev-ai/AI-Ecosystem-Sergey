@@ -24,13 +24,16 @@ export default function HeroShaderGradientLayer() {
     const syncMotion = () => setReduceMotion(media.matches)
     const syncVisibility = () => setPageVisible(document.visibilityState !== 'hidden')
 
-    syncMotion()
-    syncVisibility()
-    setEnabled(hasWebGL && !lowMemory && !saveData)
+    const frame = window.requestAnimationFrame(() => {
+      syncMotion()
+      syncVisibility()
+      setEnabled(hasWebGL && !lowMemory && !saveData)
+    })
     media.addEventListener('change', syncMotion)
     document.addEventListener('visibilitychange', syncVisibility)
 
     return () => {
+      window.cancelAnimationFrame(frame)
       media.removeEventListener('change', syncMotion)
       document.removeEventListener('visibilitychange', syncVisibility)
     }
