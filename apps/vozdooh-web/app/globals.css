@@ -585,3 +585,17 @@ footer nav{gap:4px 24px}
   .categoryVisual{aspect-ratio:1/1;margin-bottom:14px}
   .categoryVisual img{padding:10%}
 }
+
+/* Subtle animated atmosphere for the hero; the existing SVG remains the no-JS/WebGL fallback. */
+.heroScene{z-index:0}
+.heroShader{position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none;opacity:.58;mix-blend-mode:soft-light}
+.heroShader>div,.heroShader canvas{width:100%!important;height:100%!important}
+.heroProductShowcase{z-index:2}
+.heroText{z-index:3}
+.edition{z-index:3}
+@media(prefers-reduced-motion:reduce){
+  .heroShader{opacity:.42}
+}
+@media(max-width:800px){
+  .heroShader{opacity:.48}
+}

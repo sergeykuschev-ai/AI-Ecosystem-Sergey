@@ -2,6 +2,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { SiteFooter } from '../components/SiteFooter'
 import { SiteHeader } from '../components/SiteHeader'
+import { HeroShaderGradient } from '../components/HeroShaderGradient'
 import { getCatalogRepository } from '../src/catalog/source'
 import { catalogImage, curatorSelection, productPresentation, storefrontProducts } from '../src/catalog/presentation'
 import { withValidImages } from '../src/catalog/validImages'
@@ -88,6 +89,7 @@ export default async function Home() {
             </g>
           </svg>
         </div>
+        <HeroShaderGradient />
         {heroProduct && heroImage && heroDisplay && (
           <Link className="heroProductShowcase" href={`/catalog/${heroProduct.editorial.slug}`} aria-label={`Открыть ${heroDisplay.title}`}>
             <Image src={heroImage} alt={heroProduct.trade.name} fill sizes="(max-width: 800px) 46vw, 28vw" priority />
