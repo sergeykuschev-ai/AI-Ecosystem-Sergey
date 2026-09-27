@@ -14,7 +14,6 @@
     "catalog:stage": "python3 scripts/convert-commerce-ml.py"
   },
   "dependencies": {
-    "@dpawlikowski/liquid-glass": "0.3.0",
     "@react-three/fiber": "9.8.1",
     "@shadergradient/react": "2.4.20",
     "camera-controls": "3.1.2",

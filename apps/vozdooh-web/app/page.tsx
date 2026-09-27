@@ -3,7 +3,6 @@ import Link from 'next/link'
 import { SiteFooter } from '../components/SiteFooter'
 import { SiteHeader } from '../components/SiteHeader'
 import { HeroShaderGradient } from '../components/HeroShaderGradient'
-import { HeroLiquidGlassButton } from '../components/HeroLiquidGlassButton'
 import { getCatalogRepository } from '../src/catalog/source'
 import { catalogImage, curatorSelection, productPresentation, storefrontProducts } from '../src/catalog/presentation'
 import { withValidImages } from '../src/catalog/validImages'
@@ -105,7 +104,7 @@ export default async function Home() {
           <h1>Атмосфера начинается с аромата.</h1>
           <p>Коллекция для тех, кто выбирает аромат для дома так же внимательно, как свет, музыку и текстиль.</p>
           <div className="heroActions">
-            <HeroLiquidGlassButton />
+            <Link className="creamButton" href="/catalog">Смотреть коллекцию</Link>
             <Link className="textLink quiet" href="/finder">Подобрать аромат →</Link>
           </div>
         </div>
