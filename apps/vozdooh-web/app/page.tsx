@@ -1,15 +1,19 @@
+import Image from 'next/image'
 import Link from 'next/link'
 import { SiteFooter } from '../components/SiteFooter'
 import { SiteHeader } from '../components/SiteHeader'
+import { getCatalogRepository } from '../src/catalog/source'
+import { catalogImage, curatorSelection, productPresentation, storefrontProducts } from '../src/catalog/presentation'
+import { withValidImages } from '../src/catalog/validImages'
 import { familyLabels, roomLabels, type DemoCategory, type DemoFamily, type DemoRoom } from '../src/catalog/vocabulary'
 
-const categories: { slug: DemoCategory; name: string; text: string }[] = [
-  { slug: 'diffusers', name: 'Диффузоры', text: 'Аромат как часть интерьера' },
-  { slug: 'candles', name: 'Свечи', text: 'Для неспешных вечеров' },
-  { slug: 'sprays', name: 'Спреи', text: 'Мгновенно изменить настроение' },
-  { slug: 'refills', name: 'Рефилы', text: 'Продлить любимый аромат' },
-  { slug: 'car', name: 'Для автомобиля', text: 'Знакомый аромат в дороге' },
-  { slug: 'gifts', name: 'Подарки', text: 'Внимание в каждой детали' },
+const categories: { slug: DemoCategory; name: string; text: string; catalogCategory: string }[] = [
+  { slug: 'diffusers', name: 'Диффузоры', text: 'Аромат как часть интерьера', catalogCategory: 'Диффузоры' },
+  { slug: 'candles', name: 'Свечи', text: 'Для неспешных вечеров', catalogCategory: 'Свечи' },
+  { slug: 'sprays', name: 'Спреи', text: 'Мгновенно изменить настроение', catalogCategory: 'Спреи для дома' },
+  { slug: 'refills', name: 'Рефилы', text: 'Продлить любимый аромат', catalogCategory: 'Рефилы' },
+  { slug: 'car', name: 'Для автомобиля', text: 'Знакомый аромат в дороге', catalogCategory: 'Для автомобиля' },
+  { slug: 'gifts', name: 'Подарки', text: 'Внимание в каждой детали', catalogCategory: 'Подарочные наборы' },
 ]
 
 const families = Object.entries(familyLabels) as [DemoFamily, string][]
@@ -19,7 +23,19 @@ const roomMoments: Record<DemoRoom, string> = {
   study: 'В своём ритме', hallway: 'С возвращением домой',
 }
 
-export default function Home() {
+export const dynamic = 'force-dynamic'
+
+export default async function Home() {
+  const products = storefrontProducts(await withValidImages(await (await getCatalogRepository()).list()))
+  const curated = curatorSelection(products)
+  const heroProduct = curated[0] ?? products[0] ?? null
+  const heroImage = heroProduct ? catalogImage(heroProduct) : null
+  const heroDisplay = heroProduct ? productPresentation(heroProduct) : null
+  const categoryProducts = Object.fromEntries(categories.map((category) => [
+    category.slug,
+    products.find((product) => product.trade.category === category.catalogCategory) ?? null,
+  ]))
+
   return (
     <main>
       <SiteHeader />
@@ -72,6 +88,15 @@ export default function Home() {
             </g>
           </svg>
         </div>
+        {heroProduct && heroImage && heroDisplay && (
+          <Link className="heroProductShowcase" href={`/catalog/${heroProduct.editorial.slug}`} aria-label={`Открыть ${heroDisplay.title}`}>
+            <Image src={heroImage} alt={heroProduct.trade.name} fill sizes="(max-width: 800px) 46vw, 28vw" priority />
+            <span className="heroProductCaption">
+              <small>{heroProduct.trade.brand ?? 'VOZDOOH'}</small>
+              <b>{heroDisplay.title}</b>
+            </span>
+          </Link>
+        )}
         <div className="heroText">
           <div className="eyebrow">Парфюмерия для дома</div>
           <h1>Атмосфера начинается с аромата.</h1>
@@ -93,14 +118,23 @@ export default function Home() {
           <p>От света свечи до любимого диффузора — найдите свой формат.</p>
         </div>
         <div className="categoryGrid">
-          {categories.map((category, index) => (
-            <Link className="category" href={`/catalog?category=${category.slug}`} key={category.slug}>
-              <span className="categoryIndex" aria-hidden="true">0{index + 1}</span>
-              <h3>{category.name}</h3>
-              <p>{category.text}</p>
-              <b aria-hidden="true">→</b>
-            </Link>
-          ))}
+          {categories.map((category, index) => {
+            const product = categoryProducts[category.slug]
+            const image = product ? catalogImage(product) : null
+            return (
+              <Link className="category" href={`/categories/${category.slug}`} key={category.slug}>
+                {product && image && (
+                  <span className="categoryVisual" aria-hidden="true">
+                    <Image src={image} alt="" fill sizes="(max-width: 800px) 44vw, 30vw" />
+                  </span>
+                )}
+                <span className="categoryIndex" aria-hidden="true">0{index + 1}</span>
+                <h3>{category.name}</h3>
+                <p>{category.text}</p>
+                <b aria-hidden="true">→</b>
+              </Link>
+            )
+          })}
         </div>
       </section>
 

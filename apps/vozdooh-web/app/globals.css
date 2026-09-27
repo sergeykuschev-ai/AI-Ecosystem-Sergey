@@ -565,3 +565,23 @@ footer nav{gap:4px 24px}
   .discoveryPage .brandGrid{grid-template-columns:minmax(0,1fr)}
   .landingGuide,.landingRelated{margin-inline:6vw}
 }
+
+/* Real verified inventory imagery on the approved homepage structure. */
+.heroProductShowcase{position:absolute;right:7vw;bottom:64px;z-index:1;width:min(28vw,380px);aspect-ratio:4/5;background:#e9dfcf;border:1px solid rgba(245,235,219,.24);overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.22)}
+.heroProductShowcase img{object-fit:contain;padding:11% 11% 24%;mix-blend-mode:multiply}
+.heroProductCaption{position:absolute;left:20px;right:20px;bottom:18px;display:grid;gap:4px;color:#241a12}
+.heroProductCaption small{font-size:9px;letter-spacing:.14em;text-transform:uppercase;opacity:.62}
+.heroProductCaption b{font-size:14px;line-height:1.3;font-weight:500}
+.heroProductShowcase:focus-visible{outline:2px solid #f3ead9;outline-offset:4px}
+.categoryVisual{grid-column:1/-1;position:relative;display:block;aspect-ratio:4/3;background:#ebe5d9;overflow:hidden;margin-bottom:20px}
+.categoryVisual img{object-fit:contain;padding:8%;mix-blend-mode:multiply;transition:transform .35s ease}
+.category:hover .categoryVisual img{transform:scale(1.035)}
+@media(max-width:800px){
+  .heroProductShowcase{top:72px;right:6vw;bottom:auto;width:46vw;max-width:220px}
+  .heroProductShowcase img{padding:10% 10% 25%}
+  .heroProductCaption{left:12px;right:12px;bottom:12px}
+  .heroProductCaption b{font-size:11px}
+  .heroText{padding-top:330px}
+  .categoryVisual{aspect-ratio:1/1;margin-bottom:14px}
+  .categoryVisual img{padding:10%}
+}
