@@ -52,7 +52,7 @@ export default function HeroShaderGradientLayer() {
           control="props"
           type="waterPlane"
           animate={!reduceMotion && pageVisible ? 'on' : 'off'}
-          uSpeed={0.08}
+          uSpeed={0.095}
           uStrength={2.35}
           uDensity={1.08}
           uFrequency={5.5}
