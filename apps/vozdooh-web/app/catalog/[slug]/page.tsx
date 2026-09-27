@@ -20,6 +20,8 @@ export const dynamic = 'force-dynamic'
 
 type PageParams = { params: Promise<{ slug: string }>; searchParams: Promise<RawSearchParams> }
 
+const rub = new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 0, maximumFractionDigits: 2 })
+
 export async function generateMetadata({ params }: PageParams): Promise<Metadata> {
   const { slug } = await params
   const product = await (await getCatalogRepository()).getBySlug(slug)
@@ -76,7 +78,7 @@ export default async function ProductPage({ params, searchParams }: PageParams) 
           <Link className="productBack" href={backHref}>← Каталог</Link>
           {!demo && <section className="productPurchase" aria-label="Цена и наличие">
             <p className="productPrice">{(product.trade.price ?? 0) > 0
-              ? new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(product.trade.price!)
+              ? rub.format(product.trade.price!)
               : 'Цена не указана'}</p>
             <p className="stockState">{product.trade.stock === null ? 'Наличие не указано' : product.trade.stock >= 1 ? 'В наличии по данным каталога' : 'Нет в наличии'}</p>
             {catalogSource() === 'staged-1c' && (product.trade.price ?? 0) > 0 && (product.trade.stock ?? 0) >= 1 && <AddToCartButton sku={product.trade.sku} />}

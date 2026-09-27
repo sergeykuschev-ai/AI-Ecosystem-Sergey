@@ -6,6 +6,8 @@ import type { CatalogProduct } from '../src/catalog/contracts'
 import { isExternallyConfirmedPopular, POPULARITY_NOTE } from '../src/catalog/demandPriority'
 import { catalogImage, productPresentation } from '../src/catalog/presentation'
 
+const rub = new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 0, maximumFractionDigits: 2 })
+
 export function ProductCard({ product, index = 0, demo = false, debug = false, filters }: { filters?: CatalogFilters; product: CatalogProduct; index?: number; demo?: boolean; debug?: boolean }) {
   const image = catalogImage(product)
   const display = productPresentation(product)
@@ -26,7 +28,7 @@ export function ProductCard({ product, index = 0, demo = false, debug = false, f
         <h3>{display.title}</h3>
         {display.russianTitle && <p className="productTranslation">{display.russianTitle}</p>}
         <p>{display.subtitle}</p>
-        {!demo && (product.trade.price ?? 0) > 0 && <p className="productCardPrice">{new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(product.trade.price!)}</p>}
+        {!demo && (product.trade.price ?? 0) > 0 && <p className="productCardPrice">{rub.format(product.trade.price!)}</p>}
       </div>
     </Link>
   )

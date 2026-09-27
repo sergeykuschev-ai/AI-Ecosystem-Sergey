@@ -230,7 +230,7 @@ test('cards show exact positive RUB prices and suppress missing/nonpositive/demo
   for (const price of [1, 1234.56, 1000000]) {
     item.trade.price = price
     const html = renderToStaticMarkup(ProductCard({ product: item }))
-    assert.ok(html.includes(new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(price)))
+    assert.ok(html.includes(new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(price)))
     assert.match(html, /productCardPrice/)
     assert.doesNotMatch(renderToStaticMarkup(ProductCard({ product: item, demo: true })), /productCardPrice/)
   }

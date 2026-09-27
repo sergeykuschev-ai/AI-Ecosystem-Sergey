@@ -91,7 +91,7 @@ test('price changes only the price label, not merchandising or popularity', () =
   const inexpensive = renderToStaticMarkup(ProductCard({ product: cheap }))
   const withoutPrice = (html) => html.replace(/<p class="productCardPrice">[^<]*<\/p>/, '')
   assert.equal(withoutPrice(expensive), withoutPrice(inexpensive))
-  assert.ok(expensive.includes(new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(123456)))
+  assert.ok(expensive.includes(new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(123456)))
   assert.deepEqual(storefrontProducts([priced]).map((p) => p.id), storefrontProducts([cheap]).map((p) => p.id))
 })
 
