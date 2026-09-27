@@ -15,8 +15,27 @@ export function CatalogLanding({ landing, products, kind }: { landing: Landing; 
       <h1>{landing.name}</h1>
       <p>{landing.description}</p>
     </section>
+    {kind === 'brand' && landing.story && (
+      <section className="brandStory" aria-labelledby="brandStoryTitle">
+        <div className="brandStoryLead">
+          <span className="eyebrow">{landing.story.eyebrow}</span>
+          <h2 id="brandStoryTitle">{landing.story.title}</h2>
+        </div>
+        <div className="brandStoryBody">
+          {landing.story.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+        </div>
+        <dl className="brandStoryFacts">
+          {landing.story.facts.map((fact) => <div key={fact.label}><dt>{fact.label}</dt><dd>{fact.value}</dd></div>)}
+        </dl>
+        <div className="brandStoryCraft">
+          <span>ДНК бренда</span>
+          <h3>{landing.story.craft.title}</h3>
+          <p>{landing.story.craft.text}</p>
+        </div>
+      </section>
+    )}
     <section className="landingGuide" aria-labelledby="landingGuideTitle">
-      <h2 id="landingGuideTitle">{kind === 'brand' ? 'Знакомство с коллекцией' : 'Выбор формата'}</h2>
+      <h2 id="landingGuideTitle">{kind === 'brand' ? 'В коллекции VOZDOOH' : 'Выбор формата'}</h2>
       <p>{landing.guidance}</p>
       {related.length > 0 && <nav className="landingLinks" aria-label={kind === 'brand' ? 'Форматы коллекции' : 'Бренды категории'}>
         {related.map((item) => <Link key={item.slug} href={`/catalog?${new URLSearchParams({ [kind]: landing.name, [relatedKind]: item.name })}`}>{item.name}</Link>)}

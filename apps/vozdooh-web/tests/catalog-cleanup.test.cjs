@@ -88,6 +88,15 @@ test('discovery uses only positive-stock pictured products and preserves researc
   assert.deepEqual(availableLandings([], 'brand'), [])
   for (const stock of [0, -1, null]) assert.deepEqual(landingProducts([{ ...bySku('N020445'), trade: { ...bySku('N020445').trade, stock } }], 'brand', 'VINOVE'), [])
   for (const list of [brandLandings, categoryLandings]) assert.equal(new Set(list.map((p) => p.slug)).size, list.length)
+  assert.equal(brandLandings.length, 12)
+  for (const landing of brandLandings) {
+    assert.ok(landing.story, landing.name)
+    assert.equal(landing.story.paragraphs.length, 2)
+    assert.equal(landing.story.facts.length, 3)
+    assert.ok(landing.story.title.length > 20)
+    assert.ok(landing.story.craft.text.length > 40)
+  }
+  assert.ok(categoryLandings.every((landing) => !landing.story))
   for (const kind of ['brand', 'category']) for (const landing of availableLandings(products, kind)) {
     assert.ok(landing.products.every((p) => p.trade.stock > 0 && p.editorial.images.length > 0 && p.trade[kind] === landing.name))
     assert.deepEqual(landing.products, storefrontProducts(landing.products))
@@ -115,6 +124,13 @@ test('rendered discovery, every landing, product backlinks and metadata retain c
         assert.doesNotMatch(html, forbidden)
         assert.equal((html.match(/<h1>/g) ?? []).length, 1)
         assert.ok(html.includes('/catalog?'))
+        if (kind === 'brand') {
+          assert.match(html, /class="brandStory"/)
+          assert.match(html, /ДНК бренда/)
+          assert.match(html, /В коллекции VOZDOOH/)
+        } else {
+          assert.doesNotMatch(html, /class="brandStory"/)
+        }
         const meta = await Route.generateMetadata(props)
         assert.equal(meta.robots.index, false)
         assert.equal(meta.alternates.canonical, `/${plural}/${landing.slug}`)
