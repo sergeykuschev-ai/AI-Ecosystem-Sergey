@@ -12,6 +12,7 @@ export const dynamic = 'force-dynamic'
 export const metadata: Metadata = {
   title: 'Подобрать аромат — VOZDOOH',
   description: 'Подбор аромата для дома по заполненным характеристикам каталога: характеру, настроению, помещению и формату.',
+  alternates: { canonical: '/finder' },
   robots: { index: false, follow: false },
 }
 

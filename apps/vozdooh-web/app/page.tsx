@@ -1,5 +1,6 @@
 import Image from 'next/image'
 import Link from 'next/link'
+import type { Metadata } from 'next'
 import { SiteFooter } from '../components/SiteFooter'
 import { SiteHeader } from '../components/SiteHeader'
 import { HeroShaderGradient } from '../components/HeroShaderGradient'
@@ -33,6 +34,12 @@ const money = new Intl.NumberFormat('ru-RU', {
 
 
 export const dynamic = 'force-dynamic'
+
+export const metadata: Metadata = {
+  title: 'VOZDOOH — парфюмерия для дома',
+  description: 'VOZDOOH — коллекция ароматов для дома: диффузоры, свечи, спреи и подарочные наборы от брендов интерьерной парфюмерии.',
+  alternates: { canonical: '/' },
+}
 
 export default async function Home() {
   const products = storefrontProducts(await withValidImages(await (await getCatalogRepository()).list()))

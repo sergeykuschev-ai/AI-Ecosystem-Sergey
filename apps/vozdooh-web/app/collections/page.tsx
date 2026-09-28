@@ -13,6 +13,7 @@ export const dynamic = 'force-dynamic'
 export const metadata: Metadata = {
   title: 'Коллекции — VOZDOOH',
   description: 'Редакционные подборки VOZDOOH по характеру аромата, настроению и пространству.',
+  alternates: { canonical: '/collections' },
   robots: { index: false, follow: false },
 }
 

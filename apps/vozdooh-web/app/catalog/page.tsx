@@ -18,6 +18,7 @@ export const dynamic = 'force-dynamic'
 export const metadata: Metadata = {
   title: 'Каталог — VOZDOOH',
   description: 'Интерьерная парфюмерия VOZDOOH. Ароматы, характер и настроение вашего пространства.',
+  alternates: { canonical: '/catalog' },
   robots: { index: false, follow: false },
 }
 
