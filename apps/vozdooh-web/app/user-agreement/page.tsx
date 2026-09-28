@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { InfoPage, OwnerBlock } from '../../components/InfoPage'
+import { InfoPage, SellerRequisites } from '../../components/InfoPage'
 
 export const metadata: Metadata = {
   title: 'Пользовательское соглашение — VOZDOOH',
@@ -38,7 +38,10 @@ export default function UserAgreementPage() {
         <h2>6. Заключительные положения</h2>
         <p>К отношениям сторон применяется законодательство Российской Федерации. Продавец вправе обновлять настоящее соглашение; актуальная версия всегда публикуется на этой странице. Вопросы и обращения направляйте через раздел <a className="textLink" href="/contacts">Контакты</a> или на электронную почту <a className="textLink" href="mailto:vozdooh.kms@yandex.ru">vozdooh.kms@yandex.ru</a>, телефон <a className="textLink" href="tel:+79244199990">+7 924 419-99-90</a>.</p>
       </section>
-      <OwnerBlock label="Реквизиты продавца (ИНН, ОГРНИП, юридический адрес)" />
+      <section className="infoSection">
+        <h2>Реквизиты продавца</h2>
+        <SellerRequisites />
+      </section>
       <p className="infoDisclaimer">Настоящее соглашение регулирует использование сайта и не заменяет договор публичной оферты. При расхождении применяются условия оферты и законодательство Российской Федерации.</p>
     </InfoPage>
   )

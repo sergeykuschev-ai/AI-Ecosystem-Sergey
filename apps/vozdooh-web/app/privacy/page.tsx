@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { InfoPage, OwnerBlock } from '../../components/InfoPage'
+import { InfoPage, OwnerBlock, SellerRequisites } from '../../components/InfoPage'
 
 export const metadata: Metadata = {
   title: 'Политика конфиденциальности — VOZDOOH',
@@ -14,9 +14,10 @@ export default function PrivacyPage() {
       title="Политика конфиденциальности"
       lead="Мы собираем только те данные, которые нужны для обработки вашей заявки, и не передаём их третьим лицам без законных оснований."
     >
-      <OwnerBlock label="Оператор персональных данных">
-        <p>Наименование организации или индивидуального предпринимателя, адрес и контакты оператора будут указаны здесь после подтверждения владельцем.</p>
-      </OwnerBlock>
+      <section className="infoSection">
+        <h2>Оператор персональных данных</h2>
+        <SellerRequisites />
+      </section>
       <section className="infoSection">
         <h2>Какие данные мы собираем</h2>
         <ul className="infoList">
