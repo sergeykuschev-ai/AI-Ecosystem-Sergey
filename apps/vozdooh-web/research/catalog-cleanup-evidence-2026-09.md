@@ -200,3 +200,24 @@ After the exact-image recovery passes, only three customer-eligible positive-sto
 - 0189 — Ножницы для фитиля, staged barcode 2017701192390. No manufacturer/brand or exact public image could be bound to this internal-looking barcode. It remains hidden.
 
 These blockers are deliberate. A physical-label/product photo or an exact supplier/manufacturer source is required before any of the three can enter the normal storefront.
+
+## Publication re-audit — 2026-09-28
+
+Fresh audit of `/opt/vozdooh/data/catalog-staged.json` against `src/catalog/stagedEditorial.ts`
+and files in `public/catalog/official`:
+
+- 148 rows with stock > 0; all 148 carry a positive price. No zero/negative-price positives.
+- 144 storefront products: curated editorial entry + verified local image present on disk.
+- Hidden customer-eligible SKUs remain exactly three:
+  - `121211` (Ротанговые палочки 500мл, barcode 8050534799088) — NO EXACT IMAGE. Re-verified
+    2026-09-28 by barcode and article web searches; public CULTI 500 ml reed listings use a
+    different manufacturer code. Brand/dimensions/count unproven.
+  - `045850b2-9e1f-11ee-b408-d069cd63062f` (Салями картридж AG 100мл, barcode 2017701198859) —
+    NO EXACT IMAGE. Fragrance confirmed by AROMAgroup material; exact cartridge package/photo
+    tied to this SKU/barcode not found. Re-verified 2026-09-28.
+  - `0189` (Ножницы для фитиля, barcode 2017701192390) — NO EXACT IMAGE. No manufacturer/brand
+    binding for the internal-looking barcode. Re-verified 2026-09-28.
+- `445445` (39 Сетевое з/у microUSB, barcode 4610024333280) — LEGACY-NOT-FOR-VOZDOOH, excluded
+  via `storefrontExcludedSkus`; barcode resolves to an AceLine wall charger, not a fragrance item.
+- Final counts: positive stock 148 · visible 144 · hidden 3 · excluded 1.
+- No borrowed lookalike images were introduced; statuses unchanged.

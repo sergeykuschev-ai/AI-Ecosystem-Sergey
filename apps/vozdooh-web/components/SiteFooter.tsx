@@ -1,6 +1,23 @@
 import Image from 'next/image'
 import Link from 'next/link'
 
+const shopLinks = [
+  { href: '/catalog', label: 'Каталог' },
+  { href: '/finder', label: 'Подбор аромата' },
+  { href: '/brands', label: 'Бренды' },
+  { href: '/collections', label: 'Коллекции' },
+  { href: '/cart', label: 'Корзина' },
+]
+
+const infoLinks = [
+  { href: '/delivery', label: 'Доставка' },
+  { href: '/payment', label: 'Оплата' },
+  { href: '/returns', label: 'Возврат' },
+  { href: '/contacts', label: 'Контакты' },
+  { href: '/privacy', label: 'Конфиденциальность' },
+  { href: '/offer', label: 'Оферта' },
+]
+
 export function SiteFooter() {
   return (
     <footer>
@@ -8,14 +25,15 @@ export function SiteFooter() {
         <Image src="/brand/vozdooh-horizontal.webp" alt="VOZDOOH" width={900} height={118} />
       </Link>
       <nav aria-label="Нижняя навигация">
-        <Link href="/catalog">Каталог</Link>
-        <Link href="/finder">Подбор аромата</Link>
-        <Link href="/brands">Бренды</Link>
-        <Link href="/collections">Коллекции</Link>
-        <Link href="/cart">Корзина</Link>
+        <div className="footerNavGroup">
+          {shopLinks.map((link) => <Link href={link.href} key={link.href}>{link.label}</Link>)}
+        </div>
+        <div className="footerNavGroup footerNavInfo">
+          {infoLinks.map((link) => <Link href={link.href} key={link.href}>{link.label}</Link>)}
+        </div>
       </nav>
       <div className="footerNote">
-        <p>© 2026 VOZDOOH</p>
+        <p>© 2026 VOZDOOH · vozdooh27.ru</p>
         <p>Искусство атмосферы. Парфюмерия для дома.</p>
       </div>
     </footer>
