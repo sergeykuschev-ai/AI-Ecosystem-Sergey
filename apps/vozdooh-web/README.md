@@ -244,3 +244,14 @@ node scripts/catalog-quality.cjs /opt/vozdooh/data/catalog-staged.json --titles
 The audit uses the storefront's staged adapter, reviewed editorial content and local image validation. It reports visible products, optional editorial gaps, missing trade volume, explicit recommendation coverage, positive prices, verified images and mechanical title/subtitle flags. Flags require review; missing optional content may be inapplicable and is never inferred. The script does not write catalog data.
 
 Cards show positive current trade prices in RUB without discounts. Product pages retain explicit editorial recommendations; only products without explicit links can show a separate “Ещё из бренда” section (up to three visible, pictured, in-stock products of the exact same brand in catalog order). This is brand navigation, not scent similarity or compatibility advice.
+
+### Checkout validation and preview SEO
+
+Checkout and the API share the browser-safe `src/commerce/requestValidation.ts`
+contract. Invalid contact or delivery fields are rejected before submission; the
+API still validates independently. Existing session retry digests retain their
+format so an unchanged pending request remains retryable across this update.
+Checkout links to the existing privacy, delivery and payment terms. The API
+rejects malformed UTF-8 JSON rather than saving replacement characters in contacts.
+The sitemap excludes cart and checkout; preview noindex and robots restrictions
+remain mandatory. See `PRODUCTION-READINESS.md` for open gates.

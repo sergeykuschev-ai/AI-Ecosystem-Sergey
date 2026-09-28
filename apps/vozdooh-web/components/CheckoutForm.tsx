@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { parseRequest } from '../src/commerce/requestValidation'
 import { submitRequest } from '../src/commerce/submitRequest'
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { getCartSnapshot, getServerCartSnapshot, subscribeCart } from '../src/cart/storage'
@@ -64,15 +65,18 @@ export function CheckoutForm({ products, enabled }: { products: CatalogProduct[]
       consent: fields.get('consent') === 'on',
     }
     try {
+      // Validate and normalize exactly as the server does before sending contact data.
+      const { retryKey: candidateKey, ...normalized } = parseRequest({ ...payload, retryKey: crypto.randomUUID() })
+      // Keep the existing digest format so attempts saved before this change remain retryable.
       const signature = JSON.stringify(payload)
       // Persist only the random retry key and a one-way digest, never contact data.
       const digest = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(signature))), (b) => b.toString(16).padStart(2, '0')).join('')
       if (!attempt.current) {
         try { attempt.current = JSON.parse(sessionStorage.getItem('vozdooh-request-attempt') ?? 'null') } catch { /* Storage can be unavailable. */ }
       }
-      if (attempt.current?.signature !== digest) attempt.current = { signature: digest, retryKey: crypto.randomUUID() }
+      if (attempt.current?.signature !== digest) attempt.current = { signature: digest, retryKey: candidateKey }
       try { sessionStorage.setItem('vozdooh-request-attempt', JSON.stringify(attempt.current)) } catch { /* In-memory retry key still protects this tab. */ }
-      const result = await submitRequest({ ...payload, retryKey: attempt.current.retryKey })
+      const result = await submitRequest({ ...normalized, retryKey: attempt.current.retryKey })
       trackEvent('submit_order', { request_id: result.id, value: result.totalMinor / 100, currency: result.currency })
       setSuccess(result)
     } catch (failure) {
@@ -112,7 +116,8 @@ export function CheckoutForm({ products, enabled }: { products: CatalogProduct[]
             </div>
             <div className="field">
               <label htmlFor="checkout-phone">Телефон</label>
-              <input id="checkout-phone" name="phone" type="tel" inputMode="tel" autoComplete="tel" maxLength={32} required />
+              <input id="checkout-phone" name="phone" type="tel" inputMode="tel" autoComplete="tel" maxLength={32} aria-describedby="checkout-phone-help" required />
+              <small id="checkout-phone-help">От 10 до 15 цифр; допустимы +, пробелы, скобки и дефисы.</small>
             </div>
           </div>
         </fieldset>
@@ -141,6 +146,7 @@ export function CheckoutForm({ products, enabled }: { products: CatalogProduct[]
           </div>
         </fieldset>
         <label className="consentField"><input type="checkbox" name="consent" required disabled={pending} /> Согласен на сохранение имени, телефона и указанных данных получения для обработки этой заявки и связи со мной. Данные хранятся на сервере VOZDOOH.</label>
+        <p><Link className="textLink" href="/privacy">Политика конфиденциальности</Link> · <Link className="textLink" href="/delivery">Условия доставки</Link> · <Link className="textLink" href="/payment">Порядок оплаты</Link></p>
         {error && <p role="alert">{error}</p>}
       </form>
 

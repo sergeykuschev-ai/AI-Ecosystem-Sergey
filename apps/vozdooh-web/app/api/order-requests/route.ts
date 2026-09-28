@@ -34,7 +34,7 @@ export async function POST(request: Request) {
       chunks.push(value)
     }
     let value: unknown
-    try { value = JSON.parse(Buffer.concat(chunks).toString('utf8')) } catch { throw new RequestError('INVALID_JSON', 400) }
+    try { value = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks))) } catch { throw new RequestError('INVALID_JSON', 400) }
     const result = await acceptOrderRequest(value, {
       readCatalog: () => readStagedCatalog(resolve(/* turbopackIgnore: true */ process.env.ONEC_LOCAL_CATALOG_PATH ?? '.local/onec-catalog.json')),
       store: localRequestStore(),

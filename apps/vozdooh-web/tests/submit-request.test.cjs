@@ -59,3 +59,19 @@ test('preview headers keep every route unindexed and checkout has one page headi
   assert.match(html, /<h2>Корзина пуста<\/h2>/)
   assert.doesNotMatch(html, /<h1>/)
 })
+
+test('sitemap excludes transactional pages while robots keeps preview crawling disabled', async () => {
+  const previous = process.env.CATALOG_PROVIDER
+  try {
+    process.env.CATALOG_PROVIDER = 'demo'
+    const sitemap = await require('../app/sitemap.ts').default()
+    const paths = sitemap.map((entry) => new URL(entry.url).pathname)
+    assert.ok(paths.includes('/catalog'))
+    assert.ok(paths.includes('/delivery'))
+    for (const path of ['/cart', '/checkout', '/api/order-requests']) assert.ok(!paths.includes(path))
+    assert.equal(require('../app/robots.ts').default().rules.disallow, '/')
+  } finally {
+    if (previous === undefined) delete process.env.CATALOG_PROVIDER
+    else process.env.CATALOG_PROVIDER = previous
+  }
+})

@@ -85,6 +85,10 @@ test('HTTP boundary rejects demo, cross-origin, malformed and oversized bodies',
     assert.equal((await POST(request('{}', { origin: 'https://other.invalid' }))).status, 403)
     assert.equal((await POST(request('{}', { 'content-type': 'text/plain' }))).status, 415)
     assert.equal((await POST(request('{'))).status, 400)
+    const malformedUtf8 = Buffer.concat([Buffer.from('{\"contact\":\"'), Buffer.from([0xff]), Buffer.from('\"}')])
+    const malformedResponse = await POST(request(malformedUtf8))
+    assert.equal(malformedResponse.status, 400)
+    assert.deepEqual(await malformedResponse.json(), { code: 'INVALID_JSON' })
     // Next's internal URL may differ from the original browser Host header.
     assert.equal((await POST(request('{', { origin: 'https://preview.example', host: 'preview.example' }))).status, 400)
     assert.equal((await POST(request('{', { origin: 'https://other.invalid', host: 'preview.example', 'x-forwarded-host': 'other.invalid' }))).status, 403)
@@ -123,4 +127,24 @@ test('valid JSON with corrupted receipt fields fails closed and remains untouche
     await assert.rejects(() => acceptOrderRequest(payload, dependencies), /CORRUPT_REQUEST_STORE/)
     assert.equal(await fs.readFile(filename, 'utf8'), serialized)
   }
+})
+
+test('browser-safe validation matches the server and normalizes contact boundaries', () => {
+  const shared = require('../src/commerce/requestValidation.ts')
+  assert.equal(shared.parseRequest, parseRequest)
+  const payload = input()
+  payload.contact.name = '  Synthetic Test  '
+  payload.delivery.comment = 'first\r\nsecond'
+  assert.equal(shared.parseRequest(payload).contact.name, 'Synthetic Test')
+  assert.equal(shared.parseRequest(payload).delivery.comment, 'first\nsecond')
+  for (const phone of ['1'.repeat(9), '1'.repeat(16), '1234567890x', '1234567890\n']) {
+    assert.throws(() => shared.parseRequest({ ...payload, contact: { ...payload.contact, phone } }), (error) => error.code === 'INVALID_PHONE' || error.code === 'INVALID_CONTACT_OR_DELIVERY')
+  }
+  for (const phone of ['1'.repeat(10), '+' + '1'.repeat(15)]) {
+    assert.equal(shared.parseRequest({ ...payload, contact: { ...payload.contact, phone } }).contact.phone, phone)
+  }
+  for (const name of ['   ', 'x'.repeat(101), 'name\u0000']) {
+    assert.throws(() => shared.parseRequest({ ...payload, contact: { ...payload.contact, name } }), (error) => error.code === 'INVALID_CONTACT_OR_DELIVERY')
+  }
+  assert.throws(() => shared.parseRequest({ ...payload, delivery: { method: 'courier', address: '   ', comment: '' } }), (error) => error.code === 'INVALID_CONTACT_OR_DELIVERY')
 })
