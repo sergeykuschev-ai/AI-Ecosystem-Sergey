@@ -29,6 +29,38 @@ export async function generateMetadata(): Promise<Metadata> {
 
 const CONTACTS_INTRO = "Четыре магазина по одному адресу — электротовары, сантехника, крепёж и товары для питомцев.";
 
+interface SellerInfoSectionProps {
+  city: NonNullable<Awaited<ReturnType<typeof getCityBySlug>>>;
+  stores: Awaited<ReturnType<typeof getStoresByCity>>;
+}
+
+function SellerInfoSection({ city, stores }: SellerInfoSectionProps) {
+  const addresses = [...new Set(stores.map((store) => store.address).filter(Boolean))];
+  const telephones = [...new Set(stores.map((store) => store.telephone).filter(Boolean))];
+
+  return (
+    <section className="section prose" aria-labelledby="seller-info-title">
+      <h2 id="seller-info-title">Сведения о продавце</h2>
+      <ul>
+        <li>Название: магазины «Ампер», «Вентиль», «Метиз Маркет» и «Миска».</li>
+        <li>Страна: {city.country}.</li>
+        <li>Город: {city.name}{city.region ? `, ${city.region}` : ""}.</li>
+        {addresses.map((address) => (
+          <li key={address}>Адрес: {address}.</li>
+        ))}
+        {telephones.map((telephone) => (
+          <li key={telephone}>Телефон: {telephone}.</li>
+        ))}
+      </ul>
+      <p>Реквизиты организации будут опубликованы на этой странице после утверждения.</p>
+      <p>
+        Порядок оплаты и получения товара описан на страницах <Link href="/payment/">«Оплата»</Link> и{" "}
+        <Link href="/delivery/">«Доставка»</Link>.
+      </p>
+    </section>
+  );
+}
+
 export default async function ContactsPage() {
   const [city, brands] = await Promise.all([getCityBySlug("amursk"), getBrands()]);
 
@@ -64,6 +96,7 @@ export default async function ContactsPage() {
           <h2 id="contacts-title">Магазины</h2>
           <ContactStoreGrid stores={stores} brands={brands} city={city} />
         </section>
+        <SellerInfoSection city={city} stores={stores} />
       </StaticPage>
     </>
   );

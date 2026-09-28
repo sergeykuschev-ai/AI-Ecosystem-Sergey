@@ -19,6 +19,8 @@ const staticPaths = [
   "/kontakty/",
   "/faq/",
   "/stati/",
+  "/payment/",
+  "/delivery/",
   ...AMPER_SEO_CATEGORY_PATHS,
   ...VENTIL_SEO_CATEGORY_PATHS,
   ...METIZ_SEO_CATEGORY_PATHS,

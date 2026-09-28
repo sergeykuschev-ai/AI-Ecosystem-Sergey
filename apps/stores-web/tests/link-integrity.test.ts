@@ -71,12 +71,15 @@ const EXPECTED_STATIC_PAGES = [
   "/akcii/",
   "/amper/",
   "/bonus/",
+  "/delivery/",
   "/faq/",
   "/kontakty/",
   "/metiz-market/",
   "/miska/",
   "/o-kompanii/",
+  "/payment/",
   "/politika-konfidencialnosti/",
+  "/polzovatelskoe-soglasie/",
   "/soglasie-na-obrabotku-dannyh/",
   "/stores/",
   "/stati/",
@@ -110,7 +113,8 @@ const routeModel: RouteModel = {
 
 const INDEXABLE_PATHS = new Set([
   ...EXPECTED_STATIC_PAGES.filter(
-    (path) => !["/politika-konfidencialnosti/", "/soglasie-na-obrabotku-dannyh/"].includes(path),
+    (path) =>
+      !["/politika-konfidencialnosti/", "/soglasie-na-obrabotku-dannyh/", "/polzovatelskoe-soglasie/"].includes(path),
   ),
   ...CANONICAL_BRAND_SLUGS.map((slug) => `/${slug}/`),
   ...[...citySlugs].map((slug) => `/stores/${slug}/`),
