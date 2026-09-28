@@ -43,3 +43,15 @@ describe("static image cache policy", () => {
     }
   });
 });
+
+describe("security headers for payment-page review (issue #190)", () => {
+  test("the catch-all rule enforces HTTPS-only loads via HSTS", async () => {
+    const rules = await headerRules();
+    const catchAll = rules.find((rule) => rule.source === "/(.*)");
+    assert.ok(catchAll, "security catch-all rule must exist");
+    const hsts = catchAll.headers.find((header) => header.key.toLowerCase() === "strict-transport-security");
+    assert.ok(hsts, "catch-all rule must set Strict-Transport-Security");
+    assert.match(hsts.value, /max-age=31536000/, "HSTS max-age must cover one year");
+    assert.match(hsts.value, /includeSubDomains/, "HSTS must cover all subdomains");
+  });
+});

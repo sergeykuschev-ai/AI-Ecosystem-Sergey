@@ -83,11 +83,22 @@ Yandex Webmaster monitoring and re-crawl operations are documented in the [Yande
 | About | `/o-kompanii/` |
 | Contacts | `/kontakty/` |
 | FAQ | `/faq/` |
-| Legal placeholders | `/politika-konfidencialnosti/`, `/soglasie-na-obrabotku-dannyh/` |
+| VOZDOOH seller requisites | `/rekvizity/` |
+| VOZDOOH payment | `/oplata/` |
+| VOZDOOH delivery | `/dostavka/` |
+| VOZDOOH returns | `/vozvrat/` |
+| Legal drafts (offer, user agreement, privacy policy) | `/oferta/`, `/polzovatelskoe-soglashenie/`, `/politika-konfidencialnosti/` |
+| Legal placeholders | `/soglasie-na-obrabotku-dannyh/` |
 | BFF | `/api/brands`, `/api/cities`, `/api/stores`, `/api/promotions`, `/api/categories`, `/api/vacancies` |
 | Crawling | `/robots.txt`, `/sitemap.xml` |
 
-The legal placeholder pages are intentionally `noindex` until approved legal text is supplied. They are therefore not in the sitemap.
+The pages `/rekvizity/`, `/oplata/`, `/dostavka/`, and `/vozvrat/` describe the VOZDOOH online store that is being prepared for launch: they publish only owner-verified facts and explicitly mark integrations that are still pending (Ozon Bank internet acquiring, Ozon Delivery, Yandex delivery) as not yet live.
+
+The legal pages are intentionally `noindex` until approved legal text is supplied. The public offer, user agreement, and privacy policy are published as clearly marked drafts pending owner approval; the consent placeholder has no text at all. Drafts are therefore not in the sitemap.
+
+## Ozon Bank acquiring compliance (VOZDOOH)
+
+The VOZDOOH pages above exist for the Ozon Bank internet-acquiring compliance review tracked in issue #190. The full audit — PASS / FAIL / OWNER INPUT REQUIRED evidence for every Ozon requirement, plus the pre-inspection launch checklist — is recorded in [Ozon acquiring compliance audit](docs/OZON_ACQUIRING_COMPLIANCE_2026-09-28.md). Pages state only payment and delivery methods that are actually enabled or being connected; pending integrations are marked as pending and nothing claims bank approval. Remaining gaps require owner input (legal requisites and approved legal texts, delivery tariffs) and cannot be fabricated.
 
 ## Directory structure
 

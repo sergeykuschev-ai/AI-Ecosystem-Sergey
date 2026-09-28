@@ -7,6 +7,7 @@ const SEO_REGRESSION_TESTS = [
   "tests/local-seo.test.ts",
   "tests/public-assets.test.ts",
   "tests/seo-routes.test.ts",
+  "tests/vozdooh-compliance.test.ts",
 ] as const;
 
 console.log("Stores Web local SEO regression gate");
