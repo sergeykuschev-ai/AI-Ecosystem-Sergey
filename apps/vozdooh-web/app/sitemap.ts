@@ -8,8 +8,11 @@ import { availableCollections } from '../src/catalog/collections'
 /**
  * Sitemap for the storefront routes. robots.txt still disallows all crawling
  * until the owner approves public indexing, so this file is launch-ready
- * plumbing, not an indexing switch.
+ * plumbing, not an indexing switch. It is computed per request so product,
+ * brand, category and collection URLs always reflect the live catalog source.
  */
+export const dynamic = 'force-dynamic'
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://vozdooh27.ru').replace(/\/+$/, '')
   const staticRoutes: MetadataRoute.Sitemap = [

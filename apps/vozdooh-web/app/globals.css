@@ -868,7 +868,7 @@ select:focus-visible,summary:focus-visible{outline:2px solid var(--green);outlin
 .infoPage{min-height:100vh;display:flex;flex-direction:column}
 .infoPage .infoBody{flex:1}
 .infoHero{padding:96px 7vw 24px;border-bottom:1px solid var(--line)}
-.infoHero h1{font-size:clamp(30px,4.2vw,56px);line-height:1.04;letter-spacing:-.03em;margin:22px 0 0;max-width:760px}
+.infoHero h1{font-size:clamp(30px,4.2vw,56px);line-height:1.04;letter-spacing:-.03em;margin:22px 0 0;max-width:760px;overflow-wrap:break-word}
 .infoLead{max-width:640px;font-size:14px;line-height:1.75;color:var(--muted);margin:22px 0 0}
 .infoBody{padding:16px 7vw 96px;max-width:960px}
 .infoSection{padding:44px 0;border-bottom:1px solid var(--line)}
