@@ -6,10 +6,19 @@ import type { CatalogProduct } from '../src/catalog/contracts'
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { categoryLabels, familyLabels, moodLabels, roomLabels } from '../src/catalog/vocabulary'
+import { trackEvent } from '../src/integrations/analytics'
 
 type GroupKey = 'family' | 'mood' | 'room' | 'category'
 
 type Selection = Record<GroupKey, string | null>
+
+function matches(product: CatalogProduct, selection: Selection): boolean {
+  if (selection.family && product.editorial.scentFamily !== selection.family) return false
+  if (selection.mood && product.editorial.mood !== selection.mood) return false
+  if (selection.room && product.editorial.room !== selection.room) return false
+  if (selection.category && product.trade.category !== selection.category) return false
+  return true
+}
 
 const groups: { key: GroupKey; step: string; title: string; options: Record<string, string> }[] = [
   { key: 'family', step: '01', title: 'Характер аромата', options: familyLabels },
@@ -24,13 +33,7 @@ export function ScentFinder({ products, demo }: { products: CatalogProduct[]; de
   const visibleGroups = groups.map((group) => group.key === 'category' && !demo ? { ...group, options: Object.fromEntries(products.map((product) => [product.trade.category, product.trade.category])) } : group).map((group) => ({ ...group, options: Object.fromEntries(availableFilterOptions(products, group.key, group.options).map(({ value, label }) => [value, label])) })).filter((group) => Object.keys(group.options).length > 0)
 
   const matched = useMemo(
-    () => products.filter((product) => {
-      if (selection.family && product.editorial.scentFamily !== selection.family) return false
-      if (selection.mood && product.editorial.mood !== selection.mood) return false
-      if (selection.room && product.editorial.room !== selection.room) return false
-      if (selection.category && product.trade.category !== selection.category) return false
-      return true
-    }),
+    () => products.filter((product) => matches(product, selection)),
     [selection, products],
   )
 
@@ -45,7 +48,15 @@ export function ScentFinder({ products, demo }: { products: CatalogProduct[]; de
   }, [selection])
 
   const toggle = (key: GroupKey, value: string) => {
-    setSelection((current) => ({ ...current, [key]: current[key] === value ? null : value }))
+    const next: Selection = { ...selection, [key]: selection[key] === value ? null : value }
+    setSelection(next)
+    const active = Object.entries(next).filter((entry): entry is [GroupKey, string] => entry[1] !== null)
+    if (active.length > 0) {
+      trackEvent('scent_finder', {
+        ...Object.fromEntries(active),
+        match_count: products.filter((product) => matches(product, next)).length,
+      })
+    }
   }
 
   return (

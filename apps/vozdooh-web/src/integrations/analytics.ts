@@ -17,6 +17,7 @@ export type AnalyticsEvent =
   | 'view_brand'
   | 'view_collection'
   | 'filter_use'
+  | 'scent_finder'
 
 declare global {
   interface Window {

@@ -63,9 +63,15 @@ export function CartView({ products, demo }: { products: CatalogProduct[]; demo:
                   </div>
                 </div>
                 <div className="qtyControl">
-                  <button type="button" aria-label="Уменьшить количество" onClick={() => setLineQuantity(line.sku, line.quantity - 1)}>−</button>
+                  <button type="button" aria-label="Уменьшить количество" onClick={() => {
+                    if (product) trackEvent('remove_from_cart', { ...productPayload(product), quantity: 1 })
+                    setLineQuantity(line.sku, line.quantity - 1)
+                  }}>−</button>
                   <b>{line.quantity}</b>
-                  <button type="button" aria-label="Увеличить количество" onClick={() => setLineQuantity(line.sku, line.quantity + 1)}>+</button>
+                  <button type="button" aria-label="Увеличить количество" onClick={() => {
+                    if (product) trackEvent('add_to_cart', { ...productPayload(product), quantity: 1 })
+                    setLineQuantity(line.sku, line.quantity + 1)
+                  }}>+</button>
                 </div>
               </div>
             ))}
