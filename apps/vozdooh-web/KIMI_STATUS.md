@@ -299,3 +299,35 @@ excluded as legacy non-fragrance. Evidence recorded in
 Seller legal identity/requisites, public contact confirmation, delivery zones/cost/timing,
 payment methods, returns specifics, privacy operator details, Metrica counter ID,
 optional exact photos for 3 hidden SKUs, and the decision to lift Basic Auth/noindex.
+
+## Ozon acquiring readiness — 2026-09-28 (issue #191)
+
+Narrow Ozon Bank Internet Acquiring compliance pass; no SEO/design/catalog work, no
+deployment, no protection changes, no provider data invented.
+
+- `/contacts` + footer: added confirmed seller data only — ИП Кущев Сергей Васильевич
+  (VOZDOOH), +7 924 419-99-90 (temporary), vozdooh.kms@yandex.ru, г. Хабаровск, Россия.
+  ИНН/ОГРНИП/адрес не заполнялись (нет в проверенных источниках) — остаются owner-блоками.
+- `/payment` rewritten for acquiring review: full current process (корзина → оформление →
+  серверная проверка состава/суммы → заявка → подтверждение) and the future post-acquiring
+  flow (выбор способа → защищённая страница банка → понятный результат → электронный чек по
+  фактической системе фискализации). Added «Безопасность платежей и защита покупателей»:
+  HTTPS, банк проводит платёж и контроль операций, данные карт сайт не хранит, правила для
+  покупателя. Ozon не назван активным; комиссии/способы не выдуманы.
+- `/delivery`: added «Планируемые способы доставки» — Хабаровск «Яндекс Доставка», Россия
+  Ozon Delivery — явно помечены как не подключённые, без тарифов/сроков.
+- Created `/user-agreement` (рус., только подтверждённые факты; реквизиты — owner-блок),
+  добавлен в футер и sitemap.
+- Compliance checks: запрещённых внешних ссылок/баннеров нет (внешних ссылок почти нет
+  вовсе); платёжных логотипов нет → не вводят в заблуждение; карточки товаров содержат
+  название/описание/цену/характеристики/наличие (цена·остаток·SKU из 1С); маршруты
+  `/, /catalog, /cart, /checkout, /payment, /delivery, /returns, /contacts, /offer,
+  /privacy, /user-agreement` — все 200, неизвестные URL — 404, внутренние ссылки целы.
+- Инфраструктурная проверка (без изменений): HTTPS на vozdooh27.ru работает (Let's Encrypt,
+  до 25.12.2026, редирект 308), но сайт закрыт Basic Auth (401) — блокер модерации;
+  финальный production-домен в конфигурации отсутствует.
+- Report: `research/ozon-acquiring-readiness.md` (таблица PASS / FAIL / OWNER INPUT
+  REQUIRED / PROVIDER APPROVAL REQUIRED + блокеры). Галочка «Сайт соответствует
+  требованиям» сейчас: NO (адрес + доступность HTTPS для модерации).
+- `npm test`, `npm run typecheck`, `npm run lint`, `VOZDOOH_ISOLATED_BUILD=true npm run build`,
+  `git diff --check` — все пройдены; контент-чеки новых страниц по HTML — пройдены.

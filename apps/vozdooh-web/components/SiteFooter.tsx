@@ -16,6 +16,7 @@ const infoLinks = [
   { href: '/contacts', label: 'Контакты' },
   { href: '/privacy', label: 'Конфиденциальность' },
   { href: '/offer', label: 'Оферта' },
+  { href: '/user-agreement', label: 'Соглашение' },
 ]
 
 export function SiteFooter() {
@@ -34,6 +35,8 @@ export function SiteFooter() {
       </nav>
       <div className="footerNote">
         <p>© 2026 VOZDOOH · vozdooh27.ru</p>
+        <p>ИП Кущев Сергей Васильевич · Россия, г. Хабаровск</p>
+        <p><a className="textLink" href="tel:+79244199990">+7 924 419-99-90</a> · <a className="textLink" href="mailto:vozdooh.kms@yandex.ru">vozdooh.kms@yandex.ru</a></p>
         <p>Искусство атмосферы. Парфюмерия для дома.</p>
       </div>
     </footer>
