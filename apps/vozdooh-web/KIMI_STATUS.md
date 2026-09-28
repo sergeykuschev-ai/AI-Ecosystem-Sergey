@@ -331,3 +331,59 @@ deployment, no protection changes, no provider data invented.
   требованиям» сейчас: NO (адрес + доступность HTTPS для модерации).
 - `npm test`, `npm run typecheck`, `npm run lint`, `VOZDOOH_ISOLATED_BUILD=true npm run build`,
   `git diff --check` — все пройдены; контент-чеки новых страниц по HTML — пройдены.
+
+## Pre-launch audit + analytics hardening — 2026-09-28
+
+Branch `ai/kimi-vozdooh-store`. Autonomous pass after Ozon moderation PASS / production went
+public. No provider integrations activated; noindex/nofollow preserved; no deployment
+performed (running production listener is root-owned; procedure not unambiguously safe).
+
+### Catalog completeness + price/stock audit (research/catalog-completeness-audit-2026-09-28.md)
+- Quantitative baseline over the staged snapshot: 803 source rows → 148 positive-stock →
+  147 eligible → 144 visible. Visible completeness: images 144/144, descriptions 144/144,
+  positive RUB price 144/144, title anomalies 0. Gaps are legitimate: 26 volume-less formats
+  (car/devices/sachets/sticks), scent/mood/room concentrated in accessories + professional
+  AROMAgroup cartridges + deliberately unpublished notes, 2 barcodes 1C does not provide,
+  3 hidden SKUs blocked on exact photos (re-verified unresolvable).
+- One safe editorial completion: `344565` Ladenac Jet Lag Black Gold `scentFamily: woody`,
+  supported by its own checked-in description («восточно-древесная композиция…»).
+  scentFamily gap 45 → 44. No trade value, price, stock or image changed.
+- Price/stock mapping verified faithful: source `import0_1.xml`/`offers0_1.xml` sha256 match
+  the staging report; converter reads only the selected warehouse/price type, clamps negative
+  stock, rejects negative prices; `stagedTrade` never touches price/stock; order validation
+  re-reads raw staged trades; 12/12 sampled production products match staged price + InStock
+  exactly.
+
+### Analytics (src/integrations + components, tests/analytics.test.cjs)
+- Cart quantity steppers now emit one-unit `add_to_cart` / `remove_from_cart` (previously only
+  the PDP button and full-row removal were tracked); verified firing with payloads.
+- New internal `scent_finder` event on finder selections (criteria + match_count, no personal
+  data); verified firing. `AnalyticsEvent` union extended; Metrica still loads only when
+  `NEXT_PUBLIC_YANDEX_METRICA_ID` is set, otherwise everything stays a no-op.
+- 4 new unit tests (61 app tests total, all pass).
+
+### Browser regression suite repaired (scripts/verify-browser.cjs)
+- The staged-1c branch had drifted through the price-publication, image-cleanup, finder and
+  PDP passes (expected 5 room tiles / 148 unfiltered / hidden purchase panel / removed
+  `.productChips` / 'Перейти к оформлению'). Expectations are now derived from the same
+  catalog pipeline the pages use (rooms, visible count, curated count, woody count, a
+  data-derived empty family+room combo, first-product stock for the checkout guard), and the
+  stock guard is asserted in both refuse and allow states.
+- Full suite green in staged-1c and demo modes (5 viewports, menu, routes, robots, 404,
+  noindex, catalog counts, PDP purchase panel, finder filter, cart quantity/persistence,
+  checkout states, missing-SKU state, empty state, no console errors).
+- Demo-only gap documented (not a production issue): homepage category tiles deep-link to
+  `/categories/*` landings that bind only to Russian-named categories; the demo placeholder
+  uses internal English category keys, so those routes stay unlinked in demo.
+
+### Production QA (https://vozdooh27.ru)
+- 188/188 sitemap URLs and 187/187 crawled internal routes return 200; no broken links.
+- No visible TODO/placeholder/owner-input text; owner blocks render the approved honest note.
+  `noindex, nofollow` on every page; titles present; hero shader chunk still deferred.
+- Performance healthy: ~0.6–1.0 MB and ~1 s load on home/catalog/PDP; three.js shader chunk
+  loads after idle via requestIdleCallback.
+
+### Still blocked on owner/provider
+Exact photos (or 1C removal) for 3 hidden SKUs; 2 missing barcodes (only 1C can supply);
+Metrica counter ID; seller requisites (ИНН/ОГРНИП/address); delivery/payment terms; the
+decision to lift noindex/robots disallow.
