@@ -367,6 +367,9 @@ footer{grid-template-columns:auto 1fr;gap:24px 40px;padding:36px 7vw}
 .footerNote{grid-column:1/-1;max-width:none;text-align:left;display:flex;justify-content:space-between;border-top:1px solid var(--line);padding-top:20px}
 .hero a:focus-visible,.finder a:focus-visible,.finderPage button:focus-visible,.finderPage a:focus-visible{outline-color:var(--cream)}
 @media(max-width:800px){
+  .textLink{display:inline-flex;align-items:center;min-height:44px}
+  .brandLogo{display:flex;align-items:center;min-height:44px}
+  .cartLink{min-height:44px}
   .section{padding:44px 6vw}
   .sectionHead{gap:12px}
   .categoryGrid{gap:24px 14px;margin-top:24px}
