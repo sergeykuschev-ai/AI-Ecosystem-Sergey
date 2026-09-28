@@ -6,6 +6,18 @@ CommerceML catalog receiver, and a closed staging converter for the owner's real
 1C export. Real CommerceML is previewed privately with the confirmed Habarovsk retail prices.
 Local order requests are enabled for staged-1c; confirmed orders, payments and public launch remain disabled.
 
+## Analytics readiness
+
+`src/integrations/analytics.ts` + `components/AnalyticsLoader.tsx` provide a typed
+event layer for Yandex Metrica. Metrica loads only when `NEXT_PUBLIC_YANDEX_METRICA_ID`
+is configured; no counter ID is bundled by default and all hooks are safe no-ops until
+then. Events: `view_item`, `select_item`, `add_to_cart`, `remove_from_cart`, `view_cart`,
+`begin_checkout`, `submit_order`, `view_brand`, `view_collection`, `filter_use`.
+Event payloads contain only non-personal catalog facts (SKU, brand, category, price,
+slug, collection); names, phones and addresses are never attached. PII stays out of
+analytics by construction — checkout events fire after validation, before submission,
+and carry no contact fields.
+
 ## Source selection
 
 | `CATALOG_PROVIDER` | Behavior |

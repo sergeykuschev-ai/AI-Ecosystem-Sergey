@@ -2,9 +2,10 @@
 
 import Link from 'next/link'
 import { submitRequest } from '../src/commerce/submitRequest'
-import { useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { getCartSnapshot, getServerCartSnapshot, subscribeCart } from '../src/cart/storage'
 import type { CatalogProduct } from '../src/catalog/contracts'
+import { productPayload, trackEvent } from '../src/integrations/analytics'
 
 const errors: Record<string, string> = {
   STOCK_CHANGED: 'Наличие изменилось. Вернитесь в корзину и обновите страницу.',
@@ -37,6 +38,17 @@ export function CheckoutForm({ products, enabled }: { products: CatalogProduct[]
 
   const valid = rows.length > 0 && rows.every(({ line, product }) => product && Number.isSafeInteger(line.quantity) && line.quantity > 0 && line.quantity <= 999 && (product.trade.stock ?? 0) >= line.quantity && (product.trade.price ?? 0) > 0)
   const total = rows.reduce((sum, { line, product }) => sum + Math.round((product?.trade.price ?? 0) * 100) * line.quantity, 0)
+  const checkoutTracked = useRef(false)
+
+  useEffect(() => {
+    if (checkoutTracked.current || !valid) return
+    checkoutTracked.current = true
+    trackEvent('begin_checkout', {
+      value: total / 100,
+      currency: 'RUB',
+      items: rows.flatMap(({ product }) => (product ? [productPayload(product)] : [])),
+    })
+  }, [valid, total, rows])
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -61,6 +73,7 @@ export function CheckoutForm({ products, enabled }: { products: CatalogProduct[]
       if (attempt.current?.signature !== digest) attempt.current = { signature: digest, retryKey: crypto.randomUUID() }
       try { sessionStorage.setItem('vozdooh-request-attempt', JSON.stringify(attempt.current)) } catch { /* In-memory retry key still protects this tab. */ }
       const result = await submitRequest({ ...payload, retryKey: attempt.current.retryKey })
+      trackEvent('submit_order', { request_id: result.id, value: result.totalMinor / 100, currency: result.currency })
       setSuccess(result)
     } catch (failure) {
       const code = failure && typeof failure === 'object' && 'code' in failure ? String(failure.code) : ''

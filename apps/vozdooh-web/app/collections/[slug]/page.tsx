@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { ProductCard } from '../../../components/ProductCard'
 import { SiteFooter } from '../../../components/SiteFooter'
 import { SiteHeader } from '../../../components/SiteHeader'
+import { TrackView } from '../../../components/TrackView'
 import { availableCollections, collectionPath } from '../../../src/catalog/collections'
 import { getCatalogRepository } from '../../../src/catalog/source'
 import { withValidImages } from '../../../src/catalog/validImages'
@@ -33,6 +34,7 @@ export default async function CollectionPage({ params }: Props) {
 
   return (
     <main className="catalogPage collectionPage">
+      <TrackView event="view_collection" payload={{ collection: collection.name, slug: collection.slug }} />
       <SiteHeader />
       <section className="collectionHero">
         <nav className="landingLinks" aria-label="Навигация по коллекциям">

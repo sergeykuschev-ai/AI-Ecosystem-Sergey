@@ -1,3 +1,5 @@
+'use client'
+
 import Image from 'next/image'
 import Link from 'next/link'
 import type { CatalogFilters } from '../src/catalog/filters'
@@ -5,6 +7,7 @@ import { catalogHref } from '../src/catalog/filterParams'
 import type { CatalogProduct } from '../src/catalog/contracts'
 import { isExternallyConfirmedPopular, POPULARITY_NOTE } from '../src/catalog/demandPriority'
 import { catalogImage, productPresentation } from '../src/catalog/presentation'
+import { productPayload, trackEvent } from '../src/integrations/analytics'
 
 const rub = new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 0, maximumFractionDigits: 2 })
 
@@ -13,7 +16,12 @@ export function ProductCard({ product, index = 0, demo = false, debug = false, f
   const display = productPresentation(product)
   const query = filters ? catalogHref(filters, 'brand', filters.brand ?? null, debug).split('?')[1] : debug ? 'debugCatalog=1' : ''
   return (
-    <Link className="productCard" href={`/catalog/${product.editorial.slug}${query ? `?${query}` : ""}`} title={product.trade.name}>
+    <Link
+      className="productCard"
+      href={`/catalog/${product.editorial.slug}${query ? `?${query}` : ""}`}
+      title={product.trade.name}
+      onClick={() => trackEvent('select_item', productPayload(product))}
+    >
       <div className={`productCardVisual tone${index % 4}${image ? ' hasImage' : ''}`}>
         {(demo || debug) && <span className="demoTag">{demo ? 'DEMO' : 'PREVIEW 1C'}</span>}
         {image ? (

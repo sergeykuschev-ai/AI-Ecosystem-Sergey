@@ -4,11 +4,13 @@ import { availableLandings, landingPath, type Landing } from '../src/catalog/lan
 import { ProductCard } from './ProductCard'
 import { SiteHeader } from './SiteHeader'
 import { SiteFooter } from './SiteFooter'
+import { TrackView } from './TrackView'
 
 export function CatalogLanding({ landing, products, kind }: { landing: Landing; products: CatalogProduct[]; kind: 'brand' | 'category' }) {
   const relatedKind = kind === 'brand' ? 'category' : 'brand'
   const related = availableLandings(products, relatedKind)
   return <main className="catalogPage landingPage">
+    {kind === 'brand' && <TrackView event="view_brand" payload={{ item_brand: landing.name, slug: landing.slug }} />}
     <SiteHeader />
     <section className="pageIntro">
       <nav className="landingLinks" aria-label="Навигация по каталогу"><Link href="/catalog">Каталог</Link><Link href={kind === 'brand' ? '/brands' : '/categories'}>{kind === 'brand' ? 'Бренды' : 'Категории'}</Link></nav>

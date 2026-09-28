@@ -6,6 +6,7 @@ import { AddToCartButton } from '../../../components/AddToCartButton'
 import { ProductCard } from '../../../components/ProductCard'
 import { SiteFooter } from '../../../components/SiteFooter'
 import { SiteHeader } from '../../../components/SiteHeader'
+import { TrackView } from '../../../components/TrackView'
 import { labelFor, familyLabels, moodLabels, roomLabels } from '../../../src/catalog/vocabulary'
 import { catalogImage, isDebugCatalog, productPresentation, storefrontProducts, sameBrandProducts } from '../../../src/catalog/presentation'
 import { isExternallyConfirmedPopular, POPULARITY_NOTE } from '../../../src/catalog/demandPriority'
@@ -66,6 +67,7 @@ export default async function ProductPage({ params, searchParams }: PageParams) 
 
   return (
     <main className="productPage">
+      {!demo && <TrackView event="view_item" payload={{ item_id: product.trade.sku, item_brand: product.trade.brand, item_category: product.trade.category, price: product.trade.price, slug: product.editorial.slug }} />}
       {structuredData && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: structuredData }} />}
       <SiteHeader />
       <div className="productLayout">

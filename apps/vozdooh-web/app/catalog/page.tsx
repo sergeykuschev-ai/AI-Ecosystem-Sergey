@@ -2,9 +2,11 @@ import { catalogSource, getCatalogRepository } from '../../src/catalog/source'
 
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { Suspense } from 'react'
 import { ProductCard } from '../../components/ProductCard'
 import { SiteFooter } from '../../components/SiteFooter'
 import { SiteHeader } from '../../components/SiteHeader'
+import { FilterTracker } from '../../components/FilterTracker'
 import { categoryLabels, familyLabels, moodLabels, roomLabels, type DemoCategory, type DemoFamily, type DemoMood, type DemoRoom } from '../../src/catalog/vocabulary'
 import { catalogHref, parseCatalogFilters, type FilterGroup, type RawSearchParams } from '../../src/catalog/filterParams'
 import { curatorSelection, isDebugCatalog, storefrontProducts } from '../../src/catalog/presentation'
@@ -51,6 +53,9 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
 
   return (
     <main className="catalogPage">
+      <Suspense fallback={null}>
+        <FilterTracker />
+      </Suspense>
       <SiteHeader />
       <section className="pageIntro">
         <span className="eyebrow">Каталог</span>

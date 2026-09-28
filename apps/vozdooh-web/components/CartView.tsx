@@ -3,9 +3,10 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { catalogImage, productPresentation } from '../src/catalog/presentation'
-import { useMemo, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useSyncExternalStore } from 'react'
 import { clearCart, getCartSnapshot, getServerCartSnapshot, setLineQuantity, subscribeCart } from '../src/cart/storage'
 import type { CatalogProduct } from '../src/catalog/contracts'
+import { productPayload, trackEvent } from '../src/integrations/analytics'
 
 export function CartView({ products, demo }: { products: CatalogProduct[]; demo: boolean }) {
   const cart = useSyncExternalStore(subscribeCart, getCartSnapshot, getServerCartSnapshot)
@@ -15,6 +16,12 @@ export function CartView({ products, demo }: { products: CatalogProduct[]; demo:
       .map((line) => ({ line, product: products.find((p) => p.trade.sku === line.sku) })),
     [cart, products],
   )
+
+  useEffect(() => {
+    if (rows.length > 0) {
+      trackEvent('view_cart', { item_count: rows.reduce((sum, { line }) => sum + line.quantity, 0) })
+    }
+  }, [rows])
 
   if (rows.length === 0) {
     return (
@@ -47,7 +54,10 @@ export function CartView({ products, demo }: { products: CatalogProduct[]; demo:
                   {product && <p className="cartProductMeta">{product.trade.brand} · {productPresentation(product).subtitle}</p>}
                   <small>SKU: {line.sku} · {product?.trade.price == null ? 'цена не указана' : `${product.trade.price} ₽`}</small>
                   <div>
-                    <button type="button" className="removeButton" onClick={() => setLineQuantity(line.sku, 0)}>
+                    <button type="button" className="removeButton" onClick={() => {
+                      if (product) trackEvent('remove_from_cart', { ...productPayload(product), quantity: line.quantity })
+                      setLineQuantity(line.sku, 0)
+                    }}>
                       Убрать из корзины
                     </button>
                   </div>
