@@ -13,11 +13,15 @@ Premium home-fragrance storefront with a default demo catalog, a verified 1C Com
 - `/` — homepage in the approved premium visual direction.
 - `/catalog` — selected catalog with working URL-driven filters (category, scent family, mood, room).
 - `/catalog/[slug]` — selected product, with separate trade/editorial fields and explicit DEMO or PREVIEW 1C labels.
-- `/brands`, `/collections` — placeholder routes; real brands are never invented and appear only after the 1C import.
+- `/brands`, `/brands/[slug]` — stocked brand index and per-brand landings with verified, source-backed stories.
+- `/categories`, `/categories/[slug]` — category index and per-format landings for stocked categories.
+- `/collections`, `/collections/[slug]` — editorial collections built only from positive-stock, pictured, verified products.
 - `/finder` — scent finder quiz that filters the selected catalog.
 - `/cart` — persistent browser cart with current catalog unit prices and a link to request checkout.
 - `/checkout` — staged-1C order-request form with goods total and contact/fulfillment preferences; no payment.
+- `/delivery`, `/payment`, `/returns`, `/contacts`, `/privacy`, `/offer` — customer information pages. They describe only verified behavior and mark owner-only legal/business data as awaiting owner confirmation.
 - `/api/order-requests` — durable local request submission; no confirmed-order or payment actions.
+- `/sitemap.xml` — runtime sitemap of all public routes; robots.txt keeps `Disallow: /` until the owner approves public indexing.
 
 ## Demo and 1C boundary
 - Default `CATALOG_PROVIDER=demo` uses explicit DEMO placeholders (`src/catalog/demo.ts`); legacy `stub` remains an alias. `local-1c` selects the synthetic fixture snapshot and is forbidden in production. `staged-1c` selects a validated real-CommerceML snapshot for private preview only. `1c` fails explicitly until live publication is approved.

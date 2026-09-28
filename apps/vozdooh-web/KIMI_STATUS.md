@@ -251,3 +251,51 @@ This entry supersedes the selection-in-preparation copy described above.
   image delivery/decoding. Removed only this pass's stopped `.next-verify` build
   (148 MB); available space rose from zero to 94 MB. Broader host cleanup remains
   out of scope. Existing preview/cache state was not restarted or changed.
+
+## Publication readiness pass — 2026-09-28
+
+Branch `ai/kimi-vozdooh-store`. Re-audited the staged catalog from current data: 148
+positive-stock rows, 144 visible with verified images, 3 customer-eligible SKUs hidden
+(NO EXACT IMAGE, re-verified by barcode/article/brand/distributor search) and 445445
+excluded as legacy non-fragrance. Evidence recorded in
+`research/catalog-cleanup-evidence-2026-09.md` and the final report in
+`research/publication-readiness.md`.
+
+### Added
+- Customer info pages `/delivery`, `/payment`, `/returns`, `/contacts`, `/privacy`,
+  `/offer` via a shared `InfoPage` shell. They describe only verified behavior and put
+  owner-only legal/contact data in explicit owner-data blocks instead of inventing it.
+- Full footer navigation covering the customer sitemap.
+- Yandex Metrica readiness layer: typed hooks for view_item, select_item, add_to_cart,
+  remove_from_cart, view_cart, begin_checkout, submit_order, view_brand,
+  view_collection and filter_use. Loads only when NEXT_PUBLIC_YANDEX_METRICA_ID is set;
+  payloads carry no personal data.
+- SEO plumbing: runtime sitemap (187 URLs), robots wired to the sitemap with crawling
+  still disallowed, canonicals and OpenGraph defaults; noindex unchanged everywhere.
+- Structured-data check: Product JSON-LD uses only real price/RUB/SKU/brand/image/stock.
+
+### Fixed
+- Sitemap is runtime-dynamic so product/brand/collection URLs reflect the live source.
+- 320px overflow on /privacy from a long H1 word.
+- Mobile tap targets (.textLink/.brandLogo/.cartLink) raised to a 44px minimum.
+- Hero ShaderGradient chunk (~1.2 MB three.js) now mounts via requestIdleCallback after
+  critical rendering; reduced-motion/save-data/weak-device fallbacks unchanged.
+
+### Verification
+- npm test (57 app + 2 receiver), typecheck, zero-warning lint, isolated build and
+  git diff --check all pass.
+- Browser QA (Chromium via Playwright against the isolated staged-1C build on loopback):
+  97 route/viewport assertions across 5 widths, all-PDP/accessory/brand/collection
+  audits, catalog filter UX (URL state, reset, back/forward, empty result), cart
+  add/remove/quantity/persistence, checkout E2E with synthetic contact data plus
+  idempotent-retry and price-tamper rejection, and an accessibility suite (one H1,
+  labels, alt coverage, keyboard order, tap targets, landmarks, contrast, alert errors).
+  No console errors, no broken images, no internal tier labels in customer HTML.
+- Checkout E2E used the documented synthetic-contact pattern; test request records
+  created during QA were removed; the pre-existing labeled synthetic record from
+  2026-09-25 remains in the gitignored `.local/order-requests/`.
+
+### Requires owner
+Seller legal identity/requisites, public contact confirmation, delivery zones/cost/timing,
+payment methods, returns specifics, privacy operator details, Metrica counter ID,
+optional exact photos for 3 hidden SKUs, and the decision to lift Basic Auth/noindex.
