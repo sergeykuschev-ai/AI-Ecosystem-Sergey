@@ -190,3 +190,13 @@ Evidence:
 - https://www.tsum.ru/product/he00855745-sprei-dlya-doma-jet-lag-black-gold-125ml-ladenac-milano-bestcvetnyi/
 - https://lemaaroma.com/karta-sajta/
 - https://www.koku.pl/ladenac-lui-lei-jet-lag-spray-domowy-125ml-w-opakowaniu-prezentowym
+
+## 2026-09-27 — remaining positive-stock storefront blockers
+
+After the exact-image recovery passes, only three customer-eligible positive-stock SKUs remain hidden:
+
+- 121211 — Ротанговые палочки 500мл, staged barcode 8050534799088. Public CULTI 500 ml reed listings found during research use a different manufacturer code. No exact source binding was found for the staged barcode, so no brand or image is assigned.
+- 045850b2-9e1f-11ee-b408-d069cd63062f — Салями картридж AG 100мл пласт. AROMAgroup's own catalog material confirms the Salami fragrance and the 1C record confirms the 100 ml cartridge, but no exact product photograph tied to this SKU/barcode was found. It remains hidden rather than borrowing another AROMAgroup cartridge image.
+- 0189 — Ножницы для фитиля, staged barcode 2017701192390. No manufacturer/brand or exact public image could be bound to this internal-looking barcode. It remains hidden.
+
+These blockers are deliberate. A physical-label/product photo or an exact supplier/manufacturer source is required before any of the three can enter the normal storefront.

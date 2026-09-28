@@ -36,6 +36,9 @@ async function audit(path) {
     verifiedImages: visible.length,
     excludedFromStorefront: excluded.map((p) => p.trade.sku),
     hiddenWithoutVerifiedImage: eligible.length - visible.length,
+    hiddenWithoutVerifiedImageSkus: eligible
+      .filter((product) => product.editorial.images.length === 0)
+      .map((product) => product.trade.sku),
     titleAnomalyCount: rows.filter((row) => row.anomalies.length).length,
     titleAnomalies: rows.filter((row) => row.anomalies.length),
     ...(process.argv.includes('--titles') ? { titles: rows } : {}),
