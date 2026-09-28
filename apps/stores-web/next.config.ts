@@ -38,6 +38,10 @@ const nextConfig: NextConfig = {
           { key: "X-Frame-Options", value: "SAMEORIGIN" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+          // Ozon Bank acquiring review (issue #190) expects all payment-related
+          // pages served over HTTPS; enforce HTTPS-only loads for the whole
+          // site, including Caddy-served subdomains such as cms.amurskmarket.ru.
+          { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
         ],
       },
       // Non-fingerprinted public images ship with each deploy and change only

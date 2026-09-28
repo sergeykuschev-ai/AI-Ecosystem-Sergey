@@ -10,6 +10,7 @@ import { getStoresByCity } from "@/lib/directus/stores";
 import { createBreadcrumbJsonLd, createContactPageJsonLd, createStoresJsonLd } from "@/lib/seo/json-ld";
 import { createPageMetadata } from "@/lib/seo/metadata";
 import { cityLocationLabel } from "@/lib/seo/locality";
+import { VOZDOOH_LEGAL_NAME, VOZDOOH_MERCHANT } from "@/lib/vozdooh/merchant";
 
 export const dynamic = "force-dynamic";
 
@@ -63,6 +64,15 @@ export default async function ContactsPage() {
         <section className="contacts-section" aria-labelledby="contacts-title">
           <h2 id="contacts-title">Магазины</h2>
           <ContactStoreGrid stores={stores} brands={brands} city={city} />
+        </section>
+        <section className="contacts-section" aria-labelledby="contacts-vozdooh">
+          <h2 id="contacts-vozdooh">Интернет-магазин VOZDOOH</h2>
+          <p>
+            Продавец — {VOZDOOH_LEGAL_NAME}. Электронная почта:{" "}
+            <a href={`mailto:${VOZDOOH_MERCHANT.email}`}>{VOZDOOH_MERCHANT.email}</a>, телефон:{" "}
+            <a href={VOZDOOH_MERCHANT.phoneHref}>{VOZDOOH_MERCHANT.phone}</a>.{" "}
+            <Link href="/rekvizity/">Реквизиты и условия покупателям</Link>.
+          </p>
         </section>
       </StaticPage>
     </>

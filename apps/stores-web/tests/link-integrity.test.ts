@@ -71,17 +71,23 @@ const EXPECTED_STATIC_PAGES = [
   "/akcii/",
   "/amper/",
   "/bonus/",
+  "/dostavka/",
   "/faq/",
   "/kontakty/",
   "/metiz-market/",
   "/miska/",
   "/o-kompanii/",
+  "/oferta/",
+  "/oplata/",
   "/politika-konfidencialnosti/",
+  "/polzovatelskoe-soglashenie/",
+  "/rekvizity/",
   "/soglasie-na-obrabotku-dannyh/",
   "/stores/",
   "/stati/",
   "/vakansii/",
   "/ventil/",
+  "/vozvrat/",
 ];
 
 const citySlugs = new Set(mockCities.filter((city) => city.active).map((city) => city.slug));
@@ -108,10 +114,15 @@ const routeModel: RouteModel = {
   ],
 };
 
+const LEGAL_DRAFT_PATHS = [
+  "/politika-konfidencialnosti/",
+  "/soglasie-na-obrabotku-dannyh/",
+  "/oferta/",
+  "/polzovatelskoe-soglashenie/",
+];
+
 const INDEXABLE_PATHS = new Set([
-  ...EXPECTED_STATIC_PAGES.filter(
-    (path) => !["/politika-konfidencialnosti/", "/soglasie-na-obrabotku-dannyh/"].includes(path),
-  ),
+  ...EXPECTED_STATIC_PAGES.filter((path) => !LEGAL_DRAFT_PATHS.includes(path)),
   ...CANONICAL_BRAND_SLUGS.map((slug) => `/${slug}/`),
   ...[...citySlugs].map((slug) => `/stores/${slug}/`),
   ...[...storeSlugsByCity.entries()].flatMap(([citySlug, storeSlugs]) =>

@@ -9,6 +9,7 @@ export function Footer() {
           <div>
             <strong>Ампер · Вентиль · Метиз Маркет · Миска</strong>
             <p>Четыре магазина в Амурске.</p>
+            <p>Онлайн-направление: интернет-магазин <Link href="/rekvizity/">VOZDOOH</Link> (готовится к запуску).</p>
           </div>
           <nav aria-label="Магазины">
             <Link href="/amper/">Электротовары «Ампер»</Link>
@@ -29,6 +30,14 @@ export function Footer() {
             <Link href="/vakansii/">Вакансии</Link>
             <Link href="/politika-konfidencialnosti/">Политика конфиденциальности</Link>
             <Link href="/soglasie-na-obrabotku-dannyh/">Согласие на обработку данных</Link>
+          </nav>
+          <nav aria-label="Интернет-магазин VOZDOOH">
+            <Link href="/rekvizity/">Реквизиты и контакты</Link>
+            <Link href="/oplata/">Оплата</Link>
+            <Link href="/dostavka/">Доставка</Link>
+            <Link href="/vozvrat/">Возврат и обмен</Link>
+            <Link href="/oferta/">Публичная оферта (проект)</Link>
+            <Link href="/polzovatelskoe-soglashenie/">Пользовательское соглашение (проект)</Link>
           </nav>
         </div>
       </Container>
