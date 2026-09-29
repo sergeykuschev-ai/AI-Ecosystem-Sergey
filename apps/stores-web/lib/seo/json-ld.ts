@@ -97,7 +97,59 @@ export function createFAQPageJsonLd(faqs: FAQ[]): JsonLdObject {
   };
 }
 
-export function createOrganizationsJsonLd(brands: Brand[]): JsonLdObject {
+export interface OrganizationLocalContext {
+  stores: Store[];
+  cities: City[];
+}
+
+function buildPostalAddress(store: Store, city: City): JsonLdObject {
+  return {
+    "@type": "PostalAddress",
+    addressLocality: city.name,
+    addressRegion: city.region,
+    addressCountry: city.country,
+    ...(store.address ? { streetAddress: store.address } : {}),
+    ...(store.postal_code ? { postalCode: store.postal_code } : {}),
+  };
+}
+
+// Attaches verified local facts (address, telephone) to a brand Organization
+// node only when the brand's active stores unambiguously agree on them, so
+// structured data never guesses or duplicates conflicting values.
+function organizationLocalFacts(
+  brand: Brand,
+  context: OrganizationLocalContext | undefined,
+): JsonLdObject {
+  if (!context) return {};
+  const cityById = new Map(context.cities.map((city) => [city.id, city]));
+  const brandStores = context.stores.filter(
+    (store) => store.brand_id === brand.id && store.active && !store.temporarily_closed,
+  );
+  const addresses = new Map<string, { store: Store; city: City }>();
+  for (const store of brandStores) {
+    const city = cityById.get(store.city_id);
+    if (!city || !store.address) continue;
+    addresses.set(`${store.address}|${city.id}`, { store, city });
+  }
+  const telephones = new Set(
+    brandStores.map((store) => store.telephone).filter((value): value is string => Boolean(value)),
+  );
+
+  const facts: JsonLdObject = {};
+  if (addresses.size === 1) {
+    const [{ store, city }] = [...addresses.values()];
+    facts.address = buildPostalAddress(store, city);
+  }
+  if (telephones.size === 1) {
+    facts.telephone = [...telephones][0];
+  }
+  return facts;
+}
+
+export function createOrganizationsJsonLd(
+  brands: Brand[],
+  context?: OrganizationLocalContext,
+): JsonLdObject {
   return {
     "@context": "https://schema.org",
     "@graph": brands.map((brand) => ({
@@ -106,6 +158,7 @@ export function createOrganizationsJsonLd(brands: Brand[]): JsonLdObject {
       name: brand.name,
       url: new URL(`/${brand.slug}/`, siteUrl).href,
       ...(brand.logo ? { logo: new URL(brand.logo, siteUrl).href } : {}),
+      ...organizationLocalFacts(brand, context),
     })),
   };
 }
@@ -168,14 +221,7 @@ function createStoreNode(store: Store, brand: Brand, city: City): JsonLdObject {
     "metiz-market": "HardwareStore",
     ventil: "HomeGoodsStore",
   };
-  const address: JsonLdObject = {
-    "@type": "PostalAddress",
-    addressLocality: city.name,
-    addressRegion: city.region,
-    addressCountry: city.country,
-    ...(store.address ? { streetAddress: store.address } : {}),
-    ...(store.postal_code ? { postalCode: store.postal_code } : {}),
-  };
+  const address = buildPostalAddress(store, city);
 
   return {
     "@type": schemaTypes[brand.slug] ?? "LocalBusiness",

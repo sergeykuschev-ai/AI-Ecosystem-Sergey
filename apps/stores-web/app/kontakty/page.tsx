@@ -2,12 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ContactStoreGrid } from "@/components/contacts/ContactStoreGrid";
 import { JsonLd } from "@/components/seo/JsonLd";
+import { Breadcrumbs } from "@/components/seo/Breadcrumbs";
 import { StaticPage } from "@/components/content/StaticPage";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { getBrands } from "@/lib/directus/brands";
 import { getCityBySlug } from "@/lib/directus/cities";
 import { getStoresByCity } from "@/lib/directus/stores";
-import { createBreadcrumbJsonLd, createContactPageJsonLd, createStoresJsonLd } from "@/lib/seo/json-ld";
+import { createContactPageJsonLd, createStoresJsonLd } from "@/lib/seo/json-ld";
 import { createPageMetadata } from "@/lib/seo/metadata";
 import { cityLocationLabel } from "@/lib/seo/locality";
 
@@ -54,11 +55,16 @@ export default async function ContactsPage() {
     <>
       <JsonLd data={createContactPageJsonLd()} />
       <JsonLd data={createStoresJsonLd(stores, brands, city)} />
-      <JsonLd data={createBreadcrumbJsonLd([
-        { name: "Главная", path: "/" },
-        { name: "Контакты", path: "/kontakty/" },
-      ])} />
-      <StaticPage className="contacts-page" eyebrow="Контакты" title="Наши магазины в Амурске" intro={CONTACTS_INTRO}>
+      <StaticPage
+        className="contacts-page"
+        eyebrow="Контакты"
+        title="Наши магазины в Амурске"
+        intro={CONTACTS_INTRO}
+        breadcrumbs={<Breadcrumbs trail={[
+          { name: "Главная", path: "/" },
+          { name: "Контакты", path: "/kontakty/" },
+        ]} />}
+      >
         <p><Link href={`/stores/${city.slug}/`}>Все магазины в {cityLocationLabel(city)}</Link></p>
         <section className="contacts-section" aria-labelledby="contacts-title">
           <h2 id="contacts-title">Магазины</h2>
