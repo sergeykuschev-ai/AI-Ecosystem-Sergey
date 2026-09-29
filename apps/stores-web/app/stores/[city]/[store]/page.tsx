@@ -10,7 +10,7 @@ import { getBrands } from "@/lib/directus/brands";
 import { getCategoriesByBrand } from "@/lib/directus/categories";
 import { getCities, getCityBySlug } from "@/lib/directus/cities";
 import { getStoreBySlug, getStores } from "@/lib/directus/stores";
-import { createStoreJsonLd } from "@/lib/seo/json-ld";
+import { createOrganizationsJsonLd, createStoreJsonLd } from "@/lib/seo/json-ld";
 import { createPageMetadata } from "@/lib/seo/metadata";
 export const dynamic = "force-dynamic";
 
@@ -50,6 +50,7 @@ export default async function StorePage({ params }: StorePageProps) {
   return (
     <main>
       <JsonLd data={createStoreJsonLd(store, brand, city)} />
+      <JsonLd data={createOrganizationsJsonLd([brand], { stores: [store], cities: [city] })} />
       <Container>
         <Breadcrumbs trail={[
           { name: "Главная", path: "/" },
