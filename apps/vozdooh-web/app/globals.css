@@ -1,0 +1,194 @@
+:root {
+  --color-bg: #faf9f7;
+  --color-surface: #ffffff;
+  --color-text: #23201c;
+  --color-text-muted: #6d675f;
+  --color-accent: #8a6a4f;
+  --color-border: #e4dfd8;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+  --radius: 10px;
+  --max-width: 46rem;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    sans-serif;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.site-shell {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-4) var(--space-12);
+}
+
+h1 {
+  font-size: 1.75rem;
+  line-height: 1.25;
+  margin: 0 0 var(--space-4);
+}
+
+h2 {
+  font-size: 1.25rem;
+  line-height: 1.3;
+  margin: var(--space-8) 0 var(--space-3);
+}
+
+a {
+  color: var(--color-accent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+/* Brand index */
+.brands-index__intro {
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-6);
+}
+
+.brands-index__grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+}
+
+@media (min-width: 40rem) {
+  .brands-index__grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.brand-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+  color: inherit;
+  text-decoration: none;
+}
+
+.brand-card__name {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.brand-card__note {
+  color: var(--color-text-muted);
+  font-size: 0.9375rem;
+}
+
+.brand-card__count {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+/* Brand landing */
+.breadcrumbs {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-2);
+}
+
+.brand-page__presence {
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.brand-facts {
+  margin: 0;
+  padding-left: var(--space-6);
+}
+
+.brand-facts li + li {
+  margin-top: var(--space-2);
+}
+
+.brand-facts__category {
+  font-weight: 600;
+}
+
+.brand-facts__source {
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+}
+
+.brand-facts__notice {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+}
+
+.brand-facts__policy {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  margin: var(--space-4) 0 0;
+}
+
+/* Product cards */
+.product-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+}
+
+@media (min-width: 40rem) {
+  .product-list {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.product-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-3) var(--space-4);
+  color: inherit;
+  text-decoration: none;
+}
+
+.product-card__category {
+  font-weight: 600;
+}
+
+.product-card__variant {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+/* Home / misc */
+.home p,
+.not-found p {
+  color: var(--color-text-muted);
+}
