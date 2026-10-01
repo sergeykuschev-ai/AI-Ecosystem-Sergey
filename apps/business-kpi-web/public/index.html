@@ -7,7 +7,7 @@
     <title>Business Portal · KPI</title>
     <link rel="stylesheet" href="/styles.css?v=training-guide-1">
     <script src="/formatters.js" defer></script>
-    <script src="/app.js?v=b2b-1" defer></script>
+    <script src="/app.js?v=qr-cashless-1" defer></script>
   </head>
   <body class="auth-loading">
     <div class="app-shell">
@@ -158,9 +158,9 @@
               <small id="metric-b2b-orders">Заказов —</small>
             </article>
             <article class="metric-card">
-              <span>Доля QR</span>
+              <span>QR от безнала</span>
               <strong id="metric-qr">—</strong>
-              <small>QR / розничная выручка</small>
+              <small>QR / безнал (эквайринг)</small>
             </article>
             <article class="metric-card">
               <span>Оплачено через QR</span>
@@ -204,7 +204,7 @@
                     <th class="numeric">Выручка / смену</th>
                     <th class="numeric">Средний чек</th>
                     <th class="numeric">Товаров / чек</th>
-                    <th class="numeric">Доля QR</th>
+                    <th class="numeric">QR от безнала</th>
                     <th class="numeric">Смены</th>
                     <th>Статус</th>
                   </tr>
@@ -235,7 +235,7 @@
                 <span class="metric"><small>Чеки</small><strong id="today-receipts">—</strong></span>
                 <span class="metric"><small>Средний чек</small><strong id="today-average-check">—</strong></span>
                 <span class="metric"><small>Товаров в чеке</small><strong id="today-items">—</strong></span>
-                <span class="metric"><small>Доля QR</small><strong id="today-qr">—</strong></span>
+                <span class="metric"><small>QR от безнала</small><strong id="today-qr">—</strong></span>
                 <span class="metric"><small>Смен</small><strong id="today-shifts">—</strong></span>
               </div>
               <div class="table-wrap" id="today-shifts-wrap">
@@ -251,7 +251,7 @@
               <div class="card-heading"><div><p class="eyebrow">Команда</p><h2>Продавцы месяца</h2></div></div>
               <div class="table-wrap">
                 <table>
-                  <thead><tr><th>Продавец</th><th>Смены</th><th>На смену</th><th>Ср. чек</th><th>Товаров в чеке</th><th>Доля QR</th><th>KPI</th><th>Премия</th></tr></thead>
+                  <thead><tr><th>Продавец</th><th>Смены</th><th>На смену</th><th>Ср. чек</th><th>Товаров в чеке</th><th>QR от безнала</th><th>KPI</th><th>Премия</th></tr></thead>
                   <tbody id="dashboard-sellers-table"></tbody>
                 </table>
               </div>
@@ -303,7 +303,7 @@
             <p class="field-help" id="shifts-quality-summary">—</p>
             <div class="table-wrap">
               <table class="sticky-first-column">
-                <thead><tr><th>Дата</th><th>Продавец</th><th>Источник</th><th>Выручка</th><th class="b2b-column" hidden>Розница</th><th class="b2b-column" hidden>Организации</th><th>Чеки</th><th>Ср. чек</th><th>Товаров в чеке</th><th>Доля QR</th><th>KPI</th><th>Статус</th><th class="action-column"></th></tr></thead>
+                <thead><tr><th>Дата</th><th>Продавец</th><th>Источник</th><th>Выручка</th><th class="b2b-column" hidden>Розница</th><th class="b2b-column" hidden>Организации</th><th>Чеки</th><th>Ср. чек</th><th>Товаров в чеке</th><th>QR от безнала</th><th>KPI</th><th>Статус</th><th class="action-column"></th></tr></thead>
                 <tbody id="shifts-table"></tbody>
               </table>
             </div>
@@ -317,7 +317,7 @@
             <div class="card-heading"><div><p class="eyebrow">Помесячная динамика</p><h2>Месяцы <span id="months-year-label"></span></h2></div></div>
             <div class="table-wrap">
               <table>
-                <thead><tr><th>Месяц</th><th>План</th><th>Факт</th><th class="b2b-column" hidden>Розница</th><th class="b2b-column" hidden>Организации</th><th class="b2b-column" hidden>Доля орг.</th><th>Прогноз</th><th>Выполнение</th><th>Наличные</th><th>Безнал / эквайринг</th><th>QR, ₽</th><th>Доля QR</th><th>Чеки</th><th>Ср. чек</th><th>Товаров в чеке</th><th>Смены</th><th>Статус</th><th>Изменение</th></tr></thead>
+                <thead><tr><th>Месяц</th><th>План</th><th>Факт</th><th class="b2b-column" hidden>Розница</th><th class="b2b-column" hidden>Организации</th><th class="b2b-column" hidden>Доля орг.</th><th>Прогноз</th><th>Выполнение</th><th>Наличные</th><th>Безнал / эквайринг</th><th>QR, ₽</th><th>QR от безнала</th><th>Чеки</th><th>Ср. чек</th><th>Товаров в чеке</th><th>Смены</th><th>Статус</th><th>Изменение</th></tr></thead>
                 <tbody id="months-table"></tbody>
               </table>
             </div>
@@ -391,7 +391,7 @@
             <div class="card-heading"><div><p class="eyebrow">Детализация</p><h2>Месяцы <span id="year-table-year-label"></span></h2></div></div>
             <div class="table-wrap">
               <table class="sticky-first-column">
-                <thead><tr><th>Месяц</th><th>План</th><th>Факт</th><th class="b2b-column" hidden>Розница</th><th class="b2b-column" hidden>Организации</th><th class="b2b-column" hidden>Доля орг.</th><th>Выполнение</th><th>Наличные</th><th>Безнал / эквайринг</th><th>QR, ₽</th><th>Доля QR</th><th>Чеки</th><th>Ср. чек</th><th>Смены</th><th>Изменение</th></tr></thead>
+                <thead><tr><th>Месяц</th><th>План</th><th>Факт</th><th class="b2b-column" hidden>Розница</th><th class="b2b-column" hidden>Организации</th><th class="b2b-column" hidden>Доля орг.</th><th>Выполнение</th><th>Наличные</th><th>Безнал / эквайринг</th><th>QR, ₽</th><th>QR от безнала</th><th>Чеки</th><th>Ср. чек</th><th>Смены</th><th>Изменение</th></tr></thead>
                 <tbody id="year-months-table"></tbody>
               </table>
             </div>
@@ -414,7 +414,7 @@
             <div class="card-heading"><div><p class="eyebrow">Команда</p><h2 id="sellers-title">Продавцы</h2></div></div>
             <div class="table-wrap">
               <table class="sticky-first-column">
-                <thead><tr><th>Продавец</th><th>Смены</th><th>На смену</th><th>Цель на смену</th><th>Ср. чек</th><th>Цель ср. чек</th><th>Товаров в чеке</th><th>Цель товаров</th><th>Доля QR</th><th>KPI</th><th>Уровень</th><th class="action-column">Бонус</th></tr></thead>
+                <thead><tr><th>Продавец</th><th>Смены</th><th>На смену</th><th>Цель на смену</th><th>Ср. чек</th><th>Цель ср. чек</th><th>Товаров в чеке</th><th>Цель товаров</th><th>QR от безнала</th><th>KPI</th><th>Уровень</th><th class="action-column">Бонус</th></tr></thead>
                 <tbody id="sellers-table"></tbody>
               </table>
             </div>
@@ -438,7 +438,7 @@
             <div class="chart-container wide" id="seller-chart-revenue-per-shift"></div>
             <div class="table-wrap">
               <table class="sticky-first-column">
-                <thead><tr><th>Дата</th><th>Выручка</th><th>Чеки</th><th>Ср. чек</th><th>Товаров в чеке</th><th>Доля QR</th><th>KPI</th></tr></thead>
+                <thead><tr><th>Дата</th><th>Выручка</th><th>Чеки</th><th>Ср. чек</th><th>Товаров в чеке</th><th>QR от безнала</th><th>KPI</th></tr></thead>
                 <tbody id="seller-shifts-table"></tbody>
               </table>
             </div>
@@ -451,7 +451,7 @@
             <div class="card-heading"><div><p class="eyebrow">Премия магазина</p><h2>Расчёт по магазину</h2></div></div>
             <div class="metric-grid operational-metrics">
               <article class="metric-card"><span>Выполнение плана</span><strong id="store-bonus-plan">—</strong></article>
-              <article class="metric-card"><span>Доля QR</span><strong id="store-bonus-qr">—</strong></article>
+              <article class="metric-card"><span>QR от безнала</span><strong id="store-bonus-qr">—</strong></article>
               <article class="metric-card"><span>Итоговая премия</span><strong id="store-bonus-amount">—</strong><small id="store-bonus-note">—</small></article>
             </div>
           </article>
@@ -474,7 +474,7 @@
                   <th>База премии</th>
                   <th>Смены / норма</th>
                   <th>Коэффициент смен</th>
-                  <th>Доля QR</th>
+                  <th>QR от безнала</th>
                   <th>QR-коэффициент</th>
                   <th>Итоговая премия</th>
                   <th class="action-column">Подробнее</th>
@@ -910,7 +910,7 @@
                   <label>Цель допродаж, %<input id="settings-upsell-share" class="percent-input" type="number" min="0" max="100" step="0.1" required></label>
                   <label>Цель лакомств за смену, ₽<input id="settings-treats-revenue" type="number" min="0" step="0.01" required></label>
                   <label>Цель чеков с лакомствами, %<input id="settings-treats-share" class="percent-input" type="number" min="0" max="100" step="0.1" required></label>
-                  <label>Цель QR, % (необязательно)<input id="settings-qr-share" class="percent-input" type="number" min="0" max="100" step="0.1"></label>
+                  <label>Цель QR от безнала, % (необязательно)<input id="settings-qr-share" class="percent-input" type="number" min="0" max="100" step="0.1"></label>
                   <label>Цель смены, ₽<input id="settings-shift-revenue" type="number" min="0" step="0.01" required></label>
                   <label>Норма смен продавца<input id="settings-seller-shifts" type="number" min="0" step="1" required></label>
                 </div>

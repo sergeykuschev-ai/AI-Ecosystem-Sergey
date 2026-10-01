@@ -35,7 +35,7 @@ const METRIC_LABELS = Object.freeze({
   revenuePerShift: 'Выручка/смену',
   averageCheck: 'Средний чек',
   itemsPerReceipt: 'Товаров в чеке',
-  qrShare: 'Доля QR',
+  qrShare: 'QR от безнала',
 });
 
 const CONFIDENCE_MULTIPLIER = Object.freeze({
@@ -80,6 +80,7 @@ function windowMetrics(shifts, settings) {
     const metrics = resolveShiftMetrics(shift, settings);
     return sum + (metrics?.retailRevenue ?? metrics?.revenue ?? 0);
   }, 0);
+  const acquiring = shifts.reduce((sum, shift) => sum + (shift.acquiring || 0), 0);
   const receipts = shifts.reduce((sum, shift) => sum + (shift.receipts || 0), 0);
   const qr = shifts.reduce((sum, shift) => sum + (shift.qr || 0), 0);
   const itemsSold = shifts.reduce((sum, shift) => sum + (shift.itemsSold === null || shift.itemsSold === undefined ? 0 : shift.itemsSold), 0);
@@ -90,6 +91,7 @@ function windowMetrics(shifts, settings) {
     shiftCount: shifts.length,
     revenue,
     retailRevenue,
+    acquiring,
     receipts,
     qr,
     itemsSold,
@@ -97,7 +99,7 @@ function windowMetrics(shifts, settings) {
     receiptsPerShift: shifts.length ? receipts / shifts.length : null,
     averageCheck: receipts ? retailRevenue / receipts : null,
     itemsPerReceipt: receipts ? itemsSold / receipts : null,
-    qrShare: retailRevenue ? qr / retailRevenue : null,
+    qrShare: acquiring ? qr / acquiring : null,
     averageKpi: kpiScores.length ? kpiScores.reduce((sum, value) => sum + value, 0) / kpiScores.length : null,
   });
 }

@@ -355,7 +355,7 @@ function validateKpiSettings(settings) {
   requireNumber(targets.treatsRevenue, 'Цель лакомств за смену', 0);
   requireNumber(targets.treatsReceiptShare, 'Цель чеков с лакомствами', 0, 1);
   if (targets.qrShare !== null) {
-    requireNumber(targets.qrShare, 'Цель QR', 0, 1);
+    requireNumber(targets.qrShare, 'Цель QR от безнала', 0, 1);
   }
   requireNumber(targets.shiftRevenue, 'Цель смены', 0);
   requireNumber(targets.sellerShifts, 'Норма смен продавца', 0);
@@ -378,6 +378,10 @@ function validateKpiSettings(settings) {
 
   if (typeof settings.payment?.qrIncludedInAcquiring !== 'boolean') {
     errors.push('Укажите, входит ли QR в эквайринг.');
+  }
+  if (settings.payment?.qrShareBasis !== undefined &&
+      !['acquiring', 'legacy_retail'].includes(settings.payment.qrShareBasis)) {
+    errors.push('База доли QR должна быть acquiring или legacy_retail.');
   }
 
   const levels = settings.levels || [];
@@ -927,6 +931,10 @@ class BusinessKpiService {
           : shift.itemsSold),
       0
     );
+    const totalAcquiring = decorated.reduce(
+      (sum, shift) => sum + (shift.acquiring === null || shift.acquiring === undefined ? 0 : shift.acquiring),
+      0
+    );
     const totalQr = decorated.reduce(
       (sum, shift) => sum + (shift.qr === null || shift.qr === undefined ? 0 : shift.qr),
       0
@@ -946,8 +954,9 @@ class BusinessKpiService {
         averageCheck: totalReceipts > 0 ? totalRetailRevenue / totalReceipts : null,
         itemsSold: totalItems,
         itemsPerReceipt: totalItems > 0 && totalReceipts > 0 ? totalItems / totalReceipts : null,
+        acquiring: totalAcquiring,
         qr: totalQr,
-        qrShare: totalRetailRevenue > 0 ? totalQr / totalRetailRevenue : null,
+        qrShare: totalAcquiring > 0 ? totalQr / totalAcquiring : null,
         dataStatus: decorated.length === 0
           ? DATA_STATUS.NO_DATA
           : (decorated.every(s => s.metrics?.kpiStatus === 'COMPLETE')

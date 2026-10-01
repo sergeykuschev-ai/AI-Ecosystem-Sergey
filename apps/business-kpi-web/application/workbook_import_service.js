@@ -88,6 +88,8 @@ function supplementaryChecks(rows, workbookReferences = {}) {
       ? money(rows.reduce((sum, row) => sum + row.qr, 0))
       : null,
   };
+  // Historical XLSX files stored QR share against total retail revenue.
+  // Keep that legacy reconciliation basis so old imports remain reproducible.
   aggregateReferences.qrShare = aggregateReferences.qr === null
     ? null : aggregateReferences.qr / actual.revenue;
   for (const field of ['revenue', 'receipts', 'averageCheck', 'qr', 'qrShare']) {

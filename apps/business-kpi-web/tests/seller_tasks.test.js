@@ -148,7 +148,7 @@ test('low QR alone does not generate a task (MVP: Business KPI signal only)', ()
       averageCheck: 1500,
       revenuePerShift: 30000,
       sellerQrShare: 0.05,
-      attentionMetric: { key: 'qrShare', label: 'Доля QR' },
+      attentionMetric: { key: 'qrShare', label: 'QR от безнала' },
     }],
     historyEntries: [],
     shiftDate: SHIFT_DATE,

@@ -25,7 +25,7 @@ test('revenue does not count QR twice when acquiring already includes it', () =>
   assert.equal(result.revenue, 30000);
   assert.equal(result.averageCheck, 1200);
   assert.equal(result.itemsPerReceipt, 2.4);
-  assert.equal(result.qrShare, 0.1);
+  assert.equal(result.qrShare, 3000 / 18000);
   assert.equal(result.paymentBreakdown.qrIncludedInAcquiring, true);
 });
 
@@ -44,9 +44,30 @@ test('B2B revenue counts toward store revenue but not retail basket metrics', ()
   assert.equal(result.b2bRevenue, 120000);
   assert.equal(result.revenue, 150000);
   assert.equal(result.averageCheck, 1000);
-  assert.equal(result.qrShare, 0.1);
+  assert.equal(result.qrShare, 3000 / 20000);
   assert.equal(result.b2bShare, 0.8);
   assert.equal(result.averageB2bOrder, 60000);
+});
+
+test('QR share uses acquiring only and is unaffected by cash or B2B sales', () => {
+  const lowCash = calculateKpiMetrics({
+    ...VALID_SHIFT,
+    cash: 1000,
+    acquiring: 20000,
+    qr: 4000,
+    b2b: 0,
+  }, null);
+  const highCashAndB2b = calculateKpiMetrics({
+    ...VALID_SHIFT,
+    cash: 100000,
+    acquiring: 20000,
+    qr: 4000,
+    b2b: 500000,
+    b2bOrders: 1,
+  }, null);
+
+  assert.equal(lowCash.qrShare, 0.2);
+  assert.equal(highCashAndB2b.qrShare, 0.2);
 });
 
 test('morning and evening shifts use half of absolute KPI targets', () => {
@@ -92,7 +113,7 @@ test('zero receipts produce null ratios instead of division errors', () => {
 test('agent exposes a stable versioned result contract', () => {
   const result = analyzeShift(VALID_SHIFT);
 
-  assert.equal(result.contractVersion, 'v3');
+  assert.equal(result.contractVersion, 'v4');
   assert.equal(result.settingsVersion, 1);
   assert.equal(result.metrics.revenue, 30000);
   assert.equal(result.metrics.itemsPerReceipt, 2.4);
@@ -133,7 +154,7 @@ test('settings=null keeps payment-only metrics without inheriting Miska KPI rule
     treatsReceipts: null,
   }, null);
   assert.equal(metrics.revenue, 50000);
-  assert.equal(metrics.qrShare, 0.1);
+  assert.equal(metrics.qrShare, 5000 / 30000);
   assert.equal(metrics.kpiScore, null);
   assert.equal(metrics.kpiStatus, 'UNRESOLVED');
   assert.equal(metrics.paymentBreakdown.qrIncludedInAcquiring, true);

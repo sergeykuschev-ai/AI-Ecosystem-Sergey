@@ -51,7 +51,7 @@ test('dashboard and sellers expose required labels without frontend KPI formulas
     'Товаров в чеке',
     'Наличные',
     'Безнал / эквайринг',
-    'Доля QR',
+    'QR от безнала',
     'Количество смен',
     'История изменений',
   ]) {
@@ -118,7 +118,7 @@ test('generate flow always sends the picked seller and requires one when unknown
 test('sellers table preserves all business columns', () => {
   for (const label of [
     'Продавец', 'Смены', 'На смену', 'Цель на смену', 'Средний чек', 'Цель ср. чек',
-    'Товаров в чеке', 'Цель товаров', 'Доля QR', 'KPI', 'Уровень', 'Бонус',
+    'Товаров в чеке', 'Цель товаров', 'QR от безнала', 'KPI', 'Уровень', 'Бонус',
   ]) {
     assert.match(html, new RegExp(label));
   }

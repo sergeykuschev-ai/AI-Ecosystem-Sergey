@@ -190,7 +190,7 @@ function aggregateMonth(shifts, options) {
     cash: totals.cash,
     acquiring: totals.acquiring,
     qr: totals.qr,
-    qrShare: totals.qr === null ? null : ratio(totals.qr, totals.retailRevenue),
+    qrShare: totals.qr === null ? null : ratio(totals.qr, totals.acquiring),
     paymentBreakdownAvailable: activeShifts.length > 0 && calculated.every(
       item => item.metrics.paymentBreakdownAvailable
     ),
@@ -281,6 +281,7 @@ function aggregateSellers(monthAggregate, settings) {
     const b2bOrders = sumNullableInteger(group.shifts, item => item.shift.b2bOrders ?? 0);
     const receipts = sumNullableInteger(group.shifts, item => item.shift.receipts);
     const itemsSold = sumNullableInteger(group.shifts, item => item.shift.itemsSold);
+    const acquiring = sumNullableMoney(group.shifts, item => item.shift.acquiring, 'acquiring');
     const qr = sumNullableMoney(group.shifts, item => item.shift.qr, 'qr');
     const missingFields = sellerMissingFields(group);
     const shiftUnits = group.shifts.reduce(
@@ -295,8 +296,13 @@ function aggregateSellers(monthAggregate, settings) {
       0
     ) / shiftUnits : null;
     const level = kpiComplete ? resolveKpiLevel(averageKpi, settings) : null;
+    // Preserve historical paid bonuses: old settings used QR / retail revenue.
+    // New settings opt into the corrected QR / acquiring basis.
+    const qrShareForCoefficient = settings?.payment?.qrShareBasis === 'acquiring'
+      ? monthAggregate.qrShare
+      : ratio(monthAggregate.qr, monthAggregate.retailRevenue);
     const qrCoefficient = kpiComplete
-      ? resolveQrCoefficient(monthAggregate.qrShare, settings)
+      ? resolveQrCoefficient(qrShareForCoefficient, settings)
       : null;
     const appliedQrCoefficient = kpiComplete && averageKpi >= 75 &&
       monthAggregate.planCompletion !== null &&
@@ -328,8 +334,9 @@ function aggregateSellers(monthAggregate, settings) {
       averageCheck: ratio(retailRevenue, receipts),
       itemsSold,
       itemsPerReceipt: itemsSold === null ? null : ratio(itemsSold, receipts),
+      acquiring,
       qr,
-      qrShare: qr === null ? null : ratio(qr, retailRevenue),
+      qrShare: qr === null ? null : ratio(qr, acquiring),
       averageKpi,
       kpiLevel: level?.name || null,
       bonus: kpiComplete ? kpiBonus + extraHalfShiftBonus.amount : null,
@@ -340,6 +347,8 @@ function aggregateSellers(monthAggregate, settings) {
         shiftNorm: settings.targets.sellerShifts,
         shiftUnits,
         qrCoefficient: appliedQrCoefficient,
+        qrShareForCoefficient,
+        qrShareBasis: settings.payment?.qrShareBasis === 'acquiring' ? 'acquiring' : 'legacy_retail',
         kpiBonus,
         halfShiftBonus: extraHalfShiftBonus.amount,
         halfShiftBonusRevenue: extraHalfShiftBonus.revenue,
@@ -366,6 +375,7 @@ function aggregateDays(monthAggregate) {
     const retailRevenue = sumMoney(items, item => item.metrics.retailRevenue, 'retailRevenue');
     const b2bRevenue = sumMoney(items, item => item.metrics.b2bRevenue, 'b2bRevenue');
     const b2bOrders = sumNullableInteger(items, item => item.shift.b2bOrders ?? 0);
+    const acquiring = sumNullableMoney(items, item => item.shift.acquiring, 'acquiring');
     const qr = sumNullableMoney(items, item => item.shift.qr, 'qr');
     const receipts = sumNullableInteger(items, item => item.shift.receipts);
     const itemsSold = sumNullableInteger(items, item => item.shift.itemsSold);
@@ -381,8 +391,9 @@ function aggregateDays(monthAggregate) {
       averageCheck: ratio(retailRevenue, receipts),
       itemsSold,
       itemsPerReceipt: itemsSold === null ? null : ratio(itemsSold, receipts),
+      acquiring,
       qr,
-      qrShare: qr === null ? null : ratio(qr, retailRevenue),
+      qrShare: qr === null ? null : ratio(qr, acquiring),
       shiftsCount: items.length,
     });
   }).sort((left, right) => left.date.localeCompare(right.date));

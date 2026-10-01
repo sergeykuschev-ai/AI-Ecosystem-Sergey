@@ -60,7 +60,7 @@ test('month aggregation sums facts and derives ratios from totals', () => {
   assert.equal(result.averageCheck, 1440);
   assert.equal(result.itemsSold, 55);
   assert.equal(result.itemsPerReceipt, 2.2);
-  assert.equal(result.qrShare, 0.1);
+  assert.equal(result.qrShare, 3600 / 21000);
   assert.equal(result.shiftsCount, 2);
   assert.equal(result.dataDays, 2);
   assert.equal(result.forecast.averageRevenuePerDataDay, 18000);
@@ -106,7 +106,7 @@ test('month aggregation separates retail and organization sales', () => {
   assert.equal(result.b2bOrders, 3);
   assert.equal(result.revenue, 186000);
   assert.equal(result.averageCheck, 1440);
-  assert.equal(result.qrShare, 0.1);
+  assert.equal(result.qrShare, 3600 / 21000);
   assert.equal(result.b2bShare, 150000 / 186000);
   assert.equal(result.averageB2bOrder, 50000);
 
@@ -177,6 +177,47 @@ test('seller aggregation uses exact totals and confirmed bonus formula', () => {
   assert.equal(seller.itemsPerReceipt, 2.5);
   assert.equal(seller.bonusStatus, 'COMPLETE');
   assert.ok(seller.bonus > 0);
+});
+
+test('QR bonus keeps legacy basis for old settings and uses acquiring for new settings', () => {
+  const shifts = [
+    shift(),
+    shift({ id: 'shift-2', shiftDate: '2026-08-02' }),
+  ];
+  const oldMonth = aggregateMonth(shifts, {
+    year: 2026,
+    month: 8,
+    plan: 48000,
+    settings: MISKA_AUGUST_2026_SETTINGS,
+    asOf: new Date('2026-08-03T00:00:00Z'),
+  });
+  const [oldSeller] = aggregateSellers(oldMonth, MISKA_AUGUST_2026_SETTINGS);
+
+  const newSettings = {
+    ...MISKA_AUGUST_2026_SETTINGS,
+    payment: {
+      ...MISKA_AUGUST_2026_SETTINGS.payment,
+      qrShareBasis: 'acquiring',
+    },
+  };
+  const newMonth = aggregateMonth(shifts, {
+    year: 2026,
+    month: 8,
+    plan: 48000,
+    settings: newSettings,
+    asOf: new Date('2026-08-03T00:00:00Z'),
+  });
+  const [newSeller] = aggregateSellers(newMonth, newSettings);
+
+  assert.equal(oldMonth.qrShare, 4800 / 28000);
+  assert.equal(oldSeller.bonusDetails.qrShareBasis, 'legacy_retail');
+  assert.equal(oldSeller.bonusDetails.qrShareForCoefficient, 0.1);
+  assert.equal(oldSeller.bonusDetails.qrCoefficient, 1);
+
+  assert.equal(newMonth.qrShare, 4800 / 28000);
+  assert.equal(newSeller.bonusDetails.qrShareBasis, 'acquiring');
+  assert.equal(newSeller.bonusDetails.qrShareForCoefficient, 4800 / 28000);
+  assert.equal(newSeller.bonusDetails.qrCoefficient, 1.025);
 });
 
 test('empty month has NO_DATA and null forecast rates', () => {

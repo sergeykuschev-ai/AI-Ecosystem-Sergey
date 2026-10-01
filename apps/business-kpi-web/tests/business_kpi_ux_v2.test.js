@@ -511,7 +511,7 @@ test('dashboard HTML includes attention block and responsive table classes', () 
   assert.match(html, /id="attention-list"/);
   assert.match(html, /class="sticky-first-column"/);
   assert.match(html, /Товаров в чеке/);
-  assert.match(html, /Доля QR/);
+  assert.match(html, /QR от безнала/);
   assert.match(html, /Оплачено через QR/);
 });
 

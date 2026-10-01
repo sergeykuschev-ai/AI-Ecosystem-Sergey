@@ -376,7 +376,7 @@ function renderAttention(month, sellers) {
     items.push(`Товаров в чеке ${formatNumber(month.itemsPerReceipt)} ниже цели ${formatNumber(targets.itemsPerReceipt)}.`);
   }
   if (targets?.qrShare !== null && targets?.qrShare !== undefined && month.qrShare !== null && month.qrShare < targets.qrShare) {
-    items.push(`Доля QR ${formatPercent(month.qrShare)} ниже цели ${formatPercent(targets.qrShare)}.`);
+    items.push(`QR от безнала ${formatPercent(month.qrShare)} ниже цели ${formatPercent(targets.qrShare)}.`);
   }
   if (month.forecast.requiredAveragePerRemainingDay !== null && month.forecast.requiredAveragePerRemainingDay > 0 &&
       month.forecast.averageRevenuePerDataDay !== null &&
@@ -917,7 +917,7 @@ async function openSellerDetail(seller) {
     ['Цель среднего чека', formatMoney(targets.averageCheck)],
     ['Товаров в чеке', formatNumber(seller.itemsPerReceipt)],
     ['Цель товаров в чеке', formatNumber(targets.itemsPerReceipt)],
-    ['Доля QR', formatPercent(seller.qrShare)],
+    ['QR от безнала', formatPercent(seller.qrShare)],
     ['KPI', kpiValue],
     ['Уровень', seller.kpiLevel || NA_TEXT],
     ['Премия', seller.bonusStatus === 'COMPLETE' ? formatMoney(seller.bonus)
@@ -1005,7 +1005,7 @@ function renderSellerCharts(rows) {
   renderLineChart('seller-chart-kpi', dates, [rows.map(r => r.metrics?.kpiScore)], ['KPI'], [THEME_COLORS.primary]);
   renderLineChart('seller-chart-average', dates, [rows.map(r => r.metrics?.averageCheck)], ['Средний чек'], [THEME_COLORS.accent], formatMoneyAxis, formatMoney);
   renderLineChart('seller-chart-items', dates, [rows.map(r => r.metrics?.itemsPerReceipt)], ['Товаров в чеке'], [THEME_COLORS.primary]);
-  renderLineChart('seller-chart-qr', dates, [rows.map(r => r.metrics?.qrShare)], ['Доля QR'], [THEME_COLORS.primary], formatPercentAxis, formatPercent);
+  renderLineChart('seller-chart-qr', dates, [rows.map(r => r.metrics?.qrShare)], ['QR от безнала'], [THEME_COLORS.primary], formatPercentAxis, formatPercent);
   renderBarChart('seller-chart-revenue', dates, [{ label: 'Выручка', values: rows.map(r => r.metrics?.revenue), color: THEME_COLORS.primary }], formatMoneyAxis);
   renderLineChart('seller-chart-revenue-per-shift', dates, [rows.map(r => r.metrics?.revenue)], ['Выручка за смену'], [THEME_COLORS.accent], formatMoneyAxis, formatMoney);
 }
@@ -1300,7 +1300,7 @@ function renderSettings(record) {
     ['Цель допродаж', formatPercent(settings.targets.upsellReceiptShare)],
     ['Цель лакомств за смену', formatMoney(settings.targets.treatsRevenue)],
     ['Цель чеков с лакомствами', formatPercent(settings.targets.treatsReceiptShare)],
-    ['Цель QR', settings.targets.qrShare === null ? NA_TEXT : formatPercent(settings.targets.qrShare)],
+    ['Цель QR от безнала', settings.targets.qrShare === null ? NA_TEXT : formatPercent(settings.targets.qrShare)],
     ['Цель смены', formatMoney(settings.targets.shiftRevenue)],
     ['Норма смен продавца', formatInteger(settings.targets.sellerShifts)],
     ['Полусмены', settings.halfShiftPolicy?.enabled
@@ -1461,9 +1461,9 @@ function validateSettingsForm() {
     errors.push('Цель чеков с лакомствами не может превышать 100%.');
   }
   if (s.targets.qrShare !== null) {
-    checkFinite(s.targets.qrShare, 'Цель QR');
+    checkFinite(s.targets.qrShare, 'Цель QR от безнала');
     if (Number.isFinite(s.targets.qrShare) && s.targets.qrShare > 1) {
-      errors.push('Цель QR не может превышать 100%.');
+      errors.push('Цель QR от безнала не может превышать 100%.');
     }
   }
   checkFinite(s.targets.shiftRevenue, 'Цель смены');
@@ -3112,8 +3112,8 @@ function updatePreview() {
   element('preview-items').textContent = receipts > 0 && items !== null
     ? formatNumber(items / receipts)
     : UNAVAILABLE;
-  element('preview-qr').textContent = retailRevenue !== null && retailRevenue > 0 && qr !== null
-    ? formatPercent(qr / retailRevenue)
+  element('preview-qr').textContent = acquiring !== null && acquiring > 0 && qr !== null
+    ? formatPercent(qr / acquiring)
     : UNAVAILABLE;
   element('preview-upsells').textContent = receipts > 0 && upsells !== null
     ? formatPercent(upsells / receipts)

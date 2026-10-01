@@ -37,7 +37,10 @@ const MISKA_AUGUST_2026_SETTINGS = Object.freeze({
     Object.freeze({ upperExclusive: null, coefficient: 1.075 }),
   ]),
   fees: Object.freeze({ acquiring: 0.022, qr: 0.007 }),
-  payment: Object.freeze({ qrIncludedInAcquiring: true }),
+  payment: Object.freeze({
+    qrIncludedInAcquiring: true,
+    qrShareBasis: 'legacy_retail',
+  }),
   unresolved: Object.freeze([
     'Excel Settings does not define a standalone target QR share; QR is represented by coefficient tiers.',
   ]),

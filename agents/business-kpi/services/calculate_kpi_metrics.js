@@ -139,7 +139,8 @@ function calculateKpiMetrics(input, settings) {
   const itemsPerReceipt = itemsSold === null ? null : ratio(itemsSold, receipts);
   const upsellReceiptShare = upsellReceipts === null ? null : ratio(upsellReceipts, receipts);
   const treatsReceiptShare = treatsReceipts === null ? null : ratio(treatsReceipts, receipts);
-  const qrShare = paymentBreakdownAvailable ? ratio(qr, retailRevenue) : null;
+  // QR KPI is measured against cashless/card payments only. Acquiring already includes QR.
+  const qrShare = paymentBreakdownAvailable ? ratio(qr, acquiring) : null;
 
   const workFraction = shiftFraction(input);
   const effectiveShiftRevenueTarget = settings === null

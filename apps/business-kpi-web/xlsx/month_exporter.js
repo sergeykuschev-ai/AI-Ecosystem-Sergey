@@ -106,7 +106,7 @@ function exportMonthWorkbook(input) {
     ['Продано товаров', month.itemsSold],
     ['Товаров/чек backend', month.itemsPerReceipt],
     ['Payment breakdown available', month.paymentBreakdownAvailable],
-    ['QR share', month.qrShare],
+    ['QR от безнала', month.qrShare],
     ['Settings status', input.dashboard.settingsStatus],
   ];
   const files = {

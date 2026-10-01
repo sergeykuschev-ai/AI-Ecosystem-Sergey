@@ -77,7 +77,7 @@ test('B2B sales increase store revenue without inflating retail average check or
   assert.equal(created.metrics.b2bRevenue, 120000);
   assert.equal(created.metrics.revenue, 150000);
   assert.equal(created.metrics.averageCheck, 1000);
-  assert.equal(created.metrics.qrShare, 0.1);
+  assert.equal(created.metrics.qrShare, 3000 / 20000);
   assert.equal(created.metrics.averageB2bOrder, 60000);
 
   const dashboard = await service.getDashboard({
@@ -90,7 +90,7 @@ test('B2B sales increase store revenue without inflating retail average check or
   assert.equal(dashboard.month.b2bRevenue, 120000);
   assert.equal(dashboard.month.b2bOrders, 2);
   assert.equal(dashboard.month.averageCheck, 1000);
-  assert.equal(dashboard.month.qrShare, 0.1);
+  assert.equal(dashboard.month.qrShare, 3000 / 20000);
 });
 
 test('update recalculates KPI and retains old and new values in audit', async () => {
@@ -427,7 +427,7 @@ test('monthly store summary exposes cash, acquiring and QR without double counti
   assert.equal(august.cash, 20000);
   assert.equal(august.acquiring, 30000);
   assert.equal(august.qr, 5000);
-  assert.equal(august.qrShare, 0.1);
+  assert.equal(august.qrShare, 5000 / 30000);
 });
 
 test('Amper accepts store-level payment input without inheriting Miska KPI settings', async () => {
@@ -457,7 +457,7 @@ test('Amper accepts store-level payment input without inheriting Miska KPI setti
     treatsReceipts: null,
   }), OWNER);
   assert.equal(created.metrics.revenue, 50000);
-  assert.equal(created.metrics.qrShare, 0.1);
+  assert.equal(created.metrics.qrShare, 5000 / 30000);
   assert.equal(created.metrics.kpiStatus, 'UNRESOLVED');
   assert.equal(created.metrics.kpiScore, null);
   const dashboard = await service.getDashboard({ storeId: amper.id, year: 2026, month: 8 }, OWNER);
@@ -465,7 +465,7 @@ test('Amper accepts store-level payment input without inheriting Miska KPI setti
   assert.equal(dashboard.month.cash, 20000);
   assert.equal(dashboard.month.acquiring, 30000);
   assert.equal(dashboard.month.qr, 5000);
-  assert.equal(dashboard.month.qrShare, 0.1);
+  assert.equal(dashboard.month.qrShare, 5000 / 30000);
 });
 
 test('Amper dashboard marks store premium unresolved instead of inventing coefficients', async () => {
