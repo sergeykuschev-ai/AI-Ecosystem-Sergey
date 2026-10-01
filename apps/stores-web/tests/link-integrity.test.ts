@@ -26,7 +26,7 @@ function listSourceFiles(dir: string, accumulated: string[] = []): string[] {
 }
 
 function displayPath(filePath: string): string {
-  return relative(projectRoot, filePath);
+  return relative(projectRoot, filePath).split(/[\\/]/).join("/");
 }
 
 const sourceFiles = SOURCE_DIRS.flatMap((dir) => listSourceFiles(join(projectRoot, dir)));
@@ -58,7 +58,7 @@ function deriveStaticPagesFromAppDir(): string[] {
   for (const file of listSourceFiles(appDir)) {
     if (!file.endsWith("page.tsx")) continue;
     const dir = dirname(relative(appDir, file));
-    const segments = dir === "." ? [] : dir.split("/");
+    const segments = dir === "." ? [] : dir.split(/[\\/]/);
     if (segments[0] === "api") continue;
     if (segments.some((segment) => segment.startsWith("["))) continue;
     pages.push(`/${segments.join("/")}${segments.length ? "/" : ""}`);
@@ -180,6 +180,12 @@ assert.ok(internalLinks.length > 0, "expected literal internal links in sources"
 // ---------------------------------------------------------------------------
 
 describe("route registry matches the app structure", () => {
+  test("source paths normalize separators so global navigation is excluded", () => {
+    const headerPath = displayPath(join(projectRoot, "components", "layout", "Header.tsx"));
+    assert.equal(headerPath, "components/layout/Header.tsx");
+    assert.ok(headerPath.startsWith("components/layout/"));
+    assert.ok(!displayPath(join(projectRoot, "components", "seo", "LocalStoreNetworkLinks.tsx")).startsWith("components/layout/"));
+  });
   test("static pages derived from app/ match the expected public route set", () => {
     const derived = deriveStaticPagesFromAppDir();
     assert.deepEqual(derived, [...EXPECTED_STATIC_PAGES].sort());

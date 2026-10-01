@@ -148,7 +148,19 @@ describe("local SEO internal linking", () => {
   test("contacts page links to the canonical Amursk stores route and exposes breadcrumbs", () => {
     const page = source("app", "kontakty", "page.tsx");
     assert.ok(page.includes("`/stores/${city.slug}/`"), "contacts page must derive the city stores route");
-    assert.ok(page.includes("createBreadcrumbJsonLd"), "contacts page must expose canonical breadcrumbs");
+    assert.ok(page.includes("<Breadcrumbs"), "contacts page must expose visible canonical breadcrumbs");
+  });
+
+  test("about and stores index pages expose canonical breadcrumbs", () => {
+    for (const [parts, ownPath] of [
+      [["app", "o-kompanii", "page.tsx"], "/o-kompanii/"],
+      [["app", "stores", "page.tsx"], "/stores/"],
+    ] as const) {
+      const page = source(...parts);
+      assert.ok(page.includes("<Breadcrumbs"), `${parts.join("/")} must expose visible breadcrumbs`);
+      assert.ok(page.includes('{ name: "Главная", path: "/" }'), `${parts.join("/")} must link breadcrumbs home`);
+      assert.ok(page.includes(`path: "${ownPath}"`), `${parts.join("/")} must end the trail at ${ownPath}`);
+    }
   });
 
   test("city hub identifies all four Amursk stores and their directions", () => {

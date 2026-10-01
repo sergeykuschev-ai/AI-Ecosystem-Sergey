@@ -13,6 +13,7 @@ import {
 } from "@/lib/seo/json-ld";
 import { siteUrl } from "@/lib/seo/metadata";
 import { mockBrands, mockCities, mockFaqs, mockStores } from "@/lib/data/mock-data";
+import type { Store } from "@/types/store";
 
 const FORBIDDEN_KEYS = new Set([
   "aggregateRating",
@@ -85,6 +86,47 @@ describe("JSON-LD builders", () => {
       assert.ok(node, `organization node for ${brand.slug}`);
       assert.equal(node.name, brand.name);
     }
+  });
+
+  test("organization graph attaches verified local facts only when stores unambiguously agree", () => {
+    const jsonLd = createOrganizationsJsonLd(mockBrands, { stores: mockStores, cities: mockCities });
+    const graph = jsonLd["@graph"] as JsonLdObject[];
+    for (const brand of mockBrands) {
+      const node = graph.find((entry) => entry["@id"] === new URL(`/${brand.slug}/#organization`, siteUrl).href);
+      assert.ok(node, `organization node for ${brand.slug}`);
+      const store = mockStores.find((item) => item.brand_id === brand.id);
+      assert.ok(store, `store for ${brand.slug}`);
+      const address = node.address as JsonLdObject;
+      assert.equal(address["@type"], "PostalAddress");
+      assert.equal(address.streetAddress, store.address, `address must come from the canonical store for ${brand.slug}`);
+      assert.equal(address.addressLocality, amursk.name);
+      assert.equal(address.addressRegion, amursk.region);
+      assert.equal(address.addressCountry, amursk.country);
+      assert.equal(node.telephone, store.telephone, `telephone must come from the canonical store for ${brand.slug}`);
+    }
+    assertNoFabricatedCommerceData(jsonLd, "organizations JSON-LD with local context");
+  });
+
+  test("organization graph omits local facts without context or when facts conflict", () => {
+    const withoutContext = createOrganizationsJsonLd(mockBrands);
+    for (const node of withoutContext["@graph"] as JsonLdObject[]) {
+      assert.equal(node.address, undefined, "address must not appear without store/city context");
+      assert.equal(node.telephone, undefined, "telephone must not appear without store/city context");
+    }
+
+    const conflictingStore: Store = {
+      ...mockStores[0],
+      address: "г. Амурск, проспект Победы, 18",
+    };
+    const jsonLd = createOrganizationsJsonLd(mockBrands, {
+      stores: [conflictingStore, ...mockStores],
+      cities: mockCities,
+    });
+    const amperNode = (jsonLd["@graph"] as JsonLdObject[]).find(
+      (entry) => entry["@id"] === new URL("/amper/#organization", siteUrl).href,
+    );
+    assert.ok(amperNode);
+    assert.equal(amperNode.address, undefined, "conflicting store addresses must be omitted, not guessed");
   });
 
   test("store JSON-LD maps brand slugs to schema types and never fabricates commerce data", () => {

@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Container";
 import { getBrands } from "@/lib/directus/brands";
 import { getActualItems } from "@/lib/directus/actual-items";
-import { getCityBySlug } from "@/lib/directus/cities";
+import { getCities, getCityBySlug } from "@/lib/directus/cities";
 import { getFaqs } from "@/lib/directus/faqs";
 import { getStores } from "@/lib/directus/stores";
 import { createOrganizationsJsonLd, createWebsiteJsonLd } from "@/lib/seo/json-ld";
@@ -26,18 +26,19 @@ export const metadata: Metadata = createPageMetadata({
 });
 
 export default async function HomePage() {
-  const [brands, faqs, actualItems, city, allStores] = await Promise.all([
+  const [brands, faqs, actualItems, city, allStores, cities] = await Promise.all([
     getBrands(),
     getFaqs(),
     getActualItems(),
     getCityBySlug("amursk"),
     getStores(),
+    getCities(),
   ]);
   const stores = city ? allStores.filter((store) => store.city_id === city.id && store.active) : [];
   return (
     <main>
       <JsonLd data={createWebsiteJsonLd()} />
-      <JsonLd data={createOrganizationsJsonLd(brands)} />
+      <JsonLd data={createOrganizationsJsonLd(brands, { stores: allStores, cities })} />
       <Container>
         <section className="home-hero" aria-labelledby="home-title">
           <p className="eyebrow">Амурск · Хабаровский край</p>

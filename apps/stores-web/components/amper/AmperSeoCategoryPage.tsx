@@ -43,7 +43,7 @@ export async function AmperSeoCategoryPage({ category }: AmperSeoCategoryPagePro
       data-brand="amper"
       style={{ "--brand-color": brand.primary_color } as React.CSSProperties}
     >
-      <JsonLd data={createOrganizationsJsonLd([brand])} />
+      <JsonLd data={createOrganizationsJsonLd([brand], { stores, cities })} />
       {store && city ? <JsonLd data={createStoreJsonLd(store, brand, city)} /> : null}
       <Container>
         <Breadcrumbs
@@ -80,7 +80,7 @@ export async function AmperSeoCategoryPage({ category }: AmperSeoCategoryPagePro
           <div className="amper-feature-grid">
             {category.items.map((item) => (
               <article className="amper-feature-card" key={item.title}>
-                <h3>{item.title}</h3>
+                <h3>{item.href ? <Link href={item.href}>{item.title}</Link> : item.title}</h3>
                 <p>{item.text}</p>
               </article>
             ))}

@@ -10,7 +10,7 @@ import { getBrands } from "@/lib/directus/brands";
 import { getCategoriesByBrand } from "@/lib/directus/categories";
 import { getCities, getCityBySlug } from "@/lib/directus/cities";
 import { getStoreBySlug, getStores } from "@/lib/directus/stores";
-import { createStoreJsonLd } from "@/lib/seo/json-ld";
+import { createOrganizationsJsonLd, createStoreJsonLd } from "@/lib/seo/json-ld";
 import { createPageMetadata } from "@/lib/seo/metadata";
 export const dynamic = "force-dynamic";
 
@@ -50,6 +50,7 @@ export default async function StorePage({ params }: StorePageProps) {
   return (
     <main>
       <JsonLd data={createStoreJsonLd(store, brand, city)} />
+      <JsonLd data={createOrganizationsJsonLd([brand], { stores: [store], cities: [city] })} />
       <Container>
         <Breadcrumbs trail={[
           { name: "Главная", path: "/" },
@@ -67,7 +68,7 @@ export default async function StorePage({ params }: StorePageProps) {
           <StoreContactBlock store={store} />
           <section className="section" aria-labelledby="about-store"><h2 id="about-store">О магазине</h2><p>{store.description}</p></section>
         </div>
-        <section className="section" aria-labelledby="store-categories"><h2 id="store-categories">Основные категории</h2><CategoryGrid categories={categories} /></section>
+        <section className="section" aria-labelledby="store-categories"><h2 id="store-categories">Основные категории</h2><CategoryGrid categories={categories} storeBrandSlug={brand.active ? brand.slug : undefined} /></section>
         <section className="section" aria-labelledby="brand-details">
           <h2 id="brand-details">Магазин «{brand.name}»</h2>
           <p>
