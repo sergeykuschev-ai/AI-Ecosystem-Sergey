@@ -1,0 +1,28 @@
+{
+  "dataset_schema_version": "v1",
+  "generated_at": "2026-10-01",
+  "source_set": {
+    "snapshot_path": "research/data/sources/1c-snapshot.json",
+    "snapshot_present": false,
+    "snapshot_rows_total": 0,
+    "evidence_path": "research/data/sources/evidence.jsonl",
+    "evidence_records_total": 0,
+    "eligible_sku_count": 0,
+    "note": "1C snapshot is not staged in this workspace; the eligible SKU set could not be derived. Place the export at research/data/sources/1c-snapshot.json and run npm run build."
+  },
+  "policy": "evidence-only: exact identity match; exact unit conversion; no inferred dimensions; no volume-to-weight facts; official sources override specialist retailers (e.g. Candlesbox)",
+  "records": [],
+  "summary": {
+    "total_eligible": 0,
+    "verified": 0,
+    "partial": 0,
+    "conflict": 0,
+    "needs_source": 0,
+    "exact_matches": 0,
+    "verified_complete_lwh_weight": 0,
+    "by_brand": {},
+    "unresolved_skus": [],
+    "rejected_evidence": [],
+    "ignored_evidence": []
+  }
+}

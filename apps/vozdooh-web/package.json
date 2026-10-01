@@ -1,0 +1,22 @@
+{
+  "name": "vozdooh-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "VOZDOOH web app — logistics research data pipeline (Task 8: verified dimensions/weight dataset for real-stock SKUs)",
+  "type": "commonjs",
+  "main": "src/dataset.js",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "lint": "node scripts/lint.js",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build": "node scripts/build-dataset.js",
+    "build:fixtures": "node scripts/build-dataset.js --snapshot tests/fixtures/1c-snapshot.synthetic.json --evidence tests/fixtures/evidence.synthetic.json --out tmp/fixture-preview/logistics-dataset.json --audit-out tmp/fixture-preview/logistics-audit.md"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.4",
+    "typescript": "^5.9.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

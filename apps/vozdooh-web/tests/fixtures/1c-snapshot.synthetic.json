@@ -1,0 +1,56 @@
+[
+  {
+    "sku": "SYNTH-A1",
+    "name": "SynthWax A1 aroma candle 250 ml",
+    "stock_qty": 12,
+    "customer_eligible": true,
+    "brand": "SynthWax"
+  },
+  {
+    "sku": "SYNTH-A2",
+    "name": "SynthWax A2 aroma candle 250 ml",
+    "stock_qty": 3,
+    "customer_eligible": true,
+    "brand": "SynthWax"
+  },
+  {
+    "sku": "SYNTH-B1",
+    "name": "SynthWax B1 pillar candle",
+    "stock_qty": 40,
+    "customer_eligible": true,
+    "brand": "SynthWax"
+  },
+  {
+    "sku": "SYNTH-C1",
+    "name": "OtherBrand C1 tea light",
+    "stock_qty": 7,
+    "customer_eligible": true,
+    "brand": "OtherBrand"
+  },
+  {
+    "sku": "SYNTH-F1",
+    "name": "SynthWax F1 jar candle",
+    "stock_qty": 5,
+    "customer_eligible": true,
+    "brand": "SynthWax"
+  },
+  {
+    "sku": "SYNTH-D1",
+    "name": "SynthWax D1 tester (not customer eligible)",
+    "stock_qty": 9,
+    "customer_eligible": false,
+    "brand": "SynthWax"
+  },
+  {
+    "sku": "SYNTH-E1",
+    "name": "SynthWax E1 discontinued (zero stock)",
+    "stock_qty": 0,
+    "customer_eligible": true,
+    "brand": "SynthWax"
+  },
+  {
+    "name": "broken row without sku",
+    "stock_qty": 1,
+    "customer_eligible": true
+  }
+]

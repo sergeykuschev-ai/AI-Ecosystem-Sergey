@@ -1,0 +1,16 @@
+[
+  {
+    "sku": "EXAMPLE-001",
+    "name": "Example product name as exported from 1C",
+    "stock_qty": 12,
+    "customer_eligible": true,
+    "brand": "ExampleBrand"
+  },
+  {
+    "sku": "EXAMPLE-002",
+    "name": "Second example",
+    "stock_qty": 0,
+    "customer_eligible": true,
+    "brand": "ExampleBrand"
+  }
+]

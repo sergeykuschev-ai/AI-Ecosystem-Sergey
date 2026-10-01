@@ -1,0 +1,176 @@
+[
+  {
+    "sku": "SYNTH-B1",
+    "brand": "SynthWax",
+    "identity_match": "EXACT",
+    "sources": [
+      {
+        "url": "https://synthwax.example.com/products/b1",
+        "type": "MANUFACTURER_OFFICIAL",
+        "retrieved_date": "2026-09-28",
+        "publisher": "SynthWax official store"
+      }
+    ],
+    "dimensions": {
+      "as_reported": [
+        { "label": "length", "text": "8 см" },
+        { "label": "width", "text": "8 см" },
+        { "label": "height", "text": "10 см" }
+      ],
+      "kind": "LWH",
+      "describes": "RETAIL_PACKAGE",
+      "normalized": { "length_mm": 80, "width_mm": 80, "height_mm": 100 }
+    },
+    "weight": {
+      "as_reported": "640 г",
+      "basis": "SOURCE_PUBLISHED",
+      "describes": "RETAIL_PACKAGE",
+      "normalized_g": 640
+    }
+  },
+  {
+    "sku": "SYNTH-A1",
+    "brand": "SynthWax",
+    "identity_match": "EXACT",
+    "sources": [
+      {
+        "url": "https://distributor.example.com/p/synth-a1",
+        "type": "OFFICIAL_DISTRIBUTOR",
+        "retrieved_date": "2026-09-29"
+      }
+    ],
+    "dimensions": {
+      "as_reported": [
+        { "label": "diameter", "text": "7 см" },
+        { "label": "height", "text": "9 см" }
+      ],
+      "kind": "DH",
+      "describes": "PRODUCT",
+      "normalized": { "diameter_mm": 70, "height_mm": 90 }
+    },
+    "weight": {
+      "as_reported": "410 г",
+      "basis": "SOURCE_PUBLISHED",
+      "describes": "PRODUCT",
+      "normalized_g": 410
+    }
+  },
+  {
+    "sku": "SYNTH-A1",
+    "identity_match": "SIMILAR_ONLY",
+    "sources": [
+      {
+        "url": "https://candlesbox.example.com/similar-to-a1",
+        "type": "SPECIALIST_RETAILER",
+        "retrieved_date": "2026-09-30",
+        "publisher": "Candlesbox"
+      }
+    ],
+    "weight": {
+      "as_reported": "430 г",
+      "basis": "SOURCE_PUBLISHED",
+      "describes": "PRODUCT",
+      "normalized_g": 430
+    },
+    "notes": "Same-volume candle from a different line; the source page does not establish shared packaging with A1."
+  },
+  {
+    "sku": "SYNTH-A2",
+    "brand": "SynthWax",
+    "identity_match": "EXACT",
+    "sources": [
+      {
+        "url": "https://candlesbox.example.com/a2",
+        "type": "SPECIALIST_RETAILER",
+        "retrieved_date": "2026-09-30",
+        "publisher": "Candlesbox"
+      }
+    ],
+    "dimensions": {
+      "as_reported": [
+        { "label": "diameter", "text": "8 см" },
+        { "label": "height", "text": "9,5 см" }
+      ],
+      "kind": "DH",
+      "describes": "PRODUCT",
+      "normalized": { "diameter_mm": 80, "height_mm": 95 }
+    },
+    "weight": {
+      "as_reported": "250 г",
+      "basis": "VOLUME_EQUIV",
+      "describes": "UNKNOWN",
+      "source_reported_weight": 250,
+      "source_reported_weight_unit": "г"
+    },
+    "notes": "Listed weight equals the 250 ml fill volume."
+  },
+  {
+    "sku": "SYNTH-F1",
+    "identity_match": "EXACT",
+    "sources": [
+      {
+        "url": "https://candlesbox.example.com/f1",
+        "type": "SPECIALIST_RETAILER",
+        "retrieved_date": "2026-09-30",
+        "publisher": "Candlesbox"
+      }
+    ],
+    "weight": {
+      "as_reported": "500 г",
+      "basis": "SOURCE_PUBLISHED",
+      "describes": "RETAIL_PACKAGE",
+      "normalized_g": 500
+    }
+  },
+  {
+    "sku": "SYNTH-F1",
+    "identity_match": "EXACT",
+    "sources": [
+      {
+        "url": "https://retailer2.example.com/f1",
+        "type": "SPECIALIST_RETAILER",
+        "retrieved_date": "2026-09-27"
+      }
+    ],
+    "weight": {
+      "as_reported": "520 г",
+      "basis": "SOURCE_PUBLISHED",
+      "describes": "RETAIL_PACKAGE",
+      "normalized_g": 520
+    }
+  },
+  {
+    "sku": "GHOST-1",
+    "identity_match": "EXACT",
+    "sources": [
+      {
+        "url": "https://candlesbox.example.com/ghost-1",
+        "type": "SPECIALIST_RETAILER",
+        "retrieved_date": "2026-09-30"
+      }
+    ],
+    "weight": {
+      "as_reported": "100 г",
+      "basis": "SOURCE_PUBLISHED",
+      "normalized_g": 100
+    }
+  },
+  {
+    "sku": "SYNTH-A2",
+    "identity_match": "EXACT",
+    "sources": [
+      {
+        "url": "https://bad-source.example.com/volume-as-weight",
+        "type": "OTHER",
+        "retrieved_date": "2026-09-30"
+      }
+    ],
+    "weight": {
+      "as_reported": "250 г",
+      "basis": "VOLUME_EQUIV",
+      "normalized_g": 250,
+      "source_reported_weight": 250,
+      "source_reported_weight_unit": "г"
+    }
+  }
+]
