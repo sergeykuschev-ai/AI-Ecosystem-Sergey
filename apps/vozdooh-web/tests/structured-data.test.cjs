@@ -65,3 +65,24 @@ test('structured data serialization cannot close its script element', () => {
   assert.match(json, /\\u003c\/script>/)
   assert.deepEqual(JSON.parse(json), { description: '</script><script>alert(1)</script>' })
 })
+
+test('brand/category CollectionPage JSON-LD contains only exact page and product facts', () => {
+  const { landingStructuredData } = require('../src/catalog/structuredData.ts')
+  const brand = landingStructuredData({
+    kind: 'brand', slug: 'culti-milano', name: 'CULTI MILANO',
+    description: 'CULTI MILANO в VOZDOOH.', products: [product()], siteUrl: 'https://vozdooh27.ru/',
+  })
+  const [page, list, breadcrumbs] = brand['@graph']
+  assert.equal(page['@type'], 'CollectionPage')
+  assert.equal(page.url, 'https://vozdooh27.ru/brands/culti-milano')
+  assert.deepEqual(page.about, { '@type': 'Brand', name: 'CULTI MILANO' })
+  assert.equal(list.itemListElement.length, 1)
+  assert.equal(list.itemListElement[0].url, 'https://vozdooh27.ru/catalog/culti-decor-aramara-250')
+  assert.equal(breadcrumbs.itemListElement[1].item, 'https://vozdooh27.ru/brands')
+
+  const category = landingStructuredData({
+    kind: 'category', slug: 'diffusers', name: 'Диффузоры', description: 'Диффузоры.', products: [product()],
+  })
+  assert.equal(category['@graph'][0].about, undefined)
+  assert.match(category['@graph'][0].url, /\/categories\/diffusers$/)
+})

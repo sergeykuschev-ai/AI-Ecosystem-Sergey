@@ -3,6 +3,7 @@ import { withValidImages } from '../../src/catalog/validImages'
 import { catalogSource, getCatalogRepository } from '../../src/catalog/source'
 
 import type { Metadata } from 'next'
+import { publicRobots } from '../../src/seo/indexing'
 import { ScentFinder } from '../../components/ScentFinder'
 import { SiteFooter } from '../../components/SiteFooter'
 import { SiteHeader } from '../../components/SiteHeader'
@@ -12,8 +13,9 @@ export const dynamic = 'force-dynamic'
 export const metadata: Metadata = {
   title: 'Подобрать аромат — VOZDOOH',
   description: 'Подбор аромата для дома по заполненным характеристикам каталога: характеру, настроению, помещению и формату.',
+  openGraph: { title: 'Подобрать аромат — VOZDOOH', description: 'Подбор аромата для дома по заполненным характеристикам каталога: характеру, настроению, помещению и формату.' },
   alternates: { canonical: '/finder' },
-  robots: { index: false, follow: false },
+  robots: publicRobots(),
 }
 
 export default async function FinderPage() {

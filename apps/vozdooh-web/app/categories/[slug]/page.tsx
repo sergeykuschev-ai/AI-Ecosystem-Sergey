@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { publicRobots } from '../../../src/seo/indexing'
 import { notFound } from 'next/navigation'
 import { CatalogLanding } from '../../../components/CatalogLanding'
 import { availableLandings, landingPath } from '../../../src/catalog/landings'
@@ -17,7 +18,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const landing = await getLanding((await params).slug)
   if (!landing) return { title: 'Коллекция не найдена — VOZDOOH', robots: { index: false, follow: false } }
   return { title: `${landing.name} — VOZDOOH`, description: landing.description,
-    alternates: { canonical: landingPath('category', landing.slug) }, robots: { index: false, follow: false } }
+    openGraph: { title: `${landing.name} — VOZDOOH`, description: landing.description },
+    alternates: { canonical: landingPath('category', landing.slug) }, robots: publicRobots() }
 }
 
 export default async function LandingPage({ params }: Props) {

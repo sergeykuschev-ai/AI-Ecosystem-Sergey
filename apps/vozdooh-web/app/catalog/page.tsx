@@ -1,6 +1,7 @@
 import { catalogSource, getCatalogRepository } from '../../src/catalog/source'
 
 import type { Metadata } from 'next'
+import { publicRobots } from '../../src/seo/indexing'
 import Link from 'next/link'
 import { Suspense } from 'react'
 import { ProductCard } from '../../components/ProductCard'
@@ -18,8 +19,9 @@ export const dynamic = 'force-dynamic'
 export const metadata: Metadata = {
   title: 'Каталог — VOZDOOH',
   description: 'Интерьерная парфюмерия VOZDOOH. Ароматы, характер и настроение вашего пространства.',
+  openGraph: { title: 'Каталог — VOZDOOH', description: 'Интерьерная парфюмерия VOZDOOH. Ароматы, характер и настроение вашего пространства.' },
   alternates: { canonical: '/catalog' },
-  robots: { index: false, follow: false },
+  robots: publicRobots(),
 }
 
 type Option<V extends string> = { value: V; label: string }

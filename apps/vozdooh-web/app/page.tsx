@@ -1,6 +1,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import type { Metadata } from 'next'
+import { publicRobots } from '../src/seo/indexing'
 import { SiteFooter } from '../components/SiteFooter'
 import { SiteHeader } from '../components/SiteHeader'
 import { HeroShaderGradient } from '../components/HeroShaderGradient'
@@ -39,6 +40,7 @@ export const metadata: Metadata = {
   title: 'VOZDOOH — парфюмерия для дома',
   description: 'VOZDOOH — коллекция ароматов для дома: диффузоры, свечи, спреи и подарочные наборы от брендов интерьерной парфюмерии.',
   alternates: { canonical: '/' },
+  robots: publicRobots(),
 }
 
 export default async function Home() {

@@ -17,7 +17,6 @@ export const metadata: Metadata = {
     title: 'VOZDOOH — парфюмерия для дома',
     description: 'Коллекция ароматов для дома: диффузоры, свечи, спреи и подарочные наборы.',
   },
-  robots: { index: false, follow: false },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

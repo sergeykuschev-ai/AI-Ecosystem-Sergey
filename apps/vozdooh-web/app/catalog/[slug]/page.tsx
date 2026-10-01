@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { publicRobots } from '../../../src/seo/indexing'
 import Image from 'next/image'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
@@ -29,13 +30,18 @@ export async function generateMetadata({ params }: PageParams): Promise<Metadata
   const { slug } = await params
   const product = await (await getCatalogRepository()).getBySlug(slug)
   if (!product) return { title: 'Товар не найден — VOZDOOH', robots: { index: false, follow: false } }
+  const display = productPresentation(product)
+  const description = catalogSource() === 'demo'
+    ? 'Демонстрационная карточка товара VOZDOOH. Цена, наличие и характеристики появятся после синхронизации с 1С.'
+    : product.editorial.description ?? 'Интерьерная парфюмерия VOZDOOH.'
+  const image = catalogImage(product)
+  const title = `${display.title} · ${product.trade.brand ?? 'VOZDOOH'} · ${display.subtitle}`
   return {
-    title: `${productPresentation(product).title} · ${product.trade.brand ?? 'VOZDOOH'} · ${productPresentation(product).subtitle}`,
+    title,
     alternates: { canonical: `/catalog/${product.editorial.slug}` },
-    description: catalogSource() === 'demo'
-      ? 'Демонстрационная карточка товара VOZDOOH. Цена, наличие и характеристики появятся после синхронизации с 1С.'
-      : product.editorial.description ?? 'Интерьерная парфюмерия VOZDOOH.',
-    robots: { index: false, follow: false },
+    description,
+    openGraph: { title, description, ...(image ? { images: [{ url: image, alt: product.trade.name }] } : {}) },
+    robots: publicRobots(),
   }
 }
 

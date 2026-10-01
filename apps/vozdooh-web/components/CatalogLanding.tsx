@@ -5,11 +5,14 @@ import { ProductCard } from './ProductCard'
 import { SiteHeader } from './SiteHeader'
 import { SiteFooter } from './SiteFooter'
 import { TrackView } from './TrackView'
+import { landingStructuredData, serializeStructuredData } from '../src/catalog/structuredData'
 
 export function CatalogLanding({ landing, products, kind }: { landing: Landing; products: CatalogProduct[]; kind: 'brand' | 'category' }) {
+  const structuredData = serializeStructuredData(landingStructuredData({ kind, slug: landing.slug, name: landing.name, description: landing.description, products }))
   const relatedKind = kind === 'brand' ? 'category' : 'brand'
   const related = availableLandings(products, relatedKind)
   return <main className="catalogPage landingPage">
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: structuredData }} />
     {kind === 'brand' && <TrackView event="view_brand" payload={{ item_brand: landing.name, slug: landing.slug }} />}
     <SiteHeader />
     <section className="pageIntro">

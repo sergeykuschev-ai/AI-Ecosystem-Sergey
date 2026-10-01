@@ -1,5 +1,7 @@
 import type { NextConfig } from 'next'
 
+const searchIndexingEnabled = process.env.SEARCH_INDEXING_ENABLED === 'true'
+
 const nextConfig: NextConfig = {
   output: 'standalone',
   // Verify a new build without replacing the running private preview's artifacts.
@@ -15,7 +17,7 @@ const nextConfig: NextConfig = {
     return [{
       source: '/(.*)',
       headers: [
-        { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
+        ...(!searchIndexingEnabled ? [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }] : []),
         { key: 'X-Content-Type-Options', value: 'nosniff' },
         { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
         { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },

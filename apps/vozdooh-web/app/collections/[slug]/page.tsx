@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { publicRobots } from '../../../src/seo/indexing'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ProductCard } from '../../../components/ProductCard'
@@ -23,8 +24,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: `${collection.name} — коллекция VOZDOOH`,
     description: collection.description,
+    openGraph: { title: `${collection.name} — коллекция VOZDOOH`, description: collection.description },
     alternates: { canonical: collectionPath(collection.slug) },
-    robots: { index: false, follow: false },
+    robots: publicRobots(),
   }
 }
 

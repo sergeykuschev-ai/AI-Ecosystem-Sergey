@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { publicRobots } from '../../src/seo/indexing'
 import Image from 'next/image'
 import Link from 'next/link'
 import { SiteFooter } from '../../components/SiteFooter'
@@ -13,8 +14,9 @@ export const dynamic = 'force-dynamic'
 export const metadata: Metadata = {
   title: 'Коллекции — VOZDOOH',
   description: 'Редакционные подборки VOZDOOH по характеру аромата, настроению и пространству.',
+  openGraph: { title: 'Коллекции — VOZDOOH', description: 'Редакционные подборки VOZDOOH по характеру аромата, настроению и пространству.' },
   alternates: { canonical: '/collections' },
-  robots: { index: false, follow: false },
+  robots: publicRobots(),
 }
 
 export default async function CollectionsPage() {

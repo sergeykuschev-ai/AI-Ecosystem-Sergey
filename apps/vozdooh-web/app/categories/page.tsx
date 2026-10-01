@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { publicRobots } from '../../src/seo/indexing'
 import Link from 'next/link'
 import { SiteFooter } from '../../components/SiteFooter'
 import { SiteHeader } from '../../components/SiteHeader'
@@ -8,7 +9,7 @@ import { withValidImages } from '../../src/catalog/validImages'
 
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'Категории — VOZDOOH', description: 'Диффузоры, свечи, спреи и другие форматы интерьерных ароматов VOZDOOH.',
-  alternates: { canonical: '/categories' }, robots: { index: false, follow: false } }
+  alternates: { canonical: '/categories' }, robots: publicRobots() }
 
 export default async function DiscoveryPage() {
   const products = await withValidImages(await (await getCatalogRepository()).list())
