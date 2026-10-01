@@ -29,6 +29,26 @@ test('revenue does not count QR twice when acquiring already includes it', () =>
   assert.equal(result.paymentBreakdown.qrIncludedInAcquiring, true);
 });
 
+test('B2B revenue counts toward store revenue but not retail basket metrics', () => {
+  const result = calculateKpiMetrics({
+    ...VALID_SHIFT,
+    cash: 10000,
+    acquiring: 20000,
+    qr: 3000,
+    b2b: 120000,
+    b2bOrders: 2,
+    receipts: 30,
+  }, null);
+
+  assert.equal(result.retailRevenue, 30000);
+  assert.equal(result.b2bRevenue, 120000);
+  assert.equal(result.revenue, 150000);
+  assert.equal(result.averageCheck, 1000);
+  assert.equal(result.qrShare, 0.1);
+  assert.equal(result.b2bShare, 0.8);
+  assert.equal(result.averageB2bOrder, 60000);
+});
+
 test('morning and evening shifts use half of absolute KPI targets', () => {
   const result = calculateKpiMetrics({
     ...VALID_SHIFT,
@@ -72,7 +92,7 @@ test('zero receipts produce null ratios instead of division errors', () => {
 test('agent exposes a stable versioned result contract', () => {
   const result = analyzeShift(VALID_SHIFT);
 
-  assert.equal(result.contractVersion, 'v2');
+  assert.equal(result.contractVersion, 'v3');
   assert.equal(result.settingsVersion, 1);
   assert.equal(result.metrics.revenue, 30000);
   assert.equal(result.metrics.itemsPerReceipt, 2.4);

@@ -127,6 +127,9 @@ function aggregateMonth(shifts, options) {
   }));
   const totals = {
     revenue: sumMoney(calculated, item => item.metrics.revenue, 'revenue'),
+    retailRevenue: sumMoney(calculated, item => item.metrics.retailRevenue, 'retailRevenue'),
+    b2bRevenue: sumMoney(calculated, item => item.metrics.b2bRevenue, 'b2bRevenue'),
+    b2bOrders: sumNullableInteger(activeShifts, shift => shift.b2bOrders ?? 0),
     cash: sumNullableMoney(activeShifts, shift => shift.cash, 'cash'),
     acquiring: sumNullableMoney(activeShifts, shift => shift.acquiring, 'acquiring'),
     qr: sumNullableMoney(activeShifts, shift => shift.qr, 'qr'),
@@ -175,14 +178,19 @@ function aggregateMonth(shifts, options) {
       ? null
       : totals.revenue / plan,
     receipts: totals.receipts,
-    averageCheck: ratio(totals.revenue, totals.receipts),
+    retailRevenue: totals.retailRevenue,
+    b2bRevenue: totals.b2bRevenue,
+    b2bOrders: totals.b2bOrders,
+    b2bShare: ratio(totals.b2bRevenue, totals.revenue),
+    averageB2bOrder: ratio(totals.b2bRevenue, totals.b2bOrders),
+    averageCheck: ratio(totals.retailRevenue, totals.receipts),
     itemsSold: totals.itemsSold,
     itemsPerReceipt: totals.itemsSold === null ? null : ratio(totals.itemsSold, totals.receipts),
     itemsCheckCoverage,
     cash: totals.cash,
     acquiring: totals.acquiring,
     qr: totals.qr,
-    qrShare: totals.qr === null ? null : ratio(totals.qr, totals.revenue),
+    qrShare: totals.qr === null ? null : ratio(totals.qr, totals.retailRevenue),
     paymentBreakdownAvailable: activeShifts.length > 0 && calculated.every(
       item => item.metrics.paymentBreakdownAvailable
     ),
@@ -268,6 +276,9 @@ function aggregateSellers(monthAggregate, settings) {
 
   return Array.from(grouped.values()).map(group => {
     const revenue = sumMoney(group.shifts, item => item.metrics.revenue, 'revenue');
+    const retailRevenue = sumMoney(group.shifts, item => item.metrics.retailRevenue, 'retailRevenue');
+    const b2bRevenue = sumMoney(group.shifts, item => item.metrics.b2bRevenue, 'b2bRevenue');
+    const b2bOrders = sumNullableInteger(group.shifts, item => item.shift.b2bOrders ?? 0);
     const receipts = sumNullableInteger(group.shifts, item => item.shift.receipts);
     const itemsSold = sumNullableInteger(group.shifts, item => item.shift.itemsSold);
     const qr = sumNullableMoney(group.shifts, item => item.shift.qr, 'qr');
@@ -307,13 +318,18 @@ function aggregateSellers(monthAggregate, settings) {
       shiftsCount: group.shifts.length,
       shiftUnits,
       revenue,
+      retailRevenue,
+      b2bRevenue,
+      b2bOrders,
+      b2bShare: ratio(b2bRevenue, revenue),
+      averageB2bOrder: ratio(b2bRevenue, b2bOrders),
       revenuePerShift: shiftUnits > 0 ? revenue / shiftUnits : null,
       receipts,
-      averageCheck: ratio(revenue, receipts),
+      averageCheck: ratio(retailRevenue, receipts),
       itemsSold,
       itemsPerReceipt: itemsSold === null ? null : ratio(itemsSold, receipts),
       qr,
-      qrShare: qr === null ? null : ratio(qr, revenue),
+      qrShare: qr === null ? null : ratio(qr, retailRevenue),
       averageKpi,
       kpiLevel: level?.name || null,
       bonus: kpiComplete ? kpiBonus + extraHalfShiftBonus.amount : null,
@@ -347,18 +363,26 @@ function aggregateDays(monthAggregate) {
   }
   return Array.from(grouped.entries()).map(([date, items]) => {
     const revenue = sumMoney(items, item => item.metrics.revenue, 'revenue');
+    const retailRevenue = sumMoney(items, item => item.metrics.retailRevenue, 'retailRevenue');
+    const b2bRevenue = sumMoney(items, item => item.metrics.b2bRevenue, 'b2bRevenue');
+    const b2bOrders = sumNullableInteger(items, item => item.shift.b2bOrders ?? 0);
     const qr = sumNullableMoney(items, item => item.shift.qr, 'qr');
     const receipts = sumNullableInteger(items, item => item.shift.receipts);
     const itemsSold = sumNullableInteger(items, item => item.shift.itemsSold);
     return Object.freeze({
       date,
       revenue,
+      retailRevenue,
+      b2bRevenue,
+      b2bOrders,
+      b2bShare: ratio(b2bRevenue, revenue),
+      averageB2bOrder: ratio(b2bRevenue, b2bOrders),
       receipts,
-      averageCheck: ratio(revenue, receipts),
+      averageCheck: ratio(retailRevenue, receipts),
       itemsSold,
       itemsPerReceipt: itemsSold === null ? null : ratio(itemsSold, receipts),
       qr,
-      qrShare: qr === null ? null : ratio(qr, revenue),
+      qrShare: qr === null ? null : ratio(qr, retailRevenue),
       shiftsCount: items.length,
     });
   }).sort((left, right) => left.date.localeCompare(right.date));

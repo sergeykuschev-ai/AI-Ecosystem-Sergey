@@ -76,6 +76,10 @@ function windowMetrics(shifts, settings) {
     const metrics = resolveShiftMetrics(shift, settings);
     return sum + (metrics?.revenue || 0);
   }, 0);
+  const retailRevenue = shifts.reduce((sum, shift) => {
+    const metrics = resolveShiftMetrics(shift, settings);
+    return sum + (metrics?.retailRevenue ?? metrics?.revenue ?? 0);
+  }, 0);
   const receipts = shifts.reduce((sum, shift) => sum + (shift.receipts || 0), 0);
   const qr = shifts.reduce((sum, shift) => sum + (shift.qr || 0), 0);
   const itemsSold = shifts.reduce((sum, shift) => sum + (shift.itemsSold === null || shift.itemsSold === undefined ? 0 : shift.itemsSold), 0);
@@ -85,14 +89,15 @@ function windowMetrics(shifts, settings) {
   return Object.freeze({
     shiftCount: shifts.length,
     revenue,
+    retailRevenue,
     receipts,
     qr,
     itemsSold,
     revenuePerShift: shifts.length ? revenue / shifts.length : null,
     receiptsPerShift: shifts.length ? receipts / shifts.length : null,
-    averageCheck: receipts ? revenue / receipts : null,
+    averageCheck: receipts ? retailRevenue / receipts : null,
     itemsPerReceipt: receipts ? itemsSold / receipts : null,
-    qrShare: revenue ? qr / revenue : null,
+    qrShare: retailRevenue ? qr / retailRevenue : null,
     averageKpi: kpiScores.length ? kpiScores.reduce((sum, value) => sum + value, 0) / kpiScores.length : null,
   });
 }

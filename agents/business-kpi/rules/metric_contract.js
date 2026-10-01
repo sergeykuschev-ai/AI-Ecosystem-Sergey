@@ -1,6 +1,6 @@
 'use strict';
 
-const METRIC_CONTRACT_VERSION = 'v2';
+const METRIC_CONTRACT_VERSION = 'v3';
 const MONEY_DECIMAL_PLACES = 2;
 const ZERO_DIVISION_RESULT = null;
 

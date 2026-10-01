@@ -7,7 +7,7 @@
     <title>Business Portal · KPI</title>
     <link rel="stylesheet" href="/styles.css?v=training-guide-1">
     <script src="/formatters.js" defer></script>
-    <script src="/app.js?v=training-guide-1" defer></script>
+    <script src="/app.js?v=b2b-1" defer></script>
   </head>
   <body class="auth-loading">
     <div class="app-shell">
@@ -120,7 +120,7 @@
             <article class="metric-card">
               <span>Средний чек</span>
               <strong id="metric-average-check">—</strong>
-              <small>Выручка / чеки</small>
+              <small>Розничная выручка / чеки</small>
             </article>
             <article class="metric-card">
               <span>Товаров в чеке</span>
@@ -137,10 +137,30 @@
               <strong id="metric-acquiring">—</strong>
               <small>Эквайринг уже включает QR</small>
             </article>
+            <article class="metric-card" data-b2b-metric hidden>
+              <span>Розничная выручка</span>
+              <strong id="metric-retail-revenue">—</strong>
+              <small>Наличные + эквайринг</small>
+            </article>
+            <article class="metric-card" data-b2b-metric hidden>
+              <span>Организации</span>
+              <strong id="metric-b2b-revenue">—</strong>
+              <small id="metric-b2b-note">Безнал по реализациям</small>
+            </article>
+            <article class="metric-card" data-b2b-metric hidden>
+              <span>Доля организаций</span>
+              <strong id="metric-b2b-share">—</strong>
+              <small>Организации / общая выручка</small>
+            </article>
+            <article class="metric-card" data-b2b-metric hidden>
+              <span>Средний заказ организации</span>
+              <strong id="metric-b2b-average">—</strong>
+              <small id="metric-b2b-orders">Заказов —</small>
+            </article>
             <article class="metric-card">
               <span>Доля QR</span>
               <strong id="metric-qr">—</strong>
-              <small>QR / выручка</small>
+              <small>QR / розничная выручка</small>
             </article>
             <article class="metric-card">
               <span>Оплачено через QR</span>
@@ -210,6 +230,8 @@
               </div>
               <div class="today-grid" id="today-grid">
                 <span class="metric"><small>Выручка</small><strong id="today-revenue">—</strong></span>
+                <span class="metric" data-b2b-metric hidden><small>Розница</small><strong id="today-retail-revenue">—</strong></span>
+                <span class="metric" data-b2b-metric hidden><small>Организации</small><strong id="today-b2b-revenue">—</strong></span>
                 <span class="metric"><small>Чеки</small><strong id="today-receipts">—</strong></span>
                 <span class="metric"><small>Средний чек</small><strong id="today-average-check">—</strong></span>
                 <span class="metric"><small>Товаров в чеке</small><strong id="today-items">—</strong></span>
@@ -281,7 +303,7 @@
             <p class="field-help" id="shifts-quality-summary">—</p>
             <div class="table-wrap">
               <table class="sticky-first-column">
-                <thead><tr><th>Дата</th><th>Продавец</th><th>Источник</th><th>Выручка</th><th>Чеки</th><th>Ср. чек</th><th>Товаров в чеке</th><th>Доля QR</th><th>KPI</th><th>Статус</th><th class="action-column"></th></tr></thead>
+                <thead><tr><th>Дата</th><th>Продавец</th><th>Источник</th><th>Выручка</th><th class="b2b-column" hidden>Розница</th><th class="b2b-column" hidden>Организации</th><th>Чеки</th><th>Ср. чек</th><th>Товаров в чеке</th><th>Доля QR</th><th>KPI</th><th>Статус</th><th class="action-column"></th></tr></thead>
                 <tbody id="shifts-table"></tbody>
               </table>
             </div>
@@ -295,7 +317,7 @@
             <div class="card-heading"><div><p class="eyebrow">Помесячная динамика</p><h2>Месяцы <span id="months-year-label"></span></h2></div></div>
             <div class="table-wrap">
               <table>
-                <thead><tr><th>Месяц</th><th>План</th><th>Факт</th><th>Прогноз</th><th>Выполнение</th><th>Наличные</th><th>Безнал / эквайринг</th><th>QR, ₽</th><th>Доля QR</th><th>Чеки</th><th>Ср. чек</th><th>Товаров в чеке</th><th>Смены</th><th>Статус</th><th>Изменение</th></tr></thead>
+                <thead><tr><th>Месяц</th><th>План</th><th>Факт</th><th class="b2b-column" hidden>Розница</th><th class="b2b-column" hidden>Организации</th><th class="b2b-column" hidden>Доля орг.</th><th>Прогноз</th><th>Выполнение</th><th>Наличные</th><th>Безнал / эквайринг</th><th>QR, ₽</th><th>Доля QR</th><th>Чеки</th><th>Ср. чек</th><th>Товаров в чеке</th><th>Смены</th><th>Статус</th><th>Изменение</th></tr></thead>
                 <tbody id="months-table"></tbody>
               </table>
             </div>
@@ -317,6 +339,9 @@
         <section class="route-panel" data-panel="year" hidden>
           <div class="metric-grid year-metrics" aria-label="Итоги года">
             <article class="metric-card"><span>Выручка YTD</span><strong id="year-revenue">—</strong></article>
+            <article class="metric-card" data-b2b-metric hidden><span>Розница YTD</span><strong id="year-retail-revenue">—</strong></article>
+            <article class="metric-card" data-b2b-metric hidden><span>Организации YTD</span><strong id="year-b2b-revenue">—</strong></article>
+            <article class="metric-card" data-b2b-metric hidden><span>Доля организаций YTD</span><strong id="year-b2b-share">—</strong></article>
             <article class="metric-card"><span>План YTD</span><strong id="year-plan">—</strong></article>
             <article class="metric-card"><span>Выполнение YTD</span><strong id="year-completion">—</strong></article>
             <article class="metric-card"><span>Чеки YTD</span><strong id="year-receipts">—</strong></article>
@@ -329,6 +354,7 @@
               <div class="card-heading"><div><p class="eyebrow">Завершённые месяцы</p><h2>YTD завершённых месяцев</h2></div></div>
               <div class="metric-grid year-completed-metrics" aria-label="YTD завершённых месяцев">
                 <article class="metric-card"><span>Выручка</span><strong id="year-completed-revenue">—</strong></article>
+                <article class="metric-card" data-b2b-metric hidden><span>Организации</span><strong id="year-completed-b2b-revenue">—</strong></article>
                 <article class="metric-card"><span>План</span><strong id="year-completed-plan">—</strong></article>
                 <article class="metric-card"><span>Выполнение</span><strong id="year-completed-completion">—</strong></article>
                 <article class="metric-card"><span>Средний чек</span><strong id="year-completed-average-check">—</strong></article>
@@ -338,6 +364,7 @@
               <div class="card-heading"><div><p class="eyebrow">Текущий месяц</p><h2 id="year-current-month-name">—</h2></div></div>
               <div class="metric-grid year-current-metrics" aria-label="Текущий месяц">
                 <article class="metric-card"><span>Факт</span><strong id="year-current-revenue">—</strong></article>
+                <article class="metric-card" data-b2b-metric hidden><span>Организации</span><strong id="year-current-b2b-revenue">—</strong></article>
                 <article class="metric-card"><span>План</span><strong id="year-current-plan">—</strong></article>
                 <article class="metric-card"><span>Выполнение</span><strong id="year-current-completion">—</strong></article>
                 <article class="metric-card"><span>Прогноз</span><strong id="year-current-forecast">—</strong></article>
@@ -364,7 +391,7 @@
             <div class="card-heading"><div><p class="eyebrow">Детализация</p><h2>Месяцы <span id="year-table-year-label"></span></h2></div></div>
             <div class="table-wrap">
               <table class="sticky-first-column">
-                <thead><tr><th>Месяц</th><th>План</th><th>Факт</th><th>Выполнение</th><th>Наличные</th><th>Безнал / эквайринг</th><th>QR, ₽</th><th>Доля QR</th><th>Чеки</th><th>Ср. чек</th><th>Смены</th><th>Изменение</th></tr></thead>
+                <thead><tr><th>Месяц</th><th>План</th><th>Факт</th><th class="b2b-column" hidden>Розница</th><th class="b2b-column" hidden>Организации</th><th class="b2b-column" hidden>Доля орг.</th><th>Выполнение</th><th>Наличные</th><th>Безнал / эквайринг</th><th>QR, ₽</th><th>Доля QR</th><th>Чеки</th><th>Ср. чек</th><th>Смены</th><th>Изменение</th></tr></thead>
                 <tbody id="year-months-table"></tbody>
               </table>
             </div>
@@ -1046,8 +1073,15 @@
             <label>Количество чеков<input id="shift-receipts" name="receipts" type="number" min="0" step="1" inputmode="numeric" required></label>
           </div>
         </fieldset>
+        <fieldset id="shift-b2b-fieldset" hidden>
+          <legend>C. Продажи организациям</legend>
+          <div class="form-grid">
+            <label>Безнал организациям, ₽<input id="shift-b2b" name="b2b" type="number" min="0" step="0.01" inputmode="decimal"><small>По проведённым реализациям, не по дате оплаты</small></label>
+            <label>Количество реализаций организациям<input id="shift-b2b-orders" name="b2bOrders" type="number" min="0" step="1" inputmode="numeric"><small>Нужно для среднего заказа организации</small></label>
+          </div>
+        </fieldset>
         <fieldset id="shift-kpi-fieldset">
-          <legend>C. KPI смены</legend>
+          <legend>D. KPI смены</legend>
           <div class="form-grid">
             <label>Продано товарных единиц<input id="shift-items" name="itemsSold" type="number" min="0" step="1" inputmode="numeric"></label>
             <label>Чеки с допродажей<input id="shift-upsells" name="upsellReceipts" type="number" min="0" step="1" inputmode="numeric"></label>
@@ -1056,12 +1090,14 @@
           </div>
         </fieldset>
         <fieldset>
-          <legend>D. Комментарий</legend>
+          <legend>E. Комментарий</legend>
           <label class="wide">Комментарий<textarea id="shift-comment" name="comment" rows="3" maxlength="1000"></textarea></label>
         </fieldset>
         <p class="inline-error" id="shift-error" role="alert" hidden></p>
         <div class="calculation-preview" aria-live="polite">
           <span>Выручка <strong id="preview-revenue">—</strong></span>
+          <span data-b2b-metric hidden>Розница <strong id="preview-retail-revenue">—</strong></span>
+          <span data-b2b-metric hidden>Организации <strong id="preview-b2b-revenue">—</strong></span>
           <span>Средний чек <strong id="preview-average">—</strong></span>
           <span data-miska-kpi-preview>Товаров/чек <strong id="preview-items">—</strong></span>
           <span>QR % <strong id="preview-qr">—</strong></span>

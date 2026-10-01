@@ -91,25 +91,33 @@ function calculateKpiMetrics(input, settings) {
   let cash = null;
   let acquiring = null;
   let qr = null;
+  let b2b = 0;
+  let retailRevenue;
   let revenue;
   if (paymentBreakdownAvailable) {
     cash = fromMinorUnits(toMinorUnits(input.cash, 'cash'));
     acquiring = fromMinorUnits(toMinorUnits(input.acquiring, 'acquiring'));
     qr = fromMinorUnits(toMinorUnits(input.qr, 'qr'));
+    b2b = fromMinorUnits(toMinorUnits(input.b2b ?? 0, 'b2b'));
     if (qrIncludedInAcquiring && qr > acquiring) {
       throw new TypeError('qr must be less than or equal to acquiring');
     }
-    revenue = fromMinorUnits(
+    retailRevenue = fromMinorUnits(
       toMinorUnits(cash, 'cash') + toMinorUnits(acquiring, 'acquiring') +
       (!qrIncludedInAcquiring ? toMinorUnits(qr, 'qr') : 0)
     );
+    revenue = fromMinorUnits(
+      toMinorUnits(retailRevenue, 'retailRevenue') + toMinorUnits(b2b, 'b2b')
+    );
   } else {
     revenue = fromMinorUnits(toMinorUnits(input.historicalRevenue, 'historicalRevenue'));
+    retailRevenue = revenue;
   }
 
   const receipts = settings === null
     ? optionalNonNegativeInteger(input.receipts, 'receipts')
     : requireNonNegativeInteger(input.receipts, 'receipts');
+  const b2bOrders = optionalNonNegativeInteger(input.b2bOrders ?? 0, 'b2bOrders');
   const itemsSold = optionalNonNegativeInteger(input.itemsSold, 'itemsSold');
   const upsellReceipts = optionalNonNegativeInteger(
     input.upsellReceipts,
@@ -127,11 +135,11 @@ function calculateKpiMetrics(input, settings) {
     throw new TypeError('treatsReceipts must not exceed receipts');
   }
 
-  const averageCheck = ratio(revenue, receipts);
+  const averageCheck = ratio(retailRevenue, receipts);
   const itemsPerReceipt = itemsSold === null ? null : ratio(itemsSold, receipts);
   const upsellReceiptShare = upsellReceipts === null ? null : ratio(upsellReceipts, receipts);
   const treatsReceiptShare = treatsReceipts === null ? null : ratio(treatsReceipts, receipts);
-  const qrShare = paymentBreakdownAvailable ? ratio(qr, revenue) : null;
+  const qrShare = paymentBreakdownAvailable ? ratio(qr, retailRevenue) : null;
 
   const workFraction = shiftFraction(input);
   const effectiveShiftRevenueTarget = settings === null
@@ -179,6 +187,11 @@ function calculateKpiMetrics(input, settings) {
 
   return Object.freeze({
     revenue,
+    retailRevenue,
+    b2bRevenue: b2b,
+    b2bOrders,
+    b2bShare: ratio(b2b, revenue),
+    averageB2bOrder: ratio(b2b, b2bOrders),
     averageCheck,
     itemsPerReceipt,
     upsellReceiptShare,
@@ -204,6 +217,7 @@ function calculateKpiMetrics(input, settings) {
       cash,
       acquiring,
       qr,
+      b2b,
       qrIncludedInAcquiring,
     }) : null,
   });

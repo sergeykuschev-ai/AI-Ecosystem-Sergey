@@ -33,6 +33,8 @@ function mapShift(row) {
     cash: row.cash_amount === null ? null : Number(row.cash_amount),
     acquiring: row.acquiring_amount === null ? null : Number(row.acquiring_amount),
     qr: row.qr_amount === null ? null : Number(row.qr_amount),
+    b2b: row.b2b_amount === null ? 0 : Number(row.b2b_amount),
+    b2bOrders: row.b2b_orders === null ? 0 : Number(row.b2b_orders),
     historicalRevenue: row.historical_revenue === null ? null : Number(row.historical_revenue),
     revenueSource: row.revenue_source,
     paymentBreakdownAvailable: row.payment_breakdown_available,
@@ -296,14 +298,15 @@ class PostgresBusinessKpiStore {
       await this.client.query(
         `INSERT INTO business_kpi.shifts
          (id, store_id, employee_id, shift_date, shift_key, cash_amount,
-          acquiring_amount, qr_amount, receipts, items_sold, upsell_receipts,
-          treats_revenue, treats_receipts, comment, source, source_ref,
+          acquiring_amount, qr_amount, b2b_amount, b2b_orders, receipts, items_sold,
+          upsell_receipts, treats_revenue, treats_receipts, comment, source, source_ref,
           created_at, updated_at, import_run_id, historical_revenue,
           revenue_source, payment_breakdown_available, source_reference_json,
           original_imported_input_json)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)`,
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)`,
         [record.id, record.storeId, record.employeeId, record.shiftDate,
           record.shiftKey, record.cash, record.acquiring, record.qr,
+          record.b2b ?? 0, record.b2bOrders ?? 0,
           record.receipts, record.itemsSold, record.upsellReceipts,
           record.treatsRevenue, record.treatsReceipts, record.comment,
           record.source, record.sourceRef, record.createdAt, record.updatedAt,
@@ -361,12 +364,14 @@ class PostgresBusinessKpiStore {
       const result = await this.client.query(
         `UPDATE business_kpi.shifts SET
            store_id=$2, employee_id=$3, shift_date=$4, shift_key=$5,
-           cash_amount=$6, acquiring_amount=$7, qr_amount=$8, receipts=$9,
-           items_sold=$10, upsell_receipts=$11, treats_revenue=$12,
-           treats_receipts=$13, comment=$14, updated_at=$15, override_json=$16
+           cash_amount=$6, acquiring_amount=$7, qr_amount=$8,
+           b2b_amount=$9, b2b_orders=$10, receipts=$11,
+           items_sold=$12, upsell_receipts=$13, treats_revenue=$14,
+           treats_receipts=$15, comment=$16, updated_at=$17, override_json=$18
          WHERE id=$1 AND archived_at IS NULL RETURNING id`,
         [id, record.storeId, record.employeeId, record.shiftDate,
           record.shiftKey, record.cash, record.acquiring, record.qr,
+          record.b2b ?? 0, record.b2bOrders ?? 0,
           record.receipts, record.itemsSold, record.upsellReceipts,
           record.treatsRevenue, record.treatsReceipts, record.comment,
           record.updatedAt, jsonParameter(record.override)]

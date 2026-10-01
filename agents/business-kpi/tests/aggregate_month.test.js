@@ -73,6 +73,49 @@ test('month aggregation sums facts and derives ratios from totals', () => {
   assert.deepEqual(days.map(day => day.itemsPerReceipt), [2.5, 1]);
 });
 
+test('month aggregation separates retail and organization sales', () => {
+  const result = aggregateMonth([
+    shift({
+      b2b: 100000,
+      b2bOrders: 2,
+    }),
+    shift({
+      id: 'shift-2',
+      shiftDate: '2026-08-02',
+      cash: 5000,
+      acquiring: 7000,
+      qr: 1200,
+      b2b: 50000,
+      b2bOrders: 1,
+      receipts: 5,
+      itemsSold: 5,
+      upsellReceipts: 1,
+      treatsRevenue: 300,
+      treatsReceipts: 1,
+    }),
+  ], {
+    year: 2026,
+    month: 8,
+    plan: 200000,
+    settings: null,
+    asOf: new Date('2026-08-10T00:00:00Z'),
+  });
+
+  assert.equal(result.retailRevenue, 36000);
+  assert.equal(result.b2bRevenue, 150000);
+  assert.equal(result.b2bOrders, 3);
+  assert.equal(result.revenue, 186000);
+  assert.equal(result.averageCheck, 1440);
+  assert.equal(result.qrShare, 0.1);
+  assert.equal(result.b2bShare, 150000 / 186000);
+  assert.equal(result.averageB2bOrder, 50000);
+
+  const days = aggregateDays(result);
+  assert.equal(days[0].retailRevenue, 24000);
+  assert.equal(days[0].b2bRevenue, 100000);
+  assert.equal(days[0].revenue, 124000);
+});
+
 test('current month forecast uses weekday history when coverage is sufficient', () => {
   const asOf = new Date('2026-08-21T00:00:00Z');
   const weekdayRevenue = [10000, 11000, 12000, 13000, 14000, 15000, 16000];

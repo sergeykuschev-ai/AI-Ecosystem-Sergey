@@ -56,7 +56,8 @@ function sheetXml(rows, options = {}) {
 function exportMonthWorkbook(input) {
   const shiftRows = [[
     'Дата', 'Продавец', 'Источник', 'Наличные', 'Эквайринг', 'QR',
-    'Historical revenue', 'Revenue source', 'Выручка backend', 'Чеки',
+    'Организации', 'Заказы организаций', 'Historical revenue', 'Revenue source',
+    'Розничная выручка backend', 'Выручка backend', 'Чеки',
     'Средний чек backend', 'Продано товаров', 'Товаров/чек backend',
     'Чеки с допродажей', 'Лакомства', 'Чеки с лакомствами', 'KPI',
     'Уровень', 'Комментарий',
@@ -69,8 +70,11 @@ function exportMonthWorkbook(input) {
       shift.cash,
       shift.acquiring,
       shift.qr,
+      shift.b2b ?? 0,
+      shift.b2bOrders ?? 0,
       shift.historicalRevenue,
       shift.revenueSource,
+      shift.metrics?.retailRevenue ?? null,
       shift.metrics?.revenue ?? null,
       shift.receipts,
       shift.metrics?.averageCheck ?? null,
@@ -91,6 +95,11 @@ function exportMonthWorkbook(input) {
     ['Экспортирован UTC', input.exportedAt],
     ['План', month.plan],
     ['Выручка backend', month.revenue],
+    ['Розничная выручка', month.retailRevenue],
+    ['Продажи организациям', month.b2bRevenue],
+    ['Заказы организаций', month.b2bOrders],
+    ['Доля организаций', month.b2bShare],
+    ['Средний заказ организации', month.averageB2bOrder],
     ['Чеки', month.receipts],
     ['Средний чек backend', month.averageCheck],
     ['Смены', month.shiftsCount],
@@ -133,8 +142,8 @@ function exportMonthWorkbook(input) {
 <cellXfs count="4"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="1" borderId="0" xfId="0" applyFill="1" applyFont="1"/><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="10" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs>
 </styleSheet>`),
     'xl/worksheets/sheet1.xml': strToU8(sheetXml(shiftRows, {
-      widths: [12, 22, 18, 14, 14, 12, 18, 20, 18, 10, 18, 17, 18, 18, 14, 19, 12, 16, 36],
-      moneyColumns: [3, 4, 5, 6, 8, 10, 14],
+      widths: [12, 22, 18, 14, 14, 12, 16, 16, 18, 20, 18, 18, 10, 18, 17, 18, 18, 14, 19, 12, 16, 36],
+      moneyColumns: [3, 4, 5, 6, 8, 10, 11, 13, 17],
     })),
     'xl/worksheets/sheet2.xml': strToU8(sheetXml(summaryRows, {
       widths: [34, 24],

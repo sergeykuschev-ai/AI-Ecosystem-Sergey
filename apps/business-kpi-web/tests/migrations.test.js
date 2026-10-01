@@ -62,6 +62,8 @@ test('migration files are ordered and checksummed deterministically', () => {
     '010_seller_learning_attempts.up.sql',
     '011_learning_module_attempts.up.sql',
     '012_verified_product_training.up.sql',
+    '013_optional_store_receipts.up.sql',
+    '014_b2b_sales.up.sql',
   ]);
   const sellerTasksSql = fs.readFileSync(
     path.join(migrationsRoot, '005_seller_tasks.up.sql'),

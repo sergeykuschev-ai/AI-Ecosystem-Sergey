@@ -265,13 +265,16 @@ async function loadEffectiveSettings() {
 
 function renderDashboard(data) {
   const month = data.month;
+  applyB2bVisibility();
   element('metric-plan').textContent = formatMoney(month.plan);
   const statusInfo = uiMonthStatus(month.status);
   const statusEl = element('metric-status');
   statusEl.textContent = statusInfo.label;
   statusEl.className = statusInfo.tone;
   element('metric-revenue').textContent = formatMoney(month.revenue);
-  element('metric-revenue-note').textContent = 'Фактическая выручка';
+  element('metric-revenue-note').textContent = isB2bStore()
+    ? 'Розница + продажи организациям'
+    : 'Фактическая выручка';
   element('metric-completion').textContent = formatPercent(month.planCompletion);
 
   const completionBar = element('metric-completion-bar').querySelector('span');
@@ -331,6 +334,12 @@ function renderDashboard(data) {
   }
   element('metric-cash').textContent = formatMoney(month.cash);
   element('metric-acquiring').textContent = formatMoney(month.acquiring);
+  element('metric-retail-revenue').textContent = formatMoney(month.retailRevenue);
+  element('metric-b2b-revenue').textContent = formatMoney(month.b2bRevenue);
+  element('metric-b2b-note').textContent = `По ${formatInteger(month.b2bOrders)} реализациям`;
+  element('metric-b2b-share').textContent = formatPercent(month.b2bShare);
+  element('metric-b2b-average').textContent = formatMoney(month.averageB2bOrder);
+  element('metric-b2b-orders').textContent = `Заказов ${formatInteger(month.b2bOrders)}`;
   element('metric-qr').textContent = formatPercent(month.qrShare);
   element('metric-qr-amount').textContent = formatMoney(month.qr);
   element('metric-days').textContent = `Дней с данными ${formatInteger(month.dataDays)}`;
@@ -432,6 +441,8 @@ function renderToday(data) {
   element('today-empty').hidden = data.shifts.length !== 0;
   setPill('today-status', data.aggregate.dataStatus);
   element('today-revenue').textContent = formatMoney(data.aggregate.revenue);
+  element('today-retail-revenue').textContent = formatMoney(data.aggregate.retailRevenue);
+  element('today-b2b-revenue').textContent = formatMoney(data.aggregate.b2bRevenue);
   element('today-receipts').textContent = formatInteger(data.aggregate.receipts);
   element('today-average-check').textContent = formatMoney(data.aggregate.averageCheck);
   element('today-items').textContent = formatNumber(data.aggregate.itemsPerReceipt);
@@ -723,7 +734,9 @@ function appendCell(row, value, className) {
   const cell = document.createElement('td');
   cell.textContent = value;
   if (className) cell.className = className;
+  if (className?.includes('b2b-column')) cell.hidden = !isB2bStore();
   row.append(cell);
+  return cell;
 }
 
 function appendKpiCell(row, score, level, className) {
@@ -734,6 +747,7 @@ function appendKpiCell(row, score, level, className) {
 }
 
 function renderShifts(items) {
+  applyB2bVisibility();
   const body = element('shifts-table');
   body.replaceChildren();
   element('shifts-empty').hidden = items.length !== 0;
@@ -998,6 +1012,7 @@ function renderSellerCharts(rows) {
 
 function renderMonths(data) {
   state.months = data.items;
+  applyB2bVisibility();
   element('months-year-label').textContent = String(data.year);
   const body = element('months-table');
   body.replaceChildren();
@@ -1023,6 +1038,9 @@ function renderMonths(data) {
     appendCell(row, label);
     appendCell(row, formatMoney(month.plan), 'numeric');
     appendCell(row, formatMoney(month.revenue), 'numeric');
+    appendCell(row, formatMoney(month.retailRevenue), 'numeric b2b-column');
+    appendCell(row, formatMoney(month.b2bRevenue), 'numeric b2b-column');
+    appendCell(row, formatPercent(month.b2bShare), 'numeric b2b-column');
     appendCell(row, isCurrent && month.forecast?.projectedRevenue !== null && month.forecast?.projectedRevenue !== undefined
       ? formatMoney(month.forecast.projectedRevenue)
       : '—', 'numeric');
@@ -1064,7 +1082,11 @@ async function loadMonths() {
 
 function renderYear(data) {
   state.yearSummary = data;
+  applyB2bVisibility();
   element('year-revenue').textContent = formatMoney(data.ytd.revenue);
+  element('year-retail-revenue').textContent = formatMoney(data.ytd.retailRevenue);
+  element('year-b2b-revenue').textContent = formatMoney(data.ytd.b2bRevenue);
+  element('year-b2b-share').textContent = formatPercent(data.ytd.b2bShare);
   element('year-plan').textContent = formatMoney(data.ytd.plan);
   element('year-completion').textContent = formatPercent(data.ytd.planCompletion);
   element('year-receipts').textContent = formatInteger(data.ytd.receipts);
@@ -1072,6 +1094,7 @@ function renderYear(data) {
   element('year-shifts').textContent = formatInteger(data.ytd.shiftsCount);
 
   element('year-completed-revenue').textContent = formatMoney(data.ytdCompleted.revenue);
+  element('year-completed-b2b-revenue').textContent = formatMoney(data.ytdCompleted.b2bRevenue);
   element('year-completed-plan').textContent = formatMoney(data.ytdCompleted.plan);
   element('year-completed-completion').textContent = formatPercent(data.ytdCompleted.planCompletion);
   element('year-completed-average-check').textContent = formatMoney(data.ytdCompleted.averageCheck);
@@ -1081,6 +1104,7 @@ function renderYear(data) {
   if (current) {
     element('year-current-month-name').textContent = MONTH_NAMES[current.month - 1];
     element('year-current-revenue').textContent = formatMoney(current.revenue);
+    element('year-current-b2b-revenue').textContent = formatMoney(current.b2bRevenue);
     element('year-current-plan').textContent = formatMoney(current.plan);
     element('year-current-completion').textContent = formatPercent(current.planCompletion);
     element('year-current-forecast').textContent = current.forecast?.projectedRevenue !== null
@@ -1126,6 +1150,9 @@ function renderYear(data) {
     appendCell(row, label);
     appendCell(row, formatMoney(month.plan), 'numeric');
     appendCell(row, formatMoney(month.revenue), 'numeric');
+    appendCell(row, formatMoney(month.retailRevenue), 'numeric b2b-column');
+    appendCell(row, formatMoney(month.b2bRevenue), 'numeric b2b-column');
+    appendCell(row, formatPercent(month.b2bShare), 'numeric b2b-column');
     appendCell(row, formatPercent(month.planCompletion), 'numeric');
     appendCell(row, formatMoney(month.cash), 'numeric');
     appendCell(row, formatMoney(month.acquiring), 'numeric');
@@ -2974,9 +3001,24 @@ function isMiskaStore(storeId = selectedStoreId()) {
   return store?.code === 'miska';
 }
 
+function isB2bStore(storeId = selectedStoreId()) {
+  const store = state.stores.find(item => item.id === storeId);
+  return ['amper', 'ventil'].includes(store?.code);
+}
+
+function applyB2bVisibility(storeId = selectedStoreId()) {
+  const visible = isB2bStore(storeId);
+  document.querySelectorAll('[data-b2b-metric], .b2b-column').forEach(node => {
+    node.hidden = !visible;
+  });
+}
+
 function applyShiftFormMode(storeId) {
   const miskaMode = isMiskaStore(storeId);
+  const b2bMode = isB2bStore(storeId);
+  applyB2bVisibility(storeId);
   element('shift-kpi-fieldset').hidden = !miskaMode;
+  element('shift-b2b-fieldset').hidden = !b2bMode;
   element('shift-employee-field').hidden = !miskaMode;
   element('shift-key-field').hidden = !miskaMode;
   element('shift-employee').required = miskaMode;
@@ -3004,6 +3046,8 @@ function shiftPayload() {
     cash: numberInput('shift-cash'),
     acquiring: numberInput('shift-acquiring'),
     qr: numberInput('shift-qr'),
+    b2b: numberInput('shift-b2b'),
+    b2bOrders: numberInput('shift-b2b-orders'),
     receipts: numberInput('shift-receipts'),
     itemsSold: numberInput('shift-items'),
     upsellReceipts: numberInput('shift-upsells'),
@@ -3018,6 +3062,8 @@ function validateShiftInput(payload) {
   if (payload.cash !== null && payload.cash < 0) errors.push('Наличные не могут быть отрицательными.');
   if (payload.acquiring !== null && payload.acquiring < 0) errors.push('Эквайринг не может быть отрицательным.');
   if (payload.qr !== null && payload.qr < 0) errors.push('QR не может быть отрицательным.');
+  if (payload.b2b !== null && payload.b2b < 0) errors.push('Продажи организациям не могут быть отрицательными.');
+  if (payload.b2bOrders !== null && payload.b2bOrders < 0) errors.push('Количество реализаций организациям не может быть отрицательным.');
   if (payload.receipts !== null && payload.receipts < 0) errors.push('Чеки не могут быть отрицательными.');
   if (payload.itemsSold !== null && payload.itemsSold < 0) errors.push('Товарные единицы не могут быть отрицательными.');
   if (payload.upsellReceipts !== null && payload.upsellReceipts < 0) errors.push('Чеки с допродажей не могут быть отрицательными.');
@@ -3040,12 +3086,14 @@ function updatePreview() {
   const cash = numberInput('shift-cash');
   const acquiring = numberInput('shift-acquiring');
   const qr = numberInput('shift-qr');
+  const b2b = numberInput('shift-b2b') ?? 0;
   const receipts = numberInput('shift-receipts');
   const items = numberInput('shift-items');
   const upsells = numberInput('shift-upsells');
   const treatsRevenue = numberInput('shift-treats-revenue');
   const treatsReceipts = numberInput('shift-treats-receipts');
-  const revenue = cash === null || acquiring === null ? null : cash + acquiring;
+  const retailRevenue = cash === null || acquiring === null ? null : cash + acquiring;
+  const revenue = retailRevenue === null ? null : retailRevenue + b2b;
   const error = element('shift-error');
   const payload = shiftPayload();
   const errors = validateShiftInput(payload);
@@ -3056,14 +3104,16 @@ function updatePreview() {
     error.hidden = true;
   }
   element('preview-revenue').textContent = formatMoney(revenue);
-  element('preview-average').textContent = receipts > 0 && revenue !== null
-    ? formatMoney(revenue / receipts)
+  element('preview-retail-revenue').textContent = formatMoney(retailRevenue);
+  element('preview-b2b-revenue').textContent = formatMoney(b2b);
+  element('preview-average').textContent = receipts > 0 && retailRevenue !== null
+    ? formatMoney(retailRevenue / receipts)
     : UNAVAILABLE;
   element('preview-items').textContent = receipts > 0 && items !== null
     ? formatNumber(items / receipts)
     : UNAVAILABLE;
-  element('preview-qr').textContent = revenue !== null && revenue > 0 && qr !== null
-    ? formatPercent(qr / revenue)
+  element('preview-qr').textContent = retailRevenue !== null && retailRevenue > 0 && qr !== null
+    ? formatPercent(qr / retailRevenue)
     : UNAVAILABLE;
   element('preview-upsells').textContent = receipts > 0 && upsells !== null
     ? formatPercent(upsells / receipts)
@@ -3121,8 +3171,8 @@ function openShiftDialog(shift = null) {
   element('save-shift').hidden = !editable;
   element('shift-employee').disabled = Boolean(shift) || isSeller;
   element('shift-store').disabled = isSeller;
-  for (const id of ['shift-cash', 'shift-acquiring', 'shift-qr', 'shift-receipts',
-    'shift-items', 'shift-upsells', 'shift-treats-revenue', 'shift-treats-receipts',
+  for (const id of ['shift-cash', 'shift-acquiring', 'shift-qr', 'shift-b2b',
+    'shift-b2b-orders', 'shift-receipts', 'shift-items', 'shift-upsells', 'shift-treats-revenue', 'shift-treats-receipts',
     'shift-comment', 'shift-key', 'shift-date']) {
     element(id).readOnly = historical || !editable;
   }
@@ -3134,6 +3184,8 @@ function openShiftDialog(shift = null) {
   setFormValue('shift-cash', historical ? null : shift?.cash);
   setFormValue('shift-acquiring', historical ? null : shift?.acquiring);
   setFormValue('shift-qr', historical ? null : shift?.qr);
+  setFormValue('shift-b2b', historical ? null : (shift?.b2b ?? 0));
+  setFormValue('shift-b2b-orders', historical ? null : (shift?.b2bOrders ?? 0));
   setFormValue('shift-receipts', shift?.receipts);
   setFormValue('shift-items', shift?.itemsSold);
   setFormValue('shift-upsells', shift?.upsellReceipts);
@@ -3165,6 +3217,13 @@ function showShiftSummary(shift) {
     ['Средний чек', formatMoney(shift.metrics?.averageCheck)],
     ['KPI', kpiLabel(shift.metrics?.kpiScore, shift.metrics?.kpiLevel)],
   ];
+  if (isB2bStore(shift.storeId)) {
+    items.splice(5, 0,
+      ['Розничная выручка', formatMoney(shift.metrics?.retailRevenue)],
+      ['Продажи организациям', formatMoney(shift.metrics?.b2bRevenue)],
+      ['Реализаций организациям', formatInteger(shift.b2bOrders)]
+    );
+  }
   for (const [label, value] of items) {
     const div = document.createElement('div');
     div.innerHTML = `<small>${label}</small><strong>${value}</strong>`;

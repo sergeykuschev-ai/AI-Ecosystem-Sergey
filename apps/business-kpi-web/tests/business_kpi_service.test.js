@@ -62,6 +62,37 @@ test('manual create persists a source shift, KPI snapshot, and audit event', asy
   assert.equal(store.audit[0].actorId, MANAGER.id);
 });
 
+test('B2B sales increase store revenue without inflating retail average check or QR share', async () => {
+  const { service } = fixture();
+  const created = await service.createShift(shiftInput({
+    cash: 10000,
+    acquiring: 20000,
+    qr: 3000,
+    b2b: 120000,
+    b2bOrders: 2,
+    receipts: 30,
+  }), OWNER);
+
+  assert.equal(created.metrics.retailRevenue, 30000);
+  assert.equal(created.metrics.b2bRevenue, 120000);
+  assert.equal(created.metrics.revenue, 150000);
+  assert.equal(created.metrics.averageCheck, 1000);
+  assert.equal(created.metrics.qrShare, 0.1);
+  assert.equal(created.metrics.averageB2bOrder, 60000);
+
+  const dashboard = await service.getDashboard({
+    storeId: DEV_STORE.id,
+    year: 2026,
+    month: 8,
+  }, OWNER);
+  assert.equal(dashboard.month.revenue, 150000);
+  assert.equal(dashboard.month.retailRevenue, 30000);
+  assert.equal(dashboard.month.b2bRevenue, 120000);
+  assert.equal(dashboard.month.b2bOrders, 2);
+  assert.equal(dashboard.month.averageCheck, 1000);
+  assert.equal(dashboard.month.qrShare, 0.1);
+});
+
 test('update recalculates KPI and retains old and new values in audit', async () => {
   const { service, store } = fixture();
   const created = await service.createShift(shiftInput(), OWNER);

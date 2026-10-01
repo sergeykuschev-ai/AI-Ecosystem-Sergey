@@ -39,6 +39,9 @@ function resolveDataStatus(monthAggregate) {
 
 function sumYearTotals(months) {
   let revenue = 0;
+  let retailRevenue = 0;
+  let b2bRevenue = 0;
+  let b2bOrders = 0;
   let receipts = 0;
   let itemsSold = 0;
   let shiftsCount = 0;
@@ -48,6 +51,9 @@ function sumYearTotals(months) {
   for (const month of months) {
     if (month.dataStatus === DATA_STATUS.NO_DATA) continue;
     revenue += month.revenue || 0;
+    retailRevenue += month.retailRevenue || 0;
+    b2bRevenue += month.b2bRevenue || 0;
+    b2bOrders += month.b2bOrders || 0;
     receipts += month.receipts || 0;
     itemsSold += month.itemsSold || 0;
     shiftsCount += month.shiftsCount || 0;
@@ -57,7 +63,10 @@ function sumYearTotals(months) {
       planCount += 1;
     }
   }
-  return { revenue, receipts, itemsSold, shiftsCount, dataDays, plan, planCount };
+  return {
+    revenue, retailRevenue, b2bRevenue, b2bOrders,
+    receipts, itemsSold, shiftsCount, dataDays, plan, planCount,
+  };
 }
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -73,6 +82,8 @@ const SHIFT_INPUT_FIELDS = new Set([
   'cash',
   'acquiring',
   'qr',
+  'b2b',
+  'b2bOrders',
   'receipts',
   'itemsSold',
   'upsellReceipts',
@@ -183,6 +194,8 @@ function normalizeShiftInput(input) {
     cash: input.cash,
     acquiring: input.acquiring,
     qr: input.qr,
+    b2b: input.b2b ?? 0,
+    b2bOrders: input.b2bOrders ?? 0,
     receipts: input.receipts,
     itemsSold: input.itemsSold,
     upsellReceipts: input.upsellReceipts,
@@ -221,6 +234,8 @@ function normalizeExcelShiftInput(input) {
     cash: input.cash ?? null,
     acquiring: input.acquiring ?? null,
     qr: input.qr ?? null,
+    b2b: input.b2b ?? 0,
+    b2bOrders: input.b2bOrders ?? 0,
     historicalRevenue: input.historicalRevenue ?? null,
     revenueSource: input.revenueSource || 'payment_breakdown',
     paymentBreakdownAvailable: input.paymentBreakdownAvailable !== false,
@@ -253,7 +268,8 @@ function shiftInputFromRecord(record) {
 function inputFingerprint(shift, settingsVersion) {
   const fields = [
     shift.id, shift.storeId, shift.employeeId, shift.shiftDate, shift.shiftKey,
-    shift.cash, shift.acquiring, shift.qr, shift.receipts, shift.itemsSold,
+    shift.cash, shift.acquiring, shift.qr, shift.b2b, shift.b2bOrders,
+    shift.receipts, shift.itemsSold,
     shift.upsellReceipts, shift.treatsRevenue, shift.treatsReceipts,
     settingsVersion,
   ];
@@ -648,12 +664,12 @@ class BusinessKpiService {
         });
         rejectDerivedAndUnknownFields(patch);
         const historical = oldShift.revenueSource === 'historical_total';
-        if (historical && ['cash', 'acquiring', 'qr'].some(
+        if (historical && ['cash', 'acquiring', 'qr', 'b2b', 'b2bOrders'].some(
           field => patch[field] !== undefined && patch[field] !== null
         )) {
           throw new ApplicationError(
             'HISTORICAL_PAYMENT_OVERRIDE_NOT_SUPPORTED',
-            'Нельзя придумывать платёжную разбивку для исторической смены. Оставьте cash/acquiring/QR пустыми.',
+            'Нельзя придумывать платёжную разбивку для исторической смены. Оставьте cash/acquiring/QR/B2B пустыми.',
             422
           );
         }
@@ -664,6 +680,8 @@ class BusinessKpiService {
             cash: null,
             acquiring: null,
             qr: null,
+            b2b: 0,
+            b2bOrders: 0,
             historicalRevenue: oldShift.historicalRevenue,
             revenueSource: 'historical_total',
             paymentBreakdownAvailable: false,
@@ -682,7 +700,7 @@ class BusinessKpiService {
         if (!storeRecord?.active || !employee?.active || employee.storeId !== normalized.storeId) {
           throw new ApplicationError('EMPLOYEE_NOT_FOUND', 'Продавец или магазин не найден.', 404);
         }
-        if (!historical && !settingsRecord) {
+        if (!historical && !settingsRecord && !['amper', 'ventil'].includes(storeRecord.code)) {
           throw new ApplicationError('SETTINGS_NOT_FOUND', 'Для даты смены не найдены действующие настройки KPI.', 409);
         }
         const metrics = calculateKpiMetrics(normalized, settingsRecord?.settings || null);
@@ -886,6 +904,18 @@ class BusinessKpiService {
       (sum, shift) => sum + (shift.metrics?.revenue || 0),
       0
     );
+    const totalRetailRevenue = decorated.reduce(
+      (sum, shift) => sum + (shift.metrics?.retailRevenue || 0),
+      0
+    );
+    const totalB2bRevenue = decorated.reduce(
+      (sum, shift) => sum + (shift.metrics?.b2bRevenue || 0),
+      0
+    );
+    const totalB2bOrders = decorated.reduce(
+      (sum, shift) => sum + (shift.b2bOrders || 0),
+      0
+    );
     const totalReceipts = decorated.reduce(
       (sum, shift) => sum + (shift.receipts || 0),
       0
@@ -907,12 +937,17 @@ class BusinessKpiService {
       aggregate: {
         shiftsCount: decorated.length,
         revenue: totalRevenue,
+        retailRevenue: totalRetailRevenue,
+        b2bRevenue: totalB2bRevenue,
+        b2bOrders: totalB2bOrders,
+        b2bShare: totalRevenue > 0 ? totalB2bRevenue / totalRevenue : null,
+        averageB2bOrder: totalB2bOrders > 0 ? totalB2bRevenue / totalB2bOrders : null,
         receipts: totalReceipts,
-        averageCheck: totalReceipts > 0 ? totalRevenue / totalReceipts : null,
+        averageCheck: totalReceipts > 0 ? totalRetailRevenue / totalReceipts : null,
         itemsSold: totalItems,
         itemsPerReceipt: totalItems > 0 && totalReceipts > 0 ? totalItems / totalReceipts : null,
         qr: totalQr,
-        qrShare: totalRevenue > 0 ? totalQr / totalRevenue : null,
+        qrShare: totalRetailRevenue > 0 ? totalQr / totalRetailRevenue : null,
         dataStatus: decorated.length === 0
           ? DATA_STATUS.NO_DATA
           : (decorated.every(s => s.metrics?.kpiStatus === 'COMPLETE')
@@ -967,9 +1002,15 @@ class BusinessKpiService {
         month,
         plan: aggregate.plan,
         revenue: aggregate.revenue,
+        retailRevenue: aggregate.retailRevenue,
+        b2bRevenue: aggregate.b2bRevenue,
+        b2bOrders: aggregate.b2bOrders,
+        b2bShare: aggregate.b2bShare,
+        averageB2bOrder: aggregate.averageB2bOrder,
         planCompletion: aggregate.planCompletion,
         receipts: aggregate.receipts,
         averageCheck: aggregate.averageCheck,
+        itemsSold: aggregate.itemsSold,
         itemsPerReceipt: aggregate.itemsPerReceipt,
         cash: aggregate.cash,
         acquiring: aggregate.acquiring,
@@ -1003,14 +1044,14 @@ class BusinessKpiService {
     const totals = sumYearTotals(months);
     const completedTotals = sumYearTotals(completedMonths);
 
-    const averageCheck = totals.receipts > 0 ? totals.revenue / totals.receipts : null;
+    const averageCheck = totals.receipts > 0 ? totals.retailRevenue / totals.receipts : null;
     const itemsPerReceipt = totals.itemsSold > 0 && totals.receipts > 0
       ? totals.itemsSold / totals.receipts
       : null;
     const planCompletion = totals.plan > 0 ? totals.revenue / totals.plan : null;
 
     const completedAverageCheck = completedTotals.receipts > 0
-      ? completedTotals.revenue / completedTotals.receipts
+      ? completedTotals.retailRevenue / completedTotals.receipts
       : null;
     const completedItemsPerReceipt = completedTotals.itemsSold > 0 && completedTotals.receipts > 0
       ? completedTotals.itemsSold / completedTotals.receipts
@@ -1035,6 +1076,11 @@ class BusinessKpiService {
       currentMonth: currentMonthData,
       ytd: {
         revenue: totals.revenue,
+        retailRevenue: totals.retailRevenue,
+        b2bRevenue: totals.b2bRevenue,
+        b2bOrders: totals.b2bOrders,
+        b2bShare: totals.revenue > 0 ? totals.b2bRevenue / totals.revenue : null,
+        averageB2bOrder: totals.b2bOrders > 0 ? totals.b2bRevenue / totals.b2bOrders : null,
         plan: totals.plan,
         planCount: totals.planCount,
         planCompletion,
@@ -1047,6 +1093,15 @@ class BusinessKpiService {
       },
       ytdCompleted: {
         revenue: completedTotals.revenue,
+        retailRevenue: completedTotals.retailRevenue,
+        b2bRevenue: completedTotals.b2bRevenue,
+        b2bOrders: completedTotals.b2bOrders,
+        b2bShare: completedTotals.revenue > 0
+          ? completedTotals.b2bRevenue / completedTotals.revenue
+          : null,
+        averageB2bOrder: completedTotals.b2bOrders > 0
+          ? completedTotals.b2bRevenue / completedTotals.b2bOrders
+          : null,
         plan: completedTotals.plan,
         planCount: completedTotals.planCount,
         planCompletion: completedPlanCompletion,
@@ -1061,6 +1116,11 @@ class BusinessKpiService {
         ? {
           month: currentMonthData.month,
           revenue: currentMonthData.revenue,
+          retailRevenue: currentMonthData.retailRevenue,
+          b2bRevenue: currentMonthData.b2bRevenue,
+          b2bOrders: currentMonthData.b2bOrders,
+          b2bShare: currentMonthData.b2bShare,
+          averageB2bOrder: currentMonthData.averageB2bOrder,
           plan: currentMonthData.plan,
           planCompletion: currentMonthData.planCompletion,
           forecast: currentMonthData.forecast,
