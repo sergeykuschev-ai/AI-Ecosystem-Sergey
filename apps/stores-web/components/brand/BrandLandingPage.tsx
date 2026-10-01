@@ -69,7 +69,7 @@ export async function BrandLandingPage({
 
   return (
     <main className="brand-landing" data-brand={brand.slug} style={{ "--brand-color": brand.primary_color } as React.CSSProperties}>
-      <JsonLd data={createOrganizationsJsonLd([brand])} />
+      <JsonLd data={createOrganizationsJsonLd([brand], { stores, cities })} />
       {store && city ? <JsonLd data={createStoreJsonLd(store, brand, city)} /> : null}
       <Container>
         <Breadcrumbs trail={[

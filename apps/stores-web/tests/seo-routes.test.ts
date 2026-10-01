@@ -314,6 +314,37 @@ describe("default Open Graph image", () => {
   });
 });
 
+describe("twitter card", () => {
+  // Next models twitter metadata as a union keyed by an optional `card`
+  // literal, so the card type must be narrowed before it can be asserted.
+  function twitterCardType(metadata: Metadata): string | undefined {
+    const twitter = metadata.twitter;
+    if (!twitter || typeof twitter !== "object" || !("card" in twitter)) return undefined;
+    return twitter.card;
+  }
+
+  test("createPageMetadata emits a large-image Twitter Card with the shared image on every page", () => {
+    const metadata = createPageMetadata({ title: "Title", description: "Description", path: "/faq/" });
+    const twitter = metadata.twitter;
+    assert.ok(twitter && typeof twitter === "object", "twitter metadata must be an object");
+    assert.equal(twitterCardType(metadata), "summary_large_image");
+    assert.equal(twitter.title, "Title");
+    assert.equal(twitter.description, "Description");
+    const images = twitter.images;
+    assert.ok(Array.isArray(images), "twitter.images must be an array");
+    assert.equal(images.length, 1, "exactly one default twitter:image must be emitted");
+    const image = images[0] as { url?: unknown; alt?: unknown };
+    assert.equal(image.url, DEFAULT_OG_IMAGE_PATH);
+    assert.equal(image.alt, DEFAULT_OG_IMAGE_ALT);
+  });
+
+  test("indexable static pages inherit the shared Twitter Card through createPageMetadata", () => {
+    for (const { module, path: pagePath } of INDEXABLE_STATIC_PAGES) {
+      assert.equal(twitterCardType(module.metadata), "summary_large_image", `twitter card type for ${pagePath}`);
+    }
+  });
+});
+
 describe("trailing-slash proxy", () => {
   const runProxy = (path: string) => proxy(new NextRequest(new URL(path, siteUrl).href));
 

@@ -4,6 +4,7 @@ import { TrackedLink } from "@/components/analytics/TrackedLink";
 import { StaticPage } from "@/components/content/StaticPage";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { JsonLd } from "@/components/seo/JsonLd";
+import { Breadcrumbs } from "@/components/seo/Breadcrumbs";
 import { getBrands } from "@/lib/directus/brands";
 import { getCityBySlug } from "@/lib/directus/cities";
 import { getStoresByCity } from "@/lib/directus/stores";
@@ -82,6 +83,10 @@ export default async function AboutPage() {
         eyebrow="О нас"
         title="Четыре магазина в Амурске"
         intro="Электротовары, сантехника, крепёж и товары для питомцев — в магазинах по адресу проспект Победы, 16."
+        breadcrumbs={<Breadcrumbs trail={[
+          { name: "Главная", path: "/" },
+          { name: "О компании", path: "/o-kompanii/" },
+        ]} />}
       >
         <p className="about-intro-note">{ABOUT_INTRO_NOTE}</p>
 

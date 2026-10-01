@@ -7,7 +7,7 @@ export interface AmperSeoCategory {
   lead: string;
   overviewHeading: string;
   overview: string;
-  items: Array<{ title: string; text: string }>;
+  items: Array<{ title: string; text: string; href?: string }>;
   selectionHeading: string;
   selectionTips: string[];
   note: string;
@@ -160,7 +160,7 @@ export const AMPER_SEO_CATEGORIES: AmperSeoCategory[] = [
     h1: "Электромонтажные товары в Амурске",
     metaTitle: "Электромонтажные товары в Амурске — «Ампер»",
     metaDescription:
-      "Клеммы, гофра, изолента, подрозетники, монтажные коробки и другие товары для электромонтажа в магазине «Ампер» в Амурске.",
+      "Клеммы, гофра, изолента, подрозетники, монтажные коробки и другие товары для электромонтажа в магазине «Ампер» в Амурске. Адрес: проспект Победы, 16, Амурск.",
     lead:
       "Расходные материалы и комплектующие, которые нужны при монтаже, ремонте и замене электрики.",
     overviewHeading: "Всё, что дополняет основной электромонтаж",
@@ -207,7 +207,7 @@ export const AMPER_SEO_CATEGORIES: AmperSeoCategory[] = [
         text: "Инструмент для типовых домашних и монтажных задач. Конкретный выбор зависит от материала и режима работы.",
       },
       {
-        title: "Оснастка и расходники",
+        title: "Оснастка и расходники", href: "/metiz-market/elektroinstrument-i-osnastka/",
         text: "Перед покупкой стоит сразу проверить, какая оснастка понадобится для выбранного инструмента и материала.",
       },
       {

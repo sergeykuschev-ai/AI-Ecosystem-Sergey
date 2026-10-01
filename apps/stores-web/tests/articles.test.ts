@@ -6,8 +6,14 @@ import { createArticleJsonLd } from "@/lib/seo/json-ld";
 const articles = getPublishedArticles();
 
 describe("article pilot", () => {
-  test("publishes exactly the three reviewed pilot articles with unique slugs", () => {
-    assert.equal(articles.length, 3);
+  test("publishes the reviewed article set with unique slugs", () => {
+    const expectedSlugs = [
+      "avtomaticheskiy-vyklyuchatel-dlya-kvartiry",
+      "smesitel-dlya-kuhni-kak-vybrat",
+      "napolnitel-dlya-koshachego-tualeta-kak-vybrat",
+      "kak-vybrat-samorezy-dlya-remonta-i-montazha",
+    ];
+    assert.deepEqual(articles.map((article) => article.slug), expectedSlugs);
     assert.equal(new Set(articles.map((article) => article.slug)).size, articles.length);
   });
 

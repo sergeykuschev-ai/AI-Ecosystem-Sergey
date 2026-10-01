@@ -44,6 +44,20 @@ export function createPageMetadata({ title, description, path, noIndex = false }
         type: "image/png",
       }],
     },
+    // Next only auto-derives Twitter Card tags from Open Graph in some
+    // configurations; declare them explicitly so every page ships a
+    // large-image card regardless of framework behavior.
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [{
+        url: DEFAULT_OG_IMAGE_PATH,
+        alt: DEFAULT_OG_IMAGE_ALT,
+        width: DEFAULT_OG_IMAGE_WIDTH,
+        height: DEFAULT_OG_IMAGE_HEIGHT,
+      }],
+    },
   };
 }
 
