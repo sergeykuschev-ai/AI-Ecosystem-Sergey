@@ -21,12 +21,20 @@ function isoDate(daysAgo: number): string {
 async function main(): Promise<void> {
   const command = process.argv[2];
   if (!command || !["status", "queries", "recrawl"].includes(command)) {
-    throw new Error("Usage: yandex-webmaster <status|queries|recrawl> [--format json|csv] [--submit]");
+    throw new Error("Usage: yandex-webmaster <status|queries|recrawl> [--format json|csv] [--submit] [--url /path/]");
   }
   const paths = SEO_RECRAWL_PATHS;
-  const urls = paths.map((path) => new URL(path, YANDEX_WEBMASTER_SITE_URL).href);
+  const requestedUrl = argument("--url");
+  const expectedOrigin = new URL(YANDEX_WEBMASTER_SITE_URL).origin;
+  const urls = requestedUrl
+    ? [new URL(requestedUrl, expectedOrigin)]
+    : paths.map((path) => new URL(path, YANDEX_WEBMASTER_SITE_URL));
+  if (urls.some((url) => url.origin !== expectedOrigin)) {
+    throw new Error("Re-crawl URL must belong to " + expectedOrigin);
+  }
+  const recrawlUrls = urls.map((url) => url.href);
   if (command === "recrawl" && !process.argv.includes("--submit")) {
-    console.log(JSON.stringify({ dryRun: true, submitted: 0, urls }, null, 2));
+    console.log(JSON.stringify({ dryRun: true, submitted: 0, urls: recrawlUrls }, null, 2));
     return;
   }
   if (command === "recrawl" && process.env.CI) {
@@ -52,11 +60,11 @@ async function main(): Promise<void> {
 
   const quota = await client.getRecrawlQuota(context);
   const quotaRemainder = getRecrawlQuotaRemainder(quota);
-  if (quotaRemainder !== null && quotaRemainder < urls.length) {
-    throw new Error(`Re-crawl quota remainder ${quotaRemainder} is below the required ${urls.length}`);
+  if (quotaRemainder !== null && quotaRemainder < recrawlUrls.length) {
+    throw new Error(`Re-crawl quota remainder ${quotaRemainder} is below the required ${recrawlUrls.length}`);
   }
   const results = [];
-  for (const url of urls) results.push({ url, result: await client.submitRecrawl(context, url) });
+  for (const url of recrawlUrls) results.push({ url, result: await client.submitRecrawl(context, url) });
   console.log(JSON.stringify({ dryRun: false, quota, submitted: results.length, results }, null, 2));
 }
 
