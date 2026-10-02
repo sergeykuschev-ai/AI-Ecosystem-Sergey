@@ -54,11 +54,13 @@ const STATIC_PUBLIC_PATHS = [
   "/o-kompanii/",
   "/kontakty/",
   "/faq/",
+  "/payment/",
+  "/delivery/",
 ];
 
 const BRAND_PATHS = ["/amper/", "/ventil/", "/metiz-market/", "/miska/"];
 
-const LEGAL_PATHS = ["/politika-konfidencialnosti/", "/soglasie-na-obrabotku-dannyh/"];
+const LEGAL_PATHS = ["/politika-konfidencialnosti/", "/soglasie-na-obrabotku-dannyh/", "/polzovatelskoe-soglasie/"];
 
 const PRIVATE_PATH_FRAGMENTS = ["/api/", "/admin/", "/preview/", "/directus/", "/_next/"];
 

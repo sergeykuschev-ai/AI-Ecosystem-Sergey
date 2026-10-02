@@ -83,11 +83,13 @@ Yandex Webmaster monitoring and re-crawl operations are documented in the [Yande
 | About | `/o-kompanii/` |
 | Contacts | `/kontakty/` |
 | FAQ | `/faq/` |
-| Legal placeholders | `/politika-konfidencialnosti/`, `/soglasie-na-obrabotku-dannyh/` |
+| Payment | `/payment/` |
+| Delivery | `/delivery/` |
+| Legal placeholders | `/politika-konfidencialnosti/`, `/soglasie-na-obrabotku-dannyh/`, `/polzovatelskoe-soglasie/` |
 | BFF | `/api/brands`, `/api/cities`, `/api/stores`, `/api/promotions`, `/api/categories`, `/api/vacancies` |
 | Crawling | `/robots.txt`, `/sitemap.xml` |
 
-The legal placeholder pages are intentionally `noindex` until approved legal text is supplied. They are therefore not in the sitemap.
+The `/payment/` and `/delivery/` pages describe the current purchase flow honestly: online payment and order delivery are planned and not yet connected, so no tariffs, timelines, or provider claims are published. The legal placeholder pages are intentionally `noindex` until approved legal text is supplied. They are therefore not in the sitemap.
 
 ## Directory structure
 

@@ -42,6 +42,8 @@ const PAGE_CHECKS: PageCheck[] = [
   { path: "/akcii/", markers: ["Акции"] },
   { path: "/vakansii/", markers: ["Вакансии"] },
   { path: "/faq/", markers: ["Частые вопросы"] },
+  { path: "/payment/", markers: ["Оплата", "эквайринга"] },
+  { path: "/delivery/", markers: ["Доставка", "Самовывоз"] },
   { path: "/o-kompanii/", markers: ["О компании"] },
   { path: "/stores/amursk/", markers: ["Магазины в", "Амурск"] },
   { path: "/sitemap.xml", markers: ["urlset", "https://amurskmarket.ru/"] },

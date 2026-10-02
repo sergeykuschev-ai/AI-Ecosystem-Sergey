@@ -28,6 +28,7 @@ import * as metizMarketPage from "@/app/metiz-market/page";
 import * as miskaPage from "@/app/miska/page";
 import * as privacyPage from "@/app/politika-konfidencialnosti/page";
 import * as consentPage from "@/app/soglasie-na-obrabotku-dannyh/page";
+import * as userAgreementPage from "@/app/polzovatelskoe-soglasie/page";
 import * as homePage from "@/app/page";
 import * as storesPage from "@/app/stores/page";
 import * as promotionsPage from "@/app/akcii/page";
@@ -52,9 +53,11 @@ const PUBLIC_STATIC_PATHS = [
   "/o-kompanii/",
   "/kontakty/",
   "/faq/",
+  "/payment/",
+  "/delivery/",
 ];
 
-const LEGAL_PATHS = ["/politika-konfidencialnosti/", "/soglasie-na-obrabotku-dannyh/"];
+const LEGAL_PATHS = ["/politika-konfidencialnosti/", "/soglasie-na-obrabotku-dannyh/", "/polzovatelskoe-soglasie/"];
 const SEO_CATEGORY_PATHS = [
   ...AMPER_SEO_CATEGORY_PATHS,
   ...VENTIL_SEO_CATEGORY_PATHS,
@@ -183,6 +186,7 @@ describe("page metadata", () => {
     for (const [name, module] of [
       ["politika-konfidencialnosti", privacyPage],
       ["soglasie-na-obrabotku-dannyh", consentPage],
+      ["polzovatelskoe-soglasie", userAgreementPage],
     ] as const) {
       assert.equal(robotsFlags(module.metadata).index, false, `${name} must be noindex`);
       assert.equal(robotsFlags(module.metadata).follow, false, `${name} must be nofollow`);
