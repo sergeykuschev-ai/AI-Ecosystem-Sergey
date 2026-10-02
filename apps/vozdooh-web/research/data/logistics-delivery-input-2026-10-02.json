@@ -1110,13 +1110,13 @@
       "name": "MAMI MILANO Аромадиффузор FIOR DI LOTO / Цветок лотоса. Коллекция GIARDINO, 200 мл",
       "brand": null,
       "barcode": "8057143588522",
-      "status": "READY_RETAIL_PACKAGE",
+      "status": "READY_PRODUCT_DIMENSIONS",
       "deliveryInput": {
         "weightG": 500,
         "lengthMm": 85,
         "widthMm": 85,
         "heightMm": 210,
-        "basis": "exact_retail_package_dimensions_and_weight",
+        "basis": "retail_package",
         "sources": [
           "https://www.bol.com/nl/nl/p/mami-milano-bloem-geurverspreider-fiori-di-loto-200ml-huisparfum-interieur-parfum-luxe-verpakking-geurstokjes-diffuser/9300000175781464/"
         ]
