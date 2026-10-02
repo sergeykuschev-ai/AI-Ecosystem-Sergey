@@ -11,6 +11,7 @@ export interface VentilSeoCategory {
   selectionHeading: string;
   selectionTips: string[];
   note: string;
+  guide?: { href: string; title: string; text: string };
 }
 
 export const VENTIL_SEO_CATEGORIES: VentilSeoCategory[] = [
@@ -58,6 +59,11 @@ export const VENTIL_SEO_CATEGORIES: VentilSeoCategory[] = [
     selectionHeading: "Что поможет подобрать быстрее",
     selectionTips: ["Фото места установки и старого смесителя.", "Куда нужен смеситель: кухня, ванна или раковина.", "Как выполнено подключение и нужна ли дополнительная подводка."],
     note: "Наличие конкретных моделей и исполнений меняется. Актуальный выбор лучше уточнять непосредственно в магазине.",
+    guide: {
+      href: "/stati/smesitel-dlya-kuhni-kak-vybrat/",
+      title: "Как выбрать смеситель для кухни",
+      text: "Практический материал о месте установки, изливе, подключении и проверке размеров перед покупкой.",
+    },
   },
   {
     slug: "kanalizaciya",

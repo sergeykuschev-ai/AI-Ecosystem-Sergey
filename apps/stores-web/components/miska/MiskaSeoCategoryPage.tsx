@@ -99,6 +99,12 @@ export async function MiskaSeoCategoryPage({ category }: MiskaSeoCategoryPagePro
               ))}
             </ul>
             <p className="miska-assist-note">{category.note}</p>
+            {category.guide ? (
+              <p className="miska-assist-note">
+                Полезный материал: <Link href={category.guide.href}>{category.guide.title}</Link>.{" "}
+                {category.guide.text}
+              </p>
+            ) : null}
           </div>
         </section>
 

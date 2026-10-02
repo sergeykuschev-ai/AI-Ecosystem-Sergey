@@ -11,6 +11,7 @@ export interface MiskaSeoCategory {
   selectionHeading: string;
   selectionTips: string[];
   note: string;
+  guide?: { href: string; title: string; text: string };
 }
 
 export const MISKA_SEO_CATEGORIES: MiskaSeoCategory[] = [
@@ -100,6 +101,11 @@ export const MISKA_SEO_CATEGORIES: MiskaSeoCategory[] = [
     selectionHeading: "Что учитывать",
     selectionTips: ["Какой наполнитель кошка использует сейчас.", "Открытый или закрытый лоток.", "Что важнее: комкование, впитывание или удобство уборки."],
     note: "Менять привычный тип наполнителя лучше постепенно, особенно если кошка чувствительна к изменениям.",
+    guide: {
+      href: "/stati/napolnitel-dlya-koshachego-tualeta-kak-vybrat/",
+      title: "Как выбрать наполнитель для кошачьего туалета",
+      text: "Материал о типах наполнителей, привычках кошки и постепенном переходе на новый вариант.",
+    },
   },
   {
     slug: "uhod-i-gigiena",
