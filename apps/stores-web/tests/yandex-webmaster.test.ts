@@ -77,6 +77,40 @@ describe("Yandex Webmaster client", () => {
     assert.match(queriesToCsv(rows), /^query,impressions,clicks,ctr,position\n"болты, гайки",100,5,0.05,3.2$/);
   });
 
+  test("inspects one same-origin URL across indexing, search events, search state and recrawl queue", async () => {
+    const mockFetch: typeof fetch = async (input) => {
+      const url = String(input);
+      if (url.includes("/indexing/samples")) return response({
+        count: 2,
+        samples: [
+          { url: "https://amurskmarket.ru/ventil/truby-i-fitingi", access_date: "2026-09-16" },
+          { url: "https://amurskmarket.ru/amper/", access_date: "2026-09-17" },
+        ],
+      });
+      if (url.includes("/search-urls/events/samples")) return response({
+        count: 1,
+        samples: [{ url: "https://amurskmarket.ru/ventil/truby-i-fitingi/", event: "REMOVED_FROM_SEARCH" }],
+      });
+      if (url.includes("/search-urls/in-search/samples")) return response({
+        count: 1,
+        samples: [{ url: "https://amurskmarket.ru/amper/" }],
+      });
+      if (url.endsWith("/recrawl/queue")) return response({
+        tasks: [{ url: "https://amurskmarket.ru/ventil/truby-i-fitingi/", state: "IN_PROGRESS" }],
+      });
+      throw new Error("unexpected endpoint " + url);
+    };
+    const client = new YandexWebmasterClient("token", mockFetch);
+    const context = { userId: "1", hostId: "host", host: {} };
+    const result = await client.inspectUrl(context, "/ventil/truby-i-fitingi/");
+    assert.equal(result.url, "https://amurskmarket.ru/ventil/truby-i-fitingi/");
+    assert.equal((result.indexing as unknown[]).length, 1);
+    assert.equal((result.searchEvents as unknown[]).length, 1);
+    assert.equal((result.inSearch as unknown[]).length, 0);
+    assert.equal((result.recrawl as unknown[]).length, 1);
+    await assert.rejects(() => client.inspectUrl(context, "https://example.com/"), /must belong/);
+  });
+
   test("submits only a same-origin URL with the documented payload", async () => {
     let body = "";
     const mockFetch: typeof fetch = async (_input, init) => {

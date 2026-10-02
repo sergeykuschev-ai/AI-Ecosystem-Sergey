@@ -160,6 +160,65 @@ export class YandexWebmasterClient {
     });
   }
 
+  private async getAllSamples(context: WebmasterContext, suffix: string): Promise<JsonRecord[]> {
+    const rows: JsonRecord[] = [];
+    let offset = 0;
+    const limit = 100;
+    while (true) {
+      const separator = suffix.includes("?") ? "&" : "?";
+      const payload = record(await this.request(this.hostPath(context, `${suffix}${separator}offset=${offset}&limit=${limit}`)));
+      const samples = Array.isArray(payload.samples) ? payload.samples.map(record) : [];
+      rows.push(...samples);
+      const count = number(payload.count);
+      if (samples.length === 0 || (count !== null && rows.length >= count)) break;
+      offset += samples.length;
+      if (samples.length < limit && count === null) break;
+    }
+    return rows;
+  }
+
+  async inspectUrl(context: WebmasterContext, url: string): Promise<JsonRecord> {
+    const expectedOrigin = new URL(YANDEX_WEBMASTER_SITE_URL).origin;
+    const target = new URL(url, expectedOrigin);
+    if (target.origin !== expectedOrigin) throw new Error(`Inspection URL must belong to ${expectedOrigin}`);
+    target.hash = "";
+    target.search = "";
+    if (target.pathname !== "/" && !target.pathname.endsWith("/")) target.pathname += "/";
+    const canonicalUrl = target.href;
+
+    const [indexing, searchEvents, inSearch, recrawlQueue] = await Promise.all([
+      this.getAllSamples(context, "/indexing/samples"),
+      this.getAllSamples(context, "/search-urls/events/samples"),
+      this.getAllSamples(context, "/search-urls/in-search/samples"),
+      this.request(this.hostPath(context, "/recrawl/queue")),
+    ]);
+
+    const normalize = (value: unknown): string | undefined => {
+      const raw = text(value);
+      if (!raw) return undefined;
+      try {
+        const candidate = new URL(raw);
+        candidate.hash = "";
+        candidate.search = "";
+        if (candidate.pathname !== "/" && !candidate.pathname.endsWith("/")) candidate.pathname += "/";
+        return candidate.href;
+      } catch {
+        return undefined;
+      }
+    };
+    const exact = (row: JsonRecord) => normalize(row.url) === canonicalUrl;
+    const queueTasks = record(recrawlQueue).tasks;
+    const queueRows = Array.isArray(queueTasks) ? queueTasks.map(record) : [];
+
+    return {
+      url: canonicalUrl,
+      indexing: indexing.filter(exact),
+      searchEvents: searchEvents.filter(exact),
+      inSearch: inSearch.filter(exact),
+      recrawl: queueRows.filter(exact),
+    };
+  }
+
   async getRecrawlQuota(context: WebmasterContext): Promise<unknown> {
     return this.request(this.hostPath(context, "/recrawl/quota"));
   }
