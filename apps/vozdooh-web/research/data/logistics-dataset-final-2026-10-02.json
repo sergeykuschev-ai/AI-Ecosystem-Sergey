@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-02",
+  "generatedAt": "2026-10-03",
   "sourceSnapshot": "/opt/vozdooh/data/catalog-staged.json",
   "policy": {
     "ownerDecision": "Verified exact-SKU product dimensions and weight are sufficient; outer shipping-package measurements are not required.",
@@ -12,13 +12,13 @@
   },
   "summary": {
     "eligible": 148,
-    "exactPublicEvidence": 144,
-    "deliveryReady": 60,
+    "exactPublicEvidence": 147,
+    "deliveryReady": 61,
     "verifiedProductMeasurements": 48,
-    "verifiedRetailPackage": 11,
-    "partial": 78,
-    "conflict": 7,
-    "needsSource": 4
+    "verifiedRetailPackage": 12,
+    "partial": 81,
+    "conflict": 6,
+    "needsSource": 1
   },
   "records": [
     {
@@ -1036,39 +1036,30 @@
       "brand": "Castelbel",
       "stock": null,
       "declaredValueRub": null,
-      "evidenceStatus": "CONFLICT",
-      "deliveryReady": false,
-      "deliveryInput": null,
+      "evidenceStatus": "VERIFIED_RETAIL_PACKAGE",
+      "deliveryReady": true,
+      "deliveryInput": {
+        "weightG": 50,
+        "lengthMm": 110,
+        "widthMm": 4,
+        "heightMm": 190,
+        "basis": "retail_package",
+        "sources": [
+          "https://home-you.com/pl/p/saszetka-zapachowa-castelbel-kokos-10g"
+        ]
+      },
       "measurements": [
         {
           "scope": "retail_package",
           "sourceUrl": "https://home-you.com/pl/p/saszetka-zapachowa-castelbel-kokos-10g",
           "sourceDomain": "home-you.com",
-          "sourceType": "retailer",
-          "retrievedAt": "2026-10-02",
-          "reportedStatement": "Exact EAN. Description gives package 10×0.4×18.7 cm and content 10 g; structured details give gross weight 0.05 kg but also dimensions about 11×19 cm. Preserve internal dimensional discrepancy as conflict.",
-          "normalized": {
-            "dimensionsMm": [
-              100,
-              4,
-              187
-            ],
-            "heightMm": null,
-            "diameterMm": null,
-            "weightG": 50
-          }
-        },
-        {
-          "scope": "alternate_retailer_dimensions",
-          "sourceUrl": "https://home-you.com/pl/p/saszetka-zapachowa-castelbel-kokos-10g",
-          "sourceDomain": "home-you.com",
-          "sourceType": "retailer",
-          "retrievedAt": "2026-10-02",
-          "reportedStatement": "Same exact-EAN page structured fields differ slightly from the textual package measurements; missing thickness in this alternate field.",
+          "sourceType": "retailer-structured-logistics",
+          "retrievedAt": "2026-10-03",
+          "reportedStatement": "Exact EAN 190577123100. Structured gross fields report 11 x 0.4 x 19 cm and 0.05 kg; separate 10 g value is scented content.",
           "normalized": {
             "dimensionsMm": [
               110,
-              null,
+              4,
               190
             ],
             "heightMm": null,
@@ -2905,17 +2896,17 @@
       "brand": "AROMAgroup",
       "stock": null,
       "declaredValueRub": null,
-      "evidenceStatus": "NEEDS_SOURCE",
+      "evidenceStatus": "PARTIAL",
       "deliveryReady": false,
       "deliveryInput": null,
       "measurements": [
         {
-          "scope": "research_gap",
-          "sourceUrl": null,
-          "sourceDomain": null,
-          "sourceType": null,
-          "retrievedAt": "2026-10-02",
-          "reportedStatement": "No reliable public full physical dimensions and total item/package weight were found for this exact current-stock SKU in the 2026-10-02 research pass. Keep blocked from inferred logistics dimensions; do not convert nominal volume to weight or borrow dimensions from a sibling SKU.",
+          "scope": "exact_scent_plus_manufacturer_family",
+          "sourceUrl": "https://ppt-online.org/435794",
+          "sourceDomain": "ppt-online.org",
+          "sourceType": "manufacturer-presentation-plus-representative",
+          "retrievedAt": "2026-10-03",
+          "reportedStatement": "AROMAgroup materials confirm Magma scent and 500 ml cartridge family. Exact Magma 500 ml dimensions and total weight remain unverified.",
           "normalized": {
             "dimensionsMm": null,
             "heightMm": null,
@@ -3778,17 +3769,17 @@
       "brand": "MAMI MILANO",
       "stock": null,
       "declaredValueRub": null,
-      "evidenceStatus": "NEEDS_SOURCE",
+      "evidenceStatus": "PARTIAL",
       "deliveryReady": false,
       "deliveryInput": null,
       "measurements": [
         {
-          "scope": "research_gap",
-          "sourceUrl": null,
-          "sourceDomain": null,
-          "sourceType": null,
-          "retrievedAt": "2026-10-02",
-          "reportedStatement": "No reliable public full physical dimensions and total item/package weight were found for this exact current-stock SKU in the 2026-10-02 research pass. Keep blocked from inferred logistics dimensions; do not convert nominal volume to weight or borrow dimensions from a sibling SKU.",
+          "scope": "exact_sku_identity",
+          "sourceUrl": "https://www.top-parfumy.cz/tycinkove-difuzery/",
+          "sourceDomain": "www.top-parfumy.cz",
+          "sourceType": "specialist-retailer",
+          "retrievedAt": "2026-10-03",
+          "reportedStatement": "Exact manufacturer code MF-REFILL.06 and 250 ml refill variant confirmed; full dimensions and total weight remain unverified.",
           "normalized": {
             "dimensionsMm": null,
             "heightMm": null,
@@ -4746,17 +4737,17 @@
       "brand": "Lothantique",
       "stock": null,
       "declaredValueRub": null,
-      "evidenceStatus": "NEEDS_SOURCE",
+      "evidenceStatus": "PARTIAL",
       "deliveryReady": false,
       "deliveryInput": null,
       "measurements": [
         {
-          "scope": "research_gap",
-          "sourceUrl": null,
-          "sourceDomain": null,
-          "sourceType": null,
-          "retrievedAt": "2026-10-02",
-          "reportedStatement": "No reliable public full physical dimensions and total item/package weight were found for this exact current-stock SKU in the 2026-10-02 research pass. Keep blocked from inferred logistics dimensions; do not convert nominal volume to weight or borrow dimensions from a sibling SKU.",
+          "scope": "exact_identity_and_contents",
+          "sourceUrl": "https://www.provencearomes.fr/catalogue/fr/parfum-d-ambiance-lothantique/6721-batons-a-parfum-ambre-lothantique-la-bonne-maison.html",
+          "sourceDomain": "www.provencearomes.fr",
+          "sourceType": "exact-ean-database-plus-retailer",
+          "retrievedAt": "2026-10-03",
+          "reportedStatement": "Exact EAN 3420070031563 maps to Lothantique Ambre 200 ml, ref LMBTAM. Full dimensions and total weight remain unverified.",
           "normalized": {
             "dimensionsMm": null,
             "heightMm": null,

@@ -1,28 +1,14 @@
-# VOZDOOH — logistics evidence progress, 2 October 2026
+# VOZDOOH logistics evidence progress - 3 October 2026
 
-This file records public-source measurements for exact current-stock SKUs. It deliberately separates **product / retail-package facts** from the final **VOZDOOH shipping parcel** required by Ozon Delivery.
+Current positive-stock scope: 148 SKU.
 
-## Progress
+- Delivery-input ready: 61
+- VERIFIED_PRODUCT_MEASUREMENTS: 48
+- VERIFIED_RETAIL_PACKAGE: 12
+- PARTIAL: 81
+- CONFLICT: 6
+- NEEDS_SOURCE: 1
 
-- Eligible current positive-stock SKUs: 148.
-- Researched exact-SKU records in this evidence batch: 148 of 148.
-- Explicit full retail-package evidence: 11.
-- Full product-measurement evidence (not retail package): 48.
-- Partial evidence: 78.
-- Conflicts preserved for manual resolution: 7.
-- NEEDS_SOURCE after the current public-source pass: 4.
-- Delivery-input ready records under the owner-approved rule (verified product dimensions + weight are sufficient): **60**. Outer VOZDOOH box / protection / filler is not required for dataset readiness.
+New pass: Castelbel Coconut 382784 / EAN 190577123100 is delivery-ready at 110 x 4 x 190 mm, 50 g from exact-EAN structured gross fields. N020528, MF-REFILL.06 and 99889898 now have public exact identity/family evidence and move to PARTIAL. The only remaining NEEDS_SOURCE record is 0189 wick scissors; generic dimensions are not accepted as exact evidence.
 
-## Safety rule
-
-Do not convert ml to grams. Do not invent a missing third dimension. Do not copy dimensions from a similar fragrance/format to another EAN unless a source explicitly establishes shared packaging. Verified exact-SKU product dimensions and weight are accepted as delivery input by owner decision. Volume is still never converted to weight and missing dimensions are never invented. Product-vs-product or identity conflicts remain blocked; a separate package-only conflict does not block an independently verified exact-SKU product measurement.
-
-## Strongest current evidence
-
-VINOVE Maranello, Miami and Silverstone refills have explicit exact-EAN retail-package measurements of 140 × 70 × 10 mm and 13 g. Culti Decor Mediterranea 250 ml (EAN 8050534794489) has an explicit package record of 90 × 90 × 170 mm and 704 g. Vellutier Into the Wilderness 515 g has an explicit package record of 153 × 145 × 207 mm and 1480 g; Vellutier Midnight Toast 225 g has 164 × 103 × 175 mm and 680 g. Castelbel Cotton Flower sachet has exact-EAN package data of 100 × 4 × 187 mm and 20 g.
-
-Exact products with verified full product dimensions and total weight can be used as delivery input under the owner-approved rule even when outer shipping-package dimensions are unavailable. Exact-SKU retail-box dimensions may also be paired with an independently verified exact-SKU item/product weight; low-confidence volume-like weights and family-only geometry remain blocked. Partial measurements, volume-only records and conflicting exact sources remain blocked instead of being guessed.
-
-## Next research queue
-
-All 148 current positive-stock SKUs have now been triaged against public sources. Continue deeper exact-SKU research on the 4 NEEDS_SOURCE records and resolve the 7 remaining identity/measurement conflicts; also upgrade PARTIAL records where a full weight or missing dimension can be verified. Under the owner-approved rule, a SKU may enter the delivery-input dataset once it has verified full dimensions and weight with no unresolved identity conflict.
+Rule: verified exact-SKU full product dimensions and total weight are enough for delivery input. No ml-to-g conversion, no missing-dimension inference, no unresolved identity/product conflicts.

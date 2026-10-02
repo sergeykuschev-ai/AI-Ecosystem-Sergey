@@ -1,13 +1,14 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-02",
-  "purpose": "Exact-SKU public-source evidence for product/retail-package dimensions and weight. These values are NOT final VOZDOOH shipping-parcel dimensions.",
+  "generatedAt": "2026-10-03",
+  "purpose": "Exact-SKU public-source evidence used to build VOZDOOH delivery input.",
   "rules": {
     "exactIdentity": "Evidence is accepted only when the source matches the exact EAN/SKU.",
     "noVolumeToWeight": true,
     "noMissingDimensionInference": true,
-    "shippingReady": false,
-    "finalParcelRule": "Do not write these values into production Ozon shipping dimensions until VOZDOOH outer packaging and filler are verified."
+    "shippingReady": true,
+    "finalParcelRule": "Never convert volume to weight, invent missing dimensions, or pass unresolved identity/product-measurement conflicts.",
+    "ownerDecision": "Verified exact-SKU full product dimensions and total weight are sufficient; outer shipping-package measurements are not required."
   },
   "records": [
     {
@@ -945,14 +946,16 @@
       "sku": "99889898",
       "barcode": "2017701194486",
       "brand": "AROMAgroup",
-      "status": "NEEDS_SOURCE",
+      "status": "PARTIAL",
       "measurements": [
         {
-          "scope": "research_gap",
+          "scope": "exact_scent_plus_manufacturer_family",
           "dimensionsMm": null,
           "weightG": null,
-          "retrievedAt": "2026-10-02",
-          "note": "No reliable public full physical dimensions and total item/package weight were found for this exact current-stock SKU in the 2026-10-02 research pass. Keep blocked from inferred logistics dimensions; do not convert nominal volume to weight or borrow dimensions from a sibling SKU."
+          "sourceType": "manufacturer-presentation-plus-representative",
+          "sourceUrl": "https://ppt-online.org/435794",
+          "retrievedAt": "2026-10-03",
+          "note": "AROMAgroup materials confirm Magma scent and 500 ml cartridge family. Exact Magma 500 ml dimensions and total weight remain unverified."
         }
       ]
     },
@@ -1706,33 +1709,20 @@
       "sku": "382784",
       "barcode": "190577123100",
       "brand": "Castelbel",
-      "status": "CONFLICT",
+      "status": "VERIFIED_RETAIL_PACKAGE",
       "measurements": [
         {
           "scope": "retail_package",
           "dimensionsMm": [
-            100,
-            4,
-            187
-          ],
-          "weightG": 50,
-          "sourceType": "retailer",
-          "sourceUrl": "https://home-you.com/pl/p/saszetka-zapachowa-castelbel-kokos-10g",
-          "retrievedAt": "2026-10-02",
-          "note": "Exact EAN. Description gives package 10×0.4×18.7 cm and content 10 g; structured details give gross weight 0.05 kg but also dimensions about 11×19 cm. Preserve internal dimensional discrepancy as conflict."
-        },
-        {
-          "scope": "alternate_retailer_dimensions",
-          "dimensionsMm": [
             110,
-            null,
+            4,
             190
           ],
           "weightG": 50,
-          "sourceType": "retailer",
+          "sourceType": "retailer-structured-logistics",
           "sourceUrl": "https://home-you.com/pl/p/saszetka-zapachowa-castelbel-kokos-10g",
-          "retrievedAt": "2026-10-02",
-          "note": "Same exact-EAN page structured fields differ slightly from the textual package measurements; missing thickness in this alternate field."
+          "retrievedAt": "2026-10-03",
+          "note": "Exact EAN 190577123100. Structured gross fields give 11 x 0.4 x 19 cm and 0.05 kg. Separate 10 g value is scented content."
         }
       ]
     },
@@ -2338,14 +2328,16 @@
       "sku": "N020528",
       "barcode": "3420070031563",
       "brand": "Lothantique",
-      "status": "NEEDS_SOURCE",
+      "status": "PARTIAL",
       "measurements": [
         {
-          "scope": "research_gap",
+          "scope": "exact_identity_and_contents",
           "dimensionsMm": null,
           "weightG": null,
-          "retrievedAt": "2026-10-02",
-          "note": "No reliable public full physical dimensions and total item/package weight were found for this exact current-stock SKU in the 2026-10-02 research pass. Keep blocked from inferred logistics dimensions; do not convert nominal volume to weight or borrow dimensions from a sibling SKU."
+          "sourceType": "exact-ean-database-plus-retailer",
+          "sourceUrl": "https://www.provencearomes.fr/catalogue/fr/parfum-d-ambiance-lothantique/6721-batons-a-parfum-ambre-lothantique-la-bonne-maison.html",
+          "retrievedAt": "2026-10-03",
+          "note": "Exact EAN 3420070031563 maps to Lothantique Ambre 200 ml, ref LMBTAM. Full dimensions and total weight remain unverified."
         }
       ]
     },
@@ -2558,14 +2550,16 @@
       "sku": "MF-REFILL.06",
       "barcode": "8057143585590",
       "brand": "MAMI MILANO",
-      "status": "NEEDS_SOURCE",
+      "status": "PARTIAL",
       "measurements": [
         {
-          "scope": "research_gap",
+          "scope": "exact_sku_identity",
           "dimensionsMm": null,
           "weightG": null,
-          "retrievedAt": "2026-10-02",
-          "note": "No reliable public full physical dimensions and total item/package weight were found for this exact current-stock SKU in the 2026-10-02 research pass. Keep blocked from inferred logistics dimensions; do not convert nominal volume to weight or borrow dimensions from a sibling SKU."
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.top-parfumy.cz/tycinkove-difuzery/",
+          "retrievedAt": "2026-10-03",
+          "note": "Exact manufacturer code MF-REFILL.06 and 250 ml refill variant confirmed; full dimensions and total weight remain unverified."
         }
       ]
     },
@@ -3662,12 +3656,12 @@
   ],
   "summary": {
     "researchedRecords": 148,
-    "verifiedRetailPackage": 11,
+    "verifiedRetailPackage": 12,
     "verifiedProductMeasurements": 48,
-    "partial": 78,
-    "conflict": 7,
-    "needsSource": 10,
-    "shippingReady": 0,
-    "deliveryInputReady": 60
+    "partial": 81,
+    "conflict": 6,
+    "needsSource": 1,
+    "shippingReady": 61,
+    "deliveryInputReady": 61
   }
 }

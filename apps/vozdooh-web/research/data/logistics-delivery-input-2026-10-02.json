@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-02",
+  "generatedAt": "2026-10-03",
   "policy": {
     "ownerDecision": "Verified exact-SKU product dimensions and weight are sufficient; outer shipping-package measurements are not required.",
     "noVolumeToWeight": true,
@@ -11,8 +11,8 @@
   },
   "counts": {
     "eligible": 148,
-    "ready": 60,
-    "needsMoreEvidence": 88
+    "ready": 61,
+    "needsMoreEvidence": 87
   },
   "records": [
     {
@@ -328,9 +328,18 @@
       "name": "Кокос / Coconut ароматическое саше",
       "brand": null,
       "barcode": "190577123100",
-      "status": "CONFLICT",
-      "deliveryInput": null,
-      "evidenceStatus": "CONFLICT"
+      "status": "READY_PRODUCT_DIMENSIONS",
+      "deliveryInput": {
+        "weightG": 50,
+        "lengthMm": 110,
+        "widthMm": 4,
+        "heightMm": 190,
+        "basis": "retail_package",
+        "sources": [
+          "https://home-you.com/pl/p/saszetka-zapachowa-castelbel-kokos-10g"
+        ]
+      },
+      "evidenceStatus": "VERIFIED_RETAIL_PACKAGE"
     },
     {
       "sku": "382873",
@@ -939,7 +948,7 @@
       "barcode": "2017701194486",
       "status": "NEEDS_SOURCE",
       "deliveryInput": null,
-      "evidenceStatus": "NEEDS_SOURCE"
+      "evidenceStatus": "PARTIAL"
     },
     {
       "sku": "9a227639-b1a0-11ed-a1a3-7c8bca00854e",
@@ -1247,7 +1256,7 @@
       "barcode": "8057143585590",
       "status": "NEEDS_SOURCE",
       "deliveryInput": null,
-      "evidenceStatus": "NEEDS_SOURCE"
+      "evidenceStatus": "PARTIAL"
     },
     {
       "sku": "MF-REFILL.08",
@@ -1547,7 +1556,7 @@
       "barcode": "3420070031563",
       "status": "NEEDS_SOURCE",
       "deliveryInput": null,
-      "evidenceStatus": "NEEDS_SOURCE"
+      "evidenceStatus": "PARTIAL"
     },
     {
       "sku": "N020566",
