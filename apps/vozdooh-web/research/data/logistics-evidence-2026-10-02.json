@@ -172,7 +172,7 @@
       "sku": "09877",
       "barcode": null,
       "brand": "AROMAgroup",
-      "status": "PARTIAL",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
       "measurements": [
         {
           "scope": "product",
@@ -186,6 +186,19 @@
           "sourceUrl": "https://avd74.ru/catalog/aromatizatsiya_dlya_biznesa_i_doma/apparaty/apparat_dlya_aromatizatsii_pomeshcheniya_shop_250_cherno_mednyy_aromagroup.php",
           "retrievedAt": "2026-10-02",
           "note": "Exact AROMAgroup Shop 250 model page gives 260×175×89 mm. Weight and retail/shipping package size remain unverified."
+        },
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            260,
+            175,
+            90
+          ],
+          "weightG": 1800,
+          "sourceType": "major-retailer",
+          "sourceUrl": "https://www.mvideo.ru/products/400333696/specification",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact AROMAgroup Shop 250 bt model. M.Video specifications report 26×17.5×9 cm and 1800 g. Independent AROMAgroup/AVD geometry is 260×175×89 mm; keep the exact source values without averaging."
         }
       ]
     },
@@ -922,7 +935,7 @@
       "sku": "fa750375-783b-11ed-b530-7c8bca00854e",
       "barcode": "2017701196411",
       "brand": "AROMAgroup",
-      "status": "PARTIAL",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
       "measurements": [
         {
           "scope": "product",
@@ -936,6 +949,19 @@
           "sourceUrl": "https://avd74.ru/catalog/aromatizatsiya_dlya_biznesa_i_doma/apparaty/apparat_dlya_aromatizatsii_pomeshcheniya_dispenser_liquid_bt_v3_1_chernyy_aromagroup.php",
           "retrievedAt": "2026-10-02",
           "note": "Exact model/color Dispenser Liquid bt V3.1 black. Retailer gives 146×156×58 mm; no verified device or package weight found."
+        },
+        {
+          "scope": "product_model_weight",
+          "dimensionsMm": [
+            146,
+            156,
+            58
+          ],
+          "weightG": 437,
+          "sourceType": "model-manual",
+          "sourceUrl": "https://manuals.plus/scent/a1-diffuser-manual",
+          "retrievedAt": "2026-10-02",
+          "note": "A1-V3.1 model manual reports 146×156×58 mm and 437 g. Existing exact-color AROMAgroup Dispenser Liquid bt V3.1 black retailer page reports the same 146×156×58 mm and the current 1C item is the non-Type-C V3.1 generation."
         }
       ]
     },
@@ -943,7 +969,7 @@
       "sku": "fa750378-783b-11ed-b530-7c8bca00854e",
       "barcode": "2017701196435",
       "brand": "AROMAgroup",
-      "status": "PARTIAL",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
       "measurements": [
         {
           "scope": "product",
@@ -957,6 +983,19 @@
           "sourceUrl": "https://avd74.ru/catalog/aromatizatsiya_dlya_biznesa_i_doma/apparaty/apparat_dlya_aromatizatsii_pomeshcheniya_dispenser_liquid_bt_v3_1_belyy_aromagroup.php",
           "retrievedAt": "2026-10-02",
           "note": "Exact model Dispenser Liquid bt V3.1 white. Retailer gives 146×156×58 mm; no verified device or package weight found."
+        },
+        {
+          "scope": "product_model_weight",
+          "dimensionsMm": [
+            146,
+            156,
+            58
+          ],
+          "weightG": 437,
+          "sourceType": "model-manual",
+          "sourceUrl": "https://manuals.plus/scent/a1-diffuser-manual",
+          "retrievedAt": "2026-10-02",
+          "note": "A1-V3.1 model manual reports 146×156×58 mm and 437 g. Existing exact-color AROMAgroup Dispenser Liquid bt V3.1 white retailer page reports the same 146×156×58 mm and the current 1C item is the non-Type-C V3.1 generation."
         }
       ]
     },
@@ -3476,8 +3515,8 @@
   "summary": {
     "researchedRecords": 148,
     "verifiedRetailPackage": 8,
-    "verifiedProductMeasurements": 35,
-    "partial": 81,
+    "verifiedProductMeasurements": 38,
+    "partial": 78,
     "conflict": 12,
     "shippingReady": 0
   }

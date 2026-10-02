@@ -10,8 +10,8 @@
   },
   "counts": {
     "eligible": 148,
-    "ready": 46,
-    "needsMoreEvidence": 102
+    "ready": 49,
+    "needsMoreEvidence": 99
   },
   "records": [
     {
@@ -91,9 +91,19 @@
       "name": "Аппарат для ароматизации помещений AROMAgroup Shop 250 bt",
       "brand": null,
       "barcode": null,
-      "status": "NEEDS_SOURCE",
-      "deliveryInput": null,
-      "evidenceStatus": "PARTIAL"
+      "status": "READY_PRODUCT_DIMENSIONS",
+      "deliveryInput": {
+        "weightG": 1800,
+        "lengthMm": 260,
+        "widthMm": 175,
+        "heightMm": 90,
+        "basis": "exact_model_retailer_specs",
+        "sources": [
+          "https://www.mvideo.ru/products/400333696/specification",
+          "https://avd74.ru/catalog/aromatizatsiya_dlya_biznesa_i_doma/apparaty/apparat_dlya_aromatizatsii_pomeshcheniya_shop_250_cherno_mednyy_aromagroup.php"
+        ]
+      },
+      "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS"
     },
     {
       "sku": "0b044a39-8588-11ed-b530-7c8bca00854e",
@@ -1734,18 +1744,38 @@
       "name": "Аппарат для ароматизации помещений AROMAgroup Dispenser Liquid bt V3.1 (черный)",
       "brand": null,
       "barcode": "2017701196411",
-      "status": "NEEDS_SOURCE",
-      "deliveryInput": null,
-      "evidenceStatus": "PARTIAL"
+      "status": "READY_PRODUCT_DIMENSIONS",
+      "deliveryInput": {
+        "weightG": 437,
+        "lengthMm": 146,
+        "widthMm": 156,
+        "heightMm": 58,
+        "basis": "exact_model_manual_plus_exact_color_page",
+        "sources": [
+          "https://avd74.ru/catalog/aromatizatsiya_dlya_biznesa_i_doma/apparaty/apparat_dlya_aromatizatsii_pomeshcheniya_dispenser_liquid_bt_v3_1_chernyy_aromagroup.php",
+          "https://manuals.plus/scent/a1-diffuser-manual"
+        ]
+      },
+      "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS"
     },
     {
       "sku": "fa750378-783b-11ed-b530-7c8bca00854e",
       "name": "Аппарат для ароматизации помещений AROMAgroup Dispenser Liquid bt V3.1 (белый)",
       "brand": null,
       "barcode": "2017701196435",
-      "status": "NEEDS_SOURCE",
-      "deliveryInput": null,
-      "evidenceStatus": "PARTIAL"
+      "status": "READY_PRODUCT_DIMENSIONS",
+      "deliveryInput": {
+        "weightG": 437,
+        "lengthMm": 146,
+        "widthMm": 156,
+        "heightMm": 58,
+        "basis": "exact_model_manual_plus_exact_color_page",
+        "sources": [
+          "https://avd74.ru/catalog/aromatizatsiya_dlya_biznesa_i_doma/apparaty/apparat_dlya_aromatizatsii_pomeshcheniya_dispenser_liquid_bt_v3_1_belyy_aromagroup.php",
+          "https://manuals.plus/scent/a1-diffuser-manual"
+        ]
+      },
+      "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS"
     },
     {
       "sku": "fc7e824a-136a-11ef-b412-e92179844ed4",
