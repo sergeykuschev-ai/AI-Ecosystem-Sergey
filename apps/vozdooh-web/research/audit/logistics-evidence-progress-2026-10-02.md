@@ -11,7 +11,7 @@ This file records public-source measurements for exact current-stock SKUs. It de
 - Partial evidence: 77.
 - Conflicts preserved for manual resolution: 12.
 - NEEDS_SOURCE after the current public-source pass: 11.
-- Delivery-input ready records under the owner-approved rule (verified product dimensions + weight are sufficient): **51**. Outer VOZDOOH box / protection / filler is not required for dataset readiness.
+- Delivery-input ready records under the owner-approved rule (verified product dimensions + weight are sufficient): **54**. Outer VOZDOOH box / protection / filler is not required for dataset readiness.
 
 ## Safety rule
 
@@ -21,7 +21,7 @@ Do not convert ml to grams. Do not invent a missing third dimension. Do not copy
 
 VINOVE Maranello, Miami and Silverstone refills have explicit exact-EAN retail-package measurements of 140 × 70 × 10 mm and 13 g. Culti Decor Mediterranea 250 ml (EAN 8050534794489) has an explicit package record of 90 × 90 × 170 mm and 704 g. Vellutier Into the Wilderness 515 g has an explicit package record of 153 × 145 × 207 mm and 1480 g; Vellutier Midnight Toast 225 g has 164 × 103 × 175 mm and 680 g. Castelbel Cotton Flower sachet has exact-EAN package data of 100 × 4 × 187 mm and 20 g.
 
-Exact products with verified full product dimensions and total weight can be used as delivery input under the owner-approved rule even when retail-package dimensions are unavailable. Partial measurements, volume-only records and conflicting exact sources remain blocked instead of being guessed.
+Exact products with verified full product dimensions and total weight can be used as delivery input under the owner-approved rule even when outer shipping-package dimensions are unavailable. Exact-SKU retail-box dimensions may also be paired with an independently verified exact-SKU item/product weight; low-confidence volume-like weights and family-only geometry remain blocked. Partial measurements, volume-only records and conflicting exact sources remain blocked instead of being guessed.
 
 ## Next research queue
 

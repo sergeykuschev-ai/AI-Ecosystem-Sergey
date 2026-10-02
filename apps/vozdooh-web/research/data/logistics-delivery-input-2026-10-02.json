@@ -6,12 +6,13 @@
     "noVolumeToWeight": true,
     "noMissingDimensionInference": true,
     "conflictHandling": "A conflict in package/other scope does not block an independently explicit exact-SKU product measurement; product-vs-product conflicts remain blocked.",
-    "cylindricalConversion": "diameter -> length=width=diameter; height preserved"
+    "cylindricalConversion": "diameter -> length=width=diameter; height preserved",
+    "mixedExactEvidence": "Allowed when dimensions and weight are independently tied to the same exact SKU/EAN; outer shipping-box data is not required. Low-confidence volume-like weights and family-only geometry remain blocked."
   },
   "counts": {
     "eligible": 148,
-    "ready": 51,
-    "needsMoreEvidence": 97
+    "ready": 54,
+    "needsMoreEvidence": 94
   },
   "records": [
     {
@@ -1219,8 +1220,18 @@
       "name": "Аромапопурри Christian Tortu /VERT FRAIS/ СВЕЖЕСТЬ ЗЕЛЕНИ",
       "brand": null,
       "barcode": "3420070002501",
-      "status": "NEEDS_SOURCE",
-      "deliveryInput": null,
+      "status": "READY_PRODUCT_DIMENSIONS",
+      "deliveryInput": {
+        "weightG": 360,
+        "lengthMm": 99,
+        "widthMm": 99,
+        "heightMm": 82,
+        "basis": "exact_family_retail_box_plus_exact_item_weight",
+        "sources": [
+          "https://jiyugaoka-market-p.com/product.php?id=15449",
+          "https://www.ebay.ca/itm/264573932316"
+        ]
+      },
       "evidenceStatus": "PARTIAL"
     },
     {
@@ -1337,8 +1348,17 @@
       "name": "Сменный блок ароматизатора PARIS / ПАРИЖ",
       "brand": null,
       "barcode": "5902802110497",
-      "status": "NEEDS_SOURCE",
-      "deliveryInput": null,
+      "status": "READY_PRODUCT_DIMENSIONS",
+      "deliveryInput": {
+        "weightG": 7,
+        "lengthMm": 140,
+        "widthMm": 65,
+        "heightMm": 14,
+        "basis": "exact_retail_box_dimensions_plus_exact_product_weight",
+        "sources": [
+          "https://www.bol.com/nl/nl/p/vinove-autoparfum-car-airfreshner-paris/9200000123263179/"
+        ]
+      },
       "evidenceStatus": "PARTIAL"
     },
     {
@@ -1572,8 +1592,18 @@
       "name": "Vellutier / Свеча большая Сибирский сосновый лес 515гр / Siberian Pine Forest",
       "brand": null,
       "barcode": "5907489031028",
-      "status": "NEEDS_SOURCE",
-      "deliveryInput": null,
+      "status": "READY_PRODUCT_DIMENSIONS",
+      "deliveryInput": {
+        "weightG": 1000,
+        "lengthMm": 110,
+        "widthMm": 110,
+        "heightMm": 160,
+        "basis": "exact_product_dimensions_plus_exact_package_weight",
+        "sources": [
+          "https://www.komputronik.pl/product/782942/vellutier-duza-swieca-siberian-pine-forest.html",
+          "https://allegro.hu/termek/repcegyertya-siberian-pine-forest-illattal-vellutier-1-db-a96ea1a2-5bfc-4ebd-82a5-6033ac7759c5"
+        ]
+      },
       "evidenceStatus": "PARTIAL"
     },
     {
