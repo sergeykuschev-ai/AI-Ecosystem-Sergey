@@ -99,6 +99,12 @@ export async function MetizSeoCategoryPage({ category }: MetizSeoCategoryPagePro
               ))}
             </ul>
             <p className="metiz-assist-note">{category.note}</p>
+            {category.guide ? (
+              <p className="metiz-assist-note">
+                Полезный материал: <Link href={category.guide.href}>{category.guide.title}</Link>.{" "}
+                {category.guide.text}
+              </p>
+            ) : null}
           </div>
         </section>
 
