@@ -20,8 +20,8 @@ function isoDate(daysAgo: number): string {
 
 async function main(): Promise<void> {
   const command = process.argv[2];
-  if (!command || !["status", "queries", "recrawl"].includes(command)) {
-    throw new Error("Usage: yandex-webmaster <status|queries|recrawl> [--format json|csv] [--submit] [--url /path/]");
+  if (!command || !["status", "queries", "inspect", "recrawl"].includes(command)) {
+    throw new Error("Usage: yandex-webmaster <status|queries|inspect|recrawl> [--format json|csv] [--submit] [--url /path/]");
   }
   const paths = SEO_RECRAWL_PATHS;
   const requestedUrl = argument("--url");
@@ -55,6 +55,12 @@ async function main(): Promise<void> {
       Number(argument("--limit") ?? 100),
     );
     console.log(argument("--format") === "csv" ? queriesToCsv(rows) : JSON.stringify(rows, null, 2));
+    return;
+  }
+
+  if (command === "inspect") {
+    if (!requestedUrl) throw new Error("inspect requires --url /path/");
+    console.log(JSON.stringify(await client.inspectUrl(context, requestedUrl), null, 2));
     return;
   }
 
