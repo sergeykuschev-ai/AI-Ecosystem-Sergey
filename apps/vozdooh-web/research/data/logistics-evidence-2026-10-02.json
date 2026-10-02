@@ -271,6 +271,44 @@
       ]
     },
     {
+      "sku": "802e8b0c-d19b-11ec-be83-7c8bca00854e",
+      "barcode": "8050534796087",
+      "brand": "CULTI MILANO",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product_2d",
+          "dimensionsMm": [
+            70,
+            70,
+            null
+          ],
+          "weightG": null,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.maisonlipari.ca/products/culti-milano-mareminerale-car-sachet",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; retailer explicitly gives 7×7 cm sachet face dimensions. Thickness and weight are not stated."
+        }
+      ]
+    },
+    {
+      "sku": "90877",
+      "barcode": "8050534798746",
+      "brand": "CULTI MILANO",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product_or_item_weight",
+          "dimensionsMm": null,
+          "weightG": 1000,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://pranahome.ru/product/van-gogh-irises-diffuzor-decor-limited-collection-culti-milano",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact article/EAN; retailer reports item weight 1.0 kg. No dimensions and no explicit retail-package scope."
+        }
+      ]
+    },
+    {
       "sku": "976878",
       "barcode": "8050534794243",
       "brand": "CULTI MILANO",
@@ -1133,13 +1171,46 @@
           "note": "Exact EAN; retailer item weight 380 g. Conflicts with 900 g package field; scopes may differ."
         }
       ]
+    },
+    {
+      "sku": "98049E",
+      "barcode": "5038581056647",
+      "brand": "WoodWick",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            69.8,
+            76.2,
+            75
+          ],
+          "weightG": 85,
+          "weightKind": "wax_fill_or_catalog_weight",
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.bpm-power.com/it/online/arredamento-accessori/candele-portacandele/candela-profumata-woodwick-mora-b1991759",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; retailer states H75 × W69.8 × D76.2 mm and 85 g. A second exact-EAN retailer independently states approximately diameter 65 × H75 mm and 85 g fill. Keep as product measurement, not package."
+        },
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 75,
+          "diameterMm": 65,
+          "weightG": 85,
+          "weightKind": "wax_fill",
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.pmkshop.cz/woodwick-vonna-svicka-85-g-korenena-ostruzina",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; independent source confirms small candle size and 85 g fill."
+        }
+      ]
     }
   ],
   "summary": {
-    "researchedRecords": 43,
+    "researchedRecords": 46,
     "verifiedRetailPackage": 8,
-    "verifiedProductMeasurements": 11,
-    "partial": 14,
+    "verifiedProductMeasurements": 12,
+    "partial": 16,
     "conflict": 10,
     "shippingReady": 0
   }
