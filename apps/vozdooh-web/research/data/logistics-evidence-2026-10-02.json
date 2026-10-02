@@ -271,6 +271,27 @@
       ]
     },
     {
+      "sku": "802e8b05-d19b-11ec-be83-7c8bca00854e",
+      "barcode": "8050714290275",
+      "brand": "CULTI MILANO",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            87,
+            87,
+            155
+          ],
+          "weightG": 1200,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://stefaniparfumerie.com/products/culti-milano-decor-classic-500ml-malia-limited-edition",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact product name/line/volume Malia Decor Classic 500 ml. Source does not print the EAN, so identity confidence remains below exact-EAN evidence. It reports 8.7×8.7×15.5 cm and 1.2 kg."
+        }
+      ]
+    },
+    {
       "sku": "802e8b0c-d19b-11ec-be83-7c8bca00854e",
       "barcode": "8050534796087",
       "brand": "CULTI MILANO",
@@ -353,6 +374,27 @@
           "sourceUrl": "https://formadore.co.uk/culti-culti-mediterranea-fragrance-oil-for-diffuser-1-l%2C131451",
           "retrievedAt": "2026-10-02",
           "note": "Exact EAN; retailer reports 0.93 kg and repeats H22 cm / D9 cm."
+        }
+      ]
+    },
+    {
+      "sku": "bf33a951-016c-11ed-b2a4-7c8bca00854e",
+      "barcode": "8050534794304",
+      "brand": "CULTI MILANO",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product_source_geometry",
+          "dimensionsMm": [
+            110,
+            110,
+            255
+          ],
+          "weightG": null,
+          "sourceType": "design-retailer",
+          "sourceUrl": "https://www.raumconceptstore.com/en/diffusor-decor-aramara-8050534794304",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact product number/EAN 8050534794304. Source lists 1000 ml as Ø11 cm × H25.5 cm, although the same page describes a sculpted/square bottle. Preserve dimensions as source-reported product geometry only; not package dimensions."
         }
       ]
     },
@@ -544,6 +586,24 @@
       ]
     },
     {
+      "sku": "N019836",
+      "barcode": "3420070002594",
+      "brand": "Christian Tortu",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 60,
+          "diameterMm": 25,
+          "weightG": null,
+          "sourceType": "official-distributor",
+          "sourceUrl": "https://effie.store/products/christiantortu-reactiveur",
+          "retrievedAt": "2026-10-02",
+          "note": "Christian Tortu Réactivateur 15 ml collection page gives Φ25×H60 mm and explicitly includes Jardin Citrus. 1C exact EAN is retained; source page identifies the variant by manufacturer code 2853 rather than printing the EAN."
+        }
+      ]
+    },
+    {
       "sku": "N019873",
       "barcode": "3420070002587",
       "brand": "Christian Tortu",
@@ -574,6 +634,57 @@
       ]
     },
     {
+      "sku": "N019900",
+      "barcode": "3420070002518",
+      "brand": "Christian Tortu",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 60,
+          "diameterMm": 25,
+          "weightG": null,
+          "sourceType": "official-distributor",
+          "sourceUrl": "https://effie.store/products/christiantortu-reactiveur",
+          "retrievedAt": "2026-10-02",
+          "note": "Christian Tortu Réactivateur 15 ml collection page gives Φ25×H60 mm and explicitly includes Vert Frais. 1C exact EAN is retained; source page identifies the variant by manufacturer code 2855 rather than printing the EAN."
+        }
+      ]
+    },
+    {
+      "sku": "N020291",
+      "barcode": "3420070002709",
+      "brand": "Christian Tortu",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product_and_retail_box_dimensions",
+          "productDiameterMm": 66,
+          "productHeightMm": 126,
+          "retailPackageDimensionsMm": [
+            93,
+            93,
+            240
+          ],
+          "weightG": null,
+          "sourceType": "official-distributor",
+          "sourceUrl": "https://effie.store/products/christiantortu-batonaparfum",
+          "identitySourceUrl": "https://www.ebay.com/itm/265958192090",
+          "retrievedAt": "2026-10-02",
+          "note": "Official Japanese Christian Tortu collection page gives body Φ66×H126 and outer box W93×D93×H240 for Tuberose variant 2812; exact EAN/MPN 3420070002709 independently confirmed."
+        },
+        {
+          "scope": "source_reported_item_weight",
+          "dimensionsMm": null,
+          "weightG": 454,
+          "sourceType": "wholesale-marketplace",
+          "sourceUrl": "https://www.faire.com/product/p_u7tdjk9hgs",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact Tuberose 250 ml product listing reports 453.59 g (1 lb). Weight scope is not explicitly retail package, so rounded to 454 g and retained separately."
+        }
+      ]
+    },
+    {
       "sku": "N020713",
       "barcode": "3420070002914",
       "brand": "Christian Tortu",
@@ -587,6 +698,22 @@
           "sourceUrl": "https://www.ebay.com.au/itm/256923970719",
           "retrievedAt": "2026-10-02",
           "note": "Exact EAN/MPN; item weight 0.74 kg, no dimensions."
+        },
+        {
+          "scope": "product_and_retail_box_dimensions",
+          "productDiameterMm": 66,
+          "productHeightMm": 126,
+          "retailPackageDimensionsMm": [
+            93,
+            93,
+            240
+          ],
+          "weightG": null,
+          "sourceType": "official-distributor",
+          "sourceUrl": "https://effie.store/products/christiantortu-batonaparfum",
+          "identitySourceUrl": "https://profumeriadellafarmacia.it/shop/ambiente/feuille-de-tomate-fragrance-diffuser-diffusore-250ml/",
+          "retrievedAt": "2026-10-02",
+          "note": "Official Japanese Christian Tortu collection page gives body Φ66×H126 and outer box W93×D93×H240 for all six 250 ml variants including Feuille de Tomate. Exact EAN 3420070002914 independently confirmed."
         }
       ]
     },
@@ -604,6 +731,60 @@
           "sourceUrl": "https://pranahome.ru/product/senteur-royale-diffuzor-dynastie-collection-ladenac-milano",
           "retrievedAt": "2026-10-02",
           "note": "Exact article; 0.7 kg listed, no dimensions."
+        }
+      ]
+    },
+    {
+      "sku": "3232434",
+      "barcode": "8411299003054",
+      "brand": "Ladenac Milano",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 185,
+          "diameterMm": 90,
+          "weightG": null,
+          "sourceType": "official-manufacturer",
+          "sourceUrl": "https://www.ladenac.com/mikado-caviar-lime-deluxe-500-ml",
+          "identitySourceUrl": "https://www.tsum.ru/product/he00855790-diffuzor-urban-senses-caviar-lime-holographic-500ml-ladenac-milano-bestcvetnyi/",
+          "retrievedAt": "2026-10-02",
+          "note": "Official Ladenac page gives Ø90 mm × H185 mm for Caviar Lime Deluxe 500 ml; exact EAN 8411299003054 independently confirmed by TSUM."
+        },
+        {
+          "scope": "retail_package_candidate",
+          "dimensionsMm": [
+            120,
+            100,
+            280
+          ],
+          "weightG": null,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.brandsforless.com/en-sa/urban-senses-holographic-caviar-lime-reed-diffuser-500-ml/1821800/p/",
+          "retrievedAt": "2026-10-02",
+          "note": "Same Caviar Lime 500 ml/style code listing reports packaging dimensions 28H × 12L × 10W cm. EAN is not printed on that page, so keep as candidate package evidence rather than verified exact-EAN package."
+        }
+      ]
+    },
+    {
+      "sku": "39393848",
+      "barcode": "8411299001005",
+      "brand": "Ladenac Milano",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            90,
+            90,
+            190
+          ],
+          "weightG": 1090,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://maisonsia.com/products/rose-gold-eau-de-cypres-diffuser-500-ml",
+          "identitySourceUrl": "https://www.tsum.ru/product/he00855786-diffuzor-urban-senses-eau-de-cypres-rose-gold-500ml-ladenac-milano-bestcvetnyi/",
+          "retrievedAt": "2026-10-02",
+          "note": "Maison SIA reports H19 × W9 × L9 cm and 1090 g. Exact EAN 8411299001005 independently confirmed by TSUM."
         }
       ]
     },
@@ -635,6 +816,25 @@
       ]
     },
     {
+      "sku": "8411299000985",
+      "barcode": "8411299000985",
+      "brand": "Ladenac Milano",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 185,
+          "diameterMm": 90,
+          "weightG": null,
+          "sourceType": "official-manufacturer",
+          "sourceUrl": "https://www.ladenac.com/en/reed-diffuser-urban-senses-gold-pink-deluxe-50-ml",
+          "identitySourceUrl": "https://www.tsum.ru/product/he00855784-diffuzor-urban-senses-fleur-de-fruit-rose-gold-500ml-ladenac-milano-bestcvetnyi/",
+          "retrievedAt": "2026-10-02",
+          "note": "Official Ladenac Urban Senses Gold Pink Deluxe 500 ml page gives Ø90 mm × H185 mm and includes Fleurs de Fruit; exact EAN 8411299000985 independently confirmed by TSUM."
+        }
+      ]
+    },
+    {
       "sku": "N020458",
       "barcode": "3420070037053",
       "brand": "Lothantique",
@@ -656,6 +856,71 @@
       ]
     },
     {
+      "sku": "N020486",
+      "barcode": "3420070023704",
+      "brand": "Lothantique",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product_bundle_sticks",
+          "stickLengthMm": 230,
+          "stickDiameterMm": 3,
+          "count": 18,
+          "weightG": null,
+          "sourceType": "retailer-index",
+          "sourceUrl": "https://barcode-list.ru/barcode/RU/Поиск.htm?barcode=КОМПЛЕКТ",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN 3420070023704 is externally indexed as a Lothantique set of 18 light rattan sticks, size 23×3 mm. No retail-package dimensions or weight found."
+        }
+      ]
+    },
+    {
+      "sku": "GI-FRAGR2.04",
+      "barcode": "8057143588546",
+      "brand": "MAMI MILANO",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            80,
+            80,
+            200
+          ],
+          "weightG": 200,
+          "weightConfidence": "low",
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.gioielleriadurbano.it/ecommerce/articolo/dettaglio/profumazione-per-ambiente-bottiglia-diffusore-a-fiore-da-200ml-rose-in-fiore-33665",
+          "identitySourceUrl": "https://www.peragashop.com/products/diffusore-fragranza-ambiente-200-ml-rose-in-fiore",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN 8057143588546. D'Urbano lists 8×8×20 cm and item weight 200 g; independent exact-EAN retailer confirms identity. Weight is low-confidence because it equals the 200 ml nominal volume."
+        }
+      ]
+    },
+    {
+      "sku": "MF-FRAGR2.01",
+      "barcode": "8057143585903",
+      "brand": "MAMI MILANO",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            70,
+            70,
+            260
+          ],
+          "weightG": 200,
+          "weightConfidence": "low",
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.gioielleriadurbano.it/ecommerce/articolo/dettaglio/diffusore-in-bottiglia-in-vetro-da-200ml-con-bastoncini-fragranza-34298",
+          "identitySourceUrl": "https://www.moodconceptstore.com/diffusore-ambiente-200ml-ghiaccio-e-zenzero.html",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN 8057143585903. D'Urbano lists 7×7×26 cm and 200 g; independent exact-EAN retailer confirms product identity. The 200 g field is retained as low-confidence pending independent weight confirmation."
+        }
+      ]
+    },
+    {
       "sku": "MF-FRAGR2.02",
       "barcode": "8057143585910",
       "brand": "MAMI MILANO",
@@ -669,6 +934,127 @@
           "sourceUrl": "https://www.niclick.it/prodotto/diffusore-fragranza-ambiente-200-ml-arancia-candita-mami-milano-mf-fragr2-02/",
           "retrievedAt": "2026-10-02",
           "note": "Exact EAN and manufacturer code; weight 0.6 kg, no dimensions."
+        }
+      ]
+    },
+    {
+      "sku": "MF-FRAGR2.06",
+      "barcode": "8057143585958",
+      "brand": "MAMI MILANO",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            70,
+            70,
+            260
+          ],
+          "weightG": 200,
+          "weightConfidence": "low",
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.gioielleriadurbano.it/ecommerce/articolo/dettaglio/diffusore-in-bottiglia-in-vetro-da-200ml-con-bastoncini-fragranza-34307",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact barcode 8057143585958 and SKU mf-fragr2.06. Retailer lists 7×7×26 cm and item weight 200 g; weight is flagged low-confidence because it exactly matches nominal liquid volume."
+        }
+      ]
+    },
+    {
+      "sku": "MF-FRAGR2.07",
+      "barcode": "8057143585965",
+      "brand": "MAMI MILANO",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            70,
+            70,
+            260
+          ],
+          "weightG": 200,
+          "weightConfidence": "low",
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.gioielleriadurbano.it/ecommerce/articolo/dettaglio/diffusore-in-bottiglia-in-vetro-da-200ml-con-bastoncini-fragranza-34309",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact barcode and SKU mf-fragr2.07. Retailer lists 7×7×26 cm and item weight 200 g. Weight equals nominal 200 ml and is therefore retained as low-confidence source-reported weight until independently confirmed."
+        }
+      ]
+    },
+    {
+      "sku": "MF-FRAGR2.12",
+      "barcode": "8057143586016",
+      "brand": "MAMI MILANO",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            70,
+            70,
+            260
+          ],
+          "weightG": 200,
+          "weightConfidence": "low",
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.gioielleriadurbano.it/ecommerce/articolo/dettaglio/diffusore-in-bottiglia-in-vetro-da-200ml-con-bastoncini-fragranza-34320",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact barcode 8057143586016 and SKU mf-fragr2.12. Retailer lists 7×7×26 cm and item weight 200 g; weight remains low-confidence pending a second source."
+        }
+      ]
+    },
+    {
+      "sku": "AG250TFU",
+      "barcode": "8058159964218",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 160,
+          "diameterMm": 70,
+          "weightG": 400,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.teresapizzigallo.it/diffusori/48161-diffusore-borgo-degli-agrumi-stick-250ml-teatro-fragranze-uniche.html",
+          "identitySourceUrl": "https://storee.saisoncard.co.jp/shop/g/gAA0109-75510001-P/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact scent/format page reports Ø7 × H16 cm and 0.4 kg; independent exact-EAN 8058159964218 source confirms identity."
+        }
+      ]
+    },
+    {
+      "sku": "BD500TFU",
+      "barcode": "8058159964188",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "CONFLICT",
+      "measurements": [
+        {
+          "scope": "identity_only",
+          "dimensionsMm": null,
+          "weightG": null,
+          "sourceType": "retailer",
+          "sourceUrl": "https://zhor.com/products/bianco-divino-stick",
+          "retrievedAt": "2026-10-02",
+          "note": "1C record says Bianco Divino 500 ml with barcode 8058159964188, but external structured variants map 8058159964188 to 250 ml and 8058159964171 to 500 ml. Do not use dimensions/weight until barcode identity is corrected or independently confirmed."
+        }
+      ]
+    },
+    {
+      "sku": "FF250TFU",
+      "barcode": "8058159964331",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 160,
+          "diameterMm": 70,
+          "weightG": 400,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.teresapizzigallo.it/diffusori/48155-diffusore-foglie-di-fico-stick-250ml-teatro-fragranze-uniche.html",
+          "identitySourceUrl": "https://www.clementiprofumi.it/marchi/teatro-fragranze-uniche/foglie-di-fico-diffusore-con-bastoncini-250ml.html",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact scent/format page reports Ø7 × H16 cm and 0.4 kg; independent exact-EAN 8058159964331 source confirms identity."
         }
       ]
     },
@@ -691,6 +1077,44 @@
           "sourceUrl": "https://www.ebay.de/itm/137775721271",
           "retrievedAt": "2026-10-02",
           "note": "Exact EAN; marketplace listing reports L33.4×W22.9×H11.7 cm but does not define whether these are product or shipping-package dimensions. Retained only as low-confidence evidence."
+        }
+      ]
+    },
+    {
+      "sku": "II250TFU",
+      "barcode": "8058159964379",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 160,
+          "diameterMm": 70,
+          "weightG": 400,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.teresapizzigallo.it/diffusori/48195-diffusore-incenso-imperiale-stick-250ml-teatro-fragranze-uniche.html",
+          "identitySourceUrl": "https://www.solie.cz/teatro-fragranze-uniche-incenso-imperiale-difuzer-s-tycinkami-250-ml",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact scent/format page reports Ø7 × H16 cm and 0.4 kg; independent exact-EAN 8058159964379 source confirms identity."
+        }
+      ]
+    },
+    {
+      "sku": "ROU250TFU",
+      "barcode": "8058159966458",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 160,
+          "diameterMm": 70,
+          "weightG": 400,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.teresapizzigallo.it/diffusori/48207-diffusore-rose-oud-stick-250ml-teatro-fragranze-uniche.html",
+          "identitySourceUrl": "https://www.fragranzedautore.it/teatro-fragranze-uniche/6366-teatro-fragranze-uniche-teatro-fragranze-uniche-rose-oud-250-ml-8058159966458.html",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact scent/format page reports Ø7 × H16 cm and 0.4 kg; independent exact-EAN 8058159966458 source confirms identity."
         }
       ]
     },
@@ -1207,11 +1631,11 @@
     }
   ],
   "summary": {
-    "researchedRecords": 46,
+    "researchedRecords": 65,
     "verifiedRetailPackage": 8,
-    "verifiedProductMeasurements": 12,
-    "partial": 16,
-    "conflict": 10,
+    "verifiedProductMeasurements": 19,
+    "partial": 27,
+    "conflict": 11,
     "shippingReady": 0
   }
 }
