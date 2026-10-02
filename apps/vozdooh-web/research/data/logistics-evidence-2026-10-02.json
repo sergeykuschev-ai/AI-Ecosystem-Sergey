@@ -1805,14 +1805,17 @@
       "sku": "DANHNIR250DEC",
       "barcode": "805698180696",
       "brand": "DANHERA",
-      "status": "NEEDS_SOURCE",
+      "status": "PARTIAL",
       "measurements": [
         {
-          "scope": "research_gap",
+          "scope": "product_weight",
           "dimensionsMm": null,
-          "weightG": null,
+          "weightG": 850,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://pranahome.ru/product/niro-diffuzor-s-palochkami-legendary-fragrances-danhera-italy",
+          "identitySourceUrl": "https://www.tsum.ru/product/he00799344-diffuzor-niro-250ml-danhera-italy-bestcvetnyi/",
           "retrievedAt": "2026-10-02",
-          "note": "No reliable public full physical dimensions and total item/package weight were found for this exact current-stock SKU in the 2026-10-02 research pass. Keep blocked from inferred logistics dimensions; do not convert nominal volume to weight or borrow dimensions from a sibling SKU."
+          "note": "PranaHome exact article DANHNIR250DEC / 250 ml reports product weight 0.85 kg. TSUM independently confirms manufacturer article DANHNIR250DEC for Danhera Niro 250 ml. Physical dimensions remain unresolved."
         }
       ]
     },
@@ -2646,14 +2649,16 @@
       "sku": "CAPP-XMTFU",
       "barcode": "8059692630417",
       "brand": "TEATRO Fragranze Uniche",
-      "status": "NEEDS_SOURCE",
+      "status": "PARTIAL",
       "measurements": [
         {
-          "scope": "research_gap",
+          "scope": "product_or_set_weight",
           "dimensionsMm": null,
-          "weightG": null,
+          "weightG": 358,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.profumixluxurybrands.it/en/brands/teatro-fragranze-uniche-cappelliera-oro-stick-250ml-refill-250ml/",
           "retrievedAt": "2026-10-02",
-          "note": "No reliable public full physical dimensions and total item/package weight were found for this exact current-stock SKU in the 2026-10-02 research pass. Keep blocked from inferred logistics dimensions; do not convert nominal volume to weight or borrow dimensions from a sibling SKU."
+          "note": "Exact Christmas in Florence hatbox configuration (Oro diffuser 250 ml + refill 250 ml) reports weight 0.358 kg. Source does not print EAN 8059692630417, so retain as partial evidence until exact-EAN binding or dimensions are found."
         }
       ]
     },
@@ -3463,7 +3468,7 @@
     "researchedRecords": 148,
     "verifiedRetailPackage": 8,
     "verifiedProductMeasurements": 34,
-    "partial": 80,
+    "partial": 82,
     "conflict": 12,
     "shippingReady": 0
   }
