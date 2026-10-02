@@ -11,8 +11,8 @@
   },
   "counts": {
     "eligible": 148,
-    "ready": 58,
-    "needsMoreEvidence": 90
+    "ready": 60,
+    "needsMoreEvidence": 88
   },
   "records": [
     {
@@ -630,7 +630,7 @@
       "barcode": "8050714290343",
       "status": "NEEDS_SOURCE",
       "deliveryInput": null,
-      "evidenceStatus": "NEEDS_SOURCE"
+      "evidenceStatus": "PARTIAL"
     },
     {
       "sku": "7c1b6caa-5341-11ed-8c25-7c8bca00854e",
@@ -982,9 +982,20 @@
       "name": "TEATRO Диффузор с палочками BIANCO DIVINO / Божественный белый, 500 мл",
       "brand": null,
       "barcode": "8058159964188",
-      "status": "CONFLICT",
-      "deliveryInput": null,
-      "evidenceStatus": "CONFLICT"
+      "status": "READY_PRODUCT_DIMENSIONS",
+      "deliveryInput": {
+        "weightG": 600,
+        "lengthMm": 90,
+        "widthMm": 90,
+        "heightMm": 200,
+        "basis": "manufacturer_sku_dimensions_plus_multi_source_exact_ean_identity",
+        "sources": [
+          "https://www.teresapizzigallo.it/diffusori/48166-diffusore-bianco-divino-stick-500ml-teatro-fragranze-uniche.html",
+          "https://www.bjutip.com/bianco-divino-sticks-ml-500-home-fragrance-tfu-10-natural-bamboo-sticks-cm-36-included",
+          "https://beau2be.com/sk/brands/teatro-fragranze-uniche"
+        ]
+      },
+      "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS"
     },
     {
       "sku": "CAND-HOME180",
@@ -1099,9 +1110,18 @@
       "name": "MAMI MILANO Аромадиффузор FIOR DI LOTO / Цветок лотоса. Коллекция GIARDINO, 200 мл",
       "brand": null,
       "barcode": "8057143588522",
-      "status": "NEEDS_SOURCE",
-      "deliveryInput": null,
-      "evidenceStatus": "NEEDS_SOURCE"
+      "status": "READY_RETAIL_PACKAGE",
+      "deliveryInput": {
+        "weightG": 500,
+        "lengthMm": 85,
+        "widthMm": 85,
+        "heightMm": 210,
+        "basis": "exact_retail_package_dimensions_and_weight",
+        "sources": [
+          "https://www.bol.com/nl/nl/p/mami-milano-bloem-geurverspreider-fiori-di-loto-200ml-huisparfum-interieur-parfum-luxe-verpakking-geurstokjes-diffuser/9300000175781464/"
+        ]
+      },
+      "evidenceStatus": "VERIFIED_RETAIL_PACKAGE"
     },
     {
       "sku": "GI-FRAGR2.04",
@@ -1236,7 +1256,7 @@
       "barcode": "8057143585613",
       "status": "NEEDS_SOURCE",
       "deliveryInput": null,
-      "evidenceStatus": "NEEDS_SOURCE"
+      "evidenceStatus": "PARTIAL"
     },
     {
       "sku": "MF-REFILL.12",
@@ -1245,7 +1265,7 @@
       "barcode": "8057143585651",
       "status": "NEEDS_SOURCE",
       "deliveryInput": null,
-      "evidenceStatus": "NEEDS_SOURCE"
+      "evidenceStatus": "PARTIAL"
     },
     {
       "sku": "N019834",

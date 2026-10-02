@@ -1231,16 +1231,18 @@
       "sku": "78768575",
       "barcode": "8050714290343",
       "brand": "CULTI MILANO",
-      "status": "NEEDS_SOURCE",
+      "status": "PARTIAL",
       "measurements": [
         {
-          "scope": "research_gap",
-          "dimensionsMm": null,
+          "scope": "product_cylindrical",
+          "heightMm": 170,
+          "diameterMm": 90,
           "weightG": null,
+          "sourceType": "official-manufacturer",
+          "sourceUrl": "https://www.culti.com/it/diffusore-stile-250-ml-alba.html",
+          "identitySourceUrl": "https://www.tsum.ru/product/he00786295-diffuzor-stile-limited-alba-250ml-culti-milano-bestcvetnyi/",
           "retrievedAt": "2026-10-02",
-          "note": "No reliable public full physical dimensions and total item/package weight were found for this exact current-stock SKU in the 2026-10-02 research pass. Keep blocked from inferred logistics dimensions; do not convert nominal volume to weight or borrow dimensions from a sibling SKU.",
-          "sourceType": "identity-source",
-          "sourceUrl": "https://www.tsum.ru/product/he00786295-diffuzor-stile-limited-alba-250ml-culti-milano-bestcvetnyi/"
+          "note": "Exact CULTI Alba Stile 250 ml product page reports D9 × H17 cm. Exact EAN 8050714290343 independently confirmed by TSUM. Weight remains unverified."
         }
       ]
     },
@@ -2324,16 +2326,21 @@
       "sku": "GI-FRAGR2.02",
       "barcode": "8057143588522",
       "brand": "MAMI MILANO",
-      "status": "NEEDS_SOURCE",
+      "status": "VERIFIED_RETAIL_PACKAGE",
       "measurements": [
         {
-          "scope": "research_gap",
-          "dimensionsMm": null,
-          "weightG": null,
+          "scope": "retail_package",
+          "dimensionsMm": [
+            85,
+            85,
+            210
+          ],
+          "weightG": 500,
+          "sourceType": "marketplace-retailer",
+          "sourceUrl": "https://www.bol.com/nl/nl/p/mami-milano-bloem-geurverspreider-fiori-di-loto-200ml-huisparfum-interieur-parfum-luxe-verpakking-geurstokjes-diffuser/9300000175781464/",
+          "identitySourceUrl": "https://www.ebay.it/itm/285586877522",
           "retrievedAt": "2026-10-02",
-          "note": "No reliable public full physical dimensions and total item/package weight were found for this exact current-stock SKU in the 2026-10-02 research pass. Keep blocked from inferred logistics dimensions; do not convert nominal volume to weight or borrow dimensions from a sibling SKU.",
-          "sourceType": "identity-source",
-          "sourceUrl": "https://www.ebay.it/itm/285586877522"
+          "note": "Exact EAN 8057143588522. Bol explicitly lists package height 21 cm, length 8.5 cm, width 8.5 cm and package weight 0.50 kg; eBay independently confirms exact EAN/product identity."
         }
       ]
     },
@@ -2539,14 +2546,21 @@
       "sku": "MF-REFILL.08",
       "barcode": "8057143585613",
       "brand": "MAMI MILANO",
-      "status": "NEEDS_SOURCE",
+      "status": "PARTIAL",
       "measurements": [
         {
-          "scope": "research_gap",
-          "dimensionsMm": null,
-          "weightG": null,
+          "scope": "product",
+          "dimensionsMm": [
+            50,
+            50,
+            150
+          ],
+          "weightG": 250,
+          "weightConfidence": "low",
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.gioielleriadurbano.it/ecommerce/articolo/dettaglio/ricarica-per-diffusore-per-ambiente-a-bastoncini-250ml-fragranza-34391?art_for_id=34391",
           "retrievedAt": "2026-10-02",
-          "note": "No reliable public full physical dimensions and total item/package weight were found for this exact current-stock SKU in the 2026-10-02 research pass. Keep blocked from inferred logistics dimensions; do not convert nominal volume to weight or borrow dimensions from a sibling SKU."
+          "note": "Exact barcode 8057143585613 and SKU MF-REFILL.08. Retailer reports L5 × W5 × H15 cm and item weight 250 g. Because reported weight equals nominal 250 ml, retain as low-confidence source-reported weight; not delivery-ready without independent weight confirmation."
         }
       ]
     },
@@ -2554,14 +2568,21 @@
       "sku": "MF-REFILL.12",
       "barcode": "8057143585651",
       "brand": "MAMI MILANO",
-      "status": "NEEDS_SOURCE",
+      "status": "PARTIAL",
       "measurements": [
         {
-          "scope": "research_gap",
-          "dimensionsMm": null,
-          "weightG": null,
+          "scope": "product",
+          "dimensionsMm": [
+            50,
+            50,
+            150
+          ],
+          "weightG": 250,
+          "weightConfidence": "low",
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.gioielleriadurbano.it/ecommerce/articolo/dettaglio/ricarica-per-diffusore-per-ambiente-a-bastoncini-250ml-fragranza-34400",
           "retrievedAt": "2026-10-02",
-          "note": "No reliable public full physical dimensions and total item/package weight were found for this exact current-stock SKU in the 2026-10-02 research pass. Keep blocked from inferred logistics dimensions; do not convert nominal volume to weight or borrow dimensions from a sibling SKU."
+          "note": "Exact barcode 8057143585651 and SKU MF-REFILL.12. Retailer reports L5 × W5 × H15 cm and item weight 250 g. Because reported weight equals nominal 250 ml, retain as low-confidence source-reported weight; not delivery-ready without independent weight confirmation."
         }
       ]
     },
@@ -2714,26 +2735,22 @@
       "sku": "BD500TFU",
       "barcode": "8058159964188",
       "brand": "TEATRO Fragranze Uniche",
-      "status": "CONFLICT",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
       "measurements": [
         {
-          "scope": "identity_only",
-          "dimensionsMm": null,
-          "weightG": null,
-          "sourceType": "retailer",
-          "sourceUrl": "https://zhor.com/products/bianco-divino-stick",
-          "retrievedAt": "2026-10-02",
-          "note": "1C record says Bianco Divino 500 ml with barcode 8058159964188, but external structured variants map 8058159964188 to 250 ml and 8058159964171 to 500 ml. Do not use dimensions/weight until barcode identity is corrected or independently confirmed."
-        },
-        {
-          "scope": "product_candidate_by_manufacturer_sku",
-          "productDiameterMm": 90,
-          "productHeightMm": 200,
+          "scope": "product_cylindrical",
+          "heightMm": 200,
+          "diameterMm": 90,
           "weightG": 600,
           "sourceType": "authorized-retailer",
           "sourceUrl": "https://www.teresapizzigallo.it/diffusori/48166-diffusore-bianco-divino-stick-500ml-teatro-fragranze-uniche.html",
+          "identitySourceUrls": [
+            "https://www.bjutip.com/bianco-divino-sticks-ml-500-home-fragrance-tfu-10-natural-bamboo-sticks-cm-36-included",
+            "https://beau2be.com/sk/brands/teatro-fragranze-uniche",
+            "https://rozetka.pl/dyfuzory-zapachowe-4639416/c4639416/producer%3Dteatro-fragranze/"
+          ],
           "retrievedAt": "2026-10-02",
-          "note": "Page names manufacturer SKU BD500TFU.23 and 500 ml, with Ø9 × H20 cm and 0.6 kg. Barcode conflict remains unresolved: ZHOR maps 8058159964188 to 250 ml while BJUTIP maps it to 500 ml, so these measurements are kept as SKU-tied candidate data only."
+          "note": "Manufacturer-SKU-tied 500 ml product page reports Ø9 × H20 cm and 0.6 kg. Three independent exact-EAN sources map 8058159964188 to Bianco Divino 500 ml; the earlier ZHOR variant mapping is treated as a catalog error/outlier and retained in research history, not as an active identity conflict."
         }
       ]
     },
@@ -3615,12 +3632,12 @@
   ],
   "summary": {
     "researchedRecords": 148,
-    "verifiedRetailPackage": 10,
-    "verifiedProductMeasurements": 47,
-    "partial": 73,
-    "conflict": 7,
-    "needsSource": 11,
+    "verifiedRetailPackage": 11,
+    "verifiedProductMeasurements": 48,
+    "partial": 76,
+    "conflict": 6,
+    "needsSource": 10,
     "shippingReady": 0,
-    "deliveryInputReady": 58
+    "deliveryInputReady": 60
   }
 }
