@@ -11,8 +11,8 @@
   },
   "counts": {
     "eligible": 148,
-    "ready": 57,
-    "needsMoreEvidence": 91
+    "ready": 58,
+    "needsMoreEvidence": 90
   },
   "records": [
     {
@@ -437,9 +437,20 @@
       "name": "Спрей для дома  The 100 мл",
       "brand": null,
       "barcode": "8050534795806",
-      "status": "NEEDS_SOURCE",
-      "deliveryInput": null,
-      "evidenceStatus": "PARTIAL"
+      "status": "READY_PRODUCT_DIMENSIONS",
+      "deliveryInput": {
+        "weightG": 380,
+        "lengthMm": 62,
+        "widthMm": 48,
+        "heightMm": 125,
+        "basis": "official_exact_product_dimensions_plus_explicit_shared_variant_family_weight",
+        "sources": [
+          "https://www.culti.com/en/spray-the-100ml-3646.html",
+          "https://www.mk2shop.com/en/culti-milano-home-fragrance-spray-the.html",
+          "https://fabrykaform.pl/culti-spray-zapachowy-culti-100-ml%2C131275"
+        ]
+      },
+      "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS"
     },
     {
       "sku": "465636",

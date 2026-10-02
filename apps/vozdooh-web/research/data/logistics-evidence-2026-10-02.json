@@ -1111,7 +1111,7 @@
       "sku": "46091",
       "barcode": "8050534795806",
       "brand": "CULTI MILANO",
-      "status": "PARTIAL",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
       "measurements": [
         {
           "scope": "product",
@@ -1125,8 +1125,35 @@
           "sourceUrl": "https://www.mk2shop.com/en/culti-milano-home-fragrance-spray-the.html",
           "retrievedAt": "2026-10-02",
           "note": "Exact EAN; complete product dimensions, no weight."
+        },
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            62,
+            48,
+            125
+          ],
+          "weightG": null,
+          "sourceType": "official-manufacturer",
+          "sourceUrl": "https://www.culti.com/en/spray-the-100ml-3646.html",
+          "retrievedAt": "2026-10-02",
+          "note": "Official CULTI Thé 100 ml spray page gives L62 × D48 × H125 mm."
+        },
+        {
+          "scope": "shared_variant_family_weight",
+          "dimensionsMm": [
+            56,
+            41,
+            115
+          ],
+          "weightG": 380,
+          "sourceType": "retailer-variant-family",
+          "sourceUrl": "https://fabrykaform.pl/culti-spray-zapachowy-culti-100-ml%2C131275",
+          "retrievedAt": "2026-10-02",
+          "note": "Fabryka Form explicitly lists Spray Culti Thé 100 ml among variants of the same 100 ml glass-bottle product family and publishes family product weight 0.38 kg. Exact Thé dimensions are independently confirmed by official CULTI and exact-EAN MK2/de-light pages."
         }
-      ]
+      ],
+      "resolutionNote": "Exact-EAN Thé identity and dimensions are independently confirmed; the 380 g total product weight comes from a retailer page that explicitly treats Thé as a variant of the same 100 ml glass-bottle product family."
     },
     {
       "sku": "465636",
@@ -3589,10 +3616,11 @@
   "summary": {
     "researchedRecords": 148,
     "verifiedRetailPackage": 10,
-    "verifiedProductMeasurements": 46,
-    "partial": 74,
+    "verifiedProductMeasurements": 47,
+    "partial": 73,
     "conflict": 7,
     "needsSource": 11,
-    "shippingReady": 0
+    "shippingReady": 0,
+    "deliveryInputReady": 58
   }
 }
