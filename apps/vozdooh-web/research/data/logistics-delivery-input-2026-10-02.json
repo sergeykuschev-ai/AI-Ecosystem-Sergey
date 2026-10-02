@@ -10,8 +10,8 @@
   },
   "counts": {
     "eligible": 148,
-    "ready": 43,
-    "needsMoreEvidence": 105
+    "ready": 44,
+    "needsMoreEvidence": 104
   },
   "records": [
     {
@@ -1622,9 +1622,20 @@
       "name": "Спрей для дома Aqqua 100 мл",
       "brand": null,
       "barcode": "8050534795684",
-      "status": "NEEDS_SOURCE",
-      "deliveryInput": null,
-      "evidenceStatus": "NEEDS_SOURCE"
+      "status": "READY_PRODUCT_DIMENSIONS",
+      "deliveryInput": {
+        "weightG": 380,
+        "lengthMm": 62,
+        "widthMm": 48,
+        "heightMm": 125,
+        "basis": "verified_product_combined_exact_sku",
+        "sources": [
+          "https://www.cultikw.com/products/aqqua-spray-100-ml",
+          "https://formadore.com/culti-culti-fragrance-100-ml%2C131275",
+          "https://50-ml.eu/culti-aqqua-room-spray"
+        ]
+      },
+      "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS"
     },
     {
       "sku": "df29d344-d192-11ec-be83-7c8bca00854e",

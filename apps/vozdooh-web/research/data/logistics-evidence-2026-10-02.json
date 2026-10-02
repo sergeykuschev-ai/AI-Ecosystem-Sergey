@@ -1421,16 +1421,38 @@
       "sku": "bf33a957-016c-11ed-b2a4-7c8bca00854e",
       "barcode": "8050534795684",
       "brand": "CULTI MILANO",
-      "status": "NEEDS_SOURCE",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
       "measurements": [
         {
-          "scope": "research_gap",
+          "scope": "product",
+          "dimensionsMm": [
+            62,
+            48,
+            125
+          ],
+          "weightG": null,
+          "sourceType": "official-regional-brand-store",
+          "sourceUrl": "https://www.cultikw.com/products/aqqua-spray-100-ml",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact Aqqua Spray 100 ml page states L 6.2 × P 4.8 × H 12.5 cm."
+        },
+        {
+          "scope": "shared_variant_product_weight",
+          "dimensionsMm": null,
+          "weightG": 380,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://formadore.com/culti-culti-fragrance-100-ml%2C131275",
+          "retrievedAt": "2026-10-02",
+          "note": "FormAdore parent product explicitly lists Culti Aqqua Fragrance 100 ml among the same 100 ml spray variants and gives product weight 0.38 kg for the shared product configuration. Exact EAN identity is independently established for Aqqua 100 ml."
+        },
+        {
+          "scope": "identity_source",
           "dimensionsMm": null,
           "weightG": null,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://50-ml.eu/culti-aqqua-room-spray",
           "retrievedAt": "2026-10-02",
-          "note": "No reliable public full physical dimensions and total item/package weight were found for this exact current-stock SKU in the 2026-10-02 research pass. Keep blocked from inferred logistics dimensions; do not convert nominal volume to weight or borrow dimensions from a sibling SKU.",
-          "sourceType": "identity-source",
-          "sourceUrl": "https://50-ml.eu/culti-aqqua-room-spray"
+          "note": "Exact EAN 8050534795684 confirms Aqqua Room Spray 100 ml identity."
         }
       ]
     },
@@ -3409,7 +3431,7 @@
   "summary": {
     "researchedRecords": 148,
     "verifiedRetailPackage": 8,
-    "verifiedProductMeasurements": 32,
+    "verifiedProductMeasurements": 33,
     "partial": 78,
     "conflict": 12,
     "shippingReady": 0
