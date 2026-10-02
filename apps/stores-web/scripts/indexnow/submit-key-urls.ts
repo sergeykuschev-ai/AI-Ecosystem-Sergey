@@ -1,6 +1,11 @@
 import { SEO_RECRAWL_PATHS } from "@/lib/seo/recrawl-paths";
 import { normalizeIndexNowUrls, submitChangedUrls } from "@/services/indexnow";
 
+function argument(name: string): string | undefined {
+  const index = process.argv.indexOf(name);
+  return index >= 0 ? process.argv[index + 1] : undefined;
+}
+
 async function main() {
   const shouldSubmit = process.argv.slice(2).includes("--submit");
   const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.SITE_URL;
@@ -9,8 +14,9 @@ async function main() {
     throw new Error("NEXT_PUBLIC_SITE_URL or SITE_URL must be configured");
   }
 
+  const requestedUrl = argument("--url");
   const urls = normalizeIndexNowUrls(
-    SEO_RECRAWL_PATHS,
+    requestedUrl ? [requestedUrl] : SEO_RECRAWL_PATHS,
     configuredSiteUrl,
   );
 
