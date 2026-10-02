@@ -11,8 +11,8 @@
   },
   "counts": {
     "eligible": 148,
-    "ready": 54,
-    "needsMoreEvidence": 94
+    "ready": 55,
+    "needsMoreEvidence": 93
   },
   "records": [
     {
@@ -74,9 +74,19 @@
       "name": "Dynastie Senteur Royale диффузор silver 500мл",
       "brand": null,
       "barcode": "8411299001364",
-      "status": "NEEDS_SOURCE",
-      "deliveryInput": null,
-      "evidenceStatus": "PARTIAL"
+      "status": "READY_PRODUCT_DIMENSIONS",
+      "deliveryInput": {
+        "weightG": 700,
+        "lengthMm": 140,
+        "widthMm": 130,
+        "heightMm": 300,
+        "basis": "exact_retail_package_dimensions_plus_exact_item_weight",
+        "sources": [
+          "https://www.brandsforless.com/en-kw/senteur-royale-luxury-reed-diffuser-500-ml/1895086/p/",
+          "https://pranahome.ru/product/senteur-royale-diffuzor-dynastie-collection-ladenac-milano"
+        ]
+      },
+      "evidenceStatus": "VERIFIED_RETAIL_PACKAGE"
     },
     {
       "sku": "08d97776-bb50-11ef-b425-ed110731e4f3",

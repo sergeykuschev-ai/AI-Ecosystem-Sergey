@@ -1912,7 +1912,7 @@
       "sku": "089864",
       "barcode": "8411299001364",
       "brand": "Ladenac Milano",
-      "status": "PARTIAL",
+      "status": "VERIFIED_RETAIL_PACKAGE",
       "measurements": [
         {
           "scope": "product_or_item_weight",
@@ -1922,6 +1922,19 @@
           "sourceUrl": "https://pranahome.ru/product/senteur-royale-diffuzor-dynastie-collection-ladenac-milano",
           "retrievedAt": "2026-10-02",
           "note": "Exact article; 0.7 kg listed, no dimensions."
+        },
+        {
+          "scope": "retail_package",
+          "dimensionsMm": [
+            140,
+            130,
+            300
+          ],
+          "weightG": null,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.brandsforless.com/en-kw/senteur-royale-luxury-reed-diffuser-500-ml/1895086/p/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact product identity Ladenac Senteur Royale Luxury Reed Diffuser 500 ml; retailer reports packaging dimensions 30 H × 14 L × 13 W cm. Exact EAN 8411299001364 and 0.7 kg item weight are independently recorded from PranaHome."
         }
       ]
     },
@@ -3555,9 +3568,9 @@
   ],
   "summary": {
     "researchedRecords": 148,
-    "verifiedRetailPackage": 8,
+    "verifiedRetailPackage": 9,
     "verifiedProductMeasurements": 40,
-    "partial": 77,
+    "partial": 76,
     "conflict": 12,
     "needsSource": 11,
     "shippingReady": 0
