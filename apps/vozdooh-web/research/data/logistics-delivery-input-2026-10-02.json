@@ -10,8 +10,8 @@
   },
   "counts": {
     "eligible": 148,
-    "ready": 49,
-    "needsMoreEvidence": 99
+    "ready": 51,
+    "needsMoreEvidence": 97
   },
   "records": [
     {
@@ -148,7 +148,7 @@
       "barcode": "8050534799088",
       "status": "NEEDS_SOURCE",
       "deliveryInput": null,
-      "evidenceStatus": "NEEDS_SOURCE"
+      "evidenceStatus": "PARTIAL"
     },
     {
       "sku": "12132",
@@ -1282,9 +1282,19 @@
       "name": "Аромадиффузор 250 мл Christian Tortu /TUBEROSE/ ТУБЕРОЗА",
       "brand": null,
       "barcode": "3420070002709",
-      "status": "NEEDS_SOURCE",
-      "deliveryInput": null,
-      "evidenceStatus": "PARTIAL"
+      "status": "READY_PRODUCT_DIMENSIONS",
+      "deliveryInput": {
+        "weightG": 454,
+        "lengthMm": 66,
+        "widthMm": 66,
+        "heightMm": 126,
+        "basis": "product_cylindrical",
+        "sources": [
+          "https://effie.store/products/christiantortu-batonaparfum",
+          "https://www.faire.com/product/p_u7tdjk9hgs"
+        ]
+      },
+      "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS"
     },
     {
       "sku": "N020316",
@@ -1480,9 +1490,19 @@
       "name": "Аромадиффузор 250 мл Christian Tortu /TOMATO LEAF/ ТОМАТНЫЙ ЛИСТ",
       "brand": null,
       "barcode": "3420070002914",
-      "status": "NEEDS_SOURCE",
-      "deliveryInput": null,
-      "evidenceStatus": "PARTIAL"
+      "status": "READY_PRODUCT_DIMENSIONS",
+      "deliveryInput": {
+        "weightG": 740,
+        "lengthMm": 66,
+        "widthMm": 66,
+        "heightMm": 126,
+        "basis": "product_cylindrical",
+        "sources": [
+          "https://effie.store/products/christiantortu-batonaparfum",
+          "https://www.ebay.com.au/itm/256923970719"
+        ]
+      },
+      "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS"
     },
     {
       "sku": "ORO500RTFU",

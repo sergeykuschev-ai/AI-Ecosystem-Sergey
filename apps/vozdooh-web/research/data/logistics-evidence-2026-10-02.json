@@ -29,7 +29,7 @@
       "sku": "121211",
       "barcode": "8050534799088",
       "brand": null,
-      "status": "NEEDS_SOURCE",
+      "status": "PARTIAL",
       "measurements": [
         {
           "scope": "research_gap",
@@ -37,6 +37,25 @@
           "weightG": null,
           "retrievedAt": "2026-10-02",
           "note": "No reliable public full physical dimensions and total item/package weight were found for this exact current-stock SKU in the 2026-10-02 research pass. Keep blocked from inferred logistics dimensions; do not convert nominal volume to weight or borrow dimensions from a sibling SKU."
+        },
+        {
+          "scope": "family_product_length",
+          "dimensionsMm": null,
+          "lengthMm": 345,
+          "weightG": null,
+          "sourceType": "official-manufacturer",
+          "sourceUrl": "https://www.culti.com/en/midollino-500ml.html",
+          "retrievedAt": "2026-10-02",
+          "note": "Official CULTI 500 ml rattan reeds page states H34.5 cm. Public page does not expose the exact 1C barcode, so this remains family-level partial evidence only."
+        },
+        {
+          "scope": "family_product_weight",
+          "dimensionsMm": null,
+          "weightG": 100,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://pranahome.ru/product/rotangovye-palochki-dlya-diffuzora-500-ml-culti-milano",
+          "retrievedAt": "2026-10-02",
+          "note": "Specialist retailer reports 100 g and 34.5 cm for CULTI 500 ml rattan reeds, but public article code differs from the 1C barcode. Keep as family-level evidence, not ready."
         }
       ]
     },
@@ -1787,7 +1806,7 @@
       "sku": "N020291",
       "barcode": "3420070002709",
       "brand": "Christian Tortu",
-      "status": "PARTIAL",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
       "measurements": [
         {
           "scope": "product_and_retail_box_dimensions",
@@ -1813,6 +1832,17 @@
           "sourceUrl": "https://www.faire.com/product/p_u7tdjk9hgs",
           "retrievedAt": "2026-10-02",
           "note": "Exact Tuberose 250 ml product listing reports 453.59 g (1 lb). Weight scope is not explicitly retail package, so rounded to 454 g and retained separately."
+        },
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 126,
+          "diameterMm": 66,
+          "weightG": 454,
+          "sourceType": "combined-exact-sku-evidence",
+          "sourceUrl": "https://effie.store/products/christiantortu-batonaparfum",
+          "weightSourceUrl": "https://www.faire.com/product/p_u7tdjk9hgs",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact variant product body dimensions from Christian Tortu distributor page combined with exact-SKU/EAN item weight from independent listing. Owner-approved rule accepts verified product dimensions + weight without outer shipping-box measurements."
         }
       ]
     },
@@ -1820,7 +1850,7 @@
       "sku": "N020713",
       "barcode": "3420070002914",
       "brand": "Christian Tortu",
-      "status": "PARTIAL",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
       "measurements": [
         {
           "scope": "product_or_item_weight",
@@ -1846,6 +1876,17 @@
           "identitySourceUrl": "https://profumeriadellafarmacia.it/shop/ambiente/feuille-de-tomate-fragrance-diffuser-diffusore-250ml/",
           "retrievedAt": "2026-10-02",
           "note": "Official Japanese Christian Tortu collection page gives body Φ66×H126 and outer box W93×D93×H240 for all six 250 ml variants including Feuille de Tomate. Exact EAN 3420070002914 independently confirmed."
+        },
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 126,
+          "diameterMm": 66,
+          "weightG": 740,
+          "sourceType": "combined-exact-sku-evidence",
+          "sourceUrl": "https://effie.store/products/christiantortu-batonaparfum",
+          "weightSourceUrl": "https://www.ebay.com.au/itm/256923970719",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact variant product body dimensions from Christian Tortu distributor page combined with exact-SKU/EAN item weight from independent listing. Owner-approved rule accepts verified product dimensions + weight without outer shipping-box measurements."
         }
       ]
     },
@@ -3515,9 +3556,10 @@
   "summary": {
     "researchedRecords": 148,
     "verifiedRetailPackage": 8,
-    "verifiedProductMeasurements": 38,
-    "partial": 78,
+    "verifiedProductMeasurements": 40,
+    "partial": 77,
     "conflict": 12,
+    "needsSource": 11,
     "shippingReady": 0
   }
 }

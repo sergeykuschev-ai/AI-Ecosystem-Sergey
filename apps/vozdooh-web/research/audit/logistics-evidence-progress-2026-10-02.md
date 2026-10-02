@@ -7,11 +7,11 @@ This file records public-source measurements for exact current-stock SKUs. It de
 - Eligible current positive-stock SKUs: 148.
 - Researched exact-SKU records in this evidence batch: 148 of 148.
 - Explicit full retail-package evidence: 8.
-- Full product-measurement evidence (not retail package): 38.
-- Partial evidence: 78.
+- Full product-measurement evidence (not retail package): 40.
+- Partial evidence: 77.
 - Conflicts preserved for manual resolution: 12.
-- NEEDS_SOURCE after the current public-source pass: 12.
-- Delivery-input ready records under the owner-approved rule (verified product dimensions + weight are sufficient): **49**. Outer VOZDOOH box / protection / filler is not required for dataset readiness.
+- NEEDS_SOURCE after the current public-source pass: 11.
+- Delivery-input ready records under the owner-approved rule (verified product dimensions + weight are sufficient): **51**. Outer VOZDOOH box / protection / filler is not required for dataset readiness.
 
 ## Safety rule
 
@@ -25,4 +25,4 @@ Exact products with verified full product dimensions and total weight can be use
 
 ## Next research queue
 
-All 148 current positive-stock SKUs have now been triaged against public sources. Continue deeper exact-SKU research on the 18 NEEDS_SOURCE records and resolve the 12 identity/measurement conflicts; also upgrade PARTIAL records where a full weight or missing dimension can be verified. Under the owner-approved rule, a SKU may enter the delivery-input dataset once it has verified full dimensions and weight with no unresolved identity conflict.
+All 148 current positive-stock SKUs have now been triaged against public sources. Continue deeper exact-SKU research on the 11 NEEDS_SOURCE records and resolve the 12 identity/measurement conflicts; also upgrade PARTIAL records where a full weight or missing dimension can be verified. Under the owner-approved rule, a SKU may enter the delivery-input dataset once it has verified full dimensions and weight with no unresolved identity conflict.
