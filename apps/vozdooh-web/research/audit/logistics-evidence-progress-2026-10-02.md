@@ -5,16 +5,16 @@ This file records public-source measurements for exact current-stock SKUs. It de
 ## Progress
 
 - Eligible current positive-stock SKUs: 148.
-- Researched exact-SKU records in this evidence batch: 74.
+- Researched exact-SKU records in this evidence batch: 120.
 - Explicit full retail-package evidence: 8.
-- Full product-measurement evidence (not retail package): 19.
-- Partial evidence: 36.
-- Conflicts preserved for manual resolution: 11.
-- Production shipping-ready records: 0. Outer VOZDOOH box / protection / filler is not yet measured.
+- Full product-measurement evidence (not retail package): 22.
+- Partial evidence: 77.
+- Conflicts preserved for manual resolution: 13.
+- Delivery-input ready records under the owner-approved rule (verified product dimensions + weight are sufficient): **28**. Outer VOZDOOH box / protection / filler is not required for dataset readiness.
 
 ## Safety rule
 
-Do not convert ml to grams. Do not invent a missing third dimension. Do not copy dimensions from a similar fragrance/format to another EAN unless a source explicitly establishes shared packaging. Product dimensions and a retailer's original retail package do **not** become Ozon parcel dimensions automatically.
+Do not convert ml to grams. Do not invent a missing third dimension. Do not copy dimensions from a similar fragrance/format to another EAN unless a source explicitly establishes shared packaging. Verified exact-SKU product dimensions and weight are accepted as delivery input by owner decision. Volume is still never converted to weight, missing dimensions are never invented, and conflicts remain blocked.
 
 ## Strongest current evidence
 
@@ -24,4 +24,4 @@ Several exact products have strong product measurements but no proven retail-pac
 
 ## Next research queue
 
-Continue exact-EAN research for the remaining 74 SKUs, prioritising Culti missing variants, TEATRO, MAMI MILANO, Ladenac, Christian Tortu, Lothantique and AROMAgroup. In parallel, define and physically verify the small set of VOZDOOH outer-box profiles; only then can product/package evidence be converted into safe parcel dimensions for Ozon checkout.
+Continue exact-EAN research for the remaining 28 SKUs, prioritising Culti missing variants, TEATRO, MAMI MILANO, Ladenac, Christian Tortu, Lothantique and AROMAgroup. Outer-box measurement is no longer a prerequisite. Continue exact-SKU research for unresolved products; once a SKU has verified full dimensions and weight with no conflict, it may enter the delivery-input dataset.
