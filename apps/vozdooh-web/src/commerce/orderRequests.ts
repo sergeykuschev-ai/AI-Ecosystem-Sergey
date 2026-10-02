@@ -17,7 +17,7 @@ export type OrderRequest = {
   currency: 'RUB'
   status: 'request_received'
   payment?: { provider: 'ozon'; paymentId: string; extId: string; redirectUrl: string; createdAt: string; status: 'PAYMENT_NEW' | 'PAID'; paidAt?: string }
-  deliveryOrder?: { provider: 'ozon'; idempotencyKey: string; status: 'pending' | 'created'; orderNumber?: string; createdAt?: string }
+  deliveryOrder?: { provider: 'ozon'; idempotencyKey: string; status: 'pending' | 'created'; orderNumber?: string; postingNumber?: string; createdAt?: string }
   consentVersion: 'request-contact-v1'
   marketingConsentVersion?: 'email-marketing-v1'
 }
@@ -62,7 +62,9 @@ export function validateStoredRequest(value: unknown, key: string): OrderRequest
       const delivery = object(record.deliveryOrder)
       if (delivery.provider !== 'ozon' || !['pending', 'created'].includes(String(delivery.status)) ||
           typeof delivery.idempotencyKey !== 'string' || !/^[0-9a-f-]{36}$/i.test(delivery.idempotencyKey) ||
-          (delivery.status === 'created' && (typeof delivery.orderNumber !== 'string' || !delivery.orderNumber))) throw new Error()
+          (delivery.postingNumber !== undefined && (typeof delivery.postingNumber !== 'string' || !delivery.postingNumber)) ||
+          (delivery.createdAt !== undefined && (typeof delivery.createdAt !== 'string' || !Number.isFinite(Date.parse(delivery.createdAt)))) ||
+          (delivery.status === 'created' && (typeof delivery.orderNumber !== 'string' || !delivery.orderNumber || typeof delivery.createdAt !== 'string'))) throw new Error()
     }
     if (record.payment !== undefined) {
       const payment = object(record.payment)

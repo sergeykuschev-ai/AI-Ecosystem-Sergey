@@ -405,3 +405,12 @@ decision to lift noindex/robots disallow.
 - Full verification passed before release (88 app tests, 2 exchange tests, 9 Python tests, typecheck, lint and production build); focused email/order tests also pass after the consent update.
 - Delivery-created/ready/completed/cancelled/refunded email templates exist, but delivery-state events must only fire once the corresponding Ozon delivery lifecycle is persisted.
 - Promotional campaign sending remains a separate post-launch backlog task; no advertising emails are sent by this rollout.
+
+## Ozon Delivery Business pricing/creation foundation — 2026-10-02
+- Added a read-only Business API adapter for `/v1/order/checkout` plus read methods for posting info/status history.
+- Added strict checkout payload construction from the already selected PVZ/method, order value and explicit parcel dimensions; no dimensions are guessed.
+- Added a read-only quote CLI. A controlled live quote against the already-paid N020408 test order succeeded using the exact externally-reported retail-package dimensions only as an experiment: 92 ₽ delivery + 10 ₽ insurance = 102 ₽, estimated 3 days. This is NOT a production shipping quote because outer VOZDOOH packing is not yet verified.
+- Added guarded shipment-creation code: requires a PAID order, persists a UUID idempotency key before the provider mutation, stores Ozon order/posting numbers, and queues the existing `delivery_created` email. No production code calls this mutation yet.
+- Ozon order creation remains fail-closed by default (`allowMutations=false`). No real shipment was created in this pass.
+- Added 148-SKU real logistics research seed generated from the current staged 1C snapshot with prices and stock quantities omitted, and requeued GitHub issue #204 against that exact seed.
+- Validation: full app suite reached 96/96 PASS before the TypeScript narrowing fix; after the fix the focused Ozon suite is 23/23 PASS, typecheck PASS, lint PASS and isolated production build PASS.

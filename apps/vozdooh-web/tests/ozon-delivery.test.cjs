@@ -90,6 +90,21 @@ test('client sends Bearer auth only for OAuth config', async () => {
   assert.equal(calls[0].options.body, JSON.stringify({ client_phone: '79005550100' }))
 })
 
+test('Business Delivery read methods use exact checkout and posting endpoints without mutation opt-in', async () => {
+  const { impl, calls } = fakeFetch(async () => Response.json({ ok: true }))
+  const client = createOzonClient({ ...baseConfig, baseUrl: 'https://api-delivery.ozon.ru', auth: { type: 'oauth', token: 'oauth-secret' } }, { fetchImpl: impl })
+  const checkout = { recipient: { phone_number: '+79005550100' }, postings: [], delivery: {} }
+  await client.checkoutOrder(checkout)
+  await client.getPostingInfo({ posting_number: 'test-1' })
+  await client.getPostingStatusHistory({ posting_number: 'test-1' })
+  assert.deepEqual(calls.map((call) => call.url), [
+    'https://api-delivery.ozon.ru/v1/order/checkout',
+    'https://api-delivery.ozon.ru/v1/posting/info',
+    'https://api-delivery.ozon.ru/v1/posting/status-history',
+  ])
+  assert.equal(calls[0].options.body, JSON.stringify(checkout))
+})
+
 test('client maps upstream Ozon errors without retrying auth/validation failures', async () => {
   const { impl, calls } = fakeFetch(async () => Response.json({ code: 7, message: 'method is not allowed' }, { status: 403 }))
   const client = createOzonClient({ ...baseConfig, auth: { type: 'api-key', clientId: 'id', apiKey: 'secret-key' } }, { fetchImpl: impl })
@@ -132,12 +147,16 @@ test('mutating order creation is refused by default without any network call', a
   assert.equal(calls.length, 0)
 })
 
-test('mutating order creation can be exercised only with an explicit in-memory opt-in', async () => {
+test('mutating order creation can be exercised only with an explicit in-memory opt-in and stable idempotency key', async () => {
   const { impl, calls } = fakeFetch(async () => Response.json({ order_number: '1000-1', postings: [] }))
   const client = createOzonClient({ ...baseConfig, allowMutations: true, auth: { type: 'api-key', clientId: 'id', apiKey: 'key' } }, { fetchImpl: impl })
-  const result = await client.createOrder({ buyer: {}, delivery: {}, delivery_schema: 'MIX', recipient: {}, splits: [] })
+  const key = '11111111-2222-4333-8444-555555555555'
+  const result = await client.createOrder({ buyer: {}, delivery: {}, delivery_schema: 'MIX', recipient: {}, splits: [] }, key)
   assert.deepEqual(result, { order_number: '1000-1', postings: [] })
   assert.equal(calls[0].url, 'https://api-seller.ozon.ru/v1/order/create')
+  assert.equal(calls[0].options.headers['Idempotency-Key'], key)
+  assert.throws(() => client.createOrder({}, 'not-a-uuid'), /OZON_IDEMPOTENCY_KEY_INVALID/)
+  assert.equal(calls.length, 1)
 })
 
 function routeRequest(body, origin = 'http://vozdooh.test', host = 'vozdooh.test') {

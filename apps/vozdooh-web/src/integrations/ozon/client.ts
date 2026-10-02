@@ -63,7 +63,7 @@ export function createOzonClient(config: OzonClientConfig, options: { fetchImpl?
     return new OzonApiError(status, ozonCode, redact(message))
   }
 
-  async function call(path: string, body: unknown, kind: 'read' | 'mutating'): Promise<unknown> {
+  async function call(path: string, body: unknown, kind: 'read' | 'mutating', extraHeaders: Record<string, string> = {}): Promise<unknown> {
     if (kind === 'mutating' && !config.allowMutations) throw new OzonMutationDisabledError()
     const payload = JSON.stringify(body)
     for (let attempt = 1; attempt <= config.maxAttempts; attempt++) {
@@ -71,7 +71,7 @@ export function createOzonClient(config: OzonClientConfig, options: { fetchImpl?
       const timer = setTimeout(() => controller.abort(), config.timeoutMs)
       try {
         const url = `${config.baseUrl}${path}`
-        let requestHeaders = headers()
+        let requestHeaders = { ...headers(), ...extraHeaders }
         let response = await fetchImpl(url, {
           method: 'POST', headers: requestHeaders, body: payload, signal: controller.signal, redirect: 'manual',
         })
@@ -151,8 +151,11 @@ export function createOzonClient(config: OzonClientConfig, options: { fetchImpl?
       return call('/v1/posting/status-history', request, 'read')
     },
     /** Ozon Delivery order creation. Refused by default; never exposed over HTTP. */
-    createOrder(request: unknown): Promise<unknown> {
-      return call('/v1/order/create', request, 'mutating')
+    createOrder(request: unknown, idempotencyKey?: string): Promise<unknown> {
+      if (idempotencyKey !== undefined && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(idempotencyKey)) {
+        throw new OzonApiError(0, null, 'OZON_IDEMPOTENCY_KEY_INVALID')
+      }
+      return call('/v1/order/create', request, 'mutating', idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {})
     },
   }
 }
