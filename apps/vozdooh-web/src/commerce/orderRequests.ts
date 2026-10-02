@@ -16,11 +16,16 @@ export type OrderRequest = {
   totalMinor: number
   currency: 'RUB'
   status: 'request_received'
+  payment?: { provider: 'ozon'; paymentId: string; extId: string; redirectUrl: string; createdAt: string; status: 'PAYMENT_NEW' | 'PAID'; paidAt?: string }
+  deliveryOrder?: { provider: 'ozon'; idempotencyKey: string; status: 'pending' | 'created'; orderNumber?: string; createdAt?: string }
   consentVersion: 'request-contact-v1'
+  marketingConsentVersion?: 'email-marketing-v1'
 }
 export interface OrderRequestStore {
   find(key: string): Promise<OrderRequest | null>
   save(request: OrderRequest): Promise<OrderRequest>
+  findById(id: string): Promise<OrderRequest | null>
+  replace(request: OrderRequest): Promise<OrderRequest>
 }
 
 function object(value: unknown): Record<string, unknown> {
@@ -36,6 +41,8 @@ export function validateStoredRequest(value: unknown, key: string): OrderRequest
     if (record.version !== 1 || input.retryKey !== key || record.fingerprint !== fingerprint ||
         record.catalogSource !== 'staged-1c' || record.status !== 'request_received' ||
         record.currency !== 'RUB' || record.consentVersion !== 'request-contact-v1' ||
+        (record.marketingConsentVersion !== undefined && record.marketingConsentVersion !== 'email-marketing-v1') ||
+        (input.marketingConsent === true) !== (record.marketingConsentVersion === 'email-marketing-v1') ||
         typeof record.id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(record.id) ||
         typeof record.createdAt !== 'string' || !Number.isFinite(Date.parse(record.createdAt)) ||
         !Array.isArray(record.lines) || record.lines.length !== input.lines.length) throw new Error()
@@ -51,6 +58,20 @@ export function validateStoredRequest(value: unknown, key: string): OrderRequest
       total += line.totalMinor as number
     })
     if (!Number.isSafeInteger(total) || total !== record.totalMinor) throw new Error()
+    if (record.deliveryOrder !== undefined) {
+      const delivery = object(record.deliveryOrder)
+      if (delivery.provider !== 'ozon' || !['pending', 'created'].includes(String(delivery.status)) ||
+          typeof delivery.idempotencyKey !== 'string' || !/^[0-9a-f-]{36}$/i.test(delivery.idempotencyKey) ||
+          (delivery.status === 'created' && (typeof delivery.orderNumber !== 'string' || !delivery.orderNumber))) throw new Error()
+    }
+    if (record.payment !== undefined) {
+      const payment = object(record.payment)
+      if (payment.provider !== 'ozon' || !['PAYMENT_NEW', 'PAID'].includes(String(payment.status)) ||
+          typeof payment.paymentId !== 'string' || !payment.paymentId || typeof payment.extId !== 'string' || !payment.extId ||
+          typeof payment.redirectUrl !== 'string' || !/^https:\/\//.test(payment.redirectUrl) ||
+          typeof payment.createdAt !== 'string' || !Number.isFinite(Date.parse(payment.createdAt)) ||
+          (payment.status === 'PAID' && (typeof payment.paidAt !== 'string' || !Number.isFinite(Date.parse(payment.paidAt))))) throw new Error()
+    }
     return record as OrderRequest
   } catch {
     // Do not include stored contact fields or parsing errors in diagnostics.
@@ -84,6 +105,6 @@ export async function acceptOrderRequest(value: unknown, dependencies: {
   })
   const totalMinor = lines.reduce((sum, line) => sum + line.totalMinor, 0)
   if (!Number.isSafeInteger(totalMinor)) throw new RequestError('TOTAL_TOO_LARGE')
-  const request: OrderRequest = { version: 1, id: randomUUID(), createdAt: new Date().toISOString(), fingerprint, input, catalogSource: 'staged-1c', lines, totalMinor, currency: 'RUB', status: 'request_received', consentVersion: 'request-contact-v1' }
+  const request: OrderRequest = { version: 1, id: randomUUID(), createdAt: new Date().toISOString(), fingerprint, input, catalogSource: 'staged-1c', lines, totalMinor, currency: 'RUB', status: 'request_received', consentVersion: 'request-contact-v1', ...(input.marketingConsent === true ? { marketingConsentVersion: 'email-marketing-v1' as const } : {}) }
   return receipt(await dependencies.store.save(request))
 }

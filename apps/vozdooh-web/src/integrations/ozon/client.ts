@@ -15,7 +15,7 @@ export class OzonMutationDisabledError extends Error {
   constructor() { super('OZON_MUTATIONS_DISABLED') }
 }
 
-type FetchArguments = [string, { method: string; headers: Record<string, string>; body: string; signal: AbortSignal }]
+type FetchArguments = [string, { method: string; headers: Record<string, string>; body: string; signal: AbortSignal; redirect?: RequestRedirect }]
 export type OzonFetch = (...args: FetchArguments) => Promise<Response>
 export type OzonLogger = (line: string) => void
 
@@ -70,9 +70,25 @@ export function createOzonClient(config: OzonClientConfig, options: { fetchImpl?
       const controller = new AbortController()
       const timer = setTimeout(() => controller.abort(), config.timeoutMs)
       try {
-        const response = await fetchImpl(`${config.baseUrl}${path}`, {
-          method: 'POST', headers: headers(), body: payload, signal: controller.signal,
+        const url = `${config.baseUrl}${path}`
+        let requestHeaders = headers()
+        let response = await fetchImpl(url, {
+          method: 'POST', headers: requestHeaders, body: payload, signal: controller.signal, redirect: 'manual',
         })
+        if (response.status === 302 || response.status === 307) {
+          const location = response.headers.get('location')
+          const setCookie = response.headers.get('set-cookie')
+          if (!location || !setCookie) throw new OzonApiError(response.status, null, 'OZON_REDIRECT_INVALID')
+          const next = new URL(location, url)
+          const origin = new URL(config.baseUrl).origin
+          if (next.origin !== origin) throw new OzonApiError(response.status, null, 'OZON_REDIRECT_ORIGIN_REJECTED')
+          const cookie = setCookie.split(';', 1)[0]
+          requestHeaders = { ...requestHeaders, Cookie: cookie }
+          response = await fetchImpl(next.toString(), {
+            method: 'POST', headers: requestHeaders, body: payload, signal: controller.signal, redirect: 'manual',
+          })
+          if (response.status === 302 || response.status === 307) throw new OzonApiError(response.status, null, 'OZON_REDIRECT_LOOP')
+        }
         if ((response.status === 429 || response.status >= 500) && attempt < config.maxAttempts) {
           logger?.(`ozon ${path} http=${response.status} attempt=${attempt} retry`)
           await delay(config.retryBaseMs * 2 ** (attempt - 1))
@@ -109,8 +125,12 @@ export function createOzonClient(config: OzonClientConfig, options: { fetchImpl?
       return call('/v2/delivery/checkout', request, 'read')
     },
     /** Ozon Delivery section: all pickup points (coordinates and map point ids only). */
-    getPickupPoints(): Promise<unknown> {
-      return call('/v1/delivery/point/list', {}, 'read')
+    getPickupPoints(cursor: string | null = null, limit = 100): Promise<unknown> {
+      return call('/v1/delivery-point/list', { pagination: { cursor, limit } }, 'read')
+    },
+    /** Detailed pickup-point metadata for up to 100 point ids. */
+    getPickupPointInfo(deliveryPointIds: number[]): Promise<unknown> {
+      return call('/v1/delivery-point/info', { delivery_point_ids: deliveryPointIds }, 'read')
     },
     /** Marketplace posting status reads shared by the Ozon Delivery order flow. */
     listFboPostings(filter: PostingListFilter): Promise<unknown> {
@@ -119,9 +139,20 @@ export function createOzonClient(config: OzonClientConfig, options: { fetchImpl?
     listFbsPostings(filter: PostingListFilter): Promise<unknown> {
       return call('/v3/posting/fbs/list', { dir: 'ASC', filter: { since: filter.since, to: filter.to }, limit: 100 }, 'read')
     },
+    /** Ozon Delivery for Business: side-effect-free checkout quote for a prepared parcel/order. */
+    checkoutOrder(request: unknown): Promise<unknown> {
+      return call('/v1/order/checkout', request, 'read')
+    },
+    /** Ozon Delivery for Business: posting details and status history. */
+    getPostingInfo(request: unknown): Promise<unknown> {
+      return call('/v1/posting/info', request, 'read')
+    },
+    getPostingStatusHistory(request: unknown): Promise<unknown> {
+      return call('/v1/posting/status-history', request, 'read')
+    },
     /** Ozon Delivery order creation. Refused by default; never exposed over HTTP. */
     createOrder(request: unknown): Promise<unknown> {
-      return call('/v2/order/create', request, 'mutating')
+      return call('/v1/order/create', request, 'mutating')
     },
   }
 }

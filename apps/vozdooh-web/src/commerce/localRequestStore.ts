@@ -1,4 +1,4 @@
-import { mkdir, open, readFile, link, unlink } from 'node:fs/promises'
+import { mkdir, open, readFile, link, unlink, rename } from 'node:fs/promises'
 import { resolve, join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { RequestError, validateStoredRequest, type OrderRequest, type OrderRequestStore } from './orderRequests'
@@ -22,6 +22,38 @@ export function localRequestStore(directory = resolve('.local/order-requests')):
   }
   return {
     find,
+    async findById(id) {
+      if (!/^[0-9a-f-]{36}$/i.test(id)) throw new RequestError('INVALID_REQUEST_ID')
+      try {
+        const names = await import('node:fs/promises').then((fs) => fs.readdir(directory))
+        for (const name of names) {
+          if (!name.endsWith('.json')) continue
+          const key = name.slice(0, -5)
+          const record = await find(key)
+          if (record?.id === id) return record
+        }
+        return null
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
+        throw error
+      }
+    },
+    async replace(request) {
+      await mkdir(directory, { recursive: true, mode: 0o700 })
+      const destination = path(request.input.retryKey)
+      const temporary = join(directory, `.${randomUUID()}.tmp`)
+      const handle = await open(temporary, 'wx', 0o600)
+      try {
+        await handle.writeFile(JSON.stringify(request)); await handle.sync(); await handle.close()
+        await rename(temporary, destination)
+        const folder = await open(directory, 'r'); try { await folder.sync() } finally { await folder.close() }
+        return request
+      } catch (error) {
+        try { await handle.close() } catch {}
+        try { await unlink(temporary) } catch {}
+        throw error
+      }
+    },
     async save(request) {
       await mkdir(directory, { recursive: true, mode: 0o700 })
       const temporary = join(directory, `.${randomUUID()}.tmp`)

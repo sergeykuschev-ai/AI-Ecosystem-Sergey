@@ -1,8 +1,9 @@
 import { resolve } from 'node:path'
 import { catalogSource } from '../../../src/catalog/source'
 import { readStagedCatalog } from '../../../src/catalog/localStore'
-import { acceptOrderRequest, RequestError } from '../../../src/commerce/orderRequests'
+import { acceptOrderRequest, parseRequest, RequestError } from '../../../src/commerce/orderRequests'
 import { localRequestStore } from '../../../src/commerce/localRequestStore'
+import { queueOrderMail } from '../../../src/commerce/orderMail'
 
 export const runtime = 'nodejs'
 const headers = { 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow' }
@@ -35,10 +36,14 @@ export async function POST(request: Request) {
     }
     let value: unknown
     try { value = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks))) } catch { throw new RequestError('INVALID_JSON', 400) }
+    parseRequest(value, { requireEmail: true })
+    const store = localRequestStore(resolve(/* turbopackIgnore: true */ process.env.ORDER_REQUEST_STORE_PATH ?? '.local/order-requests'))
     const result = await acceptOrderRequest(value, {
       readCatalog: () => readStagedCatalog(resolve(/* turbopackIgnore: true */ process.env.ONEC_LOCAL_CATALOG_PATH ?? '.local/onec-catalog.json')),
-      store: localRequestStore(),
+      store,
     })
+    const order = await store.findById(result.id)
+    if (order) await queueOrderMail(order, 'request_received').catch(() => console.error('ORDER_MAIL_QUEUE_FAILED'))
     return Response.json(result, { status: 201, headers })
   } catch (error) {
     if (error instanceof RequestError) return Response.json({ code: error.code }, { status: error.status, headers })

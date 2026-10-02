@@ -73,12 +73,12 @@ test('client posts JSON with Api-Key auth headers and returns parsed JSON', asyn
   const result = await client.getPickupPoints()
   assert.deepEqual(result, { points: [{ map_point_id: 1 }] })
   assert.equal(calls.length, 1)
-  assert.equal(calls[0].url, 'https://api-seller.ozon.ru/v1/delivery/point/list')
+  assert.equal(calls[0].url, 'https://api-seller.ozon.ru/v1/delivery-point/list')
   assert.equal(calls[0].options.method, 'POST')
   assert.equal(calls[0].options.headers['Client-Id'], '2861077')
   assert.equal(calls[0].options.headers['Api-Key'], 'secret-key')
   assert.equal(calls[0].options.headers['Content-Type'], 'application/json')
-  assert.equal(calls[0].options.body, '{}')
+  assert.equal(calls[0].options.body, JSON.stringify({ pagination: { cursor: null, limit: 100 } }))
 })
 
 test('client sends Bearer auth only for OAuth config', async () => {
@@ -137,7 +137,7 @@ test('mutating order creation can be exercised only with an explicit in-memory o
   const client = createOzonClient({ ...baseConfig, allowMutations: true, auth: { type: 'api-key', clientId: 'id', apiKey: 'key' } }, { fetchImpl: impl })
   const result = await client.createOrder({ buyer: {}, delivery: {}, delivery_schema: 'MIX', recipient: {}, splits: [] })
   assert.deepEqual(result, { order_number: '1000-1', postings: [] })
-  assert.equal(calls[0].url, 'https://api-seller.ozon.ru/v2/order/create')
+  assert.equal(calls[0].url, 'https://api-seller.ozon.ru/v1/order/create')
 })
 
 function routeRequest(body, origin = 'http://vozdooh.test', host = 'vozdooh.test') {
@@ -189,39 +189,12 @@ test('pickup points route reports missing secrets without exposing paths or cont
   assert.equal(body.code, 'OZON_CLIENT_ID_UNAVAILABLE')
 })
 
-test('pickup points route proxies the point list when enabled and configured', async () => {
+test('pickup points route requires OAuth client credentials when enabled', async () => {
   process.env.OZON_DELIVERY_ENABLED = 'true'
-  process.env.OZON_CLIENT_ID_FILE = secretFixture('2861077')
-  process.env.OZON_API_KEY_FILE = secretFixture('route-key')
-  const originalFetch = globalThis.fetch
-  const calls = []
-  globalThis.fetch = async (url, options) => {
-    calls.push({ url, options })
-    assert.equal(options.headers['Api-Key'], 'route-key')
-    return Response.json({ points: [{ map_point_id: 7, coordinate: { lat: 48.48, long: 135.08 } }] })
-  }
-  try {
-    const response = await pickupPointsRoute.POST(routeRequest({}))
-    assert.equal(response.status, 200)
-    assert.equal(response.headers.get('cache-control'), 'no-store')
-    assert.deepEqual(await response.json(), { points: [{ map_point_id: 7, coordinate: { lat: 48.48, long: 135.08 } }] })
-    assert.equal(calls[0].url, 'https://api-seller.ozon.ru/v1/delivery/point/list')
-  } finally {
-    globalThis.fetch = originalFetch
-  }
-})
-
-test('pickup points route sanitizes upstream failures', async () => {
-  process.env.OZON_DELIVERY_ENABLED = 'true'
-  process.env.OZON_CLIENT_ID_FILE = secretFixture('2861077')
-  process.env.OZON_API_KEY_FILE = secretFixture('route-key')
-  const originalFetch = globalThis.fetch
-  globalThis.fetch = async () => Response.json({ code: 7, message: 'method is not allowed' }, { status: 403 })
-  try {
-    const response = await pickupPointsRoute.POST(routeRequest({}))
-    assert.equal(response.status, 502)
-    assert.deepEqual(await response.json(), { code: 'OZON_UPSTREAM_ERROR', ozonCode: 7 })
-  } finally {
-    globalThis.fetch = originalFetch
-  }
+  delete process.env.OZON_OAUTH_CLIENT_ID_FILE
+  delete process.env.OZON_OAUTH_CLIENT_SECRET_FILE
+  const response = await pickupPointsRoute.POST(routeRequest({ query: 'Хабаровск' }))
+  assert.equal(response.status, 503)
+  const body = await response.json()
+  assert.match(body.code, /^OZON_/)
 })

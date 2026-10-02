@@ -387,3 +387,21 @@ performed (running production listener is root-owned; procedure not unambiguousl
 Exact photos (or 1C removal) for 3 hidden SKUs; 2 missing barcodes (only 1C can supply);
 Metrica counter ID; seller requisites (ИНН/ОГРНИП/address); delivery/payment terms; the
 decision to lift noindex/robots disallow.
+
+### Backlog after transactional email launch — 2026-10-02
+- Build the separate VOZDOOH promotional email system only after order-status emails are stable.
+- Reuse customer emails collected at checkout only when `marketingConsentVersion=email-marketing-v1` is present; never treat service-email consent as marketing consent.
+- Add audience export/segmentation for future CRM and campaigns, consent timestamp/version auditing, and an unsubscribe mechanism before the first promotional send.
+- Keep this task separate from the current Ozon Pay / order-status notification rollout so it cannot block launch.
+
+## Transactional email rollout — 2026-10-02
+- Checkout now requires a valid customer email for service notifications.
+- Marketing consent is a separate optional checkbox; it is persisted as `marketingConsentVersion=email-marketing-v1` and is not inferred from order/service consent.
+- Order creation queues an idempotent `request_received` email; paid-order reconciliation queues `payment_confirmed`.
+- Durable email outbox and retry/backoff processing run in the dedicated `vozdooh-commerce-worker`.
+- Production SMTP relay `vozdooh-mail-relay` is isolated from the public network for inbound use and relays outbound mail as `orders@vozdooh27.ru`.
+- Live SMTP verification to `vozdooh.kms@yandex.ru` was accepted by Yandex MX with DSN 2.0.0.
+- Production web, worker and mail-relay containers are running; public health endpoint returned HTTP 200 after deployment.
+- Full verification passed before release (88 app tests, 2 exchange tests, 9 Python tests, typecheck, lint and production build); focused email/order tests also pass after the consent update.
+- Delivery-created/ready/completed/cancelled/refunded email templates exist, but delivery-state events must only fire once the corresponding Ozon delivery lifecycle is persisted.
+- Promotional campaign sending remains a separate post-launch backlog task; no advertising emails are sent by this rollout.

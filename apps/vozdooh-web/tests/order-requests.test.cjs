@@ -47,6 +47,8 @@ test('invalid contacts, consent, delivery, quantities, duplicates and empty inpu
   for (const quantity of [0, -1, 0.5, 1000, Number.MAX_SAFE_INTEGER, '2']) assert.throws(() => parseRequest({ ...input(), lines: [{ sku: trade.sku, quantity, expectedPriceMinor: 1235 }] }))
   const payload = input(); payload.lines.push(payload.lines[0]); assert.throws(() => parseRequest(payload))
   const courier = input(); courier.delivery = { method: 'courier', address: 'Synthetic test address', comment: '' }; assert.equal(parseRequest(courier).delivery.address, courier.delivery.address)
+  const ozon = input(); ozon.delivery = { method: 'ozon-pvz', address: 'Synthetic Ozon point', comment: '', deliveryPointId: 6201, shipmentMethodId: 1020005031646010 }; const parsedOzon = parseRequest(ozon); assert.equal(parsedOzon.delivery.method, 'ozon-pvz'); assert.equal(parsedOzon.delivery.deliveryPointId, 6201); assert.equal(parsedOzon.delivery.shipmentMethodId, 1020005031646010); assert.equal(parsedOzon.delivery.address, 'Synthetic Ozon point')
+  for (const delivery of [{ method: 'ozon-pvz', address: 'Synthetic Ozon point', comment: '' }, { method: 'ozon-pvz', address: '', comment: '', deliveryPointId: 6201, shipmentMethodId: 1020005031646010 }]) assert.throws(() => parseRequest({ ...input(), delivery }), (error) => error.code === 'INVALID_DELIVERY' || error.code === 'INVALID_CONTACT_OR_DELIVERY')
 })
 test('current stock and price are checked afresh; no write on failure', async (t) => {
   const dependencies = await fixture(t)
@@ -137,6 +139,12 @@ test('browser-safe validation matches the server and normalizes contact boundari
   payload.delivery.comment = 'first\r\nsecond'
   assert.equal(shared.parseRequest(payload).contact.name, 'Synthetic Test')
   assert.equal(shared.parseRequest(payload).delivery.comment, 'first\nsecond')
+  assert.throws(() => shared.parseRequest(payload, { requireEmail: true }), (error) => error.code === 'INVALID_EMAIL')
+  const emailPayload = { ...payload, contact: { ...payload.contact, email: ' Buyer@Example.COM ' }, marketingConsent: true }
+  const parsedEmail = shared.parseRequest(emailPayload, { requireEmail: true })
+  assert.equal(parsedEmail.contact.email, 'buyer@example.com')
+  assert.equal(parsedEmail.marketingConsent, true)
+  assert.equal(shared.parseRequest({ ...emailPayload, marketingConsent: false }, { requireEmail: true }).marketingConsent, undefined)
   for (const phone of ['1'.repeat(9), '1'.repeat(16), '1234567890x', '1234567890\n']) {
     assert.throws(() => shared.parseRequest({ ...payload, contact: { ...payload.contact, phone } }), (error) => error.code === 'INVALID_PHONE' || error.code === 'INVALID_CONTACT_OR_DELIVERY')
   }

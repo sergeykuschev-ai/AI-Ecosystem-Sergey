@@ -6,6 +6,7 @@
 export const OZON_DEFAULT_CLIENT_ID_FILE = '/opt/stores-web/secrets/vozdooh-ozon-client-id'
 export const OZON_DEFAULT_API_KEY_FILE = '/opt/stores-web/secrets/vozdooh-ozon-api-key'
 export const OZON_DEFAULT_BASE_URL = 'https://api-seller.ozon.ru'
+export const OZON_DEFAULT_OAUTH_BASE_URL = 'https://xapi.ozon.ru/oauth'
 
 export class OzonConfigError extends Error {
   constructor(public code: string) { super(code) }
@@ -50,6 +51,16 @@ export function loadOzonAuthFromEnv(env: NodeJS.ProcessEnv = process.env): OzonA
   const clientId = readSecretFile(env.OZON_CLIENT_ID_FILE ?? OZON_DEFAULT_CLIENT_ID_FILE, 'OZON_CLIENT_ID_UNAVAILABLE')
   const apiKey = readSecretFile(env.OZON_API_KEY_FILE ?? OZON_DEFAULT_API_KEY_FILE, 'OZON_API_KEY_UNAVAILABLE')
   return { type: 'api-key', clientId, apiKey }
+}
+
+export function loadOzonOAuthClientConfig(env: NodeJS.ProcessEnv = process.env) {
+  return {
+    clientId: readSecretFile(env.OZON_CLIENT_ID_FILE ?? OZON_DEFAULT_CLIENT_ID_FILE, 'OZON_CLIENT_ID_UNAVAILABLE'),
+    clientSecret: readSecretFile(env.OZON_CLIENT_SECRET_FILE ?? env.OZON_API_KEY_FILE ?? OZON_DEFAULT_API_KEY_FILE, 'OZON_CLIENT_SECRET_UNAVAILABLE'),
+    redirectUri: env.OZON_OAUTH_REDIRECT_URI ?? 'https://vozdooh27.ru/api/ozon/oauth/callback',
+    scope: env.OZON_OAUTH_SCOPE ?? '',
+    oauthBaseUrl: env.OZON_OAUTH_BASE_URL ?? OZON_DEFAULT_OAUTH_BASE_URL,
+  }
 }
 
 export function loadOzonClientConfig(env: NodeJS.ProcessEnv = process.env): OzonClientConfig {
