@@ -63,16 +63,43 @@
       "sku": "445445",
       "barcode": "4610024333280",
       "brand": null,
-      "status": "NEEDS_SOURCE",
+      "status": "CONFLICT",
       "measurements": [
         {
-          "scope": "research_gap",
+          "scope": "identity_source",
           "dimensionsMm": null,
           "weightG": null,
+          "sourceType": "barcode-database",
+          "sourceUrl": "https://barcode-list.ru/barcode/RU/Поиск.htm?barcode=Зарядное+устройство",
           "retrievedAt": "2026-10-02",
-          "note": "No reliable public full physical dimensions and total item/package weight were found for this exact current-stock SKU in the 2026-10-02 research pass. Keep blocked from inferred logistics dimensions; do not convert nominal volume to weight or borrow dimensions from a sibling SKU.",
-          "sourceType": "identity-source",
-          "sourceUrl": "https://dns-shop.kg/ru/product/e905909b4c113330/setevoe-zaradnoe-ustrojstvo-aceline-h5b1a-cernyj/"
+          "note": "Exact barcode 4610024333280 resolves to Aceline H5B1A black mains charger."
+        },
+        {
+          "scope": "source_reported_weight",
+          "dimensionsMm": null,
+          "weightG": 150,
+          "sourceType": "marketplace",
+          "sourceUrl": "https://www.ozon.ru/product/setevoe-zaryadnoe-ustroystvo-tsvet-chernyy-1315630870/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact model Aceline H5B1A listing reports product weight 150 g."
+        },
+        {
+          "scope": "source_reported_weight",
+          "dimensionsMm": null,
+          "weightG": 100,
+          "sourceType": "marketplace",
+          "sourceUrl": "https://www.ozon.uz/product/setevoe-zaryadnoe-ustroystvo-aceline-h5b1a-chernyy-1257420099/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact model Aceline H5B1A listing reports product weight 100 g; conflicts with another exact-model listing. No reliable physical dimensions found."
+        },
+        {
+          "scope": "manufacturer_manual_identity",
+          "dimensionsMm": null,
+          "weightG": null,
+          "sourceType": "manufacturer-manual",
+          "sourceUrl": "https://drv.dns-shop.ru/Manuals/S/setevoe-zaradnoe-ustrojstvo-aceline-h5b1a_instrukcia_2.pdf",
+          "retrievedAt": "2026-10-02",
+          "note": "DNS/Aceline manual confirms H5B1A MC model and 1.2 m microUSB cable; manual does not publish weight or physical dimensions."
         }
       ]
     },
@@ -3638,7 +3665,7 @@
     "verifiedRetailPackage": 11,
     "verifiedProductMeasurements": 48,
     "partial": 78,
-    "conflict": 6,
+    "conflict": 7,
     "needsSource": 10,
     "shippingReady": 0,
     "deliveryInputReady": 60

@@ -391,9 +391,9 @@
       "name": "39 Сетевое з/у microUSB (СЗУ) 1.2 м.",
       "brand": null,
       "barcode": "4610024333280",
-      "status": "NEEDS_SOURCE",
+      "status": "CONFLICT",
       "deliveryInput": null,
-      "evidenceStatus": "NEEDS_SOURCE"
+      "evidenceStatus": "CONFLICT"
     },
     {
       "sku": "453478",

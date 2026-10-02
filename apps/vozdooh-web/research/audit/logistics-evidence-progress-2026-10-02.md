@@ -9,8 +9,8 @@ This file records public-source measurements for exact current-stock SKUs. It de
 - Explicit full retail-package evidence: 11.
 - Full product-measurement evidence (not retail package): 48.
 - Partial evidence: 78.
-- Conflicts preserved for manual resolution: 6.
-- NEEDS_SOURCE after the current public-source pass: 5.
+- Conflicts preserved for manual resolution: 7.
+- NEEDS_SOURCE after the current public-source pass: 4.
 - Delivery-input ready records under the owner-approved rule (verified product dimensions + weight are sufficient): **60**. Outer VOZDOOH box / protection / filler is not required for dataset readiness.
 
 ## Safety rule
@@ -25,4 +25,4 @@ Exact products with verified full product dimensions and total weight can be use
 
 ## Next research queue
 
-All 148 current positive-stock SKUs have now been triaged against public sources. Continue deeper exact-SKU research on the 5 NEEDS_SOURCE records and resolve the 6 remaining identity/measurement conflicts; also upgrade PARTIAL records where a full weight or missing dimension can be verified. Under the owner-approved rule, a SKU may enter the delivery-input dataset once it has verified full dimensions and weight with no unresolved identity conflict.
+All 148 current positive-stock SKUs have now been triaged against public sources. Continue deeper exact-SKU research on the 4 NEEDS_SOURCE records and resolve the 7 remaining identity/measurement conflicts; also upgrade PARTIAL records where a full weight or missing dimension can be verified. Under the owner-approved rule, a SKU may enter the delivery-input dataset once it has verified full dimensions and weight with no unresolved identity conflict.
