@@ -10,8 +10,8 @@
   },
   "counts": {
     "eligible": 148,
-    "ready": 44,
-    "needsMoreEvidence": 104
+    "ready": 45,
+    "needsMoreEvidence": 103
   },
   "records": [
     {
@@ -379,9 +379,19 @@
       "name": "Oud Collection диффузор Satin Oud golden 750мл",
       "brand": null,
       "barcode": "8411299002958",
-      "status": "NEEDS_SOURCE",
-      "deliveryInput": null,
-      "evidenceStatus": "NEEDS_SOURCE"
+      "status": "READY_PRODUCT_DIMENSIONS",
+      "deliveryInput": {
+        "weightG": 1098,
+        "lengthMm": 75,
+        "widthMm": 75,
+        "heightMm": 340,
+        "basis": "product",
+        "sources": [
+          "https://www.mathishome.com/mathis-home/home-decor/functional-decor/fragrances-diffusers/reed-diffuser-oud-collection-750ml-gold-satin-oud-2.95-diam.-x-13.39-in/9ec7d6e2-9261-4336-b183-7364515be682.html",
+          "https://www.tsum.ru/product/he00855754-diffuzor-satin-oud-golden-750ml-ladenac-milano-bestcvetnyi/"
+        ]
+      },
+      "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS"
     },
     {
       "sku": "45360",

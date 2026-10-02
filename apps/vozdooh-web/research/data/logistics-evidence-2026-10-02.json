@@ -1909,16 +1909,23 @@
       "sku": "453478",
       "barcode": "8411299002958",
       "brand": "Ladenac Milano",
-      "status": "NEEDS_SOURCE",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
       "measurements": [
         {
-          "scope": "research_gap",
-          "dimensionsMm": null,
-          "weightG": null,
+          "scope": "product",
+          "dimensionsMm": [
+            75,
+            75,
+            340
+          ],
+          "weightG": 1098,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.mathishome.com/mathis-home/home-decor/functional-decor/fragrances-diffusers/reed-diffuser-oud-collection-750ml-gold-satin-oud-2.95-diam.-x-13.39-in/9ec7d6e2-9261-4336-b183-7364515be682.html",
+          "identitySourceUrl": "https://www.tsum.ru/product/he00855754-diffuzor-satin-oud-golden-750ml-ladenac-milano-bestcvetnyi/",
+          "reportedDimensions": "2.95 × 2.95 × 13.39 in",
+          "reportedWeight": "2.42 lb",
           "retrievedAt": "2026-10-02",
-          "note": "No reliable public full physical dimensions and total item/package weight were found for this exact current-stock SKU in the 2026-10-02 research pass. Keep blocked from inferred logistics dimensions; do not convert nominal volume to weight or borrow dimensions from a sibling SKU.",
-          "sourceType": "identity-source",
-          "sourceUrl": "https://www.tsum.ru/product/he00855754-diffuzor-satin-oud-golden-750ml-ladenac-milano-bestcvetnyi/"
+          "note": "Exact named OUD COLLECTION 750 ml Gold Satin Oud product page reports 2.95 × 2.95 × 13.39 in and 2.42 lb. Independent TSUM page binds exact manufacturer article/EAN 8411299002958 to Ladenac Milano Satin Oud golden 750 ml. Units converted mathematically to nearest whole mm/g for Ozon input."
         }
       ]
     },
@@ -3455,7 +3462,7 @@
   "summary": {
     "researchedRecords": 148,
     "verifiedRetailPackage": 8,
-    "verifiedProductMeasurements": 33,
+    "verifiedProductMeasurements": 34,
     "partial": 80,
     "conflict": 12,
     "shippingReady": 0
