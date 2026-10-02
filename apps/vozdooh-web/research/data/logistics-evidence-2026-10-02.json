@@ -1713,14 +1713,25 @@
       "sku": "N019901",
       "barcode": "2017701196459",
       "brand": "Christian Tortu",
-      "status": "NEEDS_SOURCE",
+      "status": "PARTIAL",
       "measurements": [
         {
-          "scope": "research_gap",
+          "scope": "product_weight",
+          "dimensionsMm": null,
+          "weightG": 190,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://50-ml.fr/christian-tortu-coupelle-pot-pourri-ceramique",
+          "retrievedAt": "2026-10-02",
+          "note": "Christian Tortu Coupelle Pot Pourri Ceramique product page reports 0.19 kg. Exact local SKU N019901 identity is independently confirmed by Milfey."
+        },
+        {
+          "scope": "identity_source",
           "dimensionsMm": null,
           "weightG": null,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://milfey-shop.ru/christian-tortu-coupelle-pot-pourri-ceramique?erid=LjN8KSYZs",
           "retrievedAt": "2026-10-02",
-          "note": "No reliable public full physical dimensions and total item/package weight were found for this exact current-stock SKU in the 2026-10-02 research pass. Keep blocked from inferred logistics dimensions; do not convert nominal volume to weight or borrow dimensions from a sibling SKU."
+          "note": "Exact local article N019901 identifies Coupelle Pot Pourri Ceramique. Dimensions still need a reliable source."
         }
       ]
     },
@@ -2793,16 +2804,29 @@
       "sku": "ORO500RTFU",
       "barcode": "8058159962818",
       "brand": "TEATRO Fragranze Uniche",
-      "status": "NEEDS_SOURCE",
+      "status": "PARTIAL",
       "measurements": [
         {
-          "scope": "research_gap",
+          "scope": "product",
+          "dimensionsMm": [
+            70,
+            70,
+            200
+          ],
+          "weightG": null,
+          "sourceType": "retailer",
+          "sourceUrl": "https://setinone.ae/collections/home-decor/products/oro-refill-500ml",
+          "retrievedAt": "2026-10-02",
+          "note": "Teatro Oro Refill 500 ml page explicitly reports W7 × D7 × H20 cm. Weight is not published."
+        },
+        {
+          "scope": "identity_source",
           "dimensionsMm": null,
           "weightG": null,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.solie.cz/teatro-fragranze-uniche-oro-luxury-collection-napln-do-difuzeru-500-ml",
           "retrievedAt": "2026-10-02",
-          "note": "No reliable public full physical dimensions and total item/package weight were found for this exact current-stock SKU in the 2026-10-02 research pass. Keep blocked from inferred logistics dimensions; do not convert nominal volume to weight or borrow dimensions from a sibling SKU.",
-          "sourceType": "identity-source",
-          "sourceUrl": "https://teatrofragranzeuniche.it/eu/oro-ml-500-refill-with-sticks"
+          "note": "Exact EAN 8058159962818 confirms Oro Luxury Collection refill 500 ml identity."
         }
       ]
     },
@@ -3432,7 +3456,7 @@
     "researchedRecords": 148,
     "verifiedRetailPackage": 8,
     "verifiedProductMeasurements": 33,
-    "partial": 78,
+    "partial": 80,
     "conflict": 12,
     "shippingReady": 0
   }
