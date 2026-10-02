@@ -1890,16 +1890,16 @@
       "sku": "54556",
       "barcode": "8411299003306",
       "brand": "Ladenac Milano",
-      "status": "NEEDS_SOURCE",
+      "status": "PARTIAL",
       "measurements": [
         {
-          "scope": "research_gap",
+          "scope": "product_or_item_weight",
           "dimensionsMm": null,
-          "weightG": null,
+          "weightG": 700,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://pranahome.ru/product/roses-des-sables-diffuzor-vents-darabie-collection-ladenac-milano",
           "retrievedAt": "2026-10-02",
-          "note": "No reliable public full physical dimensions and total item/package weight were found for this exact current-stock SKU in the 2026-10-02 research pass. Keep blocked from inferred logistics dimensions; do not convert nominal volume to weight or borrow dimensions from a sibling SKU.",
-          "sourceType": "identity-source",
-          "sourceUrl": "https://pranahome.ru/product/roses-des-sables-diffuzor-vents-darabie-collection-ladenac-milano"
+          "note": "Exact SKU 8411299003306. PranaHome product data exposes weight 0.7 kg for the 500 ml Roses des Sables variant; dimensions field is null, so keep PARTIAL and do not infer geometry."
         }
       ]
     },
@@ -1970,16 +1970,16 @@
       "sku": "983858",
       "barcode": "8411299003320",
       "brand": "Ladenac Milano",
-      "status": "NEEDS_SOURCE",
+      "status": "PARTIAL",
       "measurements": [
         {
-          "scope": "research_gap",
+          "scope": "product_or_item_weight",
           "dimensionsMm": null,
-          "weightG": null,
+          "weightG": 700,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://pranahome.ru/product/chergui-diffuzor-vents-darabie-collection-ladenac-milano",
           "retrievedAt": "2026-10-02",
-          "note": "No reliable public full physical dimensions and total item/package weight were found for this exact current-stock SKU in the 2026-10-02 research pass. Keep blocked from inferred logistics dimensions; do not convert nominal volume to weight or borrow dimensions from a sibling SKU.",
-          "sourceType": "identity-source",
-          "sourceUrl": "https://pranahome.ru/product/chergui-diffuzor-vents-darabie-collection-ladenac-milano"
+          "note": "Exact SKU 8411299003320. PranaHome product data exposes weight 0.7 kg for the 500 ml Chergui variant; dimensions field is null, so keep PARTIAL and do not infer geometry."
         }
       ]
     },
@@ -2796,7 +2796,7 @@
       "sku": "VM250TFU",
       "barcode": "8058159964652",
       "brand": "TEATRO Fragranze Uniche",
-      "status": "PARTIAL",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
       "measurements": [
         {
           "scope": "included_reeds",
@@ -2808,6 +2808,17 @@
           "identitySourceUrl": "https://www.blivakker.no/product/3347125",
           "retrievedAt": "2026-10-02",
           "note": "Exact EAN 8058159964652 independently confirmed. Source states ten natural bamboo sticks, 30 cm. Bottle/package dimensions and total weight remain unknown."
+        },
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 160,
+          "diameterMm": 70,
+          "weightG": 400,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.teresapizzigallo.it/diffusori/48157-diffusore-vento-di-mare-stick-250ml-teatro-fragranze-uniche.html",
+          "identitySourceUrl": "https://www.cocopanda.se/product/3347166",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact product Teatro Vento di Mare Stick 250 ml: retailer states Ø7 cm × H16 cm and 0.4 kg; independent exact EAN 8058159964652 source confirms identity."
         }
       ]
     },
@@ -3126,7 +3137,7 @@
       "sku": "V61014",
       "barcode": "5907489030038",
       "brand": "Vellutier",
-      "status": "CONFLICT",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
       "measurements": [
         {
           "scope": "product",
@@ -3159,6 +3170,15 @@
           "sourceUrl": "https://www.apollostore.com/pl/p/swieca-vellutier-duza-midnight-toast",
           "retrievedAt": "2026-10-02",
           "note": "Exact EAN; retailer mass 1.35 kg conflicts with marketplace package weight."
+        },
+        {
+          "scope": "product_weight",
+          "dimensionsMm": null,
+          "weightG": 1350,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.apollostore.com/pl/p/swieca-vellutier-duza-midnight-toast",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN 5907489030038; retailer lists item mass 1.35 kg. Combined with exact-EAN product dimensions 110×110×160 mm from Allegro; 515 g is wax/content mass, not total item mass."
         }
       ]
     },
@@ -3296,7 +3316,7 @@
       "sku": "V63017",
       "barcode": "5907489030540",
       "brand": "Vellutier",
-      "status": "CONFLICT",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
       "measurements": [
         {
           "scope": "product",
@@ -3329,6 +3349,15 @@
           "sourceUrl": "https://www.decorise.cz/p/vellutier-vintage-knihovna-90-g/6705133",
           "retrievedAt": "2026-10-02",
           "note": "Exact EAN; retailer item weight 380 g. Conflicts with 900 g package field; scopes may differ."
+        },
+        {
+          "scope": "product_weight",
+          "dimensionsMm": null,
+          "weightG": 380,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.apollostore.com/cz/p/svicka-vellutier-mala-vintage-library",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN 5907489030540; retailer lists item weight 0.38 kg. Combined with exact-EAN product dimensions 70×70×90 mm from Allegro; 90 g is wax/content mass."
         }
       ]
     },
@@ -3369,9 +3398,10 @@
   "summary": {
     "researchedRecords": 148,
     "verifiedRetailPackage": 8,
-    "verifiedProductMeasurements": 25,
-    "partial": 76,
-    "conflict": 14,
+    "verifiedProductMeasurements": 28,
+    "partial": 77,
+    "conflict": 12,
+    "needsSource": 23,
     "shippingReady": 0
   }
 }

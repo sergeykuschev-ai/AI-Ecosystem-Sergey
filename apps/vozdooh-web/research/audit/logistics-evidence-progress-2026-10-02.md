@@ -7,11 +7,11 @@ This file records public-source measurements for exact current-stock SKUs. It de
 - Eligible current positive-stock SKUs: 148.
 - Researched exact-SKU records in this evidence batch: 148 of 148.
 - Explicit full retail-package evidence: 8.
-- Full product-measurement evidence (not retail package): 25.
-- Partial evidence: 76.
-- Conflicts preserved for manual resolution: 14.
+- Full product-measurement evidence (not retail package): 28.
+- Partial evidence: 75.
+- Conflicts preserved for manual resolution: 12.
 - NEEDS_SOURCE after the current public-source pass: 25.
-- Delivery-input ready records under the owner-approved rule (verified product dimensions + weight are sufficient): **36**. Outer VOZDOOH box / protection / filler is not required for dataset readiness.
+- Delivery-input ready records under the owner-approved rule (verified product dimensions + weight are sufficient): **39**. Outer VOZDOOH box / protection / filler is not required for dataset readiness.
 
 ## Safety rule
 

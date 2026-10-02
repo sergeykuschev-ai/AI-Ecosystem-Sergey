@@ -10,8 +10,8 @@
   },
   "counts": {
     "eligible": 148,
-    "ready": 36,
-    "needsMoreEvidence": 112
+    "ready": 39,
+    "needsMoreEvidence": 109
   },
   "records": [
     {
@@ -1460,9 +1460,18 @@
       "name": "Vellutier / Свеча большая Вечерний тост 515гр / Midnight Toast",
       "brand": null,
       "barcode": "5907489030038",
-      "status": "CONFLICT",
-      "deliveryInput": null,
-      "evidenceStatus": "CONFLICT"
+      "status": "READY_PRODUCT_DIMENSIONS",
+      "deliveryInput": {
+        "weightG": 515,
+        "lengthMm": 110,
+        "widthMm": 110,
+        "heightMm": 160,
+        "basis": "product",
+        "sources": [
+          "https://allegro.pl/produkt/swieca-tradycyjna-rzepakowa-midnight-toast-vellutier-1-szt-95e12ecf-9aaa-41b8-a3fb-040d74dbfeb7"
+        ]
+      },
+      "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS"
     },
     {
       "sku": "V61028",
@@ -1532,18 +1541,36 @@
       "name": "Vellutier / Свеча маленькая Старинная библиотека 90гр / Vintege Library",
       "brand": null,
       "barcode": "5907489030540",
-      "status": "CONFLICT",
-      "deliveryInput": null,
-      "evidenceStatus": "CONFLICT"
+      "status": "READY_PRODUCT_DIMENSIONS",
+      "deliveryInput": {
+        "weightG": 90,
+        "lengthMm": 70,
+        "widthMm": 70,
+        "heightMm": 90,
+        "basis": "product",
+        "sources": [
+          "https://allegro.pl/produkt/swieca-tradycyjna-parafinowa-vintage-library-vellutier-1-szt-8ff07fca-325f-4571-b5c1-333d9da5f27e"
+        ]
+      },
+      "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS"
     },
     {
       "sku": "VM250TFU",
       "name": "TEATRO Диффузор с палочками VENTO DI MARE / Морской ветер, 250 мл",
       "brand": null,
       "barcode": "8058159964652",
-      "status": "NEEDS_SOURCE",
-      "deliveryInput": null,
-      "evidenceStatus": "PARTIAL"
+      "status": "READY_PRODUCT_DIMENSIONS",
+      "deliveryInput": {
+        "weightG": 400,
+        "lengthMm": 70,
+        "widthMm": 70,
+        "heightMm": 160,
+        "basis": "product_cylindrical",
+        "sources": [
+          "https://www.teresapizzigallo.it/diffusori/48157-diffusore-vento-di-mare-stick-250ml-teatro-fragranze-uniche.html"
+        ]
+      },
+      "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS"
     },
     {
       "sku": "bf33a951-016c-11ed-b2a4-7c8bca00854e",
