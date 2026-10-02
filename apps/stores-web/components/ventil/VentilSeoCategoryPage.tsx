@@ -99,6 +99,12 @@ export async function VentilSeoCategoryPage({ category }: VentilSeoCategoryPageP
               ))}
             </ul>
             <p className="ventil-assist-note">{category.note}</p>
+            {category.guide ? (
+              <p className="ventil-assist-note">
+                Полезный материал: <Link href={category.guide.href}>{category.guide.title}</Link>.{" "}
+                {category.guide.text}
+              </p>
+            ) : null}
           </div>
         </section>
 

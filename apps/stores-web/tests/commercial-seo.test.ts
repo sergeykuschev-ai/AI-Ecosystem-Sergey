@@ -8,6 +8,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { AmperSeoCategoryPage } from "@/components/amper/AmperSeoCategoryPage";
 import { VentilSeoCategoryPage } from "@/components/ventil/VentilSeoCategoryPage";
 import { MetizSeoCategoryPage } from "@/components/metiz-market/MetizSeoCategoryPage";
+import { MiskaSeoCategoryPage } from "@/components/miska/MiskaSeoCategoryPage";
 import { AMPER_SEO_CATEGORIES } from "@/lib/amper/seo-categories";
 import { VENTIL_SEO_CATEGORIES } from "@/lib/ventil/seo-categories";
 import { METIZ_SEO_CATEGORIES } from "@/lib/metiz-market/seo-categories";
@@ -64,6 +65,22 @@ test("commercial item links render within the relevant product context and resol
     }
   }
   assert.ok(edgeCount >= 4, "commercial selection paths must remain connected");
+});
+
+test("published guides have contextual backlinks from their commercial categories", async () => {
+  const cases = [
+    [AMPER_SEO_CATEGORIES, "avtomaty-i-uzo", AmperSeoCategoryPage, "/stati/avtomaticheskiy-vyklyuchatel-dlya-kvartiry/"],
+    [VENTIL_SEO_CATEGORIES, "smesiteli", VentilSeoCategoryPage, "/stati/smesitel-dlya-kuhni-kak-vybrat/"],
+    [MISKA_SEO_CATEGORIES, "napolniteli-i-tualety", MiskaSeoCategoryPage, "/stati/napolnitel-dlya-koshachego-tualeta-kak-vybrat/"],
+  ] as const;
+
+  for (const [categories, slug, render, href] of cases) {
+    const category = categories.find((entry) => entry.slug === slug);
+    assert.ok(category?.guide);
+    const markup = renderToStaticMarkup(await render({ category } as never));
+    assert.ok(markup.includes('href="' + href.replace(/\/$/, "")));
+    assert.equal(category.guide.href, href);
+  }
 });
 
 test("Metiz samorezy category links back to the supporting article", async () => {

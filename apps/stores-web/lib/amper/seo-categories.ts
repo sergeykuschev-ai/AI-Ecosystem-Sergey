@@ -11,6 +11,7 @@ export interface AmperSeoCategory {
   selectionHeading: string;
   selectionTips: string[];
   note: string;
+  guide?: { href: string; title: string; text: string };
 }
 
 export const AMPER_SEO_CATEGORIES: AmperSeoCategory[] = [
@@ -83,6 +84,11 @@ export const AMPER_SEO_CATEGORIES: AmperSeoCategory[] = [
     ],
     note:
       "Номиналы защитных устройств должны соответствовать кабелю, нагрузке и схеме. Эти параметры определяет проектировщик или электрик; консультант помогает найти подходящую позицию по заданным характеристикам.",
+    guide: {
+      href: "/stati/avtomaticheskiy-vyklyuchatel-dlya-kvartiry/",
+      title: "Как выбрать автоматический выключатель для квартиры",
+      text: "Подробный материал о параметрах автомата, ограничениях подбора и ситуациях, когда нужен электрик.",
+    },
   },
   {
     slug: "rozetki-i-vyklyuchateli",
