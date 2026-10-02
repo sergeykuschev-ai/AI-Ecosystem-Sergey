@@ -2,15 +2,16 @@
   "schemaVersion": 1,
   "generatedAt": "2026-10-02",
   "policy": {
-    "ownerDecision": "Verified product dimensions and weight are sufficient; outer VOZDOOH shipping-package measurements are not required for readiness.",
+    "ownerDecision": "Verified exact-SKU product dimensions and weight are sufficient; outer shipping-package measurements are not required.",
     "noVolumeToWeight": true,
     "noMissingDimensionInference": true,
+    "conflictHandling": "A conflict in package/other scope does not block an independently explicit exact-SKU product measurement; product-vs-product conflicts remain blocked.",
     "cylindricalConversion": "diameter -> length=width=diameter; height preserved"
   },
   "counts": {
     "eligible": 148,
-    "ready": 28,
-    "needsMoreEvidence": 120
+    "ready": 36,
+    "needsMoreEvidence": 112
   },
   "records": [
     {
@@ -101,13 +102,13 @@
       "barcode": "5902802112569",
       "status": "READY_PRODUCT_DIMENSIONS",
       "deliveryInput": {
-        "weightG": 60,
-        "lengthMm": 111,
-        "widthMm": 67,
-        "heightMm": 42,
-        "basis": "retail_package",
+        "weightG": 26,
+        "lengthMm": 74,
+        "widthMm": 53,
+        "heightMm": 37,
+        "basis": "product",
         "sources": [
-          "https://car-tronic.pl/en/product/vinove-classic-leather-line-rome-air-freshener/"
+          "https://www.gamma.nl/assortiment/vinove-luchtverfrisser-leather-espresso-rome/p/B320508"
         ]
       },
       "evidenceStatus": "VERIFIED_RETAIL_PACKAGE"
@@ -405,9 +406,18 @@
       "name": "Рефил для заправки диффузора The 1000мл",
       "brand": null,
       "barcode": "8055965594981",
-      "status": "NEEDS_SOURCE",
-      "deliveryInput": null,
-      "evidenceStatus": "PARTIAL"
+      "status": "READY_PRODUCT_DIMENSIONS",
+      "deliveryInput": {
+        "weightG": 930,
+        "lengthMm": 90,
+        "widthMm": 90,
+        "heightMm": 220,
+        "basis": "product_cylindrical",
+        "sources": [
+          "https://formadore.com/culti-culti-the-fragrance-oil-for-diffuser-1-l%2C131457"
+        ]
+      },
+      "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS"
     },
     {
       "sku": "5432311112",
@@ -525,12 +535,12 @@
       "status": "READY_PRODUCT_DIMENSIONS",
       "deliveryInput": {
         "weightG": 2350,
-        "lengthMm": 77,
-        "widthMm": 232,
-        "heightMm": 236,
-        "basis": "retailer_reported_packaged_product",
+        "lengthMm": 240,
+        "widthMm": 75,
+        "heightMm": 230,
+        "basis": "product",
         "sources": [
-          "https://megadez.pro/produktsiya/aromatizatsiya/aromagroup-dispenser-liquid-pro/"
+          "https://gallery11.ru/upload/iblock/90f/eavbuntwejw00862u2xgoyryc7ca1qxu.pdf"
         ]
       },
       "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS"
@@ -576,8 +586,17 @@
       "name": "Stile Classic диффузор Era 500мл",
       "brand": null,
       "barcode": "8050534794939",
-      "status": "CONFLICT",
-      "deliveryInput": null,
+      "status": "READY_PRODUCT_DIMENSIONS",
+      "deliveryInput": {
+        "weightG": 1030,
+        "lengthMm": 78,
+        "widthMm": 78,
+        "heightMm": 204,
+        "basis": "product_cylindrical",
+        "sources": [
+          "https://formadore.lv/culti-aromatu-difuzors-culti-stile-classic-era-500-ml%2C131229"
+        ]
+      },
       "evidenceStatus": "CONFLICT"
     },
     {
@@ -1036,9 +1055,18 @@
       "name": "MAMI MILANO Диффузор с палочками GHIACCIO E ZENZERO / Лед & Имбирь. Коллекция PALAZZO, 200 мл",
       "brand": null,
       "barcode": "8057143585903",
-      "status": "NEEDS_SOURCE",
-      "deliveryInput": null,
-      "evidenceStatus": "PARTIAL"
+      "status": "READY_PRODUCT_DIMENSIONS",
+      "deliveryInput": {
+        "weightG": 200,
+        "lengthMm": 70,
+        "widthMm": 70,
+        "heightMm": 260,
+        "basis": "product",
+        "sources": [
+          "https://www.gioielleriadurbano.it/ecommerce/articolo/dettaglio/diffusore-in-bottiglia-in-vetro-da-200ml-con-bastoncini-fragranza-34298"
+        ]
+      },
+      "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS"
     },
     {
       "sku": "MF-FRAGR2.02",
@@ -1090,9 +1118,18 @@
       "name": "MAMI MILANO Диффузор с палочками VIA DELLE SPEZIE / Улица специй. Коллекция PALAZZO, 200 мл",
       "brand": null,
       "barcode": "8057143586016",
-      "status": "NEEDS_SOURCE",
-      "deliveryInput": null,
-      "evidenceStatus": "PARTIAL"
+      "status": "READY_PRODUCT_DIMENSIONS",
+      "deliveryInput": {
+        "weightG": 200,
+        "lengthMm": 70,
+        "widthMm": 70,
+        "heightMm": 260,
+        "basis": "product",
+        "sources": [
+          "https://www.gioielleriadurbano.it/ecommerce/articolo/dettaglio/diffusore-in-bottiglia-in-vetro-da-200ml-con-bastoncini-fragranza-34320"
+        ]
+      },
+      "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS"
     },
     {
       "sku": "MF-REFILL.06",
@@ -1171,8 +1208,17 @@
       "name": "Ароматизатор для автомобиля VINOVE ORIGINAL WARSAW | ВАРШАВА белый с розовым золотом",
       "brand": null,
       "barcode": "5902802110220",
-      "status": "CONFLICT",
-      "deliveryInput": null,
+      "status": "READY_PRODUCT_DIMENSIONS",
+      "deliveryInput": {
+        "weightG": 30,
+        "lengthMm": 74,
+        "widthMm": 23,
+        "heightMm": 37,
+        "basis": "product",
+        "sources": [
+          "https://www.hubo.be/nl/p/vinove-luchtverfrisser-oud-warsaw/1080419/"
+        ]
+      },
       "evidenceStatus": "CONFLICT"
     },
     {
@@ -1209,13 +1255,13 @@
       "barcode": "5902802111005",
       "status": "READY_PRODUCT_DIMENSIONS",
       "deliveryInput": {
-        "weightG": 60,
-        "lengthMm": 111,
-        "widthMm": 105,
-        "heightMm": 42,
-        "basis": "retail_package",
+        "weightG": 27,
+        "lengthMm": 73,
+        "widthMm": 28,
+        "heightMm": 36,
+        "basis": "product",
         "sources": [
-          "https://allegro.cz/produkt/vune-do-auta-vinove-london-jewelry-a7c52518-be92-490f-9c51-b30b7e1a8bd6"
+          "https://www.gamma.nl/assortiment/vinove-luchtverfrisser-jewelry-london/p/B320652"
         ]
       },
       "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS"
@@ -1252,8 +1298,17 @@
       "name": "Ароматизатор для автомобиля / VINOVE LEATHER IVORY /светлая кожа/ MONZA/ МОНЦА",
       "brand": null,
       "barcode": "5902802112514",
-      "status": "CONFLICT",
-      "deliveryInput": null,
+      "status": "READY_PRODUCT_DIMENSIONS",
+      "deliveryInput": {
+        "weightG": 26,
+        "lengthMm": 53,
+        "widthMm": 73,
+        "heightMm": 36,
+        "basis": "product",
+        "sources": [
+          "https://www.gamma.nl/assortiment/vinove-luchtverfrisser-leather-ivory-monza/p/B320505"
+        ]
+      },
       "evidenceStatus": "CONFLICT"
     },
     {
@@ -1261,17 +1316,26 @@
       "name": "Ароматизатор для автомобиля / VINOVE LEATHER ESPRESSO /коричневая кожа/ INDIANAPOLIS/ ИНДИАНАПОЛИС",
       "brand": null,
       "barcode": "5902802178558",
-      "status": "NEEDS_SOURCE",
+      "status": "CONFLICT",
       "deliveryInput": null,
-      "evidenceStatus": "NEEDS_SOURCE"
+      "evidenceStatus": "CONFLICT"
     },
     {
       "sku": "N020445",
       "name": "Ароматизатор для автомобиля / VINOVE EVOLUTION EXCELLENCE/ ROME/ РИМ",
       "brand": null,
       "barcode": "5902802112620",
-      "status": "CONFLICT",
-      "deliveryInput": null,
+      "status": "READY_PRODUCT_DIMENSIONS",
+      "deliveryInput": {
+        "weightG": 32,
+        "lengthMm": 57,
+        "widthMm": 84,
+        "heightMm": 43,
+        "basis": "product",
+        "sources": [
+          "https://www.hubo.be/fr/p/vinove-desodorisant-evo-excellence-rome/1080437/"
+        ]
+      },
       "evidenceStatus": "CONFLICT"
     },
     {
@@ -1290,7 +1354,7 @@
       "barcode": "3420070039200",
       "status": "NEEDS_SOURCE",
       "deliveryInput": null,
-      "evidenceStatus": "NEEDS_SOURCE"
+      "evidenceStatus": "PARTIAL"
     },
     {
       "sku": "N020468",
@@ -1299,7 +1363,7 @@
       "barcode": "3420070039927",
       "status": "NEEDS_SOURCE",
       "deliveryInput": null,
-      "evidenceStatus": "NEEDS_SOURCE"
+      "evidenceStatus": "PARTIAL"
     },
     {
       "sku": "N020469",
@@ -1407,13 +1471,13 @@
       "barcode": "5907489030175",
       "status": "READY_PRODUCT_DIMENSIONS",
       "deliveryInput": {
-        "weightG": 1480,
-        "lengthMm": 153,
-        "widthMm": 145,
-        "heightMm": 207,
-        "basis": "retail_package",
+        "weightG": 515,
+        "lengthMm": 110,
+        "widthMm": 110,
+        "heightMm": 160,
+        "basis": "product_cylindrical",
         "sources": [
-          "https://www.bol.com/nl/nl/p/vellutier-geurkaars-large-into-the-wilderness-16-cm-o-11-cm/9300000021159520/"
+          "https://aromatowo.pl/duza-swieca-into-the-wilderness-vellutier"
         ]
       },
       "evidenceStatus": "VERIFIED_RETAIL_PACKAGE"
@@ -1434,11 +1498,11 @@
       "barcode": "5907489030281",
       "status": "READY_PRODUCT_DIMENSIONS",
       "deliveryInput": {
-        "weightG": 680,
-        "lengthMm": 164,
-        "widthMm": 103,
-        "heightMm": 175,
-        "basis": "retail_package",
+        "weightG": 225,
+        "lengthMm": 90,
+        "widthMm": 90,
+        "heightMm": 115,
+        "basis": "product_cylindrical",
         "sources": [
           "https://www.bol.com/nl/nl/p/vellutier-geurkaars-medium-midnight-toast-12-cm-o-9-cm/9300000021520931/"
         ]
@@ -1522,8 +1586,17 @@
       "name": "Stile Classic диффузор Tessuto 250мл",
       "brand": null,
       "barcode": "8050534795325",
-      "status": "CONFLICT",
-      "deliveryInput": null,
+      "status": "READY_PRODUCT_DIMENSIONS",
+      "deliveryInput": {
+        "weightG": 600,
+        "lengthMm": 62,
+        "widthMm": 62,
+        "heightMm": 159,
+        "basis": "product_cylindrical",
+        "sources": [
+          "https://formadore.com/culti-culti-stile-classic-tessuto-fragrance-diffuser-250-ml%2C131212"
+        ]
+      },
       "evidenceStatus": "CONFLICT"
     },
     {
