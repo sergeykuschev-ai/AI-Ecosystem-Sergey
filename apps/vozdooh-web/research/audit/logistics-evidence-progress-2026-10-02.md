@@ -5,11 +5,11 @@ This file records public-source measurements for exact current-stock SKUs. It de
 ## Progress
 
 - Eligible current positive-stock SKUs: 148.
-- Researched exact-SKU records in this evidence batch: 46.
+- Researched exact-SKU records in this evidence batch: 65.
 - Explicit full retail-package evidence: 8.
-- Full product-measurement evidence (not retail package): 12.
-- Partial evidence: 16.
-- Conflicts preserved for manual resolution: 10.
+- Full product-measurement evidence (not retail package): 19.
+- Partial evidence: 27.
+- Conflicts preserved for manual resolution: 11.
 - Production shipping-ready records: 0. Outer VOZDOOH box / protection / filler is not yet measured.
 
 ## Safety rule
@@ -24,4 +24,4 @@ Several exact products have strong product measurements but no proven retail-pac
 
 ## Next research queue
 
-Continue exact-EAN research for the remaining 102 SKUs, prioritising Culti missing variants, TEATRO, MAMI MILANO, Ladenac, Christian Tortu, Lothantique and AROMAgroup. In parallel, define and physically verify the small set of VOZDOOH outer-box profiles; only then can product/package evidence be converted into safe parcel dimensions for Ozon checkout.
+Continue exact-EAN research for the remaining 83 SKUs, prioritising Culti missing variants, TEATRO, MAMI MILANO, Ladenac, Christian Tortu, Lothantique and AROMAgroup. In parallel, define and physically verify the small set of VOZDOOH outer-box profiles; only then can product/package evidence be converted into safe parcel dimensions for Ozon checkout.
