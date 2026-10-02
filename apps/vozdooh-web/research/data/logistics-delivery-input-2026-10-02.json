@@ -10,8 +10,8 @@
   },
   "counts": {
     "eligible": 148,
-    "ready": 40,
-    "needsMoreEvidence": 108
+    "ready": 43,
+    "needsMoreEvidence": 105
   },
   "records": [
     {
@@ -262,9 +262,18 @@
       "name": "Ladenac room spray Lui&Lei black gold",
       "brand": null,
       "barcode": "8411299003023",
-      "status": "NEEDS_SOURCE",
-      "deliveryInput": null,
-      "evidenceStatus": "NEEDS_SOURCE"
+      "status": "READY_PRODUCT_DIMENSIONS",
+      "deliveryInput": {
+        "weightG": 500,
+        "lengthMm": 40,
+        "widthMm": 40,
+        "heightMm": 160,
+        "basis": "product",
+        "sources": [
+          "https://pranahome.ru/product/jet-lag-sprey-dlya-doma-luilei-ladenac-milano"
+        ]
+      },
+      "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS"
     },
     {
       "sku": "3534657",
@@ -480,7 +489,7 @@
       "barcode": "8411299003177",
       "status": "NEEDS_SOURCE",
       "deliveryInput": null,
-      "evidenceStatus": "NEEDS_SOURCE"
+      "evidenceStatus": "PARTIAL"
     },
     {
       "sku": "63a36c45-bb50-11ef-b425-ed110731e4f3",
@@ -496,9 +505,18 @@
       "name": "Africa свеча Zebra Camouflage 350г",
       "brand": null,
       "barcode": "8411299000350",
-      "status": "NEEDS_SOURCE",
-      "deliveryInput": null,
-      "evidenceStatus": "PARTIAL"
+      "status": "READY_PRODUCT_DIMENSIONS",
+      "deliveryInput": {
+        "weightG": 700,
+        "lengthMm": 80,
+        "widthMm": 80,
+        "heightMm": 105,
+        "basis": "product_cylindrical",
+        "sources": [
+          "https://pranahome.ru/product/zebra-svecha-africa-collection-ladenac-milano"
+        ]
+      },
+      "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS"
     },
     {
       "sku": "655467",
@@ -694,9 +712,18 @@
       "name": "Decor Limited Malia диффузор 500мл",
       "brand": null,
       "barcode": "8050714290275",
-      "status": "NEEDS_SOURCE",
-      "deliveryInput": null,
-      "evidenceStatus": "PARTIAL"
+      "status": "READY_PRODUCT_DIMENSIONS",
+      "deliveryInput": {
+        "weightG": 1200,
+        "lengthMm": 87,
+        "widthMm": 87,
+        "heightMm": 155,
+        "basis": "product",
+        "sources": [
+          "https://stefaniparfumerie.com/products/culti-milano-decor-classic-500ml-malia-limited-edition"
+        ]
+      },
+      "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS"
     },
     {
       "sku": "802e8b0c-d19b-11ec-be83-7c8bca00854e",
@@ -822,7 +849,7 @@
       "barcode": "8411299003160",
       "status": "NEEDS_SOURCE",
       "deliveryInput": null,
-      "evidenceStatus": "NEEDS_SOURCE"
+      "evidenceStatus": "PARTIAL"
     },
     {
       "sku": "988768798",

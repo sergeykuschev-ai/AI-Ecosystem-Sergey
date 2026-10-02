@@ -1293,7 +1293,7 @@
       "sku": "802e8b05-d19b-11ec-be83-7c8bca00854e",
       "barcode": "8050714290275",
       "brand": "CULTI MILANO",
-      "status": "PARTIAL",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
       "measurements": [
         {
           "scope": "product",
@@ -1836,14 +1836,17 @@
       "sku": "344565",
       "barcode": "8411299003023",
       "brand": "Ladenac Milano",
-      "status": "NEEDS_SOURCE",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
       "measurements": [
         {
-          "scope": "research_gap",
-          "dimensionsMm": null,
-          "weightG": null,
+          "scope": "product_cylindrical",
+          "heightMm": 160,
+          "diameterMm": 40,
+          "weightG": 500,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://pranahome.ru/product/jet-lag-sprey-dlya-doma-luilei-ladenac-milano",
           "retrievedAt": "2026-10-02",
-          "note": "No reliable public full physical dimensions and total item/package weight were found for this exact current-stock SKU in the 2026-10-02 research pass. Keep blocked from inferred logistics dimensions; do not convert nominal volume to weight or borrow dimensions from a sibling SKU."
+          "note": "Exact article/EAN 8411299003023 for Ladenac Milano Lui&Lei Jet Lag room spray 125 ml. Retailer states Ø40 mm, height 160 mm and weight 0.5 kg."
         }
       ]
     },
@@ -1907,16 +1910,16 @@
       "sku": "55777",
       "barcode": "8411299003177",
       "brand": "Ladenac Milano",
-      "status": "NEEDS_SOURCE",
+      "status": "PARTIAL",
       "measurements": [
         {
-          "scope": "research_gap",
+          "scope": "product_or_item_weight",
           "dimensionsMm": null,
-          "weightG": null,
+          "weightG": 1500,
+          "sourceType": "specialist-retailer-embedded-product-data",
+          "sourceUrl": "https://pranahome.ru/product/leopard-diffuzor-africa-collection-ladenac-milano",
           "retrievedAt": "2026-10-02",
-          "note": "No reliable public full physical dimensions and total item/package weight were found for this exact current-stock SKU in the 2026-10-02 research pass. Keep blocked from inferred logistics dimensions; do not convert nominal volume to weight or borrow dimensions from a sibling SKU.",
-          "sourceType": "identity-source",
-          "sourceUrl": "https://www.tsum.ru/product/he00855837-diffuzor-africa-leopard-predator-1200ml-ladenac-milano-bestcvetnyi/"
+          "note": "Exact variant SKU 8411299003177 for Africa Leopard Predator 1200 ml is embedded in the retailer product data with weight 1.5 kg; the same page renders Вес (кг) 1.5. Dimensions are null, so this remains PARTIAL."
         }
       ]
     },
@@ -1924,7 +1927,7 @@
       "sku": "6545367",
       "barcode": "8411299000350",
       "brand": "Ladenac Milano",
-      "status": "PARTIAL",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
       "measurements": [
         {
           "scope": "product_cylindrical",
@@ -1987,14 +1990,16 @@
       "sku": "98676",
       "barcode": "8411299003160",
       "brand": "Ladenac Milano",
-      "status": "NEEDS_SOURCE",
+      "status": "PARTIAL",
       "measurements": [
         {
-          "scope": "research_gap",
+          "scope": "product_or_item_weight",
           "dimensionsMm": null,
-          "weightG": null,
+          "weightG": 1500,
+          "sourceType": "specialist-retailer-embedded-product-data",
+          "sourceUrl": "https://pranahome.ru/product/zebra-diffuzor-africa-collection-ladenac-milano",
           "retrievedAt": "2026-10-02",
-          "note": "No reliable public full physical dimensions and total item/package weight were found for this exact current-stock SKU in the 2026-10-02 research pass. Keep blocked from inferred logistics dimensions; do not convert nominal volume to weight or borrow dimensions from a sibling SKU."
+          "note": "Exact variant SKU 8411299003160 for Africa Zebra Camouflage 1200 ml is embedded in the retailer product data with weight 1.5 kg; the same page renders Вес (кг) 1.5. Dimensions are null, so this remains PARTIAL."
         }
       ]
     },
@@ -3404,10 +3409,9 @@
   "summary": {
     "researchedRecords": 148,
     "verifiedRetailPackage": 8,
-    "verifiedProductMeasurements": 29,
+    "verifiedProductMeasurements": 32,
     "partial": 78,
     "conflict": 12,
-    "needsSource": 21,
     "shippingReady": 0
   }
 }
