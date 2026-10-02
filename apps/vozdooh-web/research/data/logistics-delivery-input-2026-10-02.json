@@ -10,8 +10,8 @@
   },
   "counts": {
     "eligible": 148,
-    "ready": 45,
-    "needsMoreEvidence": 103
+    "ready": 46,
+    "needsMoreEvidence": 102
   },
   "records": [
     {
@@ -1623,9 +1623,19 @@
       "name": "Decor Classic диффузор Aramara 1000 мл",
       "brand": null,
       "barcode": "8050534794304",
-      "status": "NEEDS_SOURCE",
-      "deliveryInput": null,
-      "evidenceStatus": "PARTIAL"
+      "status": "READY_PRODUCT_DIMENSIONS",
+      "deliveryInput": {
+        "weightG": 1000,
+        "lengthMm": 110,
+        "widthMm": 110,
+        "heightMm": 255,
+        "basis": "verified_product_combined_exact_sku",
+        "sources": [
+          "https://www.raumconceptstore.com/en/diffusor-decor-aramara-8050534794304",
+          "https://select.artdom.com/catalog/parfumeriya-dlya-doma/diffuzor-decor-classic-aramara"
+        ]
+      },
+      "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS"
     },
     {
       "sku": "bf33a957-016c-11ed-b2a4-7c8bca00854e",

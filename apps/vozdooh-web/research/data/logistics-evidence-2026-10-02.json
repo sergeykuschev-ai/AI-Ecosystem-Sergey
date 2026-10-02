@@ -1400,7 +1400,7 @@
       "sku": "bf33a951-016c-11ed-b2a4-7c8bca00854e",
       "barcode": "8050534794304",
       "brand": "CULTI MILANO",
-      "status": "PARTIAL",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
       "measurements": [
         {
           "scope": "product_source_geometry",
@@ -1414,6 +1414,15 @@
           "sourceUrl": "https://www.raumconceptstore.com/en/diffusor-decor-aramara-8050534794304",
           "retrievedAt": "2026-10-02",
           "note": "Exact product number/EAN 8050534794304. Source lists 1000 ml as Ø11 cm × H25.5 cm, although the same page describes a sculpted/square bottle. Preserve dimensions as source-reported product geometry only; not package dimensions."
+        },
+        {
+          "scope": "product_weight",
+          "dimensionsMm": null,
+          "weightG": 1000,
+          "sourceType": "design-retailer",
+          "sourceUrl": "https://select.artdom.com/catalog/parfumeriya-dlya-doma/diffuzor-decor-classic-aramara",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact manufacturer article/EAN 8050534794304; retailer reports product weight 1 kg. Its dimensional fields are internally implausible and therefore ignored; geometry remains sourced from RAUM Concept Store."
         }
       ]
     },
@@ -3467,8 +3476,8 @@
   "summary": {
     "researchedRecords": 148,
     "verifiedRetailPackage": 8,
-    "verifiedProductMeasurements": 34,
-    "partial": 82,
+    "verifiedProductMeasurements": 35,
+    "partial": 81,
     "conflict": 12,
     "shippingReady": 0
   }
