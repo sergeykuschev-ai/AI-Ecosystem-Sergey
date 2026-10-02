@@ -120,7 +120,7 @@ export default function Page() {
       showAbout={false}
       heroContactActions
       featuredSections={<VentilFeaturedSections />}
-      contactHeading="Вентиль в Амурске"
+      contactHeading="Адрес, телефон и режим работы «Вентиля»"
       contactCallAction
       contactsHref="/kontakty/"
     />

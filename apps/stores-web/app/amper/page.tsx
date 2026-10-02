@@ -135,7 +135,7 @@ export default function Page() {
       showAbout={false}
       heroContactActions
       featuredSections={<AmperFeaturedSections />}
-      contactHeading="Ампер в Амурске"
+      contactHeading="Адрес, телефон и режим работы «Ампера»"
       contactNote={CONTACT_NOTE}
       contactCallAction
       contactsHref="/kontakty/"
