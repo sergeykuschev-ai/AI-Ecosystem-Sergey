@@ -10,8 +10,8 @@
   },
   "counts": {
     "eligible": 148,
-    "ready": 39,
-    "needsMoreEvidence": 109
+    "ready": 40,
+    "needsMoreEvidence": 108
   },
   "records": [
     {
@@ -640,9 +640,18 @@
       "name": "Decor Classic диффузор Mountain 500мл",
       "brand": null,
       "barcode": "8050534794533",
-      "status": "NEEDS_SOURCE",
-      "deliveryInput": null,
-      "evidenceStatus": "PARTIAL"
+      "status": "READY_PRODUCT_DIMENSIONS",
+      "deliveryInput": {
+        "weightG": 700,
+        "lengthMm": 120,
+        "widthMm": 220,
+        "heightMm": 120,
+        "basis": "exact_physical_item_or_retail_package",
+        "sources": [
+          "https://www.homefragrance.ru/products/culti-mountain-decor-diffuzor-500-ml"
+        ]
+      },
+      "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS"
     },
     {
       "sku": "802e8b01-d19b-11ec-be83-7c8bca00854e",

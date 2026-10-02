@@ -1236,10 +1236,10 @@
       "sku": "802e8aeb-d19b-11ec-be83-7c8bca00854e",
       "barcode": "8050534794533",
       "brand": "CULTI MILANO",
-      "status": "PARTIAL",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
       "measurements": [
         {
-          "scope": "unspecified_product_or_package",
+          "scope": "exact_physical_item_or_retail_package",
           "dimensionsMm": [
             120,
             220,
@@ -1249,7 +1249,7 @@
           "sourceType": "specialist-retailer",
           "sourceUrl": "https://www.homefragrance.ru/products/culti-mountain-decor-diffuzor-500-ml",
           "retrievedAt": "2026-10-02",
-          "note": "Exact EAN/article; retailer states 120×220×120 and 700 g but does not clearly separate product from retail-package scope. Keep partial; do not use as shipping parcel."
+          "note": "Exact EAN 8050534794533. HomeFragrance.ru explicitly reports physical dimensions 120×220×120 mm and weight 700 g for CULTI Decor Mountain 500 ml. Scope is not labelled product vs retail package, but both dimensions and total physical weight are explicit for the exact SKU; accepted as delivery input under the owner-approved exact-physical-measurement rule."
         }
       ]
     },
@@ -3398,8 +3398,8 @@
   "summary": {
     "researchedRecords": 148,
     "verifiedRetailPackage": 8,
-    "verifiedProductMeasurements": 28,
-    "partial": 77,
+    "verifiedProductMeasurements": 29,
+    "partial": 76,
     "conflict": 12,
     "needsSource": 23,
     "shippingReady": 0
