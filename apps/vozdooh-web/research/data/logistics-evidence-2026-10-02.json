@@ -1772,14 +1772,16 @@
       "sku": "DANHNIR250DEC",
       "barcode": "805698180696",
       "brand": "DANHERA",
-      "status": "NEEDS_SOURCE",
+      "status": "PARTIAL",
       "measurements": [
         {
-          "scope": "research_gap",
+          "scope": "product_or_item_weight",
           "dimensionsMm": null,
-          "weightG": null,
+          "weightG": 850,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://pranahome.ru/product/niro-diffuzor-s-palochkami-legendary-fragrances-danhera-italy",
           "retrievedAt": "2026-10-02",
-          "note": "No reliable public full physical dimensions and total item/package weight were found for this exact current-stock SKU in the 2026-10-02 research pass. Keep blocked from inferred logistics dimensions; do not convert nominal volume to weight or borrow dimensions from a sibling SKU."
+          "note": "Exact manufacturer SKU DANHNIR250DEC for Danhera Niro 250 ml. PranaHome lists weight 0.85 kg; physical dimensions are not stated, so keep PARTIAL."
         }
       ]
     },
@@ -1876,16 +1878,18 @@
       "sku": "453478",
       "barcode": "8411299002958",
       "brand": "Ladenac Milano",
-      "status": "NEEDS_SOURCE",
+      "status": "PARTIAL",
       "measurements": [
         {
-          "scope": "research_gap",
+          "scope": "source_reported_weight",
           "dimensionsMm": null,
-          "weightG": null,
+          "weightG": 750,
+          "weightConfidence": "low",
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://shop.perfume4home.ru/oud-collection-diffuzor-satin-oud-golden-750ml/",
+          "identitySourceUrl": "https://www.tsum.ru/product/he00855754-diffuzor-satin-oud-golden-750ml-ladenac-milano-bestcvetnyi/",
           "retrievedAt": "2026-10-02",
-          "note": "No reliable public full physical dimensions and total item/package weight were found for this exact current-stock SKU in the 2026-10-02 research pass. Keep blocked from inferred logistics dimensions; do not convert nominal volume to weight or borrow dimensions from a sibling SKU.",
-          "sourceType": "identity-source",
-          "sourceUrl": "https://www.tsum.ru/product/he00855754-diffuzor-satin-oud-golden-750ml-ladenac-milano-bestcvetnyi/"
+          "note": "Exact EAN/article 8411299002958 is independently confirmed. Perfume4Home reports \"Вес, гр. 750\", but this exactly matches the 750 ml nominal volume, so retain as low-confidence source weight and do not use for delivery until a second source or dimensions are found."
         }
       ]
     },
@@ -3410,8 +3414,9 @@
     "researchedRecords": 148,
     "verifiedRetailPackage": 8,
     "verifiedProductMeasurements": 32,
-    "partial": 78,
+    "partial": 80,
     "conflict": 12,
+    "needsSource": 16,
     "shippingReady": 0
   }
 }

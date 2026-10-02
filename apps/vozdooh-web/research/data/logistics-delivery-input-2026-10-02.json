@@ -381,7 +381,7 @@
       "barcode": "8411299002958",
       "status": "NEEDS_SOURCE",
       "deliveryInput": null,
-      "evidenceStatus": "NEEDS_SOURCE"
+      "evidenceStatus": "PARTIAL"
     },
     {
       "sku": "45360",
@@ -985,7 +985,7 @@
       "barcode": "805698180696",
       "status": "NEEDS_SOURCE",
       "deliveryInput": null,
-      "evidenceStatus": "NEEDS_SOURCE"
+      "evidenceStatus": "PARTIAL"
     },
     {
       "sku": "DI250TFU",
