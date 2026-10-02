@@ -18,3 +18,5 @@ Rule: verified exact-SKU full product dimensions and total weight are enough for
 - Cafe 1000 current model: current manufacturer manual and current manufacturer catalog agree on 295 × 222 × 112.5 mm; manual reports 2.1 kg net. The older 2.26 kg / 24 × 29.5 × 11 cm catalog is retained as historical-version evidence. Exact public mapping of barcode 4603773381220 is still missing, so the SKU remains PARTIAL rather than delivery-ready.
 
 - Vellutier Siberian Pine Forest V61036 / EAN 5907489031028 upgraded to verified retail package: 255 × 158 × 155 mm, 1540 g from structured exact-EAN retailer logistics fields.
+
+- Cafe 1000 upgraded to delivery-ready: current official manufacturer manual gives 295 × 222 × 112.5 mm and 2.1 kg; exact 1C model name matches. Integer Ozon input uses 295 × 222 × 113 mm by rounding 112.5 mm upward.

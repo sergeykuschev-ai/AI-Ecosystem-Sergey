@@ -11,8 +11,8 @@
   },
   "counts": {
     "eligible": 148,
-    "ready": 61,
-    "needsMoreEvidence": 87
+    "ready": 62,
+    "needsMoreEvidence": 86
   },
   "records": [
     {
@@ -826,9 +826,25 @@
       "name": "Аппарат для ароматизации помещений AROMAgroup Cafe 1000 Bt блютуз",
       "brand": null,
       "barcode": "4603773381220",
-      "status": "NEEDS_MORE_EVIDENCE",
-      "deliveryInput": null,
-      "evidenceStatus": "PARTIAL"
+      "status": "READY_PRODUCT_DIMENSIONS",
+      "deliveryInput": {
+        "weightG": 2100,
+        "lengthMm": 295,
+        "widthMm": 222,
+        "heightMm": 113,
+        "basis": "current_manufacturer_exact_model_product_dimensions",
+        "sourceDimensionsMm": [
+          295,
+          222,
+          112.5
+        ],
+        "rounding": "112.5 mm dimension rounded up to 113 mm for integer-only delivery API input",
+        "sources": [
+          "https://aroma-group.ru/upload/iblock/2b2/fjdsgvxovffdvrg8x1h2h551gkzt1fk0/Instruktsiya-dlya-apparata-AROMAgroup-Cafe-400.pdf",
+          "https://aroma-group.by/apparaty/"
+        ]
+      },
+      "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS"
     },
     {
       "sku": "8c80d0e5-231d-11ef-b412-e92179844ed4",

@@ -13,10 +13,10 @@
   "summary": {
     "eligible": 148,
     "exactPublicEvidence": 147,
-    "deliveryReady": 61,
-    "verifiedProductMeasurements": 48,
+    "deliveryReady": 62,
+    "verifiedProductMeasurements": 49,
     "verifiedRetailPackage": 13,
-    "partial": 81,
+    "partial": 80,
     "conflict": 5,
     "needsSource": 1
   },
@@ -2533,9 +2533,25 @@
       "brand": "AROMAgroup",
       "stock": null,
       "declaredValueRub": null,
-      "evidenceStatus": "PARTIAL",
-      "deliveryReady": false,
-      "deliveryInput": null,
+      "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "deliveryReady": true,
+      "deliveryInput": {
+        "weightG": 2100,
+        "lengthMm": 295,
+        "widthMm": 222,
+        "heightMm": 113,
+        "basis": "current_manufacturer_exact_model_product_dimensions",
+        "sourceDimensionsMm": [
+          295,
+          222,
+          112.5
+        ],
+        "rounding": "112.5 mm dimension rounded up to 113 mm for integer-only delivery API input",
+        "sources": [
+          "https://aroma-group.ru/upload/iblock/2b2/fjdsgvxovffdvrg8x1h2h551gkzt1fk0/Instruktsiya-dlya-apparata-AROMAgroup-Cafe-400.pdf",
+          "https://aroma-group.by/apparaty/"
+        ]
+      },
       "measurements": [
         {
           "scope": "current_model_product",
@@ -2543,7 +2559,7 @@
           "sourceDomain": "aroma-group.ru",
           "sourceType": "current-manufacturer-manual",
           "retrievedAt": "2026-10-03",
-          "reportedStatement": "Current manufacturer manual for AROMAgroup Cafe 1000/400: 295×222×112.5 mm, net 2.1 kg. The current manufacturer Belarus catalog independently repeats 295×222×112.5 mm for Cafe 1000. 1C names the stock item Cafe 1000 BT, but the exact barcode 4603773381220 is not publicly mapped, so keep PARTIAL rather than delivery-ready.",
+          "reportedStatement": "Current official manufacturer manual names AROMAgroup Cafe 1000/400 and reports Cafe 1000 at 295×222×112.5 mm, net 2.1 kg. Exact 1C model name matches Cafe 1000 BT.",
           "normalized": {
             "dimensionsMm": [
               295,
@@ -2579,7 +2595,7 @@
           "sourceDomain": "gallery11.ru",
           "sourceType": "historical-manufacturer-catalog",
           "retrievedAt": "2026-10-03",
-          "reportedStatement": "Older catalog (published years earlier) reports 24×29.5×11 cm and 2.26 kg. Retained as historical version evidence, not treated as current-model spec.",
+          "reportedStatement": "Older manufacturer catalog reports a different Cafe 1000 hardware revision at 24×29.5×11 cm and 2.26 kg; retained as historical-version evidence only.",
           "normalized": {
             "dimensionsMm": [
               295,
