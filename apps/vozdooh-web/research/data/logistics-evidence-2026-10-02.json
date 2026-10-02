@@ -1004,6 +1004,24 @@
       ]
     },
     {
+      "sku": "8c80d0e5-231d-11ef-b412-e92179844ed4",
+      "barcode": "8059692631292",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "included_reeds",
+          "count": 10,
+          "stickLengthMm": 300,
+          "weightG": null,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.bjutip.com/teatro-fragranze-uniche/ceresia-sticks-ml-250-home-fragrance",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN 8059692631292. Source explicitly states ten natural bamboo sticks (30 cm). Bottle/package dimensions and total weight remain unknown."
+        }
+      ]
+    },
+    {
       "sku": "AG250TFU",
       "barcode": "8058159964218",
       "brand": "TEATRO Fragranze Uniche",
@@ -1036,6 +1054,125 @@
           "sourceUrl": "https://zhor.com/products/bianco-divino-stick",
           "retrievedAt": "2026-10-02",
           "note": "1C record says Bianco Divino 500 ml with barcode 8058159964188, but external structured variants map 8058159964188 to 250 ml and 8058159964171 to 500 ml. Do not use dimensions/weight until barcode identity is corrected or independently confirmed."
+        },
+        {
+          "scope": "product_candidate_by_manufacturer_sku",
+          "productDiameterMm": 90,
+          "productHeightMm": 200,
+          "weightG": 600,
+          "sourceType": "authorized-retailer",
+          "sourceUrl": "https://www.teresapizzigallo.it/diffusori/48166-diffusore-bianco-divino-stick-500ml-teatro-fragranze-uniche.html",
+          "retrievedAt": "2026-10-02",
+          "note": "Page names manufacturer SKU BD500TFU.23 and 500 ml, with Ø9 × H20 cm and 0.6 kg. Barcode conflict remains unresolved: ZHOR maps 8058159964188 to 250 ml while BJUTIP maps it to 500 ml, so these measurements are kept as SKU-tied candidate data only."
+        }
+      ]
+    },
+    {
+      "sku": "CAND-HOME180",
+      "barcode": "8058159967400",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "wax_fill_only",
+          "dimensionsMm": null,
+          "weightG": 180,
+          "sourceType": "retailer",
+          "sourceUrl": "https://moncredo.pl/tfu-home-lux-col-scented-candle-180g.html",
+          "identitySourceUrl": "https://zhor.com/en/products/home-candela-1500-gr",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN 8058159967400 and manufacturer SKU CAND-HO180TFU.23 identify the 180 g candle. 180 g is the candle/wax content, not packed item or shipping weight; no dimensions found."
+        }
+      ]
+    },
+    {
+      "sku": "CAND-ROU180",
+      "barcode": "8058159966427",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "wax_fill_only",
+          "dimensionsMm": null,
+          "weightG": 180,
+          "sourceType": "retailer",
+          "sourceUrl": "https://rozetka.com.ua/teatro-fragranze-8058159966427/p383789466/",
+          "identitySourceUrl": "https://www.jashanmal.com/products/rose-oud-scented-candle-180g-cand-rou180",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN 8058159966427 / SKU CAND-ROU180. 180 g is candle content, not total retail-package or shipping weight. No physical dimensions found."
+        }
+      ]
+    },
+    {
+      "sku": "CAND-XM180",
+      "barcode": "8058159966816",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "wax_fill_only",
+          "dimensionsMm": null,
+          "weightG": 180,
+          "sourceType": "retailer",
+          "sourceUrl": "https://moncredo.pl/tfu-xmas-christmas-lux-col-scented-candle-180g.html",
+          "identitySourceUrl": "https://www.tsum.ru/product/he00902862-svecha-xmas-180g-teatro-bestcvetnyi/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN 8058159966816 and manufacturer SKU CAND-XM180TFU.23. 180 g is candle/wax content, not total packed weight. No physical dimensions found."
+        }
+      ]
+    },
+    {
+      "sku": "CE500TFU.23",
+      "barcode": "8059692631308",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "included_reeds",
+          "count": 10,
+          "stickLengthMm": 360,
+          "weightG": null,
+          "sourceType": "retailer-catalog",
+          "sourceUrl": "https://www.bjutip.com/teatro-fragranze-uniche",
+          "identitySourceUrl": "https://www.clementiprofumi.it/ceresia-diffusore-con-bastoncini.html",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN 8059692631308 and 500 ml identity independently confirmed. BJUTIP catalog states ten natural bamboo sticks, 36 cm. Bottle/package dimensions and total weight remain unknown."
+        }
+      ]
+    },
+    {
+      "sku": "DI250TFU",
+      "barcode": "8058159968490",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "included_reeds",
+          "count": 10,
+          "stickLengthMm": 300,
+          "weightG": null,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.solie.cz/teatro-fragranze-uniche-diamante-scent-of-art-difuzer-s-tycinkami-250-ml",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN 8058159968490. Source explicitly states ten 30 cm natural bamboo sticks. Bottle/package dimensions and total weight remain unknown."
+        }
+      ]
+    },
+    {
+      "sku": "DV250TFU",
+      "barcode": "8058159964256",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "included_reeds",
+          "count": 10,
+          "stickLengthMm": 300,
+          "weightG": null,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.solie.cz/teatro-fragranze-uniche-dolce-vaniglia-difuzer-s-tycinkami-250-ml",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN 8058159964256. Source explicitly states ten black bamboo sticks, each 30 cm. Bottle/package dimensions and total weight remain unknown."
         }
       ]
     },
@@ -1100,6 +1237,24 @@
       ]
     },
     {
+      "sku": "LO250TFU",
+      "barcode": "8058159967455",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product_or_item_weight",
+          "dimensionsMm": null,
+          "weightG": 358,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.profumixluxurybrands.it/brands/teatro-fragranze-uniche-love-fragranza-ambiente-250ml/",
+          "identitySourceUrl": "https://www.bjutip.com/love-luxury-collection-sticks-ml-250-home-fragrance",
+          "retrievedAt": "2026-10-02",
+          "note": "Retailer reports 0.358 kg for the exact Love 250 ml product; exact EAN 8058159967455 independently confirmed by BJUTIP/eBay. No physical dimensions or explicit retail-package weight scope."
+        }
+      ]
+    },
+    {
       "sku": "ROU250TFU",
       "barcode": "8058159966458",
       "brand": "TEATRO Fragranze Uniche",
@@ -1115,6 +1270,25 @@
           "identitySourceUrl": "https://www.fragranzedautore.it/teatro-fragranze-uniche/6366-teatro-fragranze-uniche-teatro-fragranze-uniche-rose-oud-250-ml-8058159966458.html",
           "retrievedAt": "2026-10-02",
           "note": "Exact scent/format page reports Ø7 × H16 cm and 0.4 kg; independent exact-EAN 8058159966458 source confirms identity."
+        }
+      ]
+    },
+    {
+      "sku": "VM250TFU",
+      "barcode": "8058159964652",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "included_reeds",
+          "count": 10,
+          "stickLengthMm": 300,
+          "weightG": null,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.solie.cz/teatro-fragranze-uniche-vento-di-mare-difuzer-s-tycinkami-250-ml",
+          "identitySourceUrl": "https://www.blivakker.no/product/3347125",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN 8058159964652 independently confirmed. Source states ten natural bamboo sticks, 30 cm. Bottle/package dimensions and total weight remain unknown."
         }
       ]
     },
@@ -1631,10 +1805,10 @@
     }
   ],
   "summary": {
-    "researchedRecords": 65,
+    "researchedRecords": 74,
     "verifiedRetailPackage": 8,
     "verifiedProductMeasurements": 19,
-    "partial": 27,
+    "partial": 36,
     "conflict": 11,
     "shippingReady": 0
   }
