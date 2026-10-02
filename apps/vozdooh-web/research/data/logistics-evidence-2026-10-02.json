@@ -1,0 +1,934 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-10-02",
+  "purpose": "Exact-SKU public-source evidence for product/retail-package dimensions and weight. These values are NOT final VOZDOOH shipping-parcel dimensions.",
+  "rules": {
+    "exactIdentity": "Evidence is accepted only when the source matches the exact EAN/SKU.",
+    "noVolumeToWeight": true,
+    "noMissingDimensionInference": true,
+    "shippingReady": false,
+    "finalParcelRule": "Do not write these values into production Ozon shipping dimensions until VOZDOOH outer packaging and filler are verified."
+  },
+  "records": [
+    {
+      "sku": "1113",
+      "barcode": "8055965595063",
+      "brand": "CULTI MILANO",
+      "status": "CONFLICT",
+      "measurements": [
+        {
+          "scope": "product_length_only",
+          "lengthMm": 430,
+          "weightG": 50,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://formadore.co.uk/culti-culti-rattan-diffuser-sticks-1-l%2C131476",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN."
+        },
+        {
+          "scope": "product_length_only",
+          "lengthMm": 430,
+          "weightG": 100,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://pranahome.ru/product/rotangovye-palochki-dlya-diffuzora-1000-ml-culti-milano",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact article; length agrees, weight conflicts 50 vs 100 g."
+        }
+      ]
+    },
+    {
+      "sku": "12132",
+      "barcode": "8050534795714",
+      "brand": "CULTI MILANO",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            56,
+            41,
+            115
+          ],
+          "weightG": 380,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://fabrykaform.pl/culti-spray-zapachowy-culti-era-100-ml%2C131288",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; complete product dimensions and weight."
+        }
+      ]
+    },
+    {
+      "sku": "46091",
+      "barcode": "8050534795806",
+      "brand": "CULTI MILANO",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            56,
+            41,
+            115
+          ],
+          "weightG": null,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.mk2shop.com/en/culti-milano-home-fragrance-spray-the.html",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; complete product dimensions, no weight."
+        }
+      ]
+    },
+    {
+      "sku": "65576",
+      "barcode": "8050534799132",
+      "brand": "CULTI MILANO",
+      "status": "CONFLICT",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            104,
+            null,
+            175
+          ],
+          "weightG": 1950,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://formadore.com/culti-culti-automobili-lamborghini-fragrance-diffuser%2C173650",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; only width and height explicitly stated."
+        },
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            104,
+            104,
+            175
+          ],
+          "weightG": 1800,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.casa-due-pur.de/Culti-Milano?ed=1",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact GTIN; full L×D×H and article weight. Weight conflicts with FormAdore 1.95 kg."
+        }
+      ]
+    },
+    {
+      "sku": "802e8ad6-d19b-11ec-be83-7c8bca00854e",
+      "barcode": "8050534794939",
+      "brand": "CULTI MILANO",
+      "status": "CONFLICT",
+      "measurements": [
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 204,
+          "diameterMm": 78,
+          "weightG": 1030,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://formadore.lv/culti-aromatu-difuzors-culti-stile-classic-era-500-ml%2C131229",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN."
+        },
+        {
+          "scope": "unspecified_product_or_package",
+          "dimensionsMm": [
+            120,
+            220,
+            120
+          ],
+          "weightG": 700,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.homefragrance.ru/products/culti-era-stile-diffuzor-500-ml",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact article/EAN; dimensions and weight conflict with FormAdore, likely different measurement scope."
+        }
+      ]
+    },
+    {
+      "sku": "802e8adf-d19b-11ec-be83-7c8bca00854e",
+      "barcode": "8050534794489",
+      "brand": "CULTI MILANO",
+      "status": "VERIFIED_RETAIL_PACKAGE",
+      "measurements": [
+        {
+          "scope": "retail_package",
+          "dimensionsMm": [
+            90,
+            90,
+            170
+          ],
+          "weightG": 704,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.galaxus.ch/en/s14/product/culti-decor-room-diffuser-mediterranea-250-ml-fragrance-diffusers-11882997",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact manufacturer number/EAN; source explicitly labels Package dimensions and Package weight."
+        }
+      ]
+    },
+    {
+      "sku": "802e8b01-d19b-11ec-be83-7c8bca00854e",
+      "barcode": "8050534796391",
+      "brand": "CULTI MILANO",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 204,
+          "diameterMm": 78,
+          "weightG": 1030,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://formadore.lv/culti-aromatu-difuzors-culti-stile-colours-the-500-ml%2C131375",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN."
+        }
+      ]
+    },
+    {
+      "sku": "802e8b03-d19b-11ec-be83-7c8bca00854e",
+      "barcode": "8050534798425",
+      "brand": "CULTI MILANO",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 204,
+          "diameterMm": 78,
+          "weightG": 1250,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.casa-due-pur.de/Culti-Milano?ed=1",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact GTIN; dimensions and article weight on same listing."
+        }
+      ]
+    },
+    {
+      "sku": "976878",
+      "barcode": "8050534794243",
+      "brand": "CULTI MILANO",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            74,
+            74,
+            125
+          ],
+          "weightG": 820,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://formadore.ua/culti-aromatychnyi-dyfuzor-culti-decor-classic-aqqua%2C131320",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; full product dimensions and weight."
+        }
+      ]
+    },
+    {
+      "sku": "df29d344-d192-11ec-be83-7c8bca00854e",
+      "barcode": "8050534794823",
+      "brand": "CULTI MILANO",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 159,
+          "diameterMm": 62,
+          "weightG": 600,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://formadore.ua/culti-aromatychnyi-dyfuzor-culti-stile-classic-aramara%2C131187",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; cylindrical product dimensions and weight."
+        }
+      ]
+    },
+    {
+      "sku": "df29d346-d192-11ec-be83-7c8bca00854e",
+      "barcode": "8050534795325",
+      "brand": "CULTI MILANO",
+      "status": "CONFLICT",
+      "measurements": [
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 159,
+          "diameterMm": 62,
+          "weightG": 600,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://formadore.com/culti-culti-stile-classic-tessuto-fragrance-diffuser-250-ml%2C131212",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN."
+        },
+        {
+          "scope": "product_or_presented_footprint",
+          "dimensionsMm": [
+            90,
+            90,
+            159
+          ],
+          "weightG": null,
+          "sourceType": "design-retailer",
+          "sourceUrl": "https://how-we-live.design/products/ct-s-diff-250mltessuto",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact product number; reports W90×D90×H159 and Ø62, so 90×90 may include presentation footprint/rods. Preserve as conflict rather than infer."
+        }
+      ]
+    },
+    {
+      "sku": "df29d34a-d192-11ec-be83-7c8bca00854e",
+      "barcode": "8050534794779",
+      "brand": "CULTI MILANO",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 159,
+          "diameterMm": 62,
+          "weightG": 600,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://formadore.com/culti-culti-stile-classic-aqqua-fragrance-diffuser-250-ml%2C131203",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; cylindrical product dimensions and weight."
+        }
+      ]
+    },
+    {
+      "sku": "df29d34e-d192-11ec-be83-7c8bca00854e",
+      "barcode": "8050534796629",
+      "brand": "CULTI MILANO",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 159,
+          "diameterMm": 62,
+          "weightG": 600,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://formadore.lv/culti-aromatu-difuzors-culti-stile-classic-supreme-amber%2C165011",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN."
+        }
+      ]
+    },
+    {
+      "sku": "N019834",
+      "barcode": "3420070002501",
+      "brand": "Christian Tortu",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "retail_package_family_explicit",
+          "dimensionsMm": [
+            99,
+            99,
+            82
+          ],
+          "weightG": null,
+          "sourceType": "distributor",
+          "sourceUrl": "https://jiyugaoka-market-p.com/product.php?id=15449",
+          "retrievedAt": "2026-10-02",
+          "note": "Distributor explicitly gives outer-box dimensions for Christian Tortu Pot Pourri Parfumé and lists this exact JAN in the same family."
+        },
+        {
+          "scope": "product_or_item_weight",
+          "dimensionsMm": null,
+          "weightG": 360,
+          "sourceType": "marketplace",
+          "sourceUrl": "https://www.ebay.ca/itm/264573932316",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; item weight 0.36 kg, not explicitly package weight."
+        }
+      ]
+    },
+    {
+      "sku": "N019873",
+      "barcode": "3420070002587",
+      "brand": "Christian Tortu",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "retail_package_family_explicit",
+          "dimensionsMm": [
+            99,
+            99,
+            82
+          ],
+          "weightG": null,
+          "sourceType": "distributor",
+          "sourceUrl": "https://jiyugaoka-market-p.com/product.php?id=15449",
+          "retrievedAt": "2026-10-02",
+          "note": "Distributor explicitly gives outer-box dimensions for Christian Tortu Pot Pourri Parfumé and lists this exact JAN in the same family."
+        },
+        {
+          "scope": "product_or_item_weight",
+          "dimensionsMm": null,
+          "weightG": 370,
+          "sourceType": "marketplace",
+          "sourceUrl": "https://www.ebay.com.au/itm/254459611681",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; item weight 0.37 kg, not explicitly package weight."
+        }
+      ]
+    },
+    {
+      "sku": "N020713",
+      "barcode": "3420070002914",
+      "brand": "Christian Tortu",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product_or_item_weight",
+          "dimensionsMm": null,
+          "weightG": 740,
+          "sourceType": "marketplace",
+          "sourceUrl": "https://www.ebay.com.au/itm/256923970719",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN/MPN; item weight 0.74 kg, no dimensions."
+        }
+      ]
+    },
+    {
+      "sku": "089864",
+      "barcode": "8411299001364",
+      "brand": "Ladenac Milano",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product_or_item_weight",
+          "dimensionsMm": null,
+          "weightG": 700,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://pranahome.ru/product/senteur-royale-diffuzor-dynastie-collection-ladenac-milano",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact article; 0.7 kg listed, no dimensions."
+        }
+      ]
+    },
+    {
+      "sku": "6545367",
+      "barcode": "8411299000350",
+      "brand": "Ladenac Milano",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 105,
+          "diameterMm": 80,
+          "weightG": 700,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://pranahome.ru/product/zebra-svecha-africa-collection-ladenac-milano",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact article. Page also states candle wax weight 350 g; retailer's product weight field is 0.7 kg. Keep both concepts separate."
+        },
+        {
+          "scope": "content_wax_only",
+          "dimensionsMm": null,
+          "weightG": 350,
+          "sourceType": "retailer",
+          "sourceUrl": "https://slepayakurica.ru/product/68862/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact article/EAN; candle fill weight, not shipping/item weight."
+        }
+      ]
+    },
+    {
+      "sku": "MF-FRAGR2.02",
+      "barcode": "8057143585910",
+      "brand": "MAMI MILANO",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product_or_item_weight",
+          "dimensionsMm": null,
+          "weightG": 600,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.niclick.it/prodotto/diffusore-fragranza-ambiente-200-ml-arancia-candita-mami-milano-mf-fragr2-02/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN and manufacturer code; weight 0.6 kg, no dimensions."
+        }
+      ]
+    },
+    {
+      "sku": "0b044a39-8588-11ed-b530-7c8bca00854e",
+      "barcode": "5902802112569",
+      "brand": "VINOVE",
+      "status": "VERIFIED_RETAIL_PACKAGE",
+      "measurements": [
+        {
+          "scope": "retail_package",
+          "dimensionsMm": [
+            111,
+            67,
+            42
+          ],
+          "weightG": 60,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://car-tronic.pl/en/product/vinove-classic-leather-line-rome-air-freshener/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; explicit packaging block."
+        },
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            74,
+            53,
+            37
+          ],
+          "weightG": 26,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.gamma.nl/assortiment/vinove-luchtverfrisser-leather-espresso-rome/p/B320508",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; product dimensions include fitted clip orientation."
+        }
+      ]
+    },
+    {
+      "sku": "N020273",
+      "barcode": "5902802110220",
+      "brand": "VINOVE",
+      "status": "CONFLICT",
+      "measurements": [
+        {
+          "scope": "retail_package",
+          "dimensionsMm": [
+            112,
+            42,
+            106
+          ],
+          "weightG": 54,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.hubo.be/nl/p/vinove-luchtverfrisser-oud-warsaw/1080419/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; explicit package fields."
+        },
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            74,
+            23,
+            37
+          ],
+          "weightG": 30,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.hubo.be/nl/p/vinove-luchtverfrisser-oud-warsaw/1080419/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN product dimensions and weight."
+        },
+        {
+          "scope": "retail_package_weight_only",
+          "dimensionsMm": null,
+          "weightG": 200,
+          "sourceType": "marketplace",
+          "sourceUrl": "https://allegro.pl/oferta/zapach-samochodowy-vinove-warsaw-oud-17855389555",
+          "retrievedAt": "2026-10-02",
+          "note": "Marketplace unit-package weight strongly conflicts with Hubo 54 g; retain as conflict only."
+        }
+      ]
+    },
+    {
+      "sku": "N020316",
+      "barcode": "5902802110442",
+      "brand": "VINOVE",
+      "status": "VERIFIED_RETAIL_PACKAGE",
+      "measurements": [
+        {
+          "scope": "retail_package",
+          "dimensionsMm": [
+            140,
+            70,
+            10
+          ],
+          "weightG": 13,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://e-domus.com.pl/motoryzacja/chemia-motoryzacyjna/wklad-do-odswiezacza-powietrza-vinove-silverstone-vinove-v11044-v07-01",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; page explicitly states 1×7×14 cm package and 0.013 kg."
+        }
+      ]
+    },
+    {
+      "sku": "N020325",
+      "barcode": "5902802111005",
+      "brand": "VINOVE",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            73,
+            28,
+            36
+          ],
+          "weightG": 27,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.gamma.nl/assortiment/vinove-luchtverfrisser-jewelry-london/p/B320652",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; structured product dimensions and weight."
+        },
+        {
+          "scope": "retail_package",
+          "dimensionsMm": [
+            111,
+            105,
+            42
+          ],
+          "weightG": 60,
+          "sourceType": "marketplace",
+          "sourceUrl": "https://allegro.cz/produkt/vune-do-auta-vinove-london-jewelry-a7c52518-be92-490f-9c51-b30b7e1a8bd6",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact product listing reports package dimensions/weight; keep marketplace confidence below structured retailer source."
+        }
+      ]
+    },
+    {
+      "sku": "N020334",
+      "barcode": "5902802110497",
+      "brand": "VINOVE",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "retail_package",
+          "dimensionsMm": [
+            140,
+            65,
+            14
+          ],
+          "weightG": null,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.bol.com/nl/nl/p/vinove-autoparfum-car-airfreshner-paris/9200000123263179/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; package dimensions explicit, package weight field empty."
+        },
+        {
+          "scope": "product",
+          "dimensionsMm": null,
+          "weightG": 7,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.bol.com/nl/nl/p/vinove-autoparfum-car-airfreshner-paris/9200000123263179/",
+          "retrievedAt": "2026-10-02",
+          "note": "Product weight, not package weight."
+        }
+      ]
+    },
+    {
+      "sku": "N020408",
+      "barcode": "5902802112149",
+      "brand": "VINOVE",
+      "status": "VERIFIED_RETAIL_PACKAGE",
+      "measurements": [
+        {
+          "scope": "retail_package",
+          "dimensionsMm": [
+            140,
+            70,
+            10
+          ],
+          "weightG": 13,
+          "sourceType": "manufacturer-distributor",
+          "sourceUrl": "https://amio.pl/es/recambio-ambientador-coche-vinove-maranello/3-5712-7096",
+          "retrievedAt": "2026-10-02",
+          "note": "Source explicitly labels package dimensions and weight."
+        }
+      ]
+    },
+    {
+      "sku": "N020434",
+      "barcode": "5902802112514",
+      "brand": "VINOVE",
+      "status": "CONFLICT",
+      "measurements": [
+        {
+          "scope": "retail_package",
+          "dimensionsMm": [
+            112,
+            43,
+            105
+          ],
+          "weightG": 47,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.hubo.be/fr/p/vinove-desodorisant-leather-ivory-monza/1080426/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; explicit package fields."
+        },
+        {
+          "scope": "retail_package",
+          "dimensionsMm": [
+            111,
+            67,
+            42
+          ],
+          "weightG": 60,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://car-tronic.pl/en/product/vinove-classic-leather-line-monza-air-freshener/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; package data conflicts with Hubo."
+        }
+      ]
+    },
+    {
+      "sku": "N020445",
+      "barcode": "5902802112620",
+      "brand": "VINOVE",
+      "status": "CONFLICT",
+      "measurements": [
+        {
+          "scope": "retail_package",
+          "dimensionsMm": [
+            111,
+            67,
+            42
+          ],
+          "weightG": 60,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.tuningshop.cz/osvezovac-vzduchu-do-auta-vinove-evolution-line-rome/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; explicit package data."
+        },
+        {
+          "scope": "unspecified_weight",
+          "dimensionsMm": null,
+          "weightG": 80,
+          "sourceType": "retailer",
+          "sourceUrl": "https://autopro.bg/product/aromatizator-vinove-excellence-evolution-line-rome",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; generic technical weight conflicts with 60 g package claim, so do not promote either to shipping weight."
+        }
+      ]
+    },
+    {
+      "sku": "N020566",
+      "barcode": "5902802112477",
+      "brand": "VINOVE",
+      "status": "VERIFIED_RETAIL_PACKAGE",
+      "measurements": [
+        {
+          "scope": "retail_package",
+          "dimensionsMm": [
+            140,
+            70,
+            10
+          ],
+          "weightG": 13,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://e-domus.com.pl/motoryzacja/chemia-motoryzacyjna/wklad-do-odswiezacza-powietrza-vinove-miami-vinove-v11247-v07-17",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; page explicitly states 1×7×14 cm package and 0.013 kg."
+        }
+      ]
+    },
+    {
+      "sku": "V61014",
+      "barcode": "5907489030038",
+      "brand": "Vellutier",
+      "status": "CONFLICT",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            110,
+            110,
+            160
+          ],
+          "weightG": 515,
+          "weightKind": "wax_fill",
+          "sourceType": "marketplace",
+          "sourceUrl": "https://allegro.pl/produkt/swieca-tradycyjna-rzepakowa-midnight-toast-vellutier-1-szt-95e12ecf-9aaa-41b8-a3fb-040d74dbfeb7",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; dimensions and net candle mass."
+        },
+        {
+          "scope": "retail_package_weight_only",
+          "dimensionsMm": null,
+          "weightG": 1000,
+          "sourceType": "marketplace",
+          "sourceUrl": "https://allegro.pl/produkt/swieca-tradycyjna-rzepakowa-midnight-toast-vellutier-1-szt-95e12ecf-9aaa-41b8-a3fb-040d74dbfeb7",
+          "retrievedAt": "2026-10-02",
+          "note": "Listing reports unit-package weight 1 kg."
+        },
+        {
+          "scope": "product_or_item_weight",
+          "dimensionsMm": null,
+          "weightG": 1350,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.apollostore.com/pl/p/swieca-vellutier-duza-midnight-toast",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; retailer mass 1.35 kg conflicts with marketplace package weight."
+        }
+      ]
+    },
+    {
+      "sku": "V61028",
+      "barcode": "5907489030175",
+      "brand": "Vellutier",
+      "status": "VERIFIED_RETAIL_PACKAGE",
+      "measurements": [
+        {
+          "scope": "retail_package",
+          "dimensionsMm": [
+            153,
+            145,
+            207
+          ],
+          "weightG": 1480,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.bol.com/nl/nl/p/vellutier-geurkaars-large-into-the-wilderness-16-cm-o-11-cm/9300000021159520/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; source explicitly labels package width/height/length and package weight."
+        },
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 160,
+          "diameterMm": 110,
+          "weightG": 515,
+          "weightKind": "wax_fill",
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://aromatowo.pl/duza-swieca-into-the-wilderness-vellutier",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; 515 g is candle fill/net mass, not packed parcel weight."
+        }
+      ]
+    },
+    {
+      "sku": "V61036",
+      "barcode": "5907489031028",
+      "brand": "Vellutier",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            110,
+            110,
+            160
+          ],
+          "weightG": 515,
+          "weightKind": "wax_fill",
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.komputronik.pl/product/782942/vellutier-duza-swieca-siberian-pine-forest.html",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; product dimensions and 515 g net candle mass."
+        },
+        {
+          "scope": "retail_package_weight_only",
+          "dimensionsMm": null,
+          "weightG": 1000,
+          "sourceType": "marketplace",
+          "sourceUrl": "https://allegro.hu/termek/repcegyertya-siberian-pine-forest-illattal-vellutier-1-db-a96ea1a2-5bfc-4ebd-82a5-6033ac7759c5",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; unit-package weight 1 kg, no package dimensions."
+        }
+      ]
+    },
+    {
+      "sku": "V62014",
+      "barcode": "5907489030281",
+      "brand": "Vellutier",
+      "status": "VERIFIED_RETAIL_PACKAGE",
+      "measurements": [
+        {
+          "scope": "retail_package",
+          "dimensionsMm": [
+            164,
+            103,
+            175
+          ],
+          "weightG": 680,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.bol.com/nl/nl/p/vellutier-geurkaars-medium-midnight-toast-12-cm-o-9-cm/9300000021520931/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; explicit package dimensions and package weight."
+        },
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 115,
+          "diameterMm": 90,
+          "weightG": 225,
+          "weightKind": "wax_fill",
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.bol.com/nl/nl/p/vellutier-geurkaars-medium-midnight-toast-12-cm-o-9-cm/9300000021520931/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; product size. Candle net mass 225 g confirmed by Decorise."
+        }
+      ]
+    },
+    {
+      "sku": "V63011",
+      "barcode": "5907489030489",
+      "brand": "Vellutier",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            70,
+            70,
+            90
+          ],
+          "weightG": 359,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.decorise.cz/p/vellutier-oudwood-journey-90-g/6705053",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; retailer item weight 359 g."
+        },
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            70,
+            70,
+            90
+          ],
+          "weightG": 90,
+          "weightKind": "wax_fill",
+          "sourceType": "marketplace",
+          "sourceUrl": "https://allegro.pl/produkt/swieca-tradycyjna-rzepakowa-oudwood-vellutier-d14342fe-78cc-4f6e-ad72-cf9ce45dc6a7",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; 90 g is net candle mass, not total item weight."
+        }
+      ]
+    },
+    {
+      "sku": "V63017",
+      "barcode": "5907489030540",
+      "brand": "Vellutier",
+      "status": "CONFLICT",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            70,
+            70,
+            90
+          ],
+          "weightG": 90,
+          "weightKind": "wax_fill",
+          "sourceType": "marketplace",
+          "sourceUrl": "https://allegro.pl/produkt/swieca-tradycyjna-parafinowa-vintage-library-vellutier-1-szt-8ff07fca-325f-4571-b5c1-333d9da5f27e",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; product dimensions/net wax mass."
+        },
+        {
+          "scope": "retail_package_weight_only",
+          "dimensionsMm": null,
+          "weightG": 900,
+          "sourceType": "marketplace",
+          "sourceUrl": "https://allegro.pl/produkt/swieca-tradycyjna-parafinowa-vintage-library-vellutier-1-szt-8ff07fca-325f-4571-b5c1-333d9da5f27e",
+          "retrievedAt": "2026-10-02",
+          "note": "Same listing reports unit-package weight 0.9 kg."
+        },
+        {
+          "scope": "product_or_item_weight",
+          "dimensionsMm": null,
+          "weightG": 380,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.decorise.cz/p/vellutier-vintage-knihovna-90-g/6705133",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; retailer item weight 380 g. Conflicts with 900 g package field; scopes may differ."
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "researchedRecords": 34,
+    "verifiedRetailPackage": 7,
+    "verifiedProductMeasurements": 9,
+    "partial": 9,
+    "conflict": 9,
+    "shippingReady": 0
+  }
+}
