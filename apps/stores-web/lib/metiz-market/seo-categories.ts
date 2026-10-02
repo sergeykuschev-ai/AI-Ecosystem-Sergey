@@ -11,6 +11,7 @@ export interface MetizSeoCategory {
   selectionHeading: string;
   selectionTips: string[];
   note: string;
+  guide?: { href: string; title: string; text: string };
 }
 
 export const METIZ_SEO_CATEGORIES: MetizSeoCategory[] = [
@@ -30,6 +31,11 @@ export const METIZ_SEO_CATEGORIES: MetizSeoCategory[] = [
     ],    selectionHeading: "Что уточнить перед покупкой",
     selectionTips: ["Что крепим и к какому материалу.", "Нужные длина и диаметр.", "Условия применения: внутри или снаружи помещения."],
     note: "Если размер неизвестен, принесите образец старого крепежа или фото узла с размерами.",
+    guide: {
+      href: "/stati/kak-vybrat-samorezy-dlya-remonta-i-montazha/",
+      title: "Как выбрать саморезы для ремонта и монтажа",
+      text: "Подробный чек-лист по материалу основания, размеру, резьбе, головке и совместимости крепежа.",
+    },
   },
   {
     slug: "bolty-gayki-shayby",

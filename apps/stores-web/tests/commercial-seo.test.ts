@@ -66,6 +66,15 @@ test("commercial item links render within the relevant product context and resol
   assert.ok(edgeCount >= 4, "commercial selection paths must remain connected");
 });
 
+test("Metiz samorezy category links back to the supporting article", async () => {
+  const category = METIZ_SEO_CATEGORIES.find((entry) => entry.slug === "samorezy");
+  assert.ok(category?.guide);
+  const markup = renderToStaticMarkup(await MetizSeoCategoryPage({ category }));
+  assert.match(markup, /href="\/stati\/kak-vybrat-samorezy-dlya-remonta-i-montazha\/?"/);
+  const urls = new Set((await sitemap()).map(({ url }) => new URL(url).pathname));
+  assert.ok(urls.has(category.guide.href));
+});
+
 test("Miska web categories exclude antiparasitic products and static pages have no invented lastmod", async () => {
   assert.doesNotMatch(JSON.stringify(MISKA_SEO_CATEGORIES), /антипаразит|противопаразит|от блох|от клещ|antiparazit|antiparasit/i);
   for (const entry of await sitemap()) {
