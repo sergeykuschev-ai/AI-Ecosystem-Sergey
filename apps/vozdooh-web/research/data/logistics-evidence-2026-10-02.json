@@ -2263,14 +2263,17 @@
       "sku": "MF-FRAGR2.09",
       "barcode": "8057143585989",
       "brand": "MAMI MILANO",
-      "status": "NEEDS_SOURCE",
+      "status": "PARTIAL",
       "measurements": [
         {
-          "scope": "research_gap",
+          "scope": "product_or_item_weight",
           "dimensionsMm": null,
-          "weightG": null,
+          "weightG": 600,
+          "sourceType": "retailer-public-api",
+          "sourceUrl": "https://www.niclick.it/prodotto/diffusore-fragranza-ambiente-vaniglia-e-legni-200-ml-mami-milano-mf-fragr2-09/",
+          "apiSourceUrl": "https://www.niclick.it/wp-json/wc/store/v1/products/86178",
           "retrievedAt": "2026-10-02",
-          "note": "No reliable public full physical dimensions and total item/package weight were found for this exact current-stock SKU in the 2026-10-02 research pass. Keep blocked from inferred logistics dimensions; do not convert nominal volume to weight or borrow dimensions from a sibling SKU."
+          "note": "Niclick public WooCommerce Store API for product ID 86178 names exact manufacturer code MF-FRAGR2.09 and reports weight 0.6 kg; dimensions are blank. Exact 1C EAN 8057143585989 remains the catalog identity. Keep PARTIAL until full dimensions are independently verified."
         }
       ]
     },
@@ -2278,14 +2281,17 @@
       "sku": "MF-FRAGR2.11",
       "barcode": "8057143586009",
       "brand": "MAMI MILANO",
-      "status": "NEEDS_SOURCE",
+      "status": "PARTIAL",
       "measurements": [
         {
-          "scope": "research_gap",
+          "scope": "product_or_item_weight",
           "dimensionsMm": null,
-          "weightG": null,
+          "weightG": 600,
+          "sourceType": "retailer-public-api",
+          "sourceUrl": "https://www.niclick.it/prodotto/diffusore-fragranza-ambiente-200-ml-fumo-di-londra-mami-milano-mf-fragr2-11/",
+          "apiSourceUrl": "https://www.niclick.it/wp-json/wc/store/v1/products/86180",
           "retrievedAt": "2026-10-02",
-          "note": "No reliable public full physical dimensions and total item/package weight were found for this exact current-stock SKU in the 2026-10-02 research pass. Keep blocked from inferred logistics dimensions; do not convert nominal volume to weight or borrow dimensions from a sibling SKU."
+          "note": "Niclick public WooCommerce Store API for product ID 86180 names exact manufacturer code MF-FRAGR2.11 and reports weight 0.6 kg; dimensions are blank. Exact 1C EAN 8057143586009 remains the catalog identity. Keep PARTIAL until full dimensions are independently verified."
         }
       ]
     },
@@ -3399,9 +3405,9 @@
     "researchedRecords": 148,
     "verifiedRetailPackage": 8,
     "verifiedProductMeasurements": 29,
-    "partial": 76,
+    "partial": 78,
     "conflict": 12,
-    "needsSource": 23,
+    "needsSource": 21,
     "shippingReady": 0
   }
 }

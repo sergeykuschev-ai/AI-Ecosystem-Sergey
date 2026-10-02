@@ -1111,7 +1111,7 @@
       "barcode": "8057143585989",
       "status": "NEEDS_SOURCE",
       "deliveryInput": null,
-      "evidenceStatus": "NEEDS_SOURCE"
+      "evidenceStatus": "PARTIAL"
     },
     {
       "sku": "MF-FRAGR2.11",
@@ -1120,7 +1120,7 @@
       "barcode": "8057143586009",
       "status": "NEEDS_SOURCE",
       "deliveryInput": null,
-      "evidenceStatus": "NEEDS_SOURCE"
+      "evidenceStatus": "PARTIAL"
     },
     {
       "sku": "MF-FRAGR2.12",
