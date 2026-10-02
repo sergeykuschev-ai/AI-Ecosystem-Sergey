@@ -79,6 +79,34 @@
       ]
     },
     {
+      "sku": "465636",
+      "barcode": "8055965594981",
+      "brand": "CULTI MILANO",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 220,
+          "diameterMm": 90,
+          "weightG": null,
+          "sourceType": "official-manufacturer",
+          "sourceUrl": "https://www.culti.com/en/refill-the-1000ml.html",
+          "retrievedAt": "2026-10-02",
+          "note": "Official CULTI page for Thé 1000 ml refill states D9 × H22 cm."
+        },
+        {
+          "scope": "source_reported_weight",
+          "dimensionsMm": null,
+          "weightG": 1000,
+          "confidence": "low",
+          "sourceType": "marketplace-retailer",
+          "sourceUrl": "https://www.kaufland.it/product/320654660/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN reports 1000 g, equal to the 1000 ml nominal volume. Retained only as low-confidence source-reported weight; not accepted as verified logistics weight."
+        }
+      ]
+    },
+    {
       "sku": "65576",
       "barcode": "8050534799132",
       "brand": "CULTI MILANO",
@@ -165,6 +193,48 @@
       ]
     },
     {
+      "sku": "802e8ae5-d19b-11ec-be83-7c8bca00854e",
+      "barcode": "8050534794281",
+      "brand": "CULTI MILANO",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            74,
+            74,
+            125
+          ],
+          "weightG": 820,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://formadore.lv/culti-aromatu-difuzors-culti-decor-classic-aramara-250-ml%2C131307",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; complete product dimensions and weight. Product measurements, not outer shipping package."
+        }
+      ]
+    },
+    {
+      "sku": "802e8aeb-d19b-11ec-be83-7c8bca00854e",
+      "barcode": "8050534794533",
+      "brand": "CULTI MILANO",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "unspecified_product_or_package",
+          "dimensionsMm": [
+            120,
+            220,
+            120
+          ],
+          "weightG": 700,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.homefragrance.ru/products/culti-mountain-decor-diffuzor-500-ml",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN/article; retailer states 120×220×120 and 700 g but does not clearly separate product from retail-package scope. Keep partial; do not use as shipping parcel."
+        }
+      ]
+    },
+    {
       "sku": "802e8b01-d19b-11ec-be83-7c8bca00854e",
       "barcode": "8050534796391",
       "brand": "CULTI MILANO",
@@ -218,6 +288,33 @@
           "sourceUrl": "https://formadore.ua/culti-aromatychnyi-dyfuzor-culti-decor-classic-aqqua%2C131320",
           "retrievedAt": "2026-10-02",
           "note": "Exact EAN; full product dimensions and weight."
+        }
+      ]
+    },
+    {
+      "sku": "9980088",
+      "barcode": "8055965594929",
+      "brand": "CULTI MILANO",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 220,
+          "diameterMm": 90,
+          "weightG": null,
+          "sourceType": "official-manufacturer",
+          "sourceUrl": "https://www.culti.com/en/refill-mediterranea-1000ml.html",
+          "retrievedAt": "2026-10-02",
+          "note": "Official CULTI page for Mediterranea 1000 ml refill states D9 × H22 cm."
+        },
+        {
+          "scope": "product_weight",
+          "dimensionsMm": null,
+          "weightG": 930,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://formadore.co.uk/culti-culti-mediterranea-fragrance-oil-for-diffuser-1-l%2C131451",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; retailer reports 0.93 kg and repeats H22 cm / D9 cm."
         }
       ]
     },
@@ -303,6 +400,78 @@
           "sourceUrl": "https://formadore.lv/culti-aromatu-difuzors-culti-stile-classic-supreme-amber%2C165011",
           "retrievedAt": "2026-10-02",
           "note": "Exact EAN."
+        }
+      ]
+    },
+    {
+      "sku": "382777",
+      "barcode": "190577122103",
+      "brand": "Castelbel",
+      "status": "VERIFIED_RETAIL_PACKAGE",
+      "measurements": [
+        {
+          "scope": "retail_package",
+          "dimensionsMm": [
+            100,
+            4,
+            187
+          ],
+          "weightG": 20,
+          "sourceType": "marketplace-retailer",
+          "sourceUrl": "https://allegro.pl/produkt/castelbel-porto-saszetka-10-g-7bbfa49d-1e05-4a0a-a85a-f98fd86f6893",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN. Listing explicitly gives package dimensions 10×0.4×18.7 cm and unit-package weight 0.02 kg; fragrant cork content itself is 10 g."
+        }
+      ]
+    },
+    {
+      "sku": "382784",
+      "barcode": "190577123100",
+      "brand": "Castelbel",
+      "status": "CONFLICT",
+      "measurements": [
+        {
+          "scope": "retail_package",
+          "dimensionsMm": [
+            100,
+            4,
+            187
+          ],
+          "weightG": 50,
+          "sourceType": "retailer",
+          "sourceUrl": "https://home-you.com/pl/p/saszetka-zapachowa-castelbel-kokos-10g",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN. Description gives package 10×0.4×18.7 cm and content 10 g; structured details give gross weight 0.05 kg but also dimensions about 11×19 cm. Preserve internal dimensional discrepancy as conflict."
+        },
+        {
+          "scope": "alternate_retailer_dimensions",
+          "dimensionsMm": [
+            110,
+            null,
+            190
+          ],
+          "weightG": 50,
+          "sourceType": "retailer",
+          "sourceUrl": "https://home-you.com/pl/p/saszetka-zapachowa-castelbel-kokos-10g",
+          "retrievedAt": "2026-10-02",
+          "note": "Same exact-EAN page structured fields differ slightly from the textual package measurements; missing thickness in this alternate field."
+        }
+      ]
+    },
+    {
+      "sku": "382873",
+      "barcode": "827553214049",
+      "brand": "Castelbel",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product_or_item_weight",
+          "dimensionsMm": null,
+          "weightG": 350,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.fragonito.cz/vonny-difuzer-butterfly-citrusy--zimolez-a-magnolie--250ml/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; retailer reports item weight 0.35 kg, but no dimensions and no explicit package-weight scope."
         }
       ]
     },
@@ -428,6 +597,27 @@
       ]
     },
     {
+      "sku": "N020458",
+      "barcode": "3420070037053",
+      "brand": "Lothantique",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "retail_package",
+          "dimensionsMm": [
+            68,
+            68,
+            245
+          ],
+          "weightG": null,
+          "sourceType": "official-distributor",
+          "sourceUrl": "https://jiyugaoka-market-p.com/product.php?id=1686",
+          "retrievedAt": "2026-10-02",
+          "note": "Distributor page explicitly lists the exact JAN 3420070037053 for Les Secrets d'Antoine fragrance bouquet and outer box 68 × 68 × H245 mm. No package weight stated."
+        }
+      ]
+    },
+    {
       "sku": "MF-FRAGR2.02",
       "barcode": "8057143585910",
       "brand": "MAMI MILANO",
@@ -441,6 +631,28 @@
           "sourceUrl": "https://www.niclick.it/prodotto/diffusore-fragranza-ambiente-200-ml-arancia-candita-mami-milano-mf-fragr2-02/",
           "retrievedAt": "2026-10-02",
           "note": "Exact EAN and manufacturer code; weight 0.6 kg, no dimensions."
+        }
+      ]
+    },
+    {
+      "sku": "FLC250TFU",
+      "barcode": "8058159964294",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "marketplace_listing_dimensions",
+          "dimensionsMm": [
+            334,
+            229,
+            117
+          ],
+          "weightG": null,
+          "confidence": "low",
+          "sourceType": "marketplace",
+          "sourceUrl": "https://www.ebay.de/itm/137775721271",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; marketplace listing reports L33.4×W22.9×H11.7 cm but does not define whether these are product or shipping-package dimensions. Retained only as low-confidence evidence."
         }
       ]
     },
@@ -924,11 +1136,11 @@
     }
   ],
   "summary": {
-    "researchedRecords": 34,
-    "verifiedRetailPackage": 7,
-    "verifiedProductMeasurements": 9,
-    "partial": 9,
-    "conflict": 9,
+    "researchedRecords": 43,
+    "verifiedRetailPackage": 8,
+    "verifiedProductMeasurements": 11,
+    "partial": 14,
+    "conflict": 10,
     "shippingReady": 0
   }
 }
