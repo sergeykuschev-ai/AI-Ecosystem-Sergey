@@ -11,6 +11,936 @@
   },
   "records": [
     {
+      "sku": "045850b2-9e1f-11ee-b408-d069cd63062f",
+      "barcode": "2017701198859",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_product",
+          "dimensionsMm": [
+            47,
+            47,
+            90
+          ],
+          "weightG": 114,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-dispenser-liquid-s-aromatom-immuno-400405198/specification",
+          "note": "AROMAgroup Dispenser Liquid 100 ml refill family: M.Video reports 47×47×90 mm and 114 g. Applied only as same-volume/family evidence because this exact scent/internal barcode is not public; keep PARTIAL.",
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "0789",
+      "barcode": "2017701194516",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_product",
+          "dimensionsMm": [
+            45,
+            45,
+            119
+          ],
+          "weightG": 125,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-spa-200-s-aromatom-immuno-400404873/specification",
+          "note": "AROMAgroup 110 ml cartridge family: M.Video reports 45×45×119 mm and 125 g for a SPA 200 110 ml refill. Applied as family evidence only; exact scent/internal barcode not public.",
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "084e10f7-dad6-11ee-b40a-f198e863aac1",
+      "barcode": "2017701199399",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_product",
+          "dimensionsMm": [
+            52,
+            52,
+            115
+          ],
+          "weightG": 195,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-shop-250-s-aromatom-immuno-400404879/specification",
+          "note": "AROMAgroup Shop 250 180 ml refill family: M.Video reports 52×52×115 mm and 195 g. Applied as family evidence only; exact scent/internal barcode not public.",
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "087654",
+      "barcode": "2017701197791",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_product",
+          "dimensionsMm": [
+            47,
+            47,
+            90
+          ],
+          "weightG": 114,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-dispenser-liquid-s-aromatom-immuno-400405198/specification",
+          "note": "AROMAgroup Dispenser Liquid 100 ml refill family: M.Video reports 47×47×90 mm and 114 g. Applied only as same-volume/family evidence because this exact scent/internal barcode is not public; keep PARTIAL.",
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "088976",
+      "barcode": "2017701194523",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_package",
+          "dimensionsMm": [
+            120,
+            90,
+            100
+          ],
+          "weightG": 250,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://belgorod.ret.ru/?gid=988347&pn=prod",
+          "note": "AROMAgroup Shop 300 150 ml cartridge family: RET reports retail package 120×90×100 mm, 250 g; unpacked cartridge 80×85×80 mm, 215 g. Applied only as same-volume/family evidence; exact scent/internal barcode not public.",
+          "productDimensionsMm": [
+            80,
+            85,
+            80
+          ],
+          "productWeightG": 215,
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "09877",
+      "barcode": null,
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            260,
+            175,
+            89
+          ],
+          "weightG": null,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://avd74.ru/catalog/aromatizatsiya_dlya_biznesa_i_doma/apparaty/apparat_dlya_aromatizatsii_pomeshcheniya_shop_250_cherno_mednyy_aromagroup.php",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact AROMAgroup Shop 250 model page gives 260×175×89 mm. Weight and retail/shipping package size remain unverified."
+        }
+      ]
+    },
+    {
+      "sku": "1112211",
+      "barcode": "2017701194561",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_product",
+          "dimensionsMm": [
+            47,
+            47,
+            90
+          ],
+          "weightG": 114,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-dispenser-liquid-s-aromatom-immuno-400405198/specification",
+          "note": "AROMAgroup Dispenser Liquid 100 ml refill family: M.Video reports 47×47×90 mm and 114 g. Applied only as same-volume/family evidence because this exact scent/internal barcode is not public; keep PARTIAL.",
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "132689",
+      "barcode": "2017701197890",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_product",
+          "dimensionsMm": [
+            47,
+            47,
+            90
+          ],
+          "weightG": 114,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-dispenser-liquid-s-aromatom-immuno-400405198/specification",
+          "note": "AROMAgroup Dispenser Liquid 100 ml refill family: M.Video reports 47×47×90 mm and 114 g. Applied only as same-volume/family evidence because this exact scent/internal barcode is not public; keep PARTIAL.",
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "137897",
+      "barcode": "2017701194387",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_product",
+          "dimensionsMm": [
+            45,
+            45,
+            119
+          ],
+          "weightG": 125,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-spa-200-s-aromatom-immuno-400404873/specification",
+          "note": "AROMAgroup 110 ml cartridge family: M.Video reports 45×45×119 mm and 125 g for a SPA 200 110 ml refill. Applied as family evidence only; exact scent/internal barcode not public.",
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "223211",
+      "barcode": "2017701194615",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_product",
+          "dimensionsMm": [
+            47,
+            47,
+            90
+          ],
+          "weightG": 114,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-dispenser-liquid-s-aromatom-immuno-400405198/specification",
+          "note": "AROMAgroup Dispenser Liquid 100 ml refill family: M.Video reports 47×47×90 mm and 114 g. Applied only as same-volume/family evidence because this exact scent/internal barcode is not public; keep PARTIAL.",
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "2332",
+      "barcode": "2017701194363",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_package",
+          "dimensionsMm": [
+            120,
+            90,
+            100
+          ],
+          "weightG": 250,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://belgorod.ret.ru/?gid=988347&pn=prod",
+          "note": "AROMAgroup Shop 300 150 ml cartridge family: RET reports retail package 120×90×100 mm, 250 g; unpacked cartridge 80×85×80 mm, 215 g. Applied only as same-volume/family evidence; exact scent/internal barcode not public.",
+          "productDimensionsMm": [
+            80,
+            85,
+            80
+          ],
+          "productWeightG": 215,
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "32131",
+      "barcode": "2017701194417",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_product",
+          "dimensionsMm": [
+            45,
+            45,
+            119
+          ],
+          "weightG": 125,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-spa-200-s-aromatom-immuno-400404873/specification",
+          "note": "AROMAgroup 110 ml cartridge family: M.Video reports 45×45×119 mm and 125 g for a SPA 200 110 ml refill. Applied as family evidence only; exact scent/internal barcode not public.",
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "323244211",
+      "barcode": "2017701197739",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_product",
+          "dimensionsMm": [
+            45,
+            45,
+            119
+          ],
+          "weightG": 125,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-spa-200-s-aromatom-immuno-400404873/specification",
+          "note": "AROMAgroup 110 ml cartridge family: M.Video reports 45×45×119 mm and 125 g for a SPA 200 110 ml refill. Applied as family evidence only; exact scent/internal barcode not public.",
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "3246675",
+      "barcode": "2017701197784",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_package",
+          "dimensionsMm": [
+            120,
+            90,
+            100
+          ],
+          "weightG": 250,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://belgorod.ret.ru/?gid=988347&pn=prod",
+          "note": "AROMAgroup Shop 300 150 ml cartridge family: RET reports retail package 120×90×100 mm, 250 g; unpacked cartridge 80×85×80 mm, 215 g. Applied only as same-volume/family evidence; exact scent/internal barcode not public.",
+          "productDimensionsMm": [
+            80,
+            85,
+            80
+          ],
+          "productWeightG": 215,
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "33421956",
+      "barcode": "2017701196350",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_package",
+          "dimensionsMm": [
+            120,
+            90,
+            100
+          ],
+          "weightG": 250,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://belgorod.ret.ru/?gid=988347&pn=prod",
+          "note": "AROMAgroup Shop 300 150 ml cartridge family: RET reports retail package 120×90×100 mm, 250 g; unpacked cartridge 80×85×80 mm, 215 g. Applied only as same-volume/family evidence; exact scent/internal barcode not public.",
+          "productDimensionsMm": [
+            80,
+            85,
+            80
+          ],
+          "productWeightG": 215,
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "3444567",
+      "barcode": "2017701194455",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_package",
+          "dimensionsMm": [
+            120,
+            90,
+            100
+          ],
+          "weightG": 250,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://belgorod.ret.ru/?gid=988347&pn=prod",
+          "note": "AROMAgroup Shop 300 150 ml cartridge family: RET reports retail package 120×90×100 mm, 250 g; unpacked cartridge 80×85×80 mm, 215 g. Applied only as same-volume/family evidence; exact scent/internal barcode not public.",
+          "productDimensionsMm": [
+            80,
+            85,
+            80
+          ],
+          "productWeightG": 215,
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "3534657",
+      "barcode": "2017701194554",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_package",
+          "dimensionsMm": [
+            120,
+            90,
+            100
+          ],
+          "weightG": 250,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://belgorod.ret.ru/?gid=988347&pn=prod",
+          "note": "AROMAgroup Shop 300 150 ml cartridge family: RET reports retail package 120×90×100 mm, 250 g; unpacked cartridge 80×85×80 mm, 215 g. Applied only as same-volume/family evidence; exact scent/internal barcode not public.",
+          "productDimensionsMm": [
+            80,
+            85,
+            80
+          ],
+          "productWeightG": 215,
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "426b83df-1ab0-11ed-bb36-7c8bca00854e",
+      "barcode": "4603773380032",
+      "brand": "AROMAgroup",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            200,
+            75,
+            250
+          ],
+          "weightG": 1940,
+          "sourceType": "manufacturer-catalog",
+          "sourceUrl": "https://gallery11.ru/upload/iblock/90f/eavbuntwejw00862u2xgoyryc7ca1qxu.pdf",
+          "retrievedAt": "2026-10-02",
+          "note": "Manufacturer catalog gives Shop 300 H×W×D 25×20×7.5 cm and net weight 1.94 kg."
+        },
+        {
+          "scope": "retailer_reported_packaged_product",
+          "dimensionsMm": [
+            250,
+            200,
+            75
+          ],
+          "weightG": null,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://megadez.pro/produktsiya/aromatizatsiya/aromagroup-shop-300/",
+          "retrievedAt": "2026-10-02",
+          "note": "Retailer packaged-product dimensions are 250×200×75 mm, matching manufacturer device dimensions by orientation."
+        }
+      ]
+    },
+    {
+      "sku": "4356",
+      "barcode": "2017701194462",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_package",
+          "dimensionsMm": [
+            120,
+            90,
+            100
+          ],
+          "weightG": 250,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://belgorod.ret.ru/?gid=988347&pn=prod",
+          "note": "AROMAgroup Shop 300 150 ml cartridge family: RET reports retail package 120×90×100 mm, 250 g; unpacked cartridge 80×85×80 mm, 215 g. Applied only as same-volume/family evidence; exact scent/internal barcode not public.",
+          "productDimensionsMm": [
+            80,
+            85,
+            80
+          ],
+          "productWeightG": 215,
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "45360",
+      "barcode": "2017701194493",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_package",
+          "dimensionsMm": [
+            120,
+            90,
+            100
+          ],
+          "weightG": 250,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://belgorod.ret.ru/?gid=988347&pn=prod",
+          "note": "AROMAgroup Shop 300 150 ml cartridge family: RET reports retail package 120×90×100 mm, 250 g; unpacked cartridge 80×85×80 mm, 215 g. Applied only as same-volume/family evidence; exact scent/internal barcode not public.",
+          "productDimensionsMm": [
+            80,
+            85,
+            80
+          ],
+          "productWeightG": 215,
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "454569087",
+      "barcode": "2017701198828",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_product",
+          "dimensionsMm": [
+            45,
+            45,
+            119
+          ],
+          "weightG": 125,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-spa-200-s-aromatom-immuno-400404873/specification",
+          "note": "AROMAgroup 110 ml cartridge family: M.Video reports 45×45×119 mm and 125 g for a SPA 200 110 ml refill. Applied as family evidence only; exact scent/internal barcode not public.",
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "5432311112",
+      "barcode": "2017701195377",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_product",
+          "dimensionsMm": [
+            45,
+            45,
+            119
+          ],
+          "weightG": 125,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-spa-200-s-aromatom-immuno-400404873/specification",
+          "note": "AROMAgroup 110 ml cartridge family: M.Video reports 45×45×119 mm and 125 g for a SPA 200 110 ml refill. Applied as family evidence only; exact scent/internal barcode not public.",
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "54378",
+      "barcode": "4603773381374",
+      "brand": "AROMAgroup",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            230,
+            90,
+            310
+          ],
+          "weightG": 3640,
+          "sourceType": "manufacturer-catalog",
+          "sourceUrl": "https://gallery11.ru/upload/iblock/90f/eavbuntwejw00862u2xgoyryc7ca1qxu.pdf",
+          "retrievedAt": "2026-10-02",
+          "note": "AROMAgroup manufacturer catalog identifies Hotel 1000 and states device size H×W×D 31×23×9 cm, net weight 3.64 kg."
+        }
+      ]
+    },
+    {
+      "sku": "5445098",
+      "barcode": "2017701194608",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_package",
+          "dimensionsMm": [
+            120,
+            90,
+            100
+          ],
+          "weightG": 250,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://belgorod.ret.ru/?gid=988347&pn=prod",
+          "note": "AROMAgroup Shop 300 150 ml cartridge family: RET reports retail package 120×90×100 mm, 250 g; unpacked cartridge 80×85×80 mm, 215 g. Applied only as same-volume/family evidence; exact scent/internal barcode not public.",
+          "productDimensionsMm": [
+            80,
+            85,
+            80
+          ],
+          "productWeightG": 215,
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "545445222",
+      "barcode": "2017701196381",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_product",
+          "dimensionsMm": [
+            45,
+            45,
+            119
+          ],
+          "weightG": 125,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-spa-200-s-aromatom-immuno-400404873/specification",
+          "note": "AROMAgroup 110 ml cartridge family: M.Video reports 45×45×119 mm and 125 g for a SPA 200 110 ml refill. Applied as family evidence only; exact scent/internal barcode not public.",
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "675483",
+      "barcode": "2017701194394",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_package",
+          "dimensionsMm": [
+            120,
+            90,
+            100
+          ],
+          "weightG": 250,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://belgorod.ret.ru/?gid=988347&pn=prod",
+          "note": "AROMAgroup Shop 300 150 ml cartridge family: RET reports retail package 120×90×100 mm, 250 g; unpacked cartridge 80×85×80 mm, 215 g. Applied only as same-volume/family evidence; exact scent/internal barcode not public.",
+          "productDimensionsMm": [
+            80,
+            85,
+            80
+          ],
+          "productWeightG": 215,
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "67787900",
+      "barcode": "4603773380087",
+      "brand": "AROMAgroup",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            240,
+            75,
+            230
+          ],
+          "weightG": 2350,
+          "sourceType": "manufacturer-catalog",
+          "sourceUrl": "https://gallery11.ru/upload/iblock/90f/eavbuntwejw00862u2xgoyryc7ca1qxu.pdf",
+          "retrievedAt": "2026-10-02",
+          "note": "Manufacturer catalog gives Dispenser Liquid PRO H×W×D 23×24×7.5 cm and net 2.35 kg."
+        },
+        {
+          "scope": "retailer_reported_packaged_product",
+          "dimensionsMm": [
+            77,
+            232,
+            236
+          ],
+          "weightG": 2350,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://megadez.pro/produktsiya/aromatizatsiya/aromagroup-dispenser-liquid-pro/",
+          "retrievedAt": "2026-10-02",
+          "note": "Retailer lists packaged-product parameters 77×232×236 mm and 2.35 kg, closely matching manufacturer dimensions up to orientation/rounding."
+        }
+      ]
+    },
+    {
+      "sku": "76544",
+      "barcode": "2017701194479",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_product",
+          "dimensionsMm": [
+            47,
+            47,
+            90
+          ],
+          "weightG": 114,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-dispenser-liquid-s-aromatom-immuno-400405198/specification",
+          "note": "AROMAgroup Dispenser Liquid 100 ml refill family: M.Video reports 47×47×90 mm and 114 g. Applied only as same-volume/family evidence because this exact scent/internal barcode is not public; keep PARTIAL.",
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "787532",
+      "barcode": "2017701194592",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_product",
+          "dimensionsMm": [
+            45,
+            45,
+            119
+          ],
+          "weightG": 125,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-spa-200-s-aromatom-immuno-400404873/specification",
+          "note": "AROMAgroup 110 ml cartridge family: M.Video reports 45×45×119 mm and 125 g for a SPA 200 110 ml refill. Applied as family evidence only; exact scent/internal barcode not public.",
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "7c1b6caa-5341-11ed-8c25-7c8bca00854e",
+      "barcode": "2017701198491",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_product",
+          "dimensionsMm": [
+            45,
+            45,
+            119
+          ],
+          "weightG": 125,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-spa-200-s-aromatom-immuno-400404873/specification",
+          "note": "AROMAgroup 110 ml cartridge family: M.Video reports 45×45×119 mm and 125 g for a SPA 200 110 ml refill. Applied as family evidence only; exact scent/internal barcode not public.",
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "87654",
+      "barcode": "2017701194448",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_package",
+          "dimensionsMm": [
+            120,
+            90,
+            100
+          ],
+          "weightG": 250,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://belgorod.ret.ru/?gid=988347&pn=prod",
+          "note": "AROMAgroup Shop 300 150 ml cartridge family: RET reports retail package 120×90×100 mm, 250 g; unpacked cartridge 80×85×80 mm, 215 g. Applied only as same-volume/family evidence; exact scent/internal barcode not public.",
+          "productDimensionsMm": [
+            80,
+            85,
+            80
+          ],
+          "productWeightG": 215,
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "876687",
+      "barcode": "2017701197807",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_package",
+          "dimensionsMm": [
+            120,
+            90,
+            100
+          ],
+          "weightG": 250,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://belgorod.ret.ru/?gid=988347&pn=prod",
+          "note": "AROMAgroup Shop 300 150 ml cartridge family: RET reports retail package 120×90×100 mm, 250 g; unpacked cartridge 80×85×80 mm, 215 g. Applied only as same-volume/family evidence; exact scent/internal barcode not public.",
+          "productDimensionsMm": [
+            80,
+            85,
+            80
+          ],
+          "productWeightG": 215,
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "890999",
+      "barcode": "4603773381220",
+      "brand": "AROMAgroup",
+      "status": "CONFLICT",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            295,
+            110,
+            240
+          ],
+          "weightG": 2260,
+          "sourceType": "manufacturer-catalog",
+          "sourceUrl": "https://gallery11.ru/upload/iblock/90f/eavbuntwejw00862u2xgoyryc7ca1qxu.pdf",
+          "retrievedAt": "2026-10-02",
+          "note": "AROMAgroup catalog gives Cafe 1000 H×W×D 24×29.5×11 cm and net 2.26 kg."
+        },
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            295,
+            222,
+            112.5
+          ],
+          "weightG": 2100,
+          "sourceType": "manufacturer-manual",
+          "sourceUrl": "https://aroma-group.ru/upload/iblock/2b2/fjdsgvxovffdvrg8x1h2h551gkzt1fk0/Instruktsiya-dlya-apparata-AROMAgroup-Cafe-400.pdf",
+          "retrievedAt": "2026-10-02",
+          "note": "Newer Cafe 1000/400 manual reports 295×222×112.5 mm and 2.1 kg. Version difference is unresolved for the exact stock unit, so preserve as conflict."
+        }
+      ]
+    },
+    {
+      "sku": "988768798",
+      "barcode": "2017701197081",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_product",
+          "dimensionsMm": [
+            47,
+            47,
+            90
+          ],
+          "weightG": 114,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-dispenser-liquid-s-aromatom-immuno-400405198/specification",
+          "note": "AROMAgroup Dispenser Liquid 100 ml refill family: M.Video reports 47×47×90 mm and 114 g. Applied only as same-volume/family evidence because this exact scent/internal barcode is not public; keep PARTIAL.",
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "9a227639-b1a0-11ed-a1a3-7c8bca00854e",
+      "barcode": "2017701196404",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_product",
+          "dimensionsMm": [
+            45,
+            45,
+            119
+          ],
+          "weightG": 125,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-spa-200-s-aromatom-immuno-400404873/specification",
+          "note": "AROMAgroup 110 ml cartridge family: M.Video reports 45×45×119 mm and 125 g for a SPA 200 110 ml refill. Applied as family evidence only; exact scent/internal barcode not public.",
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "fa750375-783b-11ed-b530-7c8bca00854e",
+      "barcode": "2017701196411",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            146,
+            156,
+            58
+          ],
+          "weightG": null,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://avd74.ru/catalog/aromatizatsiya_dlya_biznesa_i_doma/apparaty/apparat_dlya_aromatizatsii_pomeshcheniya_dispenser_liquid_bt_v3_1_chernyy_aromagroup.php",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact model/color Dispenser Liquid bt V3.1 black. Retailer gives 146×156×58 mm; no verified device or package weight found."
+        }
+      ]
+    },
+    {
+      "sku": "fa750378-783b-11ed-b530-7c8bca00854e",
+      "barcode": "2017701196435",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            146,
+            156,
+            58
+          ],
+          "weightG": null,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://avd74.ru/catalog/aromatizatsiya_dlya_biznesa_i_doma/apparaty/apparat_dlya_aromatizatsii_pomeshcheniya_dispenser_liquid_bt_v3_1_belyy_aromagroup.php",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact model Dispenser Liquid bt V3.1 white. Retailer gives 146×156×58 mm; no verified device or package weight found."
+        }
+      ]
+    },
+    {
+      "sku": "fc7e824a-136a-11ef-b412-e92179844ed4",
+      "barcode": null,
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_product",
+          "dimensionsMm": [
+            52,
+            52,
+            115
+          ],
+          "weightG": 195,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-shop-250-s-aromatom-immuno-400404879/specification",
+          "note": "AROMAgroup Shop 250 180 ml refill family: M.Video reports 52×52×115 mm and 195 g. Applied as family evidence only; exact scent/internal barcode not public.",
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "fcf32570-dad6-11ee-b40a-f198e863aac1",
+      "barcode": "2017701199498",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_product",
+          "dimensionsMm": [
+            47,
+            47,
+            90
+          ],
+          "weightG": 114,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-dispenser-liquid-s-aromatom-immuno-400405198/specification",
+          "note": "AROMAgroup Dispenser Liquid 100 ml refill family: M.Video reports 47×47×90 mm and 114 g. Applied only as same-volume/family evidence because this exact scent/internal barcode is not public; keep PARTIAL.",
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
       "sku": "1113",
       "barcode": "8055965595063",
       "brand": "CULTI MILANO",
@@ -856,6 +1786,43 @@
       ]
     },
     {
+      "sku": "N020469",
+      "barcode": "3420070031532",
+      "brand": "Lothantique",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "included_reeds",
+          "count": 8,
+          "stickLengthMm": 230,
+          "stickDiameterMm": 3,
+          "weightG": null,
+          "sourceType": "official-manufacturer",
+          "sourceUrl": "https://www.lothantique.com/batons-a-parfum-fleurs-du-japon-lmbtfj2.html",
+          "identitySourceUrl": "https://barcode-list.ru/barcode/RU/Поиск.htm?barcode=АромаДиффузор",
+          "retrievedAt": "2026-10-02",
+          "note": "Official Lothantique Fleurs du Japon 200 ml page states a recyclable gift box containing a glass diffuser and 8 natural rattan reeds, 23 cm long and 3 mm diameter. Exact EAN 3420070031532 is independently mapped to the same 200 ml product. Bottle/outer-box dimensions and total packed weight are still missing."
+        }
+      ]
+    },
+    {
+      "sku": "N020480",
+      "barcode": "3420070039934",
+      "brand": "Lothantique",
+      "status": "CONFLICT",
+      "measurements": [
+        {
+          "scope": "identity_conflict_only",
+          "dimensionsMm": null,
+          "weightG": null,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.homefragrance.ru/products/lothantique-cotton-flower-sprei-100-ml",
+          "retrievedAt": "2026-10-02",
+          "note": "1C maps EAN 3420070039934 to Cotton Flower refill 200 ml, but an external retailer maps the same EAN to Cotton Flower home spray 100 ml and reports 70×50×50 mm / 200 g for that different format. Do not use those measurements for this 1C SKU until the barcode identity is resolved."
+        }
+      ]
+    },
+    {
       "sku": "N020486",
       "barcode": "3420070023704",
       "brand": "Lothantique",
@@ -1004,6 +1971,79 @@
       ]
     },
     {
+      "sku": "08d97776-bb50-11ef-b425-ed110731e4f3",
+      "barcode": "2017701201436",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "stick_bundle",
+          "stickLengthMm": 300,
+          "stickColor": "natural",
+          "weightG": null,
+          "sourceType": "current-1c-plus-manufacturer-family-corroboration",
+          "sourceUrl": "https://www.bjutip.com/verde-lorena-sticks-ml-250-home-fragrance-tfu-10-natural-bamboo-sticks-cm-30-included",
+          "retrievedAt": "2026-10-02",
+          "note": "Current 1C identity explicitly says natural bamboo sticks 30 cm for 250 ml. Public TEATRO 250 ml product pages independently corroborate the brand's 30 cm natural-bamboo format. Internal barcode is not a public EAN, so bundle/package dimensions and weight remain unresolved."
+        }
+      ]
+    },
+    {
+      "sku": "63a36c45-bb50-11ef-b425-ed110731e4f3",
+      "barcode": "2017701201443",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "stick_bundle",
+          "stickLengthMm": 300,
+          "stickColor": "black",
+          "weightG": null,
+          "sourceType": "current-1c-plus-manufacturer-family-corroboration",
+          "sourceUrl": "https://www.bjutip.com/tabacco-1815-sticks-ml-250-home-fragrance",
+          "retrievedAt": "2026-10-02",
+          "note": "Current 1C identity explicitly says black bamboo sticks 30 cm for 250 ml. Public TEATRO 250 ml pages corroborate 30 cm black-bamboo format. Internal barcode is not a public EAN; package dimensions/weight unresolved."
+        }
+      ]
+    },
+    {
+      "sku": "655467",
+      "barcode": "8058159964263",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "included_reeds",
+          "count": 10,
+          "stickLengthMm": 360,
+          "weightG": null,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.bjutip.com/home-fragnances",
+          "identitySourceUrl": "https://www.solie.cz/teatro-fragranze-uniche-dolce-vaniglia-difuzer-s-tycinkami-500-ml",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN 8058159964263. Multiple retailers identify Dolce Vaniglia 500 ml as supplied with ten black bamboo sticks, each 36 cm. Bottle/package dimensions and total weight remain unresolved."
+        }
+      ]
+    },
+    {
+      "sku": "83763644-bb50-11ef-b425-ed110731e4f3",
+      "barcode": "2017701201450",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "stick_bundle",
+          "stickLengthMm": 360,
+          "stickColor": "natural",
+          "weightG": null,
+          "sourceType": "current-1c-plus-manufacturer-family-corroboration",
+          "sourceUrl": "https://www.bjutip.com/home-fragnances/verde-lorena-sticks-ml-500-home-fragrance-tfu-10-natural-bamboo-sticks-cm.36-included",
+          "retrievedAt": "2026-10-02",
+          "note": "Current 1C identity explicitly says natural bamboo sticks 36 cm for 500 ml. Public TEATRO 500 ml pages corroborate 36 cm natural-bamboo format. Do not infer count from the internal 'Box №12' label; package dimensions/weight unresolved."
+        }
+      ]
+    },
+    {
       "sku": "8c80d0e5-231d-11ef-b412-e92179844ed4",
       "barcode": "8059692631292",
       "brand": "TEATRO Fragranze Uniche",
@@ -1037,6 +2077,24 @@
           "identitySourceUrl": "https://storee.saisoncard.co.jp/shop/g/gAA0109-75510001-P/",
           "retrievedAt": "2026-10-02",
           "note": "Exact scent/format page reports Ø7 × H16 cm and 0.4 kg; independent exact-EAN 8058159964218 source confirms identity."
+        }
+      ]
+    },
+    {
+      "sku": "BAST500NTFU",
+      "barcode": "2017701201467",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "stick_bundle",
+          "stickLengthMm": 360,
+          "stickColor": "black",
+          "weightG": null,
+          "sourceType": "current-1c-plus-manufacturer-family-corroboration",
+          "sourceUrl": "https://www.bjutip.com/nero-divino-sticks-ml-500-home-fragrance-tfu-10-black-bamboo-sticks-cm.36-included",
+          "retrievedAt": "2026-10-02",
+          "note": "Current 1C identity explicitly says black bamboo sticks 36 cm for 500 ml. Public TEATRO 500 ml pages corroborate 36 cm black-bamboo format. Do not infer count from the internal 'Box №12' label; package dimensions/weight unresolved."
         }
       ]
     },
@@ -1805,11 +2863,11 @@
     }
   ],
   "summary": {
-    "researchedRecords": 74,
+    "researchedRecords": 120,
     "verifiedRetailPackage": 8,
-    "verifiedProductMeasurements": 19,
-    "partial": 36,
-    "conflict": 11,
+    "verifiedProductMeasurements": 22,
+    "partial": 77,
+    "conflict": 13,
     "shippingReady": 0
   }
 }
