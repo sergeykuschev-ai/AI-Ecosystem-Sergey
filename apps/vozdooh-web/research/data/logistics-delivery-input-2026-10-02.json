@@ -11,8 +11,8 @@
   },
   "counts": {
     "eligible": 148,
-    "ready": 55,
-    "needsMoreEvidence": 93
+    "ready": 57,
+    "needsMoreEvidence": 91
   },
   "records": [
     {
@@ -646,7 +646,7 @@
           "https://formadore.lv/culti-aromatu-difuzors-culti-stile-classic-era-500-ml%2C131229"
         ]
       },
-      "evidenceStatus": "CONFLICT"
+      "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS"
     },
     {
       "sku": "802e8adf-d19b-11ec-be83-7c8bca00854e",
@@ -824,9 +824,20 @@
       "name": "Décor Limited Van Gogh Irises диффузор 500мл",
       "brand": null,
       "barcode": "8050534798746",
-      "status": "NEEDS_SOURCE",
-      "deliveryInput": null,
-      "evidenceStatus": "PARTIAL"
+      "status": "READY_PRODUCT_DIMENSIONS",
+      "deliveryInput": {
+        "weightG": 1000,
+        "lengthMm": 90,
+        "widthMm": 90,
+        "heightMm": 170,
+        "basis": "exact_named_product_dimensions_plus_exact_ean_item_weight",
+        "sources": [
+          "https://www.neopoliscasa.ru/catalog/home-fragrance/mebel-italia.html",
+          "https://www.tsum.ru/product/he00830817-diffuzor-van-gogh-irises-500ml-culti-milano-bestcvetnyi/",
+          "https://pranahome.ru/product/van-gogh-irises-diffuzor-decor-limited-collection-culti-milano"
+        ]
+      },
+      "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS"
     },
     {
       "sku": "976878",
@@ -1258,9 +1269,19 @@
       "name": "Аромапопурри Christian Tortu /JARDIN CITRUS/ ЦИТРУСОВЫЕ САДЫ",
       "brand": null,
       "barcode": "3420070002587",
-      "status": "NEEDS_SOURCE",
-      "deliveryInput": null,
-      "evidenceStatus": "PARTIAL"
+      "status": "READY_PRODUCT_DIMENSIONS",
+      "deliveryInput": {
+        "weightG": 370,
+        "lengthMm": 99,
+        "widthMm": 99,
+        "heightMm": 82,
+        "basis": "exact_family_retail_box_plus_exact_item_weight",
+        "sources": [
+          "https://jiyugaoka-market-p.com/product.php?id=15449",
+          "https://www.ebay.com.au/itm/254459611681"
+        ]
+      },
+      "evidenceStatus": "VERIFIED_RETAIL_PACKAGE"
     },
     {
       "sku": "N019900",
@@ -1296,7 +1317,7 @@
           "https://www.hubo.be/nl/p/vinove-luchtverfrisser-oud-warsaw/1080419/"
         ]
       },
-      "evidenceStatus": "CONFLICT"
+      "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS"
     },
     {
       "sku": "N020291",
@@ -1405,7 +1426,7 @@
           "https://www.gamma.nl/assortiment/vinove-luchtverfrisser-leather-ivory-monza/p/B320505"
         ]
       },
-      "evidenceStatus": "CONFLICT"
+      "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS"
     },
     {
       "sku": "N020438",
@@ -1432,7 +1453,7 @@
           "https://www.hubo.be/fr/p/vinove-desodorisant-evo-excellence-rome/1080437/"
         ]
       },
-      "evidenceStatus": "CONFLICT"
+      "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS"
     },
     {
       "sku": "N020458",
@@ -1761,7 +1782,7 @@
           "https://formadore.com/culti-culti-stile-classic-tessuto-fragrance-diffuser-250-ml%2C131212"
         ]
       },
-      "evidenceStatus": "CONFLICT"
+      "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS"
     },
     {
       "sku": "df29d34a-d192-11ec-be83-7c8bca00854e",

@@ -1221,7 +1221,7 @@
       "sku": "802e8ad6-d19b-11ec-be83-7c8bca00854e",
       "barcode": "8050534794939",
       "brand": "CULTI MILANO",
-      "status": "CONFLICT",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
       "measurements": [
         {
           "scope": "product_cylindrical",
@@ -1246,7 +1246,8 @@
           "retrievedAt": "2026-10-02",
           "note": "Exact article/EAN; dimensions and weight conflict with FormAdore, likely different measurement scope."
         }
-      ]
+      ],
+      "resolutionNote": "Exact-EAN cylindrical product dimensions and product weight are explicit at FormAdore; the secondary 120×220×120 / 700 g record has unspecified product-or-package scope."
     },
     {
       "sku": "802e8adf-d19b-11ec-be83-7c8bca00854e",
@@ -1393,7 +1394,7 @@
       "sku": "90877",
       "barcode": "8050534798746",
       "brand": "CULTI MILANO",
-      "status": "PARTIAL",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
       "measurements": [
         {
           "scope": "product_or_item_weight",
@@ -1403,8 +1404,23 @@
           "sourceUrl": "https://pranahome.ru/product/van-gogh-irises-diffuzor-decor-limited-collection-culti-milano",
           "retrievedAt": "2026-10-02",
           "note": "Exact article/EAN; retailer reports item weight 1.0 kg. No dimensions and no explicit retail-package scope."
+        },
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            90,
+            90,
+            170
+          ],
+          "weightG": null,
+          "sourceType": "design-retailer",
+          "sourceUrl": "https://www.neopoliscasa.ru/catalog/home-fragrance/mebel-italia.html",
+          "identitySourceUrl": "https://www.tsum.ru/product/he00830817-diffuzor-van-gogh-irises-500ml-culti-milano-bestcvetnyi/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact named Van Gogh Irises 500 ml product is listed at 9×9×17 cm; TSUM independently binds manufacturer article/EAN 8050534798746 to the exact item. Exact-EAN PranaHome evidence separately reports 1.0 kg."
         }
-      ]
+      ],
+      "resolutionNote": "Exact EAN identity is confirmed by TSUM; product dimensions 90×90×170 mm are tied to the exact named 500 ml item, while exact-EAN PranaHome reports item weight 1000 g."
     },
     {
       "sku": "976878",
@@ -1545,7 +1561,7 @@
       "sku": "df29d346-d192-11ec-be83-7c8bca00854e",
       "barcode": "8050534795325",
       "brand": "CULTI MILANO",
-      "status": "CONFLICT",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
       "measurements": [
         {
           "scope": "product_cylindrical",
@@ -1570,7 +1586,8 @@
           "retrievedAt": "2026-10-02",
           "note": "Exact product number; reports W90×D90×H159 and Ø62, so 90×90 may include presentation footprint/rods. Preserve as conflict rather than infer."
         }
-      ]
+      ],
+      "resolutionNote": "Exact-EAN cylindrical product dimensions and product weight are explicit at FormAdore; the secondary 90×90 footprint has no conflicting weight and may include presentation/rods."
     },
     {
       "sku": "df29d34a-d192-11ec-be83-7c8bca00854e",
@@ -1732,7 +1749,7 @@
       "sku": "N019873",
       "barcode": "3420070002587",
       "brand": "Christian Tortu",
-      "status": "PARTIAL",
+      "status": "VERIFIED_RETAIL_PACKAGE",
       "measurements": [
         {
           "scope": "retail_package_family_explicit",
@@ -3031,7 +3048,7 @@
       "sku": "N020273",
       "barcode": "5902802110220",
       "brand": "VINOVE",
-      "status": "CONFLICT",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
       "measurements": [
         {
           "scope": "retail_package",
@@ -3068,7 +3085,8 @@
           "retrievedAt": "2026-10-02",
           "note": "Marketplace unit-package weight strongly conflicts with Hubo 54 g; retain as conflict only."
         }
-      ]
+      ],
+      "resolutionNote": "Exact-EAN product dimensions/weight are explicit at Hubo; the remaining disagreement is package-weight-only and does not block the product measurement under the approved rule."
     },
     {
       "sku": "N020316",
@@ -3180,7 +3198,7 @@
       "sku": "N020434",
       "barcode": "5902802112514",
       "brand": "VINOVE",
-      "status": "CONFLICT",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
       "measurements": [
         {
           "scope": "retail_package",
@@ -3221,7 +3239,8 @@
           "retrievedAt": "2026-10-02",
           "note": "Exact EAN 5902802112514; GAMMA reports product L53 × W73 × H36 mm and product weight 26 g. Package-source conflicts do not affect these product measurements."
         }
-      ]
+      ],
+      "resolutionNote": "Exact-EAN product dimensions/weight are explicit at GAMMA; conflicting package records are kept as secondary package evidence only."
     },
     {
       "sku": "N020438",
@@ -3244,7 +3263,7 @@
       "sku": "N020445",
       "barcode": "5902802112620",
       "brand": "VINOVE",
-      "status": "CONFLICT",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
       "measurements": [
         {
           "scope": "retail_package",
@@ -3281,7 +3300,8 @@
           "retrievedAt": "2026-10-02",
           "note": "Exact EAN 5902802112620; Hubo reports product L57 × W84 × H43 mm and product weight 32 g. Package/unspecified-weight conflict is separate from the explicit product measurement."
         }
-      ]
+      ],
+      "resolutionNote": "Exact-EAN product dimensions/weight are explicit at Hubo; the 60/80 g disagreement concerns package/unspecified secondary weight."
     },
     {
       "sku": "N020566",
@@ -3568,10 +3588,10 @@
   ],
   "summary": {
     "researchedRecords": 148,
-    "verifiedRetailPackage": 9,
-    "verifiedProductMeasurements": 40,
-    "partial": 76,
-    "conflict": 12,
+    "verifiedRetailPackage": 10,
+    "verifiedProductMeasurements": 46,
+    "partial": 74,
+    "conflict": 7,
     "needsSource": 11,
     "shippingReady": 0
   }
