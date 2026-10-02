@@ -213,7 +213,7 @@
       "barcode": "8051938692746",
       "status": "NEEDS_SOURCE",
       "deliveryInput": null,
-      "evidenceStatus": "NEEDS_SOURCE"
+      "evidenceStatus": "PARTIAL"
     },
     {
       "sku": "2332",
@@ -522,7 +522,7 @@
       "barcode": "8411299003306",
       "status": "NEEDS_SOURCE",
       "deliveryInput": null,
-      "evidenceStatus": "NEEDS_SOURCE"
+      "evidenceStatus": "PARTIAL"
     },
     {
       "sku": "55777",
@@ -893,7 +893,7 @@
       "barcode": "8411299003320",
       "status": "NEEDS_SOURCE",
       "deliveryInput": null,
-      "evidenceStatus": "NEEDS_SOURCE"
+      "evidenceStatus": "PARTIAL"
     },
     {
       "sku": "98676",
@@ -1031,7 +1031,7 @@
       "barcode": "8059692630417",
       "status": "NEEDS_SOURCE",
       "deliveryInput": null,
-      "evidenceStatus": "NEEDS_SOURCE"
+      "evidenceStatus": "PARTIAL"
     },
     {
       "sku": "CE500TFU.23",
@@ -1049,7 +1049,7 @@
       "barcode": "805698180696",
       "status": "NEEDS_SOURCE",
       "deliveryInput": null,
-      "evidenceStatus": "NEEDS_SOURCE"
+      "evidenceStatus": "PARTIAL"
     },
     {
       "sku": "DI250TFU",
@@ -1076,7 +1076,7 @@
       "barcode": "8058159960593",
       "status": "NEEDS_SOURCE",
       "deliveryInput": null,
-      "evidenceStatus": "NEEDS_SOURCE"
+      "evidenceStatus": "PARTIAL"
     },
     {
       "sku": "FF250TFU",
@@ -1330,7 +1330,7 @@
       "barcode": "2017701196459",
       "status": "NEEDS_SOURCE",
       "deliveryInput": null,
-      "evidenceStatus": "NEEDS_SOURCE"
+      "evidenceStatus": "PARTIAL"
     },
     {
       "sku": "N020273",
@@ -1593,7 +1593,7 @@
       "barcode": "8058159962818",
       "status": "NEEDS_SOURCE",
       "deliveryInput": null,
-      "evidenceStatus": "NEEDS_SOURCE"
+      "evidenceStatus": "PARTIAL"
     },
     {
       "sku": "ROU250TFU",

@@ -2590,16 +2590,17 @@
       "sku": "22fimr",
       "barcode": "8051938692746",
       "brand": "Millefiori Milano",
-      "status": "NEEDS_SOURCE",
+      "status": "PARTIAL",
       "measurements": [
         {
-          "scope": "research_gap",
+          "scope": "product_weight",
           "dimensionsMm": null,
-          "weightG": null,
+          "weightG": 78,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.cyberix.cz/millefiori/selected-mimosa-flower-aroma-olej-15ml-d1201221",
+          "identitySourceUrl": "https://www.thelawnmalta.com/product-page/mimosa-flower-water-soluble-fragrance-oils-15ml",
           "retrievedAt": "2026-10-02",
-          "note": "No reliable public full physical dimensions and total item/package weight were found for this exact current-stock SKU in the 2026-10-02 research pass. Keep blocked from inferred logistics dimensions; do not convert nominal volume to weight or borrow dimensions from a sibling SKU.",
-          "sourceType": "identity-source",
-          "sourceUrl": "https://allegro.pl/produkt/olejek-zapachowy-millefiori-milano-mimosa-flower-15-ml-1-szt-4880af7f-625b-4705-86e4-48000f9fedec"
+          "note": "Exact EAN 8051938692746 / Millefiori Mimosa Flower 15 ml. Retailer reports 0.078 kg. Full dimensions remain unverified."
         }
       ]
     },
@@ -2884,16 +2885,18 @@
       "sku": "DV500RTFU",
       "barcode": "8058159960593",
       "brand": "TEATRO Fragranze Uniche",
-      "status": "NEEDS_SOURCE",
+      "status": "PARTIAL",
       "measurements": [
         {
-          "scope": "research_gap",
+          "scope": "source_reported_weight",
           "dimensionsMm": null,
-          "weightG": null,
+          "weightG": 500,
+          "weightConfidence": "low",
+          "sourceType": "retailer-aggregator",
+          "sourceUrl": "https://www.kuantokusta.pt/p/4240381/teatro-fragranze-dolce-vaniglia-recarga-de-para-difusores-sweet-vanilla-500-ml",
+          "identitySourceUrl": "https://maisondesfragrances.fr/products/teatro-fragranze-uniche-dolce-vaniglia-refill-500ml",
           "retrievedAt": "2026-10-02",
-          "note": "No reliable public full physical dimensions and total item/package weight were found for this exact current-stock SKU in the 2026-10-02 research pass. Keep blocked from inferred logistics dimensions; do not convert nominal volume to weight or borrow dimensions from a sibling SKU.",
-          "sourceType": "identity-source",
-          "sourceUrl": "https://maisondesfragrances.fr/products/teatro-fragranze-uniche-dolce-vaniglia-refill-500ml"
+          "note": "Exact EAN 8058159960593. Source reports weight 500, equal to nominal 500 ml; retained low-confidence only and not accepted as delivery weight. Dimensions remain unverified."
         }
       ]
     },
@@ -3634,7 +3637,7 @@
     "researchedRecords": 148,
     "verifiedRetailPackage": 11,
     "verifiedProductMeasurements": 48,
-    "partial": 76,
+    "partial": 78,
     "conflict": 6,
     "needsSource": 10,
     "shippingReady": 0,
