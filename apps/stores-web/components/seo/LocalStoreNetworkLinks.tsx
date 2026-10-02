@@ -22,7 +22,7 @@ export function LocalStoreNetworkLinks({ currentSlug }: LocalStoreNetworkLinksPr
       <ul>
         {otherStores.map((store) => (
           <li key={store.slug}>
-            <Link href={`/${store.slug}/`}>{store.name}</Link> — {store.description}
+            <Link href={`/${store.slug}/`}>{store.name} — {store.description}</Link>
           </li>
         ))}
       </ul>
