@@ -11,8 +11,8 @@
   },
   "counts": {
     "eligible": 148,
-    "ready": 63,
-    "needsMoreEvidence": 85
+    "ready": 64,
+    "needsMoreEvidence": 84
   },
   "records": [
     {
@@ -357,9 +357,19 @@
       "name": "Бабочки / BUTTERFLIES диффузор 250 мл",
       "brand": null,
       "barcode": "827553214049",
-      "status": "NEEDS_SOURCE",
-      "deliveryInput": null,
-      "evidenceStatus": "PARTIAL"
+      "status": "READY_PRODUCT_DIMENSIONS",
+      "deliveryInput": {
+        "weightG": 350,
+        "lengthMm": 260,
+        "widthMm": 90,
+        "heightMm": 90,
+        "basis": "exact_official_product_dimensions_plus_exact_ean_item_weight",
+        "sources": [
+          "https://castelbel.com/en/products/difusor-de-fragrancias-butterflies-250ml",
+          "https://www.fragonito.cz/vonny-difuzer-butterfly-citrusy--zimolez-a-magnolie--250ml/"
+        ]
+      },
+      "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS"
     },
     {
       "sku": "39393848",

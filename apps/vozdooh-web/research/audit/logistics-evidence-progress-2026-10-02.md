@@ -2,11 +2,11 @@
 
 Current positive-stock scope: 148 SKU.
 
-- Delivery-input ready: 61
-- VERIFIED_PRODUCT_MEASUREMENTS: 48
-- VERIFIED_RETAIL_PACKAGE: 12
-- PARTIAL: 81
-- CONFLICT: 6
+- Delivery-input ready: 64
+- VERIFIED_PRODUCT_MEASUREMENTS: 50
+- VERIFIED_RETAIL_PACKAGE: 13
+- PARTIAL: 79
+- CONFLICT: 5
 - NEEDS_SOURCE: 1
 
 New pass: Castelbel Coconut 382784 / EAN 190577123100 is delivery-ready at 110 x 4 x 190 mm, 50 g from exact-EAN structured gross fields. N020528, MF-REFILL.06 and 99889898 now have public exact identity/family evidence and move to PARTIAL. The only remaining NEEDS_SOURCE record is 0189 wick scissors; generic dimensions are not accepted as exact evidence.
@@ -22,3 +22,7 @@ Rule: verified exact-SKU full product dimensions and total weight are enough for
 - Cafe 1000 upgraded to delivery-ready: current official manufacturer manual gives 295 × 222 × 112.5 mm and 2.1 kg; exact 1C model name matches. Integer Ozon input uses 295 × 222 × 113 mm by rounding 112.5 mm upward.
 
 - Ladenac Caviar Lime 500 upgraded to delivery-ready: official Ladenac bottle Ø90 × H185 mm, Maison SIA total product weight 1.06 kg, exact EAN 8411299003054 independently confirmed by TSUM.
+
+- TEATRO Ceresia 500 ml / EAN 8059692631308: exact total product weight 1.21 kg added from Profumix; exact EAN/SKU/500 ml identity independently confirmed by Clementi. Still PARTIAL because full dimensions are not verified.
+
+- Castelbel Butterflies 250 ml / EAN 827553214049 upgraded to delivery-ready: official Castelbel SKU 2-1404 gives 260 × 90 × 90 mm; exact-EAN Fragonito listing gives item weight 350 g.

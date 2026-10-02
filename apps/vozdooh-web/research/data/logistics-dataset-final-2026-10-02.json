@@ -13,10 +13,10 @@
   "summary": {
     "eligible": 148,
     "exactPublicEvidence": 147,
-    "deliveryReady": 63,
-    "verifiedProductMeasurements": 49,
+    "deliveryReady": 64,
+    "verifiedProductMeasurements": 50,
     "verifiedRetailPackage": 13,
-    "partial": 80,
+    "partial": 79,
     "conflict": 5,
     "needsSource": 1
   },
@@ -1102,9 +1102,19 @@
       "brand": "Castelbel",
       "stock": null,
       "declaredValueRub": null,
-      "evidenceStatus": "PARTIAL",
-      "deliveryReady": false,
-      "deliveryInput": null,
+      "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "deliveryReady": true,
+      "deliveryInput": {
+        "weightG": 350,
+        "lengthMm": 260,
+        "widthMm": 90,
+        "heightMm": 90,
+        "basis": "exact_official_product_dimensions_plus_exact_ean_item_weight",
+        "sources": [
+          "https://castelbel.com/en/products/difusor-de-fragrancias-butterflies-250ml",
+          "https://www.fragonito.cz/vonny-difuzer-butterfly-citrusy--zimolez-a-magnolie--250ml/"
+        ]
+      },
       "measurements": [
         {
           "scope": "product_or_item_weight",
@@ -1119,6 +1129,25 @@
             "diameterMm": null,
             "weightG": 350
           }
+        },
+        {
+          "scope": "product",
+          "sourceUrl": "https://castelbel.com/en/products/difusor-de-fragrancias-butterflies-250ml",
+          "sourceDomain": "castelbel.com",
+          "sourceType": "official-manufacturer",
+          "retrievedAt": "2026-10-03",
+          "reportedStatement": "Official Castelbel page for Butterflies 250 ml, SKU 2-1404, states dimensions L×W×H 26×9×9 cm. Exact EAN 827553214049 is independently bound to the same Butterflies 250 ml product by Fragonito, which reports item weight 0.35 kg.",
+          "normalized": {
+            "dimensionsMm": [
+              260,
+              90,
+              90
+            ],
+            "heightMm": null,
+            "diameterMm": null,
+            "weightG": null
+          },
+          "identitySourceUrl": "https://www.fragonito.cz/vonny-difuzer-butterfly-citrusy--zimolez-a-magnolie--250ml/"
         }
       ]
     },
@@ -3243,6 +3272,21 @@
             "heightMm": null,
             "diameterMm": null,
             "weightG": null
+          },
+          "identitySourceUrl": "https://www.clementiprofumi.it/ceresia-diffusore-con-bastoncini.html"
+        },
+        {
+          "scope": "total_product_weight",
+          "sourceUrl": "https://www.profumixluxurybrands.it/brands/teatro-fragranze-uniche-ceresia-fragranza-ambiente-500ml/",
+          "sourceDomain": "www.profumixluxurybrands.it",
+          "sourceType": "specialist-retailer",
+          "retrievedAt": "2026-10-03",
+          "reportedStatement": "Profumix lists TEATRO Ceresia room fragrance 500 ml with original packaging and total weight 1.21 kg. Clementi independently confirms exact EAN 8059692631308, SKU CE500TFU.23 and 500 ml identity. Full bottle/package dimensions are still missing, so the SKU remains PARTIAL.",
+          "normalized": {
+            "dimensionsMm": null,
+            "heightMm": null,
+            "diameterMm": null,
+            "weightG": 1210
           },
           "identitySourceUrl": "https://www.clementiprofumi.it/ceresia-diffusore-con-bastoncini.html"
         }
