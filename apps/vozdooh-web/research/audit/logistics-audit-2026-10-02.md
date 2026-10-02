@@ -3,21 +3,21 @@
 - Eligible: 148
 - Exact public evidence/identity: 147
 - Delivery ready: 61
-- PARTIAL: 81; CONFLICT: 6; NEEDS_SOURCE: 1
+- PARTIAL: 81; CONFLICT: 5; NEEDS_SOURCE: 1
 
 ## Brand breakdown
 
 | Brand | Total | Ready | Partial | Conflict | Needs source |
 |---|---:|---:|---:|---:|---:|
-| AROMAgroup | 40 | 6 | 33 | 1 | 0 |
+| AROMAgroup | 40 | 6 | 34 | 0 | 0 |
 | CULTI MILANO | 23 | 19 | 2 | 2 | 0 |
 | TEATRO Fragranze Uniche | 23 | 6 | 17 | 0 | 0 |
 | MAMI MILANO | 12 | 3 | 9 | 0 | 0 |
 | Ladenac Milano | 11 | 5 | 4 | 0 | 0 |
-| VINOVE | 10 | 9 | 0 | 1 | 0 |
-| Christian Tortu | 7 | 4 | 3 | 0 | 0 |
+| VINOVE | 10 | 9 | 1 | 1 | 0 |
+| Christian Tortu | 7 | 4 | 4 | 0 | 0 |
 | Lothantique | 7 | 0 | 6 | 1 | 0 |
-| Vellutier | 6 | 6 | 0 | 0 | 0 |
+| Vellutier | 6 | 6 | 1 | 0 | 0 |
 | Castelbel | 3 | 2 | 1 | 0 | 0 |
 | UNDEFINED | 3 | 0 | 1 | 1 | 1 |
 | DANHERA | 1 | 0 | 1 | 0 | 0 |
@@ -71,7 +71,7 @@
 - 8411299000985 - Urban Senses диффузор Fleur de fruit Rose gold 500мл - VERIFIED_PRODUCT_MEASUREMENTS
 - 87654 - Бордо картридж АG 150мл пласт. - PARTIAL
 - 876687 - Игристая малина картридж AG 150 мл. - PARTIAL
-- 890999 - Аппарат для ароматизации помещений AROMAgroup Cafe 1000 Bt блютуз - CONFLICT
+- 890999 - Аппарат для ароматизации помещений AROMAgroup Cafe 1000 Bt блютуз - PARTIAL
 - 8c80d0e5-231d-11ef-b412-e92179844ed4 - TEATRO Диффузор с палочками CERESIA / Черезия, 250 мл - PARTIAL
 - 983858 - Vent d'Arabie диффузор Chergui blue 500мл - PARTIAL
 - 98676 - Africa набор ваза Zebra Camouflage 1200мл и 2 рефилла - PARTIAL

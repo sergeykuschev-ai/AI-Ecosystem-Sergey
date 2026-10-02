@@ -826,9 +826,9 @@
       "name": "Аппарат для ароматизации помещений AROMAgroup Cafe 1000 Bt блютуз",
       "brand": null,
       "barcode": "4603773381220",
-      "status": "CONFLICT",
+      "status": "NEEDS_MORE_EVIDENCE",
       "deliveryInput": null,
-      "evidenceStatus": "CONFLICT"
+      "evidenceStatus": "PARTIAL"
     },
     {
       "sku": "8c80d0e5-231d-11ef-b412-e92179844ed4",
@@ -1665,17 +1665,16 @@
       "barcode": "5907489031028",
       "status": "READY_PRODUCT_DIMENSIONS",
       "deliveryInput": {
-        "weightG": 1000,
-        "lengthMm": 110,
-        "widthMm": 110,
-        "heightMm": 160,
-        "basis": "exact_product_dimensions_plus_exact_package_weight",
+        "weightG": 1540,
+        "lengthMm": 255,
+        "widthMm": 158,
+        "heightMm": 155,
+        "basis": "retail_package",
         "sources": [
-          "https://www.komputronik.pl/product/782942/vellutier-duza-swieca-siberian-pine-forest.html",
-          "https://allegro.hu/termek/repcegyertya-siberian-pine-forest-illattal-vellutier-1-db-a96ea1a2-5bfc-4ebd-82a5-6033ac7759c5"
+          "https://www.bol.com/nl/nl/p/vellutier-geurkaars-large-siberian-pine-forest-16-cm-o-11-cm/9300000042812422/"
         ]
       },
-      "evidenceStatus": "PARTIAL"
+      "evidenceStatus": "VERIFIED_RETAIL_PACKAGE"
     },
     {
       "sku": "V62014",

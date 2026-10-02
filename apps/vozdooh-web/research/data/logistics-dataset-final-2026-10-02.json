@@ -15,9 +15,9 @@
     "exactPublicEvidence": 147,
     "deliveryReady": 61,
     "verifiedProductMeasurements": 48,
-    "verifiedRetailPackage": 12,
+    "verifiedRetailPackage": 13,
     "partial": 81,
-    "conflict": 6,
+    "conflict": 5,
     "needsSource": 1
   },
   "records": [
@@ -2533,35 +2533,17 @@
       "brand": "AROMAgroup",
       "stock": null,
       "declaredValueRub": null,
-      "evidenceStatus": "CONFLICT",
+      "evidenceStatus": "PARTIAL",
       "deliveryReady": false,
       "deliveryInput": null,
       "measurements": [
         {
-          "scope": "product",
-          "sourceUrl": "https://gallery11.ru/upload/iblock/90f/eavbuntwejw00862u2xgoyryc7ca1qxu.pdf",
-          "sourceDomain": "gallery11.ru",
-          "sourceType": "manufacturer-catalog",
-          "retrievedAt": "2026-10-02",
-          "reportedStatement": "AROMAgroup catalog gives Cafe 1000 H×W×D 24×29.5×11 cm and net 2.26 kg.",
-          "normalized": {
-            "dimensionsMm": [
-              295,
-              110,
-              240
-            ],
-            "heightMm": null,
-            "diameterMm": null,
-            "weightG": 2260
-          }
-        },
-        {
-          "scope": "product",
+          "scope": "current_model_product",
           "sourceUrl": "https://aroma-group.ru/upload/iblock/2b2/fjdsgvxovffdvrg8x1h2h551gkzt1fk0/Instruktsiya-dlya-apparata-AROMAgroup-Cafe-400.pdf",
           "sourceDomain": "aroma-group.ru",
-          "sourceType": "manufacturer-manual",
-          "retrievedAt": "2026-10-02",
-          "reportedStatement": "Newer Cafe 1000/400 manual reports 295×222×112.5 mm and 2.1 kg. Version difference is unresolved for the exact stock unit, so preserve as conflict.",
+          "sourceType": "current-manufacturer-manual",
+          "retrievedAt": "2026-10-03",
+          "reportedStatement": "Current manufacturer manual for AROMAgroup Cafe 1000/400: 295×222×112.5 mm, net 2.1 kg. The current manufacturer Belarus catalog independently repeats 295×222×112.5 mm for Cafe 1000. 1C names the stock item Cafe 1000 BT, but the exact barcode 4603773381220 is not publicly mapped, so keep PARTIAL rather than delivery-ready.",
           "normalized": {
             "dimensionsMm": [
               295,
@@ -2571,6 +2553,42 @@
             "heightMm": null,
             "diameterMm": null,
             "weightG": 2100
+          }
+        },
+        {
+          "scope": "current_model_dimensions_corroboration",
+          "sourceUrl": "https://aroma-group.by/apparaty/",
+          "sourceDomain": "aroma-group.by",
+          "sourceType": "current-manufacturer-site",
+          "retrievedAt": "2026-10-03",
+          "reportedStatement": "Current AROMAGROUP catalog confirms Cafe 1000 dimensions 295×222×112.5 mm.",
+          "normalized": {
+            "dimensionsMm": [
+              295,
+              222,
+              112.5
+            ],
+            "heightMm": null,
+            "diameterMm": null,
+            "weightG": null
+          }
+        },
+        {
+          "scope": "historical_model_spec",
+          "sourceUrl": "https://gallery11.ru/upload/iblock/90f/eavbuntwejw00862u2xgoyryc7ca1qxu.pdf",
+          "sourceDomain": "gallery11.ru",
+          "sourceType": "historical-manufacturer-catalog",
+          "retrievedAt": "2026-10-03",
+          "reportedStatement": "Older catalog (published years earlier) reports 24×29.5×11 cm and 2.26 kg. Retained as historical version evidence, not treated as current-model spec.",
+          "normalized": {
+            "dimensionsMm": [
+              295,
+              110,
+              240
+            ],
+            "heightMm": null,
+            "diameterMm": null,
+            "weightG": 2260
           }
         }
       ]
@@ -5088,27 +5106,44 @@
       "brand": "Vellutier",
       "stock": null,
       "declaredValueRub": null,
-      "evidenceStatus": "PARTIAL",
+      "evidenceStatus": "VERIFIED_RETAIL_PACKAGE",
       "deliveryReady": true,
       "deliveryInput": {
-        "weightG": 1000,
-        "lengthMm": 110,
-        "widthMm": 110,
-        "heightMm": 160,
-        "basis": "exact_product_dimensions_plus_exact_package_weight",
+        "weightG": 1540,
+        "lengthMm": 255,
+        "widthMm": 158,
+        "heightMm": 155,
+        "basis": "retail_package",
         "sources": [
-          "https://www.komputronik.pl/product/782942/vellutier-duza-swieca-siberian-pine-forest.html",
-          "https://allegro.hu/termek/repcegyertya-siberian-pine-forest-illattal-vellutier-1-db-a96ea1a2-5bfc-4ebd-82a5-6033ac7759c5"
+          "https://www.bol.com/nl/nl/p/vellutier-geurkaars-large-siberian-pine-forest-16-cm-o-11-cm/9300000042812422/"
         ]
       },
       "measurements": [
         {
+          "scope": "retail_package",
+          "sourceUrl": "https://www.bol.com/nl/nl/p/vellutier-geurkaars-large-siberian-pine-forest-16-cm-o-11-cm/9300000042812422/",
+          "sourceDomain": "www.bol.com",
+          "sourceType": "retailer-structured-logistics",
+          "retrievedAt": "2026-10-03",
+          "reportedStatement": "Exact EAN 5907489031028. Structured fields report package length 25.5 cm, width 15.8 cm, height 15.5 cm and package weight 1.54 kg.",
+          "normalized": {
+            "dimensionsMm": [
+              255,
+              158,
+              155
+            ],
+            "heightMm": null,
+            "diameterMm": null,
+            "weightG": 1540
+          }
+        },
+        {
           "scope": "product",
           "sourceUrl": "https://www.komputronik.pl/product/782942/vellutier-duza-swieca-siberian-pine-forest.html",
-          "sourceDomain": "komputronik.pl",
+          "sourceDomain": "www.komputronik.pl",
           "sourceType": "retailer",
-          "retrievedAt": "2026-10-02",
-          "reportedStatement": "Exact EAN; product dimensions and 515 g net candle mass.",
+          "retrievedAt": "2026-10-03",
+          "reportedStatement": "Exact EAN/product code V61036. Product body 11×11×16 cm; 515 g is candle net content, not package weight.",
           "normalized": {
             "dimensionsMm": [
               110,
@@ -5118,20 +5153,6 @@
             "heightMm": null,
             "diameterMm": null,
             "weightG": 515
-          }
-        },
-        {
-          "scope": "retail_package_weight_only",
-          "sourceUrl": "https://allegro.hu/termek/repcegyertya-siberian-pine-forest-illattal-vellutier-1-db-a96ea1a2-5bfc-4ebd-82a5-6033ac7759c5",
-          "sourceDomain": "allegro.hu",
-          "sourceType": "marketplace",
-          "retrievedAt": "2026-10-02",
-          "reportedStatement": "Exact EAN; unit-package weight 1 kg, no package dimensions.",
-          "normalized": {
-            "dimensionsMm": null,
-            "heightMm": null,
-            "diameterMm": null,
-            "weightG": 1000
           }
         }
       ]
