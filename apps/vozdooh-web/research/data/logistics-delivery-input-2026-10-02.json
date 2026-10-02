@@ -11,8 +11,8 @@
   },
   "counts": {
     "eligible": 148,
-    "ready": 62,
-    "needsMoreEvidence": 86
+    "ready": 63,
+    "needsMoreEvidence": 85
   },
   "records": [
     {
@@ -238,8 +238,19 @@
       "name": "Urban Senses диффузор Caviar lime Holographic 500мл",
       "brand": null,
       "barcode": "8411299003054",
-      "status": "NEEDS_SOURCE",
-      "deliveryInput": null,
+      "status": "READY_PRODUCT_DIMENSIONS",
+      "deliveryInput": {
+        "weightG": 1060,
+        "lengthMm": 90,
+        "widthMm": 90,
+        "heightMm": 185,
+        "basis": "official_exact_product_bottle_dimensions_plus_independent_total_product_weight",
+        "sources": [
+          "https://www.ladenac.com/mikado-caviar-lime-deluxe-500-ml",
+          "https://maisonsia.com/products/lad-caviar-lime-diffusor",
+          "https://www.tsum.ru/product/he00855790-diffuzor-urban-senses-caviar-lime-holographic-500ml-ladenac-milano-bestcvetnyi/"
+        ]
+      },
       "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS"
     },
     {

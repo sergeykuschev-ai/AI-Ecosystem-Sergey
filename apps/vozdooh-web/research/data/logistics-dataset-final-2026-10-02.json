@@ -13,7 +13,7 @@
   "summary": {
     "eligible": 148,
     "exactPublicEvidence": 147,
-    "deliveryReady": 62,
+    "deliveryReady": 63,
     "verifiedProductMeasurements": 49,
     "verifiedRetailPackage": 13,
     "partial": 80,
@@ -760,8 +760,19 @@
       "stock": null,
       "declaredValueRub": null,
       "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS",
-      "deliveryReady": false,
-      "deliveryInput": null,
+      "deliveryReady": true,
+      "deliveryInput": {
+        "weightG": 1060,
+        "lengthMm": 90,
+        "widthMm": 90,
+        "heightMm": 185,
+        "basis": "official_exact_product_bottle_dimensions_plus_independent_total_product_weight",
+        "sources": [
+          "https://www.ladenac.com/mikado-caviar-lime-deluxe-500-ml",
+          "https://maisonsia.com/products/lad-caviar-lime-diffusor",
+          "https://www.tsum.ru/product/he00855790-diffuzor-urban-senses-caviar-lime-holographic-500ml-ladenac-milano-bestcvetnyi/"
+        ]
+      },
       "measurements": [
         {
           "scope": "product_cylindrical",
@@ -795,6 +806,21 @@
             "diameterMm": null,
             "weightG": null
           }
+        },
+        {
+          "scope": "product_total_weight_with_reeds",
+          "sourceUrl": "https://maisonsia.com/products/lad-caviar-lime-diffusor",
+          "sourceDomain": "maisonsia.com",
+          "sourceType": "specialist-retailer",
+          "retrievedAt": "2026-10-03",
+          "reportedStatement": "Maison SIA product page for Ladenac Milano Caviar Lime Diffuser reports total product weight 1.06 kg and H30×L9 cm including the assembled diffuser/reeds. Exact current-stock EAN 8411299003054 and 500 ml identity are independently anchored by TSUM; official Ladenac gives bottle Ø90×H185 mm for Caviar Lime Deluxe 500 ml.",
+          "normalized": {
+            "dimensionsMm": null,
+            "heightMm": null,
+            "diameterMm": null,
+            "weightG": 1060
+          },
+          "identitySourceUrl": "https://www.tsum.ru/product/he00855790-diffuzor-urban-senses-caviar-lime-holographic-500ml-ladenac-milano-bestcvetnyi/"
         }
       ]
     },

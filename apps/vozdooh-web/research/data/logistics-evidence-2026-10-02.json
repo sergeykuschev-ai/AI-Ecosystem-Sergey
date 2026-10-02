@@ -2043,6 +2043,16 @@
           "sourceUrl": "https://www.brandsforless.com/en-sa/urban-senses-holographic-caviar-lime-reed-diffuser-500-ml/1821800/p/",
           "retrievedAt": "2026-10-02",
           "note": "Same Caviar Lime 500 ml/style code listing reports packaging dimensions 28H × 12L × 10W cm. EAN is not printed on that page, so keep as candidate package evidence rather than verified exact-EAN package."
+        },
+        {
+          "scope": "product_total_weight_with_reeds",
+          "dimensionsMm": null,
+          "weightG": 1060,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://maisonsia.com/products/lad-caviar-lime-diffusor",
+          "identitySourceUrl": "https://www.tsum.ru/product/he00855790-diffuzor-urban-senses-caviar-lime-holographic-500ml-ladenac-milano-bestcvetnyi/",
+          "retrievedAt": "2026-10-03",
+          "note": "Maison SIA product page for Ladenac Milano Caviar Lime Diffuser reports total product weight 1.06 kg and H30×L9 cm including the assembled diffuser/reeds. Exact current-stock EAN 8411299003054 and 500 ml identity are independently anchored by TSUM; official Ladenac gives bottle Ø90×H185 mm for Caviar Lime Deluxe 500 ml."
         }
       ]
     },
@@ -3678,7 +3688,7 @@
     "partial": 80,
     "conflict": 5,
     "needsSource": 1,
-    "shippingReady": 62,
-    "deliveryInputReady": 62
+    "shippingReady": 63,
+    "deliveryInputReady": 63
   }
 }

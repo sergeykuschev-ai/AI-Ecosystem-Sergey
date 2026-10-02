@@ -2,7 +2,7 @@
 
 - Eligible: 148
 - Exact public evidence/identity: 147
-- Delivery ready: 62
+- Delivery ready: 63
 - PARTIAL: 80; CONFLICT: 5; NEEDS_SOURCE: 1
 
 ## Brand breakdown
@@ -13,7 +13,7 @@
 | CULTI MILANO | 23 | 19 | 2 | 2 | 0 |
 | TEATRO Fragranze Uniche | 23 | 6 | 17 | 0 | 0 |
 | MAMI MILANO | 12 | 3 | 9 | 0 | 0 |
-| Ladenac Milano | 11 | 5 | 4 | 0 | 0 |
+| Ladenac Milano | 11 | 6 | 4 | 0 | 0 |
 | VINOVE | 10 | 9 | 1 | 1 | 0 |
 | Christian Tortu | 7 | 4 | 4 | 0 | 0 |
 | Lothantique | 7 | 0 | 6 | 1 | 0 |
@@ -42,7 +42,6 @@
 - 22fimr - Hydro/концентрат для арома лампы Цветок мимозы 15 ml - PARTIAL
 - 2332 - Красное дерево картридж AG 150мл пласт. - PARTIAL
 - 32131 - Бордо картридж AG 110мл пласт. - PARTIAL
-- 3232434 - Urban Senses диффузор Caviar lime Holographic 500мл - VERIFIED_PRODUCT_MEASUREMENTS
 - 323244211 - Игристая малина картридж AG 110 мл. - PARTIAL
 - 3246675 - Розовое просекко картридж AG 150 мл. - PARTIAL
 - 33421956 - Кофе с ликером картридж AG 150мл пласт. - PARTIAL

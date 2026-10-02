@@ -20,3 +20,5 @@ Rule: verified exact-SKU full product dimensions and total weight are enough for
 - Vellutier Siberian Pine Forest V61036 / EAN 5907489031028 upgraded to verified retail package: 255 × 158 × 155 mm, 1540 g from structured exact-EAN retailer logistics fields.
 
 - Cafe 1000 upgraded to delivery-ready: current official manufacturer manual gives 295 × 222 × 112.5 mm and 2.1 kg; exact 1C model name matches. Integer Ozon input uses 295 × 222 × 113 mm by rounding 112.5 mm upward.
+
+- Ladenac Caviar Lime 500 upgraded to delivery-ready: official Ladenac bottle Ø90 × H185 mm, Maison SIA total product weight 1.06 kg, exact EAN 8411299003054 independently confirmed by TSUM.
