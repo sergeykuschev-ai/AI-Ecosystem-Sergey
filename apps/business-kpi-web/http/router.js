@@ -261,6 +261,19 @@ function createRouter(options) {
       }
 
       if (request.method === 'POST' &&
+          url.pathname === '/api/integration/1c/v1/daily-sales/shadow') {
+        const actor = await auth.requireActor(request);
+        auth.requireServiceScope(actor, 'onec:write');
+        const body = await readJson(request, MAX_ONEC_JSON_BYTES);
+        const result = await onecIntegrationService.ingestShadowDailySales(body, actor, {
+          idempotencyKey: request.headers['x-idempotency-key'],
+          correlationId: requestId,
+        });
+        success(response, result, result.duplicateBatch ? 200 : 201);
+        return;
+      }
+
+      if (request.method === 'POST' &&
           url.pathname === '/api/integration/1c/v1/daily-sales') {
         const actor = await auth.requireActor(request);
         auth.requireServiceScope(actor, 'onec:write');

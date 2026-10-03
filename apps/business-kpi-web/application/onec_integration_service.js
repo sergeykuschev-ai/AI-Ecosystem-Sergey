@@ -195,6 +195,68 @@ function auditRecord(action, shift, actor, sourceReference, now, correlationId) 
   };
 }
 
+function compareShadowValue(incoming, manual, tolerance = 0) {
+  if (incoming === null || incoming === undefined) {
+    return { checked: false, missingManual: false, delta: null, match: null };
+  }
+  if (manual === null || manual === undefined) {
+    return { checked: false, missingManual: true, delta: null, match: null };
+  }
+  const delta = Math.round((Number(incoming) - Number(manual)) * 100) / 100;
+  return {
+    checked: true,
+    missingManual: false,
+    delta,
+    match: Math.abs(delta) <= tolerance,
+  };
+}
+
+function buildShadowComparison(record, shift) {
+  if (!shift) {
+    return {
+      status: 'no_manual_record',
+      manualShiftId: null,
+      manualSource: null,
+      differences: {},
+      missingManualFields: [],
+      comparedFields: [],
+    };
+  }
+  const specs = [
+    ['cash', 0.01],
+    ['acquiring', 0.01],
+    ['qr', 0.01],
+    ['b2b', 0.01],
+    ['receipts', 0],
+    ['itemsSold', 0],
+  ];
+  const differences = {};
+  const missingManualFields = [];
+  const comparedFields = [];
+  let mismatch = false;
+  for (const [field, tolerance] of specs) {
+    const comparison = compareShadowValue(record[field], shift[field], tolerance);
+    if (comparison.missingManual) {
+      missingManualFields.push(field);
+      continue;
+    }
+    if (!comparison.checked) continue;
+    comparedFields.push(field);
+    if (!comparison.match) {
+      mismatch = true;
+      differences[field] = comparison.delta;
+    }
+  }
+  return {
+    status: mismatch ? 'differs_manual' : 'matched_manual',
+    manualShiftId: shift.id,
+    manualSource: shift.source,
+    differences,
+    missingManualFields,
+    comparedFields,
+  };
+}
+
 class OnecIntegrationService {
   constructor(options) {
     this.store = options.store;
@@ -340,7 +402,7 @@ class OnecIntegrationService {
     let payloadHash = null;
     try {
       batch = normalizeBatch(payload, options.idempotencyKey);
-      payloadHash = sha256(batch);
+      payloadHash = sha256({ mode: 'apply', batch });
       const existingBatch = await this.store.getOnecBatchByKey(batch.batchId);
     if (existingBatch) {
       if (existingBatch.payloadSha256 !== payloadHash) {
@@ -367,7 +429,7 @@ class OnecIntegrationService {
         status: 'PROCESSING',
         recordsReceived: batch.records.length,
         recordsApplied: 0,
-        payload: batch,
+        payload: { mode: 'apply', ...batch },
         result: null,
         error: null,
         receivedAt: this.now().toISOString(),
@@ -451,6 +513,7 @@ class OnecIntegrationService {
       }
       const result = {
         contractVersion: CONTRACT_VERSION,
+        mode: 'apply',
         batchId: batch.batchId,
         sourceInstance: batch.sourceInstance,
         duplicateBatch: false,
@@ -489,6 +552,183 @@ class OnecIntegrationService {
         });
       } catch (logError) {
         console.error('Failed to persist 1C integration failure', {
+          errorMessage: logError.message,
+        });
+      }
+      throw error;
+    }
+  }
+
+  async ingestShadowDailySales(payload, actor, options = {}) {
+    if (!actor || actor.role !== 'SERVICE') {
+      throw new ApplicationError(
+        'FORBIDDEN',
+        'Интеграция 1С доступна только сервисной учётной записи.',
+        403
+      );
+    }
+    let batch = null;
+    let payloadHash = null;
+    try {
+      batch = normalizeBatch(payload, options.idempotencyKey);
+      payloadHash = sha256({ mode: 'shadow', batch });
+      const existingBatch = await this.store.getOnecBatchByKey(batch.batchId);
+      if (existingBatch) {
+        if (existingBatch.payloadSha256 !== payloadHash) {
+          throw new ApplicationError(
+            'ONEC_IDEMPOTENCY_CONFLICT',
+            'batchId уже использован для другого содержимого или режима.',
+            409
+          );
+        }
+        return {
+          ...(existingBatch.result || {}),
+          batchId: batch.batchId,
+          duplicateBatch: true,
+        };
+      }
+
+      return await this.store.transaction(async store => {
+        const createdBatch = await store.createOnecBatch({
+          id: this.uuid(),
+          idempotencyKey: batch.batchId,
+          sourceInstance: batch.sourceInstance,
+          contractVersion: batch.contractVersion,
+          payloadSha256: payloadHash,
+          status: 'PROCESSING',
+          recordsReceived: batch.records.length,
+          recordsApplied: 0,
+          payload: { mode: 'shadow', ...batch },
+          result: null,
+          error: null,
+          receivedAt: this.now().toISOString(),
+          completedAt: null,
+        });
+        if (!createdBatch) {
+          const raced = await store.getOnecBatchByKey(batch.batchId);
+          if (raced?.payloadSha256 === payloadHash) {
+            return {
+              ...(raced.result || {}),
+              batchId: batch.batchId,
+              duplicateBatch: true,
+            };
+          }
+          throw new ApplicationError('ONEC_IDEMPOTENCY_CONFLICT', 'Конфликт batchId.', 409);
+        }
+
+        const results = [];
+        for (const record of batch.records) {
+          const recordHash = sha256(record);
+          const references = await this.resolveReferences(store, record);
+          const previous = await store.getOnecDailySalesRecord(
+            batch.sourceInstance,
+            record.recordId
+          );
+          if (previous && previous.appliedShiftId) {
+            throw new ApplicationError(
+              'ONEC_SHADOW_AFTER_APPLY',
+              `Запись ${record.recordId} уже применена в KPI и не может быть переведена в shadow.`,
+              409
+            );
+          }
+          if (previous && previous.payloadSha256 !== recordHash &&
+              new Date(record.sourceUpdatedAt) <= new Date(previous.sourceUpdatedAt)) {
+            throw new ApplicationError(
+              'ONEC_STALE_RECORD',
+              `Запись ${record.recordId} старее уже принятой версии.`,
+              409
+            );
+          }
+
+          const manualShift = await store.getActiveShiftByIdentity(
+            references.storeRecord.id,
+            references.employee.id,
+            record.businessDate,
+            'main'
+          );
+          if (manualShift?.source === '1c') {
+            throw new ApplicationError(
+              'ONEC_SHADOW_AFTER_APPLY',
+              `Запись ${record.recordId} уже существует как применённая запись 1С.`,
+              409
+            );
+          }
+          const comparison = buildShadowComparison(record, manualShift);
+
+          await store.upsertOnecDailySalesRecord({
+            id: previous?.id || this.uuid(),
+            batchId: createdBatch.id,
+            sourceInstance: batch.sourceInstance,
+            externalRecordId: record.recordId,
+            storeId: references.storeRecord.id,
+            employeeId: references.employee.id,
+            businessDate: record.businessDate,
+            cash: record.cash,
+            acquiring: record.acquiring,
+            qr: record.qr,
+            b2b: record.b2b,
+            b2bOrders: record.b2bOrders,
+            receipts: record.receipts,
+            itemsSold: record.itemsSold,
+            returnsAmount: record.returnsAmount,
+            returnReceipts: record.returnReceipts,
+            sourceUpdatedAt: record.sourceUpdatedAt,
+            payloadSha256: recordHash,
+            payload: record,
+            appliedShiftId: null,
+            appliedAt: null,
+          });
+          results.push({
+            recordId: record.recordId,
+            storeCode: record.storeCode,
+            employeeCode: references.employeeCode,
+            businessDate: record.businessDate,
+            ...comparison,
+          });
+        }
+
+        const result = {
+          contractVersion: CONTRACT_VERSION,
+          mode: 'shadow',
+          batchId: batch.batchId,
+          sourceInstance: batch.sourceInstance,
+          duplicateBatch: false,
+          recordsReceived: batch.records.length,
+          recordsApplied: 0,
+          recordsShadowed: batch.records.length,
+          records: results,
+        };
+        await store.completeOnecBatch(createdBatch.id, {
+          status: 'COMPLETED',
+          recordsApplied: 0,
+          result,
+          completedAt: this.now().toISOString(),
+        });
+        return result;
+      });
+    } catch (error) {
+      try {
+        const rawBatchId = batch?.batchId ||
+          (typeof options.idempotencyKey === 'string' ? options.idempotencyKey.trim() : null) ||
+          (typeof payload?.batchId === 'string' ? payload.batchId.trim() : null);
+        const rawSource = batch?.sourceInstance ||
+          (typeof payload?.sourceInstance === 'string' ? payload.sourceInstance.trim() : null);
+        const rawVersion = batch?.contractVersion ||
+          (typeof payload?.contractVersion === 'string' ? payload.contractVersion.trim() : null);
+        await this.store.recordOnecFailure({
+          id: this.uuid(),
+          idempotencyKey: rawBatchId || null,
+          sourceInstance: rawSource || null,
+          contractVersion: rawVersion || null,
+          payloadSha256: payloadHash || sha256({ mode: 'shadow', payload }),
+          errorCode: error.code || 'ONEC_INTERNAL_ERROR',
+          errorMessage: error.message || 'Ошибка shadow-обработки пакета 1С.',
+          errorDetails: error.details || null,
+          payload: { mode: 'shadow', request: payload },
+          failedAt: this.now().toISOString(),
+        });
+      } catch (logError) {
+        console.error('Failed to persist 1C shadow failure', {
           errorMessage: logError.message,
         });
       }

@@ -51,6 +51,19 @@ async function post(payload) {
   return { response, body: await response.json() };
 }
 
+async function postShadow(payload) {
+  const response = await fetch(`${baseUrl}/api/integration/1c/v1/daily-sales/shadow`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${KEY}`,
+      'Content-Type': 'application/json',
+      'X-Idempotency-Key': payload.batchId,
+    },
+    body: JSON.stringify(payload),
+  });
+  return { response, body: await response.json() };
+}
+
 before(async () => {
   const config = loadConfig({
     NODE_ENV: 'test',
@@ -121,6 +134,68 @@ test('1C HTTP ingest persists raw record, audit and KPI shift in PostgreSQL', as
   assert.equal(audit.rows[0].action, 'SHIFT_ONEC_CREATED');
   assert.equal(audit.rows[0].source, '1c');
 });
+test('shadow ingest persists 1C facts without changing a manual PostgreSQL shift', async () => {
+  const shiftId = '71000000-0000-4000-8000-000000000001';
+  const now = new Date().toISOString();
+  await server.businessKpiStore.createShift({
+    id: shiftId,
+    storeId: '10000000-0000-4000-8000-000000000002',
+    employeeId: '20000000-0000-4000-8000-000000000101',
+    employeeName: 'Ампер · магазин',
+    shiftDate: '2026-10-09',
+    shiftKey: 'main',
+    cash: 12345.67,
+    acquiring: 23456.78,
+    qr: 4567.89,
+    b2b: 5000,
+    b2bOrders: 1,
+    receipts: 31,
+    itemsSold: 72,
+    upsellReceipts: null,
+    treatsRevenue: null,
+    treatsReceipts: null,
+    comment: null,
+    source: 'web_manual',
+    sourceRef: null,
+    createdAt: now,
+    updatedAt: now,
+    importRunId: null,
+    historicalRevenue: null,
+    revenueSource: 'payment_breakdown',
+    paymentBreakdownAvailable: true,
+    sourceReference: null,
+    originalImportedInput: null,
+  });
+
+  const payload = batch(`pg-shadow-${Date.now()}`, {
+    recordId: 'amper:2026-10-09',
+    businessDate: '2026-10-09',
+    sourceUpdatedAt: '2026-10-09T19:00:00+10:00',
+  });
+  const { response, body } = await postShadow(payload);
+  assert.equal(response.status, 201, body.error?.message);
+  assert.equal(body.data.mode, 'shadow');
+  assert.equal(body.data.recordsApplied, 0);
+  assert.equal(body.data.records[0].status, 'matched_manual');
+
+  const manual = await pool.query(
+    'SELECT cash_amount, source FROM business_kpi.shifts WHERE id=$1',
+    [shiftId]
+  );
+  assert.equal(Number(manual.rows[0].cash_amount), 12345.67);
+  assert.equal(manual.rows[0].source, 'web_manual');
+
+  const raw = await pool.query(
+    `SELECT applied_shift_id, cash_amount
+     FROM business_kpi.onec_daily_sales
+     WHERE source_instance=$1 AND external_record_id=$2`,
+    [payload.sourceInstance, payload.records[0].recordId]
+  );
+  assert.equal(raw.rowCount, 1);
+  assert.equal(raw.rows[0].applied_shift_id, null);
+  assert.equal(Number(raw.rows[0].cash_amount), 12345.67);
+});
+
 test('PostgreSQL path keeps failed batches atomic and records diagnostics', async () => {
   const payload = batch(`pg-fail-${Date.now()}`, {
     recordId: `unknown:${Date.now()}`,

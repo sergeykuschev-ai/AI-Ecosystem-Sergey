@@ -52,6 +52,15 @@ async function postBatch(batch, headers = writeHeaders) {
   return { response, body: await response.json() };
 }
 
+async function postShadowBatch(batch, headers = writeHeaders) {
+  const response = await fetch(`${baseUrl}/api/integration/1c/v1/daily-sales/shadow`, {
+    method: 'POST',
+    headers: { ...headers, 'X-Idempotency-Key': batch.batchId },
+    body: JSON.stringify(batch),
+  });
+  return { response, body: await response.json() };
+}
+
 before(async () => {
   const config = loadConfig({
     BUSINESS_KPI_SERVICE_KEYS: JSON.stringify([
@@ -247,6 +256,99 @@ test('a manual shift is never overwritten by 1C', async () => {
   assert.equal(response.status, 409);
   assert.equal(body.error.code, 'ONEC_SHIFT_SOURCE_CONFLICT');
 });
+test('shadow mode compares 1C with manual KPI without changing shifts', async () => {
+  const amper = store.stores.find(item => item.code === 'amper');
+  const employee = store.employees.find(item =>
+    item.storeId === amper.id && item.employeeCode === 'amper-store-input'
+  );
+  store.shifts.push({
+    id: '70000000-0000-4000-8000-000000000002',
+    storeId: amper.id,
+    employeeId: employee.id,
+    employeeName: employee.displayName,
+    shiftDate: '2026-10-09',
+    shiftKey: 'main',
+    cash: 10000,
+    acquiring: 20000,
+    qr: 5000,
+    b2b: 3000,
+    b2bOrders: 1,
+    receipts: 20,
+    itemsSold: 50,
+    upsellReceipts: null,
+    treatsRevenue: null,
+    treatsReceipts: null,
+    comment: null,
+    historicalRevenue: null,
+    revenueSource: 'payment_breakdown',
+    paymentBreakdownAvailable: true,
+    source: 'web_manual',
+    sourceRef: null,
+    sourceReference: null,
+    archivedAt: null,
+    archivedBy: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+
+  const matching = makeBatch('shadow-match-1', {
+    recordId: 'amper:2026-10-09',
+    businessDate: '2026-10-09',
+    sourceUpdatedAt: '2026-10-09T19:00:00+10:00',
+  });
+  let result = await postShadowBatch(matching);
+  assert.equal(result.response.status, 201, result.body.error?.message);
+  assert.equal(result.body.data.mode, 'shadow');
+  assert.equal(result.body.data.recordsApplied, 0);
+  assert.equal(result.body.data.recordsShadowed, 1);
+  assert.equal(result.body.data.records[0].status, 'matched_manual');
+  assert.deepEqual(result.body.data.records[0].differences, {});
+
+  const raw = await store.getOnecDailySalesRecord(
+    matching.sourceInstance,
+    matching.records[0].recordId
+  );
+  assert.equal(raw.appliedShiftId, null);
+
+  const changed = makeBatch('shadow-diff-1', {
+    recordId: 'amper:2026-10-09',
+    businessDate: '2026-10-09',
+    sourceUpdatedAt: '2026-10-09T20:00:00+10:00',
+    cash: 10100,
+  });
+  result = await postShadowBatch(changed);
+  assert.equal(result.response.status, 201, result.body.error?.message);
+  assert.equal(result.body.data.records[0].status, 'differs_manual');
+  assert.equal(result.body.data.records[0].differences.cash, 100);
+
+  result = await postShadowBatch(changed);
+  assert.equal(result.response.status, 200);
+  assert.equal(result.body.data.duplicateBatch, true);
+
+  const applySameBatchId = await postBatch(changed);
+  assert.equal(applySameBatchId.response.status, 409);
+  assert.equal(applySameBatchId.body.error.code, 'ONEC_IDEMPOTENCY_CONFLICT');
+
+  const manualShift = await store.getShift('70000000-0000-4000-8000-000000000002');
+  assert.equal(manualShift.cash, 10000);
+  assert.equal(manualShift.source, 'web_manual');
+
+  const noManual = makeBatch('shadow-no-manual-1', {
+    recordId: 'amper:2026-10-10',
+    businessDate: '2026-10-10',
+    sourceUpdatedAt: '2026-10-10T19:00:00+10:00',
+  });
+  result = await postShadowBatch(noManual);
+  assert.equal(result.response.status, 201, result.body.error?.message);
+  assert.equal(result.body.data.records[0].status, 'no_manual_record');
+  const shifts = await store.listShifts({
+    storeId: amper.id,
+    dateFrom: '2026-10-10',
+    dateTo: '2026-10-10',
+  });
+  assert.equal(shifts.length, 0);
+});
+
 test('a failing multi-record batch rolls back every record', async () => {
   const valid = makeBatch('batch-atomic-1', {
     recordId: 'amper:2026-10-05',

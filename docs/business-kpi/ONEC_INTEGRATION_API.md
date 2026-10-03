@@ -1,6 +1,6 @@
 # 1C UT 11 → Business KPI integration API
 
-Status: server-side preparation, contract v1.0. 1C is not connected yet.
+Status: contract v1.0 and server-side API are deployed to production. 1C is not connected yet.
 
 ## Goal
 
@@ -39,9 +39,20 @@ Requires `onec:read`. Returns service status and supported contract version.
 
 Requires `onec:read`. Returns recent accepted batches and recent failures.
 
+### POST /api/integration/1c/v1/daily-sales/shadow
+
+Requires `onec:write`. Stores the 1C fact and compares it with the current manual KPI row,
+but never creates, updates or archives a KPI shift. The record result is one of:
+
+- `matched_manual`;
+- `differs_manual`;
+- `no_manual_record`.
+
+This endpoint is mandatory for the initial parallel reconciliation period.
+
 ### POST /api/integration/1c/v1/daily-sales
 
-Requires `onec:write`.
+Requires `onec:write`. Applies accepted 1C facts to canonical KPI shifts.
 
 Headers:
 
@@ -124,9 +135,9 @@ All business dates use the store timezone `Asia/Vladivostok`.
 Rules:
 
 1. On a transport retry, resend the **same payload with the same batchId**.
-2. Same batchId + same payload is a safe no-op.
-3. Same batchId + different payload is rejected.
-4. If data changes in 1C, create a **new batchId**.
+2. Same batchId + same payload + same endpoint mode is a safe no-op.
+3. Same batchId used for different content or for both shadow/apply is rejected.
+4. If data changes in 1C, or the flow moves from shadow to apply, create a **new batchId**.
 5. `recordId` stays stable for the same logical daily record.
 6. A changed record must have a newer `sourceUpdatedAt`.
 7. An older changed version is rejected as stale.
@@ -160,6 +171,21 @@ If a manual portal record already occupies the same store/employee/date identity
 
 Once a shift is sourced from 1C, portal users cannot edit or archive it.
 The correction must be made in 1C and resent.
+## Shadow rollout
+
+Initial 1C activation must start in shadow mode:
+
+1. Keep manual daily KPI entry enabled.
+2. Send the same 1C daily aggregates to `/daily-sales/shadow`.
+3. Review recent batch results through `/status`.
+4. Investigate every `differs_manual` result by payment type, receipts and items.
+5. Keep shadow mode until several consecutive business days reconcile.
+6. Switch the 1C sender to `/daily-sales` using new batch IDs.
+7. Disable manual sales entry only after the production apply flow is confirmed.
+
+Shadow records are stored in `onec_daily_sales` with no `applied_shift_id`.
+They cannot change the canonical KPI row.
+
 ## Database provenance
 
 Accepted data is stored in three layers:
@@ -207,10 +233,13 @@ Implemented before touching 1C:
 - [x] audit trail;
 - [x] manual-record conflict protection;
 - [x] read-only policy for 1C-derived KPI facts;
+- [x] shadow reconciliation without KPI mutation;
 - [x] Amper/Ventil/Metiz store-level mappings;
 - [x] in-memory HTTP tests;
 - [x] PostgreSQL end-to-end tests;
-- [x] tailnet-only HTTPS transport already available.
+- [x] tailnet-only HTTPS transport already available;
+- [x] production API deployed;
+- [x] dedicated production service key configured.
 
 Remaining for the 1C stage:
 
@@ -218,6 +247,6 @@ Remaining for the 1C stage:
 - [ ] map UT 11 organizations/stores/payment types to the contract;
 - [ ] confirm Miska seller identity mapping;
 - [ ] install the extension;
-- [ ] configure the production service key;
+- [ ] configure the extension with the existing production service key;
 - [ ] run shadow reconciliation against manual KPI for several days;
 - [ ] only then disable manual sales entry.
