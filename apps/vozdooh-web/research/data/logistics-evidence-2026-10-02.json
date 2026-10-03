@@ -3089,7 +3089,7 @@
       "sku": "ORO500RTFU",
       "barcode": "8058159962818",
       "brand": "TEATRO Fragranze Uniche",
-      "status": "PARTIAL",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
       "measurements": [
         {
           "scope": "product",
@@ -3112,6 +3112,15 @@
           "sourceUrl": "https://www.solie.cz/teatro-fragranze-uniche-oro-luxury-collection-napln-do-difuzeru-500-ml",
           "retrievedAt": "2026-10-02",
           "note": "Exact EAN 8058159962818 confirms Oro Luxury Collection refill 500 ml identity."
+        },
+        {
+          "scope": "product_weight",
+          "dimensionsMm": null,
+          "weightG": 620,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://nalda.it/products/8058159962818",
+          "retrievedAt": "2026-10-03",
+          "note": "Nalda exact EAN 8058159962818 lists product weight 620 g and separately shipping weight 620 g. Product dimensions remain sourced from the exact ORO500RTFU retailer listing at 70 x 70 x 200 mm; no volume-to-weight conversion is used."
         }
       ]
     },
@@ -3747,11 +3756,11 @@
   "summary": {
     "researchedRecords": 148,
     "verifiedRetailPackage": 13,
-    "verifiedProductMeasurements": 53,
-    "partial": 76,
+    "verifiedProductMeasurements": 54,
+    "partial": 75,
     "conflict": 5,
     "needsSource": 1,
-    "shippingReady": 67,
-    "deliveryInputReady": 67
+    "shippingReady": 68,
+    "deliveryInputReady": 68
   }
 }

@@ -2,10 +2,10 @@
 
 Current positive-stock scope: 148 SKU.
 
-- Delivery-input ready: 67
-- VERIFIED_PRODUCT_MEASUREMENTS: 53
+- Delivery-input ready: 68
+- VERIFIED_PRODUCT_MEASUREMENTS: 54
 - VERIFIED_RETAIL_PACKAGE: 13
-- PARTIAL: 76
+- PARTIAL: 75
 - CONFLICT: 5
 - NEEDS_SOURCE: 1
 
@@ -32,3 +32,5 @@ Rule: verified exact-SKU full product dimensions and total weight are enough for
 - Lothantique Flowers of Japan 200 ml / EAN 3420070031532 upgraded to delivery-ready: exact product page reports dimensions 100 × 50 × 50 mm and an explicit 200 g weight field. The weight is source-reported and is not inferred from the nominal 200 ml volume.
 
 - Lothantique Amber 200 ml / EAN 3420070031563 upgraded to delivery-ready: exact product page reports dimensions 100 × 50 × 50 mm and an explicit 200 g weight field. A similarly named Les Secrets d'Antoine page was not reused because its displayed article differs from the 1C EAN.
+
+- TEATRO Oro refill 500 ml / SKU ORO500RTFU / EAN 8058159962818 upgraded to delivery-ready: exact-SKU retailer product dimensions are 70 × 70 × 200 mm; Nalda exact-EAN structured product data reports item weight 620 g separately from shipping weight. No ml-to-g inference.
