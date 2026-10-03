@@ -2391,7 +2391,7 @@
       "sku": "N020528",
       "barcode": "3420070031563",
       "brand": "Lothantique",
-      "status": "PARTIAL",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
       "measurements": [
         {
           "scope": "exact_identity_and_contents",
@@ -2401,6 +2401,19 @@
           "sourceUrl": "https://www.provencearomes.fr/catalogue/fr/parfum-d-ambiance-lothantique/6721-batons-a-parfum-ambre-lothantique-la-bonne-maison.html",
           "retrievedAt": "2026-10-03",
           "note": "Exact EAN 3420070031563 maps to Lothantique Ambre 200 ml, ref LMBTAM. Full dimensions and total weight remain unverified."
+        },
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            100,
+            50,
+            50
+          ],
+          "weightG": 200,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.homefragrance.ru/products/lothantique-amber-diffuzor-200-ml",
+          "retrievedAt": "2026-10-03",
+          "note": "Exact product page for Lothantique Amber diffuser 200 ml, article/EAN 3420070031563, separately reports dimensions 100 x 50 x 50 mm and weight 200 g. Weight is taken from the explicit weight field, not inferred from nominal 200 ml volume."
         }
       ]
     },
@@ -3734,11 +3747,11 @@
   "summary": {
     "researchedRecords": 148,
     "verifiedRetailPackage": 13,
-    "verifiedProductMeasurements": 52,
-    "partial": 77,
+    "verifiedProductMeasurements": 53,
+    "partial": 76,
     "conflict": 5,
     "needsSource": 1,
-    "shippingReady": 66,
-    "deliveryInputReady": 66
+    "shippingReady": 67,
+    "deliveryInputReady": 67
   }
 }

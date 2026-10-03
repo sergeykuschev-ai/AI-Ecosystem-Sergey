@@ -13,10 +13,10 @@
   "summary": {
     "eligible": 148,
     "exactPublicEvidence": 147,
-    "deliveryReady": 66,
-    "verifiedProductMeasurements": 52,
+    "deliveryReady": 67,
+    "verifiedProductMeasurements": 53,
     "verifiedRetailPackage": 13,
-    "partial": 77,
+    "partial": 76,
     "conflict": 5,
     "needsSource": 1
   },
@@ -4895,9 +4895,18 @@
       "brand": "Lothantique",
       "stock": null,
       "declaredValueRub": null,
-      "evidenceStatus": "PARTIAL",
-      "deliveryReady": false,
-      "deliveryInput": null,
+      "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "deliveryReady": true,
+      "deliveryInput": {
+        "weightG": 200,
+        "lengthMm": 100,
+        "widthMm": 50,
+        "heightMm": 50,
+        "basis": "exact_ean_product_dimensions_and_explicit_weight",
+        "sources": [
+          "https://www.homefragrance.ru/products/lothantique-amber-diffuzor-200-ml"
+        ]
+      },
       "measurements": [
         {
           "scope": "exact_identity_and_contents",
@@ -4911,6 +4920,24 @@
             "heightMm": null,
             "diameterMm": null,
             "weightG": null
+          }
+        },
+        {
+          "scope": "product",
+          "sourceUrl": "https://www.homefragrance.ru/products/lothantique-amber-diffuzor-200-ml",
+          "sourceDomain": "homefragrance.ru",
+          "sourceType": "specialist-retailer",
+          "retrievedAt": "2026-10-03",
+          "reportedStatement": "Exact product page for Lothantique Amber diffuser 200 ml, article/EAN 3420070031563, separately reports dimensions 100 x 50 x 50 mm and weight 200 g. Weight is taken from the explicit weight field, not inferred from nominal 200 ml volume.",
+          "normalized": {
+            "dimensionsMm": [
+              100,
+              50,
+              50
+            ],
+            "heightMm": null,
+            "diameterMm": null,
+            "weightG": 200
           }
         }
       ]

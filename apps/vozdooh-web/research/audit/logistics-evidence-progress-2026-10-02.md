@@ -2,10 +2,10 @@
 
 Current positive-stock scope: 148 SKU.
 
-- Delivery-input ready: 66
-- VERIFIED_PRODUCT_MEASUREMENTS: 52
+- Delivery-input ready: 67
+- VERIFIED_PRODUCT_MEASUREMENTS: 53
 - VERIFIED_RETAIL_PACKAGE: 13
-- PARTIAL: 77
+- PARTIAL: 76
 - CONFLICT: 5
 - NEEDS_SOURCE: 1
 
@@ -30,3 +30,5 @@ Rule: verified exact-SKU full product dimensions and total weight are enough for
 - Lothantique Sandalwood 200 ml / EAN 3420070039200 upgraded to delivery-ready: exact product page reports dimensions 100 × 50 × 50 mm and an explicit 200 g weight field. The weight is source-reported and is not inferred from the nominal 200 ml volume.
 
 - Lothantique Flowers of Japan 200 ml / EAN 3420070031532 upgraded to delivery-ready: exact product page reports dimensions 100 × 50 × 50 mm and an explicit 200 g weight field. The weight is source-reported and is not inferred from the nominal 200 ml volume.
+
+- Lothantique Amber 200 ml / EAN 3420070031563 upgraded to delivery-ready: exact product page reports dimensions 100 × 50 × 50 mm and an explicit 200 g weight field. A similarly named Les Secrets d'Antoine page was not reused because its displayed article differs from the 1C EAN.
