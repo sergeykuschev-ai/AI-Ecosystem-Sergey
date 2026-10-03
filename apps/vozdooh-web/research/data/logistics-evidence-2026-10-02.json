@@ -2273,7 +2273,7 @@
       "sku": "N020465",
       "barcode": "3420070039200",
       "brand": "Lothantique",
-      "status": "PARTIAL",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
       "measurements": [
         {
           "scope": "included_reeds",
@@ -2284,6 +2284,19 @@
           "sourceUrl": "https://www.gardenbleu.shop/product-page/fragrance-diffuser-200ml",
           "retrievedAt": "2026-10-02",
           "note": "Lothantique 200 ml fragrance diffuser collection page explicitly includes Sandalwood and states the boxed set contains 8 natural rattan sticks 23 cm. Bottle/box dimensions and total weight remain unknown."
+        },
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            100,
+            50,
+            50
+          ],
+          "weightG": 200,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.homefragrance.ru/products/lothantique-sandalwood-diffuzor-200-ml",
+          "retrievedAt": "2026-10-03",
+          "note": "Exact product page for Lothantique Sandalwood diffuser 200 ml, article/EAN 3420070039200, separately reports dimensions 100 x 50 x 50 mm and weight 200 g. Weight is taken from the explicit weight field, not inferred from nominal 200 ml volume."
         }
       ]
     },
@@ -3708,11 +3721,11 @@
   "summary": {
     "researchedRecords": 148,
     "verifiedRetailPackage": 13,
-    "verifiedProductMeasurements": 50,
-    "partial": 79,
+    "verifiedProductMeasurements": 51,
+    "partial": 78,
     "conflict": 5,
     "needsSource": 1,
-    "shippingReady": 64,
-    "deliveryInputReady": 64
+    "shippingReady": 65,
+    "deliveryInputReady": 65
   }
 }

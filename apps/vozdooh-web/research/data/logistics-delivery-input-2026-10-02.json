@@ -11,8 +11,8 @@
   },
   "counts": {
     "eligible": 148,
-    "ready": 64,
-    "needsMoreEvidence": 84
+    "ready": 65,
+    "needsMoreEvidence": 83
   },
   "records": [
     {
@@ -1546,9 +1546,18 @@
       "name": "Аромадиффузор 200 мл/ SANDALWOOD/ САНДАЛ",
       "brand": null,
       "barcode": "3420070039200",
-      "status": "NEEDS_SOURCE",
-      "deliveryInput": null,
-      "evidenceStatus": "PARTIAL"
+      "status": "READY_PRODUCT_DIMENSIONS",
+      "deliveryInput": {
+        "weightG": 200,
+        "lengthMm": 100,
+        "widthMm": 50,
+        "heightMm": 50,
+        "basis": "exact_ean_product_dimensions_and_explicit_weight",
+        "sources": [
+          "https://www.homefragrance.ru/products/lothantique-sandalwood-diffuzor-200-ml"
+        ]
+      },
+      "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS"
     },
     {
       "sku": "N020468",
