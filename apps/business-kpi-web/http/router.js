@@ -17,14 +17,15 @@ const SELLER_TASK_ACTION_ROUTE =
 const SELLER_MODULE_QUIZ_ROUTE =
   /^\/api\/business-kpi\/seller-learning\/modules\/(KNOW-\d+)\/quiz$/i;
 const MAX_JSON_BYTES = 64 * 1024;
+const MAX_ONEC_JSON_BYTES = 512 * 1024;
 const MAX_XLSX_BYTES = 20 * 1024 * 1024;
 
-async function readJson(request) {
+async function readJson(request, maxBytes = MAX_JSON_BYTES) {
   let size = 0;
   const chunks = [];
   for await (const chunk of request) {
     size += chunk.length;
-    if (size > MAX_JSON_BYTES) {
+    if (size > maxBytes) {
       throw new ApplicationError(
         'REQUEST_TOO_LARGE',
         'JSON-запрос превышает допустимый размер.',
@@ -200,6 +201,7 @@ function createRouter(options) {
     authService,
     businessKpiService,
     workbookImportService,
+    onecIntegrationService,
     sellerTasksService,
     devMode,
     cookieSecure,
@@ -229,6 +231,45 @@ function createRouter(options) {
           (url.pathname === '/health' || url.pathname === '/api/v1/health')) {
         const health = await healthService.getHealth();
         success(response, health, health.status === 'ok' ? 200 : 503);
+        return;
+      }
+
+      if (request.method === 'GET' &&
+          url.pathname === '/api/integration/1c/v1/ping') {
+        const actor = await auth.requireActor(request);
+        auth.requireServiceScope(actor, 'onec:read');
+        const state = await onecIntegrationService.status(actor, { limit: 1 });
+        success(response, {
+          service: 'onec-integration',
+          status: 'ok',
+          contractVersion: state.contractVersion,
+        });
+        return;
+      }
+
+      if (request.method === 'GET' &&
+          url.pathname === '/api/integration/1c/v1/status') {
+        const actor = await auth.requireActor(request);
+        auth.requireServiceScope(actor, 'onec:read');
+        const limit = positiveInteger(url.searchParams.get('limit'), 'limit', {
+          min: 1,
+          max: 50,
+          optional: true,
+        });
+        success(response, await onecIntegrationService.status(actor, { limit }));
+        return;
+      }
+
+      if (request.method === 'POST' &&
+          url.pathname === '/api/integration/1c/v1/daily-sales') {
+        const actor = await auth.requireActor(request);
+        auth.requireServiceScope(actor, 'onec:write');
+        const body = await readJson(request, MAX_ONEC_JSON_BYTES);
+        const result = await onecIntegrationService.ingestDailySales(body, actor, {
+          idempotencyKey: request.headers['x-idempotency-key'],
+          correlationId: requestId,
+        });
+        success(response, result, result.duplicateBatch ? 200 : 201);
         return;
       }
 

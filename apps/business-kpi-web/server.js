@@ -5,6 +5,7 @@ const http = require('node:http');
 const { AuthService } = require('./application/auth_service');
 const { BusinessKpiService } = require('./application/business_kpi_service');
 const { HealthService } = require('./application/health_service');
+const { OnecIntegrationService } = require('./application/onec_integration_service');
 const { SellerTasksService } = require('./application/seller_tasks_service');
 const { OwnerNotificationClient } = require('./application/owner_notification_client');
 const { WorkbookImportService } = require('./application/workbook_import_service');
@@ -55,6 +56,13 @@ function createBusinessKpiWebServer(options = {}) {
       timeoutMs: config.ownerNotifyTimeoutMs,
     });
   }
+  const onecIntegrationService = options.onecIntegrationService ||
+    new OnecIntegrationService({
+      store,
+      businessKpiService,
+      now: options.now,
+      uuid: options.uuid,
+    });
   const sellerTasksService = options.sellerTasksService ||
     new SellerTasksService({
       store,
@@ -68,6 +76,7 @@ function createBusinessKpiWebServer(options = {}) {
     authService,
     businessKpiService,
     workbookImportService,
+    onecIntegrationService,
     sellerTasksService,
     devMode: config.devMode,
     cookieSecure: config.cookieSecure,

@@ -60,6 +60,7 @@ function createAuthMiddleware(options) {
       displayName: service.name,
       role: 'SERVICE',
       type: 'service',
+      scopes: Array.isArray(service.scopes) ? service.scopes : [],
     };
   }
 
@@ -114,6 +115,19 @@ function createAuthMiddleware(options) {
     if (actor.role === 'OWNER' || actor.role === 'SERVICE') return;
     if (!actor.storeId || actor.storeId !== storeId) {
       throw new ApplicationError('FORBIDDEN', 'Нет доступа к данным другого магазина.', 403);
+    }
+  }
+
+  function requireServiceScope(actor, scope) {
+    if (!actor || actor.role !== 'SERVICE') {
+      throw new ApplicationError('FORBIDDEN', 'Требуется сервисная учётная запись.', 403);
+    }
+    if (!Array.isArray(actor.scopes) || !actor.scopes.includes(scope)) {
+      throw new ApplicationError(
+        'SERVICE_SCOPE_REQUIRED',
+        `Сервисной учётной записи требуется scope ${scope}.`,
+        403
+      );
     }
   }
 
@@ -174,6 +188,7 @@ function createAuthMiddleware(options) {
     parseCookies,
     requireActor,
     requirePermission: (actor, permission) => requirePermission(actor, permission),
+    requireServiceScope,
     requireStoreAccess,
     resolveActor,
     setCsrfCookie,

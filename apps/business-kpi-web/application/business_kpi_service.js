@@ -672,6 +672,13 @@ class BusinessKpiService {
           throw new ApplicationError('SHIFT_NOT_FOUND', 'Смена не найдена.', 404);
         }
         requireActorStore(actor, oldShift.storeId);
+        if (oldShift.source === '1c') {
+          throw new ApplicationError(
+            'ONEC_SHIFT_READ_ONLY',
+            'Данные 1С нельзя исправлять вручную. Исправьте документ в 1С и повторите синхронизацию.',
+            409
+          );
+        }
         const permission = hasPermission(actor?.role, PERMISSIONS.SHIFT_EDIT_ANY)
           ? PERMISSIONS.SHIFT_EDIT_ANY
           : PERMISSIONS.SHIFT_EDIT_OWN;
@@ -765,6 +772,13 @@ class BusinessKpiService {
         throw new ApplicationError('SHIFT_NOT_FOUND', 'Смена не найдена.', 404);
       }
       requireActorStore(actor, oldShift.storeId);
+      if (oldShift.source === '1c') {
+        throw new ApplicationError(
+          'ONEC_SHIFT_READ_ONLY',
+          'Данные 1С нельзя архивировать вручную. Исправьте источник в 1С.',
+          409
+        );
+      }
       const permission = hasPermission(actor?.role, PERMISSIONS.SHIFT_ARCHIVE_ANY)
         ? PERMISSIONS.SHIFT_ARCHIVE_ANY
         : PERMISSIONS.SHIFT_ARCHIVE_OWN;

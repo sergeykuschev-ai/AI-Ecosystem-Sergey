@@ -66,6 +66,7 @@ test('migration files are ordered and checksummed deterministically', () => {
     '014_b2b_sales.up.sql',
     '015_store_qr_targets.up.sql',
     '016_monge_training.up.sql',
+    '020_onec_integration.up.sql',
   ]);
   const sellerTasksSql = fs.readFileSync(
     path.join(migrationsRoot, '005_seller_tasks.up.sql'),
@@ -115,6 +116,17 @@ test('migration files are ordered and checksummed deterministically', () => {
   assert.match(mongeTrainingSql, /KNOW-26/);
   assert.match(mongeTrainingSql, /Monge: кошки и собаки/);
   assert.match(mongeTrainingSql, /ВАЛТА ПЕТ ПРОДАКТС/);
+  const onecIntegrationSql = fs.readFileSync(
+    path.join(migrationsRoot, '020_onec_integration.up.sql'),
+    'utf8'
+  );
+  assert.match(onecIntegrationSql, /CREATE TABLE IF NOT EXISTS business_kpi\.onec_sync_batches/);
+  assert.match(onecIntegrationSql, /CREATE TABLE IF NOT EXISTS business_kpi\.onec_daily_sales/);
+  assert.match(onecIntegrationSql, /CREATE TABLE IF NOT EXISTS business_kpi\.onec_sync_failures/);
+  assert.match(onecIntegrationSql, /idempotency_key text NOT NULL UNIQUE/);
+  assert.match(onecIntegrationSql, /UNIQUE \(source_instance, external_record_id\)/);
+  assert.match(onecIntegrationSql, /business_kpi_onec_shift_source_ref/);
+  assert.match(onecIntegrationSql, /'metiz-market', 'Метиз Маркет'/);
   assert.equal(computeChecksum(sql), computeChecksum(sql));
   assert.equal(computeChecksum(sql).length, 64);
 });
