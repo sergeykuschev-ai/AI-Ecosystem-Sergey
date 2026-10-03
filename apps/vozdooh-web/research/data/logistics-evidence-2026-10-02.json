@@ -1870,7 +1870,7 @@
       "sku": "N019901",
       "barcode": "2017701196459",
       "brand": "Christian Tortu",
-      "status": "PARTIAL",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
       "measurements": [
         {
           "scope": "product_weight",
@@ -1889,6 +1889,17 @@
           "sourceUrl": "https://milfey-shop.ru/christian-tortu-coupelle-pot-pourri-ceramique?erid=LjN8KSYZs",
           "retrievedAt": "2026-10-02",
           "note": "Exact local article N019901 identifies Coupelle Pot Pourri Ceramique. Dimensions still need a reliable source."
+        },
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 63,
+          "diameterMm": 155,
+          "weightG": null,
+          "sourceType": "official-distributor",
+          "sourceUrl": "https://jiyugaoka-market-p.com/product.php?id=15449",
+          "identitySourceUrl": "https://milfey-shop.ru/christian-tortu-coupelle-pot-pourri-ceramique?erid=LjN8KSYZs",
+          "retrievedAt": "2026-10-03",
+          "note": "Distributor gives Coupelle Ceramique body size Ø155 x H63 mm. Milfey binds local SKU N019901 to Coupelle Pot Pourri Ceramique; 50-ml reports product weight 0.19 kg."
         }
       ]
     },
@@ -2199,7 +2210,7 @@
       "sku": "8411299000985",
       "barcode": "8411299000985",
       "brand": "Ladenac Milano",
-      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "status": "PARTIAL",
       "measurements": [
         {
           "scope": "product_cylindrical",
@@ -3760,7 +3771,7 @@
     "partial": 75,
     "conflict": 5,
     "needsSource": 1,
-    "shippingReady": 68,
-    "deliveryInputReady": 68
+    "shippingReady": 69,
+    "deliveryInputReady": 69
   }
 }

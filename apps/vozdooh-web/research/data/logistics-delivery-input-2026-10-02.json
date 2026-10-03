@@ -11,8 +11,8 @@
   },
   "counts": {
     "eligible": 148,
-    "ready": 68,
-    "needsMoreEvidence": 80
+    "ready": 69,
+    "needsMoreEvidence": 79
   },
   "records": [
     {
@@ -822,7 +822,7 @@
       "barcode": "8411299000985",
       "status": "NEEDS_SOURCE",
       "deliveryInput": null,
-      "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS"
+      "evidenceStatus": "PARTIAL"
     },
     {
       "sku": "87654",
@@ -1374,9 +1374,20 @@
       "name": "Керамическая ваза для аромапопурри Christian Tortu",
       "brand": null,
       "barcode": "2017701196459",
-      "status": "NEEDS_SOURCE",
-      "deliveryInput": null,
-      "evidenceStatus": "PARTIAL"
+      "status": "READY_PRODUCT_DIMENSIONS",
+      "deliveryInput": {
+        "weightG": 190,
+        "lengthMm": 155,
+        "widthMm": 155,
+        "heightMm": 63,
+        "basis": "exact_local_sku_identity_plus_product_dimensions_and_weight",
+        "sources": [
+          "https://milfey-shop.ru/christian-tortu-coupelle-pot-pourri-ceramique?erid=LjN8KSYZs",
+          "https://jiyugaoka-market-p.com/product.php?id=15449",
+          "https://50-ml.fr/christian-tortu-coupelle-pot-pourri-ceramique"
+        ]
+      },
+      "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS"
     },
     {
       "sku": "N020273",

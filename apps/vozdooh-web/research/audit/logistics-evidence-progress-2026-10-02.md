@@ -2,7 +2,7 @@
 
 Current positive-stock scope: 148 SKU.
 
-- Delivery-input ready: 68
+- Delivery-input ready: 69
 - VERIFIED_PRODUCT_MEASUREMENTS: 54
 - VERIFIED_RETAIL_PACKAGE: 13
 - PARTIAL: 75
@@ -34,3 +34,7 @@ Rule: verified exact-SKU full product dimensions and total weight are enough for
 - Lothantique Amber 200 ml / EAN 3420070031563 upgraded to delivery-ready: exact product page reports dimensions 100 × 50 × 50 mm and an explicit 200 g weight field. A similarly named Les Secrets d'Antoine page was not reused because its displayed article differs from the 1C EAN.
 
 - TEATRO Oro refill 500 ml / SKU ORO500RTFU / EAN 8058159962818 upgraded to delivery-ready: exact-SKU retailer product dimensions are 70 × 70 × 200 mm; Nalda exact-EAN structured product data reports item weight 620 g separately from shipping weight. No ml-to-g inference.
+
+- Christian Tortu Coupelle Pot Pourri Ceramique / local SKU N019901 upgraded to delivery-ready: Milfey binds the local SKU to the exact product, distributor dimensions are Ø155 × H63 mm, and 50-ml reports 190 g product weight.
+
+- Ladenac Fleur de Fruit Rose gold 500 ml / EAN 8411299000985 evidence status corrected from VERIFIED_PRODUCT_MEASUREMENTS to PARTIAL: official dimensions are verified, but no acceptable actual product weight is yet confirmed. A 500 g retailer field was rejected because it exactly matches the nominal 500 ml volume.

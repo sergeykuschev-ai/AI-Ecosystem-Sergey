@@ -13,7 +13,7 @@
   "summary": {
     "eligible": 148,
     "exactPublicEvidence": 147,
-    "deliveryReady": 68,
+    "deliveryReady": 69,
     "verifiedProductMeasurements": 54,
     "verifiedRetailPackage": 13,
     "partial": 75,
@@ -2498,7 +2498,7 @@
       "brand": "Ladenac Milano",
       "stock": null,
       "declaredValueRub": null,
-      "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "evidenceStatus": "PARTIAL",
       "deliveryReady": false,
       "deliveryInput": null,
       "measurements": [
@@ -4128,9 +4128,20 @@
       "brand": "Christian Tortu",
       "stock": null,
       "declaredValueRub": null,
-      "evidenceStatus": "PARTIAL",
-      "deliveryReady": false,
-      "deliveryInput": null,
+      "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "deliveryReady": true,
+      "deliveryInput": {
+        "weightG": 190,
+        "lengthMm": 155,
+        "widthMm": 155,
+        "heightMm": 63,
+        "basis": "exact_local_sku_identity_plus_product_dimensions_and_weight",
+        "sources": [
+          "https://milfey-shop.ru/christian-tortu-coupelle-pot-pourri-ceramique?erid=LjN8KSYZs",
+          "https://jiyugaoka-market-p.com/product.php?id=15449",
+          "https://50-ml.fr/christian-tortu-coupelle-pot-pourri-ceramique"
+        ]
+      },
       "measurements": [
         {
           "scope": "product_weight",
@@ -4159,6 +4170,21 @@
             "diameterMm": null,
             "weightG": null
           }
+        },
+        {
+          "scope": "product_cylindrical",
+          "sourceUrl": "https://jiyugaoka-market-p.com/product.php?id=15449",
+          "sourceDomain": "jiyugaoka-market-p.com",
+          "sourceType": "official-distributor",
+          "retrievedAt": "2026-10-03",
+          "reportedStatement": "Distributor gives Coupelle Ceramique body size Ø155 x H63 mm. Milfey binds local SKU N019901 to Coupelle Pot Pourri Ceramique; 50-ml reports product weight 0.19 kg.",
+          "normalized": {
+            "dimensionsMm": null,
+            "heightMm": 63,
+            "diameterMm": 155,
+            "weightG": null
+          },
+          "identitySourceUrl": "https://milfey-shop.ru/christian-tortu-coupelle-pot-pourri-ceramique?erid=LjN8KSYZs"
         }
       ]
     },
