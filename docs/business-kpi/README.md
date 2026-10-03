@@ -1,9 +1,11 @@
 # Business KPI Web v1 / UX v2
 
 Business KPI Web is the local daily-entry application for store shifts and
-seller KPI analytics. Manual web entry is the primary workflow. Excel is a
+seller KPI analytics. Manual web entry is the primary production workflow. Excel is a
 secondary historical import, reconciliation, and backup-export channel. 1C is
-not connected in this stage.
+not connected to production yet; the versioned server-side sales integration
+contract and safety layer are prepared separately in
+`docs/business-kpi/ONEC_INTEGRATION_API.md`.
 
 ## UX v2 highlights
 

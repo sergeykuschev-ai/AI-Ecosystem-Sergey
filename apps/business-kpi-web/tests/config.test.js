@@ -46,6 +46,26 @@ test('explicit PostgreSQL mode requires a database URL and memory rejects one', 
   );
 });
 
+test('service keys support explicit scopes without granting them by default', () => {
+  const config = loadConfig({
+    BUSINESS_KPI_SERVICE_KEYS: JSON.stringify([
+      { id: 'legacy', key: 'legacy-secret' },
+      { id: 'onec', key: 'onec-secret', scopes: ['onec:read', 'onec:write', 'onec:read'] },
+    ]),
+  });
+
+  assert.deepEqual(config.serviceKeys[0].scopes, []);
+  assert.deepEqual(config.serviceKeys[1].scopes, ['onec:read', 'onec:write']);
+  assert.throws(
+    () => loadConfig({
+      BUSINESS_KPI_SERVICE_KEYS: JSON.stringify([
+        { id: 'bad', key: 'secret', scopes: 'onec:write' },
+      ]),
+    }),
+    /scopes must be an array/
+  );
+});
+
 test('invalid HTTP ports fail with an actionable error', () => {
   assert.throws(() => resolveHttpPort('-1'), /between 0 and 65535/);
   assert.throws(() => resolveHttpPort('abc'), /between 0 and 65535/);

@@ -82,12 +82,20 @@ function resolveServiceKeys(value) {
     if (typeof entry.key !== 'string' || !entry.key.trim()) {
       throw new TypeError(`BUSINESS_KPI_SERVICE_KEYS[${index}].key is required`);
     }
+    const scopes = entry.scopes === undefined ? [] : entry.scopes;
+    if (!Array.isArray(scopes) || scopes.some(scope =>
+      typeof scope !== 'string' || !scope.trim())) {
+      throw new TypeError(
+        `BUSINESS_KPI_SERVICE_KEYS[${index}].scopes must be an array of non-empty strings`
+      );
+    }
     return {
       id: entry.id.trim(),
       name: typeof entry.name === 'string' && entry.name.trim()
         ? entry.name.trim()
         : entry.id.trim(),
       key: entry.key.trim(),
+      scopes: [...new Set(scopes.map(scope => scope.trim()))],
     };
   });
 }

@@ -114,6 +114,52 @@ function mapImportRun(row) {
   };
 }
 
+function mapOnecBatch(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    idempotencyKey: row.idempotency_key,
+    sourceInstance: row.source_instance,
+    contractVersion: row.contract_version,
+    payloadSha256: row.payload_sha256,
+    status: row.status,
+    recordsReceived: Number(row.records_received),
+    recordsApplied: Number(row.records_applied),
+    payload: row.payload_json,
+    result: row.result_json,
+    error: row.error_json,
+    receivedAt: new Date(row.received_at).toISOString(),
+    completedAt: row.completed_at ? new Date(row.completed_at).toISOString() : null,
+  };
+}
+
+function mapOnecDailySales(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    batchId: row.batch_id,
+    sourceInstance: row.source_instance,
+    externalRecordId: row.external_record_id,
+    storeId: row.store_id,
+    employeeId: row.employee_id,
+    businessDate: dateText(row.business_date),
+    cash: Number(row.cash_amount),
+    acquiring: Number(row.acquiring_amount),
+    qr: Number(row.qr_amount),
+    b2b: Number(row.b2b_amount),
+    b2bOrders: Number(row.b2b_orders),
+    receipts: Number(row.receipts),
+    itemsSold: row.items_sold === null ? null : Number(row.items_sold),
+    returnsAmount: Number(row.returns_amount),
+    returnReceipts: Number(row.return_receipts),
+    sourceUpdatedAt: new Date(row.source_updated_at).toISOString(),
+    payloadSha256: row.payload_sha256,
+    payload: row.payload_json,
+    appliedShiftId: row.applied_shift_id,
+    appliedAt: row.applied_at ? new Date(row.applied_at).toISOString() : null,
+  };
+}
+
 const SHIFT_SELECT = `
   SELECT s.*, to_char(s.shift_date, 'YYYY-MM-DD') AS shift_date_text,
          e.display_name AS employee_name
@@ -263,6 +309,15 @@ class PostgresBusinessKpiStore {
     return result.rows[0] || null;
   }
 
+  async getStoreByCode(code) {
+    const result = await this.client.query(
+      `SELECT id, code, name, timezone, active
+       FROM business_kpi.stores WHERE code = $1`,
+      [code]
+    );
+    return result.rows[0] || null;
+  }
+
   async listEmployees({ storeId } = {}) {
     const values = [];
     const where = ['e.active = true'];
@@ -289,6 +344,18 @@ class PostgresBusinessKpiStore {
        LEFT JOIN business_kpi.users u ON u.id = e.user_id
        WHERE e.id = $1`,
       [id]
+    );
+    return mapEmployee(result.rows[0]);
+  }
+
+  async getEmployeeByCode(storeId, employeeCode) {
+    const result = await this.client.query(
+      `SELECT e.id, e.store_id, e.employee_code, e.display_name, e.active,
+              e.user_id, e.hired_on, e.terminated_on, u.role AS user_role
+       FROM business_kpi.employees e
+       LEFT JOIN business_kpi.users u ON u.id = e.user_id
+       WHERE e.store_id = $1 AND e.employee_code = $2`,
+      [storeId, employeeCode]
     );
     return mapEmployee(result.rows[0]);
   }
@@ -337,6 +404,25 @@ class PostgresBusinessKpiStore {
     return mapShift(result.rows[0]);
   }
 
+  async getShiftBySourceRef(sourceRef) {
+    const result = await this.client.query(
+      `${SHIFT_SELECT} WHERE s.source_ref = $1 AND s.archived_at IS NULL`,
+      [sourceRef]
+    );
+    return mapShift(result.rows[0]);
+  }
+
+  async getActiveShiftByIdentity(storeId, employeeId, shiftDate, shiftKey) {
+    const result = await this.client.query(
+      `${SHIFT_SELECT}
+       WHERE s.store_id = $1 AND s.employee_id = $2
+         AND s.shift_date = $3 AND s.shift_key = $4
+         AND s.archived_at IS NULL`,
+      [storeId, employeeId, shiftDate, shiftKey]
+    );
+    return mapShift(result.rows[0]);
+  }
+
   async listShifts(filters = {}) {
     const clauses = [];
     const values = [];
@@ -367,14 +453,16 @@ class PostgresBusinessKpiStore {
            cash_amount=$6, acquiring_amount=$7, qr_amount=$8,
            b2b_amount=$9, b2b_orders=$10, receipts=$11,
            items_sold=$12, upsell_receipts=$13, treats_revenue=$14,
-           treats_receipts=$15, comment=$16, updated_at=$17, override_json=$18
+           treats_receipts=$15, comment=$16, updated_at=$17, override_json=$18,
+           source_ref=$19, source_reference_json=$20
          WHERE id=$1 AND archived_at IS NULL RETURNING id`,
         [id, record.storeId, record.employeeId, record.shiftDate,
           record.shiftKey, record.cash, record.acquiring, record.qr,
           record.b2b ?? 0, record.b2bOrders ?? 0,
           record.receipts, record.itemsSold, record.upsellReceipts,
           record.treatsRevenue, record.treatsReceipts, record.comment,
-          record.updatedAt, jsonParameter(record.override)]
+          record.updatedAt, jsonParameter(record.override),
+          record.sourceRef || null, jsonParameter(record.sourceReference)]
       );
       return result.rows[0] ? this.getShift(id) : null;
     } catch (error) {
@@ -407,11 +495,11 @@ class PostgresBusinessKpiStore {
        (id, actor_id, actor_type, action, entity_type, entity_id,
         old_value_json, new_value_json, source, reason, correlation_id,
         occurred_at)
-       VALUES ($1,$2,'user',$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-      [record.id, record.actorId, record.action, record.entityType,
-        record.entityId, jsonParameter(record.oldValue),
-        jsonParameter(record.newValue), record.source,
-        record.reason, record.correlationId, record.occurredAt]
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+      [record.id, record.actorId, record.actorType || 'user',
+        record.action, record.entityType, record.entityId,
+        jsonParameter(record.oldValue), jsonParameter(record.newValue),
+        record.source, record.reason, record.correlationId, record.occurredAt]
     );
     return record;
   }
@@ -927,6 +1015,152 @@ class PostgresBusinessKpiStore {
       ' ORDER BY created_at DESC LIMIT ' + limit;
     const result = await this.client.query(sql, values);
     return result.rows.map(row => mapLearningAttempt(row));
+  }
+
+  async getOnecBatchByKey(idempotencyKey) {
+    const result = await this.client.query(
+      `SELECT * FROM business_kpi.onec_sync_batches
+       WHERE idempotency_key = $1`,
+      [idempotencyKey]
+    );
+    return mapOnecBatch(result.rows[0]);
+  }
+
+  async createOnecBatch(record) {
+    const result = await this.client.query(
+      `INSERT INTO business_kpi.onec_sync_batches
+       (id, idempotency_key, source_instance, contract_version, payload_sha256,
+        status, records_received, records_applied, payload_json, result_json,
+        error_json, received_at, completed_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+       ON CONFLICT (idempotency_key) DO NOTHING
+       RETURNING *`,
+      [
+        record.id, record.idempotencyKey, record.sourceInstance,
+        record.contractVersion, record.payloadSha256, record.status,
+        record.recordsReceived, record.recordsApplied,
+        jsonParameter(record.payload), jsonParameter(record.result),
+        jsonParameter(record.error), record.receivedAt, record.completedAt,
+      ]
+    );
+    return mapOnecBatch(result.rows[0]);
+  }
+
+  async completeOnecBatch(id, patch) {
+    const result = await this.client.query(
+      `UPDATE business_kpi.onec_sync_batches SET
+         status=$2, records_applied=$3, result_json=$4,
+         error_json=$5, completed_at=$6
+       WHERE id=$1 RETURNING *`,
+      [
+        id, patch.status, patch.recordsApplied,
+        jsonParameter(patch.result), jsonParameter(patch.error || null),
+        patch.completedAt,
+      ]
+    );
+    return mapOnecBatch(result.rows[0]);
+  }
+
+  async listOnecBatches({ limit = 20 } = {}) {
+    const result = await this.client.query(
+      `SELECT * FROM business_kpi.onec_sync_batches
+       ORDER BY received_at DESC LIMIT $1`,
+      [limit]
+    );
+    return result.rows.map(mapOnecBatch);
+  }
+
+  async recordOnecFailure(record) {
+    const result = await this.client.query(
+      `INSERT INTO business_kpi.onec_sync_failures
+       (id, idempotency_key, source_instance, contract_version, payload_sha256,
+        error_code, error_message, error_details_json, payload_json, failed_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+       RETURNING *`,
+      [
+        record.id, record.idempotencyKey, record.sourceInstance,
+        record.contractVersion, record.payloadSha256, record.errorCode,
+        record.errorMessage, jsonParameter(record.errorDetails),
+        jsonParameter(record.payload), record.failedAt,
+      ]
+    );
+    return result.rows[0] || null;
+  }
+
+  async listOnecFailures({ limit = 20 } = {}) {
+    const result = await this.client.query(
+      `SELECT id, idempotency_key, source_instance, contract_version,
+              payload_sha256, error_code, error_message, error_details_json,
+              failed_at
+       FROM business_kpi.onec_sync_failures
+       ORDER BY failed_at DESC LIMIT $1`,
+      [limit]
+    );
+    return result.rows.map(row => ({
+      id: row.id,
+      idempotencyKey: row.idempotency_key,
+      sourceInstance: row.source_instance,
+      contractVersion: row.contract_version,
+      payloadSha256: row.payload_sha256,
+      errorCode: row.error_code,
+      errorMessage: row.error_message,
+      errorDetails: row.error_details_json,
+      failedAt: new Date(row.failed_at).toISOString(),
+    }));
+  }
+
+  async getOnecDailySalesRecord(sourceInstance, externalRecordId) {
+    const result = await this.client.query(
+      `SELECT * FROM business_kpi.onec_daily_sales
+       WHERE source_instance = $1 AND external_record_id = $2`,
+      [sourceInstance, externalRecordId]
+    );
+    return mapOnecDailySales(result.rows[0]);
+  }
+
+  async upsertOnecDailySalesRecord(record) {
+    const result = await this.client.query(
+      `INSERT INTO business_kpi.onec_daily_sales
+       (id, batch_id, source_instance, external_record_id, store_id,
+        employee_id, business_date, cash_amount, acquiring_amount, qr_amount,
+        b2b_amount, b2b_orders, receipts, items_sold, returns_amount,
+        return_receipts, source_updated_at, payload_sha256, payload_json,
+        applied_shift_id, applied_at, created_at, updated_at)
+       VALUES
+       ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,
+        $19,$20,$21,now(),now())
+       ON CONFLICT (source_instance, external_record_id) DO UPDATE SET
+         batch_id=EXCLUDED.batch_id,
+         store_id=EXCLUDED.store_id,
+         employee_id=EXCLUDED.employee_id,
+         business_date=EXCLUDED.business_date,
+         cash_amount=EXCLUDED.cash_amount,
+         acquiring_amount=EXCLUDED.acquiring_amount,
+         qr_amount=EXCLUDED.qr_amount,
+         b2b_amount=EXCLUDED.b2b_amount,
+         b2b_orders=EXCLUDED.b2b_orders,
+         receipts=EXCLUDED.receipts,
+         items_sold=EXCLUDED.items_sold,
+         returns_amount=EXCLUDED.returns_amount,
+         return_receipts=EXCLUDED.return_receipts,
+         source_updated_at=EXCLUDED.source_updated_at,
+         payload_sha256=EXCLUDED.payload_sha256,
+         payload_json=EXCLUDED.payload_json,
+         applied_shift_id=EXCLUDED.applied_shift_id,
+         applied_at=EXCLUDED.applied_at,
+         updated_at=now()
+       RETURNING *`,
+      [
+        record.id, record.batchId, record.sourceInstance,
+        record.externalRecordId, record.storeId, record.employeeId,
+        record.businessDate, record.cash, record.acquiring, record.qr,
+        record.b2b, record.b2bOrders, record.receipts, record.itemsSold,
+        record.returnsAmount, record.returnReceipts, record.sourceUpdatedAt,
+        record.payloadSha256, jsonParameter(record.payload),
+        record.appliedShiftId, record.appliedAt,
+      ]
+    );
+    return mapOnecDailySales(result.rows[0]);
   }
 
   async ensureDevReferenceData() {

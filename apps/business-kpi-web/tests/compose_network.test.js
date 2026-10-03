@@ -22,7 +22,7 @@ test('Business KPI web accepts configured service identities', () => {
   const compose = loadCompose();
   assert.equal(
     compose.services.web.environment.BUSINESS_KPI_SERVICE_KEYS,
-    '${BUSINESS_KPI_SERVICE_KEYS:-[]}'
+    '${BUSINESS_KPI_SERVICE_KEYS:?required}'
   );
 });
 

@@ -119,6 +119,9 @@ class InMemoryBusinessKpiStore {
     this.audit = [];
     this.kpiResults = [];
     this.importRuns = [];
+    this.onecBatches = [];
+    this.onecFailures = [];
+    this.onecDailySales = [];
     this.taskLibrary = SELLER_TASK_LIBRARY.map((task, index) => ({
       id: `40000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
       code: task.code,
@@ -160,6 +163,9 @@ class InMemoryBusinessKpiStore {
       settings: this.settings,
       plans: this.plans,
       importRuns: this.importRuns,
+      onecBatches: this.onecBatches,
+      onecFailures: this.onecFailures,
+      onecDailySales: this.onecDailySales,
       taskLibrary: this.taskLibrary,
       taskProposals: this.taskProposals,
       learningAttempts: this.learningAttempts,
@@ -184,6 +190,10 @@ class InMemoryBusinessKpiStore {
     return cloneEmployee;
   }
 
+  async getStoreByCode(code) {
+    return clone(this.stores.find(store => store.code === code) || null);
+  }
+
   async listEmployees({ storeId } = {}) {
     return this.employees
       .filter(employee => employee.active && (!storeId || employee.storeId === storeId))
@@ -198,6 +208,14 @@ class InMemoryBusinessKpiStore {
 
   async getStore(id) {
     return clone(this.stores.find(store => store.id === id) || null);
+  }
+
+  async getEmployeeByCode(storeId, employeeCode) {
+    return this._employeeWithParticipation(
+      this.employees.find(employee =>
+        employee.storeId === storeId && employee.employeeCode === employeeCode
+      ) || null
+    );
   }
 
   async createShift(record) {
@@ -223,6 +241,22 @@ class InMemoryBusinessKpiStore {
       item.id === id && (options.includeArchived || !item.archivedAt)
     );
     return clone(shift || null);
+  }
+
+  async getShiftBySourceRef(sourceRef) {
+    return clone(this.shifts.find(shift =>
+      !shift.archivedAt && shift.sourceRef === sourceRef
+    ) || null);
+  }
+
+  async getActiveShiftByIdentity(storeId, employeeId, shiftDate, shiftKey) {
+    return clone(this.shifts.find(shift =>
+      !shift.archivedAt &&
+      shift.storeId === storeId &&
+      shift.employeeId === employeeId &&
+      shift.shiftDate === shiftDate &&
+      shift.shiftKey === shiftKey
+    ) || null);
   }
 
   async listShifts(filters = {}) {
@@ -518,6 +552,69 @@ class InMemoryBusinessKpiStore {
       items = items.slice(0, filters.limit);
     }
     return clone(items);
+  }
+
+  async getOnecBatchByKey(idempotencyKey) {
+    return clone(this.onecBatches.find(batch =>
+      batch.idempotencyKey === idempotencyKey
+    ) || null);
+  }
+
+  async createOnecBatch(record) {
+    if (this.onecBatches.some(batch => batch.idempotencyKey === record.idempotencyKey)) {
+      return null;
+    }
+    this.onecBatches.push(clone(record));
+    return clone(record);
+  }
+
+  async completeOnecBatch(id, patch) {
+    const index = this.onecBatches.findIndex(batch => batch.id === id);
+    if (index < 0) return null;
+    this.onecBatches[index] = { ...this.onecBatches[index], ...clone(patch) };
+    return clone(this.onecBatches[index]);
+  }
+
+  async listOnecBatches({ limit = 20 } = {}) {
+    return clone(this.onecBatches
+      .slice()
+      .sort((left, right) => right.receivedAt.localeCompare(left.receivedAt))
+      .slice(0, limit));
+  }
+
+  async recordOnecFailure(record) {
+    this.onecFailures.push(clone(record));
+    return clone(record);
+  }
+
+  async listOnecFailures({ limit = 20 } = {}) {
+    return clone(this.onecFailures
+      .slice()
+      .sort((left, right) => right.failedAt.localeCompare(left.failedAt))
+      .slice(0, limit));
+  }
+
+  async getOnecDailySalesRecord(sourceInstance, externalRecordId) {
+    return clone(this.onecDailySales.find(record =>
+      record.sourceInstance === sourceInstance &&
+      record.externalRecordId === externalRecordId
+    ) || null);
+  }
+
+  async upsertOnecDailySalesRecord(record) {
+    const index = this.onecDailySales.findIndex(item =>
+      item.sourceInstance === record.sourceInstance &&
+      item.externalRecordId === record.externalRecordId
+    );
+    if (index >= 0) {
+      this.onecDailySales[index] = {
+        ...this.onecDailySales[index],
+        ...clone(record),
+      };
+      return clone(this.onecDailySales[index]);
+    }
+    this.onecDailySales.push(clone(record));
+    return clone(record);
   }
 
   async close() {}

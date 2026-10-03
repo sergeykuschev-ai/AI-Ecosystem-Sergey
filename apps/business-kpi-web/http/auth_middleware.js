@@ -60,6 +60,7 @@ function createAuthMiddleware(options) {
       displayName: service.name,
       role: 'SERVICE',
       type: 'service',
+      scopes: Array.isArray(service.scopes) ? service.scopes : [],
     };
   }
 
@@ -117,6 +118,19 @@ function createAuthMiddleware(options) {
     }
   }
 
+  function requireServiceScope(actor, scope) {
+    if (!actor || actor.role !== 'SERVICE') {
+      throw new ApplicationError('FORBIDDEN', 'Требуется сервисная учётная запись.', 403);
+    }
+    if (!Array.isArray(actor.scopes) || !actor.scopes.includes(scope)) {
+      throw new ApplicationError(
+        'SERVICE_SCOPE_REQUIRED',
+        `Сервисной учётной записи требуется scope ${scope}.`,
+        403
+      );
+    }
+  }
+
   function validateCsrf(request) {
     if (devMode) return;
     // Service API-key authentication is not cookie-based and does not require CSRF.
@@ -170,6 +184,7 @@ function createAuthMiddleware(options) {
     parseCookies,
     requireActor,
     requirePermission: (actor, permission) => requirePermission(actor, permission),
+    requireServiceScope,
     requireStoreAccess,
     resolveActor,
     setSessionCookies,

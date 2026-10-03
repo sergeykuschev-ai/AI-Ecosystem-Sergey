@@ -396,12 +396,18 @@ test('year endpoint returns currentMonthSummary and ytdCompleted and excludes cu
   );
   const body = await response.json();
   assert.equal(response.status, 200);
-  assert.ok(body.data.currentMonthSummary);
+  assert.ok(Object.hasOwn(body.data, 'currentMonthSummary'));
   assert.ok(Object.hasOwn(body.data, 'ytdCompleted'));
   assert.ok(body.data.ytdCompleted);
   const now = new Date();
   const currentMonth = now.getUTCMonth() + 1;
   const currentYear = now.getUTCFullYear();
+  const currentMonthRow = body.data.months.find(item => item.month === currentMonth);
+  if (currentYear === 2026 && currentMonthRow?.dataStatus !== 'NO_DATA') {
+    assert.ok(body.data.currentMonthSummary);
+  } else {
+    assert.equal(body.data.currentMonthSummary, null);
+  }
   if (currentYear === 2026) {
     if (body.data.bests.revenue) {
       assert.notEqual(body.data.bests.revenue.month, currentMonth);
