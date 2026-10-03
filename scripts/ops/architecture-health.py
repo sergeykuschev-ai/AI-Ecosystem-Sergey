@@ -228,47 +228,62 @@ if tailnet_code != '200':
     errors.append(item)
     portal_errors.append(item)
 
-# If the shop PC is online in Tailscale, require two-way reachability.
-store_peer_ip = '100.103.126.29'
-store_peer_name = 'DESKTOP-TVPRA5M'  # Miska store workstation
-peer_online = False
-peer_found = False
+# If a store PC is online in Tailscale, require two-way reachability.
+store_peers = (
+    {'code': 'miska', 'name': 'Миска', 'host': 'DESKTOP-TVPRA5M', 'ip': '100.103.126.29'},
+    {'code': 'amper', 'name': 'Ампер', 'host': 'DESKTOP-MOTQEMV', 'ip': '100.64.91.53'},
+    {'code': 'ventil', 'name': 'Вентиль', 'host': 'Kassa1', 'ip': '100.96.109.84'},
+)
+tail_peers = {}
 status_json = run(['tailscale', 'status', '--json'])
 if status_json.returncode == 0:
     try:
         tail_status = json.loads(status_json.stdout)
-        for peer in (tail_status.get('Peer') or {}).values():
-            if store_peer_ip in (peer.get('TailscaleIPs') or []) or peer.get('HostName') == store_peer_name:
-                peer_found = True
-                peer_online = peer.get('Online') is True
-                checks['business_kpi_miska_store_peer_relay'] = peer.get('Relay') or ''
-                break
+        tail_peers = tail_status.get('Peer') or {}
     except Exception:
         checks['business_kpi_store_peer_status'] = 'invalid_json'
-checks['business_kpi_miska_store_peer_found'] = peer_found
-checks['business_kpi_miska_store_peer_online'] = peer_online
 
-if peer_online:
-    ping = run(['tailscale', 'ping', '-c', '2', '--timeout', '3s', store_peer_ip])
+for store in store_peers:
+    prefix = f"business_kpi_{store['code']}_store_peer"
+    peer = next(
+        (
+            candidate for candidate in tail_peers.values()
+            if store['ip'] in (candidate.get('TailscaleIPs') or [])
+            or candidate.get('HostName') == store['host']
+        ),
+        None,
+    )
+    peer_found = peer is not None
+    peer_online = bool(peer and peer.get('Online') is True)
+    checks[f'{prefix}_found'] = peer_found
+    checks[f'{prefix}_online'] = peer_online
+    checks[f'{prefix}_host'] = store['host']
+    checks[f'{prefix}_ip'] = store['ip']
+    if peer:
+        checks[f'{prefix}_relay'] = peer.get('Relay') or ''
+
+    if not peer_online:
+        checks[f'{prefix}_ping'] = 'skipped_offline'
+        continue
+
+    ping = run(['tailscale', 'ping', '-c', '2', '--timeout', '3s', store['ip']])
     ping_ok = ping.returncode == 0 and 'pong from' in ping.stdout
     if not ping_ok:
         run(['tailscale', 'debug', 'rebind'])
         run(['tailscale', 'debug', 'restun'])
         time.sleep(2)
-        ping = run(['tailscale', 'ping', '-c', '2', '--timeout', '3s', store_peer_ip])
+        ping = run(['tailscale', 'ping', '-c', '2', '--timeout', '3s', store['ip']])
         ping_ok = ping.returncode == 0 and 'pong from' in ping.stdout
         if ping_ok:
-            portal_events.append('store_peer_auto_recovered')
-    checks['business_kpi_miska_store_peer_ping'] = 'ok' if ping_ok else 'failed'
+            portal_events.append(f"{store['code']}_store_peer_auto_recovered")
+    checks[f'{prefix}_ping'] = 'ok' if ping_ok else 'failed'
     ping_lines = [line.strip() for line in ping.stdout.splitlines() if 'pong from' in line]
     if ping_lines:
-        checks['business_kpi_miska_store_peer_path'] = ping_lines[-1][:240]
+        checks[f'{prefix}_path'] = ping_lines[-1][:240]
     if not ping_ok:
-        item = 'business_kpi_miska_store_peer:unreachable'
+        item = f"{prefix}:unreachable"
         errors.append(item)
         portal_errors.append(item)
-else:
-    checks['business_kpi_miska_store_peer_ping'] = 'skipped_offline'
 
 p = run(['systemctl','is-active','kimi-worker.timer'])
 kimi_timer = p.stdout.strip()
