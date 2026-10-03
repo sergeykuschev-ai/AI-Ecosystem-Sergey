@@ -117,8 +117,8 @@ test('final certification unlocks only after all module quizzes pass', async () 
 
   certification = await service.certification(actor);
   assert.equal(certification.eligible, true);
-  assert.equal(certification.modulesCompleted, 25);
-  assert.equal(certification.questions.length, 100);
+  assert.equal(certification.modulesCompleted, 26);
+  assert.equal(certification.questions.length, 104);
 });
 
 test('automatic shift training is idempotent and excludes store-control tasks', async () => {

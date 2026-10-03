@@ -37,6 +37,22 @@ function resolveDataStatus(monthAggregate) {
   return partial ? DATA_STATUS.PARTIAL : DATA_STATUS.COMPLETE;
 }
 
+function resolveStoreQrKpi(storeRecord, periodStart, actualQrShare) {
+  const target = storeRecord?.qrShareTarget;
+  const effectiveFrom = storeRecord?.qrTargetEffectiveFrom;
+  if (target === null || target === undefined || !effectiveFrom || periodStart < effectiveFrom) {
+    return null;
+  }
+  return Object.freeze({
+    target,
+    actual: actualQrShare,
+    completion: actualQrShare === null || target <= 0 ? null : actualQrShare / target,
+    achieved: actualQrShare === null ? null : actualQrShare >= target,
+    effectiveFrom,
+    basis: 'acquiring',
+  });
+}
+
 function sumYearTotals(months) {
   let revenue = 0;
   let retailRevenue = 0;
@@ -821,6 +837,7 @@ class BusinessKpiService {
     const sellers = aggregateSellers(month, settingsRecord?.settings || null)
       .filter(seller => participatingSellerIds.has(seller.employeeId));
     const redactedSellers = await this.redactSellerBonuses(sellers, actor);
+    const storeQrKpi = resolveStoreQrKpi(storeRecord, firstDay, month.qrShare);
     const storeBonus = storeRecord.code === 'miska' ? null : {
       status: settingsRecord ? 'CONFIGURED' : 'UNRESOLVED',
       amount: null,
@@ -839,6 +856,7 @@ class BusinessKpiService {
       days: aggregateDays(month),
       sellers: redactedSellers,
       storeBonus,
+      storeQrKpi,
       settingsVersion: settingsRecord?.version || null,
       settingsStatus: settingsRecord ? 'CONFIRMED' : 'UNRESOLVED',
     };

@@ -26,11 +26,11 @@ function progress(completedCodes = []) {
   }));
 }
 
-test('onboarding path covers all 25 modules in five ordered phases', () => {
+test('onboarding path covers all 26 modules in five ordered phases', () => {
   assert.equal(ONBOARDING_PHASES.length, 5);
   const allCodes = ONBOARDING_PHASES.flatMap(phase => phase.codes);
-  assert.equal(allCodes.length, 25);
-  assert.equal(new Set(allCodes).size, 25);
+  assert.equal(allCodes.length, 26);
+  assert.equal(new Set(allCodes).size, 26);
 
   const first = buildOnboardingProgress(progress(), KNOWLEDGE);
   assert.equal(first.currentPhase.index, 1);

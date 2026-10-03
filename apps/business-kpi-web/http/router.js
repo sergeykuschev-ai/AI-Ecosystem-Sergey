@@ -270,6 +270,14 @@ function createRouter(options) {
         return;
       }
 
+      if (request.method === 'GET' && url.pathname === '/api/business-kpi/auth/csrf') {
+        await auth.requireActor(request);
+        const csrfToken = auth.generateCsrfToken();
+        auth.setCsrfCookie(response, csrfToken, SESSION_TTL_MS);
+        success(response, { csrfToken });
+        return;
+      }
+
       if (request.method === 'POST' && url.pathname === '/api/business-kpi/auth/change-password') {
         const actor = await auth.requireActor(request);
         const body = await readJson(request);

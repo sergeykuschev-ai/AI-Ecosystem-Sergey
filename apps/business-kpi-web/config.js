@@ -128,6 +128,19 @@ function loadConfig(env = process.env) {
       'BUSINESS_KPI_COOKIE_SECURE'
     ),
     serviceKeys: resolveServiceKeys(env.BUSINESS_KPI_SERVICE_KEYS),
+    ownerNotifyEnabled: resolveBoolean(
+      env.BUSINESS_KPI_OWNER_NOTIFY_ENABLED,
+      false,
+      'BUSINESS_KPI_OWNER_NOTIFY_ENABLED'
+    ),
+    ownerNotifyUrl: String(
+      env.BUSINESS_KPI_OWNER_NOTIFY_URL ||
+      'http://telegram-gateway:8788/internal/business-kpi/learning-notification'
+    ).trim(),
+    ownerNotifyServiceId: String(
+      env.BUSINESS_KPI_OWNER_NOTIFY_SERVICE_ID || 'arthur.analytics'
+    ).trim(),
+    ownerNotifyTimeoutMs: Number(env.BUSINESS_KPI_OWNER_NOTIFY_TIMEOUT_MS) || 5000,
   });
 }
 

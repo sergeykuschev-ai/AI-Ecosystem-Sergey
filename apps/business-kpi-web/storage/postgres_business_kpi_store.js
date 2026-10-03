@@ -242,7 +242,8 @@ class PostgresBusinessKpiStore {
 
   async listStores() {
     const result = await this.client.query(
-      `SELECT id, code, name, timezone, active
+      `SELECT id, code, name, timezone, active, qr_share_target,
+              qr_target_effective_from
        FROM business_kpi.stores WHERE active = true ORDER BY name`
     );
     return result.rows.map(row => ({
@@ -251,16 +252,28 @@ class PostgresBusinessKpiStore {
       name: row.name,
       timezone: row.timezone,
       active: row.active,
+      qrShareTarget: row.qr_share_target === null ? null : Number(row.qr_share_target),
+      qrTargetEffectiveFrom: dateText(row.qr_target_effective_from),
     }));
   }
 
   async getStore(id) {
     const result = await this.client.query(
-      `SELECT id, code, name, timezone, active
+      `SELECT id, code, name, timezone, active, qr_share_target,
+              qr_target_effective_from
        FROM business_kpi.stores WHERE id = $1`,
       [id]
     );
-    return result.rows[0] || null;
+    const row = result.rows[0];
+    return row ? {
+      id: row.id,
+      code: row.code,
+      name: row.name,
+      timezone: row.timezone,
+      active: row.active,
+      qrShareTarget: row.qr_share_target === null ? null : Number(row.qr_share_target),
+      qrTargetEffectiveFrom: dateText(row.qr_target_effective_from),
+    } : null;
   }
 
   async listEmployees({ storeId } = {}) {

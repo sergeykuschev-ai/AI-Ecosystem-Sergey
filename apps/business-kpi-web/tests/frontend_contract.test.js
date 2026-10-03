@@ -41,6 +41,13 @@ test('browser save path calls CRUD API and refreshes dashboard and shifts', () =
   assert.match(javascript, /QR не может быть больше эквайринга/);
 });
 
+test('browser API self-heals stale CSRF and sends the token for every state-changing request', () => {
+  assert.match(javascript, /isStateChanging \? \{ 'x-csrf-token': csrfToken\(\) \} : \{\}/);
+  assert.match(javascript, /body\.error\?\.code === 'CSRF_INVALID'/);
+  assert.match(javascript, /\/api\/business-kpi\/auth\/csrf/);
+  assert.match(javascript, /fetch\(path, \{[\s\S]*\.\.\.options,[\s\S]*headers,/);
+});
+
 test('dashboard and sellers expose required labels without frontend KPI formulas', () => {
   for (const label of [
     'План',
@@ -218,8 +225,8 @@ test('seller learning page includes an in-product training guide', () => {
   assert.match(html, /id="seller-learning-guide"/);
   assert.match(html, /Как проходить обучение/);
   assert.match(html, /Пройти проверку \(4 вопроса\)/);
-  assert.match(html, /25 из 25 модулей/);
-  assert.match(html, /100 вопросов/);
+  assert.match(html, /26 из 26 модулей/);
+  assert.match(html, /104 вопроса/);
   assert.match(html, /проходной результат — 80%/);
   assert.match(html, /При симптомах — направь к ветеринару/);
   assert.match(javascript, /learningGuide\.hidden = ownerMode/);

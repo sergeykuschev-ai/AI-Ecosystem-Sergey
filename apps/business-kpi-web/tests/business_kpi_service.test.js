@@ -468,6 +468,46 @@ test('Amper accepts store-level payment input without inheriting Miska KPI setti
   assert.equal(dashboard.month.qrShare, 5000 / 30000);
 });
 
+test('Amper exposes a store-level QR KPI target without enabling Miska seller KPI rules', async () => {
+  const { service, store } = fixture();
+  const amper = store.stores.find(item => item.code === 'amper');
+  amper.qrShareTarget = 0.20;
+  amper.qrTargetEffectiveFrom = '2026-10-01';
+  const employee = store.employees.find(item => item.storeId === amper.id);
+
+  await service.createShift(shiftInput({
+    storeId: amper.id,
+    employeeId: employee.id,
+    shiftDate: '2026-10-02',
+    cash: 20000,
+    acquiring: 30000,
+    qr: 5000,
+    receipts: 25,
+    itemsSold: null,
+    upsellReceipts: null,
+    treatsRevenue: null,
+    treatsReceipts: null,
+  }), OWNER);
+
+  const september = await service.getDashboard({
+    storeId: amper.id,
+    year: 2026,
+    month: 9,
+  }, OWNER);
+  assert.equal(september.storeQrKpi, null);
+
+  const october = await service.getDashboard({
+    storeId: amper.id,
+    year: 2026,
+    month: 10,
+  }, OWNER);
+  assert.equal(october.storeQrKpi.target, 0.20);
+  assert.equal(october.storeQrKpi.actual, 5000 / 30000);
+  assert.equal(october.storeQrKpi.achieved, false);
+  assert.equal(october.settingsStatus, 'UNRESOLVED');
+  assert.equal(october.month.settingsVersion, undefined);
+});
+
 test('Amper dashboard marks store premium unresolved instead of inventing coefficients', async () => {
   const { service } = fixture();
   const amper = (await service.store.listStores()).find(store => store.code === 'amper');

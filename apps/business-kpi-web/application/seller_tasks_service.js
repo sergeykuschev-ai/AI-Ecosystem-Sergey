@@ -44,6 +44,7 @@ const PROPOSAL_STATUSES = Object.freeze({
 const HISTORY_WINDOW_DAYS = 45;
 const LIST_DEFAULT_LIMIT = 500;
 const MODULE_PASS_PERCENT = 75;
+const LEARNING_MODULE_TOTAL = new Set(CERTIFICATION_BANK.map(question => question.moduleCode)).size;
 const REPEAT_INTERVAL_DAYS = 30;
 
 /* A planner-eligible seller: active store employee participating in seller KPI
@@ -344,6 +345,39 @@ class SellerTasksService {
       process.env.MISKA_MINMAX_XLSX_PATH ||
       null;
     this.minMaxCatalogLoader = options.minMaxCatalogLoader || loadMinMaxCatalog;
+    this.ownerNotifier = options.ownerNotifier || null;
+  }
+
+  async notifyPassedLearningAttempt(employee, attempt, title = null) {
+    if (!this.ownerNotifier || !attempt?.passed) return;
+    try {
+      let resolvedTitle = title;
+      if (!resolvedTitle && attempt.moduleCode) {
+        const library = await this.store.listLibraryTasks();
+        const task = library.find(item => item.code === attempt.moduleCode);
+        resolvedTitle = task?.title || attempt.moduleCode;
+      }
+      const store = await this.store.getStore(employee.storeId);
+      await this.ownerNotifier.sendLearningAttempt({
+        attemptId: attempt.id,
+        employeeName: employee.displayName || employee.employeeCode || employee.id,
+        storeName: store?.name || employee.storeId,
+        testTitle: resolvedTitle || 'Итоговая аттестация',
+        attemptType: attempt.attemptType,
+        moduleCode: attempt.moduleCode,
+        score: attempt.score,
+        total: attempt.total,
+        percent: attempt.percent,
+        passed: attempt.passed,
+        createdAt: attempt.createdAt,
+      });
+    } catch (error) {
+      console.error('Seller learning Telegram notification failed', {
+        attemptId: attempt?.id || null,
+        employeeId: employee?.id || null,
+        errorMessage: error.message,
+      });
+    }
   }
 
   async currentMinMaxCatalog() {
@@ -525,6 +559,7 @@ class SellerTasksService {
           resultMarkedAt: now,
         });
       }
+      await this.notifyPassedLearningAttempt(employee, attempt);
     }
     return moduleQuizSummary(attempt);
   }
@@ -540,7 +575,7 @@ class SellerTasksService {
         employeeId: null,
         eligible: false,
         modulesCompleted: 0,
-        modulesTotal: 25,
+        modulesTotal: LEARNING_MODULE_TOTAL,
         latestAttempt: null,
         questions: [],
       };
@@ -595,7 +630,7 @@ class SellerTasksService {
     if (knowledge.some(task => !passed.has(task.code))) {
       throw new ApplicationError(
         'CERTIFICATION_LOCKED',
-        'Сначала нужно успешно пройти проверки всех 25 учебных модулей.',
+        'Сначала нужно успешно пройти проверки всех ' + knowledge.length + ' учебных модулей.',
         409
       );
     }
@@ -632,6 +667,13 @@ class SellerTasksService {
       moduleCode: null,
       createdAt: now,
     });
+    if (attempt.passed) {
+      await this.notifyPassedLearningAttempt(
+        employee,
+        attempt,
+        'Итоговая аттестация продавца «Миски»'
+      );
+    }
     return certificationSummary(attempt);
   }
 

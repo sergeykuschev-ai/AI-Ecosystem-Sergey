@@ -603,6 +603,30 @@ const CERTIFICATION_BANK = Object.freeze([
     options: Object.freeze(['Только корм для птиц', 'Влажные салфетки для базового ухода за пастью, ушами и глазами собак и кошек', 'Только ветеринарная диета', 'Только одежда']),
     correctIndex: 1,
   }),
+  Object.freeze({
+    id: 'CERT-101', moduleCode: 'KNOW-26',
+    prompt: 'Кто является официальным дистрибьютором Monge в России?',
+    options: Object.freeze(['АО «ВАЛТА ПЕТ ПРОДАКТС»', 'Производитель наполнителей Cat’s Choice', 'Любой маркетплейс', 'Только ветеринарные клиники']),
+    correctIndex: 0,
+  }),
+  Object.freeze({
+    id: 'CERT-102', moduleCode: 'KNOW-26',
+    prompt: 'Для кого предназначен Monge Cat Daily Line Sterilised 1,5 кг (арт. 70011938)?',
+    options: Object.freeze(['Только для котят', 'Только для собак', 'Только как ветеринарная диета', 'Для взрослых стерилизованных кошек и кастрированных котов']),
+    correctIndex: 3,
+  }),
+  Object.freeze({
+    id: 'CERT-103', moduleCode: 'KNOW-26',
+    prompt: 'Что нужно уточнить до выбора конкретного корма Monge?',
+    options: Object.freeze(['Только цену', 'Только цвет упаковки', 'Вид, возраст, размер или физиологическую группу, текущий рацион и задачу', 'Только название бренда']),
+    correctIndex: 2,
+  }),
+  Object.freeze({
+    id: 'CERT-104', moduleCode: 'KNOW-26',
+    prompt: 'Как продавец работает с Monge VetSolution и запросом на лечебный рацион?',
+    options: Object.freeze(['Сам ставит диагноз по симптомам', 'Не назначает лечебную диету самостоятельно и при медицинском запросе направляет к ветеринарному врачу', 'Выбирает самый дорогой рацион', 'Всегда заменяет им обычный корм']),
+    correctIndex: 1,
+  }),
 ]);
 
 function publicCertificationQuestions() {

@@ -64,6 +64,8 @@ test('migration files are ordered and checksummed deterministically', () => {
     '012_verified_product_training.up.sql',
     '013_optional_store_receipts.up.sql',
     '014_b2b_sales.up.sql',
+    '015_store_qr_targets.up.sql',
+    '016_monge_training.up.sql',
   ]);
   const sellerTasksSql = fs.readFileSync(
     path.join(migrationsRoot, '005_seller_tasks.up.sql'),
@@ -106,6 +108,13 @@ test('migration files are ordered and checksummed deterministically', () => {
   assert.match(verifiedProductTrainingSql, /AWARD Sterilized/);
   assert.match(verifiedProductTrainingSql, /KNOW-25/);
   assert.match(verifiedProductTrainingSql, /Japan Premium Pet/);
+  const mongeTrainingSql = fs.readFileSync(
+    path.join(migrationsRoot, '016_monge_training.up.sql'),
+    'utf8'
+  );
+  assert.match(mongeTrainingSql, /KNOW-26/);
+  assert.match(mongeTrainingSql, /Monge: кошки и собаки/);
+  assert.match(mongeTrainingSql, /ВАЛТА ПЕТ ПРОДАКТС/);
   assert.equal(computeChecksum(sql), computeChecksum(sql));
   assert.equal(computeChecksum(sql).length, 64);
 });

@@ -141,17 +141,17 @@ function canArchiveShift(shift) {
   return shift.employeeId === state.currentUser?.employeeId;
 }
 
-async function api(path, options = {}) {
+async function api(path, options = {}, allowCsrfRetry = true) {
   const isFormData = options.body instanceof FormData;
   const isStateChanging = options.method && options.method !== 'GET' && options.method !== 'HEAD';
   const headers = {
     ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
-    ...(isStateChanging && !isFormData ? { 'x-csrf-token': csrfToken() } : {}),
+    ...(isStateChanging ? { 'x-csrf-token': csrfToken() } : {}),
     ...(options.headers || {}),
   };
   const response = await fetch(path, {
-    headers,
     ...options,
+    headers,
   });
   if (response.status === 401 && !path.includes('/auth/')) {
     window.location.replace('/login.html');
@@ -159,6 +159,12 @@ async function api(path, options = {}) {
   }
   const body = await response.json();
   if (!response.ok) {
+    if (allowCsrfRetry && isStateChanging && body.error?.code === 'CSRF_INVALID') {
+      const refresh = await fetch('/api/business-kpi/auth/csrf');
+      if (refresh.ok) {
+        return api(path, options, false);
+      }
+    }
     const error = new Error(body.error?.message || 'Не удалось выполнить запрос.');
     error.code = body.error?.code;
     error.details = body.error?.details;
@@ -341,6 +347,10 @@ function renderDashboard(data) {
   element('metric-b2b-average').textContent = formatMoney(month.averageB2bOrder);
   element('metric-b2b-orders').textContent = `Заказов ${formatInteger(month.b2bOrders)}`;
   element('metric-qr').textContent = formatPercent(month.qrShare);
+  const storeQrKpi = data.storeQrKpi;
+  element('metric-qr-note').textContent = storeQrKpi
+    ? `Цель ${formatPercent(storeQrKpi.target)} · QR / безнал`
+    : 'QR / безнал (эквайринг)';
   element('metric-qr-amount').textContent = formatMoney(month.qr);
   element('metric-days').textContent = `Дней с данными ${formatInteger(month.dataDays)}`;
   const storeBonusCard = element('metric-store-bonus-card');
@@ -352,7 +362,7 @@ function renderDashboard(data) {
   }
   element('plan-input').value = moneyInput(month.plan);
 
-  renderAttention(month, data.sellers || []);
+  renderAttention(month, data.sellers || [], data.storeQrKpi);
   element('partial-data-note').hidden = month.dataStatus !== 'PARTIAL';
   renderToday(data.today);
   renderDashboardSellers(data.sellers);
@@ -360,7 +370,7 @@ function renderDashboard(data) {
   renderDashboardRevenueChart(month.days || data.days);
 }
 
-function renderAttention(month, sellers) {
+function renderAttention(month, sellers, storeQrKpi = null) {
   const list = element('attention-list');
   list.replaceChildren();
   const items = [];
@@ -375,8 +385,9 @@ function renderAttention(month, sellers) {
   if (targets?.itemsPerReceipt && month.itemsPerReceipt !== null && month.itemsPerReceipt < targets.itemsPerReceipt) {
     items.push(`Товаров в чеке ${formatNumber(month.itemsPerReceipt)} ниже цели ${formatNumber(targets.itemsPerReceipt)}.`);
   }
-  if (targets?.qrShare !== null && targets?.qrShare !== undefined && month.qrShare !== null && month.qrShare < targets.qrShare) {
-    items.push(`QR от безнала ${formatPercent(month.qrShare)} ниже цели ${formatPercent(targets.qrShare)}.`);
+  const qrTarget = storeQrKpi?.target ?? targets?.qrShare;
+  if (qrTarget !== null && qrTarget !== undefined && month.qrShare !== null && month.qrShare < qrTarget) {
+    items.push(`QR от безнала ${formatPercent(month.qrShare)} ниже цели ${formatPercent(qrTarget)}.`);
   }
   if (month.forecast.requiredAveragePerRemainingDay !== null && month.forecast.requiredAveragePerRemainingDay > 0 &&
       month.forecast.averageRevenuePerDataDay !== null &&
@@ -2037,6 +2048,36 @@ function renderLearning() {
         const material = document.createElement('p');
         material.textContent = task.materialText;
         card.appendChild(material);
+      }
+      if (Array.isArray(task.quickGuide) && task.quickGuide.length) {
+        const guide = document.createElement('div');
+        guide.className = 'learning-scenarios';
+        const label = document.createElement('strong');
+        label.textContent = 'Как выбрать Monge за 30 секунд';
+        guide.appendChild(label);
+        const list = document.createElement('ol');
+        for (const step of task.quickGuide) {
+          const item = document.createElement('li');
+          item.textContent = step.replace(/^\d+\.\s*/, '');
+          list.appendChild(item);
+        }
+        guide.appendChild(list);
+        card.appendChild(guide);
+      }
+      if (Array.isArray(task.lineComparison) && task.lineComparison.length) {
+        const comparison = document.createElement('div');
+        comparison.className = 'learning-product-examples';
+        const label = document.createElement('strong');
+        label.textContent = 'Линейки Monge простым языком';
+        comparison.appendChild(label);
+        const list = document.createElement('ul');
+        for (const line of task.lineComparison) {
+          const item = document.createElement('li');
+          item.textContent = line;
+          list.appendChild(item);
+        }
+        comparison.appendChild(list);
+        card.appendChild(comparison);
       }
       if (Array.isArray(task.productExamples) && task.productExamples.length) {
         const examples = document.createElement('div');

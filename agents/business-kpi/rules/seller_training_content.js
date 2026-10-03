@@ -89,6 +89,26 @@ const SOURCES = Object.freeze({
     url: 'https://avzvet.ru/catalog/bars-ot-bloh-i-kleshchej/',
     checkedAt: CHECKED_AT,
   }),
+  MONGE_HOME: Object.freeze({
+    name: 'Monge — официальный сайт в России',
+    url: 'https://monge.ru/',
+    checkedAt: '2026-10-02',
+  }),
+  MONGE_CONTACTS: Object.freeze({
+    name: 'Monge — официальный дистрибьютор в России',
+    url: 'https://monge.ru/contacts',
+    checkedAt: '2026-10-02',
+  }),
+  MONGE_CATS: Object.freeze({
+    name: 'Monge — корма для кошек',
+    url: 'https://monge.ru/catalog/korma-dlya-koshek',
+    checkedAt: '2026-10-02',
+  }),
+  MONGE_DOGS: Object.freeze({
+    name: 'Monge — корма для собак',
+    url: 'https://monge.ru/catalog/korma-dlya-sobak',
+    checkedAt: '2026-10-02',
+  }),
 });
 
 const TRAINING_CONTENT = Object.freeze({
@@ -298,6 +318,44 @@ const TRAINING_CONTENT = Object.freeze({
       'Покупатель просит японское средство «для глаз». Уточни, нужен обычный гигиенический уход или есть симптом. При симптоме — ветеринар; при уходе — конкретная официальная карточка.',
     ]),
   }),
+  'KNOW-26': Object.freeze({
+    sources: Object.freeze([
+      SOURCES.MONGE_HOME,
+      SOURCES.MONGE_CONTACTS,
+      SOURCES.MONGE_CATS,
+      SOURCES.MONGE_DOGS,
+    ]),
+    quickGuide: Object.freeze([
+      '1. Кошка или собака?',
+      '2. Возраст: котёнок/щенок, взрослое или пожилое животное?',
+      '3. Для собаки уточни размер породы; для кошки — стерилизацию/кастрацию и образ жизни.',
+      '4. Есть ли конкретная задача: обычный ежедневный рацион, контроль веса, шерсть/комки, чувствительное пищеварение, особый источник белка?',
+      '5. Выбери подходящую линейку и обязательно сверь назначение, состав и норму кормления на конкретной упаковке. При симптомах или лечебной диете — к ветеринарному врачу.',
+    ]),
+    lineComparison: Object.freeze([
+      'Daily Line — базовые повседневные рационы по возрасту и физиологической группе, например Kitten, Adult, Sterilised, Hairball.',
+      'Speciality Line — специализированные рационы, в том числе Monoprotein и Hypo; выбирать нужно по конкретной задаче и маркировке продукта.',
+      'BWild — отдельная линейка Monge; не предлагай её только из-за названия: сначала сверяй вид животного, возраст и назначение конкретного рациона.',
+      'VetSolution — ветеринарные диеты. Продавец не назначает их самостоятельно и не заменяет консультацию ветеринарного врача.',
+    ]),
+    productExamples: Object.freeze([
+      'Monge Cat Daily Line Hairball с курицей, 1,5 кг — арт. 70005234.',
+      'Monge Cat Daily Line Sterilised с курицей, 1,5 кг — арт. 70011938.',
+      'Monge Cat Daily Line Kitten с курицей, 1,5 кг — арт. 70004879.',
+      'Monge Cat Speciality Line Monoprotein Sterilised с говядиной, 1,5 кг — арт. 70005524.',
+      'Monge Dog Speciality Line Hypo с лососем и тунцом, 2,5 кг — арт. 70011167.',
+      'Monge Dog Speciality Line Monoprotein Mini Puppy & Junior с ягнёнком и рисом, 2,5 кг — арт. 70011525.',
+      'Monge Dog Speciality Line Monoprotein Adult с ягнёнком, рисом и картофелем, 2,5 кг — арт. 70011310.',
+    ]),
+    consultationScenarios: Object.freeze([
+      'Покупатель: «Нужен корм стерилизованной взрослой кошке». Продавец: уточняет возраст, текущий корм, активность и задачу; затем показывает Daily Line Sterilised арт. 70011938 и, только если это уместно по маркировке, подходящий Monoprotein.',
+      'Покупатель: «Щенок маленькой породы, какой Monge взять?». Продавец: уточняет возраст и ожидаемый размер взрослой собаки; Mini Puppy & Junior арт. 70011525 не заменяет автоматически взрослый Mini.',
+      'Покупатель: «Хочу гипоаллергенный корм, собака чешется». Продавец: может показать Hypo/Monoprotein и объяснить официальное назначение конкретного продукта, но не ставит диагноз и при симптомах направляет к ветеринарному врачу.',
+      'Покупатель: «Кошка плохо ест, дайте самый вкусный Monge». Продавец: уточняет длительность проблемы, текущий рацион и общее состояние; при стойком отказе от еды или других симптомах не маскирует проблему сменой корма и рекомендует обратиться к ветеринарному врачу.',
+      'Покупатель: «Хотим перейти на Monge с другого корма». Продавец: объясняет постепенный переход в течение 7 дней и советует наблюдать за переносимостью; лечебную диету меняют только по назначению ветеринарного врача.',
+      'Курс опирается на утверждённую тестовую матрицу запуска. Перед фактической продажей сверяй наличие конкретного артикула в актуальном Min/Max/1С.',
+    ]),
+  }),
 });
 
 function sourceReviewStatus(checkedAt, todayText) {
@@ -317,7 +375,7 @@ function sourceReviewStatus(checkedAt, todayText) {
 function enrichTrainingTask(task, todayText = CHECKED_AT) {
   if (!task || task.taskType !== 'KNOWLEDGE') return task;
   const extra = TRAINING_CONTENT[task.code];
-  if (!extra) return { ...task, sources: [], productExamples: [], consultationScenarios: [] };
+  if (!extra) return { ...task, sources: [], quickGuide: [], lineComparison: [], productExamples: [], consultationScenarios: [] };
   return {
     ...task,
     sources: extra.sources
@@ -326,6 +384,8 @@ function enrichTrainingTask(task, todayText = CHECKED_AT) {
           ...sourceReviewStatus(source.checkedAt, todayText),
         }))
       : [],
+    quickGuide: extra.quickGuide ? [...extra.quickGuide] : [],
+    lineComparison: extra.lineComparison ? [...extra.lineComparison] : [],
     productExamples: extra.productExamples ? [...extra.productExamples] : [],
     consultationScenarios: extra.consultationScenarios ? [...extra.consultationScenarios] : [],
   };

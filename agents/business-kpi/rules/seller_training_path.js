@@ -9,7 +9,7 @@ const ONBOARDING_PHASES = Object.freeze([
   Object.freeze({
     id: 'FEEDING',
     title: 'Корма и лакомства',
-    codes: Object.freeze(['KNOW-04', 'KNOW-05', 'KNOW-01', 'KNOW-02', 'KNOW-22', 'KNOW-24', 'KNOW-06']),
+    codes: Object.freeze(['KNOW-04', 'KNOW-05', 'KNOW-01', 'KNOW-02', 'KNOW-22', 'KNOW-26', 'KNOW-24', 'KNOW-06']),
   }),
   Object.freeze({
     id: 'LITTER_ACCESSORIES',

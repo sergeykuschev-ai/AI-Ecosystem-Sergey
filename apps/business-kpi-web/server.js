@@ -6,6 +6,7 @@ const { AuthService } = require('./application/auth_service');
 const { BusinessKpiService } = require('./application/business_kpi_service');
 const { HealthService } = require('./application/health_service');
 const { SellerTasksService } = require('./application/seller_tasks_service');
+const { OwnerNotificationClient } = require('./application/owner_notification_client');
 const { WorkbookImportService } = require('./application/workbook_import_service');
 const { loadConfig } = require('./config');
 const { createRouter } = require('./http/router');
@@ -38,8 +39,29 @@ function createBusinessKpiWebServer(options = {}) {
       uuid: options.uuid,
     });
   const authService = options.authService || new AuthService({ store });
+  let ownerNotifier = options.ownerNotifier;
+  if (ownerNotifier === undefined && config.ownerNotifyEnabled) {
+    const serviceKey = config.serviceKeys.find(
+      entry => entry.id === config.ownerNotifyServiceId
+    );
+    if (!serviceKey) {
+      throw new Error(
+        'Owner notifications require service key ' + config.ownerNotifyServiceId
+      );
+    }
+    ownerNotifier = new OwnerNotificationClient({
+      url: config.ownerNotifyUrl,
+      serviceKey: serviceKey.key,
+      timeoutMs: config.ownerNotifyTimeoutMs,
+    });
+  }
   const sellerTasksService = options.sellerTasksService ||
-    new SellerTasksService({ store, now: options.now, uuid: options.uuid });
+    new SellerTasksService({
+      store,
+      now: options.now,
+      uuid: options.uuid,
+      ownerNotifier: ownerNotifier || null,
+    });
   const staticHandler = options.staticHandler ||
     createStaticHandler(config.publicRoot);
   const route = createRouter({

@@ -180,7 +180,7 @@ test('overall KPI drop without a specific metric falls back to rotation', () => 
   assert.deepEqual(proposals.map(p => p.taskType), ['STORE', 'KNOWLEDGE']);
 });
 
-test('library composition matches training v2: 16 STORE + 25 KNOWLEDGE + 10 SALES = 51', () => {
+test('library composition matches training v2: 16 STORE + 26 KNOWLEDGE + 10 SALES = 52', () => {
   const counts = { STORE: 0, KNOWLEDGE: 0, SALES: 0 };
   const codes = new Set();
   for (const task of SELLER_TASK_LIBRARY) {
@@ -188,20 +188,20 @@ test('library composition matches training v2: 16 STORE + 25 KNOWLEDGE + 10 SALE
     assert.ok(!codes.has(task.code), `duplicate code ${task.code}`);
     codes.add(task.code);
   }
-  assert.deepEqual(counts, { STORE: 16, KNOWLEDGE: 25, SALES: 10 });
-  assert.equal(SELLER_TASK_LIBRARY.length, 51);
+  assert.deepEqual(counts, { STORE: 16, KNOWLEDGE: 26, SALES: 10 });
+  assert.equal(SELLER_TASK_LIBRARY.length, 52);
 });
 
 
-test('certification bank contains 100 unique questions across all 25 modules', () => {
-  assert.equal(CERTIFICATION_BANK.length, 100);
+test('certification bank contains 104 unique questions across all 26 modules', () => {
+  assert.equal(CERTIFICATION_BANK.length, 104);
   assert.equal(PASS_PERCENT, 80);
-  assert.equal(new Set(CERTIFICATION_BANK.map(question => question.id)).size, 100);
-  assert.equal(new Set(CERTIFICATION_BANK.map(question => question.moduleCode)).size, 25);
+  assert.equal(new Set(CERTIFICATION_BANK.map(question => question.id)).size, 104);
+  assert.equal(new Set(CERTIFICATION_BANK.map(question => question.moduleCode)).size, 26);
   assert.deepEqual(CERTIFICATION_BANK.reduce((counts, question) => {
     counts[question.correctIndex] += 1;
     return counts;
-  }, [0, 0, 0, 0]), [25, 25, 25, 25]);
+  }, [0, 0, 0, 0]), [26, 26, 26, 26]);
 });
 
 /* ---- HTTP contract ---- */
@@ -455,7 +455,7 @@ test('seller can read learning but is denied task management and owner task data
   });
   assert.equal(library.status, 200);
   const libraryItems = (await library.json()).data.items;
-  assert.equal(libraryItems.length, 25);
+  assert.equal(libraryItems.length, 26);
   assert.ok(libraryItems.every(item => item.taskType === 'KNOWLEDGE'));
 
   const proposals = await fetch(`${baseUrl}/api/business-kpi/seller-tasks/proposals?store=${DEV_STORE.id}`, {
@@ -468,9 +468,9 @@ test('seller can read learning but is denied task management and owner task data
   });
   assert.equal(progress.status, 200);
   const progressBody = (await progress.json()).data;
-  assert.equal(progressBody.total, 25);
+  assert.equal(progressBody.total, 26);
   assert.equal(progressBody.employeeId, DEV_EMPLOYEES.find(e => e.employeeCode === 'seller-cherednichenko').id);
-  assert.equal(progressBody.items.length, 25);
+  assert.equal(progressBody.items.length, 26);
 });
 
 test('seller certification hides answer keys, grades on server, and owner sees result', async () => {
@@ -495,9 +495,9 @@ test('seller certification hides answer keys, grades on server, and owner sees r
   });
   assert.equal(certificationResponse.status, 200);
   const certification = (await certificationResponse.json()).data;
-  assert.equal(certification.total, 100);
+  assert.equal(certification.total, 104);
   assert.equal(certification.passPercent, 80);
-  assert.equal(certification.questions.length, 100);
+  assert.equal(certification.questions.length, 104);
   assert.ok(certification.questions.every(question => question.correctIndex === undefined));
 
   const incomplete = await post('/api/business-kpi/seller-learning/certification', sellerHeaders, {
@@ -511,7 +511,7 @@ test('seller certification hides answer keys, grades on server, and owner sees r
   const submitted = await post('/api/business-kpi/seller-learning/certification', sellerHeaders, { answers });
   assert.equal(submitted.status, 201);
   const result = (await submitted.json()).data;
-  assert.equal(result.score, 100);
+  assert.equal(result.score, 104);
   assert.equal(result.percent, 100);
   assert.equal(result.passed, true);
 

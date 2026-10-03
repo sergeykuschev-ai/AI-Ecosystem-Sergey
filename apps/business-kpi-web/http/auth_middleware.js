@@ -129,6 +129,15 @@ function createAuthMiddleware(options) {
     }
   }
 
+  function setCsrfCookie(response, csrfToken, maxAgeMs) {
+    setCookie(response, CSRF_COOKIE, csrfToken, {
+      sameSite: 'Lax',
+      path: '/',
+      maxAge: Math.floor(maxAgeMs / 1000),
+      secure: cookieSecure,
+    });
+  }
+
   function setSessionCookies(response, sessionToken, csrfToken, maxAgeMs) {
     const maxAgeSeconds = Math.floor(maxAgeMs / 1000);
     const cookieOptions = {
@@ -139,12 +148,7 @@ function createAuthMiddleware(options) {
       secure: cookieSecure,
     };
     setCookie(response, SESSION_COOKIE, sessionToken, cookieOptions);
-    setCookie(response, CSRF_COOKIE, csrfToken, {
-      sameSite: 'Lax',
-      path: '/',
-      maxAge: maxAgeSeconds,
-      secure: cookieSecure,
-    });
+    setCsrfCookie(response, csrfToken, maxAgeMs);
   }
 
   function clearSessionCookies(response) {
@@ -172,6 +176,7 @@ function createAuthMiddleware(options) {
     requirePermission: (actor, permission) => requirePermission(actor, permission),
     requireStoreAccess,
     resolveActor,
+    setCsrfCookie,
     setSessionCookies,
     validateCsrf,
   };

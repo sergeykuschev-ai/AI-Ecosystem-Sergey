@@ -363,6 +363,49 @@ test('state-changing requests require CSRF token', async () => {
   assert.equal(response.body.error.code, 'CSRF_INVALID');
 });
 
+test('authenticated session can refresh a missing CSRF cookie', async () => {
+  await authService.createUser({
+    id: 'owner-test-csrf-refresh',
+    externalId: 'owner.csrf.refresh',
+    displayName: 'CSRF Refresh Owner',
+    role: 'OWNER',
+    storeId: DEV_STORE.id,
+    password: 'correct-password',
+  });
+
+  const { response: loginResponse } = await postJson('/api/business-kpi/auth/login', {
+    externalId: 'owner.csrf.refresh',
+    password: 'correct-password',
+  });
+  const loginCookies = parseCookies(loginResponse);
+  const sessionOnly = `business_kpi_session=${loginCookies.business_kpi_session}`;
+
+  const refreshResponse = await fetch(`${baseUrl}/api/business-kpi/auth/csrf`, {
+    headers: { Cookie: sessionOnly },
+  });
+  assert.equal(refreshResponse.status, 200);
+  const refreshBody = await refreshResponse.json();
+  const refreshCookies = parseCookies(refreshResponse);
+  assert.ok(refreshCookies.business_kpi_csrf);
+  assert.equal(refreshBody.data.csrfToken, refreshCookies.business_kpi_csrf);
+
+  const response = await postJson('/api/business-kpi/shifts', {
+    storeId: DEV_STORE.id,
+    employeeId: SELLER_EMPLOYEE.id,
+    shiftDate: '2026-08-31',
+    shiftKey: 'main',
+    cash: 10000,
+    acquiring: 14000,
+    qr: 2400,
+    receipts: 20,
+    itemsSold: 50,
+  }, {
+    Cookie: `${sessionOnly}; business_kpi_csrf=${refreshCookies.business_kpi_csrf}`,
+    'x-csrf-token': refreshCookies.business_kpi_csrf,
+  });
+  assert.equal(response.response.status, 201);
+});
+
 test('OWNER retains full functionality', async () => {
   await authService.createUser({
     id: 'owner-test-4',
