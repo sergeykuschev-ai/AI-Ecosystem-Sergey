@@ -33,9 +33,11 @@ export async function generateMetadata({ params }: PageParams): Promise<Metadata
   const display = productPresentation(product)
   const description = catalogSource() === 'demo'
     ? 'Демонстрационная карточка товара VOZDOOH. Цена, наличие и характеристики появятся после синхронизации с 1С.'
-    : product.editorial.description ?? 'Интерьерная парфюмерия VOZDOOH.'
+    : product.editorial.description
+      ? `${product.editorial.description} ${[product.trade.brand, display.subtitle].filter(Boolean).join(' · ')}.`
+      : `${[display.title, product.trade.brand, display.subtitle].filter(Boolean).join(' · ')} в каталоге VOZDOOH.`
   const image = catalogImage(product)
-  const title = `${display.title} · ${product.trade.brand ?? 'VOZDOOH'} · ${display.subtitle}`
+  const title = [display.title, display.subtitle, product.trade.brand].filter(Boolean).join(' — ') + ' | VOZDOOH'
   return {
     title,
     alternates: { canonical: `/catalog/${product.editorial.slug}` },
@@ -86,7 +88,7 @@ export default async function ProductPage({ params, searchParams }: PageParams) 
           )}
         </div>
         <div className="productInfo">
-          <span className="eyebrow">{product.trade.brand}</span>
+          {brandLanding ? <Link className="eyebrow" href={landingPath('brand', brandLanding.slug)}>{brandLanding.name}</Link> : <span className="eyebrow">{product.trade.brand}</span>}
           <h1>{display.title}</h1>
           {display.russianTitle && <p className="productTranslation">{display.russianTitle}</p>}
           <p className="productSubtitle">{display.subtitle}</p>

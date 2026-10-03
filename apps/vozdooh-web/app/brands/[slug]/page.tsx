@@ -17,8 +17,9 @@ async function getLanding(slug: string) {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const landing = await getLanding((await params).slug)
   if (!landing) return { title: 'Коллекция не найдена — VOZDOOH', robots: { index: false, follow: false } }
-  return { title: `${landing.name} — VOZDOOH`, description: landing.description,
-    openGraph: { title: `${landing.name} — VOZDOOH`, description: landing.description },
+  const title = `${landing.name} — ароматы для дома | VOZDOOH`
+  return { title, description: landing.description,
+    openGraph: { title, description: landing.description },
     alternates: { canonical: landingPath('brand', landing.slug) }, robots: publicRobots() }
 }
 

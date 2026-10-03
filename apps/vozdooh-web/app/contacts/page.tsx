@@ -1,10 +1,12 @@
 import type { Metadata } from 'next'
 import { InfoPage, SellerRequisites } from '../../components/InfoPage'
+import { publicRobots } from '../../src/seo/indexing'
 
 export const metadata: Metadata = {
   title: 'Контакты — VOZDOOH',
   description: 'Как связаться с VOZDOOH: телефон, электронная почта, адрес и реквизиты продавца (ИНН, ОГРНИП).',
-  robots: { index: false, follow: false },
+  alternates: { canonical: '/contacts' },
+  robots: publicRobots(),
 }
 
 export default function ContactsPage() {

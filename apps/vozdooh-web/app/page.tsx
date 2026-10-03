@@ -37,8 +37,8 @@ const money = new Intl.NumberFormat('ru-RU', {
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: 'VOZDOOH — парфюмерия для дома',
-  description: 'VOZDOOH — коллекция ароматов для дома: диффузоры, свечи, спреи и подарочные наборы от брендов интерьерной парфюмерии.',
+  title: 'Ароматы и парфюмерия для дома — VOZDOOH',
+  description: 'VOZDOOH — ароматы для дома: диффузоры, ароматические свечи, спреи, рефилы и подарочные наборы от брендов интерьерной парфюмерии.',
   alternates: { canonical: '/' },
   robots: publicRobots(),
 }

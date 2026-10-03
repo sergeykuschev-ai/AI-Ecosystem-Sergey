@@ -17,9 +17,9 @@ import { availableFilterOptions, applyCatalogFilters } from '../../src/catalog/f
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: 'Каталог — VOZDOOH',
-  description: 'Интерьерная парфюмерия VOZDOOH. Ароматы, характер и настроение вашего пространства.',
-  openGraph: { title: 'Каталог — VOZDOOH', description: 'Интерьерная парфюмерия VOZDOOH. Ароматы, характер и настроение вашего пространства.' },
+  title: 'Ароматы для дома — каталог интерьерной парфюмерии | VOZDOOH',
+  description: 'Каталог ароматов для дома VOZDOOH: диффузоры, ароматические свечи, спреи, рефилы, автомобильные ароматы и подарочные наборы.',
+  openGraph: { title: 'Ароматы для дома — каталог VOZDOOH', description: 'Диффузоры, ароматические свечи, спреи, рефилы и другие форматы интерьерной парфюмерии.' },
   alternates: { canonical: '/catalog' },
   robots: publicRobots(),
 }

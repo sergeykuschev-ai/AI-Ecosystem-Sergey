@@ -8,7 +8,7 @@ import { getCatalogRepository } from '../../src/catalog/source'
 import { withValidImages } from '../../src/catalog/validImages'
 
 export const dynamic = 'force-dynamic'
-export const metadata: Metadata = { title: 'Категории — VOZDOOH', description: 'Диффузоры, свечи, спреи и другие форматы интерьерных ароматов VOZDOOH.',
+export const metadata: Metadata = { title: 'Ароматы для дома по форматам — VOZDOOH', description: 'Диффузоры, свечи, спреи и другие форматы интерьерных ароматов VOZDOOH.',
   alternates: { canonical: '/categories' }, robots: publicRobots() }
 
 export default async function DiscoveryPage() {
@@ -18,7 +18,7 @@ export default async function DiscoveryPage() {
     <SiteHeader />
     <section className="simpleSection">
       <span className="eyebrow">Категории</span>
-      <h1>Ароматы по форматам</h1>
+      <h1>Ароматы для дома по форматам</h1>
       <p>Диффузоры, свечи, спреи и другие форматы интерьерных ароматов VOZDOOH.</p>
       <nav className="landingLinks" aria-label="Навигация по каталогу"><Link href="/catalog">Все ароматы</Link><Link href="/brands">Бренды</Link></nav>
       {landings.length > 0 ? <div className="brandGrid">
