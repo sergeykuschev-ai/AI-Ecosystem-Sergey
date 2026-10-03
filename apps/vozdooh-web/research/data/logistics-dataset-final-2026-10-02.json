@@ -13,10 +13,10 @@
   "summary": {
     "eligible": 148,
     "exactPublicEvidence": 147,
-    "deliveryReady": 65,
-    "verifiedProductMeasurements": 51,
+    "deliveryReady": 66,
+    "verifiedProductMeasurements": 52,
     "verifiedRetailPackage": 13,
-    "partial": 78,
+    "partial": 77,
     "conflict": 5,
     "needsSource": 1
   },
@@ -4786,9 +4786,18 @@
       "brand": "Lothantique",
       "stock": null,
       "declaredValueRub": null,
-      "evidenceStatus": "PARTIAL",
-      "deliveryReady": false,
-      "deliveryInput": null,
+      "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "deliveryReady": true,
+      "deliveryInput": {
+        "weightG": 200,
+        "lengthMm": 100,
+        "widthMm": 50,
+        "heightMm": 50,
+        "basis": "exact_ean_product_dimensions_and_explicit_weight",
+        "sources": [
+          "https://www.homefragrance.ru/products/lothantique-flowers-of-japan-diffuzor-200-ml"
+        ]
+      },
       "measurements": [
         {
           "scope": "included_reeds",
@@ -4804,6 +4813,24 @@
             "weightG": null
           },
           "identitySourceUrl": "https://barcode-list.ru/barcode/RU/Поиск.htm?barcode=АромаДиффузор"
+        },
+        {
+          "scope": "product",
+          "sourceUrl": "https://www.homefragrance.ru/products/lothantique-flowers-of-japan-diffuzor-200-ml",
+          "sourceDomain": "homefragrance.ru",
+          "sourceType": "specialist-retailer",
+          "retrievedAt": "2026-10-03",
+          "reportedStatement": "Exact product page for Lothantique Flowers of Japan diffuser 200 ml, article/EAN 3420070031532, separately reports dimensions 100 x 50 x 50 mm and weight 200 g. Weight is taken from the explicit weight field, not inferred from nominal 200 ml volume.",
+          "normalized": {
+            "dimensionsMm": [
+              100,
+              50,
+              50
+            ],
+            "heightMm": null,
+            "diameterMm": null,
+            "weightG": 200
+          }
         }
       ]
     },

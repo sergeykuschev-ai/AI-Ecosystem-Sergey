@@ -11,8 +11,8 @@
   },
   "counts": {
     "eligible": 148,
-    "ready": 65,
-    "needsMoreEvidence": 83
+    "ready": 66,
+    "needsMoreEvidence": 82
   },
   "records": [
     {
@@ -1573,9 +1573,18 @@
       "name": "Аромадиффузор 200 мл/ FLOWERSOF JAPAN/ЯПОНСКИЙ САД",
       "brand": null,
       "barcode": "3420070031532",
-      "status": "NEEDS_SOURCE",
-      "deliveryInput": null,
-      "evidenceStatus": "PARTIAL"
+      "status": "READY_PRODUCT_DIMENSIONS",
+      "deliveryInput": {
+        "weightG": 200,
+        "lengthMm": 100,
+        "widthMm": 50,
+        "heightMm": 50,
+        "basis": "exact_ean_product_dimensions_and_explicit_weight",
+        "sources": [
+          "https://www.homefragrance.ru/products/lothantique-flowers-of-japan-diffuzor-200-ml"
+        ]
+      },
+      "evidenceStatus": "VERIFIED_PRODUCT_MEASUREMENTS"
     },
     {
       "sku": "N020480",

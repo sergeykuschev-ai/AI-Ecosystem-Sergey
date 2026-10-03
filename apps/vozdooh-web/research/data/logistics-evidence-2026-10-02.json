@@ -2322,7 +2322,7 @@
       "sku": "N020469",
       "barcode": "3420070031532",
       "brand": "Lothantique",
-      "status": "PARTIAL",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
       "measurements": [
         {
           "scope": "included_reeds",
@@ -2335,6 +2335,19 @@
           "identitySourceUrl": "https://barcode-list.ru/barcode/RU/Поиск.htm?barcode=АромаДиффузор",
           "retrievedAt": "2026-10-02",
           "note": "Official Lothantique Fleurs du Japon 200 ml page states a recyclable gift box containing a glass diffuser and 8 natural rattan reeds, 23 cm long and 3 mm diameter. Exact EAN 3420070031532 is independently mapped to the same 200 ml product. Bottle/outer-box dimensions and total packed weight are still missing."
+        },
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            100,
+            50,
+            50
+          ],
+          "weightG": 200,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.homefragrance.ru/products/lothantique-flowers-of-japan-diffuzor-200-ml",
+          "retrievedAt": "2026-10-03",
+          "note": "Exact product page for Lothantique Flowers of Japan diffuser 200 ml, article/EAN 3420070031532, separately reports dimensions 100 x 50 x 50 mm and weight 200 g. Weight is taken from the explicit weight field, not inferred from nominal 200 ml volume."
         }
       ]
     },
@@ -3721,11 +3734,11 @@
   "summary": {
     "researchedRecords": 148,
     "verifiedRetailPackage": 13,
-    "verifiedProductMeasurements": 51,
-    "partial": 78,
+    "verifiedProductMeasurements": 52,
+    "partial": 77,
     "conflict": 5,
     "needsSource": 1,
-    "shippingReady": 65,
-    "deliveryInputReady": 65
+    "shippingReady": 66,
+    "deliveryInputReady": 66
   }
 }
