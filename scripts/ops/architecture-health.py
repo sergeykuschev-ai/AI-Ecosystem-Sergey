@@ -230,7 +230,7 @@ if tailnet_code != '200':
 
 # If the shop PC is online in Tailscale, require two-way reachability.
 store_peer_ip = '100.103.126.29'
-store_peer_name = 'DESKTOP-TVPRA5M'
+store_peer_name = 'DESKTOP-TVPRA5M'  # Miska store workstation
 peer_online = False
 peer_found = False
 status_json = run(['tailscale', 'status', '--json'])
@@ -241,12 +241,12 @@ if status_json.returncode == 0:
             if store_peer_ip in (peer.get('TailscaleIPs') or []) or peer.get('HostName') == store_peer_name:
                 peer_found = True
                 peer_online = peer.get('Online') is True
-                checks['business_kpi_store_peer_relay'] = peer.get('Relay') or ''
+                checks['business_kpi_miska_store_peer_relay'] = peer.get('Relay') or ''
                 break
     except Exception:
         checks['business_kpi_store_peer_status'] = 'invalid_json'
-checks['business_kpi_store_peer_found'] = peer_found
-checks['business_kpi_store_peer_online'] = peer_online
+checks['business_kpi_miska_store_peer_found'] = peer_found
+checks['business_kpi_miska_store_peer_online'] = peer_online
 
 if peer_online:
     ping = run(['tailscale', 'ping', '-c', '2', '--timeout', '3s', store_peer_ip])
@@ -259,16 +259,16 @@ if peer_online:
         ping_ok = ping.returncode == 0 and 'pong from' in ping.stdout
         if ping_ok:
             portal_events.append('store_peer_auto_recovered')
-    checks['business_kpi_store_peer_ping'] = 'ok' if ping_ok else 'failed'
+    checks['business_kpi_miska_store_peer_ping'] = 'ok' if ping_ok else 'failed'
     ping_lines = [line.strip() for line in ping.stdout.splitlines() if 'pong from' in line]
     if ping_lines:
-        checks['business_kpi_store_peer_path'] = ping_lines[-1][:240]
+        checks['business_kpi_miska_store_peer_path'] = ping_lines[-1][:240]
     if not ping_ok:
-        item = 'business_kpi_store_peer:unreachable'
+        item = 'business_kpi_miska_store_peer:unreachable'
         errors.append(item)
         portal_errors.append(item)
 else:
-    checks['business_kpi_store_peer_ping'] = 'skipped_offline'
+    checks['business_kpi_miska_store_peer_ping'] = 'skipped_offline'
 
 p = run(['systemctl','is-active','kimi-worker.timer'])
 kimi_timer = p.stdout.strip()
