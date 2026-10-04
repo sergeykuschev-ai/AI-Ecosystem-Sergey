@@ -37,7 +37,7 @@ export async function generateMetadata({ params }: PageParams): Promise<Metadata
       ? `${product.editorial.description} ${[product.trade.brand, display.subtitle].filter(Boolean).join(' · ')}.`
       : `${[display.title, product.trade.brand, display.subtitle].filter(Boolean).join(' · ')} в каталоге VOZDOOH.`
   const image = catalogImage(product)
-  const title = [display.title, display.subtitle, product.trade.brand].filter(Boolean).join(' — ') + ' | VOZDOOH'
+  const title = [display.title, display.subtitle, product.trade.brand].filter(Boolean).join(' — ')
   return {
     title,
     alternates: { canonical: `/catalog/${product.editorial.slug}` },
