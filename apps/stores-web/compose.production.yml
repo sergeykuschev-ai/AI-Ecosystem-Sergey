@@ -90,7 +90,7 @@ services:
       DIRECTUS_SERVER_TOKEN: ${DIRECTUS_SERVER_TOKEN}
       INDEXNOW_KEY: ${INDEXNOW_KEY:-}
       INDEXNOW_ENDPOINT: ${INDEXNOW_ENDPOINT:-https://api.indexnow.org/indexnow}
-      SMTP_HOST: vozdooh-mail-relay
+      SMTP_HOST: smtp.vozdooh.internal
       SMTP_PORT: "25"
       SMTP_IGNORE_TLS: "true"
       ADVERTISING_LEAD_TO: vozdooh.kms@yandex.ru
@@ -110,6 +110,7 @@ services:
     networks:
       - stores-web
       - arthur_services
+      - vozdooh-mail
 
   onec-sync:
     build:
@@ -139,6 +140,9 @@ networks:
     name: stores-web
   arthur_services:
     name: arthur_services
+    external: true
+  vozdooh-mail:
+    name: runtime_vozdooh-mail
     external: true
 
 secrets:
