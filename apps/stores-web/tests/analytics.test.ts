@@ -41,6 +41,7 @@ function withFakeWindow<T>(fakeWindow: unknown, run: () => T): T {
 describe("analytics event registry", () => {
   test("keeps the documented stable goal names", () => {
     assert.deepEqual([...analyticsEvents].sort(), [
+      "advertising_lead_submit",
       "bonus_open",
       "brand_open",
       "check_stock",

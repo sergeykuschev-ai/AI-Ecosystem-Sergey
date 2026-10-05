@@ -59,6 +59,26 @@ interface ActualSliderProps {
   brands: Pick<Brand, "id" | "slug" | "name" | "primary_color" | "secondary_color">[];
 }
 
+function AudioAdvertisingVisual() {
+  return (
+    <div className="actual-slide__audio-visual" aria-hidden="true">
+      <div className="actual-slide__audio-icon">
+        <svg viewBox="0 0 64 64" role="presentation">
+          <path d="M22 26v12h10l12 10V16L32 26H22Z" fill="currentColor" />
+          <path d="M49 24c3 5 3 11 0 16M54 19c6 8 6 18 0 26" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+        </svg>
+      </div>
+      <div className="actual-slide__audio-copy">
+        <strong>4 магазина</strong>
+        <span>5–20 выходов в день</span>
+      </div>
+      <div className="actual-slide__audio-bars">
+        {Array.from({ length: 14 }, (_, index) => <i key={index} />)}
+      </div>
+    </div>
+  );
+}
+
 function ActualSlideImage({ item, index, onInteraction }: { item: ActualItem; index: number; onInteraction: () => void }) {
   if (!item.image) return null;
 
@@ -222,6 +242,7 @@ export function ActualSlider({ items, brands }: ActualSliderProps) {
       >
         {items.map((item, index) => {
           const brand = brands.find((candidate) => candidate.id === item.brandId);
+          const isAudioAdvertising = item.id === "actual-audio-advertising";
           const style = {
             "--slide-accent": brand?.primary_color ?? "#183153",
             "--slide-soft": brand?.secondary_color ?? "#edf2f7",
@@ -232,13 +253,18 @@ export function ActualSlider({ items, brands }: ActualSliderProps) {
               className="actual-slide"
               data-slide-index={index}
               data-brand={brand?.slug}
+              data-audio-ad={isAudioAdvertising ? "true" : undefined}
               key={item.id}
               role="group"
               aria-roledescription="slide"
               aria-label={`${index + 1} из ${items.length}`}
               style={style}
             >
-              <ActualSlideImage item={item} index={index} onInteraction={pauseTemporarily} />
+              {isAudioAdvertising ? (
+                <AudioAdvertisingVisual />
+              ) : (
+                <ActualSlideImage item={item} index={index} onInteraction={pauseTemporarily} />
+              )}
               <div className="actual-slide__content">
                 <div className="actual-slide__meta">
                   <span className="actual-slide__type">{typeLabels[item.type]}</span>
