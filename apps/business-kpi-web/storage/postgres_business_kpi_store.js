@@ -777,6 +777,18 @@ class PostgresBusinessKpiStore {
     return mapUser(result.rows[0]);
   }
 
+  async listUsers({ storeId = null } = {}) {
+    const result = await this.client.query(
+      `SELECT id, external_id, display_name, role, store_id, password_hash,
+              active, last_login_at, failed_login_attempts, locked_until
+       FROM business_kpi.users
+       WHERE ($1::uuid IS NULL OR store_id = $1)
+       ORDER BY display_name, external_id`,
+      [storeId || null]
+    );
+    return result.rows.map(mapUser);
+  }
+
   async updateUserPasswordHash(userId, passwordHash) {
     await this.client.query(
       `UPDATE business_kpi.users

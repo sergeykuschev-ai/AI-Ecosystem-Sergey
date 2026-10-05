@@ -13,6 +13,7 @@ const SALT_LEN = 32;
 const KEY_LEN = 64;
 const SESSION_TOKEN_LEN = 32;
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000; // 8 hours
+const MIN_PASSWORD_LENGTH = 12;
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_MS = 15 * 60 * 1000;
 
@@ -73,9 +74,7 @@ class AuthService {
   }
 
   async changePassword(userId, currentPassword, newPassword) {
-    if (typeof newPassword !== 'string' || newPassword.length < 12) {
-      throw new ApplicationError('VALIDATION_ERROR', 'Новый пароль должен содержать минимум 12 символов.', 422);
-    }
+    validateNewPassword(newPassword);
     const user = await this.store.getUserById(userId);
     if (!user || !user.active || !await verifyPassword(currentPassword, user.passwordHash)) {
       throw new ApplicationError('AUTH_INVALID_CREDENTIALS', 'Текущий пароль указан неверно.', 401);
@@ -133,6 +132,73 @@ class AuthService {
   async logoutAll(userId) {
     await this.store.deleteUserSessions(userId);
   }
+
+  async listManagedUsers({ storeId = null } = {}) {
+    const users = await this.store.listUsers({ storeId });
+    return users
+      .filter(user => user.role !== 'SERVICE')
+      .map(publicManagedUser);
+  }
+
+  async resetManagedUserPassword(actorUserId, targetUserId, newPassword, options = {}) {
+    validateNewPassword(newPassword);
+    const target = await this.store.getUserById(targetUserId);
+    if (!target) {
+      throw new ApplicationError('USER_NOT_FOUND', 'Учётная запись не найдена.', 404);
+    }
+    if (target.id === actorUserId || target.role === 'OWNER' || target.role === 'SERVICE') {
+      throw new ApplicationError(
+        'FORBIDDEN',
+        'Сброс пароля для этой учётной записи через управление продавцами запрещён.',
+        403
+      );
+    }
+    if (!target.active) {
+      throw new ApplicationError('USER_INACTIVE', 'Учётная запись отключена.', 409);
+    }
+
+    await this.setPassword(target.id, newPassword);
+    await this.store.resetFailedLogins(target.id);
+    await this.logoutAll(target.id);
+
+    if (typeof this.store.appendAudit === 'function') {
+      await this.store.appendAudit({
+        id: this.uuid(),
+        actorId: actorUserId,
+        actorType: 'user',
+        action: 'USER_PASSWORD_RESET',
+        entityType: 'user',
+        entityId: target.id,
+        oldValue: null,
+        newValue: { passwordReset: true, sessionsRevoked: true, lockoutCleared: true },
+        source: 'web_manual',
+        reason: options.reason || 'Owner password reset',
+        correlationId: options.correlationId || this.uuid(),
+        occurredAt: this.now().toISOString(),
+      });
+    }
+
+    const refreshed = await this.store.getUserById(target.id);
+    return publicManagedUser(refreshed);
+  }
+}
+
+function validateNewPassword(password) {
+  if (typeof password !== 'string' || password.length < MIN_PASSWORD_LENGTH) {
+    throw new ApplicationError(
+      'VALIDATION_ERROR',
+      `Новый пароль должен содержать минимум ${MIN_PASSWORD_LENGTH} символов.`,
+      422
+    );
+  }
+}
+
+function publicManagedUser(user) {
+  return {
+    ...publicUser(user),
+    failedLoginAttempts: Number(user.failedLoginAttempts || 0),
+    lockedUntil: user.lockedUntil || null,
+  };
 }
 
 function publicUser(user) {
@@ -149,6 +215,7 @@ function publicUser(user) {
 
 module.exports = {
   AuthService,
+  MIN_PASSWORD_LENGTH,
   SESSION_TTL_MS,
   hashPassword,
   verifyPassword,

@@ -76,6 +76,7 @@ const state = {
   certification: null,
   moduleQuiz: null,
   teamLearning: null,
+  managedUsers: [],
 };
 
 function element(id) { return document.getElementById(id); }
@@ -1573,6 +1574,104 @@ function updateWeightSum() {
   return sum;
 }
 
+function managedUserStatus(user) {
+  if (!user.active) return 'Отключена';
+  if (user.lockedUntil && new Date(user.lockedUntil) > new Date()) {
+    return `Заблокирована до ${new Date(user.lockedUntil).toLocaleString('ru-RU')}`;
+  }
+  if (user.failedLoginAttempts > 0) return `Ошибок входа: ${user.failedLoginAttempts}`;
+  return 'Активна';
+}
+
+function openAdminPasswordDialog(user) {
+  element('admin-password-form').reset();
+  element('admin-password-error').hidden = true;
+  element('admin-password-user-id').value = user.id;
+  element('admin-password-title').textContent =
+    `Сбросить пароль · ${user.displayName || user.externalId}`;
+  element('admin-password-dialog').showModal();
+}
+
+function renderManagedUsers(users) {
+  const card = element('user-access-card');
+  if (state.currentUser?.role !== 'OWNER') {
+    card.hidden = true;
+    return;
+  }
+  card.hidden = false;
+  const body = element('user-access-table');
+  body.replaceChildren();
+  element('user-access-empty').hidden = users.length !== 0;
+  for (const user of users) {
+    const row = document.createElement('tr');
+    appendCell(row, `${user.displayName || user.externalId} (${user.externalId})`);
+    appendCell(row, roleLabel(user.role));
+    appendCell(row, managedUserStatus(user));
+    appendCell(row, user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString('ru-RU') : '—');
+    const action = document.createElement('td');
+    if (user.role !== 'OWNER' && user.role !== 'SERVICE') {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'table-button';
+      button.textContent = 'Сбросить пароль';
+      button.addEventListener('click', () => openAdminPasswordDialog(user));
+      action.append(button);
+    } else {
+      action.textContent = '—';
+    }
+    row.append(action);
+    body.append(row);
+  }
+}
+
+async function loadManagedUsers() {
+  const card = element('user-access-card');
+  if (state.currentUser?.role !== 'OWNER') {
+    card.hidden = true;
+    state.managedUsers = [];
+    return;
+  }
+  const data = await api(
+    `/api/business-kpi/users?store=${encodeURIComponent(selectedStoreId())}`
+  );
+  state.managedUsers = data.items || [];
+  renderManagedUsers(state.managedUsers);
+}
+
+async function resetManagedUserPassword(event) {
+  event.preventDefault();
+  const userId = element('admin-password-user-id').value;
+  const newPassword = element('admin-new-password').value;
+  const confirmPassword = element('admin-confirm-password').value;
+  const errorBox = element('admin-password-error');
+  errorBox.hidden = true;
+  if (newPassword.length < 12) {
+    errorBox.textContent = 'Пароль должен содержать минимум 12 символов.';
+    errorBox.hidden = false;
+    return;
+  }
+  if (newPassword !== confirmPassword) {
+    errorBox.textContent = 'Пароли не совпадают.';
+    errorBox.hidden = false;
+    return;
+  }
+  try {
+    await api(`/api/business-kpi/users/${encodeURIComponent(userId)}/password`, {
+      method: 'POST',
+      body: JSON.stringify({
+        newPassword,
+        reason: 'Сброс владельцем через Business Portal',
+      }),
+    });
+    element('admin-password-dialog').close();
+    showMessage('Пароль сброшен. Блокировка снята, старые сессии завершены.');
+    await loadManagedUsers();
+  } catch (error) {
+    errorBox.textContent = error.message || 'Не удалось сбросить пароль.';
+    errorBox.hidden = false;
+  }
+}
+
 async function loadSettings() {
   const { year, month } = period();
   const date = `${year}-${String(month).padStart(2, '0')}-01`;
@@ -3025,6 +3124,7 @@ async function renderRoute() {
     if (routeId === 'settings') {
       if (isStoreMode()) await loadDashboard();
       else await loadSettings();
+      await loadManagedUsers();
     }
     if (routeId === 'import-export') await loadImportRuns();
   } catch (error) {
@@ -3841,6 +3941,9 @@ element('change-password-button').addEventListener('click', openPasswordDialog);
 element('close-password-form').addEventListener('click', () => element('password-dialog').close());
 element('cancel-password-form').addEventListener('click', () => element('password-dialog').close());
 element('password-form').addEventListener('submit', changePassword);
+element('close-admin-password-form').addEventListener('click', () => element('admin-password-dialog').close());
+element('cancel-admin-password-form').addEventListener('click', () => element('admin-password-dialog').close());
+element('admin-password-form').addEventListener('submit', resetManagedUserPassword);
 element('logout-button').addEventListener('click', logout);
 for (const button of document.querySelectorAll('[data-performance-mode]')) {
   button.addEventListener('click', async () => {

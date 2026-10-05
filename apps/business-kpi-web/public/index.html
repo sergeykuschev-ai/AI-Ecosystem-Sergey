@@ -7,7 +7,7 @@
     <title>Business Portal · KPI</title>
     <link rel="stylesheet" href="/styles.css?v=training-guide-1">
     <script src="/formatters.js" defer></script>
-    <script src="/app.js?v=store-qr-targets-1-monge-practice-1" defer></script>
+    <script src="/app.js?v=user-access-1" defer></script>
   </head>
   <body class="auth-loading">
     <div class="app-shell">
@@ -896,6 +896,20 @@
             </article>
           </div>
 
+          <article class="content-card" id="user-access-card" hidden>
+            <div class="card-heading">
+              <div><p class="eyebrow">Безопасность</p><h2>Доступ сотрудников</h2></div>
+            </div>
+            <p class="field-help">Только владелец может сбросить пароль. После сброса блокировка снимается, а старые сессии пользователя завершаются.</p>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Учётная запись</th><th>Роль</th><th>Статус</th><th>Последний вход</th><th class="action-column">Действие</th></tr></thead>
+                <tbody id="user-access-table"></tbody>
+              </table>
+            </div>
+            <p class="empty-copy" id="user-access-empty" hidden>Для выбранного магазина учётных записей нет.</p>
+          </article>
+
           <article class="content-card" data-miska-settings>
             <div class="card-heading">
               <div><p class="eyebrow">Новая версия</p><h2>Изменить нормативы KPI</h2></div>
@@ -1024,6 +1038,29 @@
         </section>
       </main>
     </div>
+
+    <dialog id="admin-password-dialog">
+      <form id="admin-password-form" novalidate>
+        <div class="dialog-heading">
+          <div><p class="eyebrow">Доступ сотрудников</p><h2 id="admin-password-title">Сбросить пароль</h2></div>
+          <button class="icon-button" id="close-admin-password-form" type="button" aria-label="Закрыть">×</button>
+        </div>
+        <input id="admin-password-user-id" type="hidden">
+        <fieldset>
+          <div class="form-grid">
+            <label>Новый пароль<input id="admin-new-password" type="password" minlength="12" autocomplete="new-password" required></label>
+            <label>Повторите пароль<input id="admin-confirm-password" type="password" minlength="12" autocomplete="new-password" required></label>
+          </div>
+        </fieldset>
+        <p class="field-help">Минимум 12 символов. После сохранения старый пароль перестанет работать на всех устройствах.</p>
+        <p class="inline-error" id="admin-password-error" role="alert" hidden></p>
+        <div class="dialog-actions">
+          <span></span>
+          <button class="secondary-button" id="cancel-admin-password-form" type="button">Отмена</button>
+          <button class="primary-button" type="submit">Сбросить пароль</button>
+        </div>
+      </form>
+    </dialog>
 
     <dialog id="password-dialog">
       <form id="password-form" novalidate>

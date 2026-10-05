@@ -438,6 +438,111 @@ test('OWNER retains full functionality', async () => {
   assert.equal(response.response.status, 201);
 });
 
+test('OWNER can list store users and reset a seller password', async () => {
+  const ownerId = '70000000-0000-4000-8000-000000000001';
+  const sellerId = '70000000-0000-4000-8000-000000000002';
+  await authService.createUser({
+    id: ownerId,
+    externalId: 'owner.users',
+    displayName: 'Users Owner',
+    role: 'OWNER',
+    storeId: DEV_STORE.id,
+    password: 'owner-password',
+  });
+  await authService.createUser({
+    id: sellerId,
+    externalId: 'seller.reset',
+    displayName: 'Reset Seller',
+    role: 'SELLER',
+    storeId: DEV_STORE.id,
+    password: 'seller-old-password',
+  });
+
+  const sellerLogin = await postJson('/api/business-kpi/auth/login', {
+    externalId: 'seller.reset',
+    password: 'seller-old-password',
+  });
+  assert.equal(sellerLogin.response.status, 200);
+  const sellerCookies = parseCookies(sellerLogin.response);
+  const sellerSession = sessionHeader(sellerCookies);
+
+  const { response: ownerLogin } = await postJson('/api/business-kpi/auth/login', {
+    externalId: 'owner.users',
+    password: 'owner-password',
+  });
+  assert.equal(ownerLogin.status, 200);
+  const ownerCookies = parseCookies(ownerLogin);
+  const ownerSession = sessionHeader(ownerCookies);
+
+  const usersResponse = await fetch(
+    `${baseUrl}/api/business-kpi/users?store=${DEV_STORE.id}`,
+    { headers: { Cookie: ownerSession } }
+  );
+  const usersBody = await usersResponse.json();
+  assert.equal(usersResponse.status, 200);
+  const listedSeller = usersBody.data.items.find(item => item.id === sellerId);
+  assert.equal(listedSeller.externalId, 'seller.reset');
+  assert.equal(Object.prototype.hasOwnProperty.call(listedSeller, 'passwordHash'), false);
+
+  const reset = await postJson(
+    `/api/business-kpi/users/${sellerId}/password`,
+    { newPassword: 'seller-new-password', reason: 'security test' },
+    { Cookie: ownerSession, 'x-csrf-token': ownerCookies.business_kpi_csrf }
+  );
+  assert.equal(reset.response.status, 200, reset.body.error?.message);
+  assert.equal(reset.body.data.changed, true);
+  assert.equal(reset.body.data.user.failedLoginAttempts, 0);
+  assert.equal(reset.body.data.user.lockedUntil, null);
+
+  const oldSessionResponse = await fetch(`${baseUrl}/api/business-kpi/auth/me`, {
+    headers: { Cookie: sellerSession },
+  });
+  assert.equal(oldSessionResponse.status, 401);
+
+  const oldPasswordLogin = await postJson('/api/business-kpi/auth/login', {
+    externalId: 'seller.reset',
+    password: 'seller-old-password',
+  });
+  assert.equal(oldPasswordLogin.response.status, 401);
+
+  const newPasswordLogin = await postJson('/api/business-kpi/auth/login', {
+    externalId: 'seller.reset',
+    password: 'seller-new-password',
+  });
+  assert.equal(newPasswordLogin.response.status, 200);
+});
+
+test('SELLER cannot list or reset user passwords', async () => {
+  const sellerId = '70000000-0000-4000-8000-000000000003';
+  await authService.createUser({
+    id: sellerId,
+    externalId: 'seller.no-user-admin',
+    displayName: 'No User Admin',
+    role: 'SELLER',
+    storeId: DEV_STORE.id,
+    password: 'seller-password',
+  });
+  const { response: loginResponse } = await postJson('/api/business-kpi/auth/login', {
+    externalId: 'seller.no-user-admin',
+    password: 'seller-password',
+  });
+  const cookies = parseCookies(loginResponse);
+  const sessionCookie = sessionHeader(cookies);
+
+  const listResponse = await fetch(
+    `${baseUrl}/api/business-kpi/users?store=${DEV_STORE.id}`,
+    { headers: { Cookie: sessionCookie } }
+  );
+  assert.equal(listResponse.status, 403);
+
+  const reset = await postJson(
+    '/api/business-kpi/users/70000000-0000-4000-8000-000000000002/password',
+    { newPassword: 'forbidden-password' },
+    { Cookie: sessionCookie, 'x-csrf-token': cookies.business_kpi_csrf }
+  );
+  assert.equal(reset.response.status, 403);
+});
+
 test('production mode does not trust dev actor headers', async () => {
   const ownerBypass = await fetch(
     `${baseUrl}/api/business-kpi/dashboard?store=${DEV_STORE.id}&year=2026&month=8`,

@@ -402,6 +402,17 @@ class InMemoryBusinessKpiStore {
     return clone(this.users.find(user => user.externalId === externalId) || null);
   }
 
+  async listUsers({ storeId = null } = {}) {
+    return clone(this.users
+      .filter(user => !storeId || user.storeId === storeId)
+      .sort((left, right) =>
+        String(left.displayName || left.externalId).localeCompare(
+          String(right.displayName || right.externalId),
+          'ru'
+        )
+      ));
+  }
+
   async updateUserPasswordHash(userId, passwordHash) {
     const user = this.users.find(u => u.id === userId);
     if (user) user.passwordHash = passwordHash;

@@ -16,6 +16,8 @@ const SELLER_TASK_ACTION_ROUTE =
   /^\/api\/business-kpi\/seller-tasks\/([0-9a-f-]{36})\/(approve|approve-edited|reject|complete|not-complete)$/i;
 const SELLER_MODULE_QUIZ_ROUTE =
   /^\/api\/business-kpi\/seller-learning\/modules\/(KNOW-\d+)\/quiz$/i;
+const USER_PASSWORD_RESET_ROUTE =
+  /^\/api\/business-kpi\/users\/([0-9a-f-]{36})\/password$/i;
 const MAX_JSON_BYTES = 64 * 1024;
 const MAX_ONEC_JSON_BYTES = 512 * 1024;
 const MAX_XLSX_BYTES = 20 * 1024 * 1024;
@@ -341,6 +343,39 @@ function createRouter(options) {
         await authService.changePassword(actor.id, body.currentPassword, body.newPassword);
         auth.clearSessionCookies(response);
         success(response, { changed: true });
+        return;
+      }
+
+      if (request.method === 'GET' && url.pathname === '/api/business-kpi/users') {
+        const actor = await auth.requireActor(request);
+        auth.requirePermission(actor, PERMISSIONS.USERS_MANAGE);
+        success(response, {
+          items: await authService.listManagedUsers({
+            storeId: url.searchParams.get('store') || null,
+          }),
+        });
+        return;
+      }
+
+      const userPasswordResetMatch = USER_PASSWORD_RESET_ROUTE.exec(url.pathname);
+      if (request.method === 'POST' && userPasswordResetMatch) {
+        auth.validateCsrf(request);
+        const actor = await auth.requireActor(request);
+        auth.requirePermission(actor, PERMISSIONS.USERS_MANAGE);
+        const body = await readJson(request);
+        if (!body.newPassword) {
+          throw new ApplicationError('VALIDATION_ERROR', 'Новый пароль обязателен.', 422);
+        }
+        const user = await authService.resetManagedUserPassword(
+          actor.id,
+          userPasswordResetMatch[1],
+          body.newPassword,
+          {
+            correlationId: requestId,
+            reason: body.reason,
+          }
+        );
+        success(response, { user, changed: true });
         return;
       }
 
