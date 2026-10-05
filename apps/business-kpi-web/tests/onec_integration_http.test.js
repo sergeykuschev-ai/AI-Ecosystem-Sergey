@@ -7,6 +7,7 @@ const { after, before, test } = require('node:test');
 const { BusinessKpiService } = require('../application/business_kpi_service');
 const { createBusinessKpiWebServer } = require('../server');
 const { loadConfig } = require('../config');
+const { normalizeBatch, sha256 } = require('../application/onec_integration_service');
 
 let server;
 let baseUrl;
@@ -174,6 +175,45 @@ test('repeating the same batch is a no-op', async () => {
     dateTo: '2026-10-03',
   });
   assert.equal(shifts.length, 1);
+});
+
+test('pre-upgrade batch hashes remain safe to retry', async () => {
+  const batch = makeBatch('batch-legacy-retry-1', {
+    recordId: 'amper:2026-10-12',
+    businessDate: '2026-10-12',
+    sourceUpdatedAt: '2026-10-12T20:00:00+10:00',
+  });
+  const normalized = normalizeBatch(batch);
+  const legacyFields = [
+    'recordId', 'storeCode', 'employeeCode', 'businessDate', 'sourceUpdatedAt',
+    'cash', 'acquiring', 'qr', 'b2b', 'b2bOrders', 'receipts', 'itemsSold',
+    'returnsAmount', 'returnReceipts', 'upsellReceipts',
+    'treatsRevenue', 'treatsReceipts',
+  ];
+  const legacyBatch = {
+    ...normalized,
+    records: normalized.records.map(record => Object.fromEntries(
+      legacyFields.map(field => [field, record[field]])
+    )),
+  };
+  store.onecBatches.push({
+    id: 'legacy-batch-1',
+    idempotencyKey: batch.batchId,
+    payloadSha256: sha256({ mode: 'shadow', batch: legacyBatch }),
+    status: 'COMPLETED',
+    result: { mode: 'shadow', recordsShadowed: 1 },
+    receivedAt: new Date().toISOString(),
+  });
+  const retry = await postShadowBatch(batch);
+  assert.equal(retry.response.status, 200, retry.body.error?.message);
+  assert.equal(retry.body.data.duplicateBatch, true);
+  const changed = makeBatch(batch.batchId, {
+    ...batch.records[0],
+    cashiers: [{ ref: 'new-cashier', name: 'Новый кассир' }],
+  });
+  const conflict = await postShadowBatch(changed);
+  assert.equal(conflict.response.status, 409);
+  assert.equal(conflict.body.error.code, 'ONEC_IDEMPOTENCY_CONFLICT');
 });
 
 test('a newer 1C version updates the existing shift instead of duplicating it', async () => {
@@ -347,6 +387,78 @@ test('shadow mode compares 1C with manual KPI without changing shifts', async ()
     dateTo: '2026-10-10',
   });
   assert.equal(shifts.length, 0);
+});
+
+test('Miska store-level shadow sums manual sellers and retains cashier provenance', async () => {
+  const miska = store.stores.find(item => item.code === 'miska');
+  const sellers = store.employees.filter(item =>
+    item.storeId === miska.id && item.employeeCode.startsWith('seller-')
+  ).slice(0, 2);
+  assert.equal(sellers.length, 2);
+  for (const [index, employee] of sellers.entries()) {
+    store.shifts.push({
+      id: `73000000-0000-4000-8000-00000000000${index + 1}`,
+      storeId: miska.id,
+      employeeId: employee.id,
+      employeeName: employee.displayName,
+      shiftDate: '2026-10-11',
+      shiftKey: 'main',
+      cash: 100 + index * 100,
+      acquiring: 200 + index * 100,
+      qr: 50,
+      b2b: 0,
+      b2bOrders: 0,
+      receipts: 2,
+      itemsSold: 4,
+      source: 'web_manual',
+      archivedAt: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+  }
+  const batch = makeBatch('shadow-miska-store-1', {
+    recordId: 'miska:2026-10-11',
+    storeCode: 'miska',
+    businessDate: '2026-10-11',
+    sourceUpdatedAt: '2026-10-11T20:00:00+10:00',
+    employeeCode: undefined,
+    cash: 300,
+    acquiring: 500,
+    qr: 100,
+    b2b: 0,
+    b2bOrders: 0,
+    receipts: 4,
+    itemsSold: 8,
+    returnsAmount: 0,
+    cashiers: [{
+      ref: 'cashier-guid',
+      name: 'Тестовый кассир',
+      receipts: 4,
+      itemsSold: 8,
+    }],
+    sourceDocuments: [{
+      type: 'retail_sale',
+      ref: 'receipt-guid',
+      postedAt: '2026-10-11T11:00:00+10:00',
+      updatedAt: '2026-10-11T11:01:00+10:00',
+    }],
+  });
+  const { response, body } = await postShadowBatch(batch);
+  assert.equal(response.status, 201, body.error?.message);
+  assert.equal(body.data.records[0].status, 'matched_manual');
+  const saved = await store.getOnecDailySalesRecord(batch.sourceInstance, batch.records[0].recordId);
+  assert.equal(saved.employeeId, null);
+  assert.equal(saved.cashiers[0].name, 'Тестовый кассир');
+  assert.equal(saved.sourceDocuments[0].ref, 'receipt-guid');
+  const apply = await postBatch({ ...batch, batchId: 'apply-miska-without-seller-1' });
+  assert.equal(apply.response.status, 409);
+  assert.equal(apply.body.error.code, 'ONEC_MISKA_APPLY_REQUIRES_REVIEW');
+  const misattributed = await postBatch(makeBatch('apply-miska-misattributed-1', {
+    ...batch.records[0],
+    employeeCode: sellers[0].employeeCode,
+  }));
+  assert.equal(misattributed.response.status, 409);
+  assert.equal(misattributed.body.error.code, 'ONEC_MISKA_APPLY_REQUIRES_REVIEW');
 });
 
 test('a failing multi-record batch rolls back every record', async () => {

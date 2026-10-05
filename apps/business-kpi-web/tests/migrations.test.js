@@ -67,6 +67,7 @@ test('migration files are ordered and checksummed deterministically', () => {
     '015_store_qr_targets.up.sql',
     '016_monge_training.up.sql',
     '020_onec_integration.up.sql',
+    '021_onec_ut11527_contract.up.sql',
   ]);
   const sellerTasksSql = fs.readFileSync(
     path.join(migrationsRoot, '005_seller_tasks.up.sql'),
@@ -127,6 +128,14 @@ test('migration files are ordered and checksummed deterministically', () => {
   assert.match(onecIntegrationSql, /UNIQUE \(source_instance, external_record_id\)/);
   assert.match(onecIntegrationSql, /business_kpi_onec_shift_source_ref/);
   assert.match(onecIntegrationSql, /'metiz-market', 'Метиз Маркет'/);
+  const onecUtContractSql = fs.readFileSync(
+    path.join(migrationsRoot, '021_onec_ut11527_contract.up.sql'),
+    'utf8'
+  );
+  assert.match(onecUtContractSql, /retail_sales_amount numeric\(14,2\)/);
+  assert.match(onecUtContractSql, /cashiers_json jsonb/);
+  assert.match(onecUtContractSql, /source_documents_json jsonb/);
+  assert.match(onecUtContractSql, /onec_daily_sales_net_retail_consistent/);
   assert.equal(computeChecksum(sql), computeChecksum(sql));
   assert.equal(computeChecksum(sql).length, 64);
 });

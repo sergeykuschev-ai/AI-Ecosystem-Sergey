@@ -12,9 +12,23 @@ const MAX_BATCH_RECORDS = 500;
 const RECORD_FIELDS = new Set([
   'recordId', 'storeCode', 'employeeCode', 'businessDate', 'sourceUpdatedAt',
   'cash', 'acquiring', 'qr', 'b2b', 'b2bOrders', 'receipts', 'itemsSold',
-  'returnsAmount', 'returnReceipts', 'upsellReceipts',
+  'returnsAmount', 'retailSales', 'retailReturns',
+  'cashReturns', 'cardReturns', 'qrReturns', 'returnReceipts',
+  'cashiers', 'sourceDocuments', 'organizationRefs', 'upsellReceipts',
   'treatsRevenue', 'treatsReceipts',
 ]);
+
+const SOURCE_DOCUMENT_TYPES = new Set([
+  'retail_sale', 'retail_return', 'b2b_shipment',
+]);
+const MAX_SOURCE_DOCUMENTS = 5000;
+const MAX_CASHIERS = 500;
+const LEGACY_RECORD_FIELDS = [
+  'recordId', 'storeCode', 'employeeCode', 'businessDate', 'sourceUpdatedAt',
+  'cash', 'acquiring', 'qr', 'b2b', 'b2bOrders', 'receipts', 'itemsSold',
+  'returnsAmount', 'returnReceipts', 'upsellReceipts',
+  'treatsRevenue', 'treatsReceipts',
+];
 
 function sortForJson(value) {
   if (Array.isArray(value)) return value.map(sortForJson);
@@ -30,6 +44,38 @@ function stableStringify(value) {
 
 function sha256(value) {
   return crypto.createHash('sha256').update(stableStringify(value)).digest('hex');
+}
+
+function legacyRecord(record) {
+  return Object.fromEntries(LEGACY_RECORD_FIELDS.map(field => [field, record[field]]));
+}
+
+function legacyBatchHash(batch, mode) {
+  return sha256({
+    mode,
+    batch: {
+      ...batch,
+      records: batch.records.map(legacyRecord),
+    },
+  });
+}
+
+function isLegacyRequest(payload) {
+  return Array.isArray(payload?.records) && payload.records.every(record =>
+    record && typeof record === 'object' &&
+    Object.keys(record).every(field => LEGACY_RECORD_FIELDS.includes(field))
+  );
+}
+
+function sameRecordVersion(previous, record, recordHash) {
+  if (!previous) return false;
+  if (previous.payloadSha256 === recordHash) return true;
+  if (!previous.payload || typeof previous.payload !== 'object') return false;
+  try {
+    return sha256(normalizeRecord(previous.payload, 0)) === recordHash;
+  } catch {
+    return false;
+  }
 }
 function requiredText(value, fieldName, maxLength = 160) {
   if (typeof value !== 'string' || !value.trim()) {
@@ -96,6 +142,66 @@ function count(value, fieldName, options = {}) {
   return value;
 }
 
+function optionalText(value, fieldName, maxLength = 240) {
+  if (value === null || value === undefined || value === '') return null;
+  return requiredText(value, fieldName, maxLength);
+}
+
+function normalizeCashier(input, index, recordIndex) {
+  const field = `records[${recordIndex}].cashiers[${index}]`;
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new ApplicationError('ONEC_VALIDATION_ERROR', `${field} должен быть объектом.`, 422);
+  }
+  return {
+    ref: requiredText(input.ref, `${field}.ref`, 160),
+    code: optionalText(input.code, `${field}.code`, 120),
+    name: requiredText(input.name, `${field}.name`, 240),
+    receipts: count(input.receipts, `${field}.receipts`, { defaultValue: 0 }),
+    itemsSold: count(input.itemsSold, `${field}.itemsSold`, { defaultValue: 0 }),
+  };
+}
+
+function normalizeSourceDocument(input, index, recordIndex) {
+  const field = `records[${recordIndex}].sourceDocuments[${index}]`;
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new ApplicationError('ONEC_VALIDATION_ERROR', `${field} должен быть объектом.`, 422);
+  }
+  const type = requiredText(input.type, `${field}.type`, 40);
+  if (!SOURCE_DOCUMENT_TYPES.has(type)) {
+    throw new ApplicationError(
+      'ONEC_VALIDATION_ERROR',
+      `${field}.type должен быть retail_sale, retail_return или b2b_shipment.`,
+      422
+    );
+  }
+  return {
+    type,
+    ref: requiredText(input.ref, `${field}.ref`, 160),
+    number: optionalText(input.number, `${field}.number`, 80),
+    postedAt: timestampText(input.postedAt, `${field}.postedAt`),
+    updatedAt: timestampText(input.updatedAt, `${field}.updatedAt`),
+    warehouseRef: optionalText(input.warehouseRef, `${field}.warehouseRef`, 160),
+    organizationRef: optionalText(input.organizationRef, `${field}.organizationRef`, 160),
+    cashierRef: optionalText(input.cashierRef, `${field}.cashierRef`, 160),
+  };
+}
+
+function normalizeArray(value, fieldName, maxItems, normalizer, recordIndex) {
+  if (value === null || value === undefined) return [];
+  if (!Array.isArray(value) || value.length > maxItems) {
+    throw new ApplicationError(
+      'ONEC_VALIDATION_ERROR',
+      `${fieldName} должен быть массивом не более ${maxItems} элементов.`,
+      422
+    );
+  }
+  return value.map((item, index) => normalizer(item, index, recordIndex));
+}
+
+function sameMoney(left, right) {
+  return Math.abs(left - right) <= 0.01;
+}
+
 function normalizeRecord(input, index) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) {
     throw new ApplicationError('ONEC_VALIDATION_ERROR', `records[${index}] должен быть объектом.`, 422);
@@ -105,6 +211,40 @@ function normalizeRecord(input, index) {
     throw new ApplicationError(
       'ONEC_UNSUPPORTED_FIELD',
       `Поле records[${index}].${unknown} не поддерживается контрактом ${CONTRACT_VERSION}.`,
+      422
+    );
+  }
+  const legacyReturns = money(input.returnsAmount, `records[${index}].returnsAmount`, {
+    optional: true,
+  });
+  const explicitRetailReturns = money(input.retailReturns, `records[${index}].retailReturns`, {
+    optional: true,
+  });
+  if (legacyReturns !== null && explicitRetailReturns !== null &&
+      !sameMoney(legacyReturns, explicitRetailReturns)) {
+    throw new ApplicationError(
+      'ONEC_VALIDATION_ERROR',
+      `records[${index}].returnsAmount и retailReturns должны совпадать.`,
+      422
+    );
+  }
+  const cashReturns = money(input.cashReturns, `records[${index}].cashReturns`, {
+    defaultValue: 0,
+  });
+  const cardReturns = money(input.cardReturns, `records[${index}].cardReturns`, {
+    defaultValue: 0,
+  });
+  const qrReturns = money(input.qrReturns, `records[${index}].qrReturns`, {
+    defaultValue: 0,
+  });
+  const hasReturnBreakdown = ['cashReturns', 'cardReturns', 'qrReturns']
+    .some(field => input[field] !== null && input[field] !== undefined);
+  const retailReturns = explicitRetailReturns ?? legacyReturns ??
+    Math.round((cashReturns + cardReturns + qrReturns) * 100) / 100;
+  if (hasReturnBreakdown && !sameMoney(retailReturns, cashReturns + cardReturns + qrReturns)) {
+    throw new ApplicationError(
+      'ONEC_VALIDATION_ERROR',
+      `records[${index}].retailReturns должен равняться сумме возвратов cash/card/qr.`,
       422
     );
   }
@@ -123,8 +263,34 @@ function normalizeRecord(input, index) {
     b2bOrders: count(input.b2bOrders, `records[${index}].b2bOrders`, { defaultValue: 0 }),
     receipts: count(input.receipts, `records[${index}].receipts`),
     itemsSold: count(input.itemsSold, `records[${index}].itemsSold`, { optional: true }),
-    returnsAmount: money(input.returnsAmount, `records[${index}].returnsAmount`, { defaultValue: 0 }),
+    retailSales: money(input.retailSales, `records[${index}].retailSales`, { optional: true }),
+    retailReturns,
+    returnsAmount: retailReturns,
+    cashReturns,
+    cardReturns,
+    qrReturns,
     returnReceipts: count(input.returnReceipts, `records[${index}].returnReceipts`, { defaultValue: 0 }),
+    cashiers: normalizeArray(
+      input.cashiers, `records[${index}].cashiers`, MAX_CASHIERS, normalizeCashier, index
+    ),
+    sourceDocuments: normalizeArray(
+      input.sourceDocuments,
+      `records[${index}].sourceDocuments`,
+      MAX_SOURCE_DOCUMENTS,
+      normalizeSourceDocument,
+      index
+    ),
+    organizationRefs: normalizeArray(
+      input.organizationRefs,
+      `records[${index}].organizationRefs`,
+      100,
+      (value, itemIndex) => requiredText(
+        value,
+        `records[${index}].organizationRefs[${itemIndex}]`,
+        160
+      ),
+      index
+    ),
     upsellReceipts: count(input.upsellReceipts, `records[${index}].upsellReceipts`, { optional: true }),
     treatsRevenue: money(input.treatsRevenue, `records[${index}].treatsRevenue`, { optional: true }),
     treatsReceipts: count(input.treatsReceipts, `records[${index}].treatsReceipts`, { optional: true }),
@@ -133,6 +299,20 @@ function normalizeRecord(input, index) {
     throw new ApplicationError(
       'ONEC_VALIDATION_ERROR',
       `records[${index}].qr не может быть больше acquiring: QR уже входит в эквайринг.`,
+      422
+    );
+  }
+  const netRetailRevenue = Math.round((normalized.cash + normalized.acquiring) * 100) / 100;
+  if (normalized.retailSales === null) {
+    normalized.retailSales = Math.round((netRetailRevenue + normalized.retailReturns) * 100) / 100;
+  }
+  if (!sameMoney(
+    normalized.retailSales - normalized.retailReturns,
+    netRetailRevenue
+  )) {
+    throw new ApplicationError(
+      'ONEC_VALIDATION_ERROR',
+      `records[${index}]: retailSales - retailReturns должен равняться cash + acquiring; QR отдельно не прибавляется.`,
       422
     );
   }
@@ -257,6 +437,23 @@ function buildShadowComparison(record, shift) {
   };
 }
 
+function aggregateManualStoreShifts(shifts) {
+  const manual = shifts.filter(shift => !shift.archivedAt && shift.source !== '1c');
+  if (manual.length === 0) return null;
+  const fields = ['cash', 'acquiring', 'qr', 'b2b', 'receipts', 'itemsSold'];
+  const aggregate = {
+    id: null,
+    source: 'web_manual',
+  };
+  for (const field of fields) {
+    const values = manual.map(shift => shift[field]);
+    aggregate[field] = values.some(value => value === null || value === undefined)
+      ? null
+      : Math.round(values.reduce((sum, value) => sum + Number(value), 0) * 100) / 100;
+  }
+  return aggregate;
+}
+
 class OnecIntegrationService {
   constructor(options) {
     this.store = options.store;
@@ -265,7 +462,7 @@ class OnecIntegrationService {
     this.now = options.now || (() => new Date());
   }
 
-  async resolveReferences(store, record) {
+  async resolveReferences(store, record, options = {}) {
     const storeRecord = await store.getStoreByCode(record.storeCode);
     if (!storeRecord?.active) {
       throw new ApplicationError(
@@ -273,6 +470,18 @@ class OnecIntegrationService {
         `Не найден активный магазин для storeCode=${record.storeCode}.`,
         409
       );
+    }
+    if (record.storeCode === 'miska') {
+      if (options.shadow && !record.employeeCode) {
+        return { storeRecord, employee: null, employeeCode: null };
+      }
+      if (!options.shadow) {
+        throw new ApplicationError(
+          'ONEC_MISKA_APPLY_REQUIRES_REVIEW',
+          'Магазинный итог Миски нельзя записывать как персональную смену. Требуется отдельная сверка кассиров.',
+          409
+        );
+      }
     }
     const employeeCode = record.employeeCode || `${record.storeCode}-store-input`;
     const employee = await store.getEmployeeByCode(storeRecord.id, employeeCode);
@@ -313,7 +522,15 @@ class OnecIntegrationService {
       recordId: record.recordId,
       sourceUpdatedAt: record.sourceUpdatedAt,
       returnsAmount: record.returnsAmount,
+      retailSales: record.retailSales,
+      retailReturns: record.retailReturns,
+      cashReturns: record.cashReturns,
+      cardReturns: record.cardReturns,
+      qrReturns: record.qrReturns,
       returnReceipts: record.returnReceipts,
+      cashiers: record.cashiers,
+      sourceDocuments: record.sourceDocuments,
+      organizationRefs: record.organizationRefs,
       payloadSha256: recordHash,
     };
     const identity = await store.getActiveShiftByIdentity(
@@ -405,7 +622,16 @@ class OnecIntegrationService {
       payloadHash = sha256({ mode: 'apply', batch });
       const existingBatch = await this.store.getOnecBatchByKey(batch.batchId);
     if (existingBatch) {
-      if (existingBatch.payloadSha256 !== payloadHash) {
+      if (existingBatch.payloadSha256 !== payloadHash &&
+          !isLegacyRequest(payload)) {
+        throw new ApplicationError(
+          'ONEC_IDEMPOTENCY_CONFLICT',
+          'batchId уже использован для другого содержимого.',
+          409
+        );
+      }
+      if (existingBatch.payloadSha256 !== payloadHash &&
+          existingBatch.payloadSha256 !== legacyBatchHash(batch, 'apply')) {
         throw new ApplicationError(
           'ONEC_IDEMPOTENCY_CONFLICT',
           'batchId уже использован для другого содержимого.',
@@ -437,7 +663,9 @@ class OnecIntegrationService {
       });
       if (!createdBatch) {
         const raced = await store.getOnecBatchByKey(batch.batchId);
-        if (raced?.payloadSha256 === payloadHash) {
+        if (raced?.payloadSha256 === payloadHash ||
+            (isLegacyRequest(payload) &&
+            raced?.payloadSha256 === legacyBatchHash(batch, 'apply'))) {
           return { ...(raced.result || {}), batchId: batch.batchId, duplicateBatch: true };
         }
         throw new ApplicationError('ONEC_IDEMPOTENCY_CONFLICT', 'Конфликт batchId.', 409);
@@ -451,7 +679,8 @@ class OnecIntegrationService {
           batch.sourceInstance,
           record.recordId
         );
-        if (previous && previous.payloadSha256 !== recordHash &&
+        const unchangedVersion = sameRecordVersion(previous, record, recordHash);
+        if (previous && !unchangedVersion &&
             new Date(record.sourceUpdatedAt) <= new Date(previous.sourceUpdatedAt)) {
           throw new ApplicationError(
             'ONEC_STALE_RECORD',
@@ -461,7 +690,7 @@ class OnecIntegrationService {
         }
 
         let shiftResult;
-        if (previous && previous.payloadSha256 === recordHash && previous.appliedShiftId) {
+        if (unchangedVersion && previous.appliedShiftId) {
           const existingShift = await store.getShift(previous.appliedShiftId);
           if (existingShift) {
             shiftResult = { shift: existingShift, status: 'unchanged', metrics: null };
@@ -494,7 +723,15 @@ class OnecIntegrationService {
           receipts: record.receipts,
           itemsSold: record.itemsSold,
           returnsAmount: record.returnsAmount,
+          retailSales: record.retailSales,
+          retailReturns: record.retailReturns,
+          cashReturns: record.cashReturns,
+          cardReturns: record.cardReturns,
+          qrReturns: record.qrReturns,
           returnReceipts: record.returnReceipts,
+          cashiers: record.cashiers,
+          sourceDocuments: record.sourceDocuments,
+          organizationRefs: record.organizationRefs,
           sourceUpdatedAt: record.sourceUpdatedAt,
           payloadSha256: recordHash,
           payload: record,
@@ -574,7 +811,16 @@ class OnecIntegrationService {
       payloadHash = sha256({ mode: 'shadow', batch });
       const existingBatch = await this.store.getOnecBatchByKey(batch.batchId);
       if (existingBatch) {
-        if (existingBatch.payloadSha256 !== payloadHash) {
+        if (existingBatch.payloadSha256 !== payloadHash &&
+            !isLegacyRequest(payload)) {
+          throw new ApplicationError(
+            'ONEC_IDEMPOTENCY_CONFLICT',
+            'batchId уже использован для другого содержимого.',
+            409
+          );
+        }
+        if (existingBatch.payloadSha256 !== payloadHash &&
+            existingBatch.payloadSha256 !== legacyBatchHash(batch, 'shadow')) {
           throw new ApplicationError(
             'ONEC_IDEMPOTENCY_CONFLICT',
             'batchId уже использован для другого содержимого или режима.',
@@ -606,7 +852,9 @@ class OnecIntegrationService {
         });
         if (!createdBatch) {
           const raced = await store.getOnecBatchByKey(batch.batchId);
-          if (raced?.payloadSha256 === payloadHash) {
+          if (raced?.payloadSha256 === payloadHash ||
+              (isLegacyRequest(payload) &&
+              raced?.payloadSha256 === legacyBatchHash(batch, 'shadow'))) {
             return {
               ...(raced.result || {}),
               batchId: batch.batchId,
@@ -619,7 +867,7 @@ class OnecIntegrationService {
         const results = [];
         for (const record of batch.records) {
           const recordHash = sha256(record);
-          const references = await this.resolveReferences(store, record);
+          const references = await this.resolveReferences(store, record, { shadow: true });
           const previous = await store.getOnecDailySalesRecord(
             batch.sourceInstance,
             record.recordId
@@ -631,7 +879,7 @@ class OnecIntegrationService {
               409
             );
           }
-          if (previous && previous.payloadSha256 !== recordHash &&
+          if (previous && !sameRecordVersion(previous, record, recordHash) &&
               new Date(record.sourceUpdatedAt) <= new Date(previous.sourceUpdatedAt)) {
             throw new ApplicationError(
               'ONEC_STALE_RECORD',
@@ -640,12 +888,26 @@ class OnecIntegrationService {
             );
           }
 
-          const manualShift = await store.getActiveShiftByIdentity(
-            references.storeRecord.id,
-            references.employee.id,
-            record.businessDate,
-            'main'
-          );
+          const storeShifts = references.employee ? null : await store.listShifts({
+            storeId: references.storeRecord.id,
+            dateFrom: record.businessDate,
+            dateTo: record.businessDate,
+          });
+          if (storeShifts?.some(shift => shift.source === '1c')) {
+            throw new ApplicationError(
+              'ONEC_SHADOW_AFTER_APPLY',
+              `В магазине ${record.storeCode} за ${record.businessDate} уже есть применённая запись 1С.`,
+              409
+            );
+          }
+          const manualShift = references.employee
+            ? await store.getActiveShiftByIdentity(
+              references.storeRecord.id,
+              references.employee.id,
+              record.businessDate,
+              'main'
+            )
+            : aggregateManualStoreShifts(storeShifts);
           if (manualShift?.source === '1c') {
             throw new ApplicationError(
               'ONEC_SHADOW_AFTER_APPLY',
@@ -661,7 +923,7 @@ class OnecIntegrationService {
             sourceInstance: batch.sourceInstance,
             externalRecordId: record.recordId,
             storeId: references.storeRecord.id,
-            employeeId: references.employee.id,
+            employeeId: references.employee?.id || null,
             businessDate: record.businessDate,
             cash: record.cash,
             acquiring: record.acquiring,
@@ -671,7 +933,15 @@ class OnecIntegrationService {
             receipts: record.receipts,
             itemsSold: record.itemsSold,
             returnsAmount: record.returnsAmount,
+            retailSales: record.retailSales,
+            retailReturns: record.retailReturns,
+            cashReturns: record.cashReturns,
+            cardReturns: record.cardReturns,
+            qrReturns: record.qrReturns,
             returnReceipts: record.returnReceipts,
+            cashiers: record.cashiers,
+            sourceDocuments: record.sourceDocuments,
+            organizationRefs: record.organizationRefs,
             sourceUpdatedAt: record.sourceUpdatedAt,
             payloadSha256: recordHash,
             payload: record,

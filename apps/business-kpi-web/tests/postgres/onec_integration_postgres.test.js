@@ -114,13 +114,21 @@ test('1C HTTP ingest persists raw record, audit and KPI shift in PostgreSQL', as
   assert.equal(Number(shift.rows[0].source_reference_json.returnsAmount), 700);
 
   const raw = await pool.query(
-    `SELECT returns_amount, return_receipts, payload_sha256, applied_shift_id
+    `SELECT returns_amount, retail_sales_amount, retail_returns_amount,
+            cash_returns_amount, card_returns_amount, qr_returns_amount,
+            cashiers_json, source_documents_json,
+            return_receipts, payload_sha256, applied_shift_id
      FROM business_kpi.onec_daily_sales
      WHERE source_instance=$1 AND external_record_id=$2`,
     [payload.sourceInstance, payload.records[0].recordId]
   );
   assert.equal(raw.rowCount, 1);
   assert.equal(Number(raw.rows[0].returns_amount), 700);
+  assert.equal(Number(raw.rows[0].retail_sales_amount), 36502.45);
+  assert.equal(Number(raw.rows[0].retail_returns_amount), 700);
+  assert.equal(Number(raw.rows[0].cash_returns_amount), 0);
+  assert.deepEqual(raw.rows[0].cashiers_json, []);
+  assert.deepEqual(raw.rows[0].source_documents_json, []);
   assert.equal(Number(raw.rows[0].return_receipts), 1);
   assert.equal(raw.rows[0].applied_shift_id, shiftId);
   assert.equal(raw.rows[0].payload_sha256.length, 64);
@@ -194,6 +202,35 @@ test('shadow ingest persists 1C facts without changing a manual PostgreSQL shift
   assert.equal(raw.rowCount, 1);
   assert.equal(raw.rows[0].applied_shift_id, null);
   assert.equal(Number(raw.rows[0].cash_amount), 12345.67);
+});
+
+test('Miska store-level shadow persists without a fabricated employee', async () => {
+  const payload = batch(`pg-miska-shadow-${Date.now()}`, {
+    recordId: 'miska:2026-10-10',
+    storeCode: 'miska',
+    employeeCode: undefined,
+    businessDate: '2026-10-10',
+    sourceUpdatedAt: '2026-10-10T20:00:00+10:00',
+    cashiers: [{
+      ref: 'synthetic-cashier-guid',
+      name: 'Тестовый кассир',
+      receipts: 31,
+      itemsSold: 72,
+    }],
+  });
+  const { response, body } = await postShadow(payload);
+  assert.equal(response.status, 201, body.error?.message);
+  assert.equal(body.data.records[0].status, 'no_manual_record');
+  const saved = await pool.query(
+    `SELECT employee_id, cashiers_json, applied_shift_id
+     FROM business_kpi.onec_daily_sales
+     WHERE source_instance=$1 AND external_record_id=$2`,
+    [payload.sourceInstance, payload.records[0].recordId]
+  );
+  assert.equal(saved.rowCount, 1);
+  assert.equal(saved.rows[0].employee_id, null);
+  assert.equal(saved.rows[0].cashiers_json[0].name, 'Тестовый кассир');
+  assert.equal(saved.rows[0].applied_shift_id, null);
 });
 
 test('PostgreSQL path keeps failed batches atomic and records diagnostics', async () => {
