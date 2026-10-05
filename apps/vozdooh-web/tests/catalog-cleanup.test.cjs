@@ -236,7 +236,10 @@ test('rendered discovery, every landing, product backlinks and metadata retain c
     const backlink = details.match(/class="productBack" href="([^"]+)"/)[1].replaceAll('&amp;', '&')
     const url = new URL(backlink, 'http://localhost')
     for (const [key, value] of Object.entries(params)) assert.equal(url.searchParams.get(key), value)
-    assert.equal((await Product.generateMetadata(props)).alternates.canonical, `/catalog/${product.editorial.slug}`)
+    const productMetadata = await Product.generateMetadata(props)
+    assert.equal(productMetadata.alternates.canonical, `/catalog/${product.editorial.slug}`)
+    assert.equal((productMetadata.title.match(/VOZDOOH/g) ?? []).length, 1)
+    assert.match(productMetadata.title, / — VOZDOOH$/)
   } finally {
     source.getCatalogRepository = originalRepository
     source.catalogSource = originalSource

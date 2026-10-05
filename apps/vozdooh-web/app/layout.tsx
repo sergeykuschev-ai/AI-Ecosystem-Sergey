@@ -5,10 +5,7 @@ import './globals.css'
 
 export const metadata: Metadata = {
   metadataBase: new URL(getEnv().siteUrl),
-  title: {
-    default: 'VOZDOOH — парфюмерия для дома',
-    template: '%s — VOZDOOH',
-  },
+  title: 'VOZDOOH — парфюмерия для дома',
   description: 'VOZDOOH — каталог ароматов для дома. Подбор по бренду и формату.',
   openGraph: {
     type: 'website',
