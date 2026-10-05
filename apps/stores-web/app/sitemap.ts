@@ -20,6 +20,7 @@ const staticPaths = [
   "/bonus/",
   "/o-kompanii/",
   "/kontakty/",
+  "/reklama/",
   "/stati/",
   ...AMPER_SEO_CATEGORY_PATHS,
   ...VENTIL_SEO_CATEGORY_PATHS,

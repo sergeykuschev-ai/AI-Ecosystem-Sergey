@@ -76,6 +76,7 @@ const EXPECTED_STATIC_PAGES = [
   "/metiz-market/",
   "/miska/",
   "/o-kompanii/",
+  "/reklama/",
   "/politika-konfidencialnosti/",
   "/soglasie-na-obrabotku-dannyh/",
   "/stores/",

@@ -6,4 +6,5 @@ export const KEY_RECRAWL_PATHS = [
   "/metiz-market/",
   "/miska/",
   "/kontakty/",
+  "/reklama/",
 ] as const;

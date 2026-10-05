@@ -34,6 +34,7 @@ import * as promotionsPage from "@/app/akcii/page";
 import * as bonusPage from "@/app/bonus/page";
 import * as vacanciesPage from "@/app/vakansii/page";
 import * as aboutPage from "@/app/o-kompanii/page";
+import * as advertisingPage from "@/app/reklama/page";
 import * as contactsPage from "@/app/kontakty/page";
 import * as faqPage from "@/app/faq/page";
 import { generateMetadata as generateCityMetadata } from "@/app/stores/[city]/page";
@@ -51,6 +52,7 @@ const PUBLIC_STATIC_PATHS = [
   "/vakansii/",
   "/o-kompanii/",
   "/kontakty/",
+  "/reklama/",
   "/faq/",
 ];
 
@@ -74,6 +76,7 @@ const INDEXABLE_STATIC_PAGES = [
   { module: storesPage, path: "/stores/" },
   { module: bonusPage, path: "/bonus/" },
   { module: aboutPage, path: "/o-kompanii/" },
+  { module: advertisingPage, path: "/reklama/" },
   ...BRAND_PAGES,
 ];
 
@@ -109,6 +112,7 @@ describe("page metadata", () => {
       ["/metiz-market/", metizMarketPage.metadata],
       ["/miska/", miskaPage.metadata],
       ["/kontakty/", contactsMetadata],
+      ["/reklama/", advertisingPage.metadata],
       ["/stores/amursk/", await generateCityMetadata({ params: Promise.resolve({ city: "amursk" }) })],
     ]);
 
