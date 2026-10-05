@@ -150,7 +150,7 @@ describe("actual slider carousel accessibility", () => {
   });
 
   test("brand slides carry their brand for the contrast-safe text palette", () => {
-    assert.match(markup, /data-slide-index="3" data-brand="amper"/);
+    assert.match(markup, /data-slide-index="\d+" data-brand="amper"/);
   });
 });
 

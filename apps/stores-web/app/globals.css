@@ -341,12 +341,50 @@ p { margin: 0 0 1rem; }
 .status-warning { display: inline-block; padding: 0.45rem 0.7rem; color: #8a2c0d; background: #ffead5; border-radius: 0.4rem; font-weight: 800; }
 .prose { max-width: 52rem; }
 .prose h2 { margin-top: 2rem; font-size: 1.7rem; }
+.advertising-page { --advertising-accent: #183153; --advertising-soft: #eef3f8; }
+.advertising-section { padding: clamp(1.5rem, 4vw, 2.75rem) 0; border-top: 1px solid var(--line); }
+.advertising-section:first-of-type { border-top: 0; }
+.advertising-section h2 { max-width: 48rem; }
+.advertising-network { margin-top: 0.5rem; }
+.advertising-network > p:not(.eyebrow) { max-width: 52rem; color: #354250; }
+.advertising-store-list { display: flex; flex-wrap: wrap; gap: 0.6rem; margin: 1.2rem 0 0; padding: 0; list-style: none; }
+.advertising-store-list li { padding: 0.55rem 0.8rem; border: 1px solid color-mix(in srgb, var(--advertising-accent) 25%, var(--line)); border-radius: 999px; background: var(--advertising-soft); font-weight: 800; }
+.advertising-tariff-grid { display: grid; gap: 1rem; margin-top: 1.25rem; }
+.advertising-tariff { position: relative; padding: 1.4rem; border: 1px solid var(--line); border-top: 0.35rem solid var(--advertising-accent); border-radius: var(--radius); background: white; }
+.advertising-tariff--featured { box-shadow: var(--shadow); background: linear-gradient(145deg, white, var(--advertising-soft)); }
+.advertising-tariff__badge { display: inline-flex; margin-bottom: 0.8rem; padding: 0.3rem 0.6rem; border-radius: 999px; background: var(--advertising-accent); color: white; font-size: 0.72rem; font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase; }
+.advertising-tariff h3 { margin-bottom: 0.5rem; }
+.advertising-tariff__plays { margin-bottom: 0.2rem; font-weight: 800; }
+.advertising-tariff__frequency, .advertising-tariff__note, .advertising-fineprint { color: var(--muted); }
+.advertising-tariff__price { margin: 1rem 0 0.3rem; }
+.advertising-tariff__price strong { font-size: clamp(1.9rem, 6vw, 2.5rem); }
+.advertising-tariff__price span { color: var(--muted); }
+.advertising-tariff__note { margin-bottom: 0; font-size: 0.92rem; font-weight: 700; }
+.advertising-fineprint { max-width: 52rem; margin-top: 1rem; font-size: 0.92rem; }
+.advertising-production { display: grid; gap: 1rem; align-items: center; }
+.advertising-production p { max-width: 48rem; }
+.advertising-production__spec { display: grid; gap: 0.35rem; padding: 1.2rem; border-radius: var(--radius); background: var(--advertising-soft); }
+.advertising-production__spec strong { font-size: 1.1rem; }
+.advertising-steps { display: grid; gap: 0.8rem; margin: 1.1rem 0 0; padding: 0; list-style: none; counter-reset: ad-step; }
+.advertising-steps li { position: relative; min-height: 3.2rem; padding: 0.85rem 1rem 0.85rem 3.6rem; border: 1px solid var(--line); border-radius: var(--radius); background: white; counter-increment: ad-step; }
+.advertising-steps li::before { content: counter(ad-step); position: absolute; top: 0.7rem; left: 0.85rem; width: 2rem; height: 2rem; display: grid; place-items: center; border-radius: 50%; background: var(--advertising-accent); color: white; font-weight: 900; }
+.advertising-rules ul { max-width: 52rem; padding-left: 1.25rem; }
+.advertising-rules li + li { margin-top: 0.5rem; }
+.advertising-cta { display: flex; flex-direction: column; align-items: flex-start; gap: 1.2rem; margin-top: clamp(1rem, 3vw, 2rem); padding: clamp(1.4rem, 4vw, 2rem); border-radius: var(--radius); background: #17212b; color: white; }
+.advertising-cta h2, .advertising-cta .eyebrow { color: white; }
+.advertising-cta p { max-width: 44rem; margin-bottom: 0; color: #dbe3ea; }
+
 .site-footer { margin-top: 4rem; padding: 3rem 0; color: #e8edf3; background: #17212b; }
 .footer-grid { display: grid; gap: 2rem; }
 .site-footer nav { display: flex; flex-direction: column; gap: 0.6rem; }
 .site-footer nav a { min-height: 2.75rem; display: inline-flex; align-items: center; }
 
 @media (min-width: 42rem) {
+  .advertising-tariff-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .advertising-production { grid-template-columns: minmax(0, 1.5fr) minmax(14rem, 0.6fr); }
+  .advertising-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .advertising-cta { flex-direction: row; align-items: center; justify-content: space-between; }
+  .advertising-cta .button { flex: 0 0 auto; }
   .store-navigation__link { min-height: 2.5rem; height: 2.5rem; padding-inline: 0.5rem; font-size: 0.82rem; white-space: nowrap; }
   .miska-feature-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .miska-category-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

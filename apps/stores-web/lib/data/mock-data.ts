@@ -145,6 +145,22 @@ export const mockVacancies: Vacancy[] = [];
 
 export const mockActualItems: ActualItem[] = [
   {
+    id: "actual-audio-advertising",
+    type: "general",
+    brandId: null,
+    title: "Аудиореклама вашего бизнеса в 4 магазинах Амурска",
+    shortText: "",
+    image: null,
+    imageAlt: null,
+    badge: "Для бизнеса",
+    buttonText: "Узнать условия",
+    buttonUrl: "/reklama/",
+    startsAt: null,
+    endsAt: null,
+    priority: 450,
+    active: true,
+  },
+  {
     id: "actual-miska-award-vet",
     type: "promotion",
     brandId: "brand-miska",

@@ -43,6 +43,7 @@ const PAGE_CHECKS: PageCheck[] = [
   { path: "/vakansii/", markers: ["Вакансии"] },
   { path: "/faq/", markers: ["Частые вопросы"] },
   { path: "/o-kompanii/", markers: ["О компании"] },
+  { path: "/reklama/", markers: ["Аудиореклама", "3 000 ₽", "8 000 ₽"] },
   { path: "/stores/amursk/", markers: ["Магазины в", "Амурск"] },
   { path: "/sitemap.xml", markers: ["urlset", "https://amurskmarket.ru/"] },
   { path: "/robots.txt", markers: ["User-agent", "Sitemap:"], caseInsensitive: true },

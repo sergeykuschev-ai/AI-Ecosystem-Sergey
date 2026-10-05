@@ -27,7 +27,12 @@ const fields = ["*", "brandId.*", "image.*"];
 async function getVisibleActualItems(now: Date): Promise<ActualItem[]> {
   const directusItems = await readDirectusItems<Record<string, unknown>>("actual_items", fields);
   const items = directusItems?.map(normalizeActualItem) ?? mockActualItems;
-  return items
+  const advertisingItem = mockActualItems.find((item) => item.buttonUrl === "/reklama/");
+  const mergedItems =
+    advertisingItem && !items.some((item) => item.buttonUrl === advertisingItem.buttonUrl)
+      ? [advertisingItem, ...items]
+      : items;
+  return mergedItems
     .filter((item) => isActualItemVisible(item, now))
     .sort((left, right) => right.priority - left.priority);
 }

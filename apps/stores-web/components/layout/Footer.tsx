@@ -26,6 +26,7 @@ export function Footer() {
           </nav>
           <nav aria-label="Информация">
             <Link href="/o-kompanii/">О компании</Link>
+            <Link href="/reklama/">Реклама в магазинах</Link>
             <Link href="/vakansii/">Вакансии</Link>
             <Link href="/politika-konfidencialnosti/">Политика конфиденциальности</Link>
             <Link href="/soglasie-na-obrabotku-dannyh/">Согласие на обработку данных</Link>
