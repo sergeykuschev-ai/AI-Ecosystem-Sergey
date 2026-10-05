@@ -79,6 +79,37 @@ function AudioAdvertisingVisual() {
   );
 }
 
+function AudioAdvertisingTariffs() {
+  const tariffs = [
+    { name: "Старт", price: "3 000 ₽", frequency: "5 выходов в день" },
+    { name: "Оптимум", price: "5 000 ₽", frequency: "10 выходов в день", popular: true },
+    { name: "Максимум", price: "8 000 ₽", frequency: "20 выходов в день" },
+  ];
+
+  return (
+    <div className="actual-slide__audio-offer" aria-label="Тарифы на аудиорекламу">
+      <div className="actual-slide__tariffs">
+        {tariffs.map((tariff) => (
+          <div
+            className={`actual-slide__tariff${tariff.popular ? " actual-slide__tariff--popular" : ""}`}
+            key={tariff.name}
+          >
+            <div className="actual-slide__tariff-heading">
+              <strong>{tariff.name}</strong>
+              {tariff.popular ? <span>Популярный</span> : null}
+            </div>
+            <b>{tariff.price}</b>
+            <small>{tariff.frequency}</small>
+          </div>
+        ))}
+      </div>
+      <p className="actual-slide__audio-note">
+        Во всех 4 магазинах <span aria-hidden="true">·</span> 30 дней <span aria-hidden="true">·</span> ролик до 20 секунд
+      </p>
+    </div>
+  );
+}
+
 function ActualSlideImage({ item, index, onInteraction }: { item: ActualItem; index: number; onInteraction: () => void }) {
   if (!item.image) return null;
 
@@ -286,6 +317,7 @@ export function ActualSlider({ items, brands }: ActualSliderProps) {
                   </Link>
                 )}
               </div>
+              {isAudioAdvertising ? <AudioAdvertisingTariffs /> : null}
             </article>
           );
         })}
