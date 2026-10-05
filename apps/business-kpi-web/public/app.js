@@ -215,6 +215,8 @@ function applyStoreNavigation() {
   if (bonusesTitle) bonusesTitle.textContent = sellerRole ? 'Моя премия' : 'Премии продавцов';
   const settingsLink = document.querySelector('[data-route="settings"]');
   if (settingsLink) settingsLink.textContent = isStoreMode() ? 'План' : 'Настройки';
+  const userAccessButton = element('user-access-button');
+  if (userAccessButton) userAccessButton.hidden = state.currentUser?.role !== 'OWNER';
   document.querySelectorAll('[data-miska-settings]').forEach(node => { node.hidden = isStoreMode(); });
 }
 
@@ -3937,6 +3939,11 @@ element('commit-import').addEventListener('click', commitImport);
 element('export-month').addEventListener('click', exportSelectedMonth);
 element('close-shift-summary').addEventListener('click', () => element('shift-summary-dialog').close());
 element('shift-summary-ok').addEventListener('click', () => element('shift-summary-dialog').close());
+element('user-access-button').addEventListener('click', async () => {
+  window.location.hash = '#settings';
+  await route();
+  element('user-access-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
 element('change-password-button').addEventListener('click', openPasswordDialog);
 element('close-password-form').addEventListener('click', () => element('password-dialog').close());
 element('cancel-password-form').addEventListener('click', () => element('password-dialog').close());
