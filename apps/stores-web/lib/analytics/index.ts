@@ -8,6 +8,7 @@ export const analyticsEvents = [
   "promotion_open",
   "bonus_open",
   "vacancy_open",
+  "advertising_lead_submit",
 ] as const;
 
 export type AnalyticsEventName = (typeof analyticsEvents)[number];

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Breadcrumbs } from "@/components/seo/Breadcrumbs";
+import { AdvertisingLeadForm } from "@/components/advertising/AdvertisingLeadForm";
 import { StaticPage } from "@/components/content/StaticPage";
 import { createPageMetadata } from "@/lib/seo/metadata";
 
@@ -129,16 +129,7 @@ export default function AdvertisingPage() {
           </ul>
         </section>
 
-        <section className="advertising-cta" aria-labelledby="advertising-cta-title">
-          <div>
-            <p className="eyebrow">Размещение в Амурске</p>
-            <h2 id="advertising-cta-title">Хотите запустить ролик?</h2>
-            <p>Свяжитесь с нами и сообщите, что вас интересует аудиореклама в магазинах.</p>
-          </div>
-          <Link className="button button--primary" href="/kontakty/">
-            Контакты для размещения
-          </Link>
-        </section>
+        <AdvertisingLeadForm />
       </StaticPage>
     </div>
   );

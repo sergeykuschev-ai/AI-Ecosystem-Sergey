@@ -90,6 +90,17 @@ services:
       DIRECTUS_SERVER_TOKEN: ${DIRECTUS_SERVER_TOKEN}
       INDEXNOW_KEY: ${INDEXNOW_KEY:-}
       INDEXNOW_ENDPOINT: ${INDEXNOW_ENDPOINT:-https://api.indexnow.org/indexnow}
+      SMTP_HOST: vozdooh-mail-relay
+      SMTP_PORT: "25"
+      SMTP_IGNORE_TLS: "true"
+      ADVERTISING_LEAD_TO: vozdooh.kms@yandex.ru
+      ADVERTISING_MAIL_FROM: "Амурск Маркет <orders@vozdooh27.ru>"
+      ARTHUR_ADVERTISING_LEAD_URL: http://telegram-gateway:8788/internal/amurskmarket/advertising-lead
+      ARTHUR_ADVERTISING_LEAD_SECRET_FILE: /run/secrets/arthur-advertising-lead-secret
+    secrets:
+      - source: arthur_advertising_lead_secret
+        target: arthur-advertising-lead-secret
+        mode: 0400
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/api/health"]
       interval: 15s
@@ -98,6 +109,7 @@ services:
       start_period: 60s
     networks:
       - stores-web
+      - arthur_services
 
   onec-sync:
     build:
@@ -125,3 +137,10 @@ services:
 networks:
   stores-web:
     name: stores-web
+  arthur_services:
+    name: arthur_services
+    external: true
+
+secrets:
+  arthur_advertising_lead_secret:
+    file: /opt/stores-web/secrets/arthur-advertising-lead-secret
