@@ -87,6 +87,7 @@ export function receipt(request: OrderRequest) {
 export async function acceptOrderRequest(value: unknown, dependencies: {
   readCatalog: () => Promise<TradeProduct[]>
   store: OrderRequestStore
+  ensureFreshInventory?: () => Promise<void>
 }) {
   const input = parseRequest(value)
   const fingerprint = createHash('sha256').update(JSON.stringify(input)).digest('hex')
@@ -95,6 +96,7 @@ export async function acceptOrderRequest(value: unknown, dependencies: {
     if (existing.fingerprint !== fingerprint) throw new RequestError('RETRY_CONFLICT', 409)
     return receipt(existing)
   }
+  if (dependencies.ensureFreshInventory) await dependencies.ensureFreshInventory()
   const catalog = new Map((await dependencies.readCatalog()).map((trade) => [trade.sku, trade]))
   const lines = input.lines.map((line) => {
     const trade = catalog.get(line.sku)

@@ -8,8 +8,10 @@ from pathlib import Path
 
 EXCHANGE_ROOT = Path(os.environ.get("VOZDOOH_ONEC_EXCHANGE_ROOT", "/opt/vozdooh/data/onec-exchange"))
 STATE_DIR = Path(os.environ.get("VOZDOOH_ONEC_FRESHNESS_STATE_DIR", "/var/lib/vozdooh-onec-freshness"))
+RUNTIME_STATE_PATH = Path(os.environ.get("VOZDOOH_ONEC_FRESHNESS_RUNTIME_PATH", "/opt/vozdooh/data/onec-freshness.json"))
 THRESHOLD_SECONDS = int(os.environ.get("VOZDOOH_ONEC_FRESHNESS_THRESHOLD_SECONDS", "2700"))
 STATE_DIR.mkdir(parents=True, exist_ok=True)
+RUNTIME_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
 STATE_PATH = STATE_DIR / "state.json"
 
 
@@ -121,4 +123,16 @@ tmp = STATE_PATH.with_suffix(".json.tmp")
 tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
 os.chmod(tmp, 0o600)
 tmp.replace(STATE_PATH)
+
+runtime_payload = {
+    "checked_at": payload["checked_at"],
+    "status": payload["status"],
+    "threshold_seconds": payload["threshold_seconds"],
+    "import_age_seconds": payload["import_age_seconds"],
+    "offers_age_seconds": payload["offers_age_seconds"],
+}
+runtime_tmp = RUNTIME_STATE_PATH.with_suffix(".json.tmp")
+runtime_tmp.write_text(json.dumps(runtime_payload, ensure_ascii=False, indent=2) + "\n")
+os.chmod(runtime_tmp, 0o644)
+runtime_tmp.replace(RUNTIME_STATE_PATH)
 print(json.dumps(payload, ensure_ascii=False))

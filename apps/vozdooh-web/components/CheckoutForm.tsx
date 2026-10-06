@@ -12,6 +12,7 @@ const errors: Record<string, string> = {
   STOCK_CHANGED: 'Наличие изменилось. Вернитесь в корзину и обновите страницу.',
   PRICE_CHANGED: 'Цена изменилась. Обновите страницу и проверьте сумму перед повторной отправкой.',
   PRICE_UNAVAILABLE: 'Для одной из позиций нет доступной цены. Проверьте корзину.',
+  INVENTORY_STALE: 'Остатки 1С сейчас не подтверждены. Оформление временно приостановлено — повторите после обновления остатков.',
   INVALID_PHONE: 'Укажите телефон: от 10 до 15 цифр.',
   INVALID_EMAIL: 'Укажите корректный email для уведомлений о заказе.',
   INVALID_CONTACT_OR_DELIVERY: 'Проверьте имя, адрес и комментарий.',
@@ -109,8 +110,17 @@ export function CheckoutForm({ products, enabled }: { products: CatalogProduct[]
     setPaymentPending(true); setError('')
     try {
       const response = await fetch('/api/payments/ozon/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requestId: success.id }) })
-      const result = await response.json() as { redirectUrl?: unknown }
-      if (!response.ok || typeof result.redirectUrl !== 'string' || !result.redirectUrl.startsWith('https://')) throw new Error('PAYMENT_UNAVAILABLE')
+      const result = await response.json() as { redirectUrl?: unknown; code?: unknown }
+      if (!response.ok) {
+        const code = typeof result.code === 'string' ? result.code : ''
+        if (code === 'INVENTORY_STALE') {
+          setError(errors.INVENTORY_STALE)
+          setPaymentPending(false)
+          return
+        }
+        throw new Error('PAYMENT_UNAVAILABLE')
+      }
+      if (typeof result.redirectUrl !== 'string' || !result.redirectUrl.startsWith('https://')) throw new Error('PAYMENT_UNAVAILABLE')
       window.location.assign(result.redirectUrl)
     } catch {
       setError('Не удалось открыть оплату Ozon Pay. Заявка сохранена — попробуйте оплатить ещё раз.')

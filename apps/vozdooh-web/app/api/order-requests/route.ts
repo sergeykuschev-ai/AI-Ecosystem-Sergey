@@ -4,6 +4,7 @@ import { readStagedCatalog } from '../../../src/catalog/localStore'
 import { acceptOrderRequest, parseRequest, RequestError } from '../../../src/commerce/orderRequests'
 import { localRequestStore } from '../../../src/commerce/localRequestStore'
 import { queueOrderMail } from '../../../src/commerce/orderMail'
+import { requireFreshOnecInventory } from '../../../src/commerce/inventoryFreshness'
 
 export const runtime = 'nodejs'
 const headers = { 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow' }
@@ -41,6 +42,9 @@ export async function POST(request: Request) {
     const result = await acceptOrderRequest(value, {
       readCatalog: () => readStagedCatalog(resolve(/* turbopackIgnore: true */ process.env.ONEC_LOCAL_CATALOG_PATH ?? '.local/onec-catalog.json')),
       store,
+      ensureFreshInventory: async () => {
+        try { await requireFreshOnecInventory() } catch { throw new RequestError('INVENTORY_STALE', 503) }
+      },
     })
     const order = await store.findById(result.id)
     if (order) await queueOrderMail(order, 'request_received').catch(() => console.error('ORDER_MAIL_QUEUE_FAILED'))

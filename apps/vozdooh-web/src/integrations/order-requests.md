@@ -1,4 +1,4 @@
-# Private preview order requests, version 1
+# Order requests, version 1
 
 ## Live behavior
 
@@ -6,7 +6,7 @@
 path/environment stays unchanged. Only staged-1c permits submission. Requests
 require same-origin JSON; the streamed body is capped at 32 KiB. Responses are
 no-store and noindex. There is no public list/read endpoint for customer records.
-The preview must remain private; robots is not access control.
+Production submission remains server-side and noindex at the API boundary. Before a new request is accepted, and again before the first Ozon payment is created, the application requires a fresh host-side 1C watchdog state. Missing/stale watchdog data or CommerceML older than the configured threshold fails closed with `INVENTORY_STALE`. Idempotent replay of an already accepted request or an already-created hosted payment remains available.
 
 Request shape:
 
@@ -66,19 +66,20 @@ is active. Never delete accepted JSON records to resolve a retry conflict.
 
 ## Manual processing and future adapters
 
-The owner/operator must review new local JSON records using restricted server
-access, contact the customer, verify current availability in 1C, and agree on
-pickup or courier terms. There is no automatic notification or operator dashboard.
-Do not paste customer records into Git, chat, build logs or test output. Retention
-and deletion are manual server operations; establish the production retention
-policy and operator ownership before public launch.
+The owner/operator can review persisted order JSON records using restricted server
+access when reconciliation is needed. Buyer status email and Arthur owner
+notifications are automated, while there is still no dedicated operator order
+dashboard. Do not paste customer records into Git, chat, build logs or test output.
+Retention and deletion remain server operational responsibilities.
 
-Nothing reserves/decrements stock or creates a 1C order. Multiple requests can
-reference the same remaining unit and each needs manual confirmation. Payment
-is not connected and no payment status is fabricated. Delivery is a preference,
-not a booking or price quote. Future order/payment/notification adapters must
-consume this recorded request through a separately approved, auditable workflow;
-accepting a request must not acquire hidden external side effects.
+Nothing currently reserves or decrements stock in 1C and no 1C order is created.
+Multiple accepted requests can therefore still refer to the same remaining unit
+until transactional reservation/write-back is implemented. New requests and
+first-time payment creation now require fresh CommerceML according to the host
+watchdog. Ozon payment is connected and provider-confirmed state is persisted.
+After confirmed payment, the worker can create the Ozon Delivery shipment and
+queue customer email and Arthur notifications. The initial request itself does
+not write back to 1C.
 
 ## Verification
 
