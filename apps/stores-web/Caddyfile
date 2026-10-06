@@ -7,6 +7,11 @@ amurskmarket.ru {
         reverse_proxy onec-sync:8080
     }
 
+    handle /api/vozdooh-1c/exchange* {
+        uri replace /api/vozdooh-1c/exchange /api/1c/exchange
+        reverse_proxy vozdooh-onec-exchange:8080
+    }
+
     handle {
         reverse_proxy web:3000
     }
