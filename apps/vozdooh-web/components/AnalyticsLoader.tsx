@@ -15,16 +15,29 @@ export function AnalyticsLoader() {
     if (!Number.isInteger(id) || id <= 0) return
     if (window.__vozdoohAnalyticsId === id) return
 
+    type YandexQueue = ((...args: unknown[]) => void) & { a?: unknown[][]; l?: number }
+
     window.__vozdoohAnalyticsId = id
-    window.ym = window.ym ?? function (...args: unknown[]) {
-      // Minimal queue shim until the counter script defines window.ym.
-      ;((window as unknown as { __ym_queue?: unknown[] }).__ym_queue ??= []).push(args)
+    let ym = window.ym as YandexQueue | undefined
+    if (!ym) {
+      ym = function (...args: unknown[]) {
+        ;(ym!.a ??= []).push(args)
+      }
+      window.ym = ym
     }
+    ym.l ??= Date.now()
+    ym(id, 'init', {
+      ssr: true,
+      webvisor: true,
+      clickmap: true,
+      trackLinks: true,
+      accurateTrackBounce: true,
+    })
 
     const script = document.createElement('script')
     script.type = 'text/javascript'
     script.async = true
-    script.src = 'https://mc.yandex.ru/metrika/tag.js'
+    script.src = `https://mc.yandex.ru/metrika/tag.js?id=${id}`
     const first = document.getElementsByTagName('script')[0]
     first?.parentNode?.insertBefore(script, first)
   }, [])

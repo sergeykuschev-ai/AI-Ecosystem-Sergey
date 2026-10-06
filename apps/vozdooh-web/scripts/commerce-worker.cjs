@@ -4,10 +4,21 @@ const path = require('node:path')
 const { localRequestStore } = require('../src/commerce/localRequestStore.ts')
 const { reconcileOzonPayment } = require('../src/commerce/paymentReconciliation.ts')
 const { processMailOutbox } = require('../src/commerce/orderMail.ts')
+const { queueOrderNotification, processOrderNotificationOutbox } = require('../src/commerce/orderNotifications.ts')
+const { parcelForOrder } = require('../src/commerce/logisticsDataset.ts')
+const { createConfiguredOzonPickupDelivery } = require('../src/commerce/ozonDeliveryBusiness.ts')
 
 const orderDirectory = path.resolve(process.env.ORDER_REQUEST_STORE_PATH || '.local/order-requests')
 const intervalMs = Number(process.env.COMMERCE_WORKER_INTERVAL_MS || '15000')
 if (!Number.isSafeInteger(intervalMs) || intervalMs < 5000) throw new Error('COMMERCE_WORKER_INTERVAL_INVALID')
+const notificationStartedAt = Date.parse(process.env.ARTHUR_ORDER_NOTIFICATIONS_STARTED_AT || '')
+const notificationsEnabledFor = (order) => Number.isFinite(notificationStartedAt) &&
+  order.payment?.status === 'PAID' && Number.isFinite(Date.parse(order.payment.paidAt || '')) &&
+  Date.parse(order.payment.paidAt) >= notificationStartedAt
+const deliveryMutationsStartedAt = Date.parse(process.env.OZON_DELIVERY_MUTATIONS_STARTED_AT || '')
+const deliveryMutationsEnabledFor = (order) => Number.isFinite(deliveryMutationsStartedAt) &&
+  order.payment?.status === 'PAID' && Number.isFinite(Date.parse(order.payment.paidAt || '')) &&
+  Date.parse(order.payment.paidAt) >= deliveryMutationsStartedAt
 const store = localRequestStore(orderDirectory)
 let stopped = false
 
@@ -47,14 +58,48 @@ async function tick() {
       console.error('OZON_PAYMENT_RECONCILE_FAILED')
     }
   }
+  let deliveries = 0
+  for (const order of await listOrders()) {
+    if (notificationsEnabledFor(order)) {
+      try {
+        await queueOrderNotification(order, 'payment_confirmed')
+        if (order.deliveryOrder?.status === 'created') await queueOrderNotification(order, 'delivery_created')
+      } catch {
+        console.error('ARTHUR_ORDER_NOTIFICATION_QUEUE_FAILED')
+      }
+    }
+    if (order.payment?.status !== 'PAID' || order.input.delivery.method !== 'ozon-pvz' || order.deliveryOrder?.status === 'created') continue
+    try {
+      const parcel = parcelForOrder(order)
+      if (process.env.OZON_DELIVERY_MUTATIONS_ENABLED !== 'true' || !deliveryMutationsEnabledFor(order)) continue
+      const result = await createConfiguredOzonPickupDelivery(order.id, store, parcel)
+      if (result.changed) deliveries += 1
+    } catch (error) {
+      const code = error?.code || 'UNKNOWN'
+      console.error('OZON_DELIVERY_CREATE_FAILED', code)
+      if (notificationsEnabledFor(order)) {
+        try {
+          await queueOrderNotification(order, 'delivery_failed', code)
+        } catch {
+          console.error('ARTHUR_ORDER_NOTIFICATION_QUEUE_FAILED')
+        }
+      }
+    }
+  }
   let mail = { sent: 0, failed: 0, skipped: 0 }
   try {
     mail = await processMailOutbox(store)
   } catch {
     console.error('ORDER_MAIL_OUTBOX_FAILED')
   }
-  if (reconciled || mail.sent || mail.failed || mail.skipped) {
-    console.info('COMMERCE_WORKER_TICK', { reconciled, mail })
+  let notifications = { sent: 0, failed: 0, skipped: 0 }
+  try {
+    notifications = await processOrderNotificationOutbox(store)
+  } catch {
+    console.error('ARTHUR_ORDER_NOTIFICATION_OUTBOX_FAILED')
+  }
+  if (reconciled || deliveries || mail.sent || mail.failed || mail.skipped || notifications.sent || notifications.failed || notifications.skipped) {
+    console.info('COMMERCE_WORKER_TICK', { reconciled, deliveries, mail, notifications })
   }
 }
 

@@ -162,6 +162,17 @@ export function buildOzonPickupCreateRequest(
   }
 }
 
+export async function createConfiguredOzonPickupDelivery(orderId: string, store: OrderRequestStore, parcel: ParcelDimensions) {
+  const tokens = await exchangeClientCredentials(loadOzonOAuthClientConfig())
+  const client = createOzonClient({
+    auth: { type: 'oauth', token: tokens.access_token },
+    baseUrl: process.env.OZON_API_BASE_URL ?? OZON_DEFAULT_BASE_URL,
+    timeoutMs: 10_000, maxAttempts: 3, retryBaseMs: 500,
+    allowMutations: process.env.OZON_DELIVERY_MUTATIONS_ENABLED === 'true',
+  })
+  return createOzonPickupDelivery(orderId, store, parcel, client)
+}
+
 export async function createOzonPickupDelivery(
   orderId: string,
   store: OrderRequestStore,

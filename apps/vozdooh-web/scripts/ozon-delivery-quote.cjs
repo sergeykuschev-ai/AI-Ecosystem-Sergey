@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports -- read-only operations CLI. */
 const path = require('node:path')
+require('./register-typescript.cjs')
 const { localRequestStore } = require('../src/commerce/localRequestStore.ts')
 const { quoteOzonPickupDelivery } = require('../src/commerce/ozonDeliveryBusiness.ts')
 
