@@ -1,0 +1,11 @@
+[Unit]
+Description=VOZDOOH public DNS HTTPS and TLS health check
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/vozdooh-public-health
+User=root
+Group=root
+Nice=10

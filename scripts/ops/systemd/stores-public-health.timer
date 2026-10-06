@@ -1,0 +1,11 @@
+[Unit]
+Description=Hourly AmurskMarket public health check
+
+[Timer]
+OnCalendar=*-*-* *:17:00
+Persistent=true
+RandomizedDelaySec=90
+Unit=stores-public-health.service
+
+[Install]
+WantedBy=timers.target
