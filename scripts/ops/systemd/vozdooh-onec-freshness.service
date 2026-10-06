@@ -1,0 +1,10 @@
+[Unit]
+Description=Watch VOZDOOH 1C source freshness
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/vozdooh-onec-freshness
+Environment=VOZDOOH_ONEC_FRESHNESS_THRESHOLD_SECONDS=2700
+UMask=0077

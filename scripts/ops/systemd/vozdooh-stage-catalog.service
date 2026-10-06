@@ -1,0 +1,7 @@
+[Unit]
+Description=Refresh VOZDOOH staged 1C catalog
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/vozdooh/current
+ExecStart=/usr/bin/python3 /opt/vozdooh/current/scripts/convert-commerce-ml.py --exchange-root /opt/vozdooh/data/onec-exchange --output /opt/vozdooh/data/catalog-staged.json --report /opt/vozdooh/data/catalog-staging-report.json

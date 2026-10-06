@@ -1,0 +1,11 @@
+[Unit]
+Description=Check VOZDOOH 1C source freshness every 5 minutes
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=5min
+Persistent=true
+Unit=vozdooh-onec-freshness.service
+
+[Install]
+WantedBy=timers.target
