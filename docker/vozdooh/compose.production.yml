@@ -1,0 +1,114 @@
+# Production template. Build both image targets from apps/vozdooh-web/Dockerfile.production.
+services:
+  web:
+    image: vozdooh-web:${VOZDOOH_RELEASE_TAG:?VOZDOOH_RELEASE_TAG is required}
+    container_name: vozdooh-web-domain
+    restart: unless-stopped
+    working_dir: /app
+    command: ["node", "server.js"]
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_SITE_URL: https://vozdooh27.ru
+      NEXT_PUBLIC_YANDEX_METRICA_ID: "113378472"
+      SEARCH_INDEXING_ENABLED: "true"
+      CATALOG_PROVIDER: staged-1c
+      ONEC_LOCAL_CATALOG_PATH: /opt/vozdooh/data/catalog-staged.json
+      ONEC_STAGED_PREVIEW_ENABLED: "true"
+      COMMERCE_PROVIDER: stub
+      PAYMENT_PROVIDER: ozon
+      ORDER_REQUEST_STORE_PATH: /app/.local/order-requests
+      MAIL_OUTBOX_PATH: /app/.local/email-outbox
+      OZON_ACQUIRING_TOKEN_ID_FILE: /run/secrets/ozon-acquiring-token-id
+      OZON_ACQUIRING_SECRET_KEY_FILE: /run/secrets/ozon-acquiring-secret-key
+      OZON_ACQUIRING_NOTIFICATION_SECRET_FILE: /run/secrets/ozon-acquiring-notification-secret
+      OZON_DELIVERY_ENABLED: "true"
+      OZON_CLIENT_ID_FILE: /run/secrets/ozon-delivery-client-id
+      OZON_CLIENT_SECRET_FILE: /run/secrets/ozon-delivery-client-secret
+      OZON_OAUTH_SCOPE: delivery-api.all
+      OZON_API_BASE_URL: https://api-delivery.ozon.ru
+      INVENTORY_PROVIDER: stub
+    volumes:
+      - /opt/vozdooh/data:/opt/vozdooh/data:ro
+      - /opt/vozdooh/data/order-requests:/app/.local/order-requests:rw
+      - /opt/vozdooh/data/email-outbox:/app/.local/email-outbox:rw
+      - /opt/vozdooh/secrets/ozon-delivery-client-id:/run/secrets/ozon-delivery-client-id:ro
+      - /opt/vozdooh/secrets/ozon-delivery-client-secret:/run/secrets/ozon-delivery-client-secret:ro
+      - /opt/vozdooh/secrets/ozon-oauth:/run/ozon-oauth:rw
+      - /opt/vozdooh/runtime/next-cache:/app/.next/cache:rw
+      - /opt/vozdooh/secrets/ozon-acquiring-token-id:/run/secrets/ozon-acquiring-token-id:ro
+      - /opt/vozdooh/secrets/ozon-acquiring-secret-key:/run/secrets/ozon-acquiring-secret-key:ro
+      - /opt/vozdooh/secrets/ozon-acquiring-notification-secret:/run/secrets/ozon-acquiring-notification-secret:ro
+    networks:
+      - stores-web
+      - vozdooh-mail
+
+  commerce-worker:
+    image: vozdooh-worker:${VOZDOOH_RELEASE_TAG:?VOZDOOH_RELEASE_TAG is required}
+    container_name: vozdooh-commerce-worker
+    restart: unless-stopped
+    working_dir: /app
+    command: ["node", "--require", "./scripts/register-typescript.cjs", "./scripts/commerce-worker.cjs"]
+    environment:
+      NODE_ENV: production
+      ORDER_REQUEST_STORE_PATH: /app/.local/order-requests
+      MAIL_OUTBOX_PATH: /app/.local/email-outbox
+      COMMERCE_WORKER_INTERVAL_MS: "15000"
+      SMTP_HOST: smtp.vozdooh.internal
+      SMTP_PORT: "25"
+      SMTP_IGNORE_TLS: "true"
+      MAIL_FROM: "VOZDOOH <orders@vozdooh27.ru>"
+      MAIL_REPLY_TO: vozdooh.kms@yandex.ru
+      ARTHUR_VOZDOOH_NOTIFICATIONS_URL: http://telegram-gateway:8788/internal/vozdooh/order-notification
+      ARTHUR_VOZDOOH_NOTIFICATION_SECRET_FILE: /run/secrets/arthur-vozdooh-notification-secret
+      ARTHUR_NOTIFICATION_OUTBOX_PATH: /app/.local/arthur-notification-outbox
+      ARTHUR_ORDER_NOTIFICATIONS_STARTED_AT: "2026-10-04T05:40:52Z"
+      OZON_ACQUIRING_TOKEN_ID_FILE: /run/secrets/ozon-acquiring-token-id
+      OZON_ACQUIRING_SECRET_KEY_FILE: /run/secrets/ozon-acquiring-secret-key
+      OZON_DELIVERY_ENABLED: "true"
+      OZON_DELIVERY_MUTATIONS_ENABLED: "true"
+      OZON_DELIVERY_MUTATIONS_STARTED_AT: "2026-10-04T11:51:35Z"
+      OZON_API_BASE_URL: https://api-delivery.ozon.ru
+      OZON_CLIENT_ID_FILE: /run/secrets/ozon-delivery-client-id
+      OZON_CLIENT_SECRET_FILE: /run/secrets/ozon-delivery-client-secret
+      OZON_OAUTH_SCOPE: delivery-api.all
+      LOGISTICS_DATASET_PATH: /app/research/data/logistics-dataset-real.json
+    volumes:
+      - /opt/vozdooh/data/order-requests:/app/.local/order-requests:rw
+      - /opt/vozdooh/data/email-outbox:/app/.local/email-outbox:rw
+      - /opt/vozdooh/data/arthur-notification-outbox:/app/.local/arthur-notification-outbox:rw
+      - /opt/vozdooh/secrets/arthur-vozdooh-notification-secret:/run/secrets/arthur-vozdooh-notification-secret:ro
+      - /opt/vozdooh/secrets/ozon-acquiring-token-id:/run/secrets/ozon-acquiring-token-id:ro
+      - /opt/vozdooh/secrets/ozon-acquiring-secret-key:/run/secrets/ozon-acquiring-secret-key:ro
+      - /opt/vozdooh/secrets/ozon-delivery-client-id:/run/secrets/ozon-delivery-client-id:ro
+      - /opt/vozdooh/secrets/ozon-delivery-client-secret:/run/secrets/ozon-delivery-client-secret:ro
+    networks:
+      - stores-web
+      - vozdooh-mail
+      - arthur_services
+    depends_on:
+      - mail
+
+  mail:
+    build:
+      context: /opt/vozdooh/runtime/mail
+    image: vozdooh-mail-relay:local
+    container_name: vozdooh-mail-relay
+    restart: unless-stopped
+    networks:
+      stores-web: {}
+      vozdooh-mail:
+        aliases:
+          - smtp.vozdooh.internal
+
+networks:
+  stores-web:
+    external: true
+    name: stores-web
+  vozdooh-mail:
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.30.27.0/24
+  arthur_services:
+    external: true
+    name: arthur_services
