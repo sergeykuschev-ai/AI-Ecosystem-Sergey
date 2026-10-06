@@ -6,7 +6,6 @@ RUN npm ci
 
 COPY . .
 
-ARG VCS_REF=unknown
 ARG NEXT_PUBLIC_SITE_URL=https://vozdooh27.ru
 ARG NEXT_PUBLIC_YANDEX_METRICA_ID=113378472
 ARG SEARCH_INDEXING_ENABLED=true
@@ -18,15 +17,30 @@ ENV SEARCH_INDEXING_ENABLED=${SEARCH_INDEXING_ENABLED}
 
 RUN npm run build
 
-FROM node:22-alpine AS runtime
+FROM node:22-alpine AS web
 WORKDIR /app
-
 ARG VCS_REF=unknown
 LABEL org.opencontainers.image.source="https://github.com/sergeykuschev-ai/AI-Ecosystem-Sergey"
 LABEL org.opencontainers.image.revision="${VCS_REF}"
-LABEL org.opencontainers.image.title="VOZDOOH storefront runtime"
-
+LABEL org.opencontainers.image.title="VOZDOOH storefront"
 ENV NODE_ENV=production
-COPY --from=build /app /app
+ENV HOSTNAME=0.0.0.0
+ENV PORT=3411
+COPY --from=build /app/.next/standalone ./
+COPY --from=build /app/.next/static ./.next/static
+COPY --from=build /app/public ./public
+CMD ["node", "server.js"]
 
-CMD ["./node_modules/.bin/next", "start", "--hostname", "0.0.0.0", "--port", "3411"]
+FROM node:22-alpine AS worker
+WORKDIR /app
+ARG VCS_REF=unknown
+LABEL org.opencontainers.image.source="https://github.com/sergeykuschev-ai/AI-Ecosystem-Sergey"
+LABEL org.opencontainers.image.revision="${VCS_REF}"
+LABEL org.opencontainers.image.title="VOZDOOH commerce worker"
+ENV NODE_ENV=production
+RUN npm init -y >/dev/null 2>&1 \
+    && npm install --omit=dev --ignore-scripts --no-audit --no-fund nodemailer@10.0.13 typescript@5.9.2
+COPY scripts ./scripts
+COPY src ./src
+COPY research ./research
+CMD ["node", "--require", "./scripts/register-typescript.cjs", "./scripts/commerce-worker.cjs"]
