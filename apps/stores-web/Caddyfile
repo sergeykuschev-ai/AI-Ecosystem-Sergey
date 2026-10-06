@@ -16,6 +16,14 @@ www.amurskmarket.ru {
     redir https://amurskmarket.ru{uri} permanent
 }
 
+www.vozdooh27.ru {
+    redir https://vozdooh27.ru{uri} permanent
+}
+
+vozdooh27.ru {
+    reverse_proxy vozdooh-web-domain:3411
+}
+
 cms.amurskmarket.ru {
     reverse_proxy directus:8055
 }
