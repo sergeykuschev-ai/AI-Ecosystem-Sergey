@@ -1,0 +1,11 @@
+[Unit]
+Description=AmurskMarket public DNS and HTTPS health check
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/stores-public-health
+User=root
+Group=root
+Nice=10

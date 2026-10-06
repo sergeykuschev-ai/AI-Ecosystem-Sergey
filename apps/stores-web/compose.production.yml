@@ -58,9 +58,11 @@ services:
       DB_DATABASE: ${POSTGRES_DB}
       DB_USER: ${POSTGRES_USER}
       DB_PASSWORD: ${POSTGRES_PASSWORD}
-      PUBLIC_URL: https://cms.amurskmarket.ru
+      PUBLIC_URL: https://miska-purchasing.tailc31347.ts.net:8445
       TELEMETRY: "false"
       DIRECTUS_SERVER_TOKEN: ${DIRECTUS_SERVER_TOKEN}
+    ports:
+      - "127.0.0.1:8055:8055"
     volumes:
       - /opt/stores-web/data/directus/uploads:/directus/uploads
     healthcheck:

@@ -7,6 +7,11 @@ amurskmarket.ru {
         reverse_proxy onec-sync:8080
     }
 
+    handle /api/vozdooh-1c/exchange* {
+        uri replace /api/vozdooh-1c/exchange /api/1c/exchange
+        reverse_proxy vozdooh-onec-exchange:8080
+    }
+
     handle {
         reverse_proxy web:3000
     }
@@ -16,6 +21,14 @@ www.amurskmarket.ru {
     redir https://amurskmarket.ru{uri} permanent
 }
 
+www.vozdooh27.ru {
+    redir https://vozdooh27.ru{uri} permanent
+}
+
+vozdooh27.ru {
+    reverse_proxy vozdooh-web-domain:3411
+}
+
 cms.amurskmarket.ru {
-    reverse_proxy directus:8055
+    respond "Not Found" 404
 }
