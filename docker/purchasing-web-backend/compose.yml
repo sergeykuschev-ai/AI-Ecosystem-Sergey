@@ -1,0 +1,18 @@
+services:
+  purchasing-web-backend:
+    container_name: purchasing-web-backend
+    build:
+      context: ../..
+      dockerfile: docker/purchasing-web-backend/Dockerfile
+    restart: unless-stopped
+    environment:
+      PURCHASING_WEB_HOST: 0.0.0.0
+      PURCHASING_WEB_PORT: 3210
+      PURCHASING_API_TOKEN: ${PURCHASING_API_TOKEN:?PURCHASING_API_TOKEN is required}
+      PURCHASING_BUILD_SHA: ${PURCHASING_BUILD_SHA:?PURCHASING_BUILD_SHA is required}
+    ports:
+      - "3210:3210"
+    volumes:
+      - ../../output:/app/output
+      - ../../data/purchasing:/app/data/purchasing
+    stop_grace_period: 15s
