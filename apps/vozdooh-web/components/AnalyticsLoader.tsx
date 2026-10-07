@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { flushPendingEvents } from '../src/integrations/analytics'
 
 /**
  * Loads Yandex Metrica only when NEXT_PUBLIC_YANDEX_METRICA_ID is present.
@@ -18,6 +19,7 @@ export function AnalyticsLoader() {
     type YandexQueue = ((...args: unknown[]) => void) & { a?: unknown[][]; l?: number }
 
     window.__vozdoohAnalyticsId = id
+    window.dataLayer ??= []
     let ym = window.ym as YandexQueue | undefined
     if (!ym) {
       ym = function (...args: unknown[]) {
@@ -32,7 +34,10 @@ export function AnalyticsLoader() {
       clickmap: true,
       trackLinks: true,
       accurateTrackBounce: true,
+      ecommerce: 'dataLayer',
     })
+
+    flushPendingEvents()
 
     const script = document.createElement('script')
     script.type = 'text/javascript'

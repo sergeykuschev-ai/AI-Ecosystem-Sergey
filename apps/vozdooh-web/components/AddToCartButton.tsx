@@ -3,9 +3,11 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import { addLine } from '../src/cart/storage'
-import { trackEvent } from '../src/integrations/analytics'
+import type { CatalogProduct } from '../src/catalog/contracts'
+import { productPayload, trackEvent } from '../src/integrations/analytics'
 
-export function AddToCartButton({ sku }: { sku: string }) {
+export function AddToCartButton({ product }: { product: CatalogProduct }) {
+  const sku = product.trade.sku
   const [added, setAdded] = useState(false)
 
   return (
@@ -15,7 +17,7 @@ export function AddToCartButton({ sku }: { sku: string }) {
         className="buyButton"
         onClick={() => {
           addLine(sku)
-          trackEvent('add_to_cart', { item_id: sku, quantity: 1 })
+          trackEvent('add_to_cart', { ...productPayload(product), quantity: 1 })
           setAdded(true)
         }}
       >

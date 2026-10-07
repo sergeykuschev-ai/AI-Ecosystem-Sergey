@@ -72,3 +72,11 @@ test('cart quantity events use one-unit add/remove semantics', () => {
   assert.equal(calls[1][2].event, 'remove_from_cart')
   assert.equal(calls[1][2].quantity, 1)
 })
+
+test('product events are mirrored into Yandex ecommerce dataLayer', () => {
+  const { win } = fakeWindow()
+  win.__vozdoohAnalyticsId = 42
+  globalThis.window = win
+  trackEvent('add_to_cart', { item_id: 'SKU-77', item_name: 'Test diffuser', item_brand: 'Brand', item_category: 'Диффузоры', price: 4500, quantity: 1 })
+  assert.deepEqual(win.dataLayer, [{ ecommerce: { currencyCode: 'RUB', add: { products: [{ id: 'SKU-77', name: 'Test diffuser', brand: 'Brand', category: 'Диффузоры', price: 4500, quantity: 1 }] } } }])
+})

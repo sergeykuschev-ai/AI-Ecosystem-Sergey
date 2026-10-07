@@ -75,7 +75,7 @@ export default async function ProductPage({ params, searchParams }: PageParams) 
 
   return (
     <main className="productPage">
-      {!demo && <TrackView event="view_item" payload={{ item_id: product.trade.sku, item_brand: product.trade.brand, item_category: product.trade.category, price: product.trade.price, slug: product.editorial.slug }} />}
+      {!demo && <TrackView event="view_item" payload={{ item_id: product.trade.sku, item_name: product.trade.name, item_brand: product.trade.brand, item_category: product.trade.category, price: product.trade.price, slug: product.editorial.slug }} />}
       {structuredData && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: structuredData }} />}
       <SiteHeader />
       <div className="productLayout">
@@ -99,7 +99,7 @@ export default async function ProductPage({ params, searchParams }: PageParams) 
               ? rub.format(product.trade.price!)
               : 'Цена не указана'}</p>
             <p className="stockState">{product.trade.stock === null ? 'Наличие не указано' : product.trade.stock >= 1 ? 'В наличии по данным каталога' : 'Нет в наличии'}</p>
-            {catalogSource() === 'staged-1c' && (product.trade.price ?? 0) > 0 && (product.trade.stock ?? 0) >= 1 && <AddToCartButton sku={product.trade.sku} />}
+            {catalogSource() === 'staged-1c' && (product.trade.price ?? 0) > 0 && (product.trade.stock ?? 0) >= 1 && <AddToCartButton product={product} />}
             <p className="notice">Заявка без онлайн-оплаты и резерва. Наличие требует подтверждения.</p>
           </section>}
           {categoryLanding && <nav className="landingLinks productFormatLink" aria-label="Формат товара">
