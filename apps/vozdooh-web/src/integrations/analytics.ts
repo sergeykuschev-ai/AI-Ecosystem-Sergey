@@ -14,6 +14,7 @@ export type AnalyticsEvent =
   | 'view_cart'
   | 'begin_checkout'
   | 'submit_order'
+  | 'purchase'
   | 'view_brand'
   | 'view_collection'
   | 'filter_use'
@@ -92,6 +93,31 @@ export function trackEvent(event: AnalyticsEvent, params: AnalyticsParams = {}):
     return
   }
   dispatchEvent(event, params)
+}
+
+
+export type PurchaseItem = {
+  id: string
+  name: string
+  price: number
+  quantity: number
+}
+
+/** Sends a provider-confirmed paid order to Yandex ecommerce. No customer data is included. */
+export function trackPurchase(input: { id: string; revenue: number; items: PurchaseItem[] }): void {
+  if (typeof window === 'undefined') return
+  if (!input.id || !Number.isFinite(input.revenue) || input.revenue <= 0 || input.items.length === 0) return
+  window.dataLayer ??= []
+  window.dataLayer.push({
+    ecommerce: {
+      currencyCode: 'RUB',
+      purchase: {
+        actionField: { id: input.id, revenue: input.revenue },
+        products: input.items.map((item) => ({ id: item.id, name: item.name, price: item.price, quantity: item.quantity })),
+      },
+    },
+  })
+  trackEvent('purchase', { transaction_id: input.id, value: input.revenue, currency: 'RUB' })
 }
 
 /** Product-scoped payload limited to non-personal catalog facts. */

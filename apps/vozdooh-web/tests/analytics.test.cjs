@@ -80,3 +80,14 @@ test('product events are mirrored into Yandex ecommerce dataLayer', () => {
   trackEvent('add_to_cart', { item_id: 'SKU-77', item_name: 'Test diffuser', item_brand: 'Brand', item_category: 'Диффузоры', price: 4500, quantity: 1 })
   assert.deepEqual(win.dataLayer, [{ ecommerce: { currencyCode: 'RUB', add: { products: [{ id: 'SKU-77', name: 'Test diffuser', brand: 'Brand', category: 'Диффузоры', price: 4500, quantity: 1 }] } } }])
 })
+
+test('provider-confirmed purchase uses Yandex purchase schema without customer data', () => {
+  const { trackPurchase } = require('../src/integrations/analytics.ts')
+  const { win, calls } = fakeWindow()
+  win.__vozdoohAnalyticsId = 42
+  globalThis.window = win
+  trackPurchase({ id: 'order-123', revenue: 700, items: [{ id: 'SKU-1', name: 'Diffuser', price: 700, quantity: 1 }] })
+  assert.deepEqual(win.dataLayer, [{ ecommerce: { currencyCode: 'RUB', purchase: { actionField: { id: 'order-123', revenue: 700 }, products: [{ id: 'SKU-1', name: 'Diffuser', price: 700, quantity: 1 }] } } }])
+  assert.deepEqual(calls.at(-1), [42, 'params', { event: 'purchase', transaction_id: 'order-123', value: 700, currency: 'RUB' }])
+  assert.ok(!JSON.stringify(win.dataLayer).match(/email|phone|address|customer/i))
+})
