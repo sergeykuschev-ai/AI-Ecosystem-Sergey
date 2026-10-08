@@ -5,6 +5,7 @@ export type CollectionRule =
   | { field: 'family'; values: readonly string[] }
   | { field: 'mood'; values: readonly string[] }
   | { field: 'room'; values: readonly string[] }
+  | { field: 'category'; values: readonly string[] }
 
 export type EditorialCollection = {
   slug: string
@@ -12,6 +13,8 @@ export type EditorialCollection = {
   name: string
   description: string
   note: string
+  guideTitle?: string
+  guide?: readonly string[]
   rule: CollectionRule
   excludeCategories?: readonly string[]
 }
@@ -80,10 +83,37 @@ export const editorialCollections: readonly EditorialCollection[] = [
     rule: { field: 'mood', values: ['focused'] },
     excludeCategories: ['Для автомобиля', 'Ароматизация помещений'],
   },
+  {
+    slug: 'gift-diffusers',
+    eyebrow: 'Подарочный выбор',
+    name: 'Аромадиффузоры в подарок',
+    description: 'Аромадиффузоры для дома из актуального наличия VOZDOOH — подарок, который работает и как аромат, и как часть интерьера.',
+    note: 'В подборке только диффузоры, которые сейчас есть в наличии. Комплектацию и упаковку каждого товара смотрите в карточке.',
+    guideTitle: 'Как выбрать аромадиффузор в подарок',
+    guide: [
+      'Если вы не знаете точные предпочтения человека, безопаснее начинать со свежих, древесных или мягких цитрусовых композиций. Для хорошо знакомого получателя можно выбирать более выразительные ванильные, пряные и удовые направления.',
+      'Объём влияет на масштаб и длительность использования, а дизайн флакона — на то, насколько органично подарок войдёт в интерьер. В карточках VOZDOOH можно сравнить аромат, объём, бренд и актуальную цену.',
+    ],
+    rule: { field: 'category', values: ['Диффузоры'] },
+  },
+  {
+    slug: 'home-fragrance',
+    eyebrow: 'Для дома',
+    name: 'Ароматы для дома',
+    description: 'Интерьерные ароматы в наличии: диффузоры, свечи, спреи и подарочные наборы от брендов VOZDOOH.',
+    note: 'Подборка объединяет форматы для ароматизации дома и не включает автомобильные или профессиональные системы.',
+    guideTitle: 'Как выбрать аромат для дома',
+    guide: [
+      'Для постоянного мягкого фона подойдёт диффузор, для короткого атмосферного ритуала — свеча, а спрей удобен, когда аромат нужен сразу. Если важен подарок, начните с диффузора или готового набора.',
+      'Сначала выберите характер композиции и комнату, затем формат и объём. Это быстрее, чем искать аромат только по списку нот, особенно если вы знакомитесь с интерьерной парфюмерией впервые.',
+    ],
+    rule: { field: 'category', values: ['Диффузоры', 'Свечи', 'Спреи для дома', 'Подарочные наборы'] },
+  },
 ]
 
 function collectionValue(product: CatalogProduct, field: CollectionRule['field']): string | null {
   if (field === 'family') return product.editorial.scentFamily
+  if (field === 'category') return product.trade.category
   return product.editorial[field]
 }
 

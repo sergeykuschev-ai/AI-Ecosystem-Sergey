@@ -131,8 +131,8 @@ export default async function Home() {
           <h1>Атмосфера начинается с аромата.</h1>
           <p>Коллекция для тех, кто выбирает аромат для дома так же внимательно, как свет, музыку и текстиль.</p>
           <div className="heroActions">
-            <Link className="creamButton" href="/catalog">Смотреть коллекцию</Link>
-            <Link className="textLink quiet" href="/finder">Подобрать аромат →</Link>
+            <Link className="creamButton" href="/collections/home-fragrance">Смотреть ароматы для дома</Link>
+            <Link className="textLink quiet" href="/collections/gift-diffusers">Выбрать подарок →</Link>
           </div>
         </div>
         <span className="edition">CURATED HOME FRAGRANCE · 2026</span>

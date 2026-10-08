@@ -29,6 +29,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     'living-room': 'Ароматы для гостиной — VOZDOOH',
     bedroom: 'Ароматы для спальни — VOZDOOH',
     focused: 'Ароматы для концентрации и работы — VOZDOOH',
+    'gift-diffusers': 'Аромадиффузор в подарок — купить в VOZDOOH',
+    'home-fragrance': 'Ароматы для дома — купить в VOZDOOH',
   }
   const title = seoTitles[collection.slug] ?? `${collection.name} — коллекция VOZDOOH`
   return {
@@ -62,10 +64,25 @@ export default async function CollectionPage({ params }: Props) {
           'living-room': 'Ароматы для гостиной',
           bedroom: 'Ароматы для спальни',
           focused: 'Ароматы для концентрации и работы',
+          'gift-diffusers': 'Аромадиффузоры в подарок',
+          'home-fragrance': 'Ароматы для дома',
         }[collection.slug] ?? collection.name}</h1>
         <p>{collection.description}</p>
         <small>{collection.note}</small>
       </section>
+
+      {collection.guide && collection.guideTitle && (
+        <section className="landingGuide" aria-labelledby="collectionGuideTitle">
+          <h2 id="collectionGuideTitle">{collection.guideTitle}</h2>
+          {collection.guide.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+          <nav className="landingLinks" aria-label="Полезные разделы">
+            <Link href="/categories/diffusers">Диффузоры</Link>
+            <Link href="/categories/gifts">Подарочные наборы</Link>
+            <Link href="/brands/culti-milano">CULTI MILANO</Link>
+            <Link href="/brands/teatro-fragranze-uniche">TEATRO</Link>
+          </nav>
+        </section>
+      )}
 
       <div className="catalogSectionHeading catalogCount collectionCount">
         <h2>В подборке</h2>

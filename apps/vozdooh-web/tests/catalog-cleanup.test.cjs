@@ -127,10 +127,10 @@ test('discovery uses only positive-stock pictured products and preserves researc
 
 
 test('editorial collections use only verified catalog attributes and keep storefront ordering', () => {
-  assert.equal(editorialCollections.length, 7)
+  assert.equal(editorialCollections.length, 9)
   assert.equal(new Set(editorialCollections.map((collection) => collection.slug)).size, editorialCollections.length)
   const available = availableCollections(products)
-  assert.equal(available.length, 7)
+  assert.equal(available.length, 9)
   for (const collection of available) {
     assert.ok(collection.products.length > 0, collection.name)
     assert.deepEqual(collection.products, storefrontProducts(collection.products))
@@ -139,7 +139,9 @@ test('editorial collections use only verified catalog attributes and keep storef
       assert.ok(product.editorial.images.length > 0)
       const value = collection.rule.field === 'family'
         ? product.editorial.scentFamily
-        : product.editorial[collection.rule.field]
+        : collection.rule.field === 'category'
+          ? product.trade.category
+          : product.editorial[collection.rule.field]
       assert.ok(collection.rule.values.includes(value), collection.name + ': ' + product.trade.sku)
     }
     assert.deepEqual(collectionProducts(products, collection), collection.products)
