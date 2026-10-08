@@ -82,6 +82,11 @@ jobs:
       - name: Verify personal notification storage and restart behavior
         run: node scripts/arthur/check-personal-notifications.js
 
+      - name: Verify Telegram image includes personal scheduler dependencies
+        run: |
+          docker build -f docker/arthur/Dockerfile.telegram -t arthur-telegram-ci .
+          docker run --rm --entrypoint node arthur-telegram-ci -e "require('./agents/arthur-v1/telegram/telegram_gateway')"
+
       - name: Apply Arthur Core migrations
         run: |
           for migration in data/arthur/migrations/*.up.sql; do
