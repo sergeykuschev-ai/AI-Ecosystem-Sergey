@@ -120,6 +120,12 @@ and Arthur reports their verified results and the missing confirmations.
 Batch confirmations never use LLM synthesis. This creates due dates, not
 scheduled reminder notifications.
 
+Explicit exact-time reminders and automatic personal briefings are described
+in [Personal Arthur implementation](arthur/PERSONAL_ASSISTANT_IMPLEMENTATION.md).
+They require migration 005 and the personal scheduling switches. Without
+enabled scheduling, Arthur explicitly declines reminder writes. Recurring
+reminders remain unsupported.
+
 Short task-like phrases without an explicit create command are accepted only
 by a conservative deterministic rule: after an optional date or priority the
 message must start with a supported action infinitive and include an object.

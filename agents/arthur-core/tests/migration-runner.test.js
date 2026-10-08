@@ -33,6 +33,7 @@ async function connect() {
 
 async function cleanDatabase(client) {
   await client.query(`
+    DROP TABLE IF EXISTS arthur_personal_deliveries CASCADE;
     DROP TABLE IF EXISTS arthur_automation_alert_state CASCADE;
     DROP TABLE IF EXISTS arthur_automation_runs CASCADE;
     DROP TABLE IF EXISTS arthur_audit_events CASCADE;

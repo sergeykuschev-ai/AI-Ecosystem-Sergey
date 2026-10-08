@@ -179,6 +179,7 @@ function createdTaskResult(task, parameters = {}) {
   const title = task.title || parameters.title;
   const responseLines = ['Готово. Задача создана:', title];
   if (parameters.dueLabel) responseLines.push(`Срок: ${parameters.dueLabel}`);
+  if (parameters.remindAt) responseLines.push(`Напоминание: ${parameters.dueLabel || parameters.remindAt}`);
   const responseText = responseLines.join('\n');
   return {
     status: 'success',
@@ -328,6 +329,7 @@ function taskMutationResult(task, operation, parameters = {}) {
       task.title,
       dueLabel.charAt(0).toLocaleUpperCase('ru-RU') + dueLabel.slice(1),
     ];
+    if (task.remindAt) responseLines.push(`Напоминание перенесено: ${dueLabel}`);
   }
   const responseText = responseLines.join('\n');
   return {
@@ -379,6 +381,7 @@ function createArthurCoreSkill({
   client,
   ownerProfileId,
   ownerTimezone = DEFAULT_OWNER_TIMEZONE,
+  remindersEnabled = false,
   clock = () => new Date(),
 } = {}) {
   const requiredClientMethods = [
@@ -426,6 +429,9 @@ function createArthurCoreSkill({
           if (parameters.clarification) {
             return taskClarificationResult(parameters.clarification);
           }
+          if (parameters.remindAt && !remindersEnabled) {
+            return taskClarificationResult('Напоминания ещё не включены. Задачу с уведомлением не сохранил.');
+          }
           const isWaiting = parameters.status === 'waiting';
           const task = {
             title: parameters.title,
@@ -433,6 +439,7 @@ function createArthurCoreSkill({
             ...(parameters.description ? { description: parameters.description } : {}),
             ...(parameters.priority ? { priority: parameters.priority } : {}),
             ...(parameters.dueAt ? { dueAt: parameters.dueAt } : {}),
+            ...(parameters.remindAt ? { remindAt: parameters.remindAt } : {}),
             ...(isWaiting ? {
               status: 'waiting',
               waitingFor: parameters.waitingFor,
@@ -462,7 +469,19 @@ function createArthurCoreSkill({
             }
           } else {
             const duplicate = findDuplicateTask(activeTasks, parameters);
-            if (duplicate) return duplicateTaskResult(duplicate, parameters);
+            if (duplicate) {
+              if (parameters.remindAt && duplicate.remindAt !== parameters.remindAt) {
+                const updated = await client.transitionTask(configuredOwnerProfileId, duplicate.id,
+                  duplicate.status, { remindAt: parameters.remindAt }, context);
+                return {
+                  status: 'success',
+                  data: { status: 'reminder_scheduled', task: updated,
+                    responseText: `Напоминание сохранено: ${updated.title}\n${parameters.dueLabel || parameters.remindAt}` },
+                  metadata: { source: 'arthur-core' },
+                };
+              }
+              return duplicateTaskResult(duplicate, parameters);
+            }
           }
           const created = await client.createTask(configuredOwnerProfileId, task, context);
           if (isWaiting) {

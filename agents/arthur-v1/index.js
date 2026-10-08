@@ -48,6 +48,7 @@ function createArthurV1(options = {}) {
       client,
       ownerProfileId: coreConfig.ownerProfileId,
       ownerTimezone: coreConfig.ownerTimezone,
+      remindersEnabled: coreConfig.remindersEnabled === true,
     }));
   }
 

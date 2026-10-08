@@ -9,6 +9,8 @@ const { createYandexMailSkillFromConfig } = require('../skills/mail/mail_runtime
 const { createBusinessKpiClient } = require('../skills/business_kpi/business_kpi_client');
 const { createBusinessKpiSkill } = require('../skills/business_kpi/business_kpi_skill');
 const { createKpiScheduler } = require('./kpi_scheduler');
+const { PersonalScheduler } = require('./personal_scheduler');
+const { buildPoolConfig } = require('../../arthur-core/runtime/create-runtime');
 const { loadConfig, validateConfig } = require('./config');
 const { createTelegramClient } = require('./telegram_client');
 
@@ -42,7 +44,7 @@ function formatErrorResponse(error) {
   return 'Артур временно недоступен. Попробую снова позже.';
 }
 
-const HELP_TEXT = `Привет, я Артур — AI-ассистент бизнеса.
+const HELP_TEXT = `Привет, я Артур — личный и бизнес-помощник.
 
 Сейчас я умею отвечать на вопросы по Business KPI магазина «Миска», читать и искать почту, управлять внутренними задачами и отвечать на запросы по закупкам:
 • «Как дела у Миски?»
@@ -53,6 +55,8 @@ const HELP_TEXT = `Привет, я Артур — AI-ассистент биз�
 • «Пришёл ответ от Валты?»
 • «Покажи письма от Premium Pet.»
 • «Позвонить поставщику завтра.»
+• «Запиши на сегодня: забрать заказ.»
+• «Напомни сегодня в 16:00 забрать заказ.» (при включённых напоминаниях)
 • «Я позвонил поставщику.»
 • «Отмени задачу проверить отчёт.»
 • «Перенеси задачу позвонить поставщику на пятницу.»
@@ -170,9 +174,13 @@ class ArthurTelegramGateway {
         token: this.config.coreToken,
         timeoutMs: this.config.coreTimeoutMs,
         ownerProfileId: this.config.ownerProfileId,
+        remindersEnabled: this.config.personalAutomation?.enabled === true
+          && this.config.personalAutomation.reminders === true,
       },
     });
     this.scheduler = options.kpiScheduler || null;
+    this.personalScheduler = options.personalScheduler || null;
+    this.personalSchedulerError = null;
     this.dbPool = options.dbPool || null;
     this.running = false;
     this.shutdownRequested = false;
@@ -224,6 +232,30 @@ class ArthurTelegramGateway {
     }
   }
 
+  async initializePersonalScheduler() {
+    if (!this.config.personalAutomation?.enabled) return;
+    try {
+      if (!this.dbPool) {
+        const { Pool } = require('pg');
+        this.dbPool = new Pool({ ...buildPoolConfig(process.env), max: 2 });
+      }
+      this.personalScheduler = this.personalScheduler || new PersonalScheduler({
+        config: this.config.personalAutomation, pool: this.dbPool,
+        telegram: this.telegram, ownerId: this.config.ownerProfileId,
+        chatId: Array.from(this.config.allowedUserIds)[0], logger: this.logger,
+      });
+      await this.personalScheduler.initialize();
+      this.personalScheduler.start();
+      this.personalSchedulerError = null;
+    } catch (error) {
+      this.personalScheduler = null;
+      this.personalSchedulerError = error.code || error.name;
+      this.logger.error('personal_scheduler_init_failed', null, { errorCode: this.personalSchedulerError });
+      // A configured but broken reminder scheduler must not accept new reminders.
+      throw new Error('Personal scheduler initialization failed', { cause: error });
+    }
+  }
+
   async start() {
     const validation = validateConfig(this.config);
     if (!validation.valid) {
@@ -231,6 +263,7 @@ class ArthurTelegramGateway {
       throw new Error(`Invalid gateway configuration: ${validation.errors.join('; ')}`);
     }
 
+    await this.initializePersonalScheduler();
     await this.initializeScheduler();
 
     this.running = true;
@@ -402,6 +435,7 @@ class ArthurTelegramGateway {
   async stop() {
     this.shutdownRequested = true;
     this.logger.info('gateway_shutdown_requested', null, {});
+    if (this.personalScheduler) await this.personalScheduler.stop();
 
     try {
       if (this.scheduler) {
@@ -444,6 +478,8 @@ class ArthurTelegramGateway {
       lastError: this.lastError,
       configValid: validateConfig(this.config).valid,
       kpiScheduler: this.scheduler ? this.scheduler.getHealth() : { running: false, automations: { daily: false, weekly: false, alerts: false } },
+      personalScheduler: this.personalScheduler ? this.personalScheduler.getHealth()
+        : { running: false, error: this.personalSchedulerError },
     };
   }
 }

@@ -249,6 +249,7 @@ class ArthurCoreClient {
         ...(task.description ? { description: task.description } : {}),
         ...(task.priority ? { priority: task.priority } : {}),
         ...(task.dueAt ? { dueAt: task.dueAt } : {}),
+        ...(task.remindAt ? { remindAt: task.remindAt } : {}),
         ...(task.status ? { status: task.status } : {}),
         ...(task.waitingFor ? { waitingFor: task.waitingFor } : {}),
         ...(task.nextCheckAt ? { nextCheckAt: task.nextCheckAt } : {}),

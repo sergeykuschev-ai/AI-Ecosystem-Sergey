@@ -150,6 +150,14 @@ function loadConfig(env = process.env) {
     yandexMail: loadYandexMailConfig(env),
     businessKpi: loadBusinessKpiConfig(env),
     kpiAutomation: loadKpiAutomationConfig(env),
+    personalAutomation: {
+      enabled: parseEnabled(env.ARTHUR_PERSONAL_ENABLED),
+      reminders: parseEnabled(env.ARTHUR_PERSONAL_REMINDERS_ENABLED),
+      morning: { enabled: parseEnabled(env.ARTHUR_PERSONAL_MORNING_ENABLED), time: env.ARTHUR_PERSONAL_MORNING_TIME || '09:00' },
+      evening: { enabled: parseEnabled(env.ARTHUR_PERSONAL_EVENING_ENABLED), time: env.ARTHUR_PERSONAL_EVENING_TIME || '21:00' },
+      quietStart: env.ARTHUR_PERSONAL_QUIET_START || '22:00',
+      quietEnd: env.ARTHUR_PERSONAL_QUIET_END || '08:00',
+    },
     isProduction: env.NODE_ENV === 'production',
   };
 }
@@ -228,6 +236,18 @@ function validateConfig(config) {
     errors.push('KPI automation requires BUSINESS_KPI_BASE_URL and BUSINESS_KPI_SERVICE_KEYS');
   }
   const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+  const personal = config.personalAutomation;
+  if (personal?.enabled) {
+    if (!hasCoreBaseUrl || config.allowedUserIds.size !== 1) {
+      errors.push('Personal automation requires Arthur Core and exactly one allowed Telegram user ID');
+    }
+    for (const time of [personal.morning.time, personal.evening.time, personal.quietStart, personal.quietEnd]) {
+      if (!timeRegex.test(time)) errors.push('Personal automation times must be HH:MM');
+    }
+    if (personal.morning.time >= personal.evening.time) {
+      errors.push('Personal morning time must be before evening time');
+    }
+  }
   if (kpi.daily.enabled && !timeRegex.test(kpi.daily.time)) {
     errors.push('TELEGRAM_KPI_DAILY_TIME must be HH:MM');
   }

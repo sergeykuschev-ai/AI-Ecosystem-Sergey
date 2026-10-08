@@ -94,6 +94,21 @@ function createService() {
 
 const actor = { actorId: 'sergey', actorType: 'user', correlationId: 'corr-async-1' };
 
+test('reminders persist and follow a task reschedule while allowing explicit removal', async () => {
+  const { service, store } = createService();
+  const original = '2026-10-09T06:00:00.000Z';
+  const later = '2026-10-10T06:00:00.000Z';
+  const task = await service.createTask({ ownerId: 'sergey', domain: 'personal', title: 'Забрать посылку',
+    dueAt: original, remindAt: original }, actor);
+  assert.equal(store.state.tasks.get(task.id).remindAt, original);
+  const moved = await service.transitionTask('sergey', task.id, 'new', { dueAt: later }, actor);
+  assert.equal(moved.remindAt, later);
+  const removed = await service.transitionTask('sergey', task.id, 'new', { remindAt: null }, actor);
+  assert.equal(removed.remindAt, null);
+  await assert.rejects(service.createTask({ ownerId: 'sergey', domain: 'personal', title: 'Invalid',
+    remindAt: 'invalid-date' }, actor), /ISO date/);
+});
+
 test('task and audit are committed atomically', async () => {
   const { service, store } = createService();
   const task = await service.createTask({
