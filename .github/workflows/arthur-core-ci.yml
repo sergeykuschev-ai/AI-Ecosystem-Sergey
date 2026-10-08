@@ -82,6 +82,9 @@ jobs:
       - name: Verify personal notification storage and restart behavior
         run: node scripts/arthur/check-personal-notifications.js
 
+      - name: Verify persistent personal memory and HTTP API
+        run: node scripts/arthur/check-personal-memory.js
+
       - name: Verify Telegram image includes personal scheduler dependencies
         run: |
           docker build -f docker/arthur/Dockerfile.telegram -t arthur-telegram-ci .

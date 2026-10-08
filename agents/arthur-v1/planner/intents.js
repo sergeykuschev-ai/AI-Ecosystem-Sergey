@@ -12,6 +12,7 @@ const {
   matchesSenderMailIntent,
 } = require('./mail_request_parser');
 const { matchesWaitingTaskIntent } = require('./waiting_request_parser');
+const { personalMemoryAction } = require('./personal_memory_parser');
 
 const INTENTS = Object.freeze({
   PURCHASING_STATUS: 'purchasing.status',
@@ -19,6 +20,7 @@ const INTENTS = Object.freeze({
   PURCHASING_FINAL_ORDER: 'purchasing.final_order',
   PURCHASING_SUMMARY: 'purchasing.summary',
   CORE_PROFILE: 'arthur_core.profile',
+  PERSONAL_MEMORY: 'personal_memory.command',
   CORE_TASKS: 'arthur_core.tasks',
   CORE_TASK_BRIEF: 'arthur_core.task_brief',
   CORE_CREATE_TASK: 'arthur_core.create_task',
@@ -183,6 +185,7 @@ const DETERMINISTIC_INTENTS = Object.freeze(new Set([
   INTENTS.PURCHASING_FINAL_ORDER,
   INTENTS.PURCHASING_SUMMARY,
   INTENTS.CORE_PROFILE,
+  INTENTS.PERSONAL_MEMORY,
   INTENTS.CORE_TASKS,
   INTENTS.CORE_TASK_BRIEF,
   INTENTS.CORE_CREATE_TASK,
@@ -225,13 +228,12 @@ function detectIntent(message) {
   if (!message || typeof message !== 'string') {
     return INTENTS.UNKNOWN;
   }
+  if (matchesWaitingTaskIntent(message)) return INTENTS.CORE_WAITING_TASK;
+  if (personalMemoryAction(message)) return INTENTS.PERSONAL_MEMORY;
   const taskAction = detectTaskManagementAction(message);
   if (taskAction) return TASK_MANAGEMENT_INTENTS[taskAction];
   if (matchesCreateTaskIntent(message)) {
     return INTENTS.CORE_CREATE_TASK;
-  }
-  if (matchesWaitingTaskIntent(message)) {
-    return INTENTS.CORE_WAITING_TASK;
   }
   if (matchesImportantMailIntent(message)) {
     return INTENTS.MAIL_IMPORTANT;

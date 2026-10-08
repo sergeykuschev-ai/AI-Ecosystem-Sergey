@@ -1,6 +1,7 @@
 'use strict';
 
 const { randomUUID } = require('node:crypto');
+const personalMemory = require('./personal-memory-service');
 const {
   validateProfile,
   validateMemoryRecord,
@@ -25,6 +26,14 @@ function requireString(value, name) {
 }
 
 class AsyncArthurCoreService {
+  async listPersonalMemory(ownerId, query = '') {
+    return personalMemory.listPersonalMemory(this, ownerId, query);
+  }
+
+  async managePersonalMemory(ownerId, operation, input, context) {
+    return personalMemory.managePersonalMemory(this, ownerId, operation, input, context);
+  }
+
   constructor({ store, clock = () => new Date(), idFactory = randomUUID } = {}) {
     if (!store || typeof store.transaction !== 'function') {
       throw new TypeError('transactional async store is required');

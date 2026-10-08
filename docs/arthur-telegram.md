@@ -122,6 +122,8 @@ scheduled reminder notifications.
 
 Explicit exact-time reminders and automatic personal briefings are described
 in [Personal Arthur implementation](arthur/PERSONAL_ASSISTANT_IMPLEMENTATION.md).
+Explicit remember/edit/forget commands and their independent feature switch are
+documented in [Personal memory](arthur/PERSONAL_MEMORY.md).
 They require migration 005 and the personal scheduling switches. Without
 enabled scheduling, Arthur explicitly declines reminder writes. Recurring
 reminders remain unsupported.

@@ -174,6 +174,7 @@ class ArthurTelegramGateway {
         token: this.config.coreToken,
         timeoutMs: this.config.coreTimeoutMs,
         ownerProfileId: this.config.ownerProfileId,
+        personalMemoryEnabled: this.config.personalMemoryEnabled,
         remindersEnabled: this.config.personalAutomation?.enabled === true
           && this.config.personalAutomation.reminders === true,
       },

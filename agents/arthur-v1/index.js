@@ -10,6 +10,7 @@ const { createLogger } = require('./logging/logger');
 const { PurchasingSkill } = require('./skills/purchasing/purchasing_skill');
 const { createArthurCoreClient, validateCoreClientOptions } = require('./skills/arthur-core/core_client');
 const { createArthurCoreSkill } = require('./skills/arthur-core/arthur_core_skill');
+const { createPersonalMemorySkill } = require('./skills/arthur-core/personal_memory_skill');
 const { createMailSkill } = require('./skills/mail/mail_skill');
 const { createMailboxRegistry } = require('./skills/mail/mailbox_registry');
 const { createYandexMailSkillFromConfig } = require('./skills/mail/mail_runtime');
@@ -50,6 +51,9 @@ function createArthurV1(options = {}) {
       ownerTimezone: coreConfig.ownerTimezone,
       remindersEnabled: coreConfig.remindersEnabled === true,
     }));
+    if (coreConfig.personalMemoryEnabled === true) {
+      registry.register(createPersonalMemorySkill({ client, ownerProfileId: coreConfig.ownerProfileId }));
+    }
   }
 
   // Mail is opt-in. Tests may inject fake adapters; the Telegram Gateway may

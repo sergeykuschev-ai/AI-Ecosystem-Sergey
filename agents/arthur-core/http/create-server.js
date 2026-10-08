@@ -117,6 +117,19 @@ function createArthurHttpHandler({ runtime, bodyLimit = DEFAULT_BODY_LIMIT, apiT
         return sendJson(response, 201, { data: task });
       }
 
+      if (request.method === 'GET' && path === '/v1/personal-memory') {
+        const records = await runtime.service.listPersonalMemory(requestUrl.searchParams.get('ownerId'),
+          requestUrl.searchParams.get('query') || '');
+        const limit = 50;
+        return sendJson(response, 200, { data: { records: records.slice(0, limit), total: records.length } });
+      }
+      if (request.method === 'POST' && path === '/v1/personal-memory') {
+        const body = await readJson(request, bodyLimit);
+        const result = await runtime.service.managePersonalMemory(body.ownerId, body.operation,
+          body.parameters || {}, actorContext(request));
+        return sendJson(response, 200, { data: result });
+      }
+
       if (request.method === 'GET' && path === '/v1/tasks') {
         const ownerId = requestUrl.searchParams.get('ownerId');
         if (!ownerId) return sendJson(response, 400, { error: { code: 'validation_error', message: 'ownerId query parameter is required' } });
