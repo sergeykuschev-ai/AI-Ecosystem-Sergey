@@ -6,6 +6,7 @@ const shopLinks = [
   { href: '/finder', label: 'Подбор аромата' },
   { href: '/brands', label: 'Бренды' },
   { href: '/collections', label: 'Коллекции' },
+  { href: '/business', label: 'Для бизнеса' },
   { href: '/cart', label: 'Корзина' },
 ]
 

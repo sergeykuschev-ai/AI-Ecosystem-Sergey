@@ -26,6 +26,18 @@ test('footer and legal seller block retain the owner-confirmed public identity',
   }
 })
 
+test('business page is public, linked and keeps confirmed contact facts', () => {
+  const { SiteFooter } = require('../components/SiteFooter.tsx')
+  const Business = require('../app/business/page.tsx')
+  const footer = render(SiteFooter)
+  const html = render(Business.default)
+  assert.ok(footer.includes('href="/business"'))
+  assert.equal(Business.metadata.robots.index, false)
+  assert.match(html, /Аромат как часть пространства и подарка/)
+  assert.match(html, /href="tel:\+79244199990"/)
+  assert.match(html, /vozdooh.kms@yandex.ru/)
+})
+
 test('footer customer information links resolve to implemented pages', () => {
   const { SiteFooter } = require('../components/SiteFooter.tsx')
   const html = render(SiteFooter)

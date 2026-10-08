@@ -67,6 +67,7 @@ test('sitemap excludes transactional pages while robots keeps preview crawling d
     const sitemap = await require('../app/sitemap.ts').default()
     const paths = sitemap.map((entry) => new URL(entry.url).pathname)
     assert.ok(paths.includes('/catalog'))
+    assert.ok(paths.includes('/business'))
     assert.ok(paths.includes('/contacts'))
     for (const path of ['/delivery', '/payment', '/returns', '/privacy', '/offer', '/user-agreement', '/cart', '/checkout', '/api/order-requests']) assert.ok(!paths.includes(path))
     assert.equal(require('../app/robots.ts').default().rules.disallow, '/')
