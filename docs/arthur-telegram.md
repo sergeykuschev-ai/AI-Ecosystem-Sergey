@@ -99,6 +99,27 @@ use domain `personal`, `sourceType=telegram`, and the Telegram update ID as
 `sourceRef` when it is available. Core writes the task and its `task.create`
 audit event atomically.
 
+Explicit dated commands such as `Запиши на сегодня спортзал` also create
+tasks. For several tasks, send one item per line:
+
+```text
+Запиши на сегодня
+Забрать посылку
+Заехать в магазин
+Спорт зал
+```
+
+The date-only header applies to every item; an item's own date overrides it.
+Bullets and numbered lines are supported. A list is limited to 20 items and
+all items are parsed before any writes. Invalid items trigger clarification
+without saving the list. Each task uses the existing personal-task API;
+multi-item source references append `:task:<1-based index>` to the update ID.
+Writes run in list order so duplicate detection sees earlier saved items.
+Batch storage is not atomic: when a Core call fails, successful writes remain
+and Arthur reports their verified results and the missing confirmations.
+Batch confirmations never use LLM synthesis. This creates due dates, not
+scheduled reminder notifications.
+
 Short task-like phrases without an explicit create command are accepted only
 by a conservative deterministic rule: after an optional date or priority the
 message must start with a supported action infinitive and include an object.

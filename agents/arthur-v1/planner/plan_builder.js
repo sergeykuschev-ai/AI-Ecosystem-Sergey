@@ -2,7 +2,7 @@
 
 const { PlanBuildError } = require('../errors/arthur_errors');
 const { INTENTS, detectIntent } = require('./intents');
-const { DEFAULT_OWNER_TIMEZONE, parseCreateTaskRequest } = require('./task_request_parser');
+const { DEFAULT_OWNER_TIMEZONE, parseCreateTasksRequest } = require('./task_request_parser');
 const {
   TASK_MANAGEMENT_ACTIONS,
   parseTaskManagementRequest,
@@ -136,25 +136,30 @@ const PLAN_BUILDERS = {
   ]),
 
   [INTENTS.CORE_CREATE_TASK]: (input) => {
-    const parsed = parseCreateTaskRequest(input.message, {
+    const parsed = parseCreateTasksRequest(input.message, {
       now: input.now,
       timezone: input.ownerTimezone,
     });
     const updateId = input.transport?.metadata?.updateId;
-    return createExecutionPlan([
+    const tasks = parsed.ok ? parsed.tasks : [{ clarification: parsed.clarification }];
+    return createExecutionPlan(tasks.map((task, index) =>
       createStep({
-        id: 'step_1',
+        id: `step_${index + 1}`,
         skill: 'arthur-core',
         operation: 'createTask',
-        parameters: parsed.ok
-          ? {
-              ...parsed.task,
-              ...(updateId != null ? { sourceRef: `telegram-update:${updateId}` } : {}),
-            }
-          : { clarification: parsed.clarification },
+        parameters: {
+          ...task,
+          ...(parsed.ok && updateId != null ? {
+            sourceRef: tasks.length === 1
+              ? `telegram-update:${updateId}`
+              : `telegram-update:${updateId}:task:${index + 1}`,
+          } : {}),
+        },
+        // Serialize writes so duplicate detection also sees earlier list items.
+        dependsOn: index ? [`step_${index}`] : [],
         timeoutMs: 10000,
-      }),
-    ]);
+      })
+    ));
   },
 
   [INTENTS.CORE_WAITING_TASK]: (input) => {
