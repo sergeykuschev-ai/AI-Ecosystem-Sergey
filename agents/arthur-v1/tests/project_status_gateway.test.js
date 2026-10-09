@@ -71,3 +71,65 @@ test('command reader failure does not leak exception contents',async()=>{
   assert.equal(f.sent.length,1);
   assert.doesNotMatch(f.sent[0].text,/private-value|C:\\secret/);
 });
+
+test('gateway invokes the read-only incident notifier after polling without starting a second Telegram poller',async()=>{
+  let gateway,checks=0,polls=0;
+  const events=[];
+  const config=loadConfig({
+    TELEGRAM_BOT_TOKEN:'123456:fake-test-only-token-00000',
+    TELEGRAM_ALLOWED_USER_IDS:'111111',
+    ARTHUR_OWNER_PROFILE_ID:'test-owner',
+    TELEGRAM_POLL_TIMEOUT_MS:'1000',
+    TELEGRAM_API_TIMEOUT_MS:'2000',
+    TELEGRAM_GATEWAY_HEALTH_PORT:'0',
+  });
+  gateway=createTelegramGateway({
+    config,
+    logger:{
+      info(){},warn(event){events.push(event);},error(){},debug(){},
+    },
+    telegramClient:{
+      proxyEnabled:false,
+      async getUpdates(){polls++;gateway.shutdownRequested=true;return {result:[]}},
+      async sendMessage(){throw new Error('No real Telegram messages permitted in test')},
+    },
+    arthur:{async handle(){return {status:'success',answer:{text:'ok'}}}},
+    voiceTranscriber:{async transcribe(){return 'unused';}},
+    projectAlertNotifier:async()=>{checks++;return {status:'ok',sent:['vozdooh']}},
+  });
+  await gateway.start();
+  assert.equal(polls,1);
+  assert.equal(checks,1);
+  assert.ok(events.includes('project_health_alert_sent'));
+});
+
+test('incident notifier error does not interrupt Telegram polling or expose secrets to logs',async()=>{
+  let gateway;
+  const errors=[];
+  const config=loadConfig({
+    TELEGRAM_BOT_TOKEN:'123456:fake-test-only-token-00000',
+    TELEGRAM_ALLOWED_USER_IDS:'111111',
+    ARTHUR_OWNER_PROFILE_ID:'test-owner',
+    TELEGRAM_POLL_TIMEOUT_MS:'1000',
+    TELEGRAM_API_TIMEOUT_MS:'2000',
+    TELEGRAM_GATEWAY_HEALTH_PORT:'0',
+  });
+  gateway=createTelegramGateway({
+    config,
+    logger:{info(){},warn(name,_ctx,meta){errors.push({name,meta})},error(){},debug(){}},
+    telegramClient:{
+      proxyEnabled:false,
+      async getUpdates(){gateway.shutdownRequested=true;return {result:[]}},
+    },
+    arthur:{},
+    voiceTranscriber:{async transcribe(){return 'unused';}},
+    projectAlertNotifier:async()=>{
+      throw Object.assign(new Error('password=private-secret'),{code:'PROJECT_ALERT_STATE_UNAVAILABLE'});
+    },
+  });
+  await gateway.start();
+  assert.equal(errors.length,1);
+  assert.equal(errors[0].name,'project_health_alert_check_failed');
+  assert.equal(errors[0].meta.errorCode,'PROJECT_ALERT_STATE_UNAVAILABLE');
+  assert.doesNotMatch(JSON.stringify(errors),/private-secret/);
+});
