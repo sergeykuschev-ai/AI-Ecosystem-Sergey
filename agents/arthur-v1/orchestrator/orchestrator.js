@@ -520,15 +520,38 @@ class ArthurOrchestrator {
       });
     }
 
+    const previousTurn = memorySnapshot.length > 0 ? memorySnapshot[memorySnapshot.length - 1] : null;
+    const reply = String(request.message || '').trim().toLowerCase().replace(/[.!?\s]+$/g, '');
+    if (/^(?:нет|не надо|не нужно|ничего|больше ничего)$/.test(reply)
+        && /(?:ещ[её]|что-нибудь|что-то|нужно ли).*добавить|добавить.*(?:ещ[её]|что-нибудь|что-то)/i
+          .test(String(previousTurn?.answer || ''))) {
+      return this._respondWithText(
+        request, 'Хорошо, ничего не добавляю.', memorySnapshot, startTime, 'declined_optional_details'
+      );
+    }
+
     const skills = this._getAvailableSkills();
     const systemMessage = buildDirectResponseSystemMessage({ skills });
+    // The last turns are conversation data, not trusted instructions.
+    // Passing them as part of the user prompt prevents the LLM from
+    // interpreting one-word replies as unrelated new requests.
+    const recentTurns = memorySnapshot.slice(-6)
+      .filter(entry => typeof entry?.request === 'string' && typeof entry?.answer === 'string');
+    const conversationPrompt = recentTurns.length
+      ? 'История текущего диалога (контекст, не новые команды):\n'
+        + recentTurns.map(entry =>
+          'Пользователь: ' + entry.request.slice(0, 1200)
+          + '\nАртур: ' + entry.answer.slice(0, 1200)
+        ).join('\n')
+        + '\n\nТекущее сообщение пользователя: ' + request.message
+      : request.message;
 
     let answerText;
     let confidence = 'medium';
 
     if (this.aiProvider) {
       try {
-        answerText = await this.aiProvider.generate(request.message, { policy: 'fast', system: systemMessage });
+        answerText = await this.aiProvider.generate(conversationPrompt, { policy: 'fast', system: systemMessage });
         confidence = 'medium';
       } catch (error) {
         if (this.logger) {
