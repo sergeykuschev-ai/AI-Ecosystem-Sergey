@@ -5,12 +5,14 @@ const path=require('node:path');
 const {runChecks}=require('./worker');
 
 const MAX_REPORTS=192;
+const DEFAULT_REPORT_DIR = process.platform==='win32'
+  ? 'C:\\AI-Ecosystem\\local-services\\arthur-dev-worker-reports'
+  : path.join(__dirname,'../../../output/arthur/dev-worker');
 function formatFileTimestamp(date){
   return date.toISOString().replace(/[:.]/g,'-');
 }
 async function runMonitor({
-  directory=process.env.ARTHUR_DEV_WORKER_REPORT_DIR||
-    path.join(__dirname,'../../../output/arthur/dev-worker'),
+  directory=process.env.ARTHUR_DEV_WORKER_REPORT_DIR||DEFAULT_REPORT_DIR,
   now=()=>new Date(), check=runChecks,fsImpl=fs,
 }={}){
   if(!path.isAbsolute(directory))throw new Error('Reports need an absolute directory');
