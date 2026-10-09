@@ -48,6 +48,17 @@ jobs:
         run: uvx --from graphifyy graphify --version
       - name: Build local code graph for purchasing agent
         run: uvx --from graphifyy graphify agents/purchasing --no-viz
+      - name: Create readable Graphify report
+        run: uvx --from graphifyy graphify cluster-only agents/purchasing --no-viz
+      - name: Save generated graph and report as CI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: graphify-purchasing
+          path: |
+            agents/purchasing/graphify-out/graph.json
+            agents/purchasing/graphify-out/GRAPH_REPORT.md
+          if-no-files-found: error
+          retention-days: 7
       - name: Confirm nonempty graph generated
         run: |
           python - <<'PY'
