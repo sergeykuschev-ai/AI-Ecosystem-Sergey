@@ -84,6 +84,7 @@ function validateTask(input) {
   assertEnum(input.priority || 'normal', TASK_PRIORITIES, 'task.priority');
   assertEnum(input.status || 'new', TASK_STATUSES, 'task.status');
   assertOptionalIsoDate(input.dueAt, 'task.dueAt');
+  assertOptionalIsoDate(input.remindAt, 'task.remindAt');
   assertOptionalIsoDate(input.nextCheckAt, 'task.nextCheckAt');
 
   if ((input.status || 'new') === 'waiting') {

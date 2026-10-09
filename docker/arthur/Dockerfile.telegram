@@ -9,6 +9,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund
 
 COPY agents/arthur-v1 ./agents/arthur-v1
+COPY agents/arthur-core ./agents/arthur-core
 COPY agents/purchasing ./agents/purchasing
 COPY apps/purchasing-web-backend ./apps/purchasing-web-backend
 COPY shared ./shared

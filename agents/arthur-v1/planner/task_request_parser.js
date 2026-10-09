@@ -8,7 +8,8 @@ const DATE_ONLY_MILLISECOND = 999;
 const MAX_IMPLICIT_TASK_LENGTH = 160;
 
 const ARTHUR_ADDRESS_PREFIX = /^\s*артур\s*[,!:.-]?\s*/iu;
-const CREATE_TASK_PREFIX = /^\s*(?:артур\s*[,!:.-]?\s*)?(?:(?:создай|добавь|поставь|запиши)\s+(?:мне\s+)?задач(?:у|ку)|напомни\s+мне|надо\s+сделать|мне\s+нужно\s+сделать)\s*[:,-]?\s*/iu;
+const CREATE_TASK_PREFIX = /^\s*(?:артур\s*[,!:.-]?\s*)?(?:(?:создай|добавь|поставь|запиши)\s+(?:мне\s+)?(?:задач(?:у|ку|и)|дела)|запиши\s+(?:мне\s+)?(?=(?:на\s+)?(?:сегодня|завтра|послезавтра)(?![\p{L}\p{N}]))|напомни(?:\s+мне)?|надо\s+сделать|мне\s+нужно\s+сделать)\s*[:,-]?\s*/iu;
+const REMINDER_PREFIX = /^\s*(?:артур\s*[,!:.-]?\s*)?напомни(?:\s+мне)?(?![\p{L}\p{N}])/iu;
 const TIME_PATTERN = /(?:^|\s)в?\s*([01]?\d|2[0-3]):([0-5]\d)(?!\d)/iu;
 const DATE_PATTERN = /(?<![\p{L}\p{N}])(?:(?:до|на)\s+)?(?:(сегодня|завтра|послезавтра)|(в\s+)?(понедельник|понедельника|понедельнику|вторник|вторника|вторнику|среду|среда|среде|четверг|четверга|четвергу|пятницу|пятница|пятницы|субботу|суббота|субботы|воскресенье|воскресенья|воскресенью)|([0-3]?\d)\.([01]?\d)(?:\.(\d{4}))?|([0-3]?\d)\s+(января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)(?:\s+(\d{4})(?:\s+года)?)?)(?![\p{L}\p{N}])/giu;
 const IMPLICIT_TASK_DISCUSSION_PATTERN = /(?:—|--|(?<![\p{L}\p{N}])(?:было\s+бы|хорошая\s+идея|кажется|думаю|возможно|может\s+быть|стоит\s+ли|можно\s+ли)(?![\p{L}\p{N}]))/iu;
@@ -408,6 +409,16 @@ function parseCreateTaskRequest(message, options = {}) {
   let remainder = explicitIntent
     ? message.replace(CREATE_TASK_PREFIX, '')
     : message.replace(ARTHUR_ADDRESS_PREFIX, '').trim();
+  const reminderRequested = REMINDER_PREFIX.test(message);
+  if (reminderRequested && /(?:кажд(?:ый|ую|ое|ые)|ежедневно|еженедельно|раз\s+в)/iu.test(remainder)) {
+    return clarification('Повторяющиеся напоминания пока не поддерживаются. Укажи одну дату и время.');
+  }
+  if (reminderRequested && TIME_PATTERN.test(remainder) && ![...remainder.matchAll(DATE_PATTERN)].length) {
+    remainder = `сегодня ${remainder}`;
+  }
+  if (reminderRequested && !TIME_PATTERN.test(remainder)) {
+    return clarification('Во сколько напомнить? Укажи дату и время.');
+  }
 
   const priorityResult = extractPriority(remainder);
   if (priorityResult.error) return clarification(priorityResult.error);
@@ -421,15 +432,54 @@ function parseCreateTaskRequest(message, options = {}) {
   if (!title) {
     return clarification('Что именно нужно сделать? Напиши название задачи.');
   }
+  if (reminderRequested && Date.parse(dueResult.dueAt) <= new Date(options.now || Date.now()).getTime()) {
+    return clarification('Это время уже прошло. Укажи будущую дату и время напоминания.');
+  }
 
   return {
     ok: true,
     task: {
       title,
       ...(dueResult.dueAt ? { dueAt: dueResult.dueAt, dueLabel: dueResult.dueLabel } : {}),
+      ...(reminderRequested ? { remindAt: dueResult.dueAt } : {}),
       ...(priorityResult.priority ? { priority: priorityResult.priority } : {}),
     },
   };
+}
+
+// A newline list is an explicit request for separate tasks. Parse every item
+// before planning any writes; an invalid item must not save only half a list.
+function parseCreateTasksRequest(message, options = {}) {
+  if (REMINDER_PREFIX.test(message) && /[\r\n]/u.test(message.trim())) {
+    return clarification('Каждое напоминание пришли отдельным сообщением с датой и временем.');
+  }
+  if (!matchesExplicitCreateTaskIntent(message) || !/[\r\n]/u.test(message)) {
+    const parsed = parseCreateTaskRequest(message, options);
+    return parsed.ok ? { ok: true, tasks: [parsed.task] } : parsed;
+  }
+  const context = temporalContext(options);
+  const lines = message.replace(CREATE_TASK_PREFIX, '').split(/\r?\n/u)
+    .map(line => line.trim()).filter(Boolean);
+  const shared = {};
+  if (lines.length) {
+    const header = extractDueDate(lines[0].replace(/:\s*$/u, ''), context);
+    if (!header.ok) return header;
+    if (header.dueAt && !cleanTitle(header.remainder)) {
+      shared.dueAt = header.dueAt;
+      shared.dueLabel = header.dueLabel;
+      lines.shift();
+    }
+  }
+  if (!lines.length) return clarification('Что именно нужно сделать? Напиши название задачи.');
+  if (lines.length > 20) return clarification('Пришли не больше 20 задач одним сообщением.');
+  const tasks = [];
+  for (const line of lines) {
+    const item = line.replace(/^(?:[-•*]\s*|\d+[.)]\s+)/u, '');
+    const parsed = parseCreateTaskRequest(`Создай задачу ${item}`, options);
+    if (!parsed.ok) return parsed;
+    tasks.push({ ...shared, ...parsed.task });
+  }
+  return { ok: true, tasks };
 }
 
 module.exports = {
@@ -439,6 +489,7 @@ module.exports = {
   matchesExplicitCreateTaskIntent,
   matchesImplicitTaskIntent,
   parseCreateTaskRequest,
+  parseCreateTasksRequest,
   parseTaskDueExpression,
   temporalContext,
   zonedDateTimeToIso,

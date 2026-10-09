@@ -17,6 +17,30 @@ const { createLogger } = require('../logging/logger');
 
 const UUID_V4_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+test('personal scheduler lifecycle is connected to gateway and exposes initialization failure', async () => {
+  const config = loadConfig({ TELEGRAM_BOT_TOKEN: '123:test', TELEGRAM_ALLOWED_USER_IDS: '111',
+    ARTHUR_OWNER_PROFILE_ID: 'sergey', ARTHUR_CORE_BASE_URL: 'http://core.test', ARTHUR_CORE_TOKEN: 'test',
+    ARTHUR_PERSONAL_ENABLED: 'true' });
+  const calls = [];
+  const scheduler = {
+    async initialize() { calls.push('initialize'); }, start() { calls.push('start'); },
+    async stop() { calls.push('stop'); }, getHealth() { return { running: true }; },
+  };
+  const gateway = createTelegramGateway({ config, logger: createSilentLogger(),
+    telegramClient: createFakeTelegramClient(), arthur: {}, personalScheduler: scheduler,
+    dbPool: { async end() { calls.push('end'); } } });
+  await gateway.initializePersonalScheduler();
+  assert.deepEqual(calls, ['initialize', 'start']);
+  assert.equal(gateway.getHealth().personalScheduler.running, true);
+  await gateway.stop();
+  assert.deepEqual(calls, ['initialize', 'start', 'stop', 'end']);
+  const broken = createTelegramGateway({ config, logger: createSilentLogger(),
+    telegramClient: createFakeTelegramClient(), arthur: {}, dbPool: {},
+    personalScheduler: { async initialize() { throw new Error('Schema missing'); } } });
+  await assert.rejects(broken.initializePersonalScheduler(), /initialization failed/);
+  assert.equal(broken.getHealth().personalScheduler.error, 'Error');
+});
+
 function createSilentLogger() {
   return createLogger({
     stdout: { write: () => {} },

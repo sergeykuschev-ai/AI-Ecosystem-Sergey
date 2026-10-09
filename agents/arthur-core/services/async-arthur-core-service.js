@@ -183,6 +183,9 @@ class AsyncArthurCoreService {
       const after = {
         ...before,
         ...patch,
+        ...(before.remindAt && Object.prototype.hasOwnProperty.call(patch, 'dueAt')
+          && !Object.prototype.hasOwnProperty.call(patch, 'remindAt')
+          ? { remindAt: patch.dueAt } : {}),
         id: before.id,
         ownerId: before.ownerId,
         status: nextStatus,

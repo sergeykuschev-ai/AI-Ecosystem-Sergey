@@ -146,16 +146,24 @@ class Synthesizer {
     const deterministicFailure = successfulResults.length === 0
       ? deterministicMailFailure(failedResults)
       : null;
-    const deterministicText = successfulResults.length === 1 && failedResults.length === 0
+    const taskBatch = Object.values(stepResults).length > 1
+      && Object.values(stepResults).every(result => (
+        result.skill === 'arthur-core' && result.operation === 'createTask'
+      ));
+    const taskBatchText = taskBatch ? [
+      ...successfulResults.map(result => result.data?.responseText || 'Результат сохранения задачи не подтверждён.'),
+      ...(failedResults.length ? ['Не удалось подтвердить сохранение всех задач. Проверь список дел перед повтором.'] : []),
+    ].join('\n\n') : null;
+    const deterministicText = taskBatchText || (successfulResults.length === 1 && failedResults.length === 0
       ? successfulResults[0].data?.responseText
-      : null;
+      : null);
     if (deterministicFailure) {
       answer = deterministicFailure;
     } else if (typeof deterministicText === 'string' && deterministicText.trim() !== '') {
       answer = {
         text: deterministicText,
         markdown: deterministicText,
-        confidence: 'high',
+        confidence: failedResults.length ? 'low' : 'high',
         followUps: [],
       };
     } else if (this.aiProvider) {
