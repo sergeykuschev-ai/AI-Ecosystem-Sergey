@@ -3,7 +3,7 @@
 ## Scope and constraints
 
 Target: the Purchasing Agent in this repository. **No production rollout.**
-Do not execute the experiment on stores-web1 or on the Amursk production server.
+Do not execute the experiment on stores-web1 or inside Amursk production services.\nThe target machine is the **Amursk Windows development/AI server**, using a\nseparate local pilot profile and disposable checkout. A MacBook is not required.
 No changes to 1C, production databases, stock matrices, KPI data, production
 service settings or deployments. Do not pass credentials, source customer
 records, supplier exports or live purchase spreadsheets to any new tool.
@@ -25,7 +25,7 @@ Important: this checks graph generation, **not** token savings or code quality.
 The third-party PyPI package runs exclusively in an ephemeral CI runner with
 read-only GitHub permissions, not on an operating store server.
 
-## Installation to do when the MacBook development workstation is online
+## Installation on the Amursk Windows server (isolated pilot only)
 
 Verify the installed Codex/Claude Code versions and inspect the upstream
 plugin repositories/activation hooks before applying. Prefer project-scoped
