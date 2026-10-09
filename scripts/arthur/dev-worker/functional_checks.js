@@ -77,6 +77,42 @@ const [port,route,verify]=process.argv.slice(1);
        &&d?.mode==='AUTH_REQUIRED';
    }else if(verify==='purchasing-health'){
      valid=d?.status==='ok'&&d?.service==='purchasing-web';
+     if(valid){
+       // Health endpoint alone can stay green while the Windows bind mount
+       // returns EIO. Inspect the actual mounted directory in the SAME
+       // purchasing container. Never print file names or contents.
+       try{
+         const fs=require('node:fs');
+         const p=require('node:path');
+         const dir='/app/data/purchasing';
+         const names=fs.readdirSync(dir);
+         if(names.length<1||names.length>2000)throw Error('INVALID_COUNT');
+         let jsonCount=0,xlsxCount=0;
+         for(const name of names){
+           const file=p.join(dir,name);
+           const stat=fs.lstatSync(file);
+           if(!stat.isFile()||stat.isSymbolicLink()||stat.size>50*1024*1024)
+             throw Error('INVALID_FILE');
+           const fd=fs.openSync(file,'r');
+           const magic=Buffer.alloc(4);
+           try{
+             fs.readSync(fd,magic,0,4,0);
+           }finally{
+             fs.closeSync(fd);
+           }
+           if(name.toLowerCase().endsWith('.xlsx')){
+             xlsxCount++;
+             if(magic[0]!==0x50||magic[1]!==0x4b)throw Error('INVALID_XLSX');
+           }else if(name.toLowerCase().endsWith('.json')){
+             jsonCount++;
+             JSON.parse(fs.readFileSync(file,'utf8'));
+           }
+         }
+         valid=jsonCount>0&&xlsxCount>0;
+       }catch{
+         valid=false;
+       }
+     }
    }else if(verify==='purchasing-learning'){
      valid=d&&typeof d==='object'
        &&typeof d.status==='string'
@@ -145,5 +181,5 @@ function storeSnapshot(report,{directory,fsImpl=fs}={}){
 
 module.exports={
   SITE_CHECKS,DOCKER_CHECKS,checkWebsite,checkDockerFunction,
-  functionalSnapshot,storeSnapshot,MAX_REPORTS,
+  functionalSnapshot,storeSnapshot,MAX_REPORTS,PROBE_SOURCE,
 };
