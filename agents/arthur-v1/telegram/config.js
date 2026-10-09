@@ -1,5 +1,23 @@
 'use strict';
 
+const fs = require('node:fs');
+
+function loadTelegramToken(env = process.env) {
+  const inlineToken = String(env.TELEGRAM_BOT_TOKEN || '').trim();
+  if (inlineToken) return inlineToken;
+
+  const secretFile = String(env.TELEGRAM_BOT_TOKEN_SECRET_FILE || '').trim();
+  if (!secretFile) return '';
+
+  try {
+    return fs.readFileSync(secretFile, 'utf8').trim();
+  } catch (error) {
+    const safeError = new TypeError('Unable to read TELEGRAM_BOT_TOKEN_SECRET_FILE');
+    safeError.code = 'TELEGRAM_TOKEN_SECRET_READ_FAILED';
+    throw safeError;
+  }
+}
+
 function parseAllowedUserIds(value) {
   if (!value) return new Set();
   return new Set(
@@ -108,8 +126,40 @@ function loadYandexMailConfig(env = process.env) {
   };
 }
 
+function loadVozdoohNotificationsConfig(env = process.env) {
+  const enabled = parseEnabled(env.ARTHUR_VOZDOOH_NOTIFICATIONS_ENABLED);
+  let secret = String(env.ARTHUR_VOZDOOH_NOTIFICATION_SECRET || '').trim();
+  const secretFile = String(env.ARTHUR_VOZDOOH_NOTIFICATION_SECRET_FILE || '').trim();
+  if (!secret && secretFile) {
+    try {
+      secret = fs.readFileSync(secretFile, 'utf8').trim();
+    } catch {
+      const error = new TypeError('Unable to read ARTHUR_VOZDOOH_NOTIFICATION_SECRET_FILE');
+      error.code = 'ARTHUR_VOZDOOH_NOTIFICATION_SECRET_READ_FAILED';
+      throw error;
+    }
+  }
+  return { enabled, secret };
+}
+
+function loadAdvertisingLeadsConfig(env = process.env) {
+  const enabled = parseEnabled(env.ARTHUR_ADVERTISING_LEADS_ENABLED);
+  let secret = String(env.ARTHUR_ADVERTISING_LEAD_SECRET || '').trim();
+  const secretFile = String(env.ARTHUR_ADVERTISING_LEAD_SECRET_FILE || '').trim();
+  if (!secret && secretFile) {
+    try {
+      secret = fs.readFileSync(secretFile, 'utf8').trim();
+    } catch {
+      const error = new TypeError('Unable to read ARTHUR_ADVERTISING_LEAD_SECRET_FILE');
+      error.code = 'ARTHUR_ADVERTISING_LEAD_SECRET_READ_FAILED';
+      throw error;
+    }
+  }
+  return { enabled, secret };
+}
+
 function loadConfig(env = process.env) {
-  const token = env.TELEGRAM_BOT_TOKEN || '';
+  const token = loadTelegramToken(env);
   const allowedUserIds = parseAllowedUserIds(env.TELEGRAM_ALLOWED_USER_IDS);
   const ownerProfileId = (env.ARTHUR_OWNER_PROFILE_ID || '').trim();
   const coreBaseUrl = (env.ARTHUR_CORE_BASE_URL || '').trim();
@@ -122,6 +172,7 @@ function loadConfig(env = process.env) {
     coreBaseUrl,
     coreToken,
     coreTimeoutMs: Number(env.ARTHUR_CORE_TIMEOUT_MS) || 5000,
+    personalMemoryEnabled: parseEnabled(env.ARTHUR_PERSONAL_MEMORY_ENABLED),
     apiBaseUrl: env.TELEGRAM_API_BASE_URL || 'https://api.telegram.org',
     pollTimeoutMs: Number(env.TELEGRAM_POLL_TIMEOUT_MS) || 30000,
     requestTimeoutMs: Number(env.TELEGRAM_API_TIMEOUT_MS) || 10000,
@@ -130,8 +181,18 @@ function loadConfig(env = process.env) {
     healthPort: Number(env.TELEGRAM_GATEWAY_HEALTH_PORT) || 8788,
     logLevel: env.TELEGRAM_GATEWAY_LOG_LEVEL || 'info',
     yandexMail: loadYandexMailConfig(env),
+    vozdoohNotifications: loadVozdoohNotificationsConfig(env),
+    advertisingLeads: loadAdvertisingLeadsConfig(env),
     businessKpi: loadBusinessKpiConfig(env),
     kpiAutomation: loadKpiAutomationConfig(env),
+    personalAutomation: {
+      enabled: parseEnabled(env.ARTHUR_PERSONAL_ENABLED),
+      reminders: parseEnabled(env.ARTHUR_PERSONAL_REMINDERS_ENABLED),
+      morning: { enabled: parseEnabled(env.ARTHUR_PERSONAL_MORNING_ENABLED), time: env.ARTHUR_PERSONAL_MORNING_TIME || '09:00' },
+      evening: { enabled: parseEnabled(env.ARTHUR_PERSONAL_EVENING_ENABLED), time: env.ARTHUR_PERSONAL_EVENING_TIME || '21:00' },
+      quietStart: env.ARTHUR_PERSONAL_QUIET_START || '22:00',
+      quietEnd: env.ARTHUR_PERSONAL_QUIET_END || '08:00',
+    },
     isProduction: env.NODE_ENV === 'production',
   };
 }
@@ -161,6 +222,9 @@ function validateConfig(config) {
   const hasCoreToken = Boolean(config.coreToken);
   if (hasCoreBaseUrl !== hasCoreToken) {
     errors.push('ARTHUR_CORE_BASE_URL and ARTHUR_CORE_TOKEN must be configured together');
+  }
+  if (config.personalMemoryEnabled && (!hasCoreBaseUrl || config.allowedUserIds.size !== 1)) {
+    errors.push('Personal memory requires Arthur Core and exactly one allowed Telegram user ID');
   }
 
   if (hasCoreBaseUrl) {
@@ -204,12 +268,31 @@ function validateConfig(config) {
     }
   }
 
+  if (config.vozdoohNotifications?.enabled && !config.vozdoohNotifications.secret) {
+    errors.push('VOZDOOH notification secret required when enabled');
+  }
+  if (config.advertisingLeads?.enabled && !config.advertisingLeads.secret) {
+    errors.push('Advertising notification secret required when enabled');
+  }
+
   const kpi = config.kpiAutomation;
   const anyAutomationEnabled = kpi.daily.enabled || kpi.weekly.enabled || kpi.alerts.enabled;
   if (anyAutomationEnabled && !config.businessKpi.enabled) {
     errors.push('KPI automation requires BUSINESS_KPI_BASE_URL and BUSINESS_KPI_SERVICE_KEYS');
   }
   const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+  const personal = config.personalAutomation;
+  if (personal?.enabled) {
+    if (!hasCoreBaseUrl || config.allowedUserIds.size !== 1) {
+      errors.push('Personal automation requires Arthur Core and exactly one allowed Telegram user ID');
+    }
+    for (const time of [personal.morning.time, personal.evening.time, personal.quietStart, personal.quietEnd]) {
+      if (!timeRegex.test(time)) errors.push('Personal automation times must be HH:MM');
+    }
+    if (personal.morning.time >= personal.evening.time) {
+      errors.push('Personal morning time must be before evening time');
+    }
+  }
   if (kpi.daily.enabled && !timeRegex.test(kpi.daily.time)) {
     errors.push('TELEGRAM_KPI_DAILY_TIME must be HH:MM');
   }
@@ -229,10 +312,13 @@ function validateConfig(config) {
 module.exports = {
   loadConfig,
   loadYandexMailConfig,
+  loadVozdoohNotificationsConfig,
+  loadAdvertisingLeadsConfig,
   loadBusinessKpiConfig,
   loadKpiAutomationConfig,
   validateConfig,
   parseAllowedUserIds,
   parseEnabled,
   parseServiceKeys,
+  loadTelegramToken,
 };
