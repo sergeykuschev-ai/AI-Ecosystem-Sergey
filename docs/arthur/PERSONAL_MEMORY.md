@@ -2,9 +2,9 @@
 
 ## Repository status
 
-Arthur can store explicit personal notes in the existing versioned Core memory
-table. This implementation has not been enabled or deployed on the production
-host. It does not import historical conversations or automatically add inferred
+Arthur stores explicit personal notes in the existing versioned Core memory
+table. Deployed and enabled on the Amursk Windows host on 2026-10-09; see
+[deployment verification](PERSONAL_DEPLOYMENT_2026-10-09.md). It does not import historical conversations or automatically add inferred
 facts to memory. Ordinary personal questions can retrieve matching explicit notes
 using the conservative lexical lookup described below.
 
