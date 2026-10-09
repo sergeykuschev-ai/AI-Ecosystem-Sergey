@@ -1,0 +1,9 @@
+[Unit]
+Description=Instagram queued publisher for %i
+After=network-online.target instagram-germany-tunnel.service
+Requires=instagram-germany-tunnel.service
+
+[Service]
+Type=oneshot
+ExecStartPre=/opt/instagram-automation/promote-scheduled.sh %i
+ExecStart=/opt/instagram-automation/process-profile.sh %i

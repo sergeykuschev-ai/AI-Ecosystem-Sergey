@@ -1,0 +1,11 @@
+[Unit]
+Description=Check Instagram queue for %i
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Persistent=true
+Unit=instagram-publisher@%i.service
+
+[Install]
+WantedBy=timers.target
