@@ -18,7 +18,10 @@ function serializeJson(data, indent = DEFAULT_JSON_INDENT) {
   return `${JSON.stringify(data, null, indent)}\n`;
 }
 
-function fsyncDirectory(directoryPath, fsModule = fs) {
+function fsyncDirectory(directoryPath, fsModule = fs, platform = process.platform) {
+  // Windows does not expose fsync for directory handles; file data is
+  // synchronized before the atomic rename, so skip only this directory sync.
+  if (platform === 'win32') return;
   let descriptor;
   try {
     descriptor = fsModule.openSync(directoryPath, 'r');
@@ -104,7 +107,7 @@ function atomicWriteJsonFile(filePath, data, options = {}) {
     fsModule.closeSync(descriptor);
     descriptor = undefined;
     fsModule.renameSync(temporaryPath, resolvedPath);
-    fsyncDirectory(directoryPath, fsModule);
+    fsyncDirectory(directoryPath, fsModule, options.platform || process.platform);
     const staleMaxAgeMs = options.staleMaxAgeMs ?? DEFAULT_STALE_MAX_AGE_MS;
     cleanStaleTemporaryFiles(
       directoryPath,

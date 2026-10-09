@@ -285,6 +285,7 @@ function createPurchasingWebServer(options = {}) {
     registry,
     queryService,
     orchestrator: options.orchestrator,
+    now: options.now,
     uploadRoot: options.uploadRoot || DEFAULT_UPLOAD_ROOT,
     serverPaths,
     uploadOptions: options.uploadOptions,

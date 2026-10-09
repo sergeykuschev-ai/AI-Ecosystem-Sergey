@@ -130,7 +130,8 @@ function persistUploadedFile({
             'Содержимое файла не соответствует формату Excel.'
           );
         }
-        const descriptor = fsModule.openSync(temporaryPath, 'r');
+        // Windows requires a writable file handle for fsyncSync.
+        const descriptor = fsModule.openSync(temporaryPath, 'r+');
         try {
           fsModule.fsyncSync(descriptor);
         } finally {

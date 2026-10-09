@@ -56,6 +56,34 @@ test('atomicWriteJsonFile writes valid JSON atomically with fsync', () => {
   }
 });
 
+test('Windows JSON atomic write syncs file but never fsyncs directory', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'safe-json-windows-'));
+  const filePath = path.join(directory, 'state.json');
+  let fileSyncs = 0;
+  const windowsLikeFs = {
+    ...fs,
+    fsyncSync(descriptor) {
+      if (fs.fstatSync(descriptor).isDirectory()) {
+        const error = new Error('EPERM: directory fsync unsupported');
+        error.code = 'EPERM';
+        throw error;
+      }
+      fileSyncs += 1;
+      return fs.fsyncSync(descriptor);
+    },
+  };
+  try {
+    atomicWriteJsonFile(filePath, { ok: true }, {
+      fsModule: windowsLikeFs,
+      platform: 'win32',
+    });
+    assert.equal(fileSyncs, 1);
+    assert.deepEqual(JSON.parse(fs.readFileSync(filePath, 'utf8')), { ok: true });
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test('readJsonFileWithRecovery throws safe error when file missing', () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'safe-json-'));
   const filePath = path.join(directory, 'missing.json');
