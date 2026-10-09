@@ -63,6 +63,8 @@ class TransactionalMemoryStore {
       item.ownerId === ownerId && item.domain === domain && item.key === key && item.status === 'active') || null;
   }
 
+  async lockPersonalMemoryOwner() {}
+
   async putTask(record) { this.state.tasks.set(record.id, { ...record }); return record; }
   async getTask(id) { return this.state.tasks.get(id) || null; }
   async putDecision(record) { this.state.decisions.set(record.id, { ...record }); return record; }
@@ -263,4 +265,37 @@ test('decision superseding writes both decisions and audit events atomically', a
   assert.equal(replacement.supersedesDecisionId, first.id);
   assert.equal(store.state.audit.filter(event => event.action === 'decision.create').length, 2);
   assert.equal(store.state.audit.filter(event => event.action === 'decision.supersede').length, 1);
+});
+
+
+test('reminder updates preserve task deadlines, reject stale versions and deduplicate replays', async () => {
+  const { service, store } = createService();
+  const task = await service.createTask({ ownerId: 'sergey', domain: 'personal', title: 'Synthetic',
+    dueAt: '2026-10-10T07:00:00Z', remindAt: '2026-10-09T07:00:00Z' }, actor);
+  const input = { expectedUpdatedAt: task.updatedAt, remindAt: '2026-10-09T08:00:00Z', sourceRef: 'telegram-update:1' };
+  const moved = await service.setTaskReminder('sergey', task.id, input, actor);
+  assert.equal(moved.status, 'updated');
+  assert.equal(moved.task.dueAt, task.dueAt);
+  assert.equal(moved.task.status, task.status);
+  assert.notEqual(moved.task.updatedAt, task.updatedAt);
+  assert.equal((await service.setTaskReminder('sergey', task.id, { ...input, sourceRef: 'stale' }, actor)).status, 'stale');
+  assert.equal((await service.setTaskReminder('other', task.id, input, actor)).status, 'not_found');
+  const cancelled = await service.setTaskReminder('sergey', task.id,
+    { expectedUpdatedAt: moved.task.updatedAt, remindAt: null, sourceRef: 'telegram-update:2' }, actor);
+  assert.equal(cancelled.task.remindAt, null);
+  assert.equal((await service.setTaskReminder('sergey', task.id, input, actor)).status, 'already_processed');
+  assert.equal(store.state.tasks.get(task.id).remindAt, null);
+  assert.equal((await service.setTaskReminder('sergey', task.id,
+    { expectedUpdatedAt: cancelled.task.updatedAt, remindAt: input.remindAt }, actor)).status, 'not_scheduled');
+  await assert.rejects(service.setTaskReminder('sergey', task.id, { ...input, remindAt: '2020-01-01' }, actor), /future/);
+});
+
+test('reminder write and command receipt roll back if audit fails', async () => {
+  const { service, store } = createService();
+  const task = await service.createTask({ ownerId: 'sergey', domain: 'personal', title: 'Synthetic', remindAt: '2026-10-09T07:00:00Z' }, actor);
+  store.state.failAudit = true;
+  await assert.rejects(service.setTaskReminder('sergey', task.id,
+    { expectedUpdatedAt: task.updatedAt, remindAt: null, sourceRef: 'failed' }, actor), /audit unavailable/);
+  assert.equal(store.state.tasks.get(task.id).remindAt, task.remindAt);
+  assert.equal(store.state.memory.size, 0);
 });

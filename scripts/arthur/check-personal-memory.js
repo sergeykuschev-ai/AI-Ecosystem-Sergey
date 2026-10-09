@@ -19,6 +19,21 @@ async function checkPersonalMemory(client) {
     await service.createProfile({ id, name: 'Synthetic owner', timezone: 'Asia/Vladivostok', locale: 'ru-RU' });
   }
   const ctx = { actorId: ownerId, actorType: 'user' };
+  const reminderTask = await service.createTask({ ownerId, domain: 'personal', title: 'Synthetic reminder controls',
+    dueAt: '2026-10-10T07:00:00Z', remindAt: '2026-10-09T07:00:00Z' });
+  const command = { expectedUpdatedAt: reminderTask.updatedAt, remindAt: '2026-10-09T08:00:00Z', sourceRef: 'reminder-move' };
+  const movedReminder = await service.setTaskReminder(ownerId, reminderTask.id, command);
+  assert.equal(movedReminder.status, 'updated');
+  assert.equal(Date.parse(movedReminder.task.dueAt), Date.parse(reminderTask.dueAt));
+  assert.equal(movedReminder.task.status, reminderTask.status);
+  assert.equal((await service.setTaskReminder(ownerId, reminderTask.id, { ...command, sourceRef: 'stale-reminder' })).status, 'stale');
+  assert.equal((await service.setTaskReminder(otherId, reminderTask.id, command)).status, 'not_found');
+  const removedReminder = await service.setTaskReminder(ownerId, reminderTask.id,
+    { expectedUpdatedAt: movedReminder.task.updatedAt, remindAt: null, sourceRef: 'reminder-cancel' });
+  assert.equal(removedReminder.task.remindAt, null);
+  assert.equal((await service.setTaskReminder(ownerId, reminderTask.id, command)).status, 'already_processed');
+  assert.equal((await store.getTask(reminderTask.id)).remindAt, null);
+
   const note = 'Английский по вторникам';
   const first = await service.managePersonalMemory(ownerId, 'remember', { text: note, sourceRef: 'telegram-update:1' }, ctx);
   assert.equal(first.status, 'saved');
@@ -61,6 +76,11 @@ async function checkPersonalMemory(client) {
   try {
     assert.equal((await fetch(`${url}/v1/personal-memory?ownerId=${ownerId}`)).status, 401);
     const api = createArthurCoreClient({ baseUrl: url, token: 'test-memory-token' });
+    const httpTask = await service.createTask({ ownerId, domain: 'personal', title: 'HTTP reminder', remindAt: '2026-10-09T07:00:00Z' });
+    assert.equal((await fetch(`${url}/v1/tasks/${httpTask.id}/reminder`, { method: 'PATCH' })).status, 401);
+    const httpChanged = await api.setTaskReminder(ownerId, httpTask.id, { expectedUpdatedAt: httpTask.updatedAt, remindAt: null }, ctx);
+    assert.equal(httpChanged.status, 'updated');
+    assert.equal(httpChanged.task.remindAt, null);
     const data = await api.listPersonalMemory(ownerId, 'путешествий', ctx);
     assert.equal(data.records.length, 1);
     const related = await api.listPersonalMemory(ownerId, 'Когда у меня английский?', ctx, 'related');

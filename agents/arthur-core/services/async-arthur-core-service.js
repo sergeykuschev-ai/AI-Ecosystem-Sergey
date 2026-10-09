@@ -1,6 +1,7 @@
 'use strict';
 
 const { randomUUID } = require('node:crypto');
+const { setTaskReminder } = require('./task-reminder-service');
 const personalMemory = require('./personal-memory-service');
 const {
   validateProfile,
@@ -181,10 +182,14 @@ class AsyncArthurCoreService {
     return record && record.ownerId === ownerId ? record : null;
   }
 
+  async setTaskReminder(ownerId, id, input, context) {
+    return setTaskReminder(this, ownerId, id, input, context);
+  }
+
   async transitionTask(ownerId, id, nextStatus, patch = {}, actorContext) {
     const context = this.context(actorContext);
     return this.store.transaction(async store => {
-      const stored = await store.getTask(id);
+      const stored = await store.getTask(id, { lock: true });
       if (!stored || stored.ownerId !== ownerId) throw new Error('Task not found');
       const before = { ...stored };
       assertTaskTransition(before.status, nextStatus, patch);

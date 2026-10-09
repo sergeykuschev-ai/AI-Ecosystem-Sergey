@@ -20,6 +20,8 @@ const CAPABILITIES = Object.freeze([
   { id: 'completeTask', readOnly: false },
   { id: 'cancelTask', readOnly: false },
   { id: 'rescheduleTask', readOnly: false },
+  { id: 'cancelReminder', readOnly: false },
+  { id: 'moveReminder', readOnly: false },
 ]);
 
 const MAX_VISIBLE_TASKS = 10;
@@ -29,11 +31,15 @@ const TASK_MUTATION_OPERATIONS = Object.freeze(new Set([
   'completeTask',
   'cancelTask',
   'rescheduleTask',
+  'cancelReminder',
+  'moveReminder',
 ]));
 const TASK_ACTION_BY_OPERATION = Object.freeze({
   completeTask: 'complete',
   cancelTask: 'cancel',
   rescheduleTask: 'reschedule',
+  cancelReminder: 'cancel_reminder',
+  moveReminder: 'move_reminder',
 });
 
 function requireOwnerProfileId(value) {
@@ -241,6 +247,8 @@ function selectTask(tasks, parameters = {}) {
       expected.id !== task.id
       || normalizeTaskTitle(expected.title) !== normalizeTaskTitle(task.title)
       || expected.status !== task.status
+      || (expected.updatedAt !== undefined && normalizedDueAt(expected.updatedAt) !== normalizedDueAt(task.updatedAt))
+      || (expected.remindAt !== undefined && normalizedDueAt(expected.remindAt) !== normalizedDueAt(task.remindAt))
       || normalizedDueAt(expected.dueAt) !== normalizedDueAt(task.dueAt)
     )) {
       return { status: 'stale', tasks: [] };
@@ -305,10 +313,14 @@ function taskSelectionResult(selection, timezone, operation, parameters = {}) {
       title: task.title,
       status: task.status,
       dueAt: task.dueAt || null,
+      ...(['cancelReminder', 'moveReminder'].includes(operation)
+        ? { updatedAt: task.updatedAt, remindAt: task.remindAt || null } : {}),
     })),
     parameters: operation === 'rescheduleTask'
       ? { dueAt: parameters.dueAt, dueLabel: parameters.dueLabel }
-      : {},
+      : ['cancelReminder', 'moveReminder'].includes(operation)
+        ? { remindAt: parameters.remindAt ?? null, remindLabel: parameters.remindLabel, sourceRef: parameters.sourceRef }
+        : {},
   });
 }
 
@@ -370,10 +382,14 @@ function taskReferenceClarificationResult(responseText, tasks, operation, parame
       title: task.title,
       status: task.status,
       dueAt: task.dueAt || null,
+      ...(['cancelReminder', 'moveReminder'].includes(operation)
+        ? { updatedAt: task.updatedAt, remindAt: task.remindAt || null } : {}),
     })),
     parameters: operation === 'rescheduleTask'
       ? { dueAt: parameters.dueAt, dueLabel: parameters.dueLabel }
-      : {},
+      : ['cancelReminder', 'moveReminder'].includes(operation)
+        ? { remindAt: parameters.remindAt ?? null, remindLabel: parameters.remindLabel, sourceRef: parameters.sourceRef }
+        : {},
   });
 }
 
@@ -502,11 +518,15 @@ function createArthurCoreSkill({
           return createdTaskResult(created, parameters);
         }
         if (TASK_MUTATION_OPERATIONS.has(operation)) {
+          const reminderOperation = ['cancelReminder', 'moveReminder'].includes(operation);
+          if (reminderOperation && (!remindersEnabled || typeof client.setTaskReminder !== 'function')) {
+            return taskClarificationResult('Управление напоминаниями сейчас недоступно.');
+          }
           if (parameters.clarification) {
             if (parameters.pendingTaskSelection) {
               const activeTasks = await client.listTasks(
                 configuredOwnerProfileId,
-                { limit: TASK_SELECTION_LIMIT },
+                { limit: TASK_SELECTION_LIMIT, ...(reminderOperation ? { domain: 'personal' } : {}) },
                 context
               );
               return taskReferenceClarificationResult(
@@ -520,7 +540,7 @@ function createArthurCoreSkill({
           }
           const activeTasks = await client.listTasks(
             configuredOwnerProfileId,
-            { limit: TASK_SELECTION_LIMIT },
+            { limit: TASK_SELECTION_LIMIT, ...(reminderOperation ? { domain: 'personal' } : {}) },
             context
           );
           const selection = selectTask(activeTasks, parameters);
@@ -528,6 +548,27 @@ function createArthurCoreSkill({
             return taskSelectionResult(selection, ownerTimezone, operation, parameters);
           }
           const selectedTask = selection.task;
+          if (reminderOperation) {
+            const result = await client.setTaskReminder(configuredOwnerProfileId, selectedTask.id, {
+              remindAt: operation === 'cancelReminder' ? null : parameters.remindAt,
+              expectedUpdatedAt: selectedTask.updatedAt,
+              sourceRef: parameters.sourceRef,
+            }, context);
+            if (result.status !== 'updated') {
+              const messages = {
+                already_processed: 'Это поручение уже обработано. Проверь текущее напоминание.',
+                not_scheduled: 'У этой задачи нет активного напоминания.',
+                stale: 'Эта задача уже изменилась. Повтори команду.',
+                not_found: 'Не нашёл такую личную задачу.',
+              };
+              return taskClarificationResult(messages[result.status] || 'Не удалось изменить напоминание.');
+            }
+            const responseText = operation === 'cancelReminder'
+              ? `Напоминание отменено: ${result.task.title}. Срок и статус задачи сохранены.`
+              : `Напоминание перенесено: ${result.task.title} — ${parameters.remindLabel || result.task.remindAt}. Срок и статус задачи сохранены.`;
+            return { status: 'success', data: { status: result.status, task: result.task, responseText, summary: responseText },
+              metadata: { source: 'arthur-core', endpoint: 'tasks/reminder', writePerformed: true } };
+          }
           const nextStatus = operation === 'completeTask'
             ? 'done'
             : operation === 'cancelTask'

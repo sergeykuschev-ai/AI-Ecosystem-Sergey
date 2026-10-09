@@ -110,3 +110,25 @@ These are planned, not implemented or claimed active in production:
 | Voice and images | Transcription and extraction into existing task/event contracts | Clarifies uncertain dates and names before writes |
 
 The personal capability rollout does not require a 1C integration.
+
+## Reminder controls
+
+Personal task reminders support two deterministic commands:
+
+- `Отмени напоминание забрать заказ`
+- `Перенеси напоминание забрать заказ на сегодня в 17:00`
+
+Only an existing reminder on an active personal task can be changed. Moving requires
+an explicit future time, interpreted in the owner timezone (Asia/Vladivostok by
+default). A time without a date means today. Recurring schedules are not supported.
+The task deadline, status and identity remain unchanged. Multiple title matches
+require a numbered clarification; the captured task version is checked again.
+
+The authenticated Core endpoint is `PATCH /v1/tasks/:id/reminder`, with
+`ownerId`, `expectedUpdatedAt`, `remindAt` (future ISO timestamp or null), and an
+optional `sourceRef`. Results are `updated`, `already_processed`, `stale`,
+`not_found`, or `not_scheduled`. Row locking and a version check protect concurrent
+edits. The reminder, audit entry and Telegram command receipt commit atomically.
+Repeated Telegram updates cannot restore an already cancelled reminder.
+Cancellation affects subsequent scheduler selection; a notification already being
+sent may finish. No new database migration is required.

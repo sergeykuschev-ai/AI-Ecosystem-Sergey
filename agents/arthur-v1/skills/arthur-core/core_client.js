@@ -269,6 +269,12 @@ class ArthurCoreClient {
     });
   }
 
+  async setTaskReminder(ownerId, taskId, parameters, context = {}) {
+    return this._request(`/v1/tasks/${encodeURIComponent(taskId)}/reminder`, {
+      ...context, method: 'PATCH', body: { ...parameters, ownerId },
+    });
+  }
+
   async transitionTask(ownerId, taskId, status, patch = {}, context = {}) {
     return this._request(`/v1/tasks/${encodeURIComponent(taskId)}/transitions`, {
       ...context,

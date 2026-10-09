@@ -208,6 +208,9 @@ const PLAN_BUILDERS = {
     'cancelTask'
   ),
 
+  [INTENTS.CORE_CANCEL_REMINDER]: input => taskManagementPlan(input, TASK_MANAGEMENT_ACTIONS.CANCEL_REMINDER, 'cancelReminder'),
+  [INTENTS.CORE_MOVE_REMINDER]: input => taskManagementPlan(input, TASK_MANAGEMENT_ACTIONS.MOVE_REMINDER, 'moveReminder'),
+
   [INTENTS.CORE_RESCHEDULE_TASK]: (input) => taskManagementPlan(
     input,
     TASK_MANAGEMENT_ACTIONS.RESCHEDULE,
@@ -463,6 +466,10 @@ function taskManagementPlan(input, action, operation) {
         clarification: parsed.clarification,
         ...(parsed.pendingTaskSelection ? { pendingTaskSelection: true } : {}),
       };
+  if (['cancelReminder', 'moveReminder'].includes(operation)) {
+    const updateId = input.transport?.metadata?.updateId;
+    if (updateId != null) parameters.sourceRef = `telegram-update:${updateId}`;
+  }
   delete parameters.ok;
   delete parameters.action;
   return createExecutionPlan([
