@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { AnalyticsLoader } from '../components/AnalyticsLoader'
 import { getEnv } from '../src/config/env'
+import { serializeSiteStructuredData } from '../src/seo/siteStructuredData'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -17,14 +18,7 @@ export const metadata: Metadata = {
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const siteUrl = getEnv().siteUrl.replace(/\/+$/, '')
-  const structuredData = JSON.stringify({
-    '@context': 'https://schema.org',
-    '@graph': [
-      { '@type': 'WebSite', '@id': `${siteUrl}/#website`, url: siteUrl, name: 'VOZDOOH', inLanguage: 'ru-RU' },
-      { '@type': 'Organization', '@id': `${siteUrl}/#organization`, name: 'VOZDOOH', url: siteUrl },
-    ],
-  }).replace(/</g, '\u003c')
+  const structuredData = serializeSiteStructuredData(getEnv().siteUrl)
   return (
     <html lang="ru">
       <body>

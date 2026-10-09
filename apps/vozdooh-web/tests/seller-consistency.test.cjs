@@ -26,6 +26,20 @@ test('footer and legal seller block retain the owner-confirmed public identity',
   }
 })
 
+test('organization structured data exposes the same confirmed seller identity', () => {
+  const { siteStructuredData } = require('../src/seo/siteStructuredData.ts')
+  const data = siteStructuredData('https://vozdooh27.ru/')
+  const organization = data['@graph'].find((item) => item['@type'] === 'Organization')
+  assert.equal(organization.name, 'VOZDOOH')
+  assert.equal(organization.legalName, 'ИП Кущев Сергей Васильевич')
+  assert.equal(organization.telephone, '+79244199990')
+  assert.equal(organization.email, 'vozdooh.kms@yandex.ru')
+  assert.equal(organization.taxID, '270393428446')
+  assert.equal(organization.identifier.value, '322270000003316')
+  assert.equal(organization.address.addressLocality, 'Хабаровск')
+  assert.equal(organization.address.streetAddress, 'ул. Павла Морозова, 97')
+})
+
 test('business page is public, linked and keeps confirmed contact facts', () => {
   const { SiteFooter } = require('../components/SiteFooter.tsx')
   const Business = require('../app/business/page.tsx')
