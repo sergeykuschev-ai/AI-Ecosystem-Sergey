@@ -10,7 +10,17 @@ function topologicalSort(steps) {
   const visiting = new Set();
   const result = [];
 
-  const stepById = new Map(steps.map(step => [step.id, step]));
+  if (!Array.isArray(steps)) throw new TypeError('Execution plan steps must be an array');
+  const stepById = new Map();
+  for (const step of steps) {
+    if (!step || typeof step.id !== 'string' || !step.id.trim()) {
+      throw new Error('Execution step requires a non-empty id');
+    }
+    if (stepById.has(step.id)) {
+      throw new Error(`Duplicate execution step id: ${step.id}`);
+    }
+    stepById.set(step.id, step);
+  }
 
   function visit(stepId) {
     if (visiting.has(stepId)) {
@@ -91,7 +101,14 @@ async function executeStep(skill, step, context, stepResults, logger) {
   };
 
   const timeoutMs = step.timeoutMs || 10000;
-  const maxRetries = step.retries ?? (step.retryable ? 2 : 0);
+  // Write operations must never be retried automatically: the first attempt may
+  // have committed remotely even if it timed out locally.
+  const capability = skill.capabilities?.find(item => item.id === step.operation);
+  const readOnly = capability?.readOnly === true;
+  const configuredRetries = step.retries ?? (step.retryable ? 2 : 0);
+  const maxRetries = readOnly
+    ? Math.max(0, Math.min(2, Number.isInteger(configuredRetries) ? configuredRetries : 0))
+    : 0;
 
   if (logger) {
     logger.info('skill_execution_started', context, {
@@ -192,7 +209,10 @@ function delay(ms) {
 
 class ExecutionEngine {
   constructor(options = {}) {
-    this.maxConcurrency = options.maxConcurrency || 5;
+    const requested = Number(options.maxConcurrency ?? 5);
+    this.maxConcurrency = Number.isInteger(requested)
+      ? Math.min(5, Math.max(1, requested))
+      : 5;
     this.logger = options.logger || null;
   }
 
@@ -203,29 +223,56 @@ class ExecutionEngine {
     const errors = [];
 
     for (const level of levels) {
-      const promises = level.map(async step => {
-        const skill = registry.get(step.skill);
-        const result = await executeStep(skill, step, context, stepResults, this.logger);
-        stepResults.set(step.id, result);
-        if (result.status === 'error') {
-          errors.push({
-            stepId: step.id,
-            skill: step.skill,
-            operation: step.operation,
-            errors: result.errors,
-          });
-        }
-        return { stepId: step.id, result };
-      });
+      // Starting all promises before batching bypasses the concurrency limit.
+      // Create work lazily so no more than maxConcurrency steps run at once.
+      for (let index = 0; index < level.length; index += this.maxConcurrency) {
+        const batch = level.slice(index, index + this.maxConcurrency);
+        await Promise.all(batch.map(async step => {
+          const failedDependency = (step.dependsOn || []).find(dep =>
+            stepResults.get(dep)?.status !== 'success'
+          );
+          if (failedDependency) {
+            const skipped = {
+              skill: step.skill,
+              operation: step.operation,
+              status: 'skipped',
+              data: null,
+              metadata: { skippedDueTo: failedDependency },
+              errors: [{
+                code: 'ARTHUR_DEPENDENCY_FAILED',
+                message: 'Dependency failed or was skipped; action was not executed',
+                retryable: false,
+              }],
+            };
+            stepResults.set(step.id, skipped);
+            errors.push({
+              stepId: step.id,
+              skill: step.skill,
+              operation: step.operation,
+              errors: skipped.errors,
+            });
+            this.logger?.warn?.('skill_execution_dependency_skipped', context, {
+              stepId: step.id, dependency: failedDependency,
+            });
+            return;
+          }
 
-      const batchSize = Math.min(level.length, this.maxConcurrency);
-      const batches = [];
-      for (let i = 0; i < promises.length; i += batchSize) {
-        batches.push(promises.slice(i, i + batchSize));
-      }
-
-      for (const batch of batches) {
-        await Promise.all(batch);
+          const skill = registry.get(step.skill);
+          const result = await executeStep(skill, step, context, stepResults, this.logger);
+          stepResults.set(step.id, result);
+          if (result.status !== 'success') {
+            errors.push({
+              stepId: step.id,
+              skill: step.skill,
+              operation: step.operation,
+              errors: result.errors || [{
+                code: 'ARTHUR_STEP_NOT_SUCCESSFUL',
+                message: 'Skill did not confirm successful execution',
+                retryable: false,
+              }],
+            });
+          }
+        }));
       }
     }
 
