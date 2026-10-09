@@ -26,6 +26,9 @@ function makeGateway(projectStatusReader){
     },
     arthur:{async handle(){invokedArthur++;return {status:'success',answer:{text:'from ai'}}}},
     projectStatusReader:()=>{calledReader++;return projectStatusReader()},
+    // The production process has a voice ASR URL. Bypass the unrelated real
+    // downloader in these isolated command tests, while keeping auth handling.
+    voiceTranscriber:{async transcribe(){return 'not used in text command tests';}},
   });
   const send=async(text,userId=111111)=>gateway.handleUpdate({
     update_id:100+sent.length,
