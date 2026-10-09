@@ -3,9 +3,10 @@
 ## Scope and verified status
 
 Continue the existing `arthur-v1` orchestrator and `arthur-core` database.
-Telegram remains the owner channel. The Windows/Amursk production host has
-not been accessed or changed by this implementation. Runtime activation is
-separate from repository implementation and tests.
+Telegram remains the owner channel. Tasks, notifications, explicit personal
+memory and lexical recall were deployed and enabled on the Windows/Amursk host
+on 2026-10-09. See [deployment verification](PERSONAL_DEPLOYMENT_2026-10-09.md)
+for the applied revision, preserved local adaptations and runtime evidence.
 
 Implemented in the repository:
 
@@ -73,8 +74,9 @@ database, not in the Node process or an n8n workflow.
    task and audit, receive the notification, restart Gateway, and verify no
    second confirmed delivery. Test reschedule and completion as well.
 
-All new switches default to false. This change does not activate notifications
-or create real owner tasks from screenshots.
+All new switches default to false in the repository. The verified production
+deployment explicitly enables them. Screenshot errands were not imported as
+owner tasks.
 
 Before rollback, disable personal scheduling and deploy the old API/Gateway.
 The down migration deletes reminder times and delivery history; applying it to
