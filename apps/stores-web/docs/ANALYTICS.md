@@ -17,6 +17,7 @@ Create goals of type «JavaScript event» in Yandex Metrica with exactly these i
 | `promotion_open`| A user opens a promotion (nav «Акции», promotion cards/slides)    | `item` (actual item id) or `source: "nav"`    |
 | `bonus_open`    | A user opens the bonus program (nav «Бонусы», bonus cards/slides) | `item` or `source: "nav"`                     |
 | `vacancy_open`  | A user opens vacancies (nav «Вакансии», vacancy cards/slides)     | `item` or `source: "nav"`                     |
+| `advertising_lead_submit` | The advertising form is submitted successfully | `source: "reklama_page"`              |
 | `click_messenger` | Reserved: fires on messenger link clicks once messenger links are rendered | `brand`, `store` when known         |
 | `check_stock`   | Reserved for a future stock-check interaction                     | —                                             |
 
