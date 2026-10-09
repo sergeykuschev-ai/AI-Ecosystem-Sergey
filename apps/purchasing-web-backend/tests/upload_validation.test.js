@@ -109,6 +109,35 @@ test('valid xlsx and xls signatures are accepted with safe disk handling', async
   }
 });
 
+test('Excel upload fsync uses a writable descriptor on Windows', async () => {
+  const openedFlags = [];
+  const windowsLikeFs = {
+    ...fs,
+    openSync(filePath, flags, ...args) {
+      openedFlags.push(flags);
+      if (flags === 'r') {
+        const error = new Error('EPERM: fsync on a read-only handle');
+        error.code = 'EPERM';
+        throw error;
+      }
+      return fs.openSync(filePath, flags, ...args);
+    },
+  };
+  const { server, uploadRoot, url } = await startUploadServer({ fsModule: windowsLikeFs });
+  try {
+    const uploaded = await post(url, excelForm(
+      Buffer.from([0x50, 0x4b, 0x03, 0x04, 1, 2, 3, 4]),
+      'windows-compatible.xlsx',
+      'application/octet-stream'
+    ));
+    assert.equal(uploaded.response.status, 200);
+    assert.deepEqual(openedFlags, ['r+']);
+    assert.deepEqual(stagedEntries(uploadRoot), []);
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test('UTF-8 workbook filename is preserved for the browser summary', async () => {
   const { server, uploadRoot, url } = await startUploadServer();
   try {

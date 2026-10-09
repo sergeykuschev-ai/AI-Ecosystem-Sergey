@@ -22,9 +22,14 @@ async function json(url, options) {
 async function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ledger-http-'));
   const ledgerPath = path.join(root, 'purchase-ledger.json');
-  const now = () => '2026-09-17T10:00:00.000Z';
+  // The request clock must follow the configured budget and the order time.
+  const now = () => '2026-09-17T10:06:00.000Z';
   const service = new PurchaseLedgerService({ filePath: ledgerPath, now });
-  service.configureMonth({ limit: 350000, purchased: 280000, at: now() });
+  service.configureMonth({
+    limit: 350000,
+    purchased: 280000,
+    at: '2026-09-17T10:00:00.000Z',
+  });
   const recorded = service.recordOrder({
     runId: 'run-test',
     supplier: 'Валта',
