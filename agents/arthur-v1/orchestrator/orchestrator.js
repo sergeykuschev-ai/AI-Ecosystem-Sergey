@@ -639,7 +639,7 @@ class ArthurOrchestrator {
       }
 
       if (plan.steps.length === 0) {
-        if (detectIntent(request.message) === INTENTS.PERSONAL_MEMORY) {
+        if ([INTENTS.PERSONAL_MEMORY, INTENTS.PERSONAL_RECALL].includes(detectIntent(request.message))) {
           return this._respondWithText(request,
             'Личная память ещё не подключена. Сохранение или изменение не выполнено.',
             memorySnapshot, startTime, 'personal_memory_unavailable');

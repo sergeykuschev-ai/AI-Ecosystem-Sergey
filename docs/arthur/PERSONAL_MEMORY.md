@@ -5,7 +5,8 @@
 Arthur can store explicit personal notes in the existing versioned Core memory
 table. This implementation has not been enabled or deployed on the production
 host. It does not import historical conversations or automatically add inferred
-facts to memory. Contextual retrieval for ordinary conversations is a later stage.
+facts to memory. Ordinary personal questions can retrieve matching explicit notes
+using the conservative lexical lookup described below.
 
 ## Owner commands
 
@@ -71,3 +72,35 @@ a disposable schema, applies existing migrations, checks restart persistence,
 versioning, ambiguous selections, owner isolation, replay protection, transactional
 rollback and authenticated HTTP calls, then removes the schema. CI runs it on
 PostgreSQL 16.
+
+## Ordinary personal questions
+
+Questions such as `Когда у меня английский?` or
+`Какая у меня цель по английскому?` use the read-only `recall` capability.
+Existing task, waiting, mail and business commands retain their routing.
+The parser requires a question word and an explicit first-person possessive
+reference. General advice and questions about other people do not trigger recall.
+
+`GET /v1/personal-memory?ownerId=...&query=...&mode=related` filters only active
+personal notes for that owner, before the existing 50-record response limit.
+The default `substring` mode preserves explicit list/edit/forget behavior.
+Related lookup removes common question words and normalizes case, `ё`, and a
+limited set of Russian endings. Every remaining word must occur in the note.
+There are no embeddings or synonym expansion; paraphrases may have no match.
+A query without meaningful words returns no records, never the entire memory.
+An unsupported mode returns a validation error. Latest records appear first.
+
+The reply quotes at most five matches with the record ID, save date in
+Asia/Vladivostok and original command reference when present. The same source
+fields appear in answer source metadata. Notes are escaped, bounded and returned
+without model inference, so embedded instructions are treated as quoted data.
+Previously stored statements are explicitly distinguished from currently verified
+facts. No match, a disabled feature or an unavailable database yields a clear
+unconfirmed result rather than a conversational guess. Recall does not write,
+change or automatically retain any new fact.
+
+Deploy the updated Core API before the updated Gateway. The existing
+`ARTHUR_PERSONAL_MEMORY_ENABLED` flag controls both explicit commands and recall;
+there is no additional flag or migration. Semantic retrieval, cross-turn topic
+resolution, automatic model-context injection and calendar verification remain
+future work.

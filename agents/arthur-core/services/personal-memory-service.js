@@ -1,5 +1,6 @@
 'use strict';
 
+const { relatedNotes } = require('./personal-memory-search');
 const { createHash } = require('node:crypto');
 
 function normalizeNote(text) {
@@ -20,11 +21,12 @@ function selectNotes(records, query = '') {
   return exact.length ? exact : records.filter(record => normalizeNote(record.value.text).includes(normalized));
 }
 
-async function listPersonalMemory(service, ownerId, query = '') {
+async function listPersonalMemory(service, ownerId, query = '', mode = 'substring') {
   noteText(ownerId, 'ownerId');
   if (query) noteText(query, 'query');
+  if (!['substring', 'related'].includes(mode)) throw new TypeError('Unsupported personal memory search mode');
   const records = await service.store.listPersonalMemory(ownerId);
-  return selectNotes(records, query);
+  return mode === 'related' ? relatedNotes(records, query) : selectNotes(records, query);
 }
 
 async function mutatePersonalMemory({ service, store, ownerId, operation, text,

@@ -38,4 +38,12 @@ function parsePersonalMemoryRequest(message) {
   return action === 'remember' ? { action, text: remainder } : { action, query: remainder };
 }
 
-module.exports = { personalMemoryAction, parsePersonalMemoryRequest };
+function matchesPersonalRecallQuestion(message) {
+  const text = commandText(message);
+  return text.length <= 2000
+    && !/(?:задач|личные дела|письм|почт|выручк|закуп|остатк|kpi)/iu.test(text)
+    && /^(?:когда|где|какой|какое|какая|какие|сколько|что|чем)(?=\s|$)/iu.test(text)
+    && /(?:^|\s)(?:у\s+меня|мо[йяеию]|моей|моего|моих|мою)(?:\s|[?.,!]|$)/iu.test(text);
+}
+
+module.exports = { personalMemoryAction, parsePersonalMemoryRequest, matchesPersonalRecallQuestion };

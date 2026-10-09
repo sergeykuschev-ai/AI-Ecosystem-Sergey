@@ -140,9 +140,9 @@ function statusError(statusCode) {
 }
 
 class ArthurCoreClient {
-  async listPersonalMemory(ownerId, query = '', context = {}) {
+  async listPersonalMemory(ownerId, query = '', context = {}, mode = 'substring') {
     return this._request('/v1/personal-memory', { ...context,
-      query: { ownerId, query }, allowedQueryKeys: ['ownerId', 'query'] });
+      query: { ownerId, query, mode }, allowedQueryKeys: ['ownerId', 'query', 'mode'] });
   }
 
   async managePersonalMemory(ownerId, operation, parameters, context = {}) {

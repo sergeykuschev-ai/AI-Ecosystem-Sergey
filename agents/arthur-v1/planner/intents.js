@@ -12,7 +12,7 @@ const {
   matchesSenderMailIntent,
 } = require('./mail_request_parser');
 const { matchesWaitingTaskIntent } = require('./waiting_request_parser');
-const { personalMemoryAction } = require('./personal_memory_parser');
+const { personalMemoryAction, matchesPersonalRecallQuestion } = require('./personal_memory_parser');
 
 const INTENTS = Object.freeze({
   PURCHASING_STATUS: 'purchasing.status',
@@ -21,6 +21,7 @@ const INTENTS = Object.freeze({
   PURCHASING_SUMMARY: 'purchasing.summary',
   CORE_PROFILE: 'arthur_core.profile',
   PERSONAL_MEMORY: 'personal_memory.command',
+  PERSONAL_RECALL: 'personal_memory.recall',
   CORE_TASKS: 'arthur_core.tasks',
   CORE_TASK_BRIEF: 'arthur_core.task_brief',
   CORE_CREATE_TASK: 'arthur_core.create_task',
@@ -186,6 +187,7 @@ const DETERMINISTIC_INTENTS = Object.freeze(new Set([
   INTENTS.PURCHASING_SUMMARY,
   INTENTS.CORE_PROFILE,
   INTENTS.PERSONAL_MEMORY,
+  INTENTS.PERSONAL_RECALL,
   INTENTS.CORE_TASKS,
   INTENTS.CORE_TASK_BRIEF,
   INTENTS.CORE_CREATE_TASK,
@@ -263,6 +265,7 @@ function detectIntent(message) {
     }
   }
 
+  if (matchesPersonalRecallQuestion(message)) return INTENTS.PERSONAL_RECALL;
   return INTENTS.UNKNOWN;
 }
 

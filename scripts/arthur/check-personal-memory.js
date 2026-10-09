@@ -63,6 +63,13 @@ async function checkPersonalMemory(client) {
     const api = createArthurCoreClient({ baseUrl: url, token: 'test-memory-token' });
     const data = await api.listPersonalMemory(ownerId, 'путешествий', ctx);
     assert.equal(data.records.length, 1);
+    const related = await api.listPersonalMemory(ownerId, 'Когда у меня английский?', ctx, 'related');
+    assert.equal(related.records.length, 1);
+    assert.equal(related.records[0].value.text, 'Английский для путешествий');
+    assert.equal((await api.listPersonalMemory(otherId, 'Когда у меня английский?', ctx, 'related')).total, 0);
+    assert.equal((await api.listPersonalMemory(ownerId, 'Что у меня?', ctx, 'related')).total, 0);
+    assert.equal((await api.listPersonalMemory(ownerId, 'Когда у меня английский по четвергам?', ctx, 'related')).total, 0);
+    await assert.rejects(api.listPersonalMemory(ownerId, 'английский', ctx, 'invalid'));
     assert.equal((await api.listPersonalMemory(otherId, '', ctx)).total, 0);
     assert.equal((await api.managePersonalMemory(ownerId, 'remember', { text: 'API acceptance' }, ctx)).status, 'saved');
     assert.equal((await fetch(`${url}/v1/personal-memory`, { headers: { authorization: 'Bearer test-memory-token' } })).status, 400);

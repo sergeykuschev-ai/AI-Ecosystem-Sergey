@@ -26,8 +26,8 @@ function requireString(value, name) {
 }
 
 class AsyncArthurCoreService {
-  async listPersonalMemory(ownerId, query = '') {
-    return personalMemory.listPersonalMemory(this, ownerId, query);
+  async listPersonalMemory(ownerId, query = '', mode = 'substring') {
+    return personalMemory.listPersonalMemory(this, ownerId, query, mode);
   }
 
   async managePersonalMemory(ownerId, operation, input, context) {

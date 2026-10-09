@@ -64,6 +64,10 @@ function unreadMailParameters(message = '', parameters = {}) {
 }
 
 const PLAN_BUILDERS = {
+  [INTENTS.PERSONAL_RECALL]: input => createExecutionPlan([createStep({
+    id: 'step_1', skill: 'personal-memory', operation: 'recall',
+    parameters: { query: input.message },
+  })]),
   [INTENTS.PERSONAL_MEMORY]: input => {
     const parsed = parsePersonalMemoryRequest(input.message);
     const updateId = input.transport?.metadata?.updateId;

@@ -119,7 +119,7 @@ function createArthurHttpHandler({ runtime, bodyLimit = DEFAULT_BODY_LIMIT, apiT
 
       if (request.method === 'GET' && path === '/v1/personal-memory') {
         const records = await runtime.service.listPersonalMemory(requestUrl.searchParams.get('ownerId'),
-          requestUrl.searchParams.get('query') || '');
+          requestUrl.searchParams.get('query') || '', requestUrl.searchParams.get('mode') || 'substring');
         const limit = 50;
         return sendJson(response, 200, { data: { records: records.slice(0, limit), total: records.length } });
       }
