@@ -1,5 +1,7 @@
 'use strict';
 
+const fs = require('node:fs');
+const path = require('node:path');
 const { createFakeAIProvider } = require('./fake_provider');
 const { createOmniRouteProvider } = require('./omniroute_provider');
 const { createDirectModelRouter, DEFAULT_MODELS } = require('./direct_model_router');
@@ -15,6 +17,16 @@ const SUPPORTED_PROVIDERS = Object.freeze({
 function detectProviderName(env = process.env) {
   const name = (env.ARTHUR_AI_PROVIDER || SUPPORTED_PROVIDERS.FAKE).toLowerCase();
   return name;
+}
+
+function resolveProviderSecret(env, literalKey, fileKey) {
+  const file = env[fileKey];
+  if (!file) return env[literalKey];
+  if (!path.isAbsolute(file)) throw new Error(fileKey+' must be an absolute path');
+  // Container sees the key as a read-only volume; never write it or log content.
+  const value = fs.readFileSync(file, 'utf8').trim();
+  if (!value) throw new Error(fileKey+' is empty');
+  return value;
 }
 
 function createAIProviderFromEnv(env = process.env, options = {}) {
@@ -49,8 +61,8 @@ function createAIProviderFromEnv(env = process.env, options = {}) {
       directory: env.ARTHUR_AI_BUDGET_DIR, limits, fetchImpl: provided || fetch,
     });
     const primary = createDirectModelRouter({
-      deepseekApiKey: env.DEEPSEEK_API_KEY,
-      glmApiKey: env.ZAI_API_KEY,
+      deepseekApiKey: resolveProviderSecret(env,'DEEPSEEK_API_KEY','DEEPSEEK_API_KEY_FILE'),
+      glmApiKey: resolveProviderSecret(env,'ZAI_API_KEY','ZAI_API_KEY_FILE'),
       deepseekModel: env.DEEPSEEK_MODEL,
       glmModel: env.ZAI_MODEL,
       ...options,
@@ -74,7 +86,7 @@ function getProviderDiagnostics(env = process.env) {
   if (name === SUPPORTED_PROVIDERS.DIRECT) {
     return {
       provider: name,
-      configured: Boolean(env.DEEPSEEK_API_KEY && env.ZAI_API_KEY),
+      configured: Boolean((env.DEEPSEEK_API_KEY || env.DEEPSEEK_API_KEY_FILE) && (env.ZAI_API_KEY || env.ZAI_API_KEY_FILE)),
       baseUrl: null,
       models: {
         fast: env.DEEPSEEK_MODEL || DEFAULT_MODELS.fast,
