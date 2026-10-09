@@ -15,8 +15,8 @@ Set the following in Arthur Telegram Gateway's protected environment on the
 ARTHUR_AI_PROVIDER=deepseek-glm
 ARTHUR_AI_BUDGET_DIR=/var/lib/arthur-ai-budget
 ARTHUR_OLLAMA_FALLBACK_ENABLED=true
-DEEPSEEK_API_KEY=<provided in server secret store>
-ZAI_API_KEY=<provided in server secret store>
+DEEPSEEK_API_KEY_FILE=/run/secrets/arthur_deepseek_api_key
+ZAI_API_KEY_FILE=/run/secrets/arthur_zai_api_key
 DEEPSEEK_MODEL=deepseek-flash
 ZAI_MODEL=glm-5.3
 ```
@@ -96,3 +96,15 @@ node --test agents/arthur-v1/tests/direct_model_router.test.js \
 ```
 
 The tests use fake API responses and never create provider charges.
+
+## Protected container mounts
+
+Mount the already-provisioned API key **files** from the Amursk host read-only
+into `/run/secrets/arthur_deepseek_api_key` and
+`/run/secrets/arthur_zai_api_key`. Mount the host's private
+`arthur-budget-ledger` directory read-write at `/var/lib/arthur-ai-budget`.
+No actual API key values belong in Compose environment, Docker image layers,
+GitHub, log output, or Telegram. Set `*_API_KEY_FILE`, not plaintext `*_API_KEY`.
+This staged candidate is not deployed until gateway settings and rollback have
+been tested. Never erase or reset the reservation ledger merely to bypass a
+quota; review billing and request explicit owner approval.
