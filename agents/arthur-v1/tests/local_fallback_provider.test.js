@@ -53,3 +53,17 @@ test('local fallback synthesis does not invent successful business operations',a
 test('external LLM endpoint rejected to keep local fallback private',()=>{
  assert.throws(()=>new LocalOllamaProvider({baseUrl:'https://random.example.com'}),/host only/);
 });
+
+test('empty cloud result falls back to Ollama rather than paying for a retry',async()=>{
+ let paidCalls=0,localCalls=0;
+ const primary={
+  models:{fast:'deepseek-flash',code:'glm-5.3'},
+  async generate(){paidCalls++;const err=new Error('Cloud returned no text');err.code='OMNIROUTE_INVALID_RESPONSE';throw err;},
+ };
+ const fallback={async generate(){localCalls++;return 'Ответ локального Артура';}};
+ const p=new AuthFallbackProvider({primary,fallback});
+ assert.equal(await p.generate('Напиши код',{policy:'code',maxTokens:160}),'Ответ локального Артура');
+ assert.equal(await p.generate('Повтори'),'Ответ локального Артура');
+ assert.equal(paidCalls,1);
+ assert.equal(localCalls,2);
+});
