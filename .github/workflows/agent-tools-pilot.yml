@@ -1,0 +1,64 @@
+# Experimental, non-production pilot. Runs only for its dedicated PR branch.
+name: Dev agent tools pilot
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/agent-tools-pilot.yml
+      - docs/experiments/agent-tools-pilot.md
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dev-agent-pilot-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  purchasing-baseline:
+    if: github.head_ref == 'experiment/agent-tools-20261009'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install repo dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+      - name: Purchasing agent baseline tests
+        run: node --test agents/purchasing/tests/*.test.js
+
+  graphify-smoke:
+    if: github.head_ref == 'experiment/agent-tools-20261009'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GRAPHIFY_MAX_WORKERS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v6
+      - name: Graphify CLI version
+        run: uvx --from graphifyy graphify --version
+      - name: Build local code graph for purchasing agent
+        run: uvx --from graphifyy graphify agents/purchasing --no-viz
+      - name: Confirm nonempty graph generated
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          graphs = list(Path('.').rglob('graphify-out/graph.json'))
+          if not graphs:
+              raise SystemExit('FAILED: no graphify-out/graph.json found')
+          for graph_path in graphs:
+              obj = json.loads(graph_path.read_text(encoding='utf-8'))
+              print(f'Graph: {graph_path}; bytes={graph_path.stat().st_size}; top-level keys={list(obj)[:12]}')
+              if graph_path.stat().st_size < 100:
+                  raise SystemExit('FAILED: graph too small')
+          PY
