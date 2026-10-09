@@ -13,6 +13,8 @@ Set the following in Arthur Telegram Gateway's protected environment on the
 
 ```dotenv
 ARTHUR_AI_PROVIDER=deepseek-glm
+ARTHUR_AI_BUDGET_DIR=/var/lib/arthur-ai-budget
+ARTHUR_OLLAMA_FALLBACK_ENABLED=true
 DEEPSEEK_API_KEY=<provided in server secret store>
 ZAI_API_KEY=<provided in server secret store>
 DEEPSEEK_MODEL=deepseek-flash
@@ -47,9 +49,22 @@ automatically (avoiding surprise duplicate billed requests).
 
 Start with a small prepaid balance (approximately USD 10–20 total **after
 explicit owner approval**), and monitor each provider account balance.
-**This application does not currently enforce a cross-provider USD hard cap,
-so do not enable unattended high-volume traffic before setting provider-side
-payment safeguards.** Subscription Kimi Allegretto and direct API bills are
+The direct API factory now **requires** a persistent writeable
+`ARTHUR_AI_BUDGET_DIR` volume before any paid calls can be made.
+The admission guard holds an exclusive directory lock and persists a
+conservative cost *reservation* before each outgoing API POST. Limits
+survive process restarts and apply across both providers. The file ledger
+does not save prompts, credentials, or replies.
+
+Default reservation ceilings (USD): DeepSeek $0.75/day and $5 lifetime,
+GLM $0.75/day and $3 lifetime, together $1.25/day and $7 lifetime.
+Max output tokens/request: DeepSeek 1,024; GLM 1,536. Amounts are
+**conservative estimates, not a guaranteed financial hard cap**: network
+timeouts still count; provider rates and final invoices may differ.
+Provider-side prepayment is the final backstop. On quota exhaustion or
+unavailable ledger, the Windows-specific integration can fall back to
+local Ollama. The ledger directory must be mounted read-write and ACL
+protected on the Amursk host; do not place it in Git or an ephemeral container. Subscription Kimi Allegretto and direct API bills are
 different products.
 
 The DeepSeek peak/off-peak price varies. Estimates from 2026-10-09:
@@ -67,9 +82,10 @@ authoritative for paid usage.
 4. Apply this branch in a separate candidate build; run tests.
 5. Test HTTPS outbound access to both API endpoints with minimal non-personal prompts.
 6. Check `/status`, tasks, reminders, the KPI skill and the purchasing skill.
-7. Switch `ARTHUR_AI_PROVIDER`, restart only the Gateway when its maintenance
+7. Mount durable host storage to `/var/lib/arthur-ai-budget` RW; verify the local Ollama fallback and the billing guard in staging before production.
+8. Switch `ARTHUR_AI_PROVIDER`, restart only the Gateway when its maintenance
    window is confirmed, and keep the previous configuration for rollback.
-8. Measure request/token usage and billing for several days before scaling.
+9. Measure request/token usage and billing for several days before scaling.
 
 ## Verification
 
