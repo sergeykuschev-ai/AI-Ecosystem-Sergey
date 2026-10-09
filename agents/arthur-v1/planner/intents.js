@@ -1,4 +1,5 @@
 'use strict';
+const { matchesRecurringRequest } = require('./recurring_request_parser');
 
 const { matchesCreateTaskIntent } = require('./task_request_parser');
 const {
@@ -24,6 +25,7 @@ const INTENTS = Object.freeze({
   PERSONAL_RECALL: 'personal_memory.recall',
   CORE_TASKS: 'arthur_core.tasks',
   CORE_TASK_BRIEF: 'arthur_core.task_brief',
+  CORE_RECURRING: 'arthur_core.recurring',
   CORE_CREATE_TASK: 'arthur_core.create_task',
   CORE_WAITING_TASK: 'arthur_core.waiting_task',
   CORE_COMPLETE_TASK: 'arthur_core.complete_task',
@@ -192,6 +194,7 @@ const DETERMINISTIC_INTENTS = Object.freeze(new Set([
   INTENTS.PERSONAL_RECALL,
   INTENTS.CORE_TASKS,
   INTENTS.CORE_TASK_BRIEF,
+  INTENTS.CORE_RECURRING,
   INTENTS.CORE_CREATE_TASK,
   INTENTS.CORE_WAITING_TASK,
   INTENTS.CORE_COMPLETE_TASK,
@@ -240,6 +243,7 @@ function detectIntent(message) {
   if (personalMemoryAction(message)) return INTENTS.PERSONAL_MEMORY;
   const taskAction = detectTaskManagementAction(message);
   if (taskAction) return TASK_MANAGEMENT_INTENTS[taskAction];
+  if (matchesRecurringRequest(message)) return INTENTS.CORE_RECURRING;
   if (matchesCreateTaskIntent(message)) {
     return INTENTS.CORE_CREATE_TASK;
   }

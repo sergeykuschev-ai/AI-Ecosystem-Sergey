@@ -1,4 +1,5 @@
 'use strict';
+const { parseRecurringRequest } = require('./recurring_request_parser');
 
 const { PlanBuildError } = require('../errors/arthur_errors');
 const { INTENTS, detectIntent } = require('./intents');
@@ -147,6 +148,7 @@ const PLAN_BUILDERS = {
     }),
   ]),
 
+  [INTENTS.CORE_RECURRING]: input => createExecutionPlan([createStep({id:'step_1',skill:'arthur-core',operation:'manageRecurring',parameters:{...parseRecurringRequest(input.message),...(input.transport?.metadata?.updateId != null ? {sourceRef:`telegram-update:${input.transport.metadata.updateId}`} : {})}})]),
   [INTENTS.CORE_CREATE_TASK]: (input) => {
     const parsed = parseCreateTasksRequest(input.message, {
       now: input.now,

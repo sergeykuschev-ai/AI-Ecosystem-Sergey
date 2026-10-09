@@ -269,6 +269,14 @@ class ArthurCoreClient {
     });
   }
 
+  async manageRecurring(ownerId, operation, parameters = {}, context = {}) {
+    return this._request('/v1/personal-recurring', { ...context, method:'POST',body:{...parameters,ownerId,operation} });
+  }
+
+  async applyPersonalTaskAction(ownerId, taskId, input, context = {}) {
+    return this._request(`/v1/tasks/${encodeURIComponent(taskId)}/personal-action`,{...context,method:'POST',body:{...input,ownerId}});
+  }
+
   async setTaskReminder(ownerId, taskId, parameters, context = {}) {
     return this._request(`/v1/tasks/${encodeURIComponent(taskId)}/reminder`, {
       ...context, method: 'PATCH', body: { ...parameters, ownerId },

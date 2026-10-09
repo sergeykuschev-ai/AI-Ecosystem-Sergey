@@ -10,6 +10,7 @@ const { createArthurCoreClient } = require('../../agents/arthur-v1/skills/arthur
 const { runIsolatedDatabaseCheck } = require('./check-personal-notifications');
 
 async function checkPersonalMemory(client) {
+  await require('./check-personal-recurring').checkPersonalRecurring(client);
   const store = new PostgresArthurStore({ client });
   const fixedClock = () => new Date('2026-10-09T00:00:00Z');
   const service = new AsyncArthurCoreService({ store, clock: fixedClock });
@@ -76,6 +77,18 @@ async function checkPersonalMemory(client) {
   try {
     assert.equal((await fetch(`${url}/v1/personal-memory?ownerId=${ownerId}`)).status, 401);
     const api = createArthurCoreClient({ baseUrl: url, token: 'test-memory-token' });
+    assert.equal((await fetch(`${url}/v1/personal-recurring?ownerId=${ownerId}`)).status,401);
+    const repeat = await api.manageRecurring(ownerId,'create',{title:'HTTP repeating habit',weekdays:[1,3,5],localTime:'18:00',sourceRef:'http-recurring'},ctx);
+    assert.equal(repeat.status,'created');
+    assert.equal((await api.manageRecurring(ownerId,'list')).records.length,1);
+    assert.equal((await api.manageRecurring(otherId,'list')).records.length,0);
+    assert.equal((await api.manageRecurring(ownerId,'cancel',{title:'HTTP repeating habit'},ctx)).status,'cancelled');
+    const actionTask = await service.createTask({ownerId,domain:'personal',title:'HTTP button action',remindAt:'2026-10-09T07:00:00Z'});
+    assert.equal((await fetch(`${url}/v1/tasks/${actionTask.id}/personal-action`,{method:'POST'})).status,401);
+    const action = {action:'done',expectedUpdatedAt:actionTask.updatedAt,sourceRef:'http-button'};
+    assert.equal((await api.applyPersonalTaskAction(otherId,actionTask.id,action,ctx)).status,'not_found');
+    assert.equal((await api.applyPersonalTaskAction(ownerId,actionTask.id,action,ctx)).task.status,'done');
+    assert.equal((await api.applyPersonalTaskAction(ownerId,actionTask.id,action,ctx)).status,'already_processed');
     const httpTask = await service.createTask({ ownerId, domain: 'personal', title: 'HTTP reminder', remindAt: '2026-10-09T07:00:00Z' });
     assert.equal((await fetch(`${url}/v1/tasks/${httpTask.id}/reminder`, { method: 'PATCH' })).status, 401);
     const httpChanged = await api.setTaskReminder(ownerId, httpTask.id, { expectedUpdatedAt: httpTask.updatedAt, remindAt: null }, ctx);

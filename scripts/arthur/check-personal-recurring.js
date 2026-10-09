@@ -1,0 +1,53 @@
+'use strict';
+const assert=require('node:assert/strict');
+const {randomUUID}=require('node:crypto');
+const {PostgresArthurStore}=require('../../agents/arthur-core/services/postgres-store');
+const {AsyncArthurCoreService}=require('../../agents/arthur-core/services/async-arthur-core-service');
+const {createPersonalNotificationStore}=require('../../agents/arthur-core/services/personal-notification-store');
+async function checkPersonalRecurring(client) {
+ let now=new Date('2026-10-09T00:00:00Z');
+ const store=new PostgresArthurStore({client});
+ const service=new AsyncArthurCoreService({store,clock:()=>now});
+ const ownerId='recurring-ci-'+randomUUID();
+ await service.createProfile({id:ownerId,name:'Synthetic recurring owner',timezone:'Asia/Vladivostok',locale:'ru-RU'});
+ const input={title:'Synthetic daily habit',weekdays:[1,2,3,4,5,6,7],localTime:'17:00',sourceRef:'create-daily'};
+ const created=await service.manageRecurring(ownerId,'create',input);
+ assert.equal(created.status,'created');
+ assert.equal((await service.manageRecurring(ownerId,'create',{...input,sourceRef:'duplicate'})).status,'duplicate');
+ const notifications=createPersonalNotificationStore(client);
+ assert.equal(await notifications.materializeRecurring(ownerId,now.toISOString()),1);
+ assert.equal(await notifications.materializeRecurring(ownerId,now.toISOString()),0);
+ const task=(await notifications.listTasks(ownerId))[0];
+ assert.equal(task.dueAt,'2026-10-09T07:00:00.000Z');
+ assert.equal(task.remindAt,task.dueAt);
+ const doneInput={action:'done',expectedUpdatedAt:task.updatedAt,sourceRef:'callback:done'};
+ assert.equal((await service.applyPersonalTaskAction(ownerId,task.id,doneInput)).task.status,'done');
+ assert.equal((await service.applyPersonalTaskAction(ownerId,task.id,doneInput)).status,'already_processed');
+ assert.equal((await notifications.listTasks(ownerId)).length,0);
+ now=new Date('2026-10-10T00:00:00Z');
+ assert.equal(await notifications.materializeRecurring(ownerId,now.toISOString()),1);
+ const second=(await notifications.listTasks(ownerId))[0];
+ assert.notEqual(second.id,task.id);
+ const snoozed=await service.applyPersonalTaskAction(ownerId,second.id,{action:'snooze',expectedUpdatedAt:second.updatedAt,sourceRef:'callback:snooze'});
+ assert.equal(snoozed.task.remindAt,'2026-10-10T00:30:00.000Z');
+ assert.equal(snoozed.task.dueAt,second.dueAt);
+ assert.equal((await service.applyPersonalTaskAction(ownerId,second.id,{action:'cancel',expectedUpdatedAt:second.updatedAt})).status,'stale');
+ assert.equal((await service.manageRecurring(ownerId,'cancel',{title:input.title,sourceRef:'cancel-daily'})).status,'cancelled');
+ assert.equal((await notifications.listTasks(ownerId)).length,0);
+ assert.equal((await service.manageRecurring(ownerId,'create',input)).status,'already_processed');
+ now=new Date('2026-10-11T00:00:00Z');
+ assert.equal(await notifications.materializeRecurring(ownerId,now.toISOString()),0);
+ const late=await service.manageRecurring(ownerId,'create',{title:'Late schedule',weekdays:[1,2,3,4,5,6,7],localTime:'09:00'});
+ assert.equal(await notifications.materializeRecurring(ownerId,now.toISOString()),0);
+ await service.manageRecurring(ownerId,'cancel',{title:'Late schedule'});
+ const weekly=await service.manageRecurring(ownerId,'create',{title:'Weekly schedule',weekdays:[1,3,5],localTime:'18:00'});
+ assert.equal(await notifications.materializeRecurring(ownerId,now.toISOString()),0); // Sunday
+ now=new Date('2026-10-12T00:00:00Z');
+ assert.equal(await notifications.materializeRecurring(ownerId,now.toISOString()),1); // Monday
+ const audit=(await client.query("SELECT count(*)::int AS count FROM arthur_audit_events WHERE entity_id=$1",[weekly.record.id])).rows[0];
+ assert.ok(audit.count>=1);
+ await service.manageRecurring(ownerId,'cancel',{title:'Weekly schedule'});
+ await assert.rejects(service.manageRecurring(ownerId,'create',{title:'Invalid',weekdays:[9],localTime:'17:00'}),/Weekdays/);
+ return {status:'PASS',occurrenceDedup:true,completionKeepsRepeat:true,callbackReplay:true,snooze:true,cancel:true,weekdays:true};
+}
+module.exports={checkPersonalRecurring};
