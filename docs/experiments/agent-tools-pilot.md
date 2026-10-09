@@ -104,3 +104,35 @@ experiment branch and a local Python `.venv`.
 exercise (baseline vs pilot) before enabling these tools outside the pilot.
 Codex marketplace plugin listing returned HTTP 403, so the pilot uses local
 skills rather than claiming global native marketplace plugin installation.
+
+## Next-step verification — 2026-10-09
+
+An independent clean control checkout was created under
+`C:\\AI\\AgentToolsPilot20261009\\AI-Ecosystem-Baseline`.
+The same read-only `codex exec` investigation was prepared for control/pilot,
+with separate output logs under `C:\\AI\\AgentToolsPilot20261009\\comparison`.
+The **control run could not contact the model endpoint** and failed before any
+answer was generated. Codex was authenticated (`codex login status` showed
+"Logged in using ChatGPT"), but its WebSocket request to
+`wss://chatgpt.com/backend-api/codex/responses` returned repeated **HTTP 403
+Forbidden**. The pilot run was deliberately **not** launched after that error.
+No conclusions about model output quality or token savings can be drawn.
+
+Graphify's deterministic CLI **does work without Claude login** in the isolated
+Purchasing Agent folder: `graphify query 'XLSX supplier workbook export'`
+returned exit code **0** in **2.14 seconds**, traversed **75 nodes** (52 shown
+within its default 2000-token budget), and identified
+`services/supplier_order.js:123 buildSupplierOrder()`,
+`services/supplier_order.js:189 buildSupplierOrderXlsx()`, and
+`tests/xlsx_exporter.test.js` among relevant results.
+
+**Blockers before production adoption**:
+1. Resolve the external Codex endpoint's HTTP 403, then repeat both comparison
+   runs with the same model/configuration and log their token use.
+2. The Graphify Codex project instructions currently reference a root-level
+   `graphify-out/`, while the generated graph is in
+   `agents/purchasing/graphify-out/`. Adjust the location guidance in the pilot
+   only, and ensure the Graphify venv executable is on the pilot Codex PATH.
+3. Review/trust hooks before enabling them. Do not merge the draft PR yet.
+
+No changes to the production checkout or services were made during this check.
