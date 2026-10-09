@@ -18,6 +18,7 @@ const { buildPoolConfig } = require('../../arthur-core/runtime/create-runtime');
 const { loadConfig, validateConfig } = require('./config');
 const { createTelegramClient } = require('./telegram_client');
 const {loadProjectStatus,formatProjectStatus}=require('./project_health_reader');
+const {checkAndNotify}=require('./project_alert_notifier');
 
 const COMMANDS = {
   START: '/start',
@@ -157,6 +158,19 @@ class ArthurTelegramGateway {
       });
       return formatProjectStatus(snapshot);
     });
+    this.projectAlertNotifier=options.projectAlertNotifier || (
+      process.env.ARTHUR_PROJECT_ALERT_STATE_DIR &&
+      process.env.ARTHUR_DEV_WORKER_REPORT_DIR &&
+      this.config.allowedUserIds?.size === 1
+        ? ()=>checkAndNotify({
+          directory:process.env.ARTHUR_DEV_WORKER_REPORT_DIR,
+          stateDirectory:process.env.ARTHUR_PROJECT_ALERT_STATE_DIR,
+          chatId:Array.from(this.config.allowedUserIds)[0],
+          telegram:this.telegram,
+        })
+        : null
+    );
+    this.nextProjectAlertCheck=0;
     this.logger = options.logger || createLogger({ level: this.config.logLevel });
     this.telegram = options.telegramClient || createTelegramClient({
       token: this.config.token,
@@ -317,6 +331,23 @@ class ArthurTelegramGateway {
           }
         }
 
+        if (this.projectAlertNotifier && Date.now()>=this.nextProjectAlertCheck){
+          this.nextProjectAlertCheck=Date.now()+5*60*1000;
+          try{
+            const monitor=await this.projectAlertNotifier();
+            if(monitor?.sent?.length) this.logger.warn('project_health_alert_sent',null,{
+              projects:monitor.sent,
+            });
+            if(monitor?.status==='delivery_unknown')this.logger.error(
+              'project_health_alert_delivery_unknown',null,{
+                project:monitor.unknown,errorCode:monitor.reason,
+              });
+          }catch(error){
+            this.logger.warn('project_health_alert_check_failed',null,{
+              errorCode:error?.code||'PROJECT_ALERT_CHECK_FAILED',
+            });
+          }
+        }
         this.lastError = null;
       } catch (error) {
         this.lastError = {
