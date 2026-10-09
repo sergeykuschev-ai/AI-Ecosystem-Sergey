@@ -59,3 +59,23 @@ jobs:
           node --test agents/purchasing/tests/owner_decisions.test.js
           node --test agents/purchasing/tests/owner_decisions_storage.test.js
           node --test agents/purchasing/tests/budget_optimizer.test.js
+
+  windows-upload-and-order:
+    name: Windows Excel and order integration
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      NODE_ENV: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Verify Excel upload, run creation, purchase budget and XLSX exports on Windows
+        run: |
+          node --test apps/purchasing-web-backend/tests/upload_validation.test.js apps/purchasing-web-backend/tests/http_contract.test.js apps/purchasing-web-backend/tests/purchase_ledger_http.test.js apps/purchasing-web-backend/tests/supplier_order_http.test.js apps/purchasing-web-backend/tests/final_order_consistency.test.js
