@@ -241,7 +241,9 @@ test('rendered discovery, every landing, product backlinks and metadata retain c
     const productMetadata = await Product.generateMetadata(props)
     assert.equal(productMetadata.alternates.canonical, `/catalog/${product.editorial.slug}`)
     assert.equal((productMetadata.title.match(/VOZDOOH/g) ?? []).length, 1)
-    assert.match(productMetadata.title, / — VOZDOOH$/)
+    assert.match(productMetadata.title, / — купить в VOZDOOH$/)
+    assert.match(details, /После оформления заказа доступна онлайн-оплата/)
+    assert.doesNotMatch(details, /Заявка без онлайн-оплаты/)
   } finally {
     source.getCatalogRepository = originalRepository
     source.catalogSource = originalSource

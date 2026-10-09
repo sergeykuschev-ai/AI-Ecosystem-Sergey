@@ -37,7 +37,7 @@ export async function generateMetadata({ params }: PageParams): Promise<Metadata
       ? `${product.editorial.description} ${[product.trade.brand, display.subtitle].filter(Boolean).join(' · ')}.`
       : `${[display.title, product.trade.brand, display.subtitle].filter(Boolean).join(' · ')} в каталоге VOZDOOH.`
   const image = catalogImage(product)
-  const title = [...[display.title, display.subtitle, product.trade.brand].filter(Boolean), 'VOZDOOH'].join(' — ')
+  const title = [...[display.title, display.subtitle, product.trade.brand].filter(Boolean), 'купить в VOZDOOH'].join(' — ')
   return {
     title,
     alternates: { canonical: `/catalog/${product.editorial.slug}` },
@@ -100,7 +100,7 @@ export default async function ProductPage({ params, searchParams }: PageParams) 
               : 'Цена не указана'}</p>
             <p className="stockState">{product.trade.stock === null ? 'Наличие не указано' : product.trade.stock >= 1 ? 'В наличии по данным каталога' : 'Нет в наличии'}</p>
             {catalogSource() === 'staged-1c' && (product.trade.price ?? 0) > 0 && (product.trade.stock ?? 0) >= 1 && <AddToCartButton product={product} />}
-            <p className="notice">Заявка без онлайн-оплаты и резерва. Наличие требует подтверждения.</p>
+            <p className="notice">После оформления заказа доступна онлайн-оплата. Способ доставки и итоговая стоимость рассчитываются при оформлении. <Link href="/payment">Оплата</Link> · <Link href="/delivery">Доставка</Link></p>
           </section>}
           {categoryLanding && <nav className="landingLinks productFormatLink" aria-label="Формат товара">
             <Link href={landingPath('category', categoryLanding.slug)}>{categoryLanding.name} →</Link>
