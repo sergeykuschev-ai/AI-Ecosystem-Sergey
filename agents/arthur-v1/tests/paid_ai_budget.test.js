@@ -135,3 +135,24 @@ test('reject malformed limit and oversized messages without charging',async t=>{
   await assert.rejects(f(r.url,r.opts),e=>e.code==='AI_BUDGET_EXHAUSTED');
   assert.equal(calls.length,0);
 });
+
+
+test('secrets are loaded from mounted read-only files, not copied to diagnostics',t=>{
+  const root=directory(t);
+  const ds=path.join(root,'deepseek.secret'),zai=path.join(root,'zai.secret');
+  fs.writeFileSync(ds,'ds-canary-test-secret', {mode:0o600});
+  fs.writeFileSync(zai,'zai-canary-test-secret', {mode:0o600});
+  const env={
+    ARTHUR_AI_PROVIDER:'deepseek-glm',
+    ARTHUR_AI_BUDGET_DIR:path.join(root,'ledger'),
+    DEEPSEEK_API_KEY_FILE:ds,
+    ZAI_API_KEY_FILE:zai,
+  };
+  const p=createAIProviderFromEnv(env,{fetchImpl:async()=>({ok:true})});
+  assert.equal(p.deepseekConfigured,true);
+  assert.equal(p.glmConfigured,true);
+  const d=require('../ai/provider_factory').getProviderDiagnostics(env);
+  assert.equal(d.configured,true);
+  assert.ok(!JSON.stringify(d).includes('canary-test-secret'));
+  assert.throws(()=>createAIProviderFromEnv({...env,ZAI_API_KEY_FILE:path.join(root,'missing')}),/ENOENT/);
+});
