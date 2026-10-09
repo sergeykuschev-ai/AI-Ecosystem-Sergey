@@ -3,6 +3,8 @@
 const { createFakeAIProvider } = require('./fake_provider');
 const { createOmniRouteProvider } = require('./omniroute_provider');
 const { createDirectModelRouter, DEFAULT_MODELS } = require('./direct_model_router');
+const { guardedFetch, limitsFromEnv } = require('./paid_ai_budget');
+const { LocalOllamaProvider, AuthFallbackProvider } = require('./local_fallback_provider');
 
 const SUPPORTED_PROVIDERS = Object.freeze({
   FAKE: 'fake',
@@ -19,7 +21,7 @@ function createAIProviderFromEnv(env = process.env, options = {}) {
   const name = detectProviderName(env);
 
   if (name === SUPPORTED_PROVIDERS.OMNIRoute) {
-    return createOmniRouteProvider({
+    const primary = createOmniRouteProvider({
       baseUrl: env.OMNIROUTE_BASE_URL,
       apiKey: env.OMNIROUTE_API_KEY,
       fastModel: env.OMNIROUTE_FAST_MODEL,
@@ -27,18 +29,43 @@ function createAIProviderFromEnv(env = process.env, options = {}) {
       codeModel: env.OMNIROUTE_CODE_MODEL,
       ...options,
     });
+    if (env.ARTHUR_OLLAMA_FALLBACK_ENABLED !== 'true') return primary;
+    const fallback = new LocalOllamaProvider({
+      baseUrl: env.ARTHUR_OLLAMA_URL,
+      model: env.ARTHUR_OLLAMA_MODEL || 'qwen2.5:3b',
+      timeoutMs: Number(env.ARTHUR_OLLAMA_TIMEOUT_MS || 80000),
+      logger: options.logger,
+    });
+    return new AuthFallbackProvider({primary,fallback,logger:options.logger});
   }
 
   if (name === SUPPORTED_PROVIDERS.DIRECT) {
-    return createDirectModelRouter({
+    // Direct API is fail-closed if the persistent budget ledger is not mounted.
+    if (!env.ARTHUR_AI_BUDGET_DIR) {
+      throw new Error('ARTHUR_AI_BUDGET_DIR is mandatory for paid AI');
+    }
+    const limits = limitsFromEnv(env);
+    const paidFetch = (provided) => guardedFetch({
+      directory: env.ARTHUR_AI_BUDGET_DIR, limits, fetchImpl: provided || fetch,
+    });
+    const primary = createDirectModelRouter({
       deepseekApiKey: env.DEEPSEEK_API_KEY,
       glmApiKey: env.ZAI_API_KEY,
       deepseekModel: env.DEEPSEEK_MODEL,
       glmModel: env.ZAI_MODEL,
       ...options,
+      deepseekFetchImpl: paidFetch(options.deepseekFetchImpl || options.fetchImpl),
+      glmFetchImpl: paidFetch(options.glmFetchImpl || options.fetchImpl),
     });
+    if (env.ARTHUR_OLLAMA_FALLBACK_ENABLED !== 'true') return primary;
+    const fallback = new LocalOllamaProvider({
+      baseUrl: env.ARTHUR_OLLAMA_URL,
+      model: env.ARTHUR_OLLAMA_MODEL || 'qwen2.5:3b',
+      timeoutMs: Number(env.ARTHUR_OLLAMA_TIMEOUT_MS || 80000),
+      logger: options.logger,
+    });
+    return new AuthFallbackProvider({primary,fallback,logger:options.logger});
   }
-
   return createFakeAIProvider(options);
 }
 
