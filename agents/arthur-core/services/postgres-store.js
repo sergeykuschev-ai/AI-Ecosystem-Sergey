@@ -120,6 +120,24 @@ class PostgresArthurStore {
     return mapCommon(first(result));
   }
 
+  async lockPersonalMemoryOwner(ownerId) {
+    const row = first(await this.client.query(
+      'SELECT id FROM arthur_profiles WHERE external_id=$1 AND active=true FOR UPDATE', [ownerId]
+    ));
+    if (!row) throw new Error('Active owner profile not found');
+  }
+
+  async listPersonalMemory(ownerId) {
+    const result = await this.client.query(
+      `SELECT m.*, p.external_id AS owner_id FROM arthur_memory m
+       JOIN arthur_profiles p ON p.id=m.owner_id
+       WHERE p.external_id=$1 AND p.active=true AND m.domain='personal'
+         AND m.key LIKE 'personal.note:%' AND m.status='active' AND m.valid_to IS NULL
+       ORDER BY m.created_at DESC, m.id`, [ownerId]
+    );
+    return result.rows.map(mapCommon);
+  }
+
   async getActiveMemory(ownerId, domain, key) {
     return mapCommon(first(await this.client.query(
       `SELECT m.*, p.external_id AS owner_id FROM arthur_memory m

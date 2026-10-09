@@ -140,6 +140,16 @@ function statusError(statusCode) {
 }
 
 class ArthurCoreClient {
+  async listPersonalMemory(ownerId, query = '', context = {}) {
+    return this._request('/v1/personal-memory', { ...context,
+      query: { ownerId, query }, allowedQueryKeys: ['ownerId', 'query'] });
+  }
+
+  async managePersonalMemory(ownerId, operation, parameters, context = {}) {
+    return this._request('/v1/personal-memory', { ...context, method: 'POST',
+      body: { ownerId, operation, parameters } });
+  }
+
   constructor(options = {}) {
     const validation = validateCoreClientOptions(options);
     if (!validation.valid) {

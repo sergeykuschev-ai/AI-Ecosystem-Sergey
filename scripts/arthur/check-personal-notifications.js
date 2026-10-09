@@ -69,7 +69,7 @@ async function checkPersonalNotifications(client) {
   return { status: 'PASS', deliveries: sent.length, ownerIsolation: true, restart: true, leaseRecovery: true };
 }
 
-async function main() {
+async function runIsolatedDatabaseCheck(check = checkPersonalNotifications) {
   const url = process.env.ARTHUR_DATABASE_URL || '';
   if (!/test|ci/.test(new URL(url).pathname)) throw new Error('A dedicated test/ci database is required');
   const { Client } = require('pg');
@@ -85,7 +85,7 @@ async function main() {
     }
     // Hide Client.connect from the transactional adapter: this connection is already open.
     const adapter = { query: (sql, values) => db.query(sql, values) };
-    process.stdout.write(JSON.stringify(await checkPersonalNotifications(adapter)) + '\n');
+    process.stdout.write(JSON.stringify(await check(adapter)) + '\n');
     for (const file of fs.readdirSync(dir).filter(name => name.endsWith('.down.sql')).sort().reverse()) {
       await db.query(fs.readFileSync(path.join(dir, file), 'utf8'));
     }
@@ -95,5 +95,5 @@ async function main() {
   }
 }
 
-if (require.main === module) main().catch(error => { process.stderr.write(error.message + '\n'); process.exitCode = 1; });
-module.exports = { checkPersonalNotifications };
+if (require.main === module) runIsolatedDatabaseCheck().catch(error => { process.stderr.write(error.message + '\n'); process.exitCode = 1; });
+module.exports = { checkPersonalNotifications, runIsolatedDatabaseCheck };

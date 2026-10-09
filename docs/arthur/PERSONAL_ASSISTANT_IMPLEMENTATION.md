@@ -7,8 +7,10 @@ Telegram remains the owner channel. The Windows/Amursk production host has
 not been accessed or changed by this implementation. Runtime activation is
 separate from repository implementation and tests.
 
-Implemented in this change:
+Implemented in the repository:
 
+- Explicit personal remember/list/edit/forget commands use persistent, versioned
+  Core memory with source, audit and replay protection. See [Personal memory](PERSONAL_MEMORY.md).
 - Dated commands and newline lists create individual personal tasks.
 - Explicit `Напомни сегодня в 16:00 забрать заказ` sets `remindAt` on a task.
 - A time-only reminder means today in the owner's configured timezone;
@@ -97,7 +99,7 @@ These are planned, not implemented or claimed active in production:
 | Stage | Implementation | Acceptance gate |
 |---|---|---|
 | Reminder controls | Snooze buttons, cancellation of only a reminder, recurrence rules | No stale callbacks, owner validation, timezone and DST tests |
-| Persistent personal memory | Explicit remember/edit/forget commands over existing versioned Core memory | Survives restart, has source and audit, scoped retrieval and owner isolation |
+| Contextual memory retrieval | Retrieve relevant explicit records for conversations, with source references | Owner isolation, bounded context, no unverified inference stored as fact |
 | Calendar | Read agenda, conflict checks, controlled event writes through an adapter | Account identity verified, event timezone and external results checked |
 | Personal mail and documents | Owner-scoped accounts, document references, task extraction | Responses cite the original item; no unrequested outgoing messages |
 | Projects and travel | Persistent next action, decision history, linked tasks and files | Project state remains current and traceable |

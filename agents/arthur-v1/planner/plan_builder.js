@@ -14,6 +14,7 @@ const {
   senderMailParameters,
 } = require('./mail_request_parser');
 const { parseWaitingRequest } = require('./waiting_request_parser');
+const { parsePersonalMemoryRequest } = require('./personal_memory_parser');
 
 const MAIL_SENDER_TIMEOUT_MS = 30000;
 const MAIL_IMPORTANT_TIMEOUT_MS = 30000;
@@ -63,6 +64,13 @@ function unreadMailParameters(message = '', parameters = {}) {
 }
 
 const PLAN_BUILDERS = {
+  [INTENTS.PERSONAL_MEMORY]: input => {
+    const parsed = parsePersonalMemoryRequest(input.message);
+    const updateId = input.transport?.metadata?.updateId;
+    return createExecutionPlan([createStep({ id: 'step_1', skill: 'personal-memory',
+      operation: parsed.action || 'list', parameters: { ...parsed,
+        ...(updateId != null ? { sourceRef: `telegram-update:${updateId}` } : {}) } })]);
+  },
   [INTENTS.PURCHASING_STATUS]: (input) => createExecutionPlan([
     createStep({
       id: 'step_1',

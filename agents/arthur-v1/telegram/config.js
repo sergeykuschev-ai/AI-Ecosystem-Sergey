@@ -140,6 +140,7 @@ function loadConfig(env = process.env) {
     coreBaseUrl,
     coreToken,
     coreTimeoutMs: Number(env.ARTHUR_CORE_TIMEOUT_MS) || 5000,
+    personalMemoryEnabled: parseEnabled(env.ARTHUR_PERSONAL_MEMORY_ENABLED),
     apiBaseUrl: env.TELEGRAM_API_BASE_URL || 'https://api.telegram.org',
     pollTimeoutMs: Number(env.TELEGRAM_POLL_TIMEOUT_MS) || 30000,
     requestTimeoutMs: Number(env.TELEGRAM_API_TIMEOUT_MS) || 10000,
@@ -187,6 +188,9 @@ function validateConfig(config) {
   const hasCoreToken = Boolean(config.coreToken);
   if (hasCoreBaseUrl !== hasCoreToken) {
     errors.push('ARTHUR_CORE_BASE_URL and ARTHUR_CORE_TOKEN must be configured together');
+  }
+  if (config.personalMemoryEnabled && (!hasCoreBaseUrl || config.allowedUserIds.size !== 1)) {
+    errors.push('Personal memory requires Arthur Core and exactly one allowed Telegram user ID');
   }
 
   if (hasCoreBaseUrl) {
