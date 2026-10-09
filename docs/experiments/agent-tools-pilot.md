@@ -72,3 +72,35 @@ Upstream sources:
 - https://github.com/DietrichGebert/ponytail/blob/main/INSTALL.md
 - https://github.com/addyosmani/agent-skills
 - https://github.com/Graphify-Labs/graphify
+
+## Verified Amursk installation — 2026-10-09
+
+**Actual approach differs from the optional script above:** the Windows
+machine has Python 3.13, Codex 0.155.1, Kimi and Claude Code, but no `uvx`.
+Therefore `setup-amursk-agent-tools.ps1 -Apply` was NOT used and should NOT
+be executed unchanged on that host. The existing production tools were retained.
+
+Via the pre-existing authenticated Tailscale/SSH tunnel, created
+`C:\\AI\\AgentToolsPilot20261009\\` containing a clean checkout of this
+experiment branch and a local Python `.venv`.
+
+- Installed `graphifyy==0.9.81` with local `python -m pip` in the pilot venv.
+- On a clean copy of `agents/purchasing`, parsed **143 code files** and wrote
+  a graph of **2463 nodes / 5530 links / 99 communities**.
+- Installed project-only Codex Graphify skill using
+  `graphify install --project --platform codex`, which modified ONLY the
+  pilot checkout's `AGENTS.md`, `.codex/skills/graphify/` and `.codex/hooks.json`.
+- Copied project-only Ponytail skill from upstream commit `9cc65d0`, and
+  Test-Driven Development, Code Review and Security Hardening skills from
+  Agent Skills upstream commit `1401c8b` into pilot `.agents/skills/`.
+- `graphify cluster-only` could not label communities: Claude Code on this
+  Windows account reported `Not logged in`. The deterministic code graph is
+  valid independently of these optional LLM-generated labels.
+- Verified the existing purchasing Docker container remained `running`
+  and `healthy`. The production checkout does not contain the new Graphify
+  skill. No deployment, runtime restart, production database write or migration.
+
+**Pending:** review the project-only Graphify hook and compare a fixed coding
+exercise (baseline vs pilot) before enabling these tools outside the pilot.
+Codex marketplace plugin listing returned HTTP 403, so the pilot uses local
+skills rather than claiming global native marketplace plugin installation.
