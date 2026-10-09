@@ -399,6 +399,20 @@ function parseTaskDueExpression(expression, options = {}) {
   };
 }
 
+function parseReminderTimeExpression(expression, options = {}) {
+  if (typeof expression !== 'string' || !TIME_PATTERN.test(expression)
+    || /(?:кажд|ежеднев|еженедел|раз\s+в)/iu.test(expression)) {
+    return clarification('Укажи одну дату и точное время напоминания.');
+  }
+  const dated = [...expression.matchAll(DATE_PATTERN)].length ? expression : `сегодня ${expression}`;
+  const due = parseTaskDueExpression(dated, options);
+  if (!due.ok) return due;
+  if (Date.parse(due.dueAt) <= new Date(options.now || Date.now()).getTime()) {
+    return clarification('Это время уже прошло. Укажи будущую дату и время напоминания.');
+  }
+  return { ok: true, remindAt: due.dueAt, remindLabel: due.dueLabel };
+}
+
 function parseCreateTaskRequest(message, options = {}) {
   const explicitIntent = matchesExplicitCreateTaskIntent(message);
   if (!explicitIntent && !matchesImplicitTaskIntent(message)) {
@@ -491,6 +505,7 @@ module.exports = {
   parseCreateTaskRequest,
   parseCreateTasksRequest,
   parseTaskDueExpression,
+  parseReminderTimeExpression,
   temporalContext,
   zonedDateTimeToIso,
 };

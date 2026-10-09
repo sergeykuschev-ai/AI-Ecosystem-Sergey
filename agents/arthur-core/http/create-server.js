@@ -148,6 +148,14 @@ function createArthurHttpHandler({ runtime, bodyLimit = DEFAULT_BODY_LIMIT, apiT
         return sendJson(response, 200, { data: brief });
       }
 
+      const reminderMatch = path.match(/^\/v1\/tasks\/([^/]+)\/reminder$/);
+      if (request.method === 'PATCH' && reminderMatch) {
+        const body = await readJson(request, bodyLimit);
+        const data = await runtime.service.setTaskReminder(body.ownerId, decodeURIComponent(reminderMatch[1]),
+          body, actorContext(request));
+        return sendJson(response, 200, { data });
+      }
+
       const transitionMatch = path.match(/^\/v1\/tasks\/([^/]+)\/transitions$/);
       if (request.method === 'POST' && transitionMatch) {
         const body = await readJson(request, bodyLimit);

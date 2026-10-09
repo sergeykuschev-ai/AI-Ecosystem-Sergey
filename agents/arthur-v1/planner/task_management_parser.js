@@ -3,12 +3,15 @@
 const {
   DEFAULT_OWNER_TIMEZONE,
   parseTaskDueExpression,
+  parseReminderTimeExpression,
 } = require('./task_request_parser');
 
 const TASK_MANAGEMENT_ACTIONS = Object.freeze({
   COMPLETE: 'complete',
   CANCEL: 'cancel',
   RESCHEDULE: 'reschedule',
+  CANCEL_REMINDER: 'cancel_reminder',
+  MOVE_REMINDER: 'move_reminder',
 });
 
 const PAST_ACTIONS = Object.freeze(new Map([
@@ -135,6 +138,8 @@ function rescheduleMatch(message) {
 function detectTaskManagementAction(message) {
   const safe = safeMessage(message);
   if (!safe) return null;
+  if (/^отмени\s+напоминание(?![\p{L}\p{N}])/iu.test(safe)) return TASK_MANAGEMENT_ACTIONS.CANCEL_REMINDER;
+  if (/^(?:перенеси|отложи)\s+напоминание(?![\p{L}\p{N}])/iu.test(safe)) return TASK_MANAGEMENT_ACTIONS.MOVE_REMINDER;
   if (completeMatch(safe) !== undefined) return TASK_MANAGEMENT_ACTIONS.COMPLETE;
   if (cancelMatch(safe) !== undefined) return TASK_MANAGEMENT_ACTIONS.CANCEL;
   if (rescheduleMatch(safe)) return TASK_MANAGEMENT_ACTIONS.RESCHEDULE;
@@ -155,6 +160,18 @@ function parseTaskManagementRequest(message, options = {}) {
   const safe = safeMessage(message);
   const action = options.action || detectTaskManagementAction(message);
   if (!safe || !action) return clarification('Не понял, какую задачу нужно изменить.');
+
+  if ([TASK_MANAGEMENT_ACTIONS.CANCEL_REMINDER, TASK_MANAGEMENT_ACTIONS.MOVE_REMINDER].includes(action)) {
+    const body = safe.replace(/^(?:отмени|перенеси|отложи)\s+напоминание\s*[:—-]?\s*/iu, '');
+    if (action === TASK_MANAGEMENT_ACTIONS.CANCEL_REMINDER) {
+      return body ? { ok: true, action, ...selector(canonicalTaskReference(body)), remindAt: null }
+        : clarification('Напиши название задачи, для которой отменить напоминание.', { pendingTaskSelection: true });
+    }
+    const match = body.match(/^(.+)\s+на\s+(.+)$/iu);
+    if (!match) return clarification('Напиши: «Перенеси напоминание название задачи на сегодня в 17:00».');
+    const when = parseReminderTimeExpression(match[2], options);
+    return when.ok ? { ...when, action, ...selector(canonicalTaskReference(match[1])) } : when;
+  }
 
   if (action === TASK_MANAGEMENT_ACTIONS.COMPLETE) {
     const title = completeMatch(safe);

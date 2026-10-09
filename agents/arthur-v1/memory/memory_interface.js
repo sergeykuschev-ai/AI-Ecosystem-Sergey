@@ -49,6 +49,8 @@ class MemoryInterface {
         title: candidate.title,
         status: candidate.status,
         dueAt: candidate.dueAt || null,
+        ...(candidate.updatedAt !== undefined ? { updatedAt: candidate.updatedAt } : {}),
+        ...(candidate.remindAt !== undefined ? { remindAt: candidate.remindAt } : {}),
       })),
       parameters: { ...(pending.parameters || {}) },
     }, this._pendingTaskClarificationTtlMs);
