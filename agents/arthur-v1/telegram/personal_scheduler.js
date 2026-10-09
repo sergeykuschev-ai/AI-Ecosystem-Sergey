@@ -1,5 +1,6 @@
 'use strict';
 
+const { reminderKeyboard } = require('./personal_buttons');
 const { createPersonalNotificationStore } = require('../../arthur-core/services/personal-notification-store');
 
 function localTime(date, timezone) {
@@ -94,11 +95,11 @@ class PersonalScheduler {
     if (this.runningTick) await this.runningTick;
   }
 
-  async deliver(key, text, now) {
+  async deliver(key, text, now, options = {}) {
     const claimId = await this.store.claim(this.ownerId, key, now.toISOString());
     if (!claimId) return;
     try {
-      const result = await this.telegram.sendMessage(this.chatId, text);
+      const result = await this.telegram.sendMessage(this.chatId, text, options);
       if (result?.ok !== true) throw new Error('Telegram did not confirm personal delivery');
       await this.store.finish(this.ownerId, key, claimId, this.clock().toISOString(), result.result?.message_id);
     } catch (error) {
@@ -121,6 +122,7 @@ class PersonalScheduler {
     const local = localTime(now, this.timezone);
     this.lastTick = now.toISOString();
     if (isQuiet(local.minute, timeMinutes(this.config.quietStart), timeMinutes(this.config.quietEnd))) return;
+    if (this.config.reminders && this.store.materializeRecurring) await this.store.materializeRecurring(this.ownerId, now.toISOString());
     const tasks = await this.store.listTasks(this.ownerId);
     const errors = [];
     if (this.config.reminders) {
@@ -132,7 +134,7 @@ class PersonalScheduler {
           timeZone: this.timezone, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
         }).format(new Date(task.remindAt));
         try {
-          await this.deliver(key, `<b>Напоминание</b> · ${when}\n${safeTitle(task.title, 2000)}`, now);
+          await this.deliver(key, `<b>Напоминание</b> · ${when}\n${safeTitle(task.title, 2000)}`, now, { replyMarkup: reminderKeyboard(task) });
         } catch (error) { errors.push(error); }
       }
     }
