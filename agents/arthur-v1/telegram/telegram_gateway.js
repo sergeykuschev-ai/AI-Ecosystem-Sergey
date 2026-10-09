@@ -18,6 +18,7 @@ const { buildPoolConfig } = require('../../arthur-core/runtime/create-runtime');
 const { loadConfig, validateConfig } = require('./config');
 const { createTelegramClient } = require('./telegram_client');
 const {loadProjectStatus,formatProjectStatus}=require('./project_health_reader');
+const {readFunctionalStatus,formatFunctionalStatus}=require('./functional_report_reader');
 const {checkAndNotify}=require('./project_alert_notifier');
 
 const COMMANDS = {
@@ -156,7 +157,11 @@ class ArthurTelegramGateway {
       const snapshot=loadProjectStatus({
         directory:process.env.ARTHUR_DEV_WORKER_REPORT_DIR,
       });
-      return formatProjectStatus(snapshot);
+      const availability=formatProjectStatus(snapshot);
+      const functional=readFunctionalStatus({
+        directory:process.env.ARTHUR_FUNCTIONAL_REPORT_DIR,
+      });
+      return availability+'\n\n'+formatFunctionalStatus(functional);
     });
     this.projectAlertNotifier=options.projectAlertNotifier || (
       process.env.ARTHUR_PROJECT_ALERT_STATE_DIR &&
