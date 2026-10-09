@@ -7,6 +7,7 @@ on:
     paths:
       - .github/workflows/agent-tools-pilot.yml
       - docs/experiments/agent-tools-pilot.md
+      - scripts/devtools/setup-amursk-agent-tools.ps1
 
 permissions:
   contents: read
@@ -73,3 +74,28 @@ jobs:
               if graph_path.stat().st_size < 100:
                   raise SystemExit('FAILED: graph too small')
           PY
+
+  windows-installer-preflight:
+    if: github.head_ref == 'experiment/agent-tools-20261009'
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Test read-only Windows preflight and mismatch refusal
+        shell: pwsh
+        run: |
+          $script = "./scripts/devtools/setup-amursk-agent-tools.ps1"
+          $pilotDir = Join-Path ([Environment]::GetFolderPath("LocalApplicationData")) "Arthur-AgentTools-Pilot"
+          if (Test-Path $pilotDir) { throw "Unexpected pre-existing pilot path on fresh test runner" }
+          & $script
+          if (Test-Path $pilotDir) { throw "Preflight changed the filesystem" }
+          try {
+            & $script -Apply -ExpectedHost "__NOT_THIS_HOST__"
+            throw "Unsafe installation: host mismatch should have failed"
+          } catch {
+            if ($_.Exception.Message -notmatch "Host mismatch") { throw }
+            Write-Host "PASS: refused installation on an unapproved hostname"
+          }
+          if (Test-Path $pilotDir) { throw "Mismatch refusal changed the filesystem" }
