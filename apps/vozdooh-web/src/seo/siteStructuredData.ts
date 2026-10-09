@@ -10,6 +10,7 @@ export function siteStructuredData(siteUrlInput: string) {
         name: 'VOZDOOH',
         legalName: 'ИП Кущев Сергей Васильевич',
         url: siteUrl,
+        sameAs: ['https://www.instagram.com/vozdooh.dv/'],
         telephone: '+79244199990',
         email: 'vozdooh.kms@yandex.ru',
         taxID: '270393428446',
