@@ -9,6 +9,7 @@ const {
 } = require('../application/purchasing_run_orchestrator');
 const {
   FileArtifactStore,
+  atomicWriteFile,
 } = require('../storage/file_artifact_store');
 const {
   FileRunRegistry,
@@ -98,6 +99,31 @@ afterEach(() => {
   while (temporaryRoots.length > 0) {
     fs.rmSync(temporaryRoots.pop(), { recursive: true, force: true });
   }
+});
+
+test('Windows atomic write skips unsupported directory fsync but syncs the file', () => {
+  const root = temporaryRoot();
+  const filePath = path.join(root, 'windows-safe.json');
+  let fileSyncs = 0;
+  const windowsLikeFs = {
+    ...fs,
+    fsyncSync(descriptor) {
+      if (fs.fstatSync(descriptor).isDirectory()) {
+        const error = new Error('EPERM: directory fsync is not supported');
+        error.code = 'EPERM';
+        throw error;
+      }
+      fileSyncs += 1;
+      return fs.fsyncSync(descriptor);
+    },
+  };
+  atomicWriteFile(filePath, '{"saved":true}', {
+    fsModule: windowsLikeFs,
+    platform: 'win32',
+  });
+  assert.equal(fileSyncs, 1);
+  assert.deepEqual(JSON.parse(fs.readFileSync(filePath, 'utf8')), { saved: true });
+  assert.deepEqual(temporaryFiles(root), []);
 });
 
 test('completed bundle is atomically published with all required files', () => {

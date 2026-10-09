@@ -38,7 +38,10 @@ function assertRunId(runId) {
   }
 }
 
-function fsyncDirectory(directoryPath, fsModule = fs) {
+function fsyncDirectory(directoryPath, fsModule = fs, platform = process.platform) {
+  // Windows does not support fsync on directory handles. The temporary
+  // file itself is already fsynced before its atomic rename.
+  if (platform === 'win32') return;
   let descriptor;
   try {
     descriptor = fsModule.openSync(directoryPath, 'r');
@@ -66,7 +69,7 @@ function atomicWriteFile(filePath, content, options = {}) {
     fsModule.closeSync(descriptor);
     descriptor = undefined;
     fsModule.renameSync(temporaryPath, filePath);
-    fsyncDirectory(directoryPath, fsModule);
+    fsyncDirectory(directoryPath, fsModule, options.platform || process.platform);
   } catch (error) {
     if (descriptor !== undefined) {
       try {
