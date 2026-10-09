@@ -76,6 +76,7 @@ test('factory opts in only when explicitly configured and never reports keys', a
     ARTHUR_AI_PROVIDER: 'deepseek-glm',
     DEEPSEEK_API_KEY: 'private-ds-key',
     ZAI_API_KEY: 'private-zai-key',
+    ARTHUR_AI_BUDGET_DIR: require('node:path').join(require('node:os').tmpdir(), 'arthur-budget-test-not-used'),
   };
   const router = createAIProviderFromEnv(env);
   assert.equal(router.name, 'deepseek-glm');
