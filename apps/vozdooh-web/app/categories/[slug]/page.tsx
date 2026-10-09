@@ -19,14 +19,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!landing) return { title: 'Коллекция не найдена — VOZDOOH', robots: { index: false, follow: false } }
   const seoTitles: Record<string, string> = {
     diffusers: 'Аромадиффузоры для дома — купить в VOZDOOH',
-    candles: 'Ароматические свечи для дома — VOZDOOH',
-    car: 'Ароматы и ароматизаторы для автомобиля — VOZDOOH',
-    sprays: 'Ароматические спреи для дома — VOZDOOH',
-    refills: 'Рефилы для диффузоров и ароматов — VOZDOOH',
-    accessories: 'Палочки и аксессуары для диффузоров — VOZDOOH',
-    'water-soluble': 'Водорастворимые ароматы для диффузоров — VOZDOOH',
-    'home-fragrance': 'Ароматы для дома и пространства — VOZDOOH',
-    gifts: 'Подарочные наборы ароматов для дома — VOZDOOH',
+    candles: 'Ароматические свечи для дома — купить в VOZDOOH',
+    car: 'Ароматы и ароматизаторы для автомобиля — купить в VOZDOOH',
+    sprays: 'Ароматические спреи для дома — купить в VOZDOOH',
+    refills: 'Рефилы для диффузоров и ароматов — купить в VOZDOOH',
+    accessories: 'Палочки и аксессуары для диффузоров — купить в VOZDOOH',
+    'water-soluble': 'Водорастворимые ароматы для диффузоров — купить в VOZDOOH',
+    'home-fragrance': 'Саше и аромапопурри для дома — купить в VOZDOOH',
+    gifts: 'Подарочные наборы ароматов для дома — купить в VOZDOOH',
     professional: 'Профессиональная ароматизация помещений — VOZDOOH',
   }
   const title = seoTitles[landing.slug] ?? `${landing.name} — VOZDOOH`
@@ -46,7 +46,7 @@ export default async function LandingPage({ params }: Props) {
     refills: 'Рефилы для диффузоров',
     accessories: 'Аксессуары для диффузоров',
     'water-soluble': 'Водорастворимые ароматы',
-    'home-fragrance': 'Ароматы для дома и пространства',
+    'home-fragrance': 'Саше и аромапопурри для дома',
     gifts: 'Подарочные наборы ароматов для дома',
     professional: 'Профессиональная ароматизация помещений',
   }

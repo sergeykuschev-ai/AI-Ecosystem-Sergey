@@ -219,6 +219,13 @@ test('rendered discovery, every landing, product backlinks and metadata retain c
         assert.equal(meta.robots.index, false)
         assert.equal(meta.alternates.canonical, `/${plural}/${landing.slug}`)
         assert.ok(meta.description.length > 30)
+        if (kind === 'brand' && ['culti-milano', 'teatro-fragranze-uniche', 'millefiori-milano'].includes(landing.slug)) {
+          assert.match(meta.title, /купить ароматы для дома/)
+        }
+        if (kind === 'category' && landing.slug === 'home-fragrance') {
+          assert.match(meta.title, /Саше и аромапопурри/)
+          assert.match(html, /<h1>Саше и аромапопурри для дома<\/h1>/)
+        }
       }
       await assert.rejects(Route.default({ params: Promise.resolve({ slug: 'unknown' }) }), /NEXT_HTTP_ERROR_FALLBACK;404/)
     }
