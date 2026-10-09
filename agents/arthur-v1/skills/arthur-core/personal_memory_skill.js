@@ -2,8 +2,9 @@
 
 const { ArthurCoreClientError } = require('./core_client');
 
-function result(responseText, data = {}) {
-  return { status: 'success', data: { ...data, responseText }, metadata: { source: 'arthur-core.personal-memory' } };
+function result(responseText, data = {}, provenance = {}) {
+  return { status: 'success', data: { ...data, responseText },
+    metadata: { source: 'arthur-core.personal-memory', ...provenance } };
 }
 
 function safeExcerpt(text, limit) {
@@ -29,13 +30,33 @@ function createPersonalMemorySkill({ client, ownerProfileId }) {
   }
   return {
     id: 'personal-memory', name: 'Personal Memory', version: '1.0.0',
-    capabilities: [{ id: 'list', readOnly: true }, { id: 'remember', readOnly: false },
+    capabilities: [{ id: 'list', readOnly: true }, { id: 'recall', readOnly: true }, { id: 'remember', readOnly: false },
       { id: 'edit', readOnly: false }, { id: 'forget', readOnly: false }],
     async execute(input) {
       const parameters = input.parameters || {};
       if (parameters.clarification) return result(parameters.clarification);
       const context = { correlationId: input.correlationId, actorId: ownerProfileId, actorType: 'user' };
       try {
+        if (input.operation === 'recall') {
+          if (typeof parameters.query !== 'string' || !parameters.query.trim()) {
+            return result('Уточни тему личного вопроса.', { memoryStatus: 'query_required' });
+          }
+          const data = await client.listPersonalMemory(ownerProfileId, parameters.query, context, 'related');
+          const records = data.records.slice(0, 5);
+          if (!records.length) {
+            return result('В явно сохранённой личной памяти не нашёл записей по этому вопросу. Я не могу это подтвердить.',
+              { memoryStatus: 'not_found', total: 0 });
+          }
+          const lines = records.map((record, index) => [
+            `${index + 1}. ${safeExcerpt(record.value.text, records.length === 1 ? 1800 : 250)}`,
+            `Источник: личная запись ${safeExcerpt(record.id, 50)}, ${new Date(record.createdAt).toLocaleDateString('ru-RU', { timeZone: 'Asia/Vladivostok' })}`,
+            ...(record.sourceRef ? [`Поручение: ${safeExcerpt(record.sourceRef, 80)}`] : []),
+          ].join('\n'));
+          if (data.total > records.length) lines.push(`Ещё ${data.total - records.length} совпадений. Уточни вопрос.`);
+          return result(`По явно сохранённым записям:\n${lines.join('\n\n')}\n\nЭто ранее сохранённые сведения; их актуальность сейчас не проверена.`,
+            { total: data.total, memoryStatus: 'found' },
+            { records: records.map(({ id, sourceType, sourceRef, createdAt }) => ({ id, sourceType, sourceRef, createdAt })) });
+        }
         if (input.operation === 'list') {
           const data = await client.listPersonalMemory(ownerProfileId, parameters.query || '', context);
           return result(data.records.length ? `Из явно сохранённых записей:\n${displayRecords(data.records, data.total)}`
@@ -58,7 +79,9 @@ function createPersonalMemorySkill({ client, ownerProfileId }) {
         return result(data.record ? `${text}:\n${safeExcerpt(data.record.value.text, 2500)}` : text, { memoryStatus: data.status });
       } catch (error) {
         if (error instanceof ArthurCoreClientError) {
-          return result('Личная память сейчас недоступна. Сохранение или изменение не подтверждено.', { memoryStatus: 'unavailable' });
+          return result(input.operation === 'recall'
+            ? 'Личная память сейчас недоступна. Я не могу подтвердить ответ по сохранённым записям.'
+            : 'Личная память сейчас недоступна. Сохранение или изменение не подтверждено.', { memoryStatus: 'unavailable' });
         }
         throw error;
       }
