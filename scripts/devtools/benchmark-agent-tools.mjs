@@ -81,7 +81,8 @@ function runOne(label, cwd) {
         answerChars: answer.length,
         citedOrderSource: answer.includes('supplier_order.js'),
         citedTests: /\.test\.js/.test(answer),
-        failure: failure ? failure.slice(0, 180) : err.slice(-250),
+        failure: code === 0 ? null : (failure ? failure.slice(0, 180) : err.slice(-250)),
+        nonfatalWarnings: code === 0 && err.trim().length ? err.trim().slice(-250) : null,
       });
     });
   });
