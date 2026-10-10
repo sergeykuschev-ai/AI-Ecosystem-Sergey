@@ -73,10 +73,14 @@ test('enabled menu shows owner keyboard and routes tasks through existing Arthur
  assert.equal(f.sent.length,1);
  assert.equal(f.sent[0].opts.replyMarkup.keyboard.length,4);
  await f.gateway.handleUpdate(msg('📋 Задачи'));
- assert.deepEqual(f.handled,['Что у меня по задачам?']);
- assert.match(f.sent[1].text,/Что у меня по задачам/);
+ assert.deepEqual(f.handled,[]);
+ assert.match(f.sent[1].text,/Задачи/);
+ assert.ok(f.sent[1].opts.replyMarkup.inline_keyboard.flat().some(x=>x.callback_data==='om1:tasks:today'));
+ await f.gateway.handleUpdate(callback('om1:tasks:today'));
+ assert.deepEqual(f.handled,['Что у меня сегодня?']);
+ assert.match(f.sent[2].text,/Что у меня сегодня/);
  await f.gateway.handleUpdate(msg('🩺 Статус'));
- assert.match(f.sent[2].text,/Gateway:/);
+ assert.match(f.sent[3].text,/Gateway:/);
 });
 
 test('menu actions are owner only and do not capture ordinary messages',async()=>{
@@ -103,15 +107,37 @@ test('new om1 callbacks are acknowledged, old ar1 and Harness am1 are left untou
  assert.equal(f.calls[0].method,'answerCallbackQuery');
  assert.match(f.sent[0].text,/главное меню/);
  await f.gateway.handleUpdate(callback('om1:approval'));
- assert.match(f.sent[1].text,/не подключены/);
+ assert.match(f.sent[1].text,/не активированы/);
  assert.equal(f.handled.length,0);
 });
 
 test('business menu goes through existing read-only question, not a task executor',async()=>{
  const f=fixture();
  await f.gateway.handleUpdate(msg('📊 Бизнес'));
+ assert.deepEqual(f.handled,[]);
+ assert.ok(f.sent[0].opts.replyMarkup.inline_keyboard.flat().some(x=>x.callback_data==='om1:business:miska'));
+ await f.gateway.handleUpdate(callback('om1:business:miska'));
  assert.deepEqual(f.handled,['Как дела у Миски?']);
  await f.gateway.handleUpdate(msg('🛠 Разработка'));
- assert.match(f.sent[1].text,/Windows Codex worker не запускается/);
+ assert.match(f.sent[2].text,/не запускает Windows Codex worker/);
  assert.equal(f.handled.length,1);
+});
+
+test('task creation and completion menu callbacks never write tasks',async()=>{
+ const f=fixture();
+ for(const id of ['om1:tasks:create','om1:tasks:complete','om1:tasks:move']){
+   await f.gateway.handleUpdate(callback(id));
+ }
+ assert.equal(f.handled.length,0);
+ assert.equal(f.sent.length,3);
+ for(const item of f.sent)assert.match(item.text,/Напиши|напиши/);
+});
+
+test('business stale data notice is informational, and generic text still reaches Arthur',async()=>{
+ const f=fixture();
+ await f.gateway.handleUpdate(callback('om1:business:vozdooh'));
+ assert.match(f.sent[0].text,/не выдаю сохранённые показатели за текущие/);
+ assert.equal(f.handled.length,0);
+ await f.gateway.handleUpdate(msg('Что у меня сегодня?'));
+ assert.deepEqual(f.handled,['Что у меня сегодня?']);
 });
