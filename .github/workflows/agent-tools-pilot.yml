@@ -10,6 +10,7 @@ on:
       - scripts/devtools/setup-amursk-agent-tools.ps1
       - scripts/devtools/agent-quality-gate.mjs
       - scripts/devtools/agent-quality-gate.test.mjs
+      - scripts/devtools/launch-amursk-agent-pilot.ps1
       - docs/architecture/LIVE_SYSTEM_INVENTORY_2026-10-11.md
 
 permissions:
@@ -34,8 +35,8 @@ jobs:
           cache: npm
       - name: Install repo dependencies without lifecycle scripts
         run: npm ci --ignore-scripts
-      - name: Purchasing agent baseline tests
-        run: node --test agents/purchasing/tests/*.test.js
+      - name: Purchasing and backend synthetic regression gate
+        run: node scripts/devtools/agent-quality-gate.mjs --project purchasing --run-tests
 
   graphify-smoke:
     if: github.head_ref == 'experiment/agent-tools-20261009'
@@ -107,6 +108,17 @@ jobs:
             Write-Host "PASS: refused installation on an unapproved hostname"
           }
           if (Test-Path $pilotDir) { throw "Mismatch refusal changed the filesystem" }
+      - name: Verify Codex pilot launcher is non-invasive by default
+        shell: pwsh
+        run: |
+          & ./scripts/devtools/launch-amursk-agent-pilot.ps1 -Project arthur
+          try {
+            & ./scripts/devtools/launch-amursk-agent-pilot.ps1 -Project arthur -Launch -ExpectedHost '__NOT_THIS_HOST__'
+            throw 'Launch should reject a mismatched host'
+          } catch {
+            if ($_.Exception.Message -notmatch 'Host mismatch') { throw }
+            Write-Host 'PASS: pilot launcher rejects unapproved target'
+          }
 
   quality-gate-unit-tests:
     if: github.head_ref == 'experiment/agent-tools-20261009'
