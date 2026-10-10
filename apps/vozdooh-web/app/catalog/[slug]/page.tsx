@@ -178,14 +178,16 @@ export default async function ProductPage({ params, searchParams }: PageParams) 
           <h2 id="fragrance-facts-title">Как пахнет {fragranceFacts.name}</h2>
           <p>{fragranceFacts.summary}</p>
           <dl className="productMetaList">
-            <div><dt>Семейство</dt><dd>{fragranceFacts.family}{fragranceFacts.facet ? ` · ${fragranceFacts.facet}` : ''}</dd></div>
+            {(fragranceFacts.family || fragranceFacts.facet) && <div><dt>Семейство</dt><dd>{[fragranceFacts.family, fragranceFacts.facet].filter(Boolean).join(' · ')}</dd></div>}
             <div><dt>Ноты</dt><dd>{fragranceFacts.notes.join(', ')}</dd></div>
-            <div><dt>Рекомендуемые пространства</dt><dd>{fragranceFacts.rooms.join(', ')}</dd></div>
+            {fragranceFacts.rooms.length > 0 && <div><dt>Рекомендуемые пространства</dt><dd>{fragranceFacts.rooms.join(', ')}</dd></div>}
             {fragranceFacts.seasons.length > 0 && <div><dt>Сезонность бренда</dt><dd>{fragranceFacts.seasons.join(', ')}</dd></div>}
             {fragranceFacts.created && <div><dt>Год создания композиции</dt><dd>{fragranceFacts.created}</dd></div>}
           </dl>
-          <h3>Куда поставить {fragranceFacts.name}?</h3>
-          <p>В официальном описании бренда для этой композиции указаны: {fragranceFacts.rooms.join(', ')}. Это ориентир по характеру аромата, а фактическая интенсивность зависит от формата, помещения и способа использования.</p>
+          {fragranceFacts.rooms.length > 0 && <>
+            <h3>Куда поставить {fragranceFacts.name}?</h3>
+            <p>В официальном описании бренда для этой композиции указаны: {fragranceFacts.rooms.join(', ')}. Это ориентир по характеру аромата, а фактическая интенсивность зависит от формата, помещения и способа использования.</p>
+          </>}
           {product.trade.category === 'Диффузоры' && <p><Link className="textLink" href="/guides/kak-polzovatsya-aromadiffuzorom">Как пользоваться аромадиффузором →</Link></p>}
           {product.trade.category === 'Рефилы' && <p><Link className="textLink" href="/guides/refil-dlya-diffuzora-kak-ispolzovat">Как использовать рефил →</Link></p>}
           {product.trade.category === 'Свечи' && <p><Link className="textLink" href="/guides/kak-vybrat-aromaticheskuyu-svechu">Как выбрать ароматическую свечу →</Link></p>}

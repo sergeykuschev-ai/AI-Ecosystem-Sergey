@@ -38,9 +38,9 @@ export function productStructuredData(
   if (fragranceFacts) {
     schemaProduct.additionalProperty = [
       { '@type': 'PropertyValue', name: 'Аромат', value: fragranceFacts.name },
-      { '@type': 'PropertyValue', name: 'Ольфакторное семейство', value: fragranceFacts.facet ? `${fragranceFacts.family} · ${fragranceFacts.facet}` : fragranceFacts.family },
+      ...((fragranceFacts.family || fragranceFacts.facet) ? [{ '@type': 'PropertyValue', name: 'Ольфакторное семейство', value: [fragranceFacts.family, fragranceFacts.facet].filter(Boolean).join(' · ') }] : []),
       { '@type': 'PropertyValue', name: 'Ноты', value: fragranceFacts.notes.join(', ') },
-      { '@type': 'PropertyValue', name: 'Рекомендуемые пространства', value: fragranceFacts.rooms.join(', ') },
+      ...(fragranceFacts.rooms.length > 0 ? [{ '@type': 'PropertyValue', name: 'Рекомендуемые пространства', value: fragranceFacts.rooms.join(', ') }] : []),
     ]
   }
   if (product.trade.barcode && /^\d{13}$/.test(product.trade.barcode)) schemaProduct.gtin13 = product.trade.barcode

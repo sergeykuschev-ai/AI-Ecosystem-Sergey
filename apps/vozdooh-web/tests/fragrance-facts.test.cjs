@@ -53,6 +53,17 @@ test('verified fragrance facts match only the reviewed brand/fragrance pairs', (
   assert.equal(fiore.name, 'Fiore')
   assert.ok(fiore.notes.includes('гардения'))
 
+  const oudwood = fragranceFactsFor(product('Vellutier', 'Vellutier / Свеча маленькая Удовое дерево 90гр / Oudwood Journey'))
+  assert.equal(oudwood.name, 'Oudwood Journey')
+  assert.equal(oudwood.family, null)
+  assert.deepEqual(oudwood.rooms, [])
+  assert.deepEqual(oudwood.notes, ['уд', 'олибанум', 'пачули', 'мускус', 'амбра'])
+
+  const midnight = fragranceFactsFor(product('Vellutier', 'Vellutier / Свеча большая Вечерний тост 515гр / Midnight Toast'))
+  assert.equal(midnight.name, 'Midnight Toast')
+  assert.ok(midnight.notes.includes('джин-тоник'))
+  assert.ok(midnight.notes.includes('тиковое дерево'))
+
   assert.equal(fragranceFactsFor(product('MAMI MILANO', 'DIAMANTE 200 мл')), null)
   assert.equal(fragranceFactsFor(product('MAMI MILANO', 'ROSE IN FIORE 200 мл')), null)
   assert.equal(fragranceFactsFor(product('OTHER', 'Aramara 250 мл')), null)

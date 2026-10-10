@@ -60,6 +60,14 @@ test('Product JSON-LD uses only verified trade/editorial facts and no review cla
   assert.equal(breadcrumbs.itemListElement[1].item, 'https://vozdooh27.ru/catalog')
 })
 
+test('Product JSON-LD keeps only verified Vellutier fragrance properties', () => {
+  const data = productStructuredData(product({ trade: { sku: 'V63011', name: 'Vellutier / Свеча маленькая Удовое дерево 90гр / Oudwood Journey', brand: 'Vellutier', category: 'Свечи', volume: '90 г' } }), '/catalog/x.jpg')
+  const schemaProduct = data['@graph'][0]
+  assert.deepEqual(schemaProduct.additionalProperty.map((item) => item.name), ['Аромат', 'Ноты'])
+  assert.equal(schemaProduct.additionalProperty[0].value, 'Oudwood Journey')
+  assert.match(schemaProduct.additionalProperty[1].value, /уд, олибанум, пачули, мускус, амбра/)
+})
+
 test('Product JSON-LD omits unsupported barcode and offer facts', () => {
   const data = productStructuredData(product({ trade: { barcode: 'ABC', price: null, stock: null } }), '/catalog/x.jpg')
   const schemaProduct = data['@graph'][0]

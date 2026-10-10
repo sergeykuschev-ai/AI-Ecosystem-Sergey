@@ -2,7 +2,7 @@ import type { CatalogProduct } from './contracts'
 
 export type FragranceFacts = {
   name: string
-  family: string
+  family: string | null
   facet: string | null
   notes: string[]
   summary: string
@@ -113,6 +113,28 @@ const FACTS: Record<string, FragranceFacts> = {
     created: null,
     source: 'официальное описание TEATRO Fragranze Uniche',
   },
+  'oudwood-journey': {
+    name: 'Oudwood Journey',
+    family: null,
+    facet: null,
+    notes: ['уд', 'олибанум', 'пачули', 'мускус', 'амбра'],
+    summary: 'Восточная композиция с удом, олибанумом, пачули, мускусом и амброй.',
+    rooms: [],
+    seasons: [],
+    created: null,
+    source: 'официальный каталог Vellutier',
+  },
+  'midnight-toast': {
+    name: 'Midnight Toast',
+    family: null,
+    facet: null,
+    notes: ['джин-тоник', 'дыня канталупа', 'цветок апельсина', 'тиковое дерево', 'кедр'],
+    summary: 'Необычная композиция джин-тоника и дыни канталупы с цветком апельсина, тиковым деревом и кедром.',
+    rooms: [],
+    seasons: [],
+    created: null,
+    source: 'официальный каталог Vellutier',
+  },
   'dolce-vaniglia': {
     name: 'Dolce Vaniglia',
     family: 'гурманское',
@@ -133,6 +155,10 @@ export function fragranceFactsFor(product: CatalogProduct): FragranceFacts | nul
     if (/\bAramara\b/i.test(name)) return FACTS.aramara
     if (/\bTessuto\b/i.test(name)) return FACTS.tessuto
     if (/\bAqqua\b/i.test(name)) return FACTS.aqqua
+  }
+  if (brand === 'Vellutier') {
+    if (/Oudwood Journey|Удовое дерево/i.test(name)) return FACTS['oudwood-journey']
+    if (/Midnight Toast|Вечерний тост/i.test(name)) return FACTS['midnight-toast']
   }
   if (brand === 'TEATRO Fragranze Uniche') {
     if (/DOLCE\s+VANIGLIA|Dolce\s+Vaniglia/i.test(name)) return FACTS['dolce-vaniglia']
