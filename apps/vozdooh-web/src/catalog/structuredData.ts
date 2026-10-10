@@ -42,6 +42,8 @@ export function productStructuredData(
       priceCurrency: 'RUB',
       price: price.toFixed(2),
       availability: (stock ?? 0) >= 1 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+      itemCondition: 'https://schema.org/NewCondition',
+      seller: { '@type': 'Organization', '@id': `${trimSiteUrl(siteUrl)}/#organization`, name: 'VOZDOOH' },
     }
   }
 

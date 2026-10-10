@@ -10,7 +10,7 @@ import { SiteHeader } from '../../../components/SiteHeader'
 import { TrackView } from '../../../components/TrackView'
 import { labelFor, familyLabels, moodLabels, roomLabels } from '../../../src/catalog/vocabulary'
 import { catalogImage, isDebugCatalog, productPresentation, storefrontProducts, sameBrandProducts } from '../../../src/catalog/presentation'
-import { isExternallyConfirmedPopular, POPULARITY_NOTE } from '../../../src/catalog/demandPriority'
+import { demandRank, isExternallyConfirmedPopular, POPULARITY_NOTE } from '../../../src/catalog/demandPriority'
 import { withValidImages } from '../../../src/catalog/validImages'
 import { catalogHref, parseCatalogFilters, type RawSearchParams } from '../../../src/catalog/filterParams'
 import { brandLandings, categoryLandings, landingPath } from '../../../src/catalog/landings'
@@ -31,13 +31,19 @@ export async function generateMetadata({ params }: PageParams): Promise<Metadata
   const product = await (await getCatalogRepository()).getBySlug(slug)
   if (!product) return { title: 'Товар не найден — VOZDOOH', robots: { index: false, follow: false } }
   const display = productPresentation(product)
+  const priority = demandRank(product.trade.sku) !== null
+  const commercialName = [display.title, product.trade.volume, product.trade.brand].filter(Boolean).join(' · ')
   const description = catalogSource() === 'demo'
     ? 'Демонстрационная карточка товара VOZDOOH. Цена, наличие и характеристики появятся после синхронизации с 1С.'
-    : product.editorial.description
-      ? `${product.editorial.description} ${[product.trade.brand, display.subtitle].filter(Boolean).join(' · ')}.`
-      : `${[display.title, product.trade.brand, display.subtitle].filter(Boolean).join(' · ')} в каталоге VOZDOOH.`
+    : priority
+      ? `Купить ${commercialName} в Хабаровске. ${(product.trade.stock ?? 0) >= 1 ? 'В наличии.' : ''}${(product.trade.price ?? 0) > 0 ? ` Цена ${rub.format(product.trade.price!)}.` : ''} Онлайн-оплата и доставка по Хабаровску и России.`
+      : product.editorial.description
+        ? `${product.editorial.description} ${[product.trade.brand, display.subtitle].filter(Boolean).join(' · ')}.`
+        : `${[display.title, product.trade.brand, display.subtitle].filter(Boolean).join(' · ')} в каталоге VOZDOOH.`
   const image = catalogImage(product)
-  const title = [...[display.title, display.subtitle, product.trade.brand].filter(Boolean), 'купить в VOZDOOH'].join(' — ')
+  const title = priority
+    ? `${display.title}${product.trade.volume ? ` ${product.trade.volume}` : ''} — ${product.trade.brand ?? 'VOZDOOH'} — купить в Хабаровске | VOZDOOH`
+    : [...[display.title, display.subtitle, product.trade.brand].filter(Boolean), 'купить в VOZDOOH'].join(' — ')
   return {
     title,
     alternates: { canonical: `/catalog/${product.editorial.slug}` },
