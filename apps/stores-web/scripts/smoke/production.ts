@@ -32,7 +32,7 @@ const REQUEST_TIMEOUT_MS = 15_000;
 const MIN_OPENGRAPH_IMAGE_BYTES = 1_000;
 
 const PAGE_CHECKS: PageCheck[] = [
-  { path: "/", markers: ["Ампер, Вентиль, Метиз Маркет и Миска", "/amper/", "Бонусная"] },
+  { path: "/", markers: ["Ампер, Вентиль, Метиз Маркет и Миска", "/amper/", "Бонусная", "Что можно купить в магазинах Амурска", "/amper/kabel-i-provod/", "/miska/korm-dlya-koshek-i-sobak/", "PetStore", "#business"] },
   { path: "/amper/", markers: ["Ампер", "Проспект Победы"] },
   { path: "/ventil/", markers: ["Вентиль", "Проспект Победы"] },
   { path: "/metiz-market/", markers: ["Метиз Маркет", "Победы, 16"] },

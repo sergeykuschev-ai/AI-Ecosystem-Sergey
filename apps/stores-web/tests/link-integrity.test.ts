@@ -5,6 +5,10 @@ import { fileURLToPath } from "node:url";
 import { describe, test } from "node:test";
 import nextConfig from "@/next.config";
 import { getPublishedArticles } from "@/lib/articles/articles";
+import { AMPER_SEO_CATEGORY_PATHS } from "@/lib/amper/seo-categories";
+import { VENTIL_SEO_CATEGORY_PATHS } from "@/lib/ventil/seo-categories";
+import { METIZ_SEO_CATEGORY_PATHS } from "@/lib/metiz-market/seo-categories";
+import { MISKA_SEO_CATEGORY_PATHS } from "@/lib/miska/seo-categories";
 import { CANONICAL_BRAND_SLUGS } from "@/lib/constants/brands";
 import { mockActualItems, mockCities, mockStores } from "@/lib/data/mock-data";
 
@@ -96,9 +100,15 @@ for (const store of mockStores.filter((item) => item.active)) {
 }
 
 const articleSlugs = new Set(getPublishedArticles().map((article) => article.slug));
+const categoryPaths = [
+  ...AMPER_SEO_CATEGORY_PATHS,
+  ...VENTIL_SEO_CATEGORY_PATHS,
+  ...METIZ_SEO_CATEGORY_PATHS,
+  ...MISKA_SEO_CATEGORY_PATHS,
+];
 
 const routeModel: RouteModel = {
-  staticPaths: new Set(EXPECTED_STATIC_PAGES),
+  staticPaths: new Set([...EXPECTED_STATIC_PAGES, ...categoryPaths]),
   dynamicPatterns: [
     ...CANONICAL_BRAND_SLUGS.map((slug) => new RegExp(`^/${slug}/$`)),
     ...[...citySlugs].map((slug) => new RegExp(`^/stores/${slug}/$`)),
@@ -114,6 +124,7 @@ const INDEXABLE_PATHS = new Set([
     (path) => !["/politika-konfidencialnosti/", "/soglasie-na-obrabotku-dannyh/"].includes(path),
   ),
   ...CANONICAL_BRAND_SLUGS.map((slug) => `/${slug}/`),
+  ...categoryPaths,
   ...[...citySlugs].map((slug) => `/stores/${slug}/`),
   ...[...storeSlugsByCity.entries()].flatMap(([citySlug, storeSlugs]) =>
     [...storeSlugs].map((storeSlug) => `/stores/${citySlug}/${storeSlug}/`),
@@ -213,6 +224,8 @@ describe("route registry matches the app structure", () => {
     // Expand the content-driven route templates against the same active data
     // used to construct the route registry.
     for (const slug of CANONICAL_BRAND_SLUGS) contextualTargets.add(`/${slug}/`);
+    // Brand landing pages render category registry links programmatically.
+    for (const path of categoryPaths) contextualTargets.add(path);
     for (const citySlug of citySlugs) contextualTargets.add(`/stores/${citySlug}/`);
     for (const [citySlug, storeSlugs] of storeSlugsByCity) {
       for (const storeSlug of storeSlugs) contextualTargets.add(`/stores/${citySlug}/${storeSlug}/`);
