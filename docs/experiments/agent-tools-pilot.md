@@ -189,7 +189,7 @@ Agent Skills across every task, an AgentControl production queue stage, or
 self-deploying capabilities. The live working repository contains numerous
 uncommitted changes and must not be overwritten or auto-merged.
 
-**Next approval gate:** successful paired Codex/Kimi comparison under the
+**Next approval gate:** paired Codex baseline versus Codex with selected skills using the
 existing German proxy/tunnel, review of any hook code, then guarded promotion
 to one project-scoped development workflow. Do not merge this PR to main or
 attach it to the live scheduler before the acceptance criteria are met.
@@ -237,3 +237,17 @@ Docker containers and data volumes are unchanged.
 A safe next deployment is **only** an opt-in development-stage quality gate
 called by AgentControl after a task's isolated source checkout is ready.
 It must not block ordinary consumer actions or auto-deploy production.
+
+## Owner correction on 2026-10-11: no Kimi deployment
+
+Kimi is **paused by owner decision**, even though the older AgentControl
+configuration still exposes it as an enabled secondary worker. This pilot
+supports **AgentControl + Codex over the existing tunnel**; it neither
+promotes Kimi nor changes the live AgentControl router. The route must be
+updated and verified separately before claiming Kimi is disabled.
+
+Do not confuse selected Agent Skills with AI models. The specific names of
+newly selected provider models have not yet been verified, so no model names
+are invented here. Local Ollama and existing OmniRoute are separate parts of
+Arthur's model infrastructure, not substitutes automatically selected by this
+pilot.
