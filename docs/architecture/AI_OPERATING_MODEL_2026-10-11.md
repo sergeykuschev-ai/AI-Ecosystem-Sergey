@@ -187,3 +187,72 @@ an explicit rollback/retention check.
 Changes to live production services, 1C data and publishing were not
 performed. This document is operational guidance, not proof that unfinished
 integration bridges already work.
+
+## 2026-10-11: guarded operational integration on the Amursk host
+
+**Verified changes actually applied on Windows:**
+
+- `C:\AI\AgentControl\scripts\health-check.mjs` now also reads the
+  two engineering queues via the new read-only `arthur-agent-bridge-status.mjs`.
+  It runs under the **existing 15-minute scheduled health check**; no new
+  scheduler/public endpoint. Original script backed up to
+  `health-check.mjs.before-bridge-20261011.bak`.
+- Live monitor returned `ok=true`, Codex enabled, Kimi disabled, zero
+  pending/running AgentControl work, two Arthur Codex `needs_review` jobs
+  and one failed Arthur Codex job. Historical AgentControl completed/failed
+  counts are 39/12, not newly failed tasks.
+- `node scripts/run-tests.mjs` under `C:\AI\AgentControl`: **133/133 PASS**.
+  Read-only bridge inspection: **4/4 PASS** on synthetic fixtures.
+- The existing `Arthur-Codex-Agent-Worker` is an authorized scheduled
+  Windows worker using the existing German SSH tunnel. **No new queue
+  worker was installed.** Production Telegram notifier records for the
+  prior three Codex jobs were marked `delivered`.
+- In the isolated candidate root
+  `C:\AI-Ecosystem\candidates\arthur-codex-integration-20261010`,
+  copied the selected Ponytail, three Agent Skills and Graphify skills from
+  the reviewed pilot; **no automatic Graphify hooks**.
+- The candidate was **out of sync** with the deployed Arthur Telegram
+  Gateway. Recovered the deployed gateway module and its support modules,
+  the Codex notifier, and the missing `agents/arthur-core` source **from
+  the running container into the development candidate only**. Existing
+  file backups preserved. No production container/source was overwritten.
+- Code-only Graphify incremental graph of the synchronized Arthur-v1
+  candidate: **1,674 nodes and 3,546 edges**, queryable locally.
+- Isolated Node test dependencies use already-installed Windows packages
+  plus `node-cron` and `uuid` read from the running container and copied
+  to `C:\AI\DevTools\arthur-worker-deps\node_modules`. The Codex worker
+  child-process environment now sets project-scoped `PATH` (Graphify)
+  and `NODE_PATH` (test dependencies), while preserving its existing
+  SSH-proxy variables. Host-global PATH, Node installation, Docker and
+  system-wide Codex profile were not changed.
+- **8/8 PASS** on the synchronized candidate:
+  `codex_integration.test.js` +
+  `codex_notifier_gateway.test.js`, with deterministic test doubles for
+  voice and unrelated project alert checks. This verifies synthetic
+  command/queue/notify behavior; it does **not** certify future Codex-generated
+  diffs or business data actions.
+
+**Remaining engineering work:**
+
+1. The candidate root is **not yet a clean version-controlled release
+   checkout**. Create a reviewed, credential-free Git baseline matching the
+   deployed release before enabling autonomous cross-project changes. Do not
+   silently reset the dirty main repo.
+2. The Arthur Codex and AgentControl queues remain separate. They are both
+   **observed** by one health check, not a single transaction coordinator.
+   Do not dispatch the same job into both queues.
+3. A job in `needs_review` is **not** a passed code-quality gate or deployment.
+   Add machine-verifiable per-project tests, changed-file review, and
+   rollback/approval before any production promotion.
+4. Model inference use/cost: DeepSeek Flash + Z.ai GLM configured for the
+   deployed Telegram Gateway, with budget caps. The main Arthur API still
+   uses OmniRoute. Cross-service unification and provider-balance checks
+   remain separate work.
+5. Directly retest an **owner-authorized harmless task** end-to-end when
+   an appropriate clean workspace exists; the work done in this phase
+   tested the real queue read-only plus synthetic Codex gateway fixtures,
+   not a new live task execution.
+
+The deliverable is a **working authenticated Arthur Codex front door and a
+unified read-only monitoring layer**, not a new autonomous production
+deployment system.
