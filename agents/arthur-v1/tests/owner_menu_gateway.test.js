@@ -43,6 +43,30 @@ test('menu disabled by default leaves /menu and callbacks to original path',asyn
  assert.equal(f.sent.length,1);
 });
 
+
+test('start displays persistent menu to owner in private chat only when enabled',async()=>{
+ const enabled=fixture();
+ await enabled.gateway.handleUpdate(msg('/start'));
+ assert.match(enabled.sent[0].text,/Привет, я Артур/);
+ assert.equal(enabled.sent[0].opts.replyMarkup.keyboard.length,4);
+ const disabled=fixture({menuEnabled:false});
+ await disabled.gateway.handleUpdate(msg('/start'));
+ assert.match(disabled.sent[0].text,/Привет, я Артур/);
+ assert.equal(disabled.sent[0].opts,undefined);
+ const group=fixture();
+ await group.gateway.handleUpdate(msg('/start',111,-100));
+ assert.match(group.sent[0].text,/Привет, я Артур/);
+ assert.equal(group.sent[0].opts,undefined);
+});
+
+test('ordinary /help never changes existing menu/command behavior',async()=>{
+ const f=fixture();
+ await f.gateway.handleUpdate(msg('/help'));
+ assert.match(f.sent[0].text,/Привет, я Артур/);
+ assert.equal(f.sent[0].opts,undefined);
+ assert.equal(f.handled.length,0);
+});
+
 test('enabled menu shows owner keyboard and routes tasks through existing Arthur',async()=>{
  const f=fixture();
  await f.gateway.handleUpdate(msg('/menu'));
