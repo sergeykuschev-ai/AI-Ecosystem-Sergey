@@ -193,3 +193,47 @@ uncommitted changes and must not be overwritten or auto-merged.
 existing German proxy/tunnel, review of any hook code, then guarded promotion
 to one project-scoped development workflow. Do not merge this PR to main or
 attach it to the live scheduler before the acceptance criteria are met.
+
+## 2026-10-11: actual Codex-over-tunnel A/B smoke result
+
+The user's **existing** Windows SSH tunnel and proxy on
+`127.0.0.1:8443` were used through process-local HTTP(S)/ALL_PROXY
+variables. Both invocations of `codex-cli 0.162.1` finished with exit code
+0 using `codex exec --ephemeral -s read-only`, in distinct checkouts of
+the same pilot branch, against one fixed XLSX code-tracing prompt.
+
+| Metric | Control checkout | Pilot checkout |
+|---|---:|---:|
+| Elapsed time | 79,689 ms | 60,905 ms |
+| Input tokens reported by CLI | 235,005 | 212,681 |
+| Cached input tokens | 190,848 | 171,904 |
+| Output tokens | 1,418 | 1,368 |
+| Exit code | 0 | 0 |
+| Included supplier order source and tests | Yes | Yes |
+
+The pilot run was 23.6% faster in this single observation and reported
+9.5% fewer input tokens. **Not a causal improvement claim**: one run only,
+model ID not captured in the summary, differing caches; native Ponytail
+hooks were deliberately disabled, and no evidence was captured that all
+installed skills were invoked. Full answer quality was not externally scored.
+The optional benchmark script stores only aggregated telemetry locally in
+`C:\\AI\\AgentToolsPilot20261009\\comparison\\agent-tools-ab-summary.json`.
+The benchmark should be repeated with fixed model/version, multiple trials
+and explicit invocation of individual skills before promoting them.
+
+Prior `403` errors occurred in attempts that **did not set up the existing
+proxy**. The proxy-enabled benchmark was successful; do not replace the tunnel.
+
+### Hook and production safeguards
+
+In the isolated checkout, restored the repository's normal `AGENTS.md`
+after Graphify had appended generic root-level graph path instructions and
+disabled the auto-created `.codex/hooks.json` (kept a local disabled copy).
+The project-scoped Graphify skill remains available, along with the selected
+Agent Skills and Ponytail. No auto-executing plugin hooks run as a side effect.
+The main working checkout, Windows scheduled tasks, live AgentControl queues,
+Docker containers and data volumes are unchanged.
+
+A safe next deployment is **only** an opt-in development-stage quality gate
+called by AgentControl after a task's isolated source checkout is ready.
+It must not block ordinary consumer actions or auto-deploy production.
