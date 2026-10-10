@@ -12,6 +12,8 @@ on:
       - scripts/devtools/agent-quality-gate.test.mjs
       - scripts/devtools/launch-amursk-agent-pilot.ps1
       - scripts/devtools/benchmark-agent-tools.mjs
+      - scripts/devtools/arthur-agent-bridge-status.mjs
+      - scripts/devtools/arthur-agent-bridge-status.test.mjs
       - docs/architecture/LIVE_SYSTEM_INVENTORY_2026-10-11.md
 
 permissions:
@@ -133,6 +135,6 @@ jobs:
         with:
           node-version: '22'
       - name: Audit CLI unit tests
-        run: node --test scripts/devtools/agent-quality-gate.test.mjs
+        run: node --test scripts/devtools/agent-quality-gate.test.mjs scripts/devtools/arthur-agent-bridge-status.test.mjs
       - name: Read-only quality gate baseline
         run: node scripts/devtools/agent-quality-gate.mjs --project purchasing
