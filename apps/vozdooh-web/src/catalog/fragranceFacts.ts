@@ -13,6 +13,17 @@ export type FragranceFacts = {
 }
 
 const FACTS: Record<string, FragranceFacts> = {
+  mareminerale: {
+    name: 'Mareminerale',
+    family: 'ароматическое',
+    facet: 'морское',
+    notes: ['морской аккорд', 'сок растений', 'минеральный мускус'],
+    summary: 'Свежая морская композиция с морским аккордом, зелёным соком растений и минеральным мускусом.',
+    rooms: ['гостиная', 'частные пространства', 'SPA'],
+    seasons: ['весна', 'лето', 'осень', 'зима'],
+    created: '1997',
+    source: 'официальное описание CULTI MILANO',
+  },
   aramara: {
     name: 'Aramara',
     family: 'цитрусовое',
@@ -177,6 +188,7 @@ export function fragranceFactsFor(product: CatalogProduct): FragranceFacts | nul
     if (/\bAramara\b/i.test(name)) return FACTS.aramara
     if (/\bTessuto\b/i.test(name)) return FACTS.tessuto
     if (/\bAqqua\b/i.test(name)) return FACTS.aqqua
+    if (/\bMareminerale\b/i.test(name)) return FACTS.mareminerale
   }
   if (brand === 'Lothantique') {
     if (/LES\s+SECRETS\s+D['’]ANTOINE|Les\s+Secrets\s+d['’]Antoine/i.test(name)) return FACTS['les-secrets-antoine']

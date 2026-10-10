@@ -11,6 +11,13 @@ function product(brand, name) {
 }
 
 test('verified fragrance facts match only the reviewed brand/fragrance pairs', () => {
+  const mareminerale = fragranceFactsFor(product('CULTI MILANO', 'Саше для автомобиля Mareminerale 7х7см'))
+  assert.equal(mareminerale.name, 'Mareminerale')
+  assert.equal(mareminerale.family, 'ароматическое')
+  assert.equal(mareminerale.facet, 'морское')
+  assert.deepEqual(mareminerale.notes, ['морской аккорд', 'сок растений', 'минеральный мускус'])
+  assert.equal(mareminerale.created, '1997')
+
   const aramara = fragranceFactsFor(product('CULTI MILANO', 'Decor Classic диффузор Aramara 250мл'))
   assert.equal(aramara.name, 'Aramara')
   assert.deepEqual(aramara.notes, ['горький апельсин', 'бергамот', 'сандал'])
