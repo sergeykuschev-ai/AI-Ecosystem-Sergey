@@ -133,7 +133,7 @@ function createOwnerMenu({ ownerTelegramId } = {}) {
   }
 
   const textCommands = new Map(Object.entries(LABELS).map(([section, label]) =>
-    [label, CODE[section]]
+    [label, section === 'home' ? CODE.root : CODE[section]]
   ));
 
   function routeText({ text, userId, chatId } = {}) {
