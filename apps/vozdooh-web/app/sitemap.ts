@@ -21,6 +21,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     '/brands',
     '/categories',
     '/collections',
+    '/guides',
+    '/guides/kak-vybrat-aromadiffuzor',
     '/finder',
     '/business',
     '/contacts',

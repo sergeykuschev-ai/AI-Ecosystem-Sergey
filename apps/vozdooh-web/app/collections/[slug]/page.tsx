@@ -92,6 +92,7 @@ export default async function CollectionPage({ params }: Props) {
             <Link href="/delivery">Доставка</Link>
             <Link href="/payment">Оплата</Link>
             <Link href="/catalog">Весь каталог</Link>
+            <Link href="/guides/kak-vybrat-aromadiffuzor">Как выбрать диффузор</Link>
           </nav>
         </section>
       )}

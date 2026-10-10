@@ -55,6 +55,7 @@ export function CatalogLanding({ landing, products, kind, heading }: { landing: 
           <Link href="/delivery">Доставка</Link>
           <Link href="/payment">Оплата</Link>
           <Link href="/catalog">Весь каталог</Link>
+          {landing.slug === 'diffusers' && <Link href="/guides/kak-vybrat-aromadiffuzor">Как выбрать диффузор</Link>}
         </nav>
       </section>
     )}
