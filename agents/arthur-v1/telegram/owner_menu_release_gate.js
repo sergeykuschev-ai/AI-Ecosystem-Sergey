@@ -11,6 +11,7 @@ function inspectOwnerMenuRelease({gatewaySource,menuSource,testsPassed=false,own
     legacy_callbacks_preserved: gw.includes('this.handleReminderCallback(update.callback_query)'),
     new_menu_opt_in: gw.includes('ARTHUR_TELEGRAM_MENU_ENABLED')&&gw.includes("=== '1'"),
     menu_owner_authorization: menu.includes('String(userId||\'\')===owner')&&menu.includes('String(chatId||\'\')===owner'),
+    menu_callback_namespace_isolated: menu.includes("startsWith('om1:')") && !menu.includes("startsWith('am1:')"),
     menu_callback_wired: gw.includes('this.ownerMenu.routeCallback('),
     menu_text_wired: gw.includes('this.ownerMenu?.routeText('),
     menu_reply_markup: gw.includes('route.replyMarkup'),
