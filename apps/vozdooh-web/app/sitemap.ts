@@ -23,6 +23,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     '/collections',
     '/guides',
     '/guides/kak-vybrat-aromadiffuzor',
+    '/guides/aromadiffuzor-v-podarok',
+    '/guides/aromat-dlya-gostinoy-i-spalni',
     '/finder',
     '/business',
     '/contacts',

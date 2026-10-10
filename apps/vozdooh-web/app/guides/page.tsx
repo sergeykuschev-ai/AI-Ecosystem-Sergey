@@ -28,6 +28,20 @@ export default function GuidesPage() {
         <Link className="textLink" href="/guides/kak-vybrat-aromadiffuzor">Читать гид →</Link>
       </section>
 
+      <section className="landingGuide" aria-labelledby="guide-gift">
+        <span className="eyebrow">Подарок</span>
+        <h2 id="guide-gift">Аромадиффузор в подарок: как выбрать</h2>
+        <p>Что делать, если вкусы человека известны не полностью: как сузить направление, выбрать формат и не придумывать «универсальный аромат».</p>
+        <Link className="textLink" href="/guides/aromadiffuzor-v-podarok">Читать гид →</Link>
+      </section>
+
+      <section className="landingGuide" aria-labelledby="guide-rooms">
+        <span className="eyebrow">По пространству</span>
+        <h2 id="guide-rooms">Как выбрать аромат для гостиной и спальни</h2>
+        <p>Как различается сценарий выбора для общей зоны и личного пространства, и какие позиции из актуального наличия подходят под уже размеченные коллекции VOZDOOH.</p>
+        <Link className="textLink" href="/guides/aromat-dlya-gostinoy-i-spalni">Читать гид →</Link>
+      </section>
+
       <SiteFooter />
     </main>
   )
