@@ -26,7 +26,7 @@ test('legacy ar1 callbacks are not captured; no approval execution',()=>{
  assert.equal(m.routeCallback({data:'om1:bad',userId:111,chatId:111}).kind,'message');
  assert.deepEqual(m.routeCallback({data:'am1:agents',userId:111,chatId:111}),{handled:false});
  assert.deepEqual(m.routeCallback({data:'am1:approval',userId:111,chatId:111}),{handled:false});
- assert.match(m.routeText({text:LABELS.development,userId:111,chatId:111}).text,/не запускается/);
+ assert.match(m.routeText({text:LABELS.development,userId:111,chatId:111}).text,/не запускает Windows Codex worker/);
 });
 test('callback navigation has a single owner and only read-only actions',()=>{
  const m=createOwnerMenu({ownerTelegramId:'111'});
