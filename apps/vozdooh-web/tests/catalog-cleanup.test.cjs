@@ -261,6 +261,10 @@ test('rendered discovery, every landing, product backlinks and metadata retain c
     assert.match(productMetadata.description, /В наличии/)
     assert.match(productMetadata.description, /доставка по Хабаровску и России/)
     assert.match(details, /После оформления заказа доступна онлайн-оплата/)
+    assert.match(details, /Как пахнет Dolce Vaniglia/)
+    assert.match(details, /сахарная пудра, карамель, тёмный шоколад/)
+    assert.match(details, /guides\/refil-dlya-diffuzora-kak-ispolzovat/)
+    assert.match(details, /официальное описание TEATRO Fragranze Uniche/)
     assert.doesNotMatch(details, /Заявка без онлайн-оплаты/)
   } finally {
     source.getCatalogRepository = originalRepository

@@ -17,6 +17,7 @@ import { brandLandings, categoryLandings, landingPath } from '../../../src/catal
 import { collectionPath, collectionsForProduct } from '../../../src/catalog/collections'
 import { getRecommendations } from '../../../src/catalog/filters'
 import { productStructuredData, serializeStructuredData } from '../../../src/catalog/structuredData'
+import { fragranceFactsFor } from '../../../src/catalog/fragranceFacts'
 
 import { catalogSource, getCatalogRepository } from '../../../src/catalog/source'
 
@@ -33,10 +34,13 @@ export async function generateMetadata({ params }: PageParams): Promise<Metadata
   const display = productPresentation(product)
   const priority = demandRank(product.trade.sku) !== null
   const commercialName = [display.title, product.trade.volume, product.trade.brand].filter(Boolean).join(' · ')
+  const fragranceFacts = fragranceFactsFor(product)
   const description = catalogSource() === 'demo'
     ? 'Демонстрационная карточка товара VOZDOOH. Цена, наличие и характеристики появятся после синхронизации с 1С.'
     : priority
-      ? `Купить ${commercialName} в Хабаровске. ${(product.trade.stock ?? 0) >= 1 ? 'В наличии.' : ''}${(product.trade.price ?? 0) > 0 ? ` Цена ${rub.format(product.trade.price!)}.` : ''} Онлайн-оплата и доставка по Хабаровску и России.`
+      ? fragranceFacts
+        ? `${commercialName}: ${fragranceFacts.summary} ${(product.trade.stock ?? 0) >= 1 ? 'В наличии.' : ''}${(product.trade.price ?? 0) > 0 ? ` Цена ${rub.format(product.trade.price!)}.` : ''} Купить в Хабаровске. Онлайн-оплата и доставка по Хабаровску и России.`
+        : `Купить ${commercialName} в Хабаровске. ${(product.trade.stock ?? 0) >= 1 ? 'В наличии.' : ''}${(product.trade.price ?? 0) > 0 ? ` Цена ${rub.format(product.trade.price!)}.` : ''} Онлайн-оплата и доставка по Хабаровску и России.`
       : product.editorial.description
         ? `${product.editorial.description} ${[product.trade.brand, display.subtitle].filter(Boolean).join(' · ')}.`
         : `${[display.title, product.trade.brand, display.subtitle].filter(Boolean).join(' · ')} в каталоге VOZDOOH.`
@@ -73,6 +77,7 @@ export default async function ProductPage({ params, searchParams }: PageParams) 
   const brandProducts = demo ? [] : sameBrandProducts(allProducts, product)
   const productCollections = demo ? [] : collectionsForProduct(product)
   const hasScentProfile = Boolean(product.editorial.scentFamily || product.editorial.mood || product.editorial.room)
+  const fragranceFacts = fragranceFactsFor(product)
   const heroImage = catalogImage((await withValidImages([product]))[0])
   if (!heroImage && !demo && !debug) notFound()
   const structuredData = !demo && !debug && heroImage
@@ -164,6 +169,27 @@ export default async function ProductPage({ params, searchParams }: PageParams) 
               <Link className="brandStoryLink" href={landingPath('brand', brandLanding.slug)}>История {brandLanding.name} →</Link>
             </aside>
           )}
+        </section>
+      )}
+
+      {fragranceFacts && !demo && (
+        <section className="landingGuide productFragranceGuide" aria-labelledby="fragrance-facts-title">
+          <span className="eyebrow">Аромат подробно</span>
+          <h2 id="fragrance-facts-title">Как пахнет {fragranceFacts.name}</h2>
+          <p>{fragranceFacts.summary}</p>
+          <dl className="productMetaList">
+            <div><dt>Семейство</dt><dd>{fragranceFacts.family}{fragranceFacts.facet ? ` · ${fragranceFacts.facet}` : ''}</dd></div>
+            <div><dt>Ноты</dt><dd>{fragranceFacts.notes.join(', ')}</dd></div>
+            <div><dt>Для каких комнат</dt><dd>{fragranceFacts.rooms.join(', ')}</dd></div>
+            {fragranceFacts.seasons.length > 0 && <div><dt>Сезонность бренда</dt><dd>{fragranceFacts.seasons.join(', ')}</dd></div>}
+            {fragranceFacts.created && <div><dt>Год создания композиции</dt><dd>{fragranceFacts.created}</dd></div>}
+          </dl>
+          <h3>Куда поставить {fragranceFacts.name}?</h3>
+          <p>В официальном описании бренда для этой композиции указаны: {fragranceFacts.rooms.join(', ')}. Это ориентир по характеру аромата, а фактическая интенсивность зависит от формата, помещения и способа использования.</p>
+          {product.trade.category === 'Диффузоры' && <p><Link className="textLink" href="/guides/kak-polzovatsya-aromadiffuzorom">Как пользоваться аромадиффузором →</Link></p>}
+          {product.trade.category === 'Рефилы' && <p><Link className="textLink" href="/guides/refil-dlya-diffuzora-kak-ispolzovat">Как использовать рефил →</Link></p>}
+          {product.trade.category === 'Свечи' && <p><Link className="textLink" href="/guides/kak-vybrat-aromaticheskuyu-svechu">Как выбрать ароматическую свечу →</Link></p>}
+          <small>Характеристики композиции сверены с {fragranceFacts.source}.</small>
         </section>
       )}
 

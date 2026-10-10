@@ -1,4 +1,5 @@
 import type { CatalogProduct } from './contracts'
+import { fragranceFactsFor } from './fragranceFacts'
 import { productPresentation } from './presentation'
 
 function trimSiteUrl(value: string): string {
@@ -33,6 +34,15 @@ export function productStructuredData(
 
   if (product.trade.brand) schemaProduct.brand = { '@type': 'Brand', name: product.trade.brand }
   if (product.editorial.description) schemaProduct.description = product.editorial.description
+  const fragranceFacts = fragranceFactsFor(product)
+  if (fragranceFacts) {
+    schemaProduct.additionalProperty = [
+      { '@type': 'PropertyValue', name: 'Аромат', value: fragranceFacts.name },
+      { '@type': 'PropertyValue', name: 'Ольфакторное семейство', value: fragranceFacts.facet ? `${fragranceFacts.family} · ${fragranceFacts.facet}` : fragranceFacts.family },
+      { '@type': 'PropertyValue', name: 'Ноты', value: fragranceFacts.notes.join(', ') },
+      { '@type': 'PropertyValue', name: 'Рекомендуемые помещения', value: fragranceFacts.rooms.join(', ') },
+    ]
+  }
   if (product.trade.barcode && /^\d{13}$/.test(product.trade.barcode)) schemaProduct.gtin13 = product.trade.barcode
 
   if (typeof price === 'number' && Number.isFinite(price) && price > 0) {
