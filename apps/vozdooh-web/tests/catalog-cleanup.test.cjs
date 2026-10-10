@@ -175,6 +175,8 @@ test('collections render real inventory and every detail route stays private', a
       assert.match(html, /В подборке/)
       assert.ok(html.includes(collection.name))
       assert.doesNotMatch(html, /PREVIEW 1C|Подборки готовятся|debugCatalog|demandRank/)
+      if (collection.slug === 'gift-diffusers') assert.match(html, /guides\/aromadiffuzor-v-podarok/)
+      if (['living-room', 'bedroom'].includes(collection.slug)) assert.match(html, /guides\/aromat-dlya-gostinoy-i-spalni/)
       const meta = await Route.generateMetadata(props)
       assert.equal(meta.robots.index, false)
       assert.equal(meta.alternates.canonical, '/collections/' + collection.slug)

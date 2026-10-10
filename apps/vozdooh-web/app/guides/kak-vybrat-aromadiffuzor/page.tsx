@@ -84,6 +84,8 @@ export default function DiffuserGuidePage() {
           <nav className="landingLinks" aria-label="Перейти к выбору">
             <Link href="/categories/diffusers">Все аромадиффузоры</Link>
             <Link href="/collections/home-fragrance">Все ароматы для дома</Link>
+            <Link href="/guides/aromadiffuzor-v-podarok">Как выбрать диффузор в подарок</Link>
+            <Link href="/guides/aromat-dlya-gostinoy-i-spalni">Аромат для гостиной и спальни</Link>
             <Link href="/delivery">Доставка</Link>
           </nav>
         </section>

@@ -93,7 +93,17 @@ export default async function CollectionPage({ params }: Props) {
             <Link href="/payment">Оплата</Link>
             <Link href="/catalog">Весь каталог</Link>
             <Link href="/guides/kak-vybrat-aromadiffuzor">Как выбрать диффузор</Link>
+            {collection.slug === 'gift-diffusers' && <Link href="/guides/aromadiffuzor-v-podarok">Как выбрать диффузор в подарок</Link>}
+            {collection.slug === 'home-fragrance' && <Link href="/guides/aromat-dlya-gostinoy-i-spalni">Аромат для гостиной и спальни</Link>}
           </nav>
+        </section>
+      )}
+
+      {['living-room', 'bedroom'].includes(collection.slug) && (
+        <section className="landingGuide" aria-label="Гид по выбору аромата для комнаты">
+          <h2>Как выбрать аромат для комнаты</h2>
+          <p>Для гостиной и спальни важны не только ноты, но и желаемая интенсивность, привычки дома и конкретный формат. В отдельном гиде собрали практический порядок выбора и позиции из актуального наличия.</p>
+          <Link className="textLink" href="/guides/aromat-dlya-gostinoy-i-spalni">Читать гид →</Link>
         </section>
       )}
 
