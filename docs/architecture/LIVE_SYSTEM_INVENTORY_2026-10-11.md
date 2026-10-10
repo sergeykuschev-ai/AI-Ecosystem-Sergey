@@ -70,6 +70,50 @@ Read-only verification of the live `C:\\AI\\AgentControl\\config\\config.json` s
 
 Do not invent the identity of replacement cloud models: inventory the currently configured providers separately before documenting them as active. Existing local Ollama models are not necessarily the selected cloud alternatives.
 
+## Verified paid model providers (2026-10-11)
+
+The owner confirmed **two paid providers: DeepSeek and Z.ai (GLM)**. **Kimi is
+paused** and must not be offered as a development worker or presumed available
+for fallback.
+
+On the **running** `arthur-core-telegram-gateway-1` container, diagnostics
+confirmed:
+
+| Role | Verified model / provider |
+|---|---|
+| Fast everyday queries | `deepseek-flash` on DeepSeek |
+| Reasoning and coding | `glm-5.3` on Z.ai |
+| Engineering execution | Codex through the existing SSH proxy; separate from the two Arthur models |
+| Local fallback | `qwen2.5:3b` via Ollama when enabled |
+
+This container has `ARTHUR_AI_PROVIDER=deepseek-glm` and an implemented
+`direct_model_router.js` that routes fast requests to the DeepSeek endpoint
+and reasoning/code to Z.ai. The container has **non-empty mounted secret
+files** for both services and a configured persistent paid-budget directory.
+Its provider diagnostics reported `configured=true`; its Docker health
+status is `healthy`. No secret values were accessed or printed.
+
+Configured controls (not proof of account balance or successful billed inference):
+`ARTHUR_DEEPSEEK_DAILY_USD=0.75`,
+`ARTHUR_ZAI_DAILY_USD=0.75`,
+`ARTHUR_DEEPSEEK_LIFETIME_USD=5`,
+`ARTHUR_ZAI_LIFETIME_USD=3`.
+The latter are **application spend ceilings, not verified payment amounts**.
+Real provider credit and end-to-end request success must be checked separately.
+
+**Important split:** the running `arthur-core-api-1` and
+`arthur-local-api` containers instead report
+`ARTHUR_AI_PROVIDER=omniroute` with `arthur-fast` model aliases.
+The Windows working tree's `provider_factory.js` also did not contain the
+direct router, whereas the deployed Telegram Gateway image does. Treat
+deployed image configuration and the repository checkout as different
+revision/state until reconciled. Do not claim the whole Arthur stack already
+uses DeepSeek/GLM based on Telegram alone.
+
+The intended development toolchain is **AgentControl + Codex (existing
+proxy)**, Graphify, selected Agent Skills and optional Ponytail; it is
+not `AgentControl + Codex + Kimi`.
+
 ## New tools: roles and decisions
 
 | Component | Role in existing architecture | Decision |
