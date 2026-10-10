@@ -13,6 +13,7 @@ const { PersonalScheduler } = require('./personal_scheduler');
 const { buildPoolConfig } = require('../../arthur-core/runtime/create-runtime');
 const { loadConfig, validateConfig } = require('./config');
 const { createTelegramClient } = require('./telegram_client');
+const { createOwnerMenuBridgeForGateway } = require('./owner_menu_gateway_adapter');
 
 const COMMANDS = {
   START: '/start',
@@ -182,6 +183,14 @@ class ArthurTelegramGateway {
     this.scheduler = options.kpiScheduler || null;
     this.personalScheduler = options.personalScheduler || null;
     this.personalSchedulerError = null;
+    // New navigation is opt-in. Legacy "ar1:" reminder buttons are independent.
+    const ownerMenuEnabled = options.ownerMenuEnabled === undefined
+      ? process.env.ARTHUR_TELEGRAM_MENU_ENABLED === '1'
+      : options.ownerMenuEnabled === true;
+    this.ownerMenuBridge = createOwnerMenuBridgeForGateway({
+      gateway:this,buildArthurRequest,formatArthurResponse,
+      helpText:HELP_TEXT,enabled:ownerMenuEnabled,
+    });
     this.dbPool = options.dbPool || null;
     this.running = false;
     this.shutdownRequested = false;
@@ -311,6 +320,12 @@ class ArthurTelegramGateway {
   }
 
   async handleUpdate(update) {
+    // The version-independent bridge intercepts only om1: and owner-only menu texts.
+    // All unhandled callbacks, including ar1:/am1:, retain their existing routes.
+    if (this.ownerMenuBridge && await this.ownerMenuBridge.handle(update)) {
+      this.processedUpdates += 1;
+      return;
+    }
     const message = update.message || update.edited_message;
     if (!message || !message.text) {
       return;
@@ -388,9 +403,9 @@ class ArthurTelegramGateway {
     }
   }
 
-  async sendText(chatId, text, correlationId) {
+  async sendText(chatId, text, correlationId, options = {}) {
     try {
-      await this.telegram.sendMessage(chatId, text);
+      await this.telegram.sendMessage(chatId, text, options);
       this.logger.info('telegram_message_sent', { correlationId, channel: 'telegram' }, {
         transport: { type: 'telegram', chatId },
         textLength: text.length,
