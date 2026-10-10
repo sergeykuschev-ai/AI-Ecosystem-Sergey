@@ -1,66 +1,157 @@
 'use strict';
 
-// Stage-one owner menu: no Harness workflow approvals or execution hooks.
-// Never interpret legacy "ar1:" reminder callbacks.
-const LABELS=Object.freeze({
-  home:'🏠 Меню', tasks:'📋 Задачи', agents:'🤖 Агенты',
-  approval:'✅ Согласования', business:'📊 Бизнес',
-  development:'🛠 Разработка', status:'🩺 Статус',
-});
-const CALLBACKS=Object.freeze({
-  'om1:root':'home','om1:tasks':'tasks','om1:agents':'agents',
-  'om1:approval':'approval','om1:business':'business',
-  'om1:development':'development','om1:status':'status',
-});
-const KEYBOARD=Object.freeze({
-  keyboard:[
-    [{text:LABELS.tasks},{text:LABELS.agents}],
-    [{text:LABELS.approval},{text:LABELS.business}],
-    [{text:LABELS.development},{text:LABELS.status}],
-    [{text:LABELS.home}],
-  ],
-  resize_keyboard:true,
-  is_persistent:true,
-  input_field_placeholder:'Выбери раздел или напиши Артуру',
+// Telegram owner menu. 'om1:' is reserved only for this navigation.
+// Reminder 'ar1:' and Harness 'am1:' belong to different handlers.
+const LABELS = Object.freeze({
+  home: '🏠 Меню',
+  tasks: '📋 Задачи',
+  agents: '🤖 Агенты',
+  approval: '✅ Согласования',
+  business: '📊 Бизнес',
+  development: '🛠 Разработка',
+  status: '🩺 Статус',
 });
 
-function createOwnerMenu({ownerTelegramId}={}){
-  const owner=String(ownerTelegramId||'').trim();
-  if(!/^\d+$/.test(owner))throw new Error('Trusted Telegram owner ID required');
-  function authorized(userId,chatId){
-    return String(userId||'')===owner&&String(chatId||'')===owner;
+const KEYBOARD = Object.freeze({
+  keyboard: [
+    [{ text: LABELS.tasks }, { text: LABELS.agents }],
+    [{ text: LABELS.approval }, { text: LABELS.business }],
+    [{ text: LABELS.development }, { text: LABELS.status }],
+    [{ text: LABELS.home }],
+  ],
+  resize_keyboard: true,
+  is_persistent: true,
+  input_field_placeholder: 'Выбери раздел или напиши Артуру',
+});
+
+const CODE = Object.freeze({
+  root: 'om1:root',
+  tasks: 'om1:tasks',
+  agents: 'om1:agents',
+  approval: 'om1:approval',
+  business: 'om1:business',
+  development: 'om1:development',
+  status: 'om1:status',
+  today: 'om1:tasks:today',
+  all: 'om1:tasks:all',
+  overdue: 'om1:tasks:overdue',
+  repeats: 'om1:tasks:repeats',
+  newTask: 'om1:tasks:create',
+  doneTask: 'om1:tasks:complete',
+  moveTask: 'om1:tasks:move',
+  miska: 'om1:business:miska',
+  amper: 'om1:business:amper',
+  ventil: 'om1:business:ventil',
+  metiz: 'om1:business:metiz',
+  purchasing: 'om1:business:purchasing',
+  vozdooh: 'om1:business:vozdooh',
+});
+
+function button(label, data) {
+  if (!Object.values(CODE).includes(data) || Buffer.byteLength(data, 'utf8') > 64) {
+    throw new Error('Unrecognized or oversize Telegram callback');
   }
-  function view(section){
-    switch(section){
-      case 'home': return {handled:true,kind:'message',
-        text:'Артур: главное меню. Выбери раздел или просто напиши мне.',
-        replyMarkup:KEYBOARD};
-      case 'tasks':return {handled:true,kind:'delegate',query:'Что у меня по задачам?'};
-      case 'business':return {handled:true,kind:'delegate',query:'Как дела у Миски?'};
-      case 'status':return {handled:true,kind:'status'};
-      case 'agents':return {handled:true,kind:'message',
-        text:'Агенты: DeepSeek и GLM используются для анализа. Статус подключения проверяй в разделе «Статус». Выполнение программных изменений отдельно согласуется.'};
-      case 'approval':return {handled:true,kind:'message',
-        text:'Согласования Harness ещё не подключены. Эта кнопка ничего не подтверждает и не запускает.'};
-      case 'development':return {handled:true,kind:'message',
-        text:'Разработка через Codex ведётся отдельно в ChatGPT и GitHub. Windows Codex worker не запускается этой кнопкой. Задача: https://github.com/sergeykuschev-ai/AI-Ecosystem-Sergey/issues/254'};
-      default: return {handled:false};
+  return { text: label, callback_data: data };
+}
+
+function inline(rows) { return { inline_keyboard: rows }; }
+function backToRoot() { return [button('🏠 Главное меню', CODE.root)]; }
+function backToTasks() { return [button('⬅️ К задачам', CODE.tasks)]; }
+function backToBusiness() { return [button('⬅️ К бизнесу', CODE.business)]; }
+function message(text, replyMarkup) {
+  return { handled: true, kind: 'message', text, ...(replyMarkup ? { replyMarkup } : {}) };
+}
+function delegated(query, back) {
+  return { handled: true, kind: 'delegate', query,
+    replyMarkup: inline([back]) };
+}
+
+function createOwnerMenu({ ownerTelegramId } = {}) {
+  const owner = String(ownerTelegramId || '').trim();
+  if (!/^[0-9]+$/.test(owner)) throw new Error('Trusted Telegram owner ID required');
+
+  function authorized(userId, chatId) {
+    return String(userId||'')===owner && String(chatId||'')===owner;
+  }
+
+  function view(code) {
+    switch (code) {
+      case CODE.root:
+        return message('Артур: главное меню. Выбери раздел или просто напиши мне.', KEYBOARD);
+      case CODE.tasks:
+        return message('📋 Задачи. Что нужно сделать?', inline([
+          [button('📅 Сегодня', CODE.today), button('🗂 Все задачи', CODE.all)],
+          [button('⏰ Просроченные', CODE.overdue), button('🔁 Повторяющиеся', CODE.repeats)],
+          [button('➕ Создать', CODE.newTask), button('✅ Выполнить', CODE.doneTask)],
+          [button('🕘 Перенести', CODE.moveTask)],
+          backToRoot(),
+        ]));
+      case CODE.today: return delegated('Что у меня сегодня?', backToTasks());
+      case CODE.all: return delegated('Что у меня по задачам?', backToTasks());
+      case CODE.overdue: return delegated('Какие задачи у меня просрочены?', backToTasks());
+      case CODE.repeats: return delegated('Какие у меня повторяющиеся задачи?', backToTasks());
+      case CODE.newTask:
+        return message('Чтобы создать задачу, напиши Артуру, например: «Запиши на сегодня: позвонить поставщику» или «Напомни завтра в 15:00 проверить заказ».', inline([backToTasks()]));
+      case CODE.doneTask:
+        return message('Чтобы выполнить задачу, напиши Артуру: «Я выполнил задачу позвонить поставщику». Под напоминаниями также есть кнопка «Выполнено».', inline([backToTasks()]));
+      case CODE.moveTask:
+        return message('Чтобы перенести задачу, напиши Артуру: «Перенеси задачу позвонить поставщику на пятницу».', inline([backToTasks()]));
+      case CODE.agents:
+        return message('🤖 Агенты Артура: DeepSeek и GLM помогают с анализом. Разработку через Codex ведём отдельно в ChatGPT. Нажми «Статус», чтобы проверить текущий AI-провайдер. Автозапуск Codex здесь недоступен.', inline([
+          [button('🩺 Проверить статус', CODE.status)],
+          backToRoot(),
+        ]));
+      case CODE.approval:
+        return message('✅ Согласования Harness пока не активированы. Эта кнопка ничего не подтверждает. Письма, публикации, покупки и изменения в бизнес-системах требуют отдельного согласования.', inline([backToRoot()]));
+      case CODE.business:
+        return message('📊 Бизнес. Выбери направление. Показатели выводятся только при доступности источника; отсутствие свежих данных нельзя считать нулевой выручкой.', inline([
+          [button('🐾 Миска', CODE.miska), button('⚡ Ампер', CODE.amper)],
+          [button('🚰 Вентиль', CODE.ventil), button('🔩 Метиз Маркет', CODE.metiz)],
+          [button('📦 Закупщик', CODE.purchasing), button('🌿 VOZDOOH', CODE.vozdooh)],
+          backToRoot(),
+        ]));
+      case CODE.miska: return delegated('Как дела у Миски?', backToBusiness());
+      case CODE.amper: return delegated('Как дела у Ампера?', backToBusiness());
+      case CODE.ventil: return delegated('Как дела у Вентиля?', backToBusiness());
+      case CODE.metiz: return delegated('Как дела у Метиз Маркета?', backToBusiness());
+      case CODE.purchasing: return delegated('Что сейчас с закупщиком?', backToBusiness());
+      case CODE.vozdooh:
+        return message('🌿 VOZDOOH: актуальные заказы и остатки показываются только после проверки интеграции с магазином. Сейчас не выдаю сохранённые показатели за текущие.', inline([backToBusiness()]));
+      case CODE.development:
+        return message('🛠 Разработка: задачи и PR ведём в GitHub, Codex запускаем отдельно из ChatGPT. Эта кнопка не запускает Windows Codex worker и ничего не развёртывает.', {
+          inline_keyboard: [
+            [{ text: '📌 Задача №254', url: 'https://github.com/sergeykuschev-ai/AI-Ecosystem-Sergey/issues/254' }],
+            [{ text: '🔧 PR №255', url: 'https://github.com/sergeykuschev-ai/AI-Ecosystem-Sergey/pull/255' }],
+            backToRoot(),
+          ],
+        });
+      case CODE.status:
+        return { handled: true, kind: 'status', replyMarkup: inline([backToRoot()]) };
+      default:
+        return message('Кнопка устарела. Открой /menu.', inline([backToRoot()]));
     }
   }
-  function routeText({text,userId,chatId}={}){
-    const msg=String(text||'').trim();
-    const section=msg==='/menu'?'home':Object.keys(LABELS).find(k=>LABELS[k]===msg);
-    if(!section)return {handled:false};
-    if(!authorized(userId,chatId))return {handled:true,denied:true};
-    return view(section);
+
+  const textCommands = new Map(Object.entries(LABELS).map(([section, label]) =>
+    [label, CODE[section]]
+  ));
+
+  function routeText({ text, userId, chatId } = {}) {
+    const msg = String(text || '').trim();
+    const code = msg === '/menu' ? CODE.root : textCommands.get(msg);
+    if (!code) return { handled: false };
+    if (!authorized(userId, chatId)) return { handled: true, denied: true };
+    return view(code);
   }
-  function routeCallback({data,userId,chatId}={}){
-    const value=String(data||'');
-    if(!value.startsWith('om1:'))return {handled:false};
-    if(!authorized(userId,chatId))return {handled:true,denied:true};
-    const section=CALLBACKS[value];
-    return section?view(section):{handled:true,kind:'message',text:'Кнопка устарела. Открой /menu.'};
+
+  function routeCallback({ data, userId, chatId } = {}) {
+    const value = String(data || '');
+    if (!value.startsWith('om1:')) return { handled: false };
+    if (!authorized(userId, chatId)) return { handled: true, denied: true };
+    return view(value);
   }
-  return {routeText,routeCallback,labels:LABELS};
+
+  return { routeText, routeCallback, labels: LABELS };
 }
-module.exports={createOwnerMenu,LABELS};
+
+module.exports = { createOwnerMenu, LABELS };
