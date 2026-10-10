@@ -398,6 +398,18 @@ class ArthurTelegramGateway {
       let responseText;
 
       if (text === COMMANDS.START) {
+        // Display the persistent menu only in the owner's private chat.
+        // A disabled menu preserves the historical /start behavior.
+        const menuHome = this.ownerMenu?.routeText({
+          text: '/menu', userId: telegramUserId, chatId,
+        });
+        if (menuHome?.handled && !menuHome.denied) {
+          await this.sendText(chatId, HELP_TEXT, correlationId, {
+            replyMarkup: menuHome.replyMarkup,
+          });
+          this.processedUpdates += 1;
+          return;
+        }
         responseText = HELP_TEXT;
       } else if (text === COMMANDS.HELP) {
         responseText = HELP_TEXT;
