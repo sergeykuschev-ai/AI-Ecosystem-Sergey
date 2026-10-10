@@ -1,0 +1,140 @@
+# Experimental, non-production pilot. Runs only for its dedicated PR branch.
+name: Dev agent tools pilot
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/agent-tools-pilot.yml
+      - docs/experiments/agent-tools-pilot.md
+      - scripts/devtools/setup-amursk-agent-tools.ps1
+      - scripts/devtools/agent-quality-gate.mjs
+      - scripts/devtools/agent-quality-gate.test.mjs
+      - scripts/devtools/launch-amursk-agent-pilot.ps1
+      - scripts/devtools/benchmark-agent-tools.mjs
+      - scripts/devtools/arthur-agent-bridge-status.mjs
+      - scripts/devtools/arthur-agent-bridge-status.test.mjs
+      - docs/architecture/LIVE_SYSTEM_INVENTORY_2026-10-11.md
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dev-agent-pilot-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  purchasing-baseline:
+    if: github.head_ref == 'experiment/agent-tools-20261009'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install repo dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+      - name: Purchasing and backend synthetic regression gate
+        run: node scripts/devtools/agent-quality-gate.mjs --project purchasing --run-tests
+
+  graphify-smoke:
+    if: github.head_ref == 'experiment/agent-tools-20261009'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GRAPHIFY_MAX_WORKERS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v6
+      - name: Graphify CLI version
+        run: uvx --from graphifyy==0.9.81 graphify --version
+      - name: Build local code graphs for purchasing and HTTP backend
+        run: |
+          uvx --from graphifyy==0.9.81 graphify agents/purchasing --no-viz --code-only
+          uvx --from graphifyy==0.9.81 graphify apps/purchasing-web-backend --no-viz --code-only
+      - name: Create readable Graphify report
+        run: uvx --from graphifyy==0.9.81 graphify cluster-only agents/purchasing --no-viz
+      - name: Save generated graph and report as CI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: graphify-purchasing
+          path: |
+            agents/purchasing/graphify-out/graph.json
+            agents/purchasing/graphify-out/GRAPH_REPORT.md
+            apps/purchasing-web-backend/graphify-out/graph.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Confirm graph readiness via project quality gate
+        run: node scripts/devtools/agent-quality-gate.mjs --project purchasing --require-graph
+      - name: Confirm nonempty graph generated
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          graphs = list(Path('.').rglob('graphify-out/graph.json'))
+          if not graphs:
+              raise SystemExit('FAILED: no graphify-out/graph.json found')
+          for graph_path in graphs:
+              obj = json.loads(graph_path.read_text(encoding='utf-8'))
+              print(f'Graph: {graph_path}; bytes={graph_path.stat().st_size}; top-level keys={list(obj)[:12]}')
+              if graph_path.stat().st_size < 100:
+                  raise SystemExit('FAILED: graph too small')
+          PY
+
+  windows-installer-preflight:
+    if: github.head_ref == 'experiment/agent-tools-20261009'
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Test read-only Windows preflight and mismatch refusal
+        shell: pwsh
+        run: |
+          $script = "./scripts/devtools/setup-amursk-agent-tools.ps1"
+          $pilotDir = Join-Path ([Environment]::GetFolderPath("LocalApplicationData")) "Arthur-AgentTools-Pilot"
+          if (Test-Path $pilotDir) { throw "Unexpected pre-existing pilot path on fresh test runner" }
+          & $script
+          if (Test-Path $pilotDir) { throw "Preflight changed the filesystem" }
+          try {
+            & $script -Apply -ExpectedHost "__NOT_THIS_HOST__"
+            throw "Unsafe installation: host mismatch should have failed"
+          } catch {
+            if ($_.Exception.Message -notmatch "Host mismatch") { throw }
+            Write-Host "PASS: refused installation on an unapproved hostname"
+          }
+          if (Test-Path $pilotDir) { throw "Mismatch refusal changed the filesystem" }
+      - name: Verify Codex pilot launcher is non-invasive by default
+        shell: pwsh
+        run: |
+          & ./scripts/devtools/launch-amursk-agent-pilot.ps1 -Project arthur
+          try {
+            & ./scripts/devtools/launch-amursk-agent-pilot.ps1 -Project arthur -Launch -ExpectedHost '__NOT_THIS_HOST__'
+            throw 'Launch should reject a mismatched host'
+          } catch {
+            if ($_.Exception.Message -notmatch 'Host mismatch') { throw }
+            Write-Host 'PASS: pilot launcher rejects unapproved target'
+          }
+
+  quality-gate-unit-tests:
+    if: github.head_ref == 'experiment/agent-tools-20261009'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Audit CLI unit tests
+        run: node --test scripts/devtools/agent-quality-gate.test.mjs scripts/devtools/arthur-agent-bridge-status.test.mjs
+      - name: Read-only quality gate baseline
+        run: node scripts/devtools/agent-quality-gate.mjs --project purchasing
