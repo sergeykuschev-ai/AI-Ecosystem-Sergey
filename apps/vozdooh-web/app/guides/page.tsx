@@ -42,6 +42,27 @@ export default function GuidesPage() {
         <Link className="textLink" href="/guides/aromat-dlya-gostinoy-i-spalni">Читать гид →</Link>
       </section>
 
+      <section className="landingGuide" aria-labelledby="guide-use-diffuser">
+        <span className="eyebrow">Практика</span>
+        <h2 id="guide-use-diffuser">Как пользоваться аромадиффузором с палочками</h2>
+        <p>Как поставить диффузор, настроить интенсивность, обращаться с палочками и избежать слишком быстрого расхода.</p>
+        <Link className="textLink" href="/guides/kak-polzovatsya-aromadiffuzorom">Читать гид →</Link>
+      </section>
+
+      <section className="landingGuide" aria-labelledby="guide-refill">
+        <span className="eyebrow">Рефилы</span>
+        <h2 id="guide-refill">Рефил для диффузора: как использовать</h2>
+        <p>Совместимость, подготовка флакона, палочки и смена аромата без универсальных обещаний для всех брендов.</p>
+        <Link className="textLink" href="/guides/refil-dlya-diffuzora-kak-ispolzovat">Читать гид →</Link>
+      </section>
+
+      <section className="landingGuide" aria-labelledby="guide-candle">
+        <span className="eyebrow">Свечи</span>
+        <h2 id="guide-candle">Как выбрать ароматическую свечу для дома</h2>
+        <p>Выбор по сценарию, характеру композиции и правилам безопасного использования конкретной свечи.</p>
+        <Link className="textLink" href="/guides/kak-vybrat-aromaticheskuyu-svechu">Читать гид →</Link>
+      </section>
+
       <SiteFooter />
     </main>
   )

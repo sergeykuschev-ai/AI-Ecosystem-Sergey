@@ -232,6 +232,9 @@ test('rendered discovery, every landing, product backlinks and metadata retain c
           assert.match(meta.title, /Саше и аромапопурри/)
           assert.match(html, /<h1>Саше и аромапопурри для дома<\/h1>/)
         }
+        if (kind === 'category' && landing.slug === 'diffusers') assert.match(html, /guides\/kak-polzovatsya-aromadiffuzorom/)
+        if (kind === 'category' && landing.slug === 'refills') assert.match(html, /guides\/refil-dlya-diffuzora-kak-ispolzovat/)
+        if (kind === 'category' && landing.slug === 'candles') assert.match(html, /guides\/kak-vybrat-aromaticheskuyu-svechu/)
       }
       await assert.rejects(Route.default({ params: Promise.resolve({ slug: 'unknown' }) }), /NEXT_HTTP_ERROR_FALLBACK;404/)
     }

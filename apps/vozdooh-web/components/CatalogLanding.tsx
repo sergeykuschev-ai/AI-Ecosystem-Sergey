@@ -72,7 +72,9 @@ export function CatalogLanding({ landing, products, kind, heading }: { landing: 
           <Link href="/delivery">Доставка</Link>
           <Link href="/payment">Оплата</Link>
           <Link href="/catalog">Весь каталог</Link>
-          {landing.slug === 'diffusers' && <Link href="/guides/kak-vybrat-aromadiffuzor">Как выбрать диффузор</Link>}
+          {landing.slug === 'diffusers' && <><Link href="/guides/kak-vybrat-aromadiffuzor">Как выбрать диффузор</Link><Link href="/guides/kak-polzovatsya-aromadiffuzorom">Как пользоваться диффузором</Link></>}
+          {landing.slug === 'refills' && <Link href="/guides/refil-dlya-diffuzora-kak-ispolzovat">Как использовать рефил</Link>}
+          {landing.slug === 'candles' && <Link href="/guides/kak-vybrat-aromaticheskuyu-svechu">Как выбрать ароматическую свечу</Link>}
         </nav>
       </section>
     )}
