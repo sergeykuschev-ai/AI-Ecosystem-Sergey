@@ -319,7 +319,7 @@ class ArthurTelegramGateway {
   }
 
   async handleUpdate(update) {
-    // Only "am1:" belongs to this controller. Do not swallow legacy "ar1:" callbacks.
+    // Only "om1:" belongs here. Preserve "ar1:" reminders and future Harness "am1:".
     if (update?.callback_query && this.ownerMenu) {
       const cb = update.callback_query;
       const routed = this.ownerMenu.routeCallback({
