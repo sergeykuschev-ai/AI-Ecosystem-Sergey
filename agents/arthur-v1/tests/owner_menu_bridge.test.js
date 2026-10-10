@@ -42,6 +42,16 @@ test('owner private /start provides keyboard, unrelated chat does not',async()=>
  assert.equal(f.sent.length,1);
 });
 
+test('recognized menu text in a group is denied instead of reaching Arthur',async()=>{
+ const f=fixture();
+ assert.equal(await f.bridge.handle(f.msg('📋 Задачи',111,-100)),true);
+ assert.equal(await f.bridge.handle(f.msg('/menu',222,222)),true);
+ assert.equal(f.sent.length,2);
+ assert.ok(f.sent.every(x=>x.text==='Доступ запрещён.'));
+ assert.deepEqual(f.questions,[]);
+ assert.equal(await f.bridge.handle(f.msg('Что у меня сегодня?',111,-100)),false);
+});
+
 test('tasks subsection navigates via om1 and never writes on create/complete',async()=>{
  const f=fixture();
  assert.equal(await f.bridge.handle(f.msg('📋 Задачи')),true);
