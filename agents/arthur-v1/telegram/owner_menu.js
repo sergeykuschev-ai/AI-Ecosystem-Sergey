@@ -8,9 +8,9 @@ const LABELS=Object.freeze({
   development:'🛠 Разработка', status:'🩺 Статус',
 });
 const CALLBACKS=Object.freeze({
-  'am1:root':'home','am1:tasks':'tasks','am1:agents':'agents',
-  'am1:approval':'approval','am1:business':'business',
-  'am1:development':'development','am1:status':'status',
+  'om1:root':'home','om1:tasks':'tasks','om1:agents':'agents',
+  'om1:approval':'approval','om1:business':'business',
+  'om1:development':'development','om1:status':'status',
 });
 const KEYBOARD=Object.freeze({
   keyboard:[
@@ -56,7 +56,7 @@ function createOwnerMenu({ownerTelegramId}={}){
   }
   function routeCallback({data,userId,chatId}={}){
     const value=String(data||'');
-    if(!value.startsWith('am1:'))return {handled:false};
+    if(!value.startsWith('om1:'))return {handled:false};
     if(!authorized(userId,chatId))return {handled:true,denied:true};
     const section=CALLBACKS[value];
     return section?view(section):{handled:true,kind:'message',text:'Кнопка устарела. Открой /menu.'};
