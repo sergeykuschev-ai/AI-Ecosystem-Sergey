@@ -61,7 +61,18 @@ function createOwnerMenuBridge({
     }
     const msg=update.message;
     if(typeof msg?.text!=='string')return false;
-    if(!authorized(msg.from?.id,msg.chat?.id))return false;
+    const isOwner=authorized(msg.from?.id,msg.chat?.id);
+    const menuMatch=menu.routeText({
+      text:msg.text,userId:msg.from?.id,chatId:msg.chat?.id,
+    });
+    // Known menu labels in groups must not be forwarded as free-form AI requests.
+    // Return a generic denial, with no menu data or task actions.
+    if(menuMatch.handled && !isOwner){
+      try{await telegram.sendMessage(String(msg.chat.id),'Доступ запрещён.',{})}
+      catch(error){warn('owner_menu_deny_failed',error)}
+      return true;
+    }
+    if(!isOwner)return false;
     if(msg.text.trim()==='/start'){
       const root=menu.routeText({text:'/menu',userId:msg.from.id,chatId:msg.chat.id});
       if(!root.handled || root.denied)return false;
