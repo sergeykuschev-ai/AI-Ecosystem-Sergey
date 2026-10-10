@@ -3,7 +3,9 @@
 ## Scope and constraints
 
 Target: the Purchasing Agent in this repository. **No production rollout.**
-Do not execute the experiment on stores-web1 or inside Amursk production services.\nThe target machine is the **Amursk Windows development/AI server**, using a\nseparate local pilot profile and disposable checkout. A MacBook is not required.
+Do not execute the experiment on stores-web1 or inside Amursk production services.
+The target machine is the **Amursk Windows development/AI server**, using a
+separate local pilot profile and disposable checkout. A MacBook is not required.
 No changes to 1C, production databases, stock matrices, KPI data, production
 service settings or deployments. Do not pass credentials, source customer
 records, supplier exports or live purchase spreadsheets to any new tool.
@@ -49,13 +51,10 @@ per-skill installation does not include all repository-level references.
 npx skills add addyosmani/agent-skills --list
 ```
 
-Graphify local CLI and Codex skill registration:
-
-```sh
-uv tool install graphifyy
-graphify install --project --platform codex
-graphify agents/purchasing --no-viz
-```
+Graphify is installed inside the isolated Python venv. For all code maps use
+`graphify <module> --no-viz --code-only` to avoid LLM processing of docs/images.
+Codex's skill registration is project-scoped and must be reviewed before
+activation; do not enable automatic lifecycle hooks.
 
 Never enable strict interception or persistent hooks until their behavior is
 reviewed. In Codex, inspect and explicitly trust any installed hooks.
@@ -136,3 +135,61 @@ within its default 2000-token budget), and identified
 3. Review/trust hooks before enabling them. Do not merge the draft PR yet.
 
 No changes to the production checkout or services were made during this check.
+
+## 2026-10-11 architecture rollout: completed and pending
+
+Source of truth for live container inventory, AgentControl, current public
+VPS state and risk register:
+[Live system inventory](../architecture/LIVE_SYSTEM_INVENTORY_2026-10-11.md).
+
+**Completed (Windows host DESKTOP-6NKDIC8, isolated pilot checkout only):**
+
+| Code subtree | Nodes | Edges |
+|---|---:|---:|
+| agents/purchasing | 2463 | 5530 |
+| apps/purchasing-web-backend | 2057 | 4344 |
+| agents/arthur-core | 371 | 715 |
+| agents/arthur-v1 | 1365 | 2949 |
+| agents/business-kpi | 109 | 215 |
+| apps/business-kpi-web | 836 | 1827 |
+| apps/stores-web | 952 | 2813 |
+| apps/vozdooh-web | 131 | 256 |
+
+No external model was called for these AST graphs: use `--code-only` for
+mixed-code/doc projects. The counts describe the isolated repository snapshot,
+not the live container images or overall cross-project architecture.
+
+Added an **opt-in** quality report CLI with no deploy capabilities:
+
+```powershell
+cd C:\AI\AgentToolsPilot20261009\AI-Ecosystem-Sergey
+node --test scripts/devtools/agent-quality-gate.test.mjs
+node scripts/devtools/agent-quality-gate.mjs --project purchasing --require-graph --require-skills
+node scripts/devtools/agent-quality-gate.mjs --project arthur --require-graph --require-skills
+node scripts/devtools/agent-quality-gate.mjs --project business-kpi --require-graph --require-skills
+node scripts/devtools/agent-quality-gate.mjs --project stores --require-graph --require-skills
+node scripts/devtools/agent-quality-gate.mjs --project vozdooh --require-graph --require-skills
+```
+
+All five **graph-and-skill readiness** checks and 4 local CLI unit tests passed
+on the Windows pilot. This is **not** evidence of code-review quality or faster
+model responses. A separate `--run-tests` option runs project Node regression
+tests; it refuses to execute outside CI or an `AgentToolsPilot` checkout.
+The CI pipeline also tests the CLI and purchasing/backend code with synthetic
+fixtures, with no live databases or secrets.
+
+Use `scripts/devtools/launch-amursk-agent-pilot.ps1` to preview the existing
+SSH-proxy route without changes; add `-Launch -ExpectedHost DESKTOP-6NKDIC8`
+for an **interactive, pilot-only Codex session**. This sets proxy env vars only
+for that process and adds the local Graphify venv Scripts directory to PATH.
+It does not install global Codex plugins. Never launch it elevated.
+
+**Not yet enabled:** globally installed Ponytail hooks, automatically loaded
+Agent Skills across every task, an AgentControl production queue stage, or
+self-deploying capabilities. The live working repository contains numerous
+uncommitted changes and must not be overwritten or auto-merged.
+
+**Next approval gate:** successful paired Codex/Kimi comparison under the
+existing German proxy/tunnel, review of any hook code, then guarded promotion
+to one project-scoped development workflow. Do not merge this PR to main or
+attach it to the live scheduler before the acceptance criteria are met.
