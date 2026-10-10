@@ -113,6 +113,17 @@ const FACTS: Record<string, FragranceFacts> = {
     created: null,
     source: 'официальное описание TEATRO Fragranze Uniche',
   },
+  'les-secrets-antoine': {
+    name: 'Les Secrets d’Antoine',
+    family: 'древесное',
+    facet: 'цитрусовое',
+    notes: ['мандарин', 'кедр', 'зелёный мох'],
+    summary: 'Древесная композиция с цитрусовым акцентом: мандарин, кедр и зелёный мох.',
+    rooms: [],
+    seasons: [],
+    created: null,
+    source: 'официальные материалы Lothantique',
+  },
   'oudwood-journey': {
     name: 'Oudwood Journey',
     family: null,
@@ -156,6 +167,7 @@ export function fragranceFactsFor(product: CatalogProduct): FragranceFacts | nul
     if (/\bTessuto\b/i.test(name)) return FACTS.tessuto
     if (/\bAqqua\b/i.test(name)) return FACTS.aqqua
   }
+  if (brand === 'Lothantique' && /LES\s+SECRETS\s+D['’]ANTOINE|Les\s+Secrets\s+d['’]Antoine/i.test(name)) return FACTS['les-secrets-antoine']
   if (brand === 'Vellutier') {
     if (/Oudwood Journey|Удовое дерево/i.test(name)) return FACTS['oudwood-journey']
     if (/Midnight Toast|Вечерний тост/i.test(name)) return FACTS['midnight-toast']

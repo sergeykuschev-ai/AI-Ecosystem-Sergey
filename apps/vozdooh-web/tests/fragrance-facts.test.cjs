@@ -53,6 +53,12 @@ test('verified fragrance facts match only the reviewed brand/fragrance pairs', (
   assert.equal(fiore.name, 'Fiore')
   assert.ok(fiore.notes.includes('гардения'))
 
+  const antoine = fragranceFactsFor(product('Lothantique', "Аромадиффузор LES SECRETS D'ANTOINE 200 мл"))
+  assert.equal(antoine.name, 'Les Secrets d’Antoine')
+  assert.equal(antoine.family, 'древесное')
+  assert.deepEqual(antoine.notes, ['мандарин', 'кедр', 'зелёный мох'])
+  assert.deepEqual(antoine.rooms, [])
+
   const oudwood = fragranceFactsFor(product('Vellutier', 'Vellutier / Свеча маленькая Удовое дерево 90гр / Oudwood Journey'))
   assert.equal(oudwood.name, 'Oudwood Journey')
   assert.equal(oudwood.family, null)
