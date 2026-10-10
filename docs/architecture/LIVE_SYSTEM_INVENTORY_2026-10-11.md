@@ -9,7 +9,7 @@
 
 | Node | Actual responsibility | Relevant observations |
 |---|---|---|
-| Amursk Windows `DESKTOP-6NKDIC8` | Primary AI and business services; 1C integration boundary; Codex, Kimi, Ollama, AgentControl | Docker containers listed below; C: roughly 349.8 GB free |
+| Amursk Windows `DESKTOP-6NKDIC8` | Primary AI and business services; 1C integration boundary; AgentControl, Codex, local Ollama (Kimi installed but paused by owner decision) | Docker containers listed below; C: roughly 349.8 GB free |
 | `stores-web1` Linux VPS | Public websites, SEO edge, VOZDOOH web/commerce integration, reverse tunnels | 59 GB root volume, roughly 50 GB used / 6.7–6.8 GB free (**89%**) |
 | German SSH/proxy endpoint | Existing outbound route for Codex and related traffic | Authorized Windows SSH client forwards `127.0.0.1:8443` to the German proxy; `C:\Arthur\codex-remote.ps1` defines `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY` |
 | Tailscale | Private reachability between Windows, VPS and other nodes | Live Windows/VPS link confirmed; no new VPN or second tunnel requested |
@@ -62,11 +62,19 @@ reversible cleanup. Do not use blind `docker system prune --volumes`.
 - The authored Arthur module inventory currently lags behind the running
   containers. Reconcile live implementation status with the docs, not vice versa.
 
+## Model-routing decision (2026-10-11)
+
+The owner has confirmed: **Kimi is paused and must not be used for new AgentControl tasks**, despite previous historical project descriptions. **Codex via the existing SSH tunnel remains the engineering executor**; model routing for Arthur's business functions is a separate configuration concern. Do not treat a Kimi installation as approval to dispatch work to it.
+
+Read-only verification of the live `C:\\AI\\AgentControl\\config\\config.json` showed **`codex.enabled=true` and `kimi.enabled=true`**, contrary to this decision. `worker-router.mjs` checks `kimi.enabled` to admit Kimi as a review worker or fallback. Existing queues `pending`, `running`, and `approval` were empty when inspected. The actual production routing flag has **not been changed by this documentation update**. An authorized settings change and a post-change check are still required before claiming Kimi is disabled.
+
+Do not invent the identity of replacement cloud models: inventory the currently configured providers separately before documenting them as active. Existing local Ollama models are not necessarily the selected cloud alternatives.
+
 ## New tools: roles and decisions
 
 | Component | Role in existing architecture | Decision |
 |---|---|---|
-| Graphify 0.9.81 | Per-module, code-only dependency graph, searchable by Codex/Kimi | **Adopt in isolated engineering workspaces**, manual refresh before complex refactors |
+| Graphify 0.9.81 | Per-module, code-only dependency graph, searchable by Codex | **Adopt in isolated engineering workspaces**, manual refresh before complex refactors |
 | Agent Skills | Test-driven development, code review, security-hardening checks | **Adopt selected three**, progressive disclosure; do not preload the entire library |
 | Ponytail | Reduce duplicated abstractions and unnecessary edits | **Optional, lite or explicit invocation**; never suppress tests, audit and approval rules |
 | OmniRoute Claude plugin | Registers the already-running OmniRoute MCP endpoint with Claude Code | **Skip** pending a demonstrated missing Claude-specific workflow; OmniRoute service stays |
@@ -98,7 +106,7 @@ User / approved engineering request
   -> AgentControl existing queue + project role
   -> isolated checkout or worktree, not production tree
   -> Graphify query (code-only graph) if relevant
-  -> Codex/Kimi edit under repository AGENTS.md
+  -> Codex edit under repository AGENTS.md
   -> unit/integration tests on synthetic fixtures
   -> Agent Skills: code review + security review
   -> optionally Ponytail lite (minimal change)
