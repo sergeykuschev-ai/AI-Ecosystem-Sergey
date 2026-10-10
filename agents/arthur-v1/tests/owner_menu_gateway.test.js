@@ -52,18 +52,18 @@ test('start displays persistent menu to owner in private chat only when enabled'
  const disabled=fixture({menuEnabled:false});
  await disabled.gateway.handleUpdate(msg('/start'));
  assert.match(disabled.sent[0].text,/Привет, я Артур/);
- assert.equal(disabled.sent[0].opts,undefined);
+ assert.deepEqual(disabled.sent[0].opts,{});
  const group=fixture();
  await group.gateway.handleUpdate(msg('/start',111,-100));
  assert.match(group.sent[0].text,/Привет, я Артур/);
- assert.equal(group.sent[0].opts,undefined);
+ assert.deepEqual(group.sent[0].opts,{});
 });
 
 test('ordinary /help never changes existing menu/command behavior',async()=>{
  const f=fixture();
  await f.gateway.handleUpdate(msg('/help'));
  assert.match(f.sent[0].text,/Привет, я Артур/);
- assert.equal(f.sent[0].opts,undefined);
+ assert.deepEqual(f.sent[0].opts,{});
  assert.equal(f.handled.length,0);
 });
 
