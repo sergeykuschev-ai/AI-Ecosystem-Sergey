@@ -21,6 +21,50 @@ PR #255 предлагает отдельный owner-only контроллер 
 5. `sendMessage` с клавиатурой должен передавать `reply_markup` без изменения обычной отправки сообщений. На `om1:` callback отвечать `answerCallbackQuery` с явным перехватом ошибок; не перехватывать старые callback ID и планируемые Harness `am1:`.
 6. **По умолчанию OFF**: если `ARTHUR_TELEGRAM_MENU_ENABLED` не равно `1`, не создавать меню и не менять старое поведение.
 
+## Минимальная интеграция через независимый адаптер (PR #255)
+
+Для согласования с **актуальным**, а не устаревшим GitHub Gateway подготовлены три новых независимых модуля:
+
+- `telegram/owner_menu.js` — разделы, подпункты и проверка владельца;
+- `telegram/owner_menu_bridge.js` — Telegram transport: перехватывает строго `om1:` и закрытые для посторонних текстовые команды;
+- `telegram/owner_menu_gateway_adapter.js` — адаптация уже существующих функций `arthur.handle()`, `buildArthurRequest()`, `formatArthurResponse()`, `buildStatusText()`, без изменения логики напоминаний.
+
+При разрешённом обновлении **проверенной актуальной** версии шлюза достаточно двух точек интеграции плюс импорт. Они описаны как ориентиры для code review, не как безусловно применимый слепой патч:
+
+```js
+const { createOwnerMenuBridgeForGateway } =
+  require('./owner_menu_gateway_adapter');
+```
+
+**После инициализации `this.arthur`** в конструкторе:
+
+```js
+this.ownerMenuBridge = createOwnerMenuBridgeForGateway({
+  gateway: this,
+  buildArthurRequest,
+  formatArthurResponse,
+  helpText: HELP_TEXT,
+  enabled: process.env.ARTHUR_TELEGRAM_MENU_ENABLED === '1',
+});
+```
+
+**В самом начале `async handleUpdate(update)`, перед старым `callback_query` / `handleReminderCallback`:**
+
+```js
+if (this.ownerMenuBridge && await this.ownerMenuBridge.handle(update)) {
+  this.processedUpdates += 1;
+  return;
+}
+```
+
+Когда меню выключено, мост `null` и исходные пути запросов полностью прежние. Когда включено, он перехватывает только новые `om1:` и известные метки кнопок от владельца в личном чате. Возвращает `false` для `ar1:`, `am1:`, голоса, чужих сообщений и обычных пользовательских текстов, тем самым передавая их прежним обработчикам.
+
+Нельзя одновременно подключать этот мост и старую прямую маршрутизацию `ownerMenu` — это может удвоить обработку обновлений. PR #255 уже использует мост в своей GitHub-ветке; **не заменять** ею более новую live-версию Gateway.
+
+Отдельные тесты: `tests/owner_menu_bridge.test.js` и `tests/owner_menu_gateway_adapter.test.js`. Они проверяют изоляцию от `ar1:`/`am1:`, права владельца, `/start`, вложенную навигацию, формат запросов, ошибку подтверждения callback и выключенный feature flag.
+
+Проверка `owner_menu_release_gate.js` теперь требует **три** исходных файла: Gateway, меню, bridge. Флаги `--tests-pass`, `--canary-pass`, `--rollback-verified` добавляются только после реально зафиксированных проверок. Зелёный CI сам по себе не позволяет поставить такие флаги.
+
 ## Release gate
 
 Два разных аспекта:
