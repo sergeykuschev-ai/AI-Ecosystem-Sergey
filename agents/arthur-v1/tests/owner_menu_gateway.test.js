@@ -38,7 +38,7 @@ test('menu disabled by default leaves /menu and callbacks to original path',asyn
  const f=fixture({menuEnabled:false});
  await f.gateway.handleUpdate(msg('/menu'));
  assert.deepEqual(f.handled,['/menu']);
- await f.gateway.handleUpdate(callback('am1:root'));
+ await f.gateway.handleUpdate(callback('om1:root'));
  assert.equal(f.calls.length,0);
  assert.equal(f.sent.length,1);
 });
@@ -60,23 +60,25 @@ test('menu actions are owner only and do not capture ordinary messages',async()=
  await f.gateway.handleUpdate(msg('🏠 Меню',111,-100));
  assert.equal(f.handled.length,0);
  assert.match(f.sent[0].text,/Доступ запрещён/);
- await f.gateway.handleUpdate(callback('am1:root',222,222));
+ await f.gateway.handleUpdate(callback('om1:root',222,222));
  assert.equal(f.calls[0].method,'answerCallbackQuery');
  assert.equal(f.sent.length,1);
  await f.gateway.handleUpdate(msg('Напомни завтра позвонить',111,111));
  assert.deepEqual(f.handled,['Напомни завтра позвонить']);
 });
 
-test('new am1 callbacks are acknowledged, old ar1 are left untouched',async()=>{
+test('new om1 callbacks are acknowledged, old ar1 and Harness am1 are left untouched',async()=>{
  const f=fixture();
  await f.gateway.handleUpdate(callback('ar1:t:d:00000000-0000-0000-0000-000000000000:abc'));
+ await f.gateway.handleUpdate(callback('am1:agents'));
+ await f.gateway.handleUpdate(callback('am1:approval'));
  assert.equal(f.calls.length,0);
  assert.equal(f.sent.length,0);
- await f.gateway.handleUpdate(callback('am1:root'));
+ await f.gateway.handleUpdate(callback('om1:root'));
  assert.equal(f.calls.length,1);
  assert.equal(f.calls[0].method,'answerCallbackQuery');
  assert.match(f.sent[0].text,/главное меню/);
- await f.gateway.handleUpdate(callback('am1:approval'));
+ await f.gateway.handleUpdate(callback('om1:approval'));
  assert.match(f.sent[1].text,/не подключены/);
  assert.equal(f.handled.length,0);
 });
