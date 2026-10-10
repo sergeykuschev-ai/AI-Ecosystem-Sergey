@@ -13,6 +13,7 @@ const { PersonalScheduler } = require('./personal_scheduler');
 const { buildPoolConfig } = require('../../arthur-core/runtime/create-runtime');
 const { loadConfig, validateConfig } = require('./config');
 const { createTelegramClient } = require('./telegram_client');
+const { createOwnerMenu } = require('./owner_menu');
 
 const COMMANDS = {
   START: '/start',
@@ -182,6 +183,13 @@ class ArthurTelegramGateway {
     this.scheduler = options.kpiScheduler || null;
     this.personalScheduler = options.personalScheduler || null;
     this.personalSchedulerError = null;
+    // New navigation is opt-in. Legacy "ar1:" reminder buttons are independent.
+    const ownerMenuEnabled = options.ownerMenuEnabled === undefined
+      ? process.env.ARTHUR_TELEGRAM_MENU_ENABLED === '1'
+      : options.ownerMenuEnabled === true;
+    this.ownerMenu = ownerMenuEnabled && this.config.allowedUserIds?.size === 1
+      ? createOwnerMenu({ownerTelegramId: Array.from(this.config.allowedUserIds)[0]})
+      : null;
     this.dbPool = options.dbPool || null;
     this.running = false;
     this.shutdownRequested = false;
@@ -311,6 +319,37 @@ class ArthurTelegramGateway {
   }
 
   async handleUpdate(update) {
+    // Only "am1:" belongs to this controller. Do not swallow legacy "ar1:" callbacks.
+    if (update?.callback_query && this.ownerMenu) {
+      const cb = update.callback_query;
+      const routed = this.ownerMenu.routeCallback({
+        data: cb.data, userId: cb.from?.id, chatId: cb.message?.chat?.id,
+      });
+      if (routed.handled) {
+        if (cb.id) {
+          try {
+            await this.telegram.call('answerCallbackQuery', {
+              callback_query_id: cb.id, text: routed.denied ? 'Нет доступа' : 'Артур',
+              show_alert: routed.denied === true,
+            }, {maxRetries:0});
+          } catch (error) {
+            this.logger.warn('owner_menu_callback_ack_failed', null, {errorCode:error.code||error.name});
+          }
+        }
+        if (!routed.denied && cb.message?.chat?.id !== undefined) {
+          try {
+            await this.sendMenuResult(routed, {
+              update, message: cb.message, from: cb.from, chatId: String(cb.message.chat.id),
+              correlationId: generateCorrelationId(),
+            });
+          } catch (error) {
+            this.logger.error('owner_menu_callback_failed', null, {errorCode:error.code||error.name});
+          }
+        }
+        this.processedUpdates += 1;
+        return;
+      }
+    }
     const message = update.message || update.edited_message;
     if (!message || !message.text) {
       return;
@@ -350,6 +389,12 @@ class ArthurTelegramGateway {
 
     try {
       const text = message.text.trim();
+      const menu = this.ownerMenu?.routeText({text,userId:telegramUserId,chatId});
+      if (menu?.handled) {
+        await this.sendMenuResult(menu, {update,message,from:message.from,chatId,correlationId});
+        this.processedUpdates += 1;
+        return;
+      }
       let responseText;
 
       if (text === COMMANDS.START) {
@@ -388,9 +433,31 @@ class ArthurTelegramGateway {
     }
   }
 
-  async sendText(chatId, text, correlationId) {
+  async sendMenuResult(route, {update,message,from,chatId,correlationId}) {
+    if (route.denied) {
+      await this.sendText(chatId, 'Доступ запрещён.', correlationId);
+      return;
+    }
+    let text = route.text;
+    if (route.kind === 'status') {
+      text = await this.buildStatusText();
+    } else if (route.kind === 'delegate') {
+      // Delegate only fixed, read-only inquiries to Arthur. Never execute a workflow from a button.
+      const adapted = {...update, message:{...message,from,text:route.query}};
+      delete adapted.edited_message;
+      const request = buildArthurRequest({
+        update:adapted,userId:this.config.ownerProfileId,
+        telegramUserId:String(from?.id),chatId,correlationId,
+      });
+      text = formatArthurResponse(await this.arthur.handle(request));
+    }
+    await this.sendText(chatId, text || 'Нет данных для ответа.', correlationId,
+      route.replyMarkup ? {replyMarkup:route.replyMarkup} : {});
+  }
+
+  async sendText(chatId, text, correlationId, options = {}) {
     try {
-      await this.telegram.sendMessage(chatId, text);
+      await this.telegram.sendMessage(chatId, text, options);
       this.logger.info('telegram_message_sent', { correlationId, channel: 'telegram' }, {
         transport: { type: 'telegram', chatId },
         textLength: text.length,
