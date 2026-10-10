@@ -53,6 +53,12 @@ test('verified fragrance facts match only the reviewed brand/fragrance pairs', (
   assert.equal(fiore.name, 'Fiore')
   assert.ok(fiore.notes.includes('гардения'))
 
+  const santal = fragranceFactsFor(product('Lothantique', 'Аромадиффузор 200 мл SANDALWOOD САНДАЛ'))
+  assert.equal(santal.name, 'Santal')
+  assert.equal(santal.family, 'древесное')
+  assert.deepEqual(santal.notes, [])
+  assert.match(santal.summary, /Мягкий древесный аромат/)
+
   const antoine = fragranceFactsFor(product('Lothantique', "Аромадиффузор LES SECRETS D'ANTOINE 200 мл"))
   assert.equal(antoine.name, 'Les Secrets d’Antoine')
   assert.equal(antoine.family, 'древесное')
