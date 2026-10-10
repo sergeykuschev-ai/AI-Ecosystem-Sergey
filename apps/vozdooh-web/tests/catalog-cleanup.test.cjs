@@ -219,7 +219,11 @@ test('rendered discovery, every landing, product backlinks and metadata retain c
         assert.equal(meta.robots.index, false)
         assert.equal(meta.alternates.canonical, `/${plural}/${landing.slug}`)
         assert.ok(meta.description.length > 30)
-        if (kind === 'brand' && ['culti-milano', 'teatro-fragranze-uniche', 'millefiori-milano'].includes(landing.slug)) {
+        if (kind === 'brand' && ['culti-milano', 'teatro-fragranze-uniche', 'lothantique'].includes(landing.slug)) {
+          assert.match(meta.title, /Хабаровске — купить/)
+          assert.match(html, new RegExp(`Купить ${landing.name} в Хабаровске`))
+        }
+        if (kind === 'brand' && landing.slug === 'millefiori-milano') {
           assert.match(meta.title, /купить ароматы для дома/)
         }
         if (kind === 'category' && landing.slug === 'home-fragrance') {

@@ -19,7 +19,7 @@ export const brandLandings: readonly Landing[] = [
   {
     slug: 'culti-milano',
     name: 'CULTI MILANO',
-    description: 'Aramara, Tessuto, Aqqua и другие ароматы CULTI MILANO в коллекции VOZDOOH.',
+    description: 'CULTI MILANO в Хабаровске: Aramara, Tessuto, Aqqua и другие ароматы из актуального наличия VOZDOOH с онлайн-заказом и доставкой по России.',
     guidance: 'Сравните аромат, объём и коллекцию флакона. Aramara Decor Classic и Stile Classic представлены отдельно: один аромат, разные варианты оформления.',
     story: {
       eyebrow: 'Милан · с 1988 года',
@@ -39,7 +39,7 @@ export const brandLandings: readonly Landing[] = [
   {
     slug: 'teatro-fragranze-uniche',
     name: 'TEATRO Fragranze Uniche',
-    description: 'Интерьерные ароматы TEATRO: Dolce Vaniglia, Bianco Divino, Rose Oud и другие композиции.',
+    description: 'TEATRO Fragranze Uniche в Хабаровске: Dolce Vaniglia, Bianco Divino, Rose Oud и другие композиции из актуального наличия VOZDOOH.',
     guidance: 'Выберите формат в подборке ниже. Диффузоры, рефилы и палочки представлены отдельно; объём и комплектацию можно посмотреть в карточке.',
     story: {
       eyebrow: 'Флоренция · 2012',
@@ -59,7 +59,7 @@ export const brandLandings: readonly Landing[] = [
   {
     slug: 'lothantique',
     name: 'Lothantique',
-    description: 'Ароматы Lothantique для дома: Les Secrets d’Antoine, Sandalwood, Cotton Flower и другие композиции.',
+    description: 'Lothantique в Хабаровске: Les Secrets d’Antoine, Sandalwood, Cotton Flower и другие ароматы для дома из актуального наличия VOZDOOH.',
     guidance: 'Сравните описания ароматов и формат. Свеча и диффузор одного бренда — самостоятельные позиции коллекции.',
     story: {
       eyebrow: 'Прованс · с 1920-х',

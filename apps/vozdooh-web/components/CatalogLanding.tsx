@@ -6,11 +6,13 @@ import { SiteHeader } from './SiteHeader'
 import { SiteFooter } from './SiteFooter'
 import { TrackView } from './TrackView'
 import { landingStructuredData, serializeStructuredData } from '../src/catalog/structuredData'
+import { productPresentation } from '../src/catalog/presentation'
 
 export function CatalogLanding({ landing, products, kind, heading }: { landing: Landing; products: CatalogProduct[]; kind: 'brand' | 'category'; heading?: string }) {
   const structuredData = serializeStructuredData(landingStructuredData({ kind, slug: landing.slug, name: landing.name, description: landing.description, products }))
   const relatedKind = kind === 'brand' ? 'category' : 'brand'
   const related = availableLandings(products, relatedKind)
+  const brandHighlights = kind === 'brand' ? products.slice(0, 4) : []
   return <main className="catalogPage landingPage">
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: structuredData }} />
     {kind === 'brand' && <TrackView event="view_brand" payload={{ item_brand: landing.name, slug: landing.slug }} />}
@@ -37,6 +39,21 @@ export function CatalogLanding({ landing, products, kind, heading }: { landing: 
           <h3>{landing.story.craft.title}</h3>
           <p>{landing.story.craft.text}</p>
         </div>
+      </section>
+    )}
+    {kind === 'brand' && (
+      <section className="landingGuide" aria-label={`Купить ${landing.name} в Хабаровске`}>
+        <h2>Купить {landing.name} в Хабаровске</h2>
+        <p>В VOZDOOH показаны позиции {landing.name} из актуального наличия. Можно сравнить аромат, формат и объём, оформить заказ онлайн и выбрать доставку по Хабаровску или России.</p>
+        {brandHighlights.length > 0 && (
+          <nav className="landingLinks" aria-label={`Позиции ${landing.name} из актуального наличия`}>
+            {brandHighlights.map((product) => <Link key={product.id} href={`/catalog/${product.editorial.slug}`}>{productPresentation(product).title}</Link>)}
+          </nav>
+        )}
+        <nav className="landingLinks" aria-label="Условия заказа">
+          <Link href="/delivery">Доставка</Link>
+          <Link href="/payment">Оплата</Link>
+        </nav>
       </section>
     )}
     <section className="landingGuide" aria-labelledby="landingGuideTitle">
