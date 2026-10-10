@@ -8,6 +8,9 @@ on:
       - .github/workflows/agent-tools-pilot.yml
       - docs/experiments/agent-tools-pilot.md
       - scripts/devtools/setup-amursk-agent-tools.ps1
+      - scripts/devtools/agent-quality-gate.mjs
+      - scripts/devtools/agent-quality-gate.test.mjs
+      - docs/architecture/LIVE_SYSTEM_INVENTORY_2026-10-11.md
 
 permissions:
   contents: read
@@ -46,11 +49,13 @@ jobs:
           persist-credentials: false
       - uses: astral-sh/setup-uv@v6
       - name: Graphify CLI version
-        run: uvx --from graphifyy graphify --version
-      - name: Build local code graph for purchasing agent
-        run: uvx --from graphifyy graphify agents/purchasing --no-viz
+        run: uvx --from graphifyy==0.9.81 graphify --version
+      - name: Build local code graphs for purchasing and HTTP backend
+        run: |
+          uvx --from graphifyy==0.9.81 graphify agents/purchasing --no-viz --code-only
+          uvx --from graphifyy==0.9.81 graphify apps/purchasing-web-backend --no-viz --code-only
       - name: Create readable Graphify report
-        run: uvx --from graphifyy graphify cluster-only agents/purchasing --no-viz
+        run: uvx --from graphifyy==0.9.81 graphify cluster-only agents/purchasing --no-viz
       - name: Save generated graph and report as CI artifact
         uses: actions/upload-artifact@v4
         with:
@@ -58,8 +63,11 @@ jobs:
           path: |
             agents/purchasing/graphify-out/graph.json
             agents/purchasing/graphify-out/GRAPH_REPORT.md
+            apps/purchasing-web-backend/graphify-out/graph.json
           if-no-files-found: error
           retention-days: 7
+      - name: Confirm graph readiness via project quality gate
+        run: node scripts/devtools/agent-quality-gate.mjs --project purchasing --require-graph
       - name: Confirm nonempty graph generated
         run: |
           python - <<'PY'
@@ -99,3 +107,19 @@ jobs:
             Write-Host "PASS: refused installation on an unapproved hostname"
           }
           if (Test-Path $pilotDir) { throw "Mismatch refusal changed the filesystem" }
+
+  quality-gate-unit-tests:
+    if: github.head_ref == 'experiment/agent-tools-20261009'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Audit CLI unit tests
+        run: node --test scripts/devtools/agent-quality-gate.test.mjs
+      - name: Read-only quality gate baseline
+        run: node scripts/devtools/agent-quality-gate.mjs --project purchasing
