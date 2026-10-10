@@ -145,6 +145,8 @@ describe("JSON-LD builders", () => {
       assert.equal(jsonLd.telephone, store.telephone, `telephone must come from the canonical store for ${slug}`);
       const address = jsonLd.address as JsonLdObject;
       assert.equal(address.streetAddress, store.address, `address must come from the canonical store for ${slug}`);
+      assert.equal(address.postalCode, store.postal_code, `postal code must come from the canonical store for ${slug}`);
+      assert.equal(jsonLd.hasMap, store.map_links[0]?.url, `map URL must come from the canonical store for ${slug}`);
       assert.deepEqual(
         jsonLd.openingHoursSpecification,
         store.opening_hours.map((entry) => ({
@@ -171,6 +173,8 @@ describe("JSON-LD builders", () => {
     assert.equal(jsonLd.telephone, store.telephone);
     assert.equal(address.streetAddress, store.address);
     assert.equal(address.addressLocality, amursk.name);
+    assert.equal(address.postalCode, "682643");
+    assert.equal(jsonLd.hasMap, store.map_links[0]?.url);
     assert.deepEqual(
       hours.map(({ dayOfWeek, opens, closes }) => ({ dayOfWeek, opens, closes })),
       store.opening_hours.map((entry) => ({

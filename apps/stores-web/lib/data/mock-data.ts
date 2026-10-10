@@ -66,6 +66,7 @@ export const mockCities: City[] = [
 ];
 
 const amurskStoreAddress = "г. Амурск, проспект Победы, 16";
+const amurskStorePostalCode = "682643";
 const amurskStoreMapUrl = `https://yandex.ru/maps/?text=${encodeURIComponent(amurskStoreAddress)}`;
 
 const amurskStoreOpeningHours: Store["opening_hours"] = [
@@ -87,7 +88,7 @@ export const mockStores: Store[] = mockBrands.map((brand) => ({
   name: `${brand.name}, Амурск`,
   slug: `${brand.slug}-amursk`,
   address: amurskStoreAddress,
-  postal_code: null,
+  postal_code: amurskStorePostalCode,
   latitude: null,
   longitude: null,
   telephone: storeTelephoneByBrandSlug[brand.slug],

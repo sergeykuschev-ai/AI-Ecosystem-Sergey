@@ -13,7 +13,7 @@ import { getActualItems } from "@/lib/directus/actual-items";
 import { getCities, getCityBySlug } from "@/lib/directus/cities";
 import { getFaqs } from "@/lib/directus/faqs";
 import { getStores } from "@/lib/directus/stores";
-import { createOrganizationsJsonLd, createWebsiteJsonLd } from "@/lib/seo/json-ld";
+import { createOrganizationsJsonLd, createStoresJsonLd, createWebsiteJsonLd } from "@/lib/seo/json-ld";
 import { createPageMetadata } from "@/lib/seo/metadata";
 
 export const dynamic = "force-dynamic";
@@ -39,6 +39,7 @@ export default async function HomePage() {
     <main>
       <JsonLd data={createWebsiteJsonLd()} />
       <JsonLd data={createOrganizationsJsonLd(brands, { stores: allStores, cities })} />
+      {city && <JsonLd data={createStoresJsonLd(stores, brands, city)} />}
       <Container>
         <section className="home-hero" aria-labelledby="home-title">
           <p className="eyebrow">Амурск · Хабаровский край</p>
@@ -54,6 +55,21 @@ export default async function HomePage() {
           <p className="eyebrow">Магазины</p>
           <h2 id="brands-title">Выберите магазин</h2>
           <div className="brand-grid">{brands.map((brand) => <BrandCard key={brand.id} brand={brand} />)}</div>
+        </section>
+        <section className="section" aria-labelledby="home-categories-title">
+          <p className="eyebrow">Ассортимент</p>
+          <h2 id="home-categories-title">Что можно купить в магазинах Амурска</h2>
+          <p>Выберите категорию и уточните наличие нужного товара в магазине.</p>
+          <ul className="link-list">
+            <li><Link href="/amper/kabel-i-provod/">Кабель и провод в «Ампере»</Link></li>
+            <li><Link href="/amper/avtomaty-i-uzo/">Автоматы и УЗО в «Ампере»</Link></li>
+            <li><Link href="/ventil/truby-i-fitingi/">Трубы и фитинги в «Вентиле»</Link></li>
+            <li><Link href="/ventil/otoplenie/">Отопление в «Вентиле»</Link></li>
+            <li><Link href="/metiz-market/samorezy/">Саморезы в «Метиз Маркете»</Link></li>
+            <li><Link href="/metiz-market/ankery-i-dyubeli/">Анкеры и дюбели в «Метиз Маркете»</Link></li>
+            <li><Link href="/miska/korm-dlya-koshek-i-sobak/">Корма для кошек и собак в «Миске»</Link></li>
+            <li><Link href="/miska/veterinarnye-diety/">Ветеринарные диеты в «Миске»</Link></li>
+          </ul>
         </section>
         <ActualSlider items={actualItems} brands={brands} />
         {city && <HomeStoreSection stores={stores} brands={brands} city={city} />}

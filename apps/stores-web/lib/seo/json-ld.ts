@@ -231,6 +231,7 @@ function createStoreNode(store: Store, brand: Brand, city: City): JsonLdObject {
     description: store.short_description,
     address,
     ...(store.telephone ? { telephone: store.telephone } : {}),
+    ...(store.map_links[0]?.url ? { hasMap: store.map_links[0].url } : {}),
     ...(store.latitude !== null && store.longitude !== null
       ? {
           geo: {
