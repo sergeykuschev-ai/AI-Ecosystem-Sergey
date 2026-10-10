@@ -35,7 +35,7 @@ function stageOwnerMenuFromLive({source,expectedSha256=VERIFIED_LIVE_SHA256}={})
   let staged=replaceExactlyOne(
     source,
     "const { createArthurV1 } = require('../index');",
-    IMPORT_LINE+'\n',
+    '\n'+IMPORT_LINE,
     'after'
   );
   const constructorAnchor="    const voiceEndpoint = process.env.ARTHUR_VOICE_ASR_URL || '';";
@@ -59,7 +59,7 @@ function stageOwnerMenuFromLive({source,expectedSha256=VERIFIED_LIVE_SHA256}={})
   ].join('\n');
   staged=replaceExactlyOne(staged,handlerAnchor,hook,'after');
   // Insert-only patch with the exact expected number of additions.
-  const additions=[IMPORT_LINE+'\n',bridgeConfig,hook];
+  const additions=['\n'+IMPORT_LINE,bridgeConfig,hook];
   if(additions.reduce((n,v)=>n+v.length,0)!==staged.length-source.length)
     throw Error('Patch changed pre-existing characters');
   for(const marker of ['handleReminderCallback(callback)','this.handleReminderCallback(update.callback_query)','ar1:']){
