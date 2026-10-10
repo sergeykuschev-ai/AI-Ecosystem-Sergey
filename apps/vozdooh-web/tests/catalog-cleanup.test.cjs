@@ -259,7 +259,7 @@ test('rendered discovery, every landing, product backlinks and metadata retain c
     assert.equal((productMetadata.title.match(/VOZDOOH/g) ?? []).length, 1)
     assert.match(productMetadata.title, /купить в Хабаровске \| VOZDOOH$/)
     assert.match(productMetadata.description, /В наличии/)
-    assert.match(productMetadata.description, /доставка по Хабаровску и России/)
+    assert.match(productMetadata.description, /доставка по Хабаровску и России/i)
     assert.match(details, /После оформления заказа доступна онлайн-оплата/)
     assert.match(details, /Как пахнет Dolce Vaniglia/)
     assert.match(details, /сахарная пудра, карамель, тёмный шоколад/)
