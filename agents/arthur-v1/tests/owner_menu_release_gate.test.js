@@ -12,6 +12,7 @@ test('GitHub gateway cannot pass production release preflight without live ar1 c
     ['legacy_ar1_parser','legacy_callbacks_preserved','legacy_reminder_handler']);
   assert.equal(r.checks.new_menu_opt_in,true);
   assert.equal(r.checks.menu_owner_authorization,true);
+  assert.equal(r.checks.menu_callback_namespace_isolated,true);
 });
 
 test('no production approval before real owner canary, regression, rollback checks',()=>{
@@ -22,6 +23,13 @@ test('no production approval before real owner canary, regression, rollback chec
  for(const x of ['old_reminder_tests_passed','owner_private_chat_canary','rollback_verified'])assert.ok(unverified.blockers.includes(x));
  const approved=inspectOwnerMenuRelease({gatewaySource:liveFixture,menuSource:menu,testsPassed:true,ownerCanaryPassed:true,rollbackVerified:true});
  assert.equal(approved.ready,true);
+});
+
+test('menu collision with future Harness am1 callbacks fails release gate',()=>{
+ const contaminated=menu.replace("startsWith('om1:')","startsWith('am1:')");
+ const r=inspectOwnerMenuRelease({gatewaySource:gateway,menuSource:contaminated,testsPassed:true,ownerCanaryPassed:true,rollbackVerified:true});
+ assert.equal(r.checks.menu_callback_namespace_isolated,false);
+ assert.equal(r.ready,false);
 });
 
 test('we never treat an unrecognized menu version or disabled default as sufficient',()=>{
