@@ -47,6 +47,17 @@ export function CatalogLanding({ landing, products, kind, heading }: { landing: 
       </nav>}
       <Link className="textLink" href={`/catalog?${new URLSearchParams({ [kind]: landing.name })}`}>Все фильтры →</Link>
     </section>
+    {kind === 'category' && (
+      <section className="landingGuide" aria-label="Покупка и доставка">
+        <h2>Купить в Хабаровске с доставкой</h2>
+        <p>VOZDOOH — интернет-магазин интерьерной парфюмерии в Хабаровске. На витрине показаны позиции из актуального наличия; заказ оформляется онлайн, доставка доступна по Хабаровску и России.</p>
+        <nav className="landingLinks" aria-label="Условия заказа">
+          <Link href="/delivery">Доставка</Link>
+          <Link href="/payment">Оплата</Link>
+          <Link href="/catalog">Весь каталог</Link>
+        </nav>
+      </section>
+    )}
     <div className="catalogSectionHeading catalogCount"><h2>{kind === 'brand' ? `Ароматы ${landing.name} в наличии` : `${heading ?? landing.name} в наличии`}</h2><span>{products.length} позиций</span></div>
     <section className="catalogGrid">{products.map((product) => <ProductCard key={product.id} product={product} filters={{ brand: kind === 'brand' ? landing.name : null, category: kind === 'category' ? landing.name : null, family: null, mood: null, room: null }} />)}</section>
     {related.length > 0 && <nav className="landingRelated landingLinks" aria-label="Продолжить знакомство">

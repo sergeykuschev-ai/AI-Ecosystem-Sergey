@@ -29,8 +29,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     'living-room': 'Ароматы для гостиной — VOZDOOH',
     bedroom: 'Ароматы для спальни — VOZDOOH',
     focused: 'Ароматы для концентрации и работы — VOZDOOH',
-    'gift-diffusers': 'Аромадиффузор в подарок — купить в VOZDOOH',
-    'home-fragrance': 'Ароматы для дома — купить в VOZDOOH',
+    'gift-diffusers': 'Аромадиффузор в подарок в Хабаровске — купить | VOZDOOH',
+    'home-fragrance': 'Ароматы для дома в Хабаровске — купить | VOZDOOH',
   }
   const title = seoTitles[collection.slug] ?? `${collection.name} — коллекция VOZDOOH`
   return {
@@ -80,6 +80,18 @@ export default async function CollectionPage({ params }: Props) {
             <Link href="/categories/gifts">Подарочные наборы</Link>
             <Link href="/brands/culti-milano">CULTI MILANO</Link>
             <Link href="/brands/teatro-fragranze-uniche">TEATRO</Link>
+          </nav>
+        </section>
+      )}
+
+      {['home-fragrance', 'gift-diffusers'].includes(collection.slug) && (
+        <section className="landingGuide" aria-label="Покупка и доставка">
+          <h2>VOZDOOH в Хабаровске</h2>
+          <p>Интерьерные ароматы можно заказать онлайн из актуального наличия. Доставка доступна по Хабаровску и России; условия оплаты и получения собраны на отдельных страницах.</p>
+          <nav className="landingLinks" aria-label="Условия заказа">
+            <Link href="/delivery">Доставка</Link>
+            <Link href="/payment">Оплата</Link>
+            <Link href="/catalog">Весь каталог</Link>
           </nav>
         </section>
       )}

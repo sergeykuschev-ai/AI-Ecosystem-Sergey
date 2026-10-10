@@ -37,8 +37,8 @@ const money = new Intl.NumberFormat('ru-RU', {
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: 'Ароматы и парфюмерия для дома — VOZDOOH',
-  description: 'VOZDOOH — ароматы для дома: диффузоры, ароматические свечи, спреи, рефилы и подарочные наборы от брендов интерьерной парфюмерии.',
+  title: 'Ароматы для дома в Хабаровске — купить с доставкой | VOZDOOH',
+  description: 'Купить ароматы для дома в Хабаровске: диффузоры, ароматические свечи, спреи, рефилы и подарочные наборы. Актуальное наличие, онлайн-оплата и доставка по Хабаровску и России.',
   alternates: { canonical: '/' },
   robots: publicRobots(),
 }
@@ -127,9 +127,9 @@ export default async function Home() {
           </Link>
         )}
         <div className="heroText">
-          <div className="eyebrow">Парфюмерия для дома</div>
-          <h1>Атмосфера начинается с аромата.</h1>
-          <p>Коллекция для тех, кто выбирает аромат для дома так же внимательно, как свет, музыку и текстиль.</p>
+          <div className="eyebrow">Интерьерная парфюмерия · Хабаровск</div>
+          <h1>Ароматы для дома в Хабаровске.</h1>
+          <p>Диффузоры, свечи, спреи и подарки из актуального наличия VOZDOOH. Онлайн-заказ и доставка по Хабаровску и России.</p>
           <div className="heroActions">
             <Link className="creamButton" href="/collections/home-fragrance">Смотреть ароматы для дома</Link>
             <Link className="textLink quiet" href="/collections/gift-diffusers">Выбрать подарок →</Link>

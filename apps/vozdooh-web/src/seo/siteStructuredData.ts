@@ -14,6 +14,10 @@ export function siteStructuredData(siteUrlInput: string) {
         telephone: '+79244199990',
         email: 'vozdooh.kms@yandex.ru',
         taxID: '270393428446',
+        areaServed: [
+          { '@type': 'City', name: 'Хабаровск' },
+          { '@type': 'Country', name: 'Россия' },
+        ],
         identifier: { '@type': 'PropertyValue', propertyID: 'ОГРНИП', value: '322270000003316' },
         address: {
           '@type': 'PostalAddress',
