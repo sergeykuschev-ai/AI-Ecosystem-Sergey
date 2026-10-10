@@ -40,7 +40,7 @@ export function productStructuredData(
       { '@type': 'PropertyValue', name: 'Аромат', value: fragranceFacts.name },
       { '@type': 'PropertyValue', name: 'Ольфакторное семейство', value: fragranceFacts.facet ? `${fragranceFacts.family} · ${fragranceFacts.facet}` : fragranceFacts.family },
       { '@type': 'PropertyValue', name: 'Ноты', value: fragranceFacts.notes.join(', ') },
-      { '@type': 'PropertyValue', name: 'Рекомендуемые помещения', value: fragranceFacts.rooms.join(', ') },
+      { '@type': 'PropertyValue', name: 'Рекомендуемые пространства', value: fragranceFacts.rooms.join(', ') },
     ]
   }
   if (product.trade.barcode && /^\d{13}$/.test(product.trade.barcode)) schemaProduct.gtin13 = product.trade.barcode

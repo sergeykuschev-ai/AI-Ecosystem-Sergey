@@ -46,6 +46,73 @@ const FACTS: Record<string, FragranceFacts> = {
     created: '1990',
     source: 'официальное описание CULTI MILANO',
   },
+
+  'rose-oud': {
+    name: 'Rose Oud',
+    family: 'цветочно-древесное',
+    facet: 'пряное',
+    notes: ['дамасская роза', 'розовый перец', 'мускатный орех', 'гвоздика', 'мирра', 'опопонакс', 'шафран', 'жасмин', 'герань', 'уд', 'пачули', 'сандал', 'кедр', 'мускус'],
+    summary: 'Насыщенная композиция дамасской розы и уда с розовым перцем, специями, смолами, пачули, сандалом, кедром и мускусом.',
+    rooms: ['общие зоны', 'частные пространства'],
+    seasons: [],
+    created: null,
+    source: 'официальное описание TEATRO Fragranze Uniche',
+  },
+  'bianco-divino': {
+    name: 'Bianco Divino',
+    family: 'фруктово-цветочное',
+    facet: null,
+    notes: ['виноград Шампань', 'яблоко', 'лимон', 'сладкий апельсин', 'болгарская роза', 'глициния', 'гвоздика', 'фиалка', 'белый мускус', 'бамбук', 'сандал'],
+    summary: 'Искристая композиция с виноградом Шампань, яблоком и цитрусами, цветочным сердцем и мягкой базой белого мускуса, бамбука и сандала.',
+    rooms: ['общие зоны', 'зоны отдыха'],
+    seasons: [],
+    created: null,
+    source: 'официальное описание TEATRO Fragranze Uniche',
+  },
+  'foglie-di-fico': {
+    name: 'Foglie di Fico',
+    family: 'фруктовое',
+    facet: 'зелёное',
+    notes: ['листья инжира', 'апельсин', 'лимон', 'ландыш', 'кедровое дерево', 'ветивер', 'белый мускус', 'сандал'],
+    summary: 'Зелёная композиция листьев инжира с цитрусами, ландышем, кедровым деревом, ветивером, белым мускусом и сандалом.',
+    rooms: ['кухня', 'столовая', 'веранда'],
+    seasons: [],
+    created: null,
+    source: 'официальное описание TEATRO Fragranze Uniche',
+  },
+  diamante: {
+    name: 'Diamante',
+    family: 'пудровое',
+    facet: 'древесно-амбровое',
+    notes: ['кристаллы сахара', 'амбровая пудра', 'сафраналь', 'Amber Extreme Accord', 'Ambrinol', 'Galaxolide', 'Karmawood', 'Amberwood', 'Timbertouch', 'сибирская ель', 'кедр'],
+    summary: 'Абстрактная пудрово-амбровая композиция с сахарными кристаллами, сафраналем, современными амбровыми аккордами и древесной базой.',
+    rooms: ['приёмная', 'гостиная', 'спальня'],
+    seasons: [],
+    created: null,
+    source: 'официальное описание TEATRO Fragranze Uniche',
+  },
+  'incenso-imperiale': {
+    name: 'Incenso Imperiale',
+    family: 'восточное',
+    facet: 'древесно-пряное',
+    notes: ['ладан', 'уд', 'ладанник', 'фиалка', 'кедр', 'бамбук', 'ветивер', 'белый мускус', 'бобы тонка'],
+    summary: 'Тёплая древесно-пряная композиция с ладаном и удом, кедром, бамбуком, ветивером, белым мускусом и бобами тонка.',
+    rooms: ['рабочая зона', 'кабинет', 'зона для медитации'],
+    seasons: [],
+    created: null,
+    source: 'официальное описание TEATRO Fragranze Uniche',
+  },
+  fiore: {
+    name: 'Fiore',
+    family: 'цветочное',
+    facet: null,
+    notes: ['гардения', 'нарцисс', 'жасмин', 'франжипани', 'роза', 'кедр', 'пачули', 'белый мускус', 'гелиотроп'],
+    summary: 'Букет белых цветов с гарденией, нарциссом и жасмином, сердцем из франжипани и розы и мягкой мускусной базой.',
+    rooms: ['общие жилые зоны', 'частные пространства'],
+    seasons: [],
+    created: null,
+    source: 'официальное описание TEATRO Fragranze Uniche',
+  },
   'dolce-vaniglia': {
     name: 'Dolce Vaniglia',
     family: 'гурманское',
@@ -67,6 +134,14 @@ export function fragranceFactsFor(product: CatalogProduct): FragranceFacts | nul
     if (/\bTessuto\b/i.test(name)) return FACTS.tessuto
     if (/\bAqqua\b/i.test(name)) return FACTS.aqqua
   }
-  if (brand === 'TEATRO Fragranze Uniche' && /DOLCE\s+VANIGLIA|Dolce\s+Vaniglia/i.test(name)) return FACTS['dolce-vaniglia']
+  if (brand === 'TEATRO Fragranze Uniche') {
+    if (/DOLCE\s+VANIGLIA|Dolce\s+Vaniglia/i.test(name)) return FACTS['dolce-vaniglia']
+    if (/ROSE\s+OUD|Rose\s+Oud/i.test(name)) return FACTS['rose-oud']
+    if (/BIANCO\s+DIVINO|Bianco\s+Divino/i.test(name)) return FACTS['bianco-divino']
+    if (/FOGLIE\s+DI\s+FICO|Foglie\s+di\s+Fico/i.test(name)) return FACTS['foglie-di-fico']
+    if (/DIAMANTE/i.test(name)) return FACTS.diamante
+    if (/INCENSO\s+IMPERIALE|Incenso\s+Imperiale/i.test(name)) return FACTS['incenso-imperiale']
+    if (/\bFIORE\b|\bFiore\b/i.test(name)) return FACTS.fiore
+  }
   return null
 }

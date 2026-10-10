@@ -52,6 +52,7 @@ test('Product JSON-LD uses only verified trade/editorial facts and no review cla
   assert.equal(schemaProduct.additionalProperty[0].value, 'Aramara')
   assert.equal(schemaProduct.additionalProperty[1].value, 'цитрусовое · древесное')
   assert.match(schemaProduct.additionalProperty[2].value, /горький апельсин, бергамот, сандал/)
+  assert.equal(schemaProduct.additionalProperty[3].name, 'Рекомендуемые пространства')
   assert.match(schemaProduct.additionalProperty[3].value, /гостиная, кухня, кабинет/)
   assert.equal(schemaProduct.aggregateRating, undefined)
   assert.equal(schemaProduct.review, undefined)

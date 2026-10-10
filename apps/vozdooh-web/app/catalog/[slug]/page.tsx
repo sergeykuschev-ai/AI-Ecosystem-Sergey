@@ -180,7 +180,7 @@ export default async function ProductPage({ params, searchParams }: PageParams) 
           <dl className="productMetaList">
             <div><dt>Семейство</dt><dd>{fragranceFacts.family}{fragranceFacts.facet ? ` · ${fragranceFacts.facet}` : ''}</dd></div>
             <div><dt>Ноты</dt><dd>{fragranceFacts.notes.join(', ')}</dd></div>
-            <div><dt>Для каких комнат</dt><dd>{fragranceFacts.rooms.join(', ')}</dd></div>
+            <div><dt>Рекомендуемые пространства</dt><dd>{fragranceFacts.rooms.join(', ')}</dd></div>
             {fragranceFacts.seasons.length > 0 && <div><dt>Сезонность бренда</dt><dd>{fragranceFacts.seasons.join(', ')}</dd></div>}
             {fragranceFacts.created && <div><dt>Год создания композиции</dt><dd>{fragranceFacts.created}</dd></div>}
           </dl>
