@@ -24,20 +24,24 @@
     "deploy:web:smoke": "bash scripts/deploy/deploy-web.sh --smoke-only"
   },
   "dependencies": {
-    "next": "16.3.3",
-    "nodemailer": "^7.0.6",
+    "next": "16.3.8",
+    "nodemailer": "10.1.0",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
   "devDependencies": {
     "@types/node": "24.3.0",
-    "@types/nodemailer": "^7.0.3",
+    "@types/nodemailer": "8.0.2",
     "@types/react": "19.1.12",
     "@types/react-dom": "19.1.9",
     "eslint": "9.34.0",
-    "eslint-config-next": "16.3.3",
+    "eslint-config-next": "16.3.8",
     "tsx": "4.19.3",
     "typescript": "5.9.2",
     "uuid": "11.1.1"
+  },
+  "overrides": {
+    "sharp": "0.35.5",
+    "source-map-js": "1.2.2"
   }
 }
