@@ -35,11 +35,16 @@ export async function generateMetadata({ params }: PageParams): Promise<Metadata
   const priority = demandRank(product.trade.sku) !== null
   const commercialName = [display.title, product.trade.volume, product.trade.brand].filter(Boolean).join(' · ')
   const fragranceFacts = fragranceFactsFor(product)
+  const scentSnippet = fragranceFacts
+    ? fragranceFacts.notes.length > 0
+      ? `${fragranceFacts.notes.slice(0, 3).join(', ')}.`
+      : fragranceFacts.summary
+    : ''
   const description = catalogSource() === 'demo'
     ? 'Демонстрационная карточка товара VOZDOOH. Цена, наличие и характеристики появятся после синхронизации с 1С.'
     : priority
       ? fragranceFacts
-        ? `${product.trade.brand ?? ''} ${fragranceFacts.name}${product.trade.volume ? ` ${product.trade.volume}` : ''} — как пахнет: ${fragranceFacts.notes.length > 0 ? fragranceFacts.notes.slice(0, 4).join(', ') : fragranceFacts.summary} ${(product.trade.stock ?? 0) >= 1 ? 'В наличии.' : ''}${(product.trade.price ?? 0) > 0 ? ` ${rub.format(product.trade.price!)}.` : ''} Купить в Хабаровске. Доставка по Хабаровску и России.`
+        ? `${product.trade.brand ?? ''} ${fragranceFacts.name}${product.trade.volume ? ` ${product.trade.volume}` : ''} — как пахнет: ${scentSnippet} ${(product.trade.stock ?? 0) >= 1 ? 'В наличии.' : ''}${(product.trade.price ?? 0) > 0 ? ` ${rub.format(product.trade.price!)}.` : ''} Купить в Хабаровске, доставка по России.`
         : `Купить ${commercialName} в Хабаровске. ${(product.trade.stock ?? 0) >= 1 ? 'В наличии.' : ''}${(product.trade.price ?? 0) > 0 ? ` Цена ${rub.format(product.trade.price!)}.` : ''} Онлайн-оплата и доставка по Хабаровску и России.`
       : product.editorial.description
         ? `${product.editorial.description} ${[product.trade.brand, display.subtitle].filter(Boolean).join(' · ')}.`
