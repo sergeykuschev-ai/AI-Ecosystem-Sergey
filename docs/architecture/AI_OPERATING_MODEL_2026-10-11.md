@@ -50,13 +50,45 @@ container or mocked routing test does not prove end-to-end live model calls.
 7. AgentControl records DONE, FAILED, BLOCKED or awaiting approval; its
    results should be surfaced to the owner with links to relevant artifacts.
 
-**Observed reality:** `C:\AI\AgentControl` has a queue, a periodic
-orchestrator, a watchdog, configured projects, role manifests and validation
-logic. The existing `enqueue.mjs` accepts
-`<project> <agent> <risk> <prompt>`. No working, authenticated
-**Telegram -> AgentControl submission/approval/status bridge** was
-confirmed in the deployed Telegram source. Do not claim that direct owner
-messages are automatically enqueued into the developer workflow.
+**Live recheck (2026-10-11):** the deployed Arthur Telegram Gateway
+**already implements an owner-authenticated, independent Codex queue**. It
+accepts `/codex task arthur <description>` and
+`/codex task miska <description>`, plus `/codex list` and
+`/codex status <uuid>`. It is guarded by one Telegram owner identity and
+stores work on the existing shared Windows host volume
+`C:\AI-Ecosystem\local-services\arthur-codex-queue`.
+`Arthur-Codex-Agent-Worker` is a scheduled Windows worker using the existing
+`127.0.0.1:8443` SSH proxy. On completion it moves jobs to
+`needs_review` (not a deployment). Three actual notifications were marked
+`delivered`, two `needs_review` jobs and one failed job were observed.
+The deployed worker only accepts `arthur` and `miska` candidate paths.
+
+**This is not yet the same queue as AgentControl.** AgentControl has a separate
+`C:\AI\AgentControl\queue` with roles, preflight, pipelines and approvals.
+Keep exactly one worker responsible for each individual task; do not enqueue
+the same owner instruction in both. Do not build a second Telegram intake.
+The missing integration is unified status/quality review and eventual
+cross-project routing, not the basic owner-to-Codex path.
+
+The Codex workspaces need hardening before broad development: the current
+Arthur candidate is not itself a Git checkout, while Miska's candidate
+has uncommitted changes. Do not automatically promote code from those
+workspaces or assume a completed model turn means tests passed.
+
+A privacy-safe unified status inspector
+`scripts/devtools/arthur-agent-bridge-status.mjs` reads both queues but
+never displays task contents/owner IDs. It was verified against live queues
+on Amursk (4 synthetic tests PASS). The read-only inspector was copied into
+`C:\AI\AgentControl\scripts` and **integrated with the existing 15-minute
+AgentControl health-check**, with a backup of its original script. The live
+health check returned `ok=true` and recorded a `devWork` field (Kimi false,
+Codex true, two review jobs, one failed). No new scheduler, service or
+public network endpoint was added.
+
+**Regression caveat:** 7/8 deployed Codex-related tests passed in a probe;
+the notifier Gateway test currently fails under the full live environment,
+although actual notification receipts were delivered. It must be fixed in an
+isolated test copy rather than modifying the running Gateway image.
 
 ## Target control/data flow
 
@@ -68,14 +100,20 @@ Owner via Telegram / ChatGPT
   |       +-- owner confirmation for purchases/external writes
   |       +-- reply/status/audit
   |
-  +-- engineering work --> approved dispatch boundary [TO IMPLEMENT]
-          +-- project + permissions + acceptance criteria
-          +-- AgentControl queue (Amursk Windows)
-          +-- Codex via existing SSH tunnel
-          +-- isolated branch/worktree
-          +-- Graphify, tests, review, security
-          +-- PR + CI + owner approval before deployment
-          +-- deploy/status/rollback -> owner
+  +-- engineering work --> Arthur /codex command [EXISTS: arthur & miska]
+          +-- owner auth + shared Codex queue
+          +-- scheduled Codex worker through existing SSH tunnel
+          +-- needs_review / failed + Telegram notifications
+          +-- owner review before any merge or deployment
+          |
+          +-- other projects --> AgentControl queue [EXISTS, SEPARATE]
+                +-- role, risk, preflight and approval contract
+                +-- Codex through existing SSH tunnel
+                +-- independent tests/PR/owner review
+          |
+          +-- unified queue health [NOW INSTALLED]
+                +-- existing 15-minute AgentControl check
+                +-- counts only; no new task dispatcher
 ```
 
 **Important:** the Telegram business AI router is not the AgentControl
@@ -94,12 +132,13 @@ uses `kimi.enabled` for Kimi eligibility; 27 fixture regression cases
 passed and the live configuration was re-read. Work queues pending/running/
 approval were empty at the time of modification.
 
-P1 — **Next:** build an authenticated one-way *engineering request*
-boundary from the owner channel to AgentControl, validating project and
-risk/permissions **before** creating tasks. Start with a private,
-development-only command or an explicit per-task submission action, not
-autonomous deployment. Do not expose Windows queues or run arbitrary shell
-commands via Telegram. Provide owner-visible status and result links.
+P1 — **Next:** strengthen the already deployed owner-approved `/codex`
+route. First reconcile deployed Gateway source with version control, isolate
+each worker workspace in a clean Git worktree, add verification of actual
+test results/changed files before declaring `needs_review`, and ensure
+the user can see status and result references. Only after this, map
+extra projects into the existing Codex queue or add an authorized
+AgentControl bridge. Do not allow arbitrary Windows commands via Telegram.
 Keep user-facing Arthur business services separate.
 
 P1 — Reconcile the deployed Telegram `direct_model_router.js` and
@@ -138,6 +177,7 @@ an explicit rollback/retention check.
 
 - AgentControl config checked after change: Kimi **false**, Codex **true**.
 - 27 local AgentControl fixture regression tests passed.
+- 4 unified-status inspector tests passed; live AgentControl health check reported OK after integration.
 - 14 deployed Telegram Gateway routing/budget **mock/unit** tests passed.
 - Arthur Core `/health` responded HTTP 200.
 - Real paid-provider responses/balances, end-to-end owner dispatch bridge,
