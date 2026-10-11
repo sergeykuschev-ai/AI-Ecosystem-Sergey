@@ -371,3 +371,95 @@ then create a release-qualified clean Miska Git baseline and test a
 per-task worktree worker *before* changing live routing. No auto-deploy,
 auto-order, source reset or data mutation is authorized by this checkpoint.
 
+
+## Arthur and Miska v3 scheduled worker enabled — 2026-10-11
+
+**Actually switched on the Amursk Windows host, following complete tests.**
+The existing \`Arthur-Codex-Agent-Worker\` Windows task (principal Admin,
+Limited, one original trigger, same Node.js executable) now runs:
+
+\`C:\AI-Ecosystem\local-services\arthur-codex-runtime-v3\scripts\arthur\codex-worker\worker-v3.js\`
+
+No second queue, daemon, tunnel, VPN, Git remote, automated merge or auto-deploy
+was created. The original task definition/action from working v2 is backed
+up at \`C:\AI\AgentControl\backups\Arthur-Codex-Agent-Worker.before-miska-v3-20261011.xml\`
+with SHA-256
+\`90E71AA5685E80C8E4106D71F47783DDF1F80B7493973F2A2D872A43D4051519\`.
+After switching, an explicit Windows Task Scheduler empty-queue invocation
+returned **LastTaskResult=0**, State **Ready**, same principal/triggers.
+
+### Miska bug fix and regression acceptance
+
+- Real SmartZapas adapter emits \`priceNum\`, while a recent mandatory SKU
+  Min/Max guard had checked \`price\`: this could falsely block legitimate
+  supplier-order downloads. Fixed **only in isolated candidate**: still
+  checks explicit finite nonnegative \`freeStock\` and \`priceNum\`, including
+  missing/duplicated products.
+- Rebuilt only synthetic positive XLSX fixtures with all six required Valta
+  items inserted **before** the report total and with unique synthetic IDs.
+  Real adapter + real safety guard validate them; negative incomplete/dedup
+  tests stay fail-closed.
+- Updated frontend tests from obsolete per-supplier IDs to actual unified
+  export/status controls; installed \`fflate\` UMD dependency into ignored
+  test-local node_modules, not application code or Git.
+- 110-file purchasing+backend regression: **1800 total, 1798 pass, 0 fail,
+  2 optional real-workbook tests skipped**, exit 0. The skipped tests mean
+  real 1C/SmartZapas integration was **not** verified.
+- Verified Miska code checkpoint \`a8e0d90\`, independent local Git baseline,
+  no remotes, \`git fsck=0\`.
+
+### Real Codex acceptance and Git integrity repair
+
+- 8/8 Arthur+Miska worker security tests passed: new per-task branches,
+  project/path allowlist, protected data rejection, fail-closed regression
+  review, no automatic deployment.
+- Real Codex CLI through **existing** SSH tunnel, synthetic Arthur Miska
+  command, isolated queue and worktree: **98 seconds**. Exactly one
+  allowlisted Markdown diff, exact content, 1798/1800 synthetic regression
+  passes (2 expected optional skips), task \`needs_review\`, no deploy or
+  Git push, owner approval required.
+- Before rollout, found corrupted **inherited** Git ancestry in the older
+  v2 runtime and old Arthur baseline: missing parent commit and \`git fsck=2\`.
+  Did not touch the old originals. Created completely independent local-only
+  snapshot repositories from verified Git trees, explicitly restoring 11
+  Git index entries/modes (Windows line endings and executable bits) so
+  **source and new Git tree SHA match exactly**. New baselines passed
+  \`git fsck=0\` and have clean worktrees/no remotes:
+  - Arthur code baseline \`C:\AI-Ecosystem\candidates\arthur-codex-baseline-clean-20261011\`,
+    local HEAD **\`c1c29af\`** with exact old source Git tree \`adfe6ce...\`.
+  - Miska code baseline \`C:\AI-Ecosystem\candidates\miska-codex-baseline-stable-20261011\`,
+    HEAD **\`a8e0d90\`**.
+  - Worker v3 at \`C:\AI-Ecosystem\local-services\arthur-codex-runtime-v3\`,
+    local HEAD **\`a14533e\`**, exact v3 development Git tree
+    \`34424467830f...\`.
+- Rechecked 22/22 Arthur integration/model tests, 8/8 worker security
+  tests, all three clean Git repositories, and v3 empty-queue execution
+  before updating Windows scheduled task.
+
+### Post-switch operational constraints
+
+- Live Windows task \`Arthur-Codex-Agent-Worker\` remains ready, last result
+  **0**, pointing to worker v3; production Arthur API/Telegram Gateway,
+  Miska purchasing backend and OmniRoute Docker containers remained healthy.
+- Original Miska development source still has **51 dirty/untracked paths**,
+  untouched. Historical live Arthur queue still has **two needs_review and
+  one failed** task; no existing queue record was changed by this rollout.
+- AgentControl \`codex.enabled=true\`, \`kimi.enabled=false\`. Arthur and
+  Miska development now use distinct pinned Git baselines, a fresh Git
+  worktree for each new job and tests+manual review before promotion.
+- The actual **purchasing Docker application code was NOT deployed**:
+  this rollout changes only the **software-development task worker**.
+  No 1C connectivity, external purchase order, Instagram post, production
+  price, stock update, or email was carried out.
+- A new job via the **real owner Telegram channel** has not yet run under
+  the switched scheduled worker. The actual Codex end-to-end proof used a
+  synthetic owner/channel with an isolated queue. Keep human approval for
+  merging and deployment; never interpret \`needs_review\` as deployed.
+- Rollback: restore prior scheduled action from
+  \`Arthur-Codex-Agent-Worker.before-miska-v3-20261011.xml\`,
+  confirm principal/triggers and run an empty-queue smoke. Old original
+  v2 Git history has a known fsck defect; do not reuse its Git objects as
+  future new baselines.
+
+**GitHub PR #233 remains DRAFT.** The above v3 code snapshots are local
+Amursk Git commits, not branches automatically pushed or merged to GitHub.
