@@ -256,3 +256,17 @@ integration bridges already work.
 The deliverable is a **working authenticated Arthur Codex front door and a
 unified read-only monitoring layer**, not a new autonomous production
 deployment system.
+
+## 2026-10-11: clean Git baseline and real Codex smoke test
+
+- Created a **new, isolated local Git worktree** at `C:\AI-Ecosystem\candidates\arthur-codex-git-20261011`, branch `codex/arthur-baseline-20261011`; it was derived from the reviewed experimental Git revision and overlaid with **JavaScript source from the running Arthur Telegram Gateway image**. No secrets, database files, service volumes, `.env` files or backups were imported. Selected project-scoped Graphify/Ponytail/Agent Skills included, with no automatic hooks.
+- Staged path allowlist and diff patterns were screened for obvious private keys and tokens; project-scoped Codex regression and paid AI routing/budget tests **22/22 PASS**. Local-only baseline commit **`369139b`** was created; `git status --porcelain` returned **zero changes**. This branch is **not pushed or deployed**.
+- A separate disposable Git worktree `C:\AI-Ecosystem\candidates\arthur-codex-smoke-20261011`, branch `codex/arthur-smoke-20261011`, and a separate isolated queue under `C:\AI\AgentToolsPilot20261009` were created for a single **actual Codex CLI run**. A synthetic owner-authenticated Arthur `/codex task arthur` request exercised the real plan/skill/queue code, with no real Telegram message and no business data.
+- Codex 0.162.1 used the existing SSH proxy and workspace-write sandbox. It created exactly `docs/experiments/ARTHUR_CODEX_SAFE_SMOKE_20261011.md` with the required two lines. Its queue status became **`needs_review`**, not deployed. The worker portion took **43.257 seconds**. Git reported **one and only one** changed path; exact content check passed; isolated Codex + notifier regression tests **8/8 PASS**. The smoke harness exited **0**.
+- The baseline is still clean, and the single smoke-only diff is deliberately left uncommitted for manual review. The existing production Arthur Codex worker still points at its prior approved candidate path; it has **not** been switched to the new baseline. Existing real task IDs and queue records were not changed.
+
+### Next acceptance gate
+
+Do **not** infer that a single synthetic smoke authorizes arbitrary automated software changes. Next, make the scheduled worker create a **fresh Git worktree per user task**, validate the project/path allowlist, capture exact changed files and test results, and hold all merge/deploy actions behind owner approval. Test this worker change in a separate queue before switching the production scheduler; retain rollback to the previous worker path.
+
+Real Telegram delivery and user-visible review of **new** tasks should be tested only through the authenticated owner channel. Existing real queue notifications had previously been marked delivered, but the smoke run intentionally did not send one.
