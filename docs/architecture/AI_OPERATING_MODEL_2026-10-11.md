@@ -270,3 +270,51 @@ deployment system.
 Do **not** infer that a single synthetic smoke authorizes arbitrary automated software changes. Next, make the scheduled worker create a **fresh Git worktree per user task**, validate the project/path allowlist, capture exact changed files and test results, and hold all merge/deploy actions behind owner approval. Test this worker change in a separate queue before switching the production scheduler; retain rollback to the previous worker path.
 
 Real Telegram delivery and user-visible review of **new** tasks should be tested only through the authenticated owner channel. Existing real queue notifications had previously been marked delivered, but the smoke run intentionally did not send one.
+
+## 2026-10-11: production scheduled worker v2 — authorized rollout
+
+**Actually switched on the Amursk Windows server.** Kept the SAME Windows
+scheduled task, user Admin (Limited), existing queue and existing SSH proxy.
+Only the scheduled task's Node.js script and working directory were changed.
+The original task XML is saved at
+\`C:\AI\AgentControl\backups\Arthur-Codex-Agent-Worker.before-v2-20261011.xml\`.
+Rollback: restore the original scheduled action from this backup and re-run
+the empty-queue smoke. No existing pending/running job was present at switch.
+
+- Versioned, independent, **local-only** Git runtime:
+  \`C:\AI-Ecosystem\local-services\arthur-codex-runtime-v2\`,
+  revision \`6b9677c\`. No configured git remotes, clean worktree.
+- Clean pinned **Arthur** source baseline:
+  \`C:\AI-Ecosystem\candidates\arthur-codex-stable-baseline-20261011\`,
+  deployed-source snapshot revision \`369139b\`, detached clean worktree.
+- Scheduled command:
+  \`C:\Program Files\nodejs\node.exe\` with
+  \`C:\AI-Ecosystem\local-services\arthur-codex-runtime-v2\scripts\arthur\codex-worker\worker-v2.js\`.
+- For each **new Arthur job**, worktree runner creates
+  \`C:\AI-Ecosystem\candidates\arthur-codex-task-worktrees\<uuid>\`
+  on branch \`codex/task-<uuid>\`; never reuses an old task directory.
+  It runs Codex via the existing tunnel, checks Git HEAD/branch and changed
+  file allowlist, runs the allowlisted synthetic regression tests and saves
+  one JSON review report under
+  \`C:\AI-Ecosystem\local-services\arthur-codex-queue\reviews\<uuid>.json\`.
+  Only a passing task becomes \`needs_review\`; nothing is merged, pushed,
+  deployed or automatically approved.
+- **Miska** stays on its *existing* legacy worker behavior in the same
+  scheduler/queue while its 47 uncommitted candidate paths remain
+  unreviewed. Do not discard or auto-commit those changes.
+- Old real Codex jobs preserved unchanged: two \`needs_review\` and one
+  \`failed\`. Original production main repo's 191 changed paths untouched.
+- Security unit tests of the new Git review mechanism: **5/5 PASS**.
+  Arthur integrations/model routing/budget synthetic tests: **22/22 PASS**.
+  Actual Codex-over-tunnel isolated v2 E2E smoke: ~45.4 seconds, exact
+  one-file diff, **8/8 regression PASS**, manual review state, no deployment.
+- After changing the scheduled action, an explicit Windows Task Scheduler
+  empty-queue run returned **LastTaskResult=0**. Principal and run level
+  remained unchanged. Docker containers were not restarted and remain
+  healthy on inspection.
+
+**Remaining limitations:** a live owner Telegram submission through the
+*new scheduled* worker has not yet been exercised; the E2E intake test used
+a synthetic owner/channel and a separate queue. Miska has not yet migrated
+to per-task worktrees; do not claim the whole system is unified.
+
