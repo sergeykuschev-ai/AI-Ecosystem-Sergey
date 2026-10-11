@@ -318,3 +318,56 @@ the empty-queue smoke. No existing pending/running job was present at switch.
 a synthetic owner/channel and a separate queue. Miska has not yet migrated
 to per-task worktrees; do not claim the whole system is unified.
 
+
+## 2026-10-11: Miska Git isolation — quarantine, not promotion
+
+This is the result of the follow-on purchasing workflow audit. **The active
+Amursk purchasing containers, 1C, supplier matrices, inventory, prices and
+orders were not changed.** The scheduled Arthur/Codex worker remains v2:
+new Arthur jobs use per-task Git worktrees; **Miska still uses its earlier
+legacy candidate path**, deliberately.
+
+- Source \`C:\AI-Ecosystem\candidates\codex-miska-amursk-20261009\repo\`
+  had **51** changed or untracked files when expanded recursively, including
+  a private SKU reference folder. All 51 paths were captured in a **local
+  SHA-256 manifest**, with originals left untouched.
+- Copied **43 JS code/test files** to a *separate local Git repository with
+  no remotes*. Excluded the other 8 handoff/reference/sku files. Normalized
+  line endings only in the copied code, reducing noisy tracked diff to about
+  **801 added / 111 removed lines**.
+- Local quarantine checkpoint \`a1164ce\` on
+  \`codex/miska-review-20261011\`: never published or deployed.
+- Synthetic critical tests: **171/171 PASS**. Full 110-file suite:
+  **1,784/1,800 PASS; 14 FAIL**. For comparison, the same four affected
+  suites on clean parent revision \`c4524b5\` had **35 failing** of 124.
+- Codex CLI via existing tunnel was assigned a strictly test-only repair
+  in a disposable branch, but the 240-second run **timed out**. It was
+  **not accepted**: its in-memory synthetic Min/Max workbook failed the real
+  required-SKU guard and broke test fixture initialization.
+- Manually isolated **two safe test-file corrections** from that attempt
+  into a different local-only branch:
+  \`codex/miska-safe-tests-20261011\`, commit \`8153b0b\`. These assert
+  **manual review for unmatched products** and update UI tests for current
+  unified export controls and CRLF/LF parsing. The browser-side fflate
+  UMD package was installed into ignored, test-only \`node_modules\` for the
+  isolated run; do not infer the bundle is committed.
+- Full recheck of this safe review-only branch:
+  **1,789/1,800 PASS; 9 FAIL**. Remaining **8** are obsolete positive
+  Supplier XLSX/Final Order tests expecting export of a synthetic Valta
+  report that lacks mandatory Min/Max SKU data (HTTP 409 is the safety
+  guard). Remaining **1** is a legacy HTML test expecting now-absent
+  vendor-specific IDs. Do **not** disable the guard or remove assertions to
+  force a green summary.
+- Current production worker state stayed healthy; 2 historical Arthur
+  \`needs_review\` tasks + 1 failed remained unchanged, no pending Miska
+  task was touched. AgentControl \`kimi.enabled=false\`,
+  \`codex.enabled=true\`.
+
+**Next gates:** construct a genuinely complete, fully synthetic Valta
+Min/Max fixture for the positive XLSX tests, retain negative 409 coverage;
+reconcile UI test selectors with the approved current frontend contract;
+install development dependencies reproducibly; repeat full tests. Only
+then create a release-qualified clean Miska Git baseline and test a
+per-task worktree worker *before* changing live routing. No auto-deploy,
+auto-order, source reset or data mutation is authorized by this checkpoint.
+
