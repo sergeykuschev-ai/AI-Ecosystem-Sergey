@@ -2033,6 +2033,24 @@ function renderLearning() {
         header.appendChild(badge);
       }
       card.appendChild(header);
+      if (ownerMode && task.pilotLesson?.status === 'DRAFT_REVIEW_REQUIRED') {
+        const preview = document.createElement('section');
+        preview.className = 'learning-scenarios';
+        const title = document.createElement('strong');
+        title.textContent = 'Черновик урока для проверки: ' + task.pilotLesson.title;
+        preview.appendChild(title);
+        const steps = document.createElement('ol');
+        for (const step of task.pilotLesson.guide || []) {
+          const li = document.createElement('li');
+          li.textContent = step;
+          steps.appendChild(li);
+        }
+        preview.appendChild(steps);
+        const practice = document.createElement('p');
+        practice.textContent = 'Практика: ' + task.pilotLesson.practice;
+        preview.appendChild(practice);
+        card.appendChild(preview);
+      }
       if (task.materialText) {
         const material = document.createElement('p');
         material.textContent = task.materialText;

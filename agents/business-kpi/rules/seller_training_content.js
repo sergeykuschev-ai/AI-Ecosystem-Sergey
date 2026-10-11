@@ -317,9 +317,11 @@ function sourceReviewStatus(checkedAt, todayText) {
 function enrichTrainingTask(task, todayText = CHECKED_AT) {
   if (!task || task.taskType !== 'KNOWLEDGE') return task;
   const extra = TRAINING_CONTENT[task.code];
+  const pilot = require('./miska_curriculum_pilot').PILOT[task.code];
   if (!extra) return { ...task, sources: [], productExamples: [], consultationScenarios: [] };
   return {
     ...task,
+    pilotLesson: pilot ? { ...pilot, status: 'DRAFT_REVIEW_REQUIRED' } : null,
     sources: extra.sources
       ? extra.sources.map(source => ({
           ...source,
