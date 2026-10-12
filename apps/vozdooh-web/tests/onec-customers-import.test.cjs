@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- Standalone CommonJS Node tooling. */
 const test = require('node:test')
 const assert = require('node:assert/strict')
 const { mkdtemp, writeFile, readFile, stat } = require('node:fs/promises')

@@ -1,7 +1,9 @@
+import { merchProducts, merchandisingSignal, MERCHANDISING_NOTE } from './merchandising'
 import type { CatalogProduct } from './contracts'
 import { storefrontProducts } from './presentation'
 
 export type CollectionRule =
+  | { field: 'demand'; values: readonly string[] }
   | { field: 'family'; values: readonly string[] }
   | { field: 'mood'; values: readonly string[] }
   | { field: 'room'; values: readonly string[] }
@@ -20,6 +22,7 @@ export type EditorialCollection = {
 }
 
 export const editorialCollections: readonly EditorialCollection[] = [
+  { slug: 'popular', eyebrow: 'Выбор из наличия', name: 'Популярные ароматы', description: 'Подтверждённый внешний интерес. Ароматы из актуального наличия VOZDOOH.', note: MERCHANDISING_NOTE, rule: { field: 'demand', values: ['verified'] } },
   {
     slug: 'warm-interior',
     eyebrow: 'Характер аромата',
@@ -112,12 +115,14 @@ export const editorialCollections: readonly EditorialCollection[] = [
 ]
 
 function collectionValue(product: CatalogProduct, field: CollectionRule['field']): string | null {
+  if (field === 'demand') return merchandisingSignal(product.trade.sku) ? 'verified' : null
   if (field === 'family') return product.editorial.scentFamily
   if (field === 'category') return product.trade.category
   return product.editorial[field]
 }
 
 export function collectionProducts(products: readonly CatalogProduct[], collection: EditorialCollection): CatalogProduct[] {
+  if (collection.rule.field === 'demand') return merchProducts(storefrontProducts(products), 'popular')
   return storefrontProducts(products.filter((product) =>
     (product.trade.stock ?? 0) > 0 &&
     !collection.excludeCategories?.includes(product.trade.category) &&

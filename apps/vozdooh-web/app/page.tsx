@@ -1,3 +1,5 @@
+import { MerchSection } from '../components/MerchSection'
+import { diverseMerchProducts, merchProducts } from '../src/catalog/merchandising'
 import Image from 'next/image'
 import Link from 'next/link'
 import type { Metadata } from 'next'
@@ -166,6 +168,9 @@ export default async function Home() {
           })}
         </div>
       </section>
+
+      <MerchSection id="brand-bestsellers" title="Бестселлеры брендов" description="Aramara и Tessuto — два характера CULTI MILANO. Другие объёмы и флаконы — в карточках ароматов." products={diverseMerchProducts(merchProducts(sellableProducts, 'bestsellers'))} />
+      <MerchSection id="popular-fragrances" title="Популярные ароматы" description="От свежих древесных композиций до мягкой ванили. Выбор из текущего наличия." products={diverseMerchProducts(merchProducts(sellableProducts, 'strong'))} />
 
       <section id="finder" className="finder">
         <div>

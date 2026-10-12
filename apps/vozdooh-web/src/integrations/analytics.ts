@@ -7,6 +7,8 @@
  */
 
 export type AnalyticsEvent =
+  | 'view_merch_section'
+  | 'select_merch_item'
   | 'view_item'
   | 'select_item'
   | 'add_to_cart'
@@ -88,6 +90,11 @@ export function flushPendingEvents(): void {
 
 export function trackEvent(event: AnalyticsEvent, params: AnalyticsParams = {}): void {
   if (typeof window === 'undefined') return
+  if (event === 'view_merch_section' || event === 'select_merch_item') {
+    params = { section_id: stringValue(params.section_id), ...(event === 'select_merch_item' ? { item_id: stringValue(params.item_id) } : {}) }
+    if (!params.section_id || (event === 'select_merch_item' && !params.item_id)) return
+    if (!window.__vozdoohAnalyticsId && !process.env.NEXT_PUBLIC_YANDEX_METRICA_ID) return
+  }
   if (!analyticsEnabled()) {
     ;(window.__vozdoohAnalyticsPending ??= []).push({ event, params })
     return

@@ -1,6 +1,6 @@
 import type { CatalogProduct } from './contracts'
 import { reviewedTitle } from './reviewedContent'
-import { demandRank } from './demandPriority'
+import { merchandisingSignal } from './merchandising'
 import { confirmedProductTranslation } from './productTranslations'
 import type { RawSearchParams } from './filterParams'
 import { categoryLabels, labelFor } from './vocabulary'
@@ -33,8 +33,8 @@ export function storefrontProducts(products: readonly CatalogProduct[], debug = 
   return products.filter((product) => debug || (!isStorefrontExcluded(product) && catalogImage(product))).sort((a, b) => {
     // Internal merchandising signal first: researched higher-priority in-stock
     // products lead the default catalog; the rank itself is never displayed.
-    const rankA = demandRank(a.trade.sku)
-    const rankB = demandRank(b.trade.sku)
+    const rankA = merchandisingSignal(a.trade.sku)?.promotionRank ?? null
+    const rankB = merchandisingSignal(b.trade.sku)?.promotionRank ?? null
     if (rankA !== rankB) return (rankA ?? Number.MAX_SAFE_INTEGER) - (rankB ?? Number.MAX_SAFE_INTEGER)
     const brand = brandRank(a.trade.brand) - brandRank(b.trade.brand)
     if (brand !== 0) return brand

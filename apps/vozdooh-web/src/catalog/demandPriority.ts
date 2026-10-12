@@ -1,3 +1,5 @@
+import { hasBestsellerEvidence, merchandisingSignal } from './merchandising'
+
 /**
  * INTERNAL merchandising signal derived from the checked-in demand research
  * (research/demand-priority-2026-09.{md,csv,json}; external sources verified
@@ -21,21 +23,8 @@
 
 export type DemandPriority = { rank: number }
 
+// Remaining TOP-25 entries are SEO metadata only; default promotion uses merchandising.ts.
 const demandPriorityBySku: Record<string, DemandPriority> = {
-  '802e8ae5-d19b-11ec-be83-7c8bca00854e': { rank: 1 },
-  'bf33a951-016c-11ed-b2a4-7c8bca00854e': { rank: 2 },
-  'df29d344-d192-11ec-be83-7c8bca00854e': { rank: 3 },
-  'df29d346-d192-11ec-be83-7c8bca00854e': { rank: 4 },
-  'N020458': { rank: 5 },
-  '802e8b0c-d19b-11ec-be83-7c8bca00854e': { rank: 6 },
-  '976878': { rank: 7 },
-  'bf33a957-016c-11ed-b2a4-7c8bca00854e': { rank: 8 },
-  'df29d34a-d192-11ec-be83-7c8bca00854e': { rank: 9 },
-  '655467': { rank: 10 },
-  'DV250TFU': { rank: 11 },
-  'BD500TFU': { rank: 12 },
-  'DV500RTFU': { rank: 13 },
-  'DANHNIR250DEC': { rank: 14 },
   'N020465': { rank: 15 },
   'FF250TFU': { rank: 16 },
   'ROU250TFU': { rank: 17 },
@@ -51,7 +40,7 @@ const demandPriorityBySku: Record<string, DemandPriority> = {
 
 /** Research promotion_rank for a SKU, or null when the SKU is not in the researched TOP. */
 export function demandRank(sku: string): number | null {
-  return demandPriorityBySku[sku]?.rank ?? null
+  return merchandisingSignal(sku)?.promotionRank ?? demandPriorityBySku[sku]?.rank ?? null
 }
 
 /**
@@ -59,13 +48,6 @@ export function demandRank(sku: string): number | null {
  * external bestseller statements (Aramara, Tessuto formats in stock).
  * Conservative customer-facing label is derived from this set only.
  */
-const externallyConfirmedPopularSkus: ReadonlySet<string> = new Set([
-  '802e8ae5-d19b-11ec-be83-7c8bca00854e',
-  'bf33a951-016c-11ed-b2a4-7c8bca00854e',
-  'df29d344-d192-11ec-be83-7c8bca00854e',
-  'df29d346-d192-11ec-be83-7c8bca00854e',
-])
-
 /**
  * Customer-facing clarification that must accompany any popularity cue so the
  * claim never reads as VOZDOOH sales statistics.
@@ -74,5 +56,5 @@ export const POPULARITY_NOTE = 'Популярность аромата подт
 
 /** True only for the four CORE SKUs with externally confirmed fragrance-level popularity. */
 export function isExternallyConfirmedPopular(sku: string): boolean {
-  return externallyConfirmedPopularSkus.has(sku)
+  return hasBestsellerEvidence(sku)
 }

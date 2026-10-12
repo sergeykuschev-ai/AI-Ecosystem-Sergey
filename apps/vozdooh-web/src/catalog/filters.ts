@@ -20,7 +20,7 @@ export function applyCatalogFilters(products: readonly CatalogProduct[], filters
 }
 
 export function getRecommendations(products: readonly CatalogProduct[], product: CatalogProduct, demo = false, limit = 3): CatalogProduct[] {
-  return products.filter((p) => p.id !== product.id && (
+  return products.filter((p) => p.id !== product.id && (demo || (p.trade.stock ?? 0) > 0) && (
     product.editorial.recommendations.includes(p.editorial.slug) ||
     (demo && product.editorial.scentFamily !== null && p.editorial.scentFamily === product.editorial.scentFamily)
   )).slice(0, limit)

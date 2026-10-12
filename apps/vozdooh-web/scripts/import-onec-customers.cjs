@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- Standalone CommonJS Node tooling. */
 const { readFile, mkdir, writeFile, rename, chmod } = require('node:fs/promises')
 const { resolve, dirname } = require('node:path')
 const { randomUUID } = require('node:crypto')

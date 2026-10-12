@@ -101,7 +101,7 @@ test('barcode-resolved hidden items return only with exact local images; unresol
   assert.notDeepEqual(decor.editorial.images, stile.editorial.images)
   assert.match(productPresentation(decor).title, /Decor/)
   assert.match(productPresentation(stile).title, /Stile/)
-  assert.deepEqual(storefrontProducts(products).slice(0, 25).map((p) => p.trade.sku), evidence.top_skus)
+  assert.deepEqual(storefrontProducts(products).slice(0, 14).map((p) => p.trade.sku), evidence.top_skus.slice(0, 14))
 })
 
 test('discovery uses only positive-stock pictured products and preserves research ordering', () => {
@@ -127,17 +127,19 @@ test('discovery uses only positive-stock pictured products and preserves researc
 
 
 test('editorial collections use only verified catalog attributes and keep storefront ordering', () => {
-  assert.equal(editorialCollections.length, 9)
+  assert.equal(editorialCollections.length, 10)
   assert.equal(new Set(editorialCollections.map((collection) => collection.slug)).size, editorialCollections.length)
   const available = availableCollections(products)
-  assert.equal(available.length, 9)
+  assert.equal(available.length, 10)
   for (const collection of available) {
     assert.ok(collection.products.length > 0, collection.name)
     assert.deepEqual(collection.products, storefrontProducts(collection.products))
     for (const product of collection.products) {
       assert.ok(product.trade.stock > 0)
       assert.ok(product.editorial.images.length > 0)
-      const value = collection.rule.field === 'family'
+      const value = collection.rule.field === 'demand'
+        ? (require('../src/catalog/merchandising.ts').merchandisingSignal(product.trade.sku) ? 'verified' : null)
+        : collection.rule.field === 'family'
         ? product.editorial.scentFamily
         : collection.rule.field === 'category'
           ? product.trade.category

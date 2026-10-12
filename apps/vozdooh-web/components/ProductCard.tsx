@@ -11,7 +11,7 @@ import { productPayload, trackEvent } from '../src/integrations/analytics'
 
 const rub = new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 0, maximumFractionDigits: 2 })
 
-export function ProductCard({ product, index = 0, demo = false, debug = false, filters }: { filters?: CatalogFilters; product: CatalogProduct; index?: number; demo?: boolean; debug?: boolean }) {
+export function ProductCard({ product, index = 0, demo = false, debug = false, filters, merchSection }: { merchSection?: string; filters?: CatalogFilters; product: CatalogProduct; index?: number; demo?: boolean; debug?: boolean }) {
   const image = catalogImage(product)
   const display = productPresentation(product)
   const query = filters ? catalogHref(filters, 'brand', filters.brand ?? null, debug).split('?')[1] : debug ? 'debugCatalog=1' : ''
@@ -20,7 +20,10 @@ export function ProductCard({ product, index = 0, demo = false, debug = false, f
       className="productCard"
       href={`/catalog/${product.editorial.slug}${query ? `?${query}` : ""}`}
       title={product.trade.name}
-      onClick={() => trackEvent('select_item', productPayload(product))}
+      onClick={() => {
+        trackEvent('select_item', productPayload(product))
+        if (merchSection) trackEvent('select_merch_item', { item_id: product.trade.sku, section_id: merchSection })
+      }}
     >
       <div className={`productCardVisual tone${index % 4}${image ? ' hasImage' : ''}`}>
         {(demo || debug) && <span className="demoTag">{demo ? 'DEMO' : 'PREVIEW 1C'}</span>}

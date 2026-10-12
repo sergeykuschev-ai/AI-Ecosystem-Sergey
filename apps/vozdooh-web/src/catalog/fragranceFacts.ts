@@ -13,6 +13,13 @@ export type FragranceFacts = {
 }
 
 const FACTS: Record<string, FragranceFacts> = {
+  niro: {
+    name: 'NIRO', family: 'древесное', facet: 'пряное',
+    notes: ['кипарис', 'элеми', 'озон', 'личи', 'перуанский бальзам', 'сандал', 'уд', 'пачули'],
+    summary: 'Пряно-древесная композиция с кипарисом и элеми, личи и перуанским бальзамом на базе сандала, уда и пачули.',
+    rooms: [], seasons: [], created: null,
+    source: 'карточки Bosco и ЦУМ для NIRO 250 мл',
+  },
   mareminerale: {
     name: 'Mareminerale',
     family: 'ароматическое',
@@ -184,11 +191,14 @@ const FACTS: Record<string, FragranceFacts> = {
 export function fragranceFactsFor(product: CatalogProduct): FragranceFacts | null {
   const brand = product.trade.brand ?? ''
   const name = product.trade.name
+  if (product.trade.sku === 'DANHNIR250DEC' && brand === 'DANHERA' && /\bNIRO\b/.test(name)) return FACTS.niro
   if (brand === 'CULTI MILANO') {
     if (/\bAramara\b/i.test(name)) return FACTS.aramara
     if (/\bTessuto\b/i.test(name)) return FACTS.tessuto
     if (/\bAqqua\b/i.test(name)) return FACTS.aqqua
-    if (/\bMareminerale\b/i.test(name)) return FACTS.mareminerale
+    if (/\bMareminerale\b/i.test(name)) return product.trade.category === 'Для автомобиля'
+      ? { ...FACTS.mareminerale, rooms: [], seasons: [], created: null }
+      : FACTS.mareminerale
   }
   if (brand === 'Lothantique') {
     if (/LES\s+SECRETS\s+D['’]ANTOINE|Les\s+Secrets\s+d['’]Antoine/i.test(name)) return FACTS['les-secrets-antoine']

@@ -265,7 +265,7 @@ test('filters handle nulls, URL encoding and unknown values; recommendations nee
   const filters = parseCatalogFilters({ brand: 'Brand One', category: ['test & space', 'ignored'], family: 'woody', mood: 'invalid', room: '__proto__' }, { 'test & space': 'test' }, { 'Brand One': 'Brand One' })
   assert.deepEqual(filters, { brand: 'Brand One', category: 'test & space', family: 'woody', mood: null, room: null })
   assert.equal(catalogHref(filters, 'family', null), '/catalog?brand=Brand%20One&category=test%20%26%20space')
-  const trades = importCatalog(payload(row(), row({ sku: 'SECOND' }))).products
+  const trades = importCatalog(payload(row(), row({ sku: 'SECOND', stock: 1 }))).products
   const products = mergeCatalog(trades, {
     'TEST-01': { ...emptyEditorial('TEST-01'), scentFamily: 'woody', recommendations: ['second'] },
     SECOND: { ...emptyEditorial('SECOND'), slug: 'second', scentFamily: 'woody' },
