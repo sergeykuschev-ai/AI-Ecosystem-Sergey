@@ -29,8 +29,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     'living-room': 'Ароматы для гостиной — VOZDOOH',
     bedroom: 'Ароматы для спальни — VOZDOOH',
     focused: 'Ароматы для концентрации и работы — VOZDOOH',
-    'gift-diffusers': 'Аромадиффузор в подарок в Хабаровске — купить | VOZDOOH',
-    'home-fragrance': 'Ароматы для дома в Хабаровске — купить | VOZDOOH',
+    'gift-diffusers': 'Аромадиффузор в подарок — купить с доставкой по России | VOZDOOH',
+    'home-fragrance': 'Ароматы для дома — купить с доставкой по России | VOZDOOH',
   }
   const title = seoTitles[collection.slug] ?? `${collection.name} — коллекция VOZDOOH`
   return {
@@ -86,8 +86,8 @@ export default async function CollectionPage({ params }: Props) {
 
       {['home-fragrance', 'gift-diffusers'].includes(collection.slug) && (
         <section className="landingGuide" aria-label="Покупка и доставка">
-          <h2>VOZDOOH в Хабаровске</h2>
-          <p>Интерьерные ароматы можно заказать онлайн из актуального наличия. Доставка доступна по Хабаровску и России; условия оплаты и получения собраны на отдельных страницах.</p>
+          <h2>Доставка ароматов по России</h2>
+          <p>Интерьерные ароматы можно заказать онлайн из актуального наличия. Отправляем заказы из Хабаровска в другие регионы России через доступные пункты Ozon. Стоимость доставки согласовывается отдельно до отправки; условия оплаты и получения собраны на отдельных страницах.</p>
           <nav className="landingLinks" aria-label="Условия заказа">
             <Link href="/delivery">Доставка</Link>
             <Link href="/payment">Оплата</Link>

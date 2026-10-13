@@ -45,14 +45,14 @@ export async function generateMetadata({ params }: PageParams): Promise<Metadata
     ? 'Демонстрационная карточка товара VOZDOOH. Цена, наличие и характеристики появятся после синхронизации с 1С.'
     : reviewedProductSearchDescription(product) ?? (priority
       ? fragranceFacts
-        ? `${product.trade.brand ?? ''} ${fragranceFacts.name}${product.trade.volume ? ` ${product.trade.volume}` : ''} — как пахнет: ${scentSnippet} ${(product.trade.stock ?? 0) >= 1 ? 'В наличии.' : ''}${(product.trade.price ?? 0) > 0 ? ` ${rub.format(product.trade.price!)}.` : ''} Купить в Хабаровске, доставка по России.`
-        : `Купить ${commercialName} в Хабаровске. ${(product.trade.stock ?? 0) >= 1 ? 'В наличии.' : ''}${(product.trade.price ?? 0) > 0 ? ` Цена ${rub.format(product.trade.price!)}.` : ''} Онлайн-оплата и доставка по Хабаровску и России.`
+        ? `${product.trade.brand ?? ''} ${fragranceFacts.name}${product.trade.volume ? ` ${product.trade.volume}` : ''} — как пахнет: ${scentSnippet} ${(product.trade.stock ?? 0) >= 1 ? 'В наличии.' : ''}${(product.trade.price ?? 0) > 0 ? ` ${rub.format(product.trade.price!)}.` : ''} Заказать с доставкой по России.`
+        : `Купить ${commercialName} с доставкой по России. ${(product.trade.stock ?? 0) >= 1 ? 'В наличии.' : ''}${(product.trade.price ?? 0) > 0 ? ` Цена ${rub.format(product.trade.price!)}.` : ''} Онлайн-заказ с доставкой по России.`
       : product.editorial.description
         ? `${product.editorial.description} ${[product.trade.brand, display.subtitle].filter(Boolean).join(' · ')}.`
         : `${[display.title, product.trade.brand, display.subtitle].filter(Boolean).join(' · ')} в каталоге VOZDOOH.`)
   const image = catalogImage(product)
   const title = priority
-    ? `${display.title}${product.trade.volume ? ` ${product.trade.volume}` : ''} — ${product.trade.brand ?? 'VOZDOOH'} — купить в Хабаровске | VOZDOOH`
+    ? `${display.title}${product.trade.volume ? ` ${product.trade.volume}` : ''} — ${product.trade.brand ?? 'VOZDOOH'} — купить с доставкой по России | VOZDOOH`
     : [...[display.title, display.subtitle, product.trade.brand].filter(Boolean), 'купить в VOZDOOH'].join(' — ')
   return {
     title,

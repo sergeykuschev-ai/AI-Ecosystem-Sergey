@@ -39,8 +39,8 @@ const money = new Intl.NumberFormat('ru-RU', {
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: 'Ароматы для дома в Хабаровске — купить с доставкой | VOZDOOH',
-  description: 'Купить ароматы для дома в Хабаровске: диффузоры, ароматические свечи, спреи, рефилы и подарочные наборы. Актуальное наличие, онлайн-оплата и доставка по Хабаровску и России.',
+  title: 'Ароматы для дома — купить с доставкой по России | VOZDOOH',
+  description: 'Купить ароматы для дома с доставкой по России: диффузоры, свечи, спреи, рефилы и подарочные наборы. Актуальное наличие, цены и онлайн-заказ в VOZDOOH.',
   alternates: { canonical: '/' },
   robots: publicRobots(),
 }

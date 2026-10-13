@@ -24,5 +24,5 @@ export function reviewedProductSearchDescription(product: CatalogProduct): strin
   const facts = fragranceFactsFor(product)
   const identity = [product.trade.brand, facts?.name ?? display.title, display.subtitle].filter(Boolean).join(' · ')
   const detail = facts?.summary ?? product.editorial.description
-  return `${identity}.${detail ? ` ${detail}` : ''} В наличии по данным каталога VOZDOOH. Купить в Хабаровске, доставка по России.`
+  return `${identity}.${detail ? ` ${detail}` : ''} В наличии по данным каталога VOZDOOH. Заказать с доставкой по России.`
 }
