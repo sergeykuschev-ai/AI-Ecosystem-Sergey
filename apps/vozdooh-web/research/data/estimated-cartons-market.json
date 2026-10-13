@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "status": "REFERENCE_ONLY_NOT_VERIFIED",
+  "purpose": "Planning standard 3-ply corrugated shipping cartons for home fragrance diffusers. Never use this file as verified packing input or charge a customer from it.",
+  "notes": [
+    "Dimensions are representative internal and external dimensions of actual commercial boxes, not measurements of VOZDOOH stock.",
+    "Tare weights are conservative upper values from published vendor examples; actual box grade, tape, cushioning and inserts vary.",
+    "A packed shipment must be measured and weighed before using its tariff in payment; fragile glass bottles require cushioning and protection against leakage."
+  ],
+  "cartons": [
+    {
+      "id": "reference-200x150x100",
+      "status": "ESTIMATED",
+      "innerLengthMm": 200,
+      "innerWidthMm": 150,
+      "innerHeightMm": 100,
+      "outerLengthMm": 206,
+      "outerWidthMm": 156,
+      "outerHeightMm": 106,
+      "estimatedTareWeightG": 90,
+      "observedWeightRangeG": [64, 90],
+      "sources": ["https://mkfgroup.ru/kartonnyie-korobki/gofrokorob-trexslojnyij-200-150-100-t23.html", "https://vrnupak.com/catalog/kartonnaya-korobka-200-150-100/properties/"]
+    },
+    {
+      "id": "reference-300x200x150",
+      "status": "ESTIMATED",
+      "innerLengthMm": 300,
+      "innerWidthMm": 200,
+      "innerHeightMm": 150,
+      "outerLengthMm": 308,
+      "outerWidthMm": 208,
+      "outerHeightMm": 158,
+      "estimatedTareWeightG": 150,
+      "observedWeightRangeG": [130, 150],
+      "sources": ["https://mkfgroup.ru/kartonnyie-korobki/kartonnaya-korobka-300-200-150-mm-gofrokorob-300-200-150-mm-t22b.html", "https://slavkarton.ru/product/gofrokorob-300h200h150-t-23-v-buryj-kopirovat/"]
+    },
+    {
+      "id": "reference-400x300x200",
+      "status": "ESTIMATED",
+      "innerLengthMm": 400,
+      "innerWidthMm": 300,
+      "innerHeightMm": 200,
+      "outerLengthMm": 406,
+      "outerWidthMm": 306,
+      "outerHeightMm": 206,
+      "estimatedTareWeightG": 330,
+      "observedWeightRangeG": [250, 331],
+      "sources": ["https://mkfgroup.ru/kartonnyie-korobki/gofrokorob-trexslojnyij-400-300-200-mm-t23.html", "https://gofromir.ru/catalog/kartonnyie-korobki/gofrokorob_400kh300kh200_t23_b_buryy/"]
+    }
+  ]
+}
