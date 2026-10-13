@@ -65,12 +65,45 @@ test('month aggregation sums facts and derives ratios from totals', () => {
   assert.equal(result.dataDays, 2);
   assert.equal(result.forecast.averageRevenuePerDataDay, 18000);
   assert.equal(result.forecast.projectedRevenue, 558000);
-  assert.equal(result.forecast.remainingCalendarDays, 21);
+  assert.equal(result.forecast.remainingCalendarDays, 22);
   assert.equal(result.forecast.remainingToPlan, 709000);
 
   const days = aggregateDays(result);
   assert.deepEqual(days.map(day => day.revenue), [24000, 12000]);
   assert.deepEqual(days.map(day => day.itemsPerReceipt), [2.5, 1]);
+});
+
+test('remaining days include current date only until its shift is recorded', () => {
+  const asOf = new Date('2026-10-13T00:10:00Z');
+  const options = { year: 2026, month: 10, plan: 850000, settings: MISKA_AUGUST_2026_SETTINGS, asOf };
+  const oldShift = shift({ shiftDate: '2026-10-12' });
+  const withoutToday = aggregateMonth([oldShift], options);
+  const withToday = aggregateMonth([oldShift, shift({ id: 'today', shiftDate: '2026-10-13' })], options);
+
+  assert.equal(withoutToday.forecast.remainingCalendarDays, 19);
+  assert.equal(withToday.forecast.remainingCalendarDays, 18);
+  assert.equal(withoutToday.forecast.requiredAveragePerRemainingDay, (850000 - 24000) / 19);
+  assert.equal(withToday.forecast.requiredAveragePerRemainingDay, (850000 - 48000) / 18);
+});
+
+test('last day and historical month handle missing shift without division by zero', () => {
+  const oldShift = shift({ shiftDate: '2026-10-30' });
+  const current = aggregateMonth([oldShift], {
+    year: 2026, month: 10, plan: 850000, settings: MISKA_AUGUST_2026_SETTINGS,
+    asOf: new Date('2026-10-31T00:00:00Z'),
+  });
+  const complete = aggregateMonth([oldShift, shift({ id: 'last', shiftDate: '2026-10-31' })], {
+    year: 2026, month: 10, plan: 850000, settings: MISKA_AUGUST_2026_SETTINGS,
+    asOf: new Date('2026-10-31T00:00:00Z'),
+  });
+  const historical = aggregateMonth([oldShift], {
+    year: 2026, month: 10, plan: 850000, settings: MISKA_AUGUST_2026_SETTINGS,
+    asOf: new Date('2026-11-02T00:00:00Z'),
+  });
+  assert.equal(current.forecast.remainingCalendarDays, 1);
+  assert.equal(complete.forecast.remainingCalendarDays, 0);
+  assert.equal(complete.forecast.requiredAveragePerRemainingDay, null);
+  assert.equal(historical.forecast.remainingCalendarDays, 0);
 });
 
 test('seller aggregation uses exact totals and confirmed bonus formula', () => {

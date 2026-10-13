@@ -78,7 +78,12 @@ function aggregateMonth(shifts, options) {
     shiftsWithItems,
   });
   const averageRevenuePerDataDay = ratio(totals.revenue, dataDays);
-  const remainingDays = remainingCalendarDays(year, month, asOf);
+  // Until today's shift is recorded, today is still a remaining sales day.
+  // Avoid counting it twice as soon as today's sales enter the month totals.
+  const isCurrentMonth = year === asOf.getUTCFullYear() && month === asOf.getUTCMonth() + 1;
+  const hasTodayShift = activeShifts.some(shift => shift.shiftDate === asOf.toISOString().slice(0, 10));
+  const remainingDays = remainingCalendarDays(year, month, asOf)
+    + (isCurrentMonth && !hasTodayShift ? 1 : 0);
   const remainingToPlan = plan === null ? null : plan - totals.revenue;
 
   return Object.freeze({
