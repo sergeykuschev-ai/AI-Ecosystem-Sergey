@@ -5,7 +5,8 @@
   "notes": [
     "Dimensions are representative internal and external dimensions of actual commercial boxes, not measurements of VOZDOOH stock.",
     "Tare weights are conservative upper values from published vendor examples; actual box grade, tape, cushioning and inserts vary.",
-    "A packed shipment must be measured and weighed before using its tariff in payment; fragile glass bottles require cushioning and protection against leakage."
+    "A packed shipment must be measured and weighed before using its tariff in payment; fragile glass bottles require cushioning and protection against leakage.",
+    "600x200x200 mm carton is a sourced candidate for the two 500x150x150 mm Africa sets; a fit calculation does not verify protection against breakage."
   ],
   "cartons": [
     {
@@ -18,8 +19,14 @@
       "outerWidthMm": 156,
       "outerHeightMm": 106,
       "estimatedTareWeightG": 90,
-      "observedWeightRangeG": [64, 90],
-      "sources": ["https://mkfgroup.ru/kartonnyie-korobki/gofrokorob-trexslojnyij-200-150-100-t23.html", "https://vrnupak.com/catalog/kartonnaya-korobka-200-150-100/properties/"]
+      "observedWeightRangeG": [
+        64,
+        90
+      ],
+      "sources": [
+        "https://mkfgroup.ru/kartonnyie-korobki/gofrokorob-trexslojnyij-200-150-100-t23.html",
+        "https://vrnupak.com/catalog/kartonnaya-korobka-200-150-100/properties/"
+      ]
     },
     {
       "id": "reference-300x200x150",
@@ -31,8 +38,14 @@
       "outerWidthMm": 208,
       "outerHeightMm": 158,
       "estimatedTareWeightG": 150,
-      "observedWeightRangeG": [130, 150],
-      "sources": ["https://mkfgroup.ru/kartonnyie-korobki/kartonnaya-korobka-300-200-150-mm-gofrokorob-300-200-150-mm-t22b.html", "https://slavkarton.ru/product/gofrokorob-300h200h150-t-23-v-buryj-kopirovat/"]
+      "observedWeightRangeG": [
+        130,
+        150
+      ],
+      "sources": [
+        "https://mkfgroup.ru/kartonnyie-korobki/kartonnaya-korobka-300-200-150-mm-gofrokorob-300-200-150-mm-t22b.html",
+        "https://slavkarton.ru/product/gofrokorob-300h200h150-t-23-v-buryj-kopirovat/"
+      ]
     },
     {
       "id": "reference-400x300x200",
@@ -44,8 +57,34 @@
       "outerWidthMm": 306,
       "outerHeightMm": 206,
       "estimatedTareWeightG": 330,
-      "observedWeightRangeG": [250, 331],
-      "sources": ["https://mkfgroup.ru/kartonnyie-korobki/gofrokorob-trexslojnyij-400-300-200-mm-t23.html", "https://gofromir.ru/catalog/kartonnyie-korobki/gofrokorob_400kh300kh200_t23_b_buryy/"]
+      "observedWeightRangeG": [
+        250,
+        331
+      ],
+      "sources": [
+        "https://mkfgroup.ru/kartonnyie-korobki/gofrokorob-trexslojnyij-400-300-200-mm-t23.html",
+        "https://gofromir.ru/catalog/kartonnyie-korobki/gofrokorob_400kh300kh200_t23_b_buryy/"
+      ]
+    },
+    {
+      "id": "reference-600x200x200",
+      "status": "ESTIMATED",
+      "innerLengthMm": 600,
+      "innerWidthMm": 200,
+      "innerHeightMm": 200,
+      "outerLengthMm": 606,
+      "outerWidthMm": 206,
+      "outerHeightMm": 206,
+      "estimatedTareWeightG": 240,
+      "observedWeightRangeG": [
+        237,
+        240
+      ],
+      "sources": [
+        "https://mkfgroup.ru/kartonnyie-korobki/kartonnaya-korobka-600-200-200-mm--gofrokorob-600-200-200-mm.html",
+        "https://slavkarton.ru/product/gofrokorob-600h200h200-t-23-v-buryj/"
+      ],
+      "intendedUse": "Large Africa 1200 ml vase sets; product dimensions 500x150x150 mm; physical test and glass protection required"
     }
   ]
 }
