@@ -235,3 +235,14 @@ test('delivery creation refuses unpaid orders before any provider mutation', asy
   )
   assert.equal(called, false)
 })
+
+
+test('Ozon quote fails closed instead of showing missing delivery price as zero', async () => {
+  const { quoteOzonPickupDelivery } = require('../src/commerce/ozonDeliveryBusiness.ts')
+  for (const posting of [{}, { estimated_delivery_cost: { amount: 'not-a-price' } }, { estimated_delivery_cost: { amount: '-5' } }]) {
+    await assert.rejects(
+      () => quoteOzonPickupDelivery(order(), parcel, { checkoutOrder: async (body) => ({ results: [{ request_id: body.postings[0].request_id, posting }] }) }),
+      /OZON_DELIVERY_PRICE_UNAVAILABLE/,
+    )
+  }
+})

@@ -118,8 +118,21 @@ export async function quoteOzonPickupDelivery(
   const row = Array.isArray(response.results) ? response.results.find((item) => item.request_id === requestId) : undefined
   if (!row) throw new OzonDeliveryQuoteError('OZON_DELIVERY_QUOTE_MISSING')
   if (row.error) throw new OzonDeliveryQuoteError('OZON_DELIVERY_QUOTE_REJECTED')
-  const delivery = parseMoney(row.posting?.estimated_delivery_cost)
-  const insurance = parseMoney(row.posting?.estimated_insurance_cost)
+  // A missing or malformed delivery price must never be shown as free shipping.
+  const deliveryAmount = row.posting?.estimated_delivery_cost
+  if (!deliveryAmount || typeof deliveryAmount !== 'object' || !('amount' in deliveryAmount) ||
+      !Number.isFinite(Number((deliveryAmount as { amount: unknown }).amount)) ||
+      Number((deliveryAmount as { amount: unknown }).amount) <= 0) {
+    throw new OzonDeliveryQuoteError('OZON_DELIVERY_PRICE_UNAVAILABLE')
+  }
+  const insuranceAmount = row.posting?.estimated_insurance_cost
+  if (insuranceAmount !== undefined && (!insuranceAmount || typeof insuranceAmount !== 'object' ||
+      !('amount' in insuranceAmount) || !Number.isFinite(Number((insuranceAmount as { amount: unknown }).amount)) ||
+      Number((insuranceAmount as { amount: unknown }).amount) < 0)) {
+    throw new OzonDeliveryQuoteError('OZON_DELIVERY_INSURANCE_PRICE_INVALID')
+  }
+  const delivery = parseMoney(deliveryAmount)
+  const insurance = parseMoney(insuranceAmount)
   const days = typeof row.posting?.estimated_delivery_days === 'number' && Number.isFinite(row.posting.estimated_delivery_days)
     ? row.posting.estimated_delivery_days
     : null
