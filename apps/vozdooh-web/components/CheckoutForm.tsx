@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { parseRequest } from '../src/commerce/requestValidation'
 import { submitRequest } from '../src/commerce/submitRequest'
+import { fetchOrderDeliveryQuote, type DeliveryQuotePresentation } from '../src/commerce/deliveryQuoteClient'
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { getCartSnapshot, getServerCartSnapshot, subscribeCart } from '../src/cart/storage'
 import type { CatalogProduct } from '../src/catalog/contracts'
@@ -28,15 +29,17 @@ export function CheckoutForm({ products, enabled }: { products: CatalogProduct[]
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
   const [method, setMethod] = useState('ozon-pvz')
-  const [pvzQuery, setPvzQuery] = useState('Москва')
+  const [pvzQuery, setPvzQuery] = useState('')
   const [pvzPoints, setPvzPoints] = useState<Array<{ delivery_point_id: number; name: string; full_address: string; shipment_method_ids: number[] }>>([])
   const [pvzLoading, setPvzLoading] = useState(false)
+  const [pvzSearched, setPvzSearched] = useState(false)
+  const pvzSearchVersion = useRef(0)
   const [selectedPvz, setSelectedPvz] = useState<number | null>(null)
-  const [success, setSuccess] = useState<{ id: string; totalMinor: number } | null>(null)
+  const [success, setSuccess] = useState<{ id: string; totalMinor: number; deliveryMethod: 'courier' | 'ozon-pvz' | 'pickup' } | null>(null)
   const [paymentPending, setPaymentPending] = useState(false)
   const [quotePending, setQuotePending] = useState(false)
   const [quoteError, setQuoteError] = useState('')
-  const [deliveryQuote, setDeliveryQuote] = useState<{ estimatedTotalDeliveryRub: number; estimatedCombinedTotalMinor: number; estimatedDeliveryDays: number | null; provisionalLogistics: boolean } | null>(null)
+  const [deliveryQuote, setDeliveryQuote] = useState<DeliveryQuotePresentation | null>(null)
   const attempt = useRef<{ signature: string; retryKey: string } | null>(null)
   const busy = useRef(false)
   const cart = useSyncExternalStore(subscribeCart, getCartSnapshot, getServerCartSnapshot)
@@ -61,15 +64,37 @@ export function CheckoutForm({ products, enabled }: { products: CatalogProduct[]
     })
   }, [valid, total, rows])
 
+  function changePvzQuery(query: string) {
+    // Once the destination changes, any old point selection becomes invalid.
+    pvzSearchVersion.current += 1
+    setPvzQuery(query)
+    setPvzPoints([])
+    setSelectedPvz(null)
+    setPvzSearched(false)
+    setPvzLoading(false)
+  }
+
   async function searchPvz() {
-    if (pvzQuery.trim().length < 2) return
-    setPvzLoading(true); setError('')
+    const query = pvzQuery.trim()
+    if (query.length < 2) return
+    const version = ++pvzSearchVersion.current
+    setPvzLoading(true)
+    setSelectedPvz(null)
+    setPvzPoints([])
+    setPvzSearched(true)
+    setError('')
     try {
-      const response = await fetch('/api/ozon/pickup-points', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: pvzQuery.trim() }) })
+      const response = await fetch('/api/ozon/pickup-points', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query }) })
       const data = await response.json() as { delivery_points?: Array<{ delivery_point_id: number; name: string; full_address: string; shipment_method_ids: number[] }> }
       if (!response.ok || !Array.isArray(data.delivery_points)) throw new Error('PVZ')
-      setPvzPoints(data.delivery_points)
-    } catch { setError('Не удалось загрузить пункты Ozon. Повторите поиск.') } finally { setPvzLoading(false) }
+      if (version !== pvzSearchVersion.current) return
+      // A point without an Ozon shipment method cannot be used in the delivery API.
+      setPvzPoints(data.delivery_points.filter((point) => point.shipment_method_ids?.length > 0))
+    } catch {
+      if (version === pvzSearchVersion.current) setError('Не удалось загрузить пункты Ozon. Повторите поиск.')
+    } finally {
+      if (version === pvzSearchVersion.current) setPvzLoading(false)
+    }
   }
 
 
@@ -101,27 +126,22 @@ export function CheckoutForm({ products, enabled }: { products: CatalogProduct[]
       try { sessionStorage.setItem('vozdooh-request-attempt', JSON.stringify(attempt.current)) } catch { /* In-memory retry key still protects this tab. */ }
       const result = await submitRequest({ ...normalized, retryKey: attempt.current.retryKey })
       trackEvent('submit_order', { request_id: result.id, value: result.totalMinor / 100, currency: result.currency })
-      setSuccess(result)
+      setSuccess({ ...result, deliveryMethod: normalized.delivery.method })
+      // Ozon PVZ estimates are read-only. Courier pricing is agreed separately.
+      if (normalized.delivery.method === 'ozon-pvz') void estimateDelivery(result.id, result.totalMinor)
     } catch (failure) {
       const code = failure && typeof failure === 'object' && 'code' in failure ? String(failure.code) : ''
       setError(errors[code] ?? 'Не удалось получить подтверждение. Повторите отправку с теми же данными: повторная заявка не создастся.')
     } finally { busy.current = false; setPending(false) }
   }
 
-  async function estimateDelivery() {
-    if (!success || quotePending) return
+  async function estimateDelivery(requestId: string, productTotalMinor: number) {
     setQuotePending(true)
     setQuoteError('')
     setDeliveryQuote(null)
     try {
-      const response = await fetch('/api/ozon/delivery-quote', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requestId: success.id }),
-      })
-      const result = await response.json() as { code?: string; estimatedTotalDeliveryRub?: number; estimatedCombinedTotalMinor?: number; estimatedDeliveryDays?: number | null; deliveryIncludedInPayment?: boolean; provisionalLogistics?: boolean }
-      if (!response.ok || result.deliveryIncludedInPayment !== false || !Number.isFinite(result.estimatedTotalDeliveryRub) ||
-          !Number.isSafeInteger(result.estimatedCombinedTotalMinor) || (result.estimatedTotalDeliveryRub ?? 0) <= 0) throw new Error(result.code ?? 'QUOTE_UNAVAILABLE')
-      setDeliveryQuote({ estimatedTotalDeliveryRub: result.estimatedTotalDeliveryRub!, estimatedCombinedTotalMinor: result.estimatedCombinedTotalMinor!, estimatedDeliveryDays: result.estimatedDeliveryDays ?? null, provisionalLogistics: result.provisionalLogistics === true })
+      const quote = await fetchOrderDeliveryQuote(requestId, productTotalMinor)
+      setDeliveryQuote(quote)
     } catch {
       setQuoteError('Не удалось получить надёжный тариф Ozon для этого заказа. Стоимость доставки согласуем отдельно до отправки.')
     } finally { setQuotePending(false) }
@@ -154,7 +174,8 @@ export function CheckoutForm({ products, enabled }: { products: CatalogProduct[]
     <h2>Заявка получена</h2>
     <p>Номер заявки: {success.id}</p>
     <p>Стоимость товаров: {money(success.totalMinor)}.</p>
-    <button type="button" onClick={estimateDelivery} disabled={quotePending}>{quotePending ? 'Рассчитываем доставку…' : 'Рассчитать доставку Ozon'}</button>
+    {quotePending && <p role="status">Рассчитываем предварительную стоимость доставки Ozon…</p>}
+    {success.deliveryMethod === 'ozon-pvz' && !quotePending && (deliveryQuote || quoteError) && <button type="button" onClick={() => void estimateDelivery(success.id, success.totalMinor)}>Обновить расчёт доставки</button>}
     {deliveryQuote && <div role="status">
       <p>Предварительная стоимость доставки Ozon: {money(Math.round(deliveryQuote.estimatedTotalDeliveryRub * 100))}.</p>
       {deliveryQuote.provisionalLogistics && <p><b>Расчёт по примерным данным:</b> вес и размеры товара взяты из открытых источников, а коробка и защитные материалы учтены ориентировочно. Окончательная стоимость будет согласована после проверки упаковки.</p>}
@@ -163,6 +184,7 @@ export function CheckoutForm({ products, enabled }: { products: CatalogProduct[]
       <p><b>Важно:</b> через Ozon Pay сейчас оплачиваются только товары. Доставка не входит в сумму платежа и согласовывается отдельно до отправки.</p>
     </div>}
     {quoteError && <p role="status">{quoteError}</p>}
+    <p>Стоимость доставки не входит в оплату товаров через Ozon Pay. Перед отправкой мы отдельно подтвердим тариф и способ оплаты доставки.</p>
     <p>Заявка сохранена. Сумма к оплате: {money(success.totalMinor)}. После перехода в Ozon Pay завершите оплату там.</p>
     {error && <p role="alert">{error}</p>}
     <button className="primary" type="button" onClick={pay} disabled={paymentPending}>{paymentPending ? 'Открываем Ozon Pay…' : 'Оплатить через Ozon Pay'}</button>
@@ -218,8 +240,8 @@ export function CheckoutForm({ products, enabled }: { products: CatalogProduct[]
           {method === 'ozon-pvz' && <div className="fieldGrid deliveryFields">
             <div className="field full">
               <label htmlFor="pvz-search">Город или адрес пункта Ozon</label>
-              <div className="radioRow"><input id="pvz-search" value={pvzQuery} onChange={(e) => setPvzQuery(e.target.value)} /><button type="button" onClick={searchPvz} disabled={pvzLoading}>{pvzLoading ? 'Ищем…' : 'Найти ПВЗ'}</button></div>
-              {pvzPoints.length === 0 && !pvzLoading && <small>Пунктов по запросу пока не найдено.</small>}
+              <div className="radioRow"><input id="pvz-search" value={pvzQuery} placeholder="Например, Хабаровск или Владивосток" onChange={(e) => changePvzQuery(e.target.value)} /><button type="button" onClick={searchPvz} disabled={pvzLoading}>{pvzLoading ? 'Ищем…' : 'Найти ПВЗ'}</button></div>
+              {pvzSearched && pvzPoints.length === 0 && !pvzLoading && !error && <small>Пунктов по запросу пока не найдено. Уточните город или адрес.</small>}
               {pvzPoints.map((point) => <label className="radioCard" key={point.delivery_point_id}>
                 <input type="radio" name="pvzId" value={point.delivery_point_id} checked={selectedPvz === point.delivery_point_id} onChange={() => setSelectedPvz(point.delivery_point_id)} required={method === 'ozon-pvz'} />
                 <span><b>{point.name}</b><br />{point.full_address}</span>
@@ -257,7 +279,7 @@ export function CheckoutForm({ products, enabled }: { products: CatalogProduct[]
           <span>Итого</span>
           <b>{valid ? money(total) : 'Проверьте корзину'}</b>
         </div>
-        <p className="notice">{enabled ? 'Сначала сохраняется заявка, затем откроется оплата через Ozon Pay. Товары не резервируются до подтверждения оплаты. Доступность курьера и стоимость доставки согласуются отдельно и не входят в сумму.' : 'Приём заявок доступен только для действующего каталога 1С.'}</p>
+        <p className="notice">{enabled ? 'Сначала сохраняется заявка и автоматически рассчитывается предварительная доставка до пункта Ozon, затем можно оплатить товары через Ozon Pay. Доставка оплачивается отдельно после согласования тарифа и не входит в указанную сумму. Товары не резервируются до подтверждения оплаты.' : 'Приём заявок доступен только для действующего каталога 1С.'}</p>
         {!valid && <p role="alert">Проверьте количество, наличие и цены в корзине.</p>}
         <button type="submit" form="request-form" className="primary" disabled={!enabled || !valid || pending}>
           {pending ? 'Сохраняем…' : 'Отправить заявку'}
