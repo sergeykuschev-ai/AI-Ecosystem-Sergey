@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "status": "OWNER_AUTHORIZED_FOR_INDICATIVE_QUOTE_ONLY",
+  "approvedAt": "2026-10-13",
+  "policy": "Original reported measurements are stored exactly as sourced. These are NOT verified parcel dimensions, must not be used to create shipment or payment, and can only support clearly labeled preliminary read-only Ozon tariff quote with additional carton/protection allowance.",
+  "products": [
+    {
+      "sku": "089864",
+      "barcode": "8411299001364",
+      "name": "Dynastie Senteur Royale диффузор silver 500мл",
+      "status": "PROVISIONAL",
+      "productWeightG": 700,
+      "productDimensionsMm": [140, 130, 300],
+      "sourceScope": "ITEM_WEIGHT_AND_RETAIL_PACKAGE_DIMENSIONS_FROM_DIFFERENT_RETAILERS",
+      "sourceUrls": ["https://pranahome.ru/product/senteur-royale-diffuzor-dynastie-collection-ladenac-milano", "https://www.brandsforless.com/en-kw/senteur-royale-luxury-reed-diffuser-500-ml/1895086/p/"]
+    },
+    {
+      "sku": "N019834",
+      "barcode": "3420070002501",
+      "name": "Christian Tortu VERT FRAIS аромапопурри",
+      "status": "PROVISIONAL",
+      "productWeightG": 360,
+      "productDimensionsMm": [99, 99, 82],
+      "sourceScope": "ITEM_WEIGHT_AND_SHARED_FAMILY_BOX_DIMENSIONS",
+      "sourceUrls": ["https://www.ebay.ca/itm/264573932316", "https://jiyugaoka-market-p.com/product.php?id=15449"]
+    },
+    {
+      "sku": "N019873",
+      "barcode": "3420070002587",
+      "name": "Christian Tortu JARDIN CITRUS аромапопурри",
+      "status": "PROVISIONAL",
+      "productWeightG": 370,
+      "productDimensionsMm": [99, 99, 82],
+      "sourceScope": "ITEM_WEIGHT_AND_SHARED_FAMILY_BOX_DIMENSIONS",
+      "sourceUrls": ["https://www.ebay.com.au/itm/254459611681", "https://jiyugaoka-market-p.com/product.php?id=15449"]
+    },
+    {
+      "sku": "045850b2-9e1f-11ee-b408-d069cd63062f",
+      "barcode": "2017701198859",
+      "name": "AROMAgroup Salami картридж 100 мл",
+      "status": "PROVISIONAL",
+      "productWeightG": 114,
+      "productDimensionsMm": [47, 47, 90],
+      "sourceScope": "ANOTHER_SCENT_SAME_MANUFACTURER_FAMILY",
+      "sourceUrls": ["https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-dispenser-liquid-s-aromatom-immuno-400405198/specification"]
+    }
+  ]
+}

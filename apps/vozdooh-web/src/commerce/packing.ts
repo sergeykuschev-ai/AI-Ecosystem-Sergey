@@ -51,7 +51,7 @@ export function packVerifiedUnits(units: Unit[], cartons: VerifiedCarton[]): { c
     // find a rotation that fits the full inner width and height and minimizes length.
     let usedLength = 0
     for (const unit of units) {
-      const lengths = rotations(unit.dimensions).filter(([l, w, h]) => w <= box.innerWidthMm && h <= box.innerHeightMm).map(([l]) => l)
+      const lengths = rotations(unit.dimensions).filter(([, w, h]) => w <= box.innerWidthMm && h <= box.innerHeightMm).map(([l]) => l)
       if (!lengths.length) { usedLength = Infinity; break }
       usedLength += Math.min(...lengths)
     }

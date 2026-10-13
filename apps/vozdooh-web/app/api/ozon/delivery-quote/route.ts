@@ -2,7 +2,8 @@ import { resolve } from 'node:path'
 import { ozonDeliveryEnabled, OzonConfigError } from '../../../../src/integrations/ozon/config'
 import { OzonApiError } from '../../../../src/integrations/ozon/client'
 import { localRequestStore } from '../../../../src/commerce/localRequestStore'
-import { parcelForOrder, LogisticsDataError } from '../../../../src/commerce/logisticsDataset'
+import { LogisticsDataError } from '../../../../src/commerce/logisticsDataset'
+import { parcelForPreliminaryQuote } from '../../../../src/commerce/preliminaryQuoteLogistics'
 import { quoteOzonPickupDelivery, OzonDeliveryQuoteError } from '../../../../src/commerce/ozonDeliveryBusiness'
 
 export const runtime = 'nodejs'
@@ -34,7 +35,7 @@ export async function POST(request: Request) {
     const order = await store.findById(body.requestId)
     if (!order) return Response.json({ code: 'REQUEST_NOT_FOUND' }, { status: 404, headers })
     if (order.input.delivery.method !== 'ozon-pvz') return Response.json({ code: 'OZON_DELIVERY_METHOD_UNSUPPORTED' }, { status: 422, headers })
-    const parcel = parcelForOrder(order)
+    const { parcel, provisional } = parcelForPreliminaryQuote(order)
     const quote = await quoteOzonPickupDelivery(order, parcel)
     if (!Number.isFinite(quote.totalDeliveryCostRub) || quote.totalDeliveryCostRub <= 0) throw new OzonDeliveryQuoteError('OZON_DELIVERY_PRICE_UNAVAILABLE')
     return Response.json({
@@ -45,6 +46,7 @@ export async function POST(request: Request) {
       productTotalMinor: order.totalMinor,
       estimatedCombinedTotalMinor: order.totalMinor + Math.round(quote.totalDeliveryCostRub * 100),
       deliveryIncludedInPayment: false,
+      provisionalLogistics: provisional,
     }, { status: 200, headers })
   } catch (error) {
     if (error instanceof LogisticsDataError || error instanceof OzonDeliveryQuoteError) {

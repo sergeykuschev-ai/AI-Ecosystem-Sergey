@@ -224,7 +224,7 @@ test('rendered discovery, every landing, product backlinks and metadata retain c
         assert.equal(meta.alternates.canonical, `/${plural}/${landing.slug}`)
         assert.ok(meta.description.length > 30)
         if (kind === 'brand' && ['culti-milano', 'teatro-fragranze-uniche', 'lothantique'].includes(landing.slug)) {
-          assert.match(meta.title, /Хабаровске — купить/)
+          assert.match(meta.title, /купить с доставкой по России/)
           assert.match(html, new RegExp(`Купить ${landing.name} в Хабаровске`))
         }
         if (kind === 'brand' && landing.slug === 'millefiori-milano') {
@@ -259,9 +259,9 @@ test('rendered discovery, every landing, product backlinks and metadata retain c
     const productMetadata = await Product.generateMetadata(props)
     assert.equal(productMetadata.alternates.canonical, `/catalog/${product.editorial.slug}`)
     assert.equal((productMetadata.title.match(/VOZDOOH/g) ?? []).length, 1)
-    assert.match(productMetadata.title, /купить в Хабаровске \| VOZDOOH$/)
+    assert.match(productMetadata.title, /купить с доставкой по России \| VOZDOOH$/)
     assert.match(productMetadata.description, /В наличии/)
-    assert.match(productMetadata.description, /доставка по России/i)
+    assert.match(productMetadata.description, /с доставкой по России/i)
     assert.match(details, /После оформления заказа доступна онлайн-оплата/)
     assert.match(details, /Как пахнет Dolce Vaniglia/)
     assert.match(details, /сахарная пудра, карамель, тёмный шоколад/)

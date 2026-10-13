@@ -36,7 +36,7 @@ export function CheckoutForm({ products, enabled }: { products: CatalogProduct[]
   const [paymentPending, setPaymentPending] = useState(false)
   const [quotePending, setQuotePending] = useState(false)
   const [quoteError, setQuoteError] = useState('')
-  const [deliveryQuote, setDeliveryQuote] = useState<{ estimatedTotalDeliveryRub: number; estimatedCombinedTotalMinor: number; estimatedDeliveryDays: number | null } | null>(null)
+  const [deliveryQuote, setDeliveryQuote] = useState<{ estimatedTotalDeliveryRub: number; estimatedCombinedTotalMinor: number; estimatedDeliveryDays: number | null; provisionalLogistics: boolean } | null>(null)
   const attempt = useRef<{ signature: string; retryKey: string } | null>(null)
   const busy = useRef(false)
   const cart = useSyncExternalStore(subscribeCart, getCartSnapshot, getServerCartSnapshot)
@@ -118,10 +118,10 @@ export function CheckoutForm({ products, enabled }: { products: CatalogProduct[]
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ requestId: success.id }),
       })
-      const result = await response.json() as { code?: string; estimatedTotalDeliveryRub?: number; estimatedCombinedTotalMinor?: number; estimatedDeliveryDays?: number | null; deliveryIncludedInPayment?: boolean }
+      const result = await response.json() as { code?: string; estimatedTotalDeliveryRub?: number; estimatedCombinedTotalMinor?: number; estimatedDeliveryDays?: number | null; deliveryIncludedInPayment?: boolean; provisionalLogistics?: boolean }
       if (!response.ok || result.deliveryIncludedInPayment !== false || !Number.isFinite(result.estimatedTotalDeliveryRub) ||
           !Number.isSafeInteger(result.estimatedCombinedTotalMinor) || (result.estimatedTotalDeliveryRub ?? 0) <= 0) throw new Error(result.code ?? 'QUOTE_UNAVAILABLE')
-      setDeliveryQuote({ estimatedTotalDeliveryRub: result.estimatedTotalDeliveryRub!, estimatedCombinedTotalMinor: result.estimatedCombinedTotalMinor!, estimatedDeliveryDays: result.estimatedDeliveryDays ?? null })
+      setDeliveryQuote({ estimatedTotalDeliveryRub: result.estimatedTotalDeliveryRub!, estimatedCombinedTotalMinor: result.estimatedCombinedTotalMinor!, estimatedDeliveryDays: result.estimatedDeliveryDays ?? null, provisionalLogistics: result.provisionalLogistics === true })
     } catch {
       setQuoteError('Не удалось получить надёжный тариф Ozon для этого заказа. Стоимость доставки согласуем отдельно до отправки.')
     } finally { setQuotePending(false) }
@@ -157,6 +157,7 @@ export function CheckoutForm({ products, enabled }: { products: CatalogProduct[]
     <button type="button" onClick={estimateDelivery} disabled={quotePending}>{quotePending ? 'Рассчитываем доставку…' : 'Рассчитать доставку Ozon'}</button>
     {deliveryQuote && <div role="status">
       <p>Предварительная стоимость доставки Ozon: {money(Math.round(deliveryQuote.estimatedTotalDeliveryRub * 100))}.</p>
+      {deliveryQuote.provisionalLogistics && <p><b>Расчёт по примерным данным:</b> вес и размеры товара взяты из открытых источников, а коробка и защитные материалы учтены ориентировочно. Окончательная стоимость будет согласована после проверки упаковки.</p>}
       <p>Ориентировочная общая стоимость товаров и доставки: <b>{money(deliveryQuote.estimatedCombinedTotalMinor)}</b>.</p>
       {deliveryQuote.estimatedDeliveryDays !== null && <p>Оценка срока доставки Ozon: {deliveryQuote.estimatedDeliveryDays} дн.</p>}
       <p><b>Важно:</b> через Ozon Pay сейчас оплачиваются только товары. Доставка не входит в сумму платежа и согласовывается отдельно до отправки.</p>
