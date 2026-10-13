@@ -28,12 +28,15 @@ export function CheckoutForm({ products, enabled }: { products: CatalogProduct[]
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
   const [method, setMethod] = useState('ozon-pvz')
-  const [pvzQuery, setPvzQuery] = useState('Хабаровск')
+  const [pvzQuery, setPvzQuery] = useState('Москва')
   const [pvzPoints, setPvzPoints] = useState<Array<{ delivery_point_id: number; name: string; full_address: string; shipment_method_ids: number[] }>>([])
   const [pvzLoading, setPvzLoading] = useState(false)
   const [selectedPvz, setSelectedPvz] = useState<number | null>(null)
   const [success, setSuccess] = useState<{ id: string; totalMinor: number } | null>(null)
   const [paymentPending, setPaymentPending] = useState(false)
+  const [quotePending, setQuotePending] = useState(false)
+  const [quoteError, setQuoteError] = useState('')
+  const [deliveryQuote, setDeliveryQuote] = useState<{ estimatedTotalDeliveryRub: number; estimatedCombinedTotalMinor: number; estimatedDeliveryDays: number | null } | null>(null)
   const attempt = useRef<{ signature: string; retryKey: string } | null>(null)
   const busy = useRef(false)
   const cart = useSyncExternalStore(subscribeCart, getCartSnapshot, getServerCartSnapshot)
@@ -105,6 +108,25 @@ export function CheckoutForm({ products, enabled }: { products: CatalogProduct[]
     } finally { busy.current = false; setPending(false) }
   }
 
+  async function estimateDelivery() {
+    if (!success || quotePending) return
+    setQuotePending(true)
+    setQuoteError('')
+    setDeliveryQuote(null)
+    try {
+      const response = await fetch('/api/ozon/delivery-quote', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId: success.id }),
+      })
+      const result = await response.json() as { code?: string; estimatedTotalDeliveryRub?: number; estimatedCombinedTotalMinor?: number; estimatedDeliveryDays?: number | null; deliveryIncludedInPayment?: boolean }
+      if (!response.ok || result.deliveryIncludedInPayment !== false || !Number.isFinite(result.estimatedTotalDeliveryRub) ||
+          !Number.isSafeInteger(result.estimatedCombinedTotalMinor) || (result.estimatedTotalDeliveryRub ?? 0) <= 0) throw new Error(result.code ?? 'QUOTE_UNAVAILABLE')
+      setDeliveryQuote({ estimatedTotalDeliveryRub: result.estimatedTotalDeliveryRub!, estimatedCombinedTotalMinor: result.estimatedCombinedTotalMinor!, estimatedDeliveryDays: result.estimatedDeliveryDays ?? null })
+    } catch {
+      setQuoteError('Не удалось получить надёжный тариф Ozon для этого заказа. Стоимость доставки согласуем отдельно до отправки.')
+    } finally { setQuotePending(false) }
+  }
+
   async function pay() {
     if (!success || paymentPending) return
     setPaymentPending(true); setError('')
@@ -132,6 +154,14 @@ export function CheckoutForm({ products, enabled }: { products: CatalogProduct[]
     <h2>Заявка получена</h2>
     <p>Номер заявки: {success.id}</p>
     <p>Стоимость товаров: {money(success.totalMinor)}.</p>
+    <button type="button" onClick={estimateDelivery} disabled={quotePending}>{quotePending ? 'Рассчитываем доставку…' : 'Рассчитать доставку Ozon'}</button>
+    {deliveryQuote && <div role="status">
+      <p>Предварительная стоимость доставки Ozon: {money(Math.round(deliveryQuote.estimatedTotalDeliveryRub * 100))}.</p>
+      <p>Ориентировочная общая стоимость товаров и доставки: <b>{money(deliveryQuote.estimatedCombinedTotalMinor)}</b>.</p>
+      {deliveryQuote.estimatedDeliveryDays !== null && <p>Оценка срока доставки Ozon: {deliveryQuote.estimatedDeliveryDays} дн.</p>}
+      <p><b>Важно:</b> через Ozon Pay сейчас оплачиваются только товары. Доставка не входит в сумму платежа и согласовывается отдельно до отправки.</p>
+    </div>}
+    {quoteError && <p role="status">{quoteError}</p>}
     <p>Заявка сохранена. Сумма к оплате: {money(success.totalMinor)}. После перехода в Ozon Pay завершите оплату там.</p>
     {error && <p role="alert">{error}</p>}
     <button className="primary" type="button" onClick={pay} disabled={paymentPending}>{paymentPending ? 'Открываем Ozon Pay…' : 'Оплатить через Ozon Pay'}</button>
