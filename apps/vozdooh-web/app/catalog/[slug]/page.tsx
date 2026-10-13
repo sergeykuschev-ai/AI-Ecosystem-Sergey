@@ -18,6 +18,7 @@ import { collectionPath, collectionsForProduct } from '../../../src/catalog/coll
 import { getRecommendations } from '../../../src/catalog/filters'
 import { productStructuredData, serializeStructuredData } from '../../../src/catalog/structuredData'
 import { fragranceFactsFor } from '../../../src/catalog/fragranceFacts'
+import { reviewedProductSearchDescription } from '../../../src/catalog/productSeo'
 
 import { catalogSource, getCatalogRepository } from '../../../src/catalog/source'
 
@@ -42,13 +43,13 @@ export async function generateMetadata({ params }: PageParams): Promise<Metadata
     : ''
   const description = catalogSource() === 'demo'
     ? 'Демонстрационная карточка товара VOZDOOH. Цена, наличие и характеристики появятся после синхронизации с 1С.'
-    : priority
+    : reviewedProductSearchDescription(product) ?? (priority
       ? fragranceFacts
         ? `${product.trade.brand ?? ''} ${fragranceFacts.name}${product.trade.volume ? ` ${product.trade.volume}` : ''} — как пахнет: ${scentSnippet} ${(product.trade.stock ?? 0) >= 1 ? 'В наличии.' : ''}${(product.trade.price ?? 0) > 0 ? ` ${rub.format(product.trade.price!)}.` : ''} Купить в Хабаровске, доставка по России.`
         : `Купить ${commercialName} в Хабаровске. ${(product.trade.stock ?? 0) >= 1 ? 'В наличии.' : ''}${(product.trade.price ?? 0) > 0 ? ` Цена ${rub.format(product.trade.price!)}.` : ''} Онлайн-оплата и доставка по Хабаровску и России.`
       : product.editorial.description
         ? `${product.editorial.description} ${[product.trade.brand, display.subtitle].filter(Boolean).join(' · ')}.`
-        : `${[display.title, product.trade.brand, display.subtitle].filter(Boolean).join(' · ')} в каталоге VOZDOOH.`
+        : `${[display.title, product.trade.brand, display.subtitle].filter(Boolean).join(' · ')} в каталоге VOZDOOH.`)
   const image = catalogImage(product)
   const title = priority
     ? `${display.title}${product.trade.volume ? ` ${product.trade.volume}` : ''} — ${product.trade.brand ?? 'VOZDOOH'} — купить в Хабаровске | VOZDOOH`

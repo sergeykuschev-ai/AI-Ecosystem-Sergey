@@ -153,6 +153,28 @@ const FACTS: Record<string, FragranceFacts> = {
     created: null,
     source: 'официальные материалы Lothantique',
   },
+  'into-the-wilderness': {
+    name: 'Into the Wilderness',
+    family: null,
+    facet: null,
+    notes: ['цитрусовый аккорд', 'красная смородина', 'амбра', 'тиковое дерево'],
+    summary: 'Композиция с цитрусовым аккордом, красной смородиной, амброй и тиковым деревом.',
+    rooms: [],
+    seasons: [],
+    created: null,
+    source: 'официальный каталог Vellutier',
+  },
+  'vintage-library': {
+    name: 'Vintage Library',
+    family: null,
+    facet: null,
+    notes: ['тёмный ром', 'опопанакс', 'лабданум', 'бурбонская ваниль', 'индийский сандал'],
+    summary: 'Композиция тёмного рома, смолистых опопанакса и лабданума, бурбонской ванили и индийского сандала.',
+    rooms: [],
+    seasons: [],
+    created: null,
+    source: 'официальный каталог Vellutier',
+  },
   'oudwood-journey': {
     name: 'Oudwood Journey',
     family: null,
@@ -205,6 +227,9 @@ export function fragranceFactsFor(product: CatalogProduct): FragranceFacts | nul
     if (/SANDALWOOD|SANTAL/i.test(name)) return FACTS.santal
   }
   if (brand === 'Vellutier') {
+    // Vintege is the observed 1C spelling; do not use fuzzy fragrance matching.
+    if (product.trade.category === 'Свечи' && (product.trade.stock ?? 0) > 0 && /\bInto\s+the\s+Wilderness\b/i.test(name)) return FACTS['into-the-wilderness']
+    if (product.trade.category === 'Свечи' && (product.trade.stock ?? 0) > 0 && /\b(?:Vintage|Vintege)\s+Library\b/i.test(name)) return FACTS['vintage-library']
     if (/Oudwood Journey|Удовое дерево/i.test(name)) return FACTS['oudwood-journey']
     if (/Midnight Toast|Вечерний тост/i.test(name)) return FACTS['midnight-toast']
   }
