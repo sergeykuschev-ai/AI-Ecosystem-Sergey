@@ -4,7 +4,8 @@ import { createServer } from "node:http";
 import { dirname, posix, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 
-const COOKIE_NAME = "miska_1c_session";
+const LEGACY_STORE = "miska";
+const COOKIE_PREFIX = "onec_1c_session";
 const DEFAULT_FILE_LIMIT = 5 * 1024 * 1024;
 const DEFAULT_MAX_FILE_SIZE = 256 * 1024 * 1024;
 const SESSION_TTL_MS = 60 * 60 * 1000;
@@ -35,6 +36,29 @@ function fail(res, message, status = 400, headers = {}) {
   send(res, status, `failure\n${message}`, headers);
 }
 
+function configuredStores() {
+  const raw = env("ONEC_EXCHANGE_STORES") || LEGACY_STORE;
+  return new Set(
+    raw
+      .split(",")
+      .map((value) => value.trim().toLowerCase())
+      .filter((value) => /^[a-z0-9][a-z0-9-]{0,63}$/.test(value)),
+  );
+}
+
+function resolveStore(pathname) {
+  if (pathname === "/api/1c/exchange") return LEGACY_STORE;
+  const prefix = "/api/1c/exchange/";
+  if (!pathname.startsWith(prefix)) return null;
+  const store = pathname.slice(prefix.length).toLowerCase();
+  if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(store)) return null;
+  return store;
+}
+
+function cookieName(store) {
+  return `${COOKIE_PREFIX}_${store.replaceAll("-", "_")}`;
+}
+
 function constantTimeEqual(left, right) {
   const a = Buffer.from(left);
   const b = Buffer.from(right);
@@ -60,13 +84,13 @@ function sessionSecret() {
   return password;
 }
 
-function sign(payload) {
-  return createHmac("sha256", sessionSecret()).update(payload).digest("base64url");
+function sign(store, payload) {
+  return createHmac("sha256", sessionSecret()).update(`${store}:${payload}`).digest("base64url");
 }
 
-function createSessionToken() {
+function createSessionToken(store) {
   const payload = `${Date.now()}.${randomBytes(16).toString("hex")}`;
-  return `${payload}.${sign(payload)}`;
+  return `${payload}.${sign(store, payload)}`;
 }
 
 function parseCookie(req, name) {
@@ -79,8 +103,8 @@ function parseCookie(req, name) {
   return null;
 }
 
-function validSession(req) {
-  const token = parseCookie(req, COOKIE_NAME);
+function validSession(req, store) {
+  const token = parseCookie(req, cookieName(store));
   if (!token) return null;
 
   const parts = token.split(".");
@@ -89,7 +113,7 @@ function validSession(req) {
   const issued = Number(issuedRaw);
   const now = Date.now();
   if (!Number.isFinite(issued) || now - issued > SESSION_TTL_MS || issued > now + 60_000) return null;
-  const expected = sign(`${issuedRaw}.${nonce}`);
+  const expected = sign(store, `${issuedRaw}.${nonce}`);
   return constantTimeEqual(signature, expected) ? token : null;
 }
 
@@ -122,14 +146,14 @@ function safeRelativeFilename(raw) {
   return normalized;
 }
 
-function sessionRoot(token) {
+function sessionRoot(store, token) {
   const root = env("ONEC_EXCHANGE_STORAGE_DIR") || "/var/lib/onec-exchange";
   const sessionId = createHash("sha256").update(token).digest("hex").slice(0, 24);
-  return resolve(root, sessionId);
+  return resolve(root, store, sessionId);
 }
 
-function filePathFor(token, filename) {
-  const root = sessionRoot(token);
+function filePathFor(store, token, filename) {
+  const root = sessionRoot(store, token);
   const target = resolve(root, safeRelativeFilename(filename));
   if (target !== root && !target.startsWith(root + sep)) throw new Error("invalid filename");
   return target;
@@ -148,10 +172,10 @@ async function readBody(req, limit) {
   return Buffer.concat(chunks);
 }
 
-async function appendChunk(token, filename, req) {
+async function appendChunk(store, token, filename, req) {
   const fileLimit = positiveInt("ONEC_EXCHANGE_FILE_LIMIT", DEFAULT_FILE_LIMIT);
   const body = await readBody(req, fileLimit);
-  const target = filePathFor(token, filename);
+  const target = filePathFor(store, token, filename);
   await mkdir(dirname(target), { recursive: true });
 
   let currentSize = 0;
@@ -172,15 +196,16 @@ async function appendChunk(token, filename, req) {
   }
 }
 
-async function markImported(token, filename) {
-  const target = filePathFor(token, filename);
+async function markImported(store, token, filename) {
+  const target = filePathFor(store, token, filename);
   const info = await stat(target);
   if (!info.isFile()) throw new Error("exchange file not found");
 
-  const root = sessionRoot(token);
+  const root = sessionRoot(store, token);
   await mkdir(root, { recursive: true });
   const record = {
     filename: safeRelativeFilename(filename),
+    store,
     size: info.size,
     accepted_at: new Date().toISOString(),
     state: "staged",
@@ -188,10 +213,10 @@ async function markImported(token, filename) {
   await appendFile(resolve(root, "imports.jsonl"), `${JSON.stringify(record)}\n`, "utf8");
 }
 
-function logEvent(mode, filename, result) {
+function logEvent(store, mode, filename, result) {
   const safeMode = String(mode ?? "unknown").replace(/[^a-z0-9_-]/gi, "");
   const safeFile = filename ? safeRelativeFilename(filename) : "";
-  console.info("1C exchange", { mode: safeMode, filename: safeFile, result });
+  console.info("1C exchange", { store, mode: safeMode, filename: safeFile, result });
 }
 
 export async function handleRequest(req, res) {
@@ -208,7 +233,8 @@ export async function handleRequest(req, res) {
     return;
   }
 
-  if (url.pathname !== "/api/1c/exchange") {
+  const store = resolveStore(url.pathname);
+  if (!store || !configuredStores().has(store)) {
     fail(res, "not found", 404);
     return;
   }
@@ -226,17 +252,18 @@ export async function handleRequest(req, res) {
 
   if (mode === "checkauth") {
     if (!authenticated(req)) {
-      fail(res, "authentication failed", 401, { "WWW-Authenticate": 'Basic realm="Miska 1C"' });
+      fail(res, "authentication failed", 401, { "WWW-Authenticate": 'Basic realm="Amursk Market 1C"' });
       return;
     }
-    const token = createSessionToken();
-    const cookie = `${COOKIE_NAME}=${token}; Path=/api/1c/exchange; HttpOnly; Secure; SameSite=Lax; Max-Age=3600`;
-    send(res, 200, `success\n${COOKIE_NAME}\n${token}`, { "Set-Cookie": cookie });
-    logEvent(mode, "", "success");
+    const token = createSessionToken(store);
+    const name = cookieName(store);
+    const cookie = `${name}=${token}; Path=${url.pathname}; HttpOnly; Secure; SameSite=Lax; Max-Age=3600`;
+    send(res, 200, `success\n${name}\n${token}`, { "Set-Cookie": cookie });
+    logEvent(store, mode, "", "success");
     return;
   }
 
-  const token = validSession(req);
+  const token = validSession(req, store);
   if (!token) {
     fail(res, "session is missing or expired", 401);
     return;
@@ -245,7 +272,7 @@ export async function handleRequest(req, res) {
   if (mode === "init") {
     const fileLimit = positiveInt("ONEC_EXCHANGE_FILE_LIMIT", DEFAULT_FILE_LIMIT);
     send(res, 200, `zip=no\nfile_limit=${fileLimit}`);
-    logEvent(mode, "", "success");
+    logEvent(store, mode, "", "success");
     return;
   }
 
@@ -256,9 +283,9 @@ export async function handleRequest(req, res) {
       return;
     }
     try {
-      await appendChunk(token, filename, req);
+      await appendChunk(store, token, filename, req);
       send(res, 200, "success");
-      logEvent(mode, filename, "success");
+      logEvent(store, mode, filename, "success");
     } catch (error) {
       const message = error instanceof Error ? error.message : "file write failed";
       fail(res, message);
@@ -269,9 +296,9 @@ export async function handleRequest(req, res) {
 
   if (mode === "import") {
     try {
-      await markImported(token, filename);
+      await markImported(store, token, filename);
       send(res, 200, "success");
-      logEvent(mode, filename, "staged");
+      logEvent(store, mode, filename, "staged");
     } catch (error) {
       const message = error instanceof Error ? error.message : "import staging failed";
       fail(res, message);

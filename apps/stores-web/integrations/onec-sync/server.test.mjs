@@ -9,6 +9,7 @@ import { createExchangeServer } from "./server.mjs";
 
 const KEYS = [
   "ONEC_EXCHANGE_ENABLED",
+  "ONEC_EXCHANGE_STORES",
   "ONEC_EXCHANGE_USERNAME",
   "ONEC_EXCHANGE_PASSWORD",
   "ONEC_EXCHANGE_STORAGE_DIR",
@@ -33,6 +34,7 @@ afterEach(async () => {
 async function start(enabled = true) {
   storageDir = await mkdtemp(join(tmpdir(), "onec-sync-"));
   process.env.ONEC_EXCHANGE_ENABLED = String(enabled);
+  process.env.ONEC_EXCHANGE_STORES = "miska,amper,ventil,metiz-market";
   process.env.ONEC_EXCHANGE_USERNAME = "miska-test";
   process.env.ONEC_EXCHANGE_PASSWORD = "test-password";
   process.env.ONEC_EXCHANGE_STORAGE_DIR = storageDir;
@@ -68,7 +70,7 @@ test("CommerceML checkauth, init, chunk upload and staging work end to end", asy
     headers: { Authorization: basic() },
   });
   assert.equal(auth.status, 200);
-  assert.match(await auth.text(), /^success\nmiska_1c_session\n/);
+  assert.match(await auth.text(), /^success\nonec_1c_session_miska\n/);
   const setCookie = auth.headers.get("set-cookie");
   assert.ok(setCookie);
   const cookie = setCookie.split(";")[0];
@@ -97,9 +99,11 @@ test("CommerceML checkauth, init, chunk upload and staging work end to end", asy
   assert.equal(imported.status, 200);
   assert.equal(await imported.text(), "success");
 
-  const dirs = await readdir(storageDir);
+  const stores = await readdir(storageDir);
+  assert.deepEqual(stores, ["miska"]);
+  const dirs = await readdir(join(storageDir, "miska"));
   assert.equal(dirs.length, 1);
-  const sessionPath = join(storageDir, dirs[0]);
+  const sessionPath = join(storageDir, "miska", dirs[0]);
   assert.equal(
     await readFile(join(sessionPath, "import.xml"), "utf8"),
     "<КоммерческаяИнформация></КоммерческаяИнформация>",
@@ -115,4 +119,58 @@ test("CommerceML checkauth, init, chunk upload and staging work end to end", asy
   );
   assert.equal(traversal.status, 400);
   assert.match(await traversal.text(), /^failure\ninvalid filename$/);
+});
+
+
+test("store-specific endpoints isolate sessions and staged files", async () => {
+  const base = await start(true);
+  const authenticate = async (store) => {
+    const response = await fetch(
+      `${base}/api/1c/exchange/${store}?type=catalog&mode=checkauth`,
+      { headers: { Authorization: basic() } },
+    );
+    assert.equal(response.status, 200);
+    const body = await response.text();
+    assert.match(body, new RegExp(`^success\\nonec_1c_session_${store.replaceAll("-", "_")}\\n`));
+    const setCookie = response.headers.get("set-cookie");
+    assert.ok(setCookie);
+    return setCookie.split(";")[0];
+  };
+
+  const amperCookie = await authenticate("amper");
+  const metizCookie = await authenticate("metiz-market");
+
+  const crossStore = await fetch(
+    `${base}/api/1c/exchange/metiz-market?type=catalog&mode=init`,
+    { headers: { Cookie: amperCookie } },
+  );
+  assert.equal(crossStore.status, 401);
+
+  for (const [store, cookie] of [["amper", amperCookie], ["metiz-market", metizCookie]]) {
+    const upload = await fetch(
+      `${base}/api/1c/exchange/${store}?type=catalog&mode=file&filename=import.xml`,
+      { method: "POST", headers: { Cookie: cookie }, body: `<catalog store="${store}"/>` },
+    );
+    assert.equal(upload.status, 200);
+    const imported = await fetch(
+      `${base}/api/1c/exchange/${store}?type=catalog&mode=import&filename=import.xml`,
+      { headers: { Cookie: cookie } },
+    );
+    assert.equal(imported.status, 200);
+  }
+
+  const stores = (await readdir(storageDir)).sort();
+  assert.deepEqual(stores, ["amper", "metiz-market"]);
+  for (const store of stores) {
+    const sessions = await readdir(join(storageDir, store));
+    assert.equal(sessions.length, 1);
+    const manifest = await readFile(join(storageDir, store, sessions[0], "imports.jsonl"), "utf8");
+    assert.match(manifest, new RegExp(`"store":"${store}"`));
+  }
+
+  const unknown = await fetch(
+    `${base}/api/1c/exchange/unknown?type=catalog&mode=checkauth`,
+    { headers: { Authorization: basic() } },
+  );
+  assert.equal(unknown.status, 404);
 });
