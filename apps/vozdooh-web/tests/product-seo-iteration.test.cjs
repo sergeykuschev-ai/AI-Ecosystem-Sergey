@@ -59,7 +59,6 @@ test('unverified target fragrances use format facts without invented notes or at
     ['N019834', 'Аромапопурри Christian Tortu /VERT FRAIS/ СВЕЖЕСТЬ ЗЕЛЕНИ', 'Christian Tortu', 'Ароматы для пространства'],
     ['N019836', 'Сменный аромат для аромапопурри 15 мл Christian Tortu/JARDIN CITRUS/ ЦИТРУСОВЫЕ САДЫ', 'Christian Tortu', 'Рефилы'],
     ['N019900', 'Сменный аромат для аромапопурри 15 мл Christian Tortu/VERT FRAIS/ СВЕЖЕСТЬ ЗЕЛЕНИ', 'Christian Tortu', 'Рефилы'],
-    ['DANHNIR250DEC', 'Ароматизатор воздуха NIRO, 250 мл, ТМ DANHERA', 'DANHERA', 'Диффузоры'],
     ['V61036', 'Vellutier / Свеча большая Сибирский сосновый лес 515гр / Siberian Pine Forest', 'Vellutier', 'Свечи'],
   ]) {
     const item = product(sku, name)
@@ -72,6 +71,18 @@ test('unverified target fragrances use format facts without invented notes or at
     assert.doesNotMatch(snippet, /ноты|официальн|производител|как пахнет/i)
     assert.equal(productStructuredData(item, '/catalog/example.jpg')['@graph'][0].additionalProperty, undefined)
   }
+})
+
+test('NIRO retains earlier retailer-supported facts without invented room claims', () => {
+  const item = product('DANHNIR250DEC', 'Ароматизатор воздуха NIRO, 250 мл, ТМ DANHERA')
+  assert.equal(item.trade.brand, 'DANHERA')
+  assert.equal(item.editorial.scentFamily, 'woody')
+  assert.equal(item.editorial.room, null)
+  const facts = fragranceFactsFor(item)
+  assert.equal(facts.name, 'NIRO')
+  assert.equal(facts.source, 'карточки Bosco и ЦУМ для NIRO 250 мл')
+  assert.deepEqual(facts.rooms, [])
+  assert.ok(reviewedProductSearchDescription(item).includes(facts.summary))
 })
 
 test('existing stocked Vellutier profiles remain covered and Lothantique stays outside snippet scope', () => {

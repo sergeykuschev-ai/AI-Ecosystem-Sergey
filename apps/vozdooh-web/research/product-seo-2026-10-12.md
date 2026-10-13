@@ -61,7 +61,7 @@ the available browser. Christian Tortu/DANHERA searches found retailer descripti
 and a third-party hosted exhibitor PDF, without establishing authoritative
 manufacturer evidence. Conflicting retailer Vert Frais notes were not adopted.
 
-For Christian Tortu, Siberian Pine Forest and NIRO, descriptions retain only brand,
+For Christian Tortu and Siberian Pine Forest, descriptions retain only brand,
 named fragrance, format and available volume/mass. Their speculative scent-family,
 mood and room fields are removed. No manufacturer attribution or new fragrance
 fact profiles are added for these products.
@@ -109,3 +109,12 @@ snippets through normalization without inventory mutation.
 
 The required `npm run verify` gate is therefore not green. No commit was created,
 no checks were bypassed, and the implementation remains reviewable in the worktree.
+
+## 2026-10-13 integration with live merchandising
+
+The production merchandising commit 2b1dba16 already contained NIRO fragrance facts
+from two retailer cards (Bosco and TSUM), not from an official manufacturer
+page. The merged version retains these explicitly retailer-attributed facts and
+restores the NIRO woody merchandising family, without an unsupported room or
+mood recommendation. Regression tests distinguish this case from products
+without corroborated note information.

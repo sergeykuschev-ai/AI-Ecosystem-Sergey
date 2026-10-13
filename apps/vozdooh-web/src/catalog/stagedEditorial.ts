@@ -67,7 +67,7 @@ const curated: Record<string, Partial<EditorialProduct>> = {
     description: 'Spiced Blackberry: спелая ежевика с апельсиновой цедрой, корицей и ванильным сахаром. Свеча WoodWick Mini 85 г с деревянным фитилём.',
     scentFamily: 'fruity',
   },
-  'DANHNIR250DEC': { slug: 'danhera-niro-250', images: ['/catalog/official/DANHNIR250DEC.jpg'], description: 'Интерьерный диффузор DANHERA NIRO, 250 мл.' },
+  'DANHNIR250DEC': { slug: 'danhera-niro-250', images: ['/catalog/official/DANHNIR250DEC.jpg'], description: 'Пряно-древесная композиция с кипарисом и элеми, личи и перуанским бальзамом на базе сандала, уда и пачули.', scentFamily: 'woody' },
   'V61028': { slug: 'vellutier-into-the-wilderness-515', images: ['/catalog/official/V61028.jpg'], description: 'Композиция с цитрусовым аккордом, красной смородиной, амброй и тиковым деревом.', scentFamily: 'fruity', mood: 'focused', room: 'living' },
   'V61014': { slug: 'vellutier-midnight-toast-515', images: ['/catalog/official/V61014.jpg'], description: 'Необычная композиция джин-тоника и дыни канталупы с цветком апельсина, тиковым деревом и кедром.', scentFamily: 'woody', mood: 'cozy', room: 'living' },
   'V61036': { slug: 'vellutier-siberian-pine-forest-515', images: ['/catalog/official/V61036.jpg'], description: 'Ароматическая свеча Vellutier Siberian Pine Forest «Сибирский сосновый лес», 515 г.' },
