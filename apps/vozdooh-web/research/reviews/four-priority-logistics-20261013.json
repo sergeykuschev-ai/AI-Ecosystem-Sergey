@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-10-13",
+  "status": "REVIEWED_NOT_VERIFIED",
+  "purpose": "Document source and measurement scope checks before any shipping eligibility promotion. Research is not physical verification.",
+  "records": [
+    {
+      "sku": "089864",
+      "ean": "8411299001364",
+      "name": "Ladenac Milano Dynastie Senteur Royale 500 ml",
+      "reportedWeightG": 700,
+      "reportedDimensionsMm": [140, 130, 300],
+      "reviewOutcome": "BLOCKED_SCOPE_MISMATCH",
+      "evidence": [
+        {"source": "https://pranahome.ru/product/senteur-royale-diffuzor-dynastie-collection-ladenac-milano", "scope": "ITEM_WEIGHT", "identity": "EXACT_EAN", "statement": "Product has EAN 8411299001364 and displayed weight 0.7 kg"},
+        {"source": "https://www.brandsforless.com/en-kw/senteur-royale-luxury-reed-diffuser-500-ml/1895086/p/", "scope": "RETAIL_PACKAGING_DIMENSIONS", "identity": "MATCHING_PRODUCT_NAME_NO_VISIBLE_EAN", "statement": "Packaging size 30 x 14 x 13 cm; no exact EAN or total packed weight"}
+      ],
+      "nextAction": "Confirm full retail unit in actual box weighs 700 g, measure same unit; separately weigh packed shipment with protective materials."
+    },
+    {
+      "sku": "N019834",
+      "ean": "3420070002501",
+      "name": "Christian Tortu Vert Frais Pot Pourri",
+      "reportedWeightG": 360,
+      "reportedDimensionsMm": [99, 99, 82],
+      "reviewOutcome": "BLOCKED_SHARED_SERIES_SPEC",
+      "evidence": [
+        {"source": "https://www.ebay.ca/itm/264573932316", "scope": "ITEM_WEIGHT", "identity": "HISTORICAL_EXACT_EAN_RESEARCH", "statement": "Previous dataset notes marketplace item weight 360 g; total packed unit weight not confirmed in this review"},
+        {"source": "https://jiyugaoka-market-p.com/product.php?id=15449", "scope": "SERIES_PACKAGING_DIMENSIONS", "identity": "FAMILY_EVIDENCE", "statement": "Historical distributor report of 99 x 99 x 82 mm for series, not individually verified for this SKU"}
+      ],
+      "nextAction": "Confirm product variant and exact EAN; measure complete retail unit and weigh before shipping promotion."
+    },
+    {
+      "sku": "N019873",
+      "ean": "3420070002587",
+      "name": "Christian Tortu Jardin Citrus Pot Pourri",
+      "reportedWeightG": 370,
+      "reportedDimensionsMm": [99, 99, 82],
+      "reviewOutcome": "BLOCKED_SHARED_SERIES_SPEC",
+      "evidence": [
+        {"source": "https://www.ebay.com.au/itm/254459611681", "scope": "ITEM_WEIGHT", "identity": "HISTORICAL_EXACT_EAN_RESEARCH", "statement": "Previous dataset notes marketplace item weight 370 g; total packed unit weight not confirmed in this review"},
+        {"source": "https://jiyugaoka-market-p.com/product.php?id=15449", "scope": "SERIES_PACKAGING_DIMENSIONS", "identity": "FAMILY_EVIDENCE", "statement": "Historical distributor report of 99 x 99 x 82 mm for series, not individually verified for this SKU"}
+      ],
+      "nextAction": "Confirm product variant and exact EAN; measure complete retail unit and weigh before shipping promotion."
+    },
+    {
+      "sku": "045850b2-9e1f-11ee-b408-d069cd63062f",
+      "ean": "2017701198859",
+      "name": "AROMAgroup Salami refill cartridge 100 ml",
+      "reportedWeightG": 114,
+      "reportedDimensionsMm": [47, 47, 90],
+      "reviewOutcome": "BLOCKED_OTHER_SCENT_SAME_FAMILY",
+      "evidence": [
+        {"source": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-dispenser-liquid-s-aromatom-immuno-400405198/specification", "scope": "OTHER_SCENT_FAMILY", "identity": "NOT_EXACT_SKU", "statement": "114 g, 47 x 47 x 90 mm belong to Immuno aroma cartridge, not Salami SKU"}
+      ],
+      "nextAction": "Find matching exact SKU/EAN evidence for Salami 100 ml or weigh and measure actual stocked unit."
+    }
+  ]
+}

@@ -21,7 +21,13 @@ def analyze(queue, evidence):
         if status == 'CONFLICT' or len(weights)>1 or len(dimensions)>1:
             category = 'SOURCE_CONFLICT'; action = 'Check barcode, model, retail packaging, and physically weigh and measure.'
         elif dimensions and weights:
-            category = 'REVIEW_COMPLETE_EVIDENCE'; action = 'Check exact SKU/EAN and whether weight and dimensions describe the same complete item; do not auto-approve.'
+            dimension_evidence = [m for m in measurements if isinstance(m.get('dimensionsMm'),list) and all(isinstance(n,int) and n>0 for n in m['dimensionsMm'])]
+            if any('family' in m.get('scope','') for m in dimension_evidence):
+                category = 'FAMILY_REFERENCE_NOT_EXACT'
+                action = 'Family or shared-product dimensions do not prove this exact SKU. Find SKU/EAN-specific dimensions or measure physically.'
+            else:
+                category = 'DIFFERENT_MEASUREMENT_SCOPE'
+                action = 'Retail-packaging dimensions and item weight were reported separately; weigh and measure this same packed retail unit before approving.'
         elif dimensions:
             category = 'MISSING_WEIGHT'; action = 'Physically weigh the complete retail unit; verify dimension source matches exact SKU.'
         elif weights:
