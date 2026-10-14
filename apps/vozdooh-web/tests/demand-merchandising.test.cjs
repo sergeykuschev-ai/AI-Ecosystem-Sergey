@@ -2,7 +2,7 @@
 const { test } = require('node:test')
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
-const { priorityProducts, merchProducts, diverseMerchProducts, merchandisingSignal } = require('../src/catalog/merchandising.ts')
+const { priorityProducts, merchProducts, diverseMerchProducts, merchandisingSignal, homePopularProducts } = require('../src/catalog/merchandising.ts')
 const { applyCatalogFilters, getRecommendations } = require('../src/catalog/filters.ts')
 const { stagedEditorial, stagedTrade } = require('../src/catalog/stagedEditorial.ts')
 const { fragranceFactsFor } = require('../src/catalog/fragranceFacts.ts')
@@ -26,6 +26,16 @@ test('exact priority order, evidence sets and filter stability', () => {
   assert.equal(merchandisingSignal('BAST500NTFU'),null)
   assert.equal(diverseMerchProducts(merchProducts(products,'bestsellers')).length,2)
   assert.equal(diverseMerchProducts(merchProducts(products,'strong')).length,6)
+})
+
+test('homepage excludes automotive accessories and preserves real in-stock indoor formats', () => {
+  const selections = homePopularProducts(products)
+  assert.ok(selections.length > 0)
+  assert.ok(selections.length <= 6)
+  assert.ok(selections.every(p => p.trade.stock > 0))
+  assert.ok(selections.every(p => ['Диффузоры', 'Свечи'].includes(p.trade.category)))
+  assert.ok(!selections.some(p => p.trade.sku === '802e8b0c-d19b-11ec-be83-7c8bca00854e'))
+  assert.ok(selections.some(p => p.trade.sku === '802e8ae5-d19b-11ec-be83-7c8bca00854e'))
 })
 
 test('all priority cards retain content and exact local assets; car scent has no indoor room claim', () => {
@@ -83,7 +93,7 @@ test('homepage renders one externally evidenced popular shelf without internal d
     assert.match(html,/Популярные ароматы/)
     assert.doesNotMatch(html,/Бестселлеры брендов|CORE|STRONG|SLOW|CLEARANCE|promotionRank|demandTier/)
     const block=html.split('id="popular-fragrances"')[1].split('</section>')[0]
-    for(const p of diverseMerchProducts(merchProducts(products,'popular')).slice(0,6)) {
+    for(const p of homePopularProducts(products)) {
       assert.ok(block.includes(`/catalog/${p.editorial.slug}`),p.trade.sku)
     }
   } finally {source.getCatalogRepository=old}

@@ -1034,3 +1034,23 @@ select:focus-visible,summary:focus-visible{outline:2px solid var(--green);outlin
   .room .swipeHint{margin:0 0 -4px}
   .roomLinks.roomVisualGrid{grid-auto-columns:minmax(190px,65vw)}
 }
+
+/* Conversion pass: hero showcases a real stocked product, and merchandising CTAs align. */
+#popular-fragrances .products{align-items:stretch}
+#popular-fragrances .productCard{display:flex;flex-direction:column;height:100%}
+#popular-fragrances .productCardMeta{display:flex;flex-direction:column;flex:1;min-width:0}
+#popular-fragrances .productCardMeta h3{min-height:2.6em}
+#popular-fragrances .productCardMeta p.productCardPrice{margin-top:auto;padding-top:12px}
+#popular-fragrances .productCardDiscover{margin-top:12px;min-height:43px;align-items:center;flex-shrink:0}
+.homeEditorialNote{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;padding:26px 7vw}
+.homeEditorialNote h2{font-size:clamp(25px,2.7vw,34px);margin:0;max-width:860px}
+@media(max-width:800px){
+  .hero{min-height:0;display:block}
+  .heroProductShowcase{top:32px;left:50%;right:auto;bottom:auto;transform:translateX(-50%);width:min(58vw,250px);max-width:none;box-shadow:0 18px 56px rgba(0,0,0,.22)}
+  .heroProductShowcase img{padding:9% 9% 25%}
+  .heroProductCaption{left:12px;right:12px;bottom:12px}
+  .heroText{max-width:none;padding:calc(min(72.5vw,312.5px) + 80px) 6vw 50px}
+  .hero h1{font-size:clamp(34px,9vw,50px);line-height:1.04;margin-top:16px}
+  .homeEditorialNote{padding:24px 6vw;gap:6px}
+  .homeEditorialNote h2{font-size:clamp(25px,6.5vw,31px)}
+}

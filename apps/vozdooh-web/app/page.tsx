@@ -1,6 +1,6 @@
 import { ContextualCatalogLinks } from '../components/ContextualCatalogLinks'
 import { MerchSection } from '../components/MerchSection'
-import { diverseMerchProducts, merchProducts } from '../src/catalog/merchandising'
+import { homePopularProducts } from '../src/catalog/merchandising'
 import Image from 'next/image'
 import Link from 'next/link'
 import type { Metadata } from 'next'
@@ -25,6 +25,14 @@ const categories: { slug: DemoCategory; name: string; text: string; catalogCateg
 
 const families = Object.entries(familyLabels) as [DemoFamily, string][]
 const rooms = Object.entries(roomLabels) as [DemoRoom, string][]
+/** Editorial summaries derived from the existing documented brand stories. */
+const brandSummaries: Record<string, string> = {
+  'culti-milano': 'Миланский дизайн, в котором флакон и аромат становятся частью интерьера.',
+  'teatro-fragranze-uniche': 'Флорентийская парфюмерия: интерьер как сцена для выразительных композиций.',
+  'lothantique': 'Провансальское наследие: лаванда, эфирные масла и французская культура ароматов.',
+  'christian-tortu': 'Ботанические образы природы: сад, зелень и неожиданные цветочные сочетания.',
+}
+
 const roomMoments: Record<DemoRoom, string> = {
   living: 'Время вместе', bedroom: 'Личное пространство', bathroom: 'Пауза среди дня',
   study: 'В своём ритме', hallway: 'С возвращением домой',
@@ -172,7 +180,7 @@ export default async function Home() {
         </div>
       </section>
 
-      <MerchSection id="popular-fragrances" title="Популярные ароматы" description="Откройте ароматы CULTI MILANO, TEATRO и других брендов — в наличии и с доставкой по России." products={diverseMerchProducts(merchProducts(sellableProducts, 'popular')).slice(0, 6)} />
+      <MerchSection id="popular-fragrances" title="Популярные ароматы" description="Откройте ароматы CULTI MILANO, TEATRO и других брендов — в наличии и с доставкой по России." products={homePopularProducts(sellableProducts)} />
 
       <section id="finder" className="finder">
         <div>
@@ -190,14 +198,8 @@ export default async function Home() {
       </section>
 
       <section className="homeEditorialNote" aria-labelledby="selection-title">
-        <div>
-          <span className="eyebrow">Выбор VOZDOOH</span>
-          <h2 id="selection-title">Меньше случайного. <i>Больше личного.</i></h2>
-        </div>
-        <div>
-          <p>От свежих и прозрачных нот до тёплых древесных композиций. Найдите аромат, с которым дома будет по-настоящему хорошо.</p>
-          <Link className="textLink" href="/catalog">Смотреть ароматы <span aria-hidden="true">→</span></Link>
-        </div>
+        <span className="eyebrow">Выбор VOZDOOH</span>
+        <h2 id="selection-title">Меньше случайного. <i>Больше личного.</i></h2>
       </section>
 
       <section className="room">
@@ -244,7 +246,7 @@ export default async function Home() {
                 <span className="homeBrandCopy">
                   <small>0{index + 1} / {brand.products.length} поз.</small>
                   <strong>{brand.name}</strong>
-                  <span>Выберите ароматы и форматы бренда из актуального наличия.</span>
+                  <span>{brandSummaries[brand.slug] ?? brand.story?.title ?? brand.guidance}</span>
                   <b>Смотреть бренд →</b>
                 </span>
               </Link>

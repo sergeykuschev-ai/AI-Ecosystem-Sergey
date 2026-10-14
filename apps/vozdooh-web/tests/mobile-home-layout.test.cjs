@@ -18,3 +18,15 @@ test('mobile homepage provides horizontal category and room navigation', () => {
   assert.match(css, /\.roomLinks\.roomVisualGrid\{[^}]*overflow-x:auto/)
   assert.match(css, /#popular-fragrances \.productCardImage\{[^}]*mix-blend-mode:multiply/)
 })
+
+test('conversion polish uses distinct sourced brand summaries and preserves a real hero product image', () => {
+  assert.match(page, /brandSummaries\[brand\.slug\]/)
+  assert.match(page, /Миланский дизайн/)
+  assert.match(page, /Флорентийская парфюмерия/)
+  assert.match(page, /Провансальское наследие/)
+  assert.match(page, /Ботанические образы природы/)
+  assert.match(page, /<Image src=\{heroImage\}/)
+  assert.match(page, /homePopularProducts\(sellableProducts\)/)
+  assert.match(css, /#popular-fragrances \.productCardMeta\{display:flex/)
+  assert.match(css, /#popular-fragrances \.productCardMeta p\.productCardPrice\{margin-top:auto/)
+})

@@ -50,4 +50,14 @@ export function diverseMerchProducts(products: readonly CatalogProduct[]): Catal
   })
 }
 
+/** Home-fragrance shelf: independently researched and currently stocked home formats only.
+ * Automotive sachets, refills and consumables remain in the full catalog.
+ */
+export function homePopularProducts(products: readonly CatalogProduct[]): CatalogProduct[] {
+  const forHome = merchProducts(products, 'popular').filter(product =>
+    product.trade.category === 'Диффузоры' || product.trade.category === 'Свечи'
+  )
+  return diverseMerchProducts(forHome).slice(0, 6)
+}
+
 export const MERCHANDISING_NOTE = 'Выбор по подтверждённым сигналам независимых продавцов; не статистика продаж VOZDOOH.'
