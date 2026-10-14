@@ -25,3 +25,11 @@ The owner-approved revision removes the homepage cream strip and adds a native s
 Run `npm run verify` and the read-only browser regression script for desktop/mobile disclosure, keyboard closure, cart clearance, name/brand/SKU navigation, no homepage strip and catalog SEO/filter behavior. Backup and rollback: `/opt/vozdooh/backups/deploy/header-search-20261014/rollback.sh`, restoring exactly `home-search-20261014` without restarting the pickup worker or modifying persistent data.
 
 Headless search regression uses reduced motion and disables software WebGL to exercise the existing hero fallback on the verification host; navigation waits for DOM readiness. Hero rendering code is unchanged. The new homepage-strip assertion fails against the previous live release. Full `npm run verify` passes with `NO_PROXY=127.0.0.1,localhost` so local integration requests bypass the ambient HTTP proxy. Candidate pickup/courier/Ozon-point and mocked payment checks passed at 390px and 1280px with all writes intercepted.
+
+## Visible search button
+
+The header search trigger now uses a subtle outlined button with a magnifier and “Поиск” beside the cart. At widths up to 600px it shows a 24px magnifier in a 44px square touch target with accessible name “Поиск”. Hover, open and keyboard focus states remain visible. The panel placeholder is “Найти аромат или бренд”; its label and existing catalog implementation continue to support name, brand and SKU. Native disclosure behavior, Escape and focus restoration are preserved. No homepage strip is added.
+
+This revision follows the completed paid-cart release `8ae799c9`. Run `npm run verify` and `scripts/verify-catalog-search-browser.cjs` for 390px/1280px presentation, keyboard and catalog regression checks. Backup and rollback restore the exact paid-cart web image through `/opt/vozdooh/backups/deploy/search-button-visible-20261014/rollback.sh`, preserving the worker and persistent order data.
+
+Validation passed: `npm run verify` (165 Node tests, 2 integration tests, 9 Python tests, TypeScript, ESLint and build), production-settings build, and browser search regression at 390px/1280px including JavaScript-disabled GET search. Closed-header screenshots were visually reviewed; navigation stays on one line without overlap and the hero and cart remain intact.

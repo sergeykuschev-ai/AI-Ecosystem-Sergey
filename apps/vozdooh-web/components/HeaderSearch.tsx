@@ -19,13 +19,14 @@ export function HeaderSearch({ onOpen }: { onOpen: () => void }) {
     }} onKeyDown={(event) => {
       if (event.key === 'Escape') { event.preventDefault(); close() }
     }}>
-      <summary aria-label="Открыть поиск" aria-controls="header-search-panel">
+      <summary aria-label="Поиск" aria-controls="header-search-panel">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg>
+        <span className="headerSearchLabel">Поиск</span>
       </summary>
       <form id="header-search-panel" action="/catalog" method="get" role="search" className="headerSearchPanel">
         <label htmlFor="header-search">Поиск по названию, бренду или артикулу</label>
         <div className="headerSearchRow">
-          <input ref={inputRef} id="header-search" type="search" name="q" placeholder="Название, бренд или артикул" />
+          <input ref={inputRef} id="header-search" type="search" name="q" placeholder="Найти аромат или бренд" />
           <button className="primary" type="submit">Найти</button>
           <button className="headerSearchClose" type="button" aria-label="Закрыть поиск" onClick={close}>×</button>
         </div>
