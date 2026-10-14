@@ -17,3 +17,7 @@
 ## Acceptance
 
 Run `npm run verify` in `apps/vozdooh-web`. Check homepage, sitemap, robots, product page, delivery, cart and checkout on isolated container. Compare public production HTML/meta after deploying web-only release; retain the previous web Docker image for rollback. Search engine indexing and rankings are external outcomes, not guaranteed by successful code deployment.
+
+## IndexNow after deployment
+
+Direct `https://yandex.com/indexnow` submission failed at the VPS network layer. The official global endpoint `https://api.indexnow.org/indexnow` accepted the POST for 144 updated product URLs with HTTP 200. The site verification key URL returned 200 and matched. `scripts/indexnow.cjs` now uses the shared official gateway. HTTP 200 confirms receipt, not crawling or indexing.

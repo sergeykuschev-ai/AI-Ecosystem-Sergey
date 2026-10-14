@@ -1,4 +1,4 @@
-/* Submit newly created or materially changed VOZDOOH URLs to Yandex IndexNow. */
+/* Submit changed VOZDOOH URLs via the official shared IndexNow endpoint. */
 const key = 'a6bad1d47f5626833b7f2292a8d28757'
 const host = 'vozdooh27.ru'
 const base = `https://${host}`
@@ -32,7 +32,7 @@ async function main() {
 
   if (urlList.length > 10000) throw new Error(`IndexNow URL limit exceeded: ${urlList.length}`)
 
-  const response = await fetch('https://yandex.com/indexnow', {
+  const response = await fetch('https://api.indexnow.org/indexnow', {
     method: 'POST',
     headers: { 'content-type': 'application/json; charset=utf-8' },
     body: JSON.stringify({ host, key, keyLocation, urlList }),
