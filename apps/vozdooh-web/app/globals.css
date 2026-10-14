@@ -928,3 +928,11 @@ select:focus-visible,summary:focus-visible{outline:2px solid var(--green);outlin
 .headerSearchClose{width:44px;background:transparent;border:0;color:var(--ink);font-size:24px}
 @media(max-width:600px){.headerSearch summary{width:44px;height:44px;padding:0}.headerSearch svg{width:24px;height:24px}.headerSearchLabel{display:none}}
 @media(max-width:600px){.headerSearchPanel{padding:16px}.headerSearchRow{flex-wrap:wrap}.headerSearchRow input{flex-basis:calc(100% - 52px)}.headerSearchRow .primary{order:3;width:100%}.actions{gap:2px}}
+
+/* Compact homepage buying information, outside the original hero scene. */
+.heroText .heroDelivery{font-size:12px;letter-spacing:.08em;margin-top:20px;color:#e0ceb4}
+.homeBenefits{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:32px;padding:30px 7vw;background:#f7f3ec;border-bottom:1px solid #dfd6c8}
+.homeBenefits h2{font-size:19px;margin:0 0 10px;letter-spacing:-.02em}
+.homeBenefits p{font-size:13px;line-height:1.6;margin:0 0 10px;color:#62594f}
+.homeBenefits a{font-size:12px;text-underline-offset:4px}
+@media(max-width:700px){.homeBenefits{grid-template-columns:1fr;gap:18px;padding:24px 6vw}.homeBenefits>div+div{border-top:1px solid #dfd6c8;padding-top:18px}.homeBenefits h2{font-size:18px;margin-bottom:6px}}

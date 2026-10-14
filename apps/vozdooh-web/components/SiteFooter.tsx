@@ -16,6 +16,7 @@ const infoLinks = [
   { href: '/payment', label: 'Оплата' },
   { href: '/returns', label: 'Возврат' },
   { href: '/contacts', label: 'Контакты' },
+  { href: '/khabarovsk', label: 'VOZDOOH в Хабаровске' },
   { href: '/privacy', label: 'Конфиденциальность' },
   { href: '/offer', label: 'Оферта' },
   { href: '/user-agreement', label: 'Соглашение' },

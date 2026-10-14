@@ -3,7 +3,7 @@ export function siteStructuredData(siteUrlInput: string) {
   return {
     '@context': 'https://schema.org',
     '@graph': [
-      { '@type': 'WebSite', '@id': `${siteUrl}/#website`, url: siteUrl, name: 'VOZDOOH', inLanguage: 'ru-RU' },
+      { '@type': 'WebSite', '@id': `${siteUrl}/#website`, url: siteUrl, name: 'VOZDOOH', description: 'Ароматы для дома с доставкой в доступные пункты Ozon по России', inLanguage: 'ru-RU' },
       {
         '@type': 'Organization',
         '@id': `${siteUrl}/#organization`,

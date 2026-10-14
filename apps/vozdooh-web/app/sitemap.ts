@@ -31,6 +31,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     '/finder',
     '/business',
     '/contacts',
+    '/khabarovsk',
   ].map((path) => ({ url: `${base}${path}`, changeFrequency: 'weekly', priority: path === '/' ? 1 : 0.6 }))
 
   let dynamicRoutes: MetadataRoute.Sitemap = []
