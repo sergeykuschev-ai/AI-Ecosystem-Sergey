@@ -75,7 +75,8 @@ test('sitemap excludes transactional pages while robots keeps preview crawling d
     assert.ok(paths.includes('/guides/kak-polzovatsya-aromadiffuzorom'))
     assert.ok(paths.includes('/guides/refil-dlya-diffuzora-kak-ispolzovat'))
     assert.ok(paths.includes('/guides/kak-vybrat-aromaticheskuyu-svechu'))
-    for (const path of ['/delivery', '/payment', '/returns', '/privacy', '/offer', '/user-agreement', '/cart', '/checkout', '/api/order-requests']) assert.ok(!paths.includes(path))
+    assert.ok(paths.includes('/delivery'))
+    for (const path of ['/payment', '/returns', '/privacy', '/offer', '/user-agreement', '/cart', '/checkout', '/api/order-requests']) assert.ok(!paths.includes(path))
     assert.equal(require('../app/robots.ts').default().rules.disallow, '/')
   } finally {
     if (previous === undefined) delete process.env.CATALOG_PROVIDER

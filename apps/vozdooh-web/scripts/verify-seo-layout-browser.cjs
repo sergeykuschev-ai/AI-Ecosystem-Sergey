@@ -13,6 +13,8 @@ const routes = process.env.VOZDOOH_QA_ROUTES ? process.env.VOZDOOH_QA_ROUTES.spl
     for (const width of (process.env.VOZDOOH_QA_WIDTHS || '320,375,390,430,1280').split(',').map(Number)) {
       const page = await browser.newPage({ viewport: { width, height: 900 }, reducedMotion: 'reduce' })
       await page.route('**/*', route => route.request().method() === 'GET' && new URL(route.request().url()).origin === new URL(base).origin ? route.continue() : route.abort())
+      const titles = new Set()
+      const descriptions = new Set()
       for (const [index, path] of routes.entries()) {
         const response = await page.goto(base + path, { waitUntil: 'domcontentloaded', timeout: 90000 })
         if (process.env.VOZDOOH_QA_CONTEXTUAL === '1' && !['/delivery', '/catalog/culti-decor-aramara-250'].includes(path)) {
@@ -36,9 +38,24 @@ const routes = process.env.VOZDOOH_QA_ROUTES ? process.env.VOZDOOH_QA_ROUTES.spl
           assert.equal(await page.locator('[aria-current="page"]').innerText(), collection.name)
         }
         await page.evaluate(() => document.fonts.ready)
+        if (process.env.VOZDOOH_QA_COPY === '1') {
+          const title = await page.title()
+          const description = await page.locator('meta[name="description"]').getAttribute('content')
+          assert.ok(title && description, path)
+          assert.ok(!titles.has(title) && !descriptions.has(description), `Unique metadata ${path}`)
+          titles.add(title); descriptions.add(description)
+          assert.equal(await page.locator('link[rel=canonical]').getAttribute('href'), path === '/' ? 'https://vozdooh27.ru' : `https://vozdooh27.ru${path}`)
+          const text = await page.locator('main').innerText()
+          assert.doesNotMatch(text, /Сейчас магазин работает в режиме заявок|До завершения этой интеграции|Доставка по всей России/)
+          if (path === '/delivery') {
+            assert.match(text, /Бесплатный самовывоз: Хабаровск, ул. Павла Морозова, 97/)
+            assert.match(text, /заказ ожидает оплаты товаров через Ozon Pay/)
+          }
+        }
         const size = await page.evaluate(() => ({ viewport: innerWidth, document: document.documentElement.scrollWidth }))
         results.push({ path, width, status: response.status(), ...size })
         assert.equal(response.status(), 200, path)
+        if (process.env.VOZDOOH_QA_PUBLIC === '1') assert.match(await page.locator('meta[name=robots]').getAttribute('content'), /^index, follow$/, path)
         assert.ok(size.document <= width, `Overflow ${path} at ${width}: ${size.document}`)
         assert.equal(await page.locator('h1').count(), 1, path)
         if ([390, 1280].includes(width)) await page.screenshot({ path: `${output}/${width}-${index}.png`, fullPage: true })

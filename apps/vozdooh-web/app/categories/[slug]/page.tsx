@@ -1,3 +1,4 @@
+import { landingSearchDescription } from '../../../src/seo/landingCopy'
 import type { Metadata } from 'next'
 import { publicRobots } from '../../../src/seo/indexing'
 import { notFound } from 'next/navigation'
@@ -11,7 +12,8 @@ type Props = { params: Promise<{ slug: string }> }
 
 async function getLanding(slug: string) {
   const products = await withValidImages(await (await getCatalogRepository()).list())
-  return availableLandings(products, 'category').find((item) => item.slug === slug)
+  const landing = availableLandings(products, 'category').find((item) => item.slug === slug)
+  return landing ? { ...landing, description: landingSearchDescription(landing, landing.products, 'category') } : undefined
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {

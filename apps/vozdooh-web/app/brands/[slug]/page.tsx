@@ -1,3 +1,4 @@
+import { landingSearchDescription } from '../../../src/seo/landingCopy'
 import type { Metadata } from 'next'
 import { publicRobots } from '../../../src/seo/indexing'
 import { notFound } from 'next/navigation'
@@ -11,7 +12,8 @@ type Props = { params: Promise<{ slug: string }> }
 
 async function getLanding(slug: string) {
   const products = await withValidImages(await (await getCatalogRepository()).list())
-  return availableLandings(products, 'brand').find((item) => item.slug === slug)
+  const landing = availableLandings(products, 'brand').find((item) => item.slug === slug)
+  return landing ? { ...landing, description: landingSearchDescription(landing, landing.products, 'brand') } : undefined
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -20,17 +22,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const seoTitles: Record<string, string> = {
     'culti-milano': 'CULTI MILANO — купить с доставкой по России | VOZDOOH',
     'teatro-fragranze-uniche': 'TEATRO Fragranze Uniche — купить с доставкой по России | VOZDOOH',
-    lothantique: 'Lothantique — купить с доставкой по России ароматы | VOZDOOH',
+    lothantique: 'Lothantique — купить с доставкой по России | VOZDOOH',
     'millefiori-milano': 'Millefiori Milano — купить ароматы для дома | VOZDOOH',
   }
-  const seoDescriptions: Record<string, string> = {
-    'culti-milano': 'Купить CULTI MILANO с доставкой по России: Aramara, Tessuto, Aqqua и другие ароматы из актуального наличия VOZDOOH. Цены, онлайн-заказ и доставка по России.',
-    'teatro-fragranze-uniche': 'Купить TEATRO Fragranze Uniche с доставкой по России: Dolce Vaniglia, Bianco Divino, Rose Oud, диффузоры, свечи и рефилы. Онлайн-заказ и доставка по России.',
-    lothantique: 'Купить Lothantique с доставкой по России: Les Secrets d’Antoine, Sandalwood и другие ароматы для дома из актуального наличия VOZDOOH. Доставка по России.',
-    'millefiori-milano': 'Купить ароматы для дома Millefiori Milano в VOZDOOH. Актуальное наличие, цены и заказ онлайн с доставкой.',
-  }
-  const title = seoTitles[landing.slug] ?? `${landing.name} — ароматы для дома | VOZDOOH`
-  const description = seoDescriptions[landing.slug] ?? landing.description
+  const title = seoTitles[landing.slug] ?? `${landing.name} — каталог бренда из наличия | VOZDOOH`
+  const description = landing.description
   return { title, description,
     openGraph: { title, description },
     alternates: { canonical: landingPath('brand', landing.slug) }, robots: publicRobots() }

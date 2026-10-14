@@ -32,7 +32,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     bedroom: 'Ароматы для спальни — VOZDOOH',
     focused: 'Ароматы для концентрации и работы — VOZDOOH',
     'gift-diffusers': 'Аромадиффузор в подарок — купить с доставкой по России | VOZDOOH',
-    'home-fragrance': 'Ароматы для дома — купить с доставкой по России | VOZDOOH',
+    'home-fragrance': 'Ароматы для дома — подборка форматов и композиций | VOZDOOH',
   }
   const title = seoTitles[collection.slug] ?? `${collection.name} — коллекция VOZDOOH`
   return {
@@ -93,9 +93,10 @@ export default async function CollectionPage({ params }: Props) {
       {['home-fragrance', 'gift-diffusers'].includes(collection.slug) && (
         <section className="landingGuide" aria-label="Покупка и доставка">
           <h2>Доставка ароматов по России</h2>
-          <p>Интерьерные ароматы можно заказать онлайн из актуального наличия. Отправляем заказы из Хабаровска в другие регионы России через доступные пункты Ozon. Стоимость доставки согласовывается отдельно до отправки; условия оплаты и получения собраны на отдельных страницах.</p>
+          <p>Ароматы из наличия можно заказать онлайн и оплатить товары через Ozon Pay. Доставка по России — в доступные при оформлении пункты Ozon: тариф предварительный, окончательная стоимость и сроки подтверждаются до отправки. Доставка оплачивается отдельно от товаров. Бесплатный самовывоз — Хабаровск, ул. Павла Морозова, 97, после подтверждения готовности.</p>
           <nav className="landingLinks" aria-label="Условия заказа">
-            <Link href="/delivery">Доставка</Link>
+            <Link href="/delivery">Доставка и самовывоз</Link>
+            <Link href="/khabarovsk">Самовывоз в Хабаровске</Link>
             <Link href="/payment">Оплата</Link>
             <Link href="/catalog">Весь каталог</Link>
             <Link href="/guides/kak-vybrat-aromadiffuzor">Как выбрать диффузор</Link>

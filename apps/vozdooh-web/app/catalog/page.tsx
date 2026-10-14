@@ -21,8 +21,8 @@ export const dynamic = 'force-dynamic'
 
 const catalogMetadata: Metadata = {
   title: 'Ароматы для дома — каталог интерьерной парфюмерии | VOZDOOH',
-  description: 'Каталог ароматов для дома VOZDOOH: диффузоры, ароматические свечи, спреи, рефилы, автомобильные ароматы и подарочные наборы.',
-  openGraph: { title: 'Ароматы для дома — каталог VOZDOOH', description: 'Диффузоры, ароматические свечи, спреи, рефилы и другие форматы интерьерной парфюмерии.' },
+  description: 'Каталог VOZDOOH: сравните бренды, форматы, объёмы и цены товаров из наличия. Онлайн-заказ, доставка в доступные пункты Ozon и бесплатный самовывоз в Хабаровске.',
+  openGraph: { title: 'Ароматы для дома — каталог VOZDOOH', description: 'Все форматы из наличия VOZDOOH: поиск по названию, бренду и артикулу, фильтры и актуальные цены.' },
   alternates: { canonical: '/catalog' },
   robots: publicRobots(),
 }
@@ -79,7 +79,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
       <section className="pageIntro">
         <span className="eyebrow">Каталог</span>
         <h1>Ароматы для пространства</h1>
-        <p>{demo ? 'Демонстрационная коллекция VOZDOOH.' : 'Ароматы, которые становятся частью дома. Найдите свой характер пространства.'}</p>
+        <p>{demo ? 'Демонстрационная коллекция VOZDOOH.' : 'Весь ассортимент из наличия: сравните бренды, формат, объём и цену. Поиск поможет найти название или артикул; фильтры — сузить выбор.'}</p>
         <nav className="landingLinks" aria-label="Знакомство с коллекцией"><Link href="/brands">Бренды</Link><Link href="/categories">Категории</Link></nav>
       </section>
 

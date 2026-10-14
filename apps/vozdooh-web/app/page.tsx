@@ -41,7 +41,7 @@ export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   title: 'Ароматы для дома, диффузоры и свечи — доставка по России | VOZDOOH',
-  description: 'Диффузоры, свечи и интерьерная парфюмерия из наличия VOZDOOH. Доставка в доступные пункты Ozon по России; тариф и сроки зависят от направления. Самовывоз в Хабаровске.',
+  description: 'Диффузоры, свечи и интерьерная парфюмерия из наличия VOZDOOH. Доставка в доступные пункты Ozon по России; тариф и сроки зависят от направления. Бесплатный самовывоз в Хабаровске.',
   openGraph: { type: 'website', locale: 'ru_RU', siteName: 'VOZDOOH', url: '/', title: 'VOZDOOH — ароматы, которые создают атмосферу', description: 'Диффузоры, свечи и интерьерная парфюмерия. Доставка в доступные пункты Ozon по России; стоимость и сроки зависят от направления.' },
   alternates: { canonical: '/' },
   robots: publicRobots(),
@@ -134,7 +134,7 @@ export default async function Home() {
           <div className="eyebrow">Интерьерная парфюмерия · VOZDOOH</div>
           <h1>Ароматы, которые создают атмосферу</h1>
           <p>Диффузоры, свечи и интерьерная парфюмерия CULTI MILANO, Lothantique и других брендов.</p>
-          <p className="heroDelivery">Доставка в пункты Ozon по России</p>
+          <p className="heroDelivery">Доставка в доступные пункты Ozon по России</p>
           <div className="heroActions">
             <Link className="creamButton" href="/catalog">Выбрать аромат</Link>
             <Link className="textLink quiet" href="/collections/gift-diffusers">Выбрать подарок →</Link>
@@ -146,7 +146,7 @@ export default async function Home() {
       <section className="homeBenefits" aria-label="Покупки в VOZDOOH">
         <div><h2>Коллекции брендов</h2><p>Название, объём и фотографии — в карточке каждого аромата.</p><Link href="/brands">Знакомство с брендами →</Link></div>
         <div><h2>Ozon по России</h2><p>Выберите доступный пункт при оформлении. Тариф предварительный; доставка оплачивается отдельно.</p><Link href="/delivery">Условия доставки →</Link></div>
-        <div><h2>Из наличия</h2><p>В каталоге — товары с положительным остатком. Наличие проверяется при оформлении.</p><Link href="/khabarovsk">Самовывоз в Хабаровске →</Link></div>
+        <div><h2>Из наличия</h2><p>В каталоге — товары с положительным остатком. Наличие проверяется при оформлении. Самовывоз в Хабаровске — бесплатно.</p><Link href="/khabarovsk">Самовывоз в Хабаровске →</Link></div>
       </section>
 
       <section id="catalog" className="section sectionWhite">

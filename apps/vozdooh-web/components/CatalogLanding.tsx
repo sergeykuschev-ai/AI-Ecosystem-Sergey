@@ -43,16 +43,17 @@ export function CatalogLanding({ landing, products, kind, heading }: { landing: 
       </section>
     )}
     {kind === 'brand' && (
-      <section className="landingGuide" aria-label={`Купить ${landing.name} в Хабаровске`}>
-        <h2>Купить {landing.name} в Хабаровске</h2>
-        <p>В VOZDOOH показаны позиции {landing.name} из актуального наличия. Можно сравнить аромат, формат и объём, оформить заказ онлайн и выбрать доставку по Хабаровску или России.</p>
+      <section className="landingGuide" aria-label={`Выбрать ${landing.name} из наличия`}>
+        <h2>Выбрать {landing.name} из наличия</h2>
+        <p>В VOZDOOH показаны позиции {landing.name} из актуального наличия. Можно сравнить аромат, формат и объём, оформить заказ онлайн и оплатить товары через Ozon Pay. Доставка по России доступна в найденные при оформлении пункты Ozon; её стоимость согласовывается отдельно до отправки. Бесплатный самовывоз — Хабаровск, ул. Павла Морозова, 97, после подтверждения готовности.</p>
         {brandHighlights.length > 0 && (
           <nav className="landingLinks" aria-label={`Позиции ${landing.name} из актуального наличия`}>
             {brandHighlights.map((product) => <Link key={product.id} href={`/catalog/${product.editorial.slug}`}>{productPresentation(product).title}</Link>)}
           </nav>
         )}
         <nav className="landingLinks" aria-label="Условия заказа">
-          <Link href="/delivery">Доставка</Link>
+          <Link href="/delivery">Доставка и самовывоз</Link>
+          <Link href="/khabarovsk">Самовывоз в Хабаровске</Link>
           <Link href="/payment">Оплата</Link>
         </nav>
       </section>
@@ -67,10 +68,11 @@ export function CatalogLanding({ landing, products, kind, heading }: { landing: 
     </section>
     {kind === 'category' && (
       <section className="landingGuide" aria-label="Покупка и доставка">
-        <h2>Купить в Хабаровске с доставкой</h2>
-        <p>VOZDOOH — интернет-магазин интерьерной парфюмерии в Хабаровске. На витрине показаны позиции из актуального наличия; заказ оформляется онлайн, доставка доступна по Хабаровску и России.</p>
+        <h2>Онлайн-заказ и получение</h2>
+        <p>Товары из наличия можно заказать онлайн и оплатить через Ozon Pay. Доставка по России — в доступные при оформлении пункты Ozon, тариф подтверждается отдельно до отправки. Самовывоз в Хабаровске бесплатный: ул. Павла Морозова, 97, после подтверждения готовности.</p>
         <nav className="landingLinks" aria-label="Условия заказа">
-          <Link href="/delivery">Доставка</Link>
+          <Link href="/delivery">Доставка и самовывоз</Link>
+          <Link href="/khabarovsk">Самовывоз в Хабаровске</Link>
           <Link href="/payment">Оплата</Link>
           <Link href="/catalog">Весь каталог</Link>
           {landing.slug === 'diffusers' && <><Link href="/guides/kak-vybrat-aromadiffuzor">Как выбрать диффузор</Link><Link href="/guides/kak-polzovatsya-aromadiffuzorom">Как пользоваться диффузором</Link></>}

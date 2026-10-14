@@ -6,9 +6,7 @@ import { availableLandings } from '../src/catalog/landings'
 import { availableCollections } from '../src/catalog/collections'
 
 /**
- * Sitemap for the storefront routes. robots.txt still disallows all crawling
- * until the owner approves public indexing, so this file is launch-ready
- * plumbing, not an indexing switch. It is computed per request so product,
+ * Sitemap for the owner-approved public storefront. Computed per request so product,
  * brand, category and collection URLs always reflect the live catalog source.
  */
 export const dynamic = 'force-dynamic'
@@ -32,6 +30,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     '/business',
     '/contacts',
     '/khabarovsk',
+    '/delivery',
   ].map((path) => ({ url: `${base}${path}`, changeFrequency: 'weekly', priority: path === '/' ? 1 : 0.6 }))
 
   let dynamicRoutes: MetadataRoute.Sitemap = []

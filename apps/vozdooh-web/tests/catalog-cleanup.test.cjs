@@ -223,9 +223,11 @@ test('rendered discovery, every landing, product backlinks and metadata retain c
         assert.equal(meta.robots.index, false)
         assert.equal(meta.alternates.canonical, `/${plural}/${landing.slug}`)
         assert.ok(meta.description.length > 30)
+        assert.match(meta.description, /Бесплатный самовывоз в Хабаровске/)
+        assert.match(html, /Павла Морозова, 97/)
         if (kind === 'brand' && ['culti-milano', 'teatro-fragranze-uniche', 'lothantique'].includes(landing.slug)) {
           assert.match(meta.title, /купить с доставкой по России/)
-          assert.match(html, new RegExp(`Купить ${landing.name} в Хабаровске`))
+          assert.match(html, new RegExp(`Выбрать ${landing.name} из наличия`))
         }
         if (kind === 'brand' && landing.slug === 'millefiori-milano') {
           assert.match(meta.title, /купить ароматы для дома/)
