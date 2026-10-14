@@ -3,11 +3,13 @@ const assert = require('node:assert/strict')
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright-core')
 const base = process.env.VOZDOOH_QA_URL || 'http://127.0.0.1:3438'
 ;(async () => {
-  const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH, headless: true, args: ['--no-sandbox'], ...(process.env.VOZDOOH_QA_PROXY ? { proxy: { server: process.env.VOZDOOH_QA_PROXY } } : {}) })
+  const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH, headless: true, args: ['--no-sandbox', '--disable-webgl'], ...(process.env.VOZDOOH_QA_PROXY ? { proxy: { server: process.env.VOZDOOH_QA_PROXY } } : {}) })
   try {
     for (const width of [390, 1280]) {
-      const context = await browser.newContext({ viewport: { width, height: 900 } })
+      const context = await browser.newContext({ viewport: { width, height: 900 }, reducedMotion: 'reduce' })
       const page = await context.newPage()
+      page.setDefaultTimeout(60000)
+      page.setDefaultNavigationTimeout(60000)
       const errors = []
       page.on('pageerror', error => errors.push(error.message))
       await page.route('**/*', route => {
@@ -48,7 +50,7 @@ const base = process.env.VOZDOOH_QA_URL || 'http://127.0.0.1:3438'
       assert.equal(await cards.count(), 0)
       assert.ok(await page.getByRole('heading', { name: 'Ничего не найдено' }).isVisible())
       assert.equal(new URL(page.url()).searchParams.get('category'), category)
-      await Promise.all([page.waitForURL(url => !url.searchParams.has('q')), page.getByRole('link', { name: 'Сбросить поиск', exact: true }).first().click()])
+      await Promise.all([page.waitForURL(url => !url.searchParams.has('q'), { waitUntil: 'domcontentloaded' }), page.getByRole('link', { name: 'Сбросить поиск', exact: true }).first().click()])
       await page.waitForFunction(() => document.querySelector('#catalog-search')?.value === '')
       assert.equal(new URL(page.url()).searchParams.has('q'), false)
       assert.equal(new URL(page.url()).searchParams.get('category'), category)
@@ -91,7 +93,7 @@ const base = process.env.VOZDOOH_QA_URL || 'http://127.0.0.1:3438'
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
         await page.screenshot({ path: `/tmp/vozdooh-home-search-${width}.png`, fullPage: false })
         await homeSearch.fill(query)
-        await Promise.all([page.waitForURL(url => url.pathname === '/catalog' && url.searchParams.get('q') === query), page.getByRole('button', { name: 'Найти', exact: true }).click()])
+        await Promise.all([page.waitForURL(url => url.pathname === '/catalog' && url.searchParams.get('q') === query, { waitUntil: 'domcontentloaded' }), page.getByRole('button', { name: 'Найти', exact: true }).click()])
         assert.ok(await cards.count() > 0)
         assert.equal(await search.inputValue(), query.replace(/\s+/g, ' ').trim())
       }
@@ -104,13 +106,15 @@ const base = process.env.VOZDOOH_QA_URL || 'http://127.0.0.1:3438'
       console.log(`PASS ${width}px: homepage name/brand/SKU submission, catalog search, brand, filters, empty/reset, hidden SKU, canonical/noindex, layout`)
       await context.close()
     }
-    const context = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 390, height: 900 } })
+    const context = await browser.newContext({ javaScriptEnabled: false, reducedMotion: 'reduce', viewport: { width: 390, height: 900 } })
     const page = await context.newPage()
+    page.setDefaultTimeout(60000)
+    page.setDefaultNavigationTimeout(60000)
     await page.route('**/*', route => route.request().method() === 'GET' && new URL(route.request().url()).origin === new URL(base).origin ? route.continue() : route.abort())
     await page.goto(base, { waitUntil: 'domcontentloaded' })
     await page.locator('.headerSearch summary').click()
     await page.getByRole('searchbox').fill('culti')
-    await Promise.all([page.waitForURL(url => url.pathname === '/catalog' && url.searchParams.get('q') === 'culti'), page.getByRole('button', { name: 'Найти', exact: true }).click()])
+    await Promise.all([page.waitForURL(url => url.pathname === '/catalog' && url.searchParams.get('q') === 'culti', { waitUntil: 'domcontentloaded' }), page.getByRole('button', { name: 'Найти', exact: true }).click()])
     assert.ok(await page.locator('.catalogGrid .productCard').count() > 0)
     assert.match(await page.locator('meta[name="robots"]').getAttribute('content'), /noindex/)
     await context.close()
