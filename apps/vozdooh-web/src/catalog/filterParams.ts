@@ -28,7 +28,7 @@ export function parseCatalogFilters(params: RawSearchParams, categories: Record<
 export type FilterGroup = 'brand' | 'category' | 'family' | 'mood' | 'room'
 
 /** Build a catalog href toggling one filter while preserving the others. */
-export function catalogHref(current: CatalogFilters, group: FilterGroup, value: string | null, debug = false): string {
+export function catalogHref(current: CatalogFilters, group: FilterGroup, value: string | null, debug = false, query = ''): string {
   const next: Record<string, string> = debug ? { debugCatalog: '1' } : {}
   const entries: [FilterGroup, string | null | undefined][] = [
     ['brand', current.brand],
@@ -42,9 +42,10 @@ export function catalogHref(current: CatalogFilters, group: FilterGroup, value: 
     next[key] = key === group ? (value ?? '') : val
   }
   if (group !== null && value) next[group] = value
-  const query = Object.entries(next)
+  if (query) next.q = query
+  const queryString = Object.entries(next)
     .filter(([, val]) => val !== '')
     .map(([key, val]) => `${key}=${encodeURIComponent(val)}`)
     .join('&')
-  return query ? `/catalog?${query}` : '/catalog'
+  return queryString ? `/catalog?${queryString}` : '/catalog'
 }

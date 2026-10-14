@@ -900,3 +900,13 @@ select:focus-visible,summary:focus-visible{outline:2px solid var(--green);outlin
   .ownerBlock{padding:26px 22px;margin:28px 0}
   .infoFacts div{grid-template-columns:1fr;gap:6px}
 }
+
+/* Server-rendered catalog search stays visible above the product grid. */
+.catalogSearch{margin:0 7vw 28px;display:grid;gap:12px}
+.catalogSearch>label{font-size:16px;color:var(--ink)}
+.catalogSearchRow{display:flex;gap:12px}
+.catalogSearchRow input{flex:1;min-width:0;min-height:52px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font:inherit;font-size:16px;padding:12px 16px;border-radius:0}
+.catalogSearchRow button{min-height:52px;padding:12px 28px;cursor:pointer}
+.catalogSearchStatus{display:flex;flex-wrap:wrap;gap:12px 24px;font-size:14px}
+.catalogSearchStatus a{text-decoration:underline;text-underline-offset:4px}
+@media(max-width:600px){.catalogSearch{margin-inline:6vw}.catalogSearchRow{flex-direction:column}.catalogSearchRow button{width:100%}}

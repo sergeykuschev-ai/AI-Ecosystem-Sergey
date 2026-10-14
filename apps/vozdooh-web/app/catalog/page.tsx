@@ -1,6 +1,7 @@
 import { catalogSource, getCatalogRepository } from '../../src/catalog/source'
 
 import type { Metadata } from 'next'
+import { applyCatalogSearch, catalogSearchQuery } from '../../src/catalog/search'
 import { publicRobots } from '../../src/seo/indexing'
 import Link from 'next/link'
 import { Suspense } from 'react'
@@ -16,12 +17,17 @@ import { availableFilterOptions, applyCatalogFilters } from '../../src/catalog/f
 
 export const dynamic = 'force-dynamic'
 
-export const metadata: Metadata = {
+const catalogMetadata: Metadata = {
   title: 'Ароматы для дома — каталог интерьерной парфюмерии | VOZDOOH',
   description: 'Каталог ароматов для дома VOZDOOH: диффузоры, ароматические свечи, спреи, рефилы, автомобильные ароматы и подарочные наборы.',
   openGraph: { title: 'Ароматы для дома — каталог VOZDOOH', description: 'Диффузоры, ароматические свечи, спреи, рефилы и другие форматы интерьерной парфюмерии.' },
   alternates: { canonical: '/catalog' },
   robots: publicRobots(),
+}
+
+export async function generateMetadata({ searchParams }: { searchParams: Promise<RawSearchParams> }): Promise<Metadata> {
+  const params = await searchParams
+  return { ...catalogMetadata, robots: params.q !== undefined ? { index: false, follow: true } : publicRobots() }
 }
 
 type Option<V extends string> = { value: V; label: string }
@@ -48,10 +54,15 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
       ? { ...group, options: Object.entries(brands).sort((a, b) => a[1].localeCompare(b[1], 'ru')).map(([value, label]) => ({ value, label })) }
       : group).map((group) => ({ ...group, options: availableFilterOptions(visibleProducts, group.group, Object.fromEntries(group.options.map(({ value, label }) => [value, label]))) }))
   const filters = parseCatalogFilters(params, categories, brands)
-  const products = applyCatalogFilters(visibleProducts, filters)
+  const query = catalogSearchQuery(params.q)
+  const products = applyCatalogSearch(applyCatalogFilters(visibleProducts, filters), query)
   const hasFilters = Boolean(filters.brand || filters.category || filters.family || filters.mood || filters.room)
 
-  const curated = !hasFilters && !debug && !demo ? curatorSelection(products) : []
+  const curated = !query && !hasFilters && !debug && !demo ? curatorSelection(products) : []
+  const searchResetParams = new URLSearchParams()
+  for (const [key, value] of Object.entries(filters)) if (value) searchResetParams.set(key, value)
+  if (debug) searchResetParams.set('debugCatalog', '1')
+  const searchResetHref = searchResetParams.size ? `/catalog?${searchResetParams}` : '/catalog'
   const resetHref = debug ? "/catalog?debugCatalog=1" : "/catalog"
 
   return (
@@ -67,10 +78,21 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
         <nav className="landingLinks" aria-label="Знакомство с коллекцией"><Link href="/brands">Бренды</Link><Link href="/categories">Категории</Link></nav>
       </section>
 
+      <form action="/catalog" method="get" role="search" className="catalogSearch">
+        <label htmlFor="catalog-search">Поиск по названию или бренду</label>
+        <div className="catalogSearchRow">
+          <input id="catalog-search" type="search" name="q" defaultValue={query} key={query} placeholder="Название, бренд или артикул" />
+          <button className="primary" type="submit">Найти</button>
+        </div>
+        {Object.entries(filters).map(([key, value]) => value && <input key={key} type="hidden" name={key} value={value} />)}
+        {debug && <input type="hidden" name="debugCatalog" value="1" />}
+        {query && <div className="catalogSearchStatus"><span>Поиск: «{query}» · {products.length} позиций</span><Link href={searchResetHref}>Сбросить поиск</Link></div>}
+      </form>
       <div className="catalogControls">
         <details className="filterDisclosure">
           <summary>Фильтры{hasFilters ? ` · ${Object.values(filters).filter(Boolean).length}` : ''} <span aria-hidden="true">＋</span></summary>
           <form action="/catalog" className="filterPanel">
+            {query && <input type="hidden" name="q" value={query} />}
             {debug && <input type="hidden" name="debugCatalog" value="1" />}
             {groups.filter(({ group, options }) => filters[group] && options.length === 0).map(({ group }) => (
               <input key={group} type="hidden" name={group} value={filters[group]!} />
@@ -92,7 +114,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
       </div>
       {hasFilters && <nav className="activeFilters" aria-label="Активные фильтры">
         {groups.map(({ group, title, options }) => filters[group] ? (
-          <Link className="chip" key={group} aria-label={`Убрать фильтр ${title}: ${filters[group]}`} href={catalogHref(filters, group, null, debug)}>
+          <Link className="chip" key={group} aria-label={`Убрать фильтр ${title}: ${filters[group]}`} href={catalogHref(filters, group, null, debug, query)}>
             {options.find((option) => option.value === filters[group])?.label ?? filters[group]} <span aria-hidden="true">×</span>
           </Link>
         ) : null)}
@@ -103,7 +125,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
         <div className="catalogSectionHeading"><h2 id="curatorTitle">Кураторский выбор</h2><span>Знакомство с коллекцией</span></div>
         <div className="curatorGrid">{curated.map((product) => <ProductCard product={product} key={product.id} />)}</div>
       </section>}
-      <div className="catalogSectionHeading catalogCount"><h2>{hasFilters ? 'Ваш выбор' : 'Коллекция'}</h2><span>{products.length} позиций</span></div>
+      <div className="catalogSectionHeading catalogCount"><h2>{query ? 'Результаты поиска' : hasFilters ? 'Ваш выбор' : 'Коллекция'}</h2><span>{products.length} позиций</span></div>
 
       {products.length > 0 ? (
         <section className="catalogGrid">
@@ -114,8 +136,9 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
       ) : (
         <section className="emptyResult">
           <h2>Ничего не найдено</h2>
-          <p>{demo ? 'По такой комбинации фильтров демонстрационных позиций нет. Попробуйте сбросить часть условий.' : 'По такой комбинации фильтров позиций нет. Попробуйте сбросить часть условий.'}</p>
-          <Link className="primary" href={resetHref}>Сбросить фильтры</Link>
+          <p>{query ? 'По вашему запросу с выбранными фильтрами товаров нет. Проверьте название, бренд или артикул либо сбросьте поиск.' : demo ? 'По такой комбинации фильтров демонстрационных позиций нет. Попробуйте сбросить часть условий.' : 'По такой комбинации фильтров позиций нет. Попробуйте сбросить часть условий.'}</p>
+          {query && <Link className="primary" href={searchResetHref}>Сбросить поиск</Link>}
+          <Link className="primary" href={resetHref}>Сбросить всё</Link>
         </section>
       )}
       <SiteFooter />
