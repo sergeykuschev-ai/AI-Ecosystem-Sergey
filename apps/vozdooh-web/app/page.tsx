@@ -69,6 +69,13 @@ export default async function Home() {
   return (
     <main>
       <SiteHeader />
+      <form action="/catalog" method="get" role="search" className="homeSearch">
+        <label htmlFor="home-search">Найдите свой аромат</label>
+        <div className="homeSearchRow">
+          <input id="home-search" type="search" name="q" placeholder="Название, бренд или артикул" aria-label="Поиск по названию, бренду или артикулу" />
+          <button className="primary" type="submit">Найти</button>
+        </div>
+      </form>
       <section className="hero">
         <div className="heroScene" aria-hidden="true">
           <svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
