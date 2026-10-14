@@ -1,3 +1,4 @@
+import { ContextualCatalogLinks } from '../../../components/ContextualCatalogLinks'
 import type { Metadata } from 'next'
 import { publicRobots } from '../../../src/seo/indexing'
 import { notFound } from 'next/navigation'
@@ -119,6 +120,7 @@ export default async function CollectionPage({ params }: Props) {
         <p>Хотите выбрать по бренду, формату или другим доступным характеристикам?</p>
         <Link className="primary" href="/catalog">Открыть весь каталог</Link>
       </section>
+      <ContextualCatalogLinks products={collection.products} currentPath={collectionPath(collection.slug)} />
       <SiteFooter />
     </main>
   )

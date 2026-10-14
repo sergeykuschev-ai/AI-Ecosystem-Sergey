@@ -10,11 +10,17 @@ const routes = ['/', '/catalog', '/brands/culti-milano', '/brands/teatro-fragran
   const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH, args: ['--no-sandbox', '--disable-webgl'], ...(process.env.VOZDOOH_QA_PROXY ? { proxy: { server: process.env.VOZDOOH_QA_PROXY } } : {}) })
   const results = []
   try {
-    for (const width of [320, 375, 390, 430, 1280]) {
+    for (const width of (process.env.VOZDOOH_QA_WIDTHS || '320,375,390,430,1280').split(',').map(Number)) {
       const page = await browser.newPage({ viewport: { width, height: 900 }, reducedMotion: 'reduce' })
       await page.route('**/*', route => route.request().method() === 'GET' && new URL(route.request().url()).origin === new URL(base).origin ? route.continue() : route.abort())
       for (const [index, path] of routes.entries()) {
         const response = await page.goto(base + path, { waitUntil: 'domcontentloaded', timeout: 90000 })
+        if (process.env.VOZDOOH_QA_CONTEXTUAL === '1' && !['/delivery', '/catalog/culti-decor-aramara-250'].includes(path)) {
+          const html = await response.text()
+          assert.match(html, /aria-label="Бренды, форматы и подборки из наличия"/, `Raw HTML navigation: ${path}`)
+          assert.match(html, /aria-label="Примеры товаров из наличия"/, `Raw HTML products: ${path}`)
+          if (['/', '/catalog'].includes(path)) for (const href of ['/brands/culti-milano', '/brands/teatro-fragranze-uniche', '/categories/diffusers', '/categories/candles', '/collections/home-fragrance', '/collections/gift-diffusers']) assert.ok(html.includes(`href="${href}"`), `${path} links ${href}`)
+        }
         await page.evaluate(() => document.fonts.ready)
         const size = await page.evaluate(() => ({ viewport: innerWidth, document: document.documentElement.scrollWidth }))
         results.push({ path, width, status: response.status(), ...size })

@@ -1,3 +1,4 @@
+import { ContextualCatalogLinks } from './ContextualCatalogLinks'
 import Link from 'next/link'
 import type { CatalogProduct } from '../src/catalog/contracts'
 import { availableLandings, landingPath, type Landing } from '../src/catalog/landings'
@@ -83,6 +84,7 @@ export function CatalogLanding({ landing, products, kind, heading }: { landing: 
     {related.length > 0 && <nav className="landingRelated landingLinks" aria-label="Продолжить знакомство">
       {related.map((item) => <Link href={landingPath(relatedKind, item.slug)} key={item.slug}>{item.name} →</Link>)}
     </nav>}
+    <ContextualCatalogLinks products={products} currentPath={landingPath(kind, landing.slug)} />
     <SiteFooter />
   </main>
 }

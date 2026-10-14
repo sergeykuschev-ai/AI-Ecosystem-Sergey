@@ -1,3 +1,4 @@
+import { ContextualCatalogLinks } from '../../components/ContextualCatalogLinks'
 import { catalogSource, getCatalogRepository } from '../../src/catalog/source'
 
 import type { Metadata } from 'next'
@@ -141,6 +142,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
           <Link className="primary" href={resetHref}>Сбросить всё</Link>
         </section>
       )}
+      {!debug && !demo && <ContextualCatalogLinks products={visibleProducts} currentPath="/catalog" />}
       <SiteFooter />
     </main>
   )

@@ -1,3 +1,4 @@
+import { ContextualCatalogLinks } from '../components/ContextualCatalogLinks'
 import { MerchSection } from '../components/MerchSection'
 import { diverseMerchProducts, merchProducts } from '../src/catalog/merchandising'
 import Image from 'next/image'
@@ -290,6 +291,7 @@ export default async function Home() {
         <span>Искусство атмосферы</span>
         <p>Мы выбираем аромат не по громкости, а по тому, <i>что он делает с пространством.</i></p>
       </section>
+      <ContextualCatalogLinks products={sellableProducts} currentPath="/" />
       <SiteFooter />
     </main>
   )
