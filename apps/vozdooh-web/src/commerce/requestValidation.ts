@@ -1,3 +1,5 @@
+export const PICKUP_ADDRESS = 'Хабаровск, ул. Павла Морозова, 97'
+
 export class RequestError extends Error {
   constructor(public code: string, public status = 422) { super(code) }
 }
@@ -45,6 +47,8 @@ export function parseRequest(value: unknown, options: { requireEmail?: boolean }
   const delivery = object(raw.delivery)
   if (delivery.method !== 'pickup' && delivery.method !== 'courier' && delivery.method !== 'ozon-pvz') throw new RequestError('INVALID_DELIVERY')
   const address = text(delivery.address, 500, delivery.method === 'courier' || delivery.method === 'ozon-pvz')
+  // Empty pickup addresses remain valid for legacy receipt fingerprints and retries.
+  if (delivery.method === 'pickup' && address !== '' && address !== PICKUP_ADDRESS) throw new RequestError('INVALID_DELIVERY')
   const deliveryPointId = delivery.method === 'ozon-pvz' && Number.isSafeInteger(delivery.deliveryPointId) && (delivery.deliveryPointId as number) > 0 ? delivery.deliveryPointId as number : undefined
   const shipmentMethodId = delivery.method === 'ozon-pvz' && Number.isSafeInteger(delivery.shipmentMethodId) && (delivery.shipmentMethodId as number) > 0 ? delivery.shipmentMethodId as number : undefined
   if (delivery.method === 'ozon-pvz' && (!deliveryPointId || !shipmentMethodId)) throw new RequestError('INVALID_DELIVERY')
@@ -59,5 +63,5 @@ export function parseRequest(value: unknown, options: { requireEmail?: boolean }
     if (!Number.isSafeInteger(line.expectedPriceMinor) || (line.expectedPriceMinor as number) <= 0) throw new RequestError('PRICE_UNAVAILABLE', 409)
     return { sku: line.sku, quantity: line.quantity as number, expectedPriceMinor: line.expectedPriceMinor as number }
   }).sort((a, b) => a.sku.localeCompare(b.sku))
-  return { retryKey: raw.retryKey.toLowerCase(), lines, contact: { name, phone, ...(email ? { email } : {}) }, delivery: { method: delivery.method, address: delivery.method === 'pickup' ? '' : address, comment, ...(deliveryPointId ? { deliveryPointId } : {}), ...(shipmentMethodId ? { shipmentMethodId } : {}) }, consent: true, ...(raw.marketingConsent === true ? { marketingConsent: true as const } : {}) }
+  return { retryKey: raw.retryKey.toLowerCase(), lines, contact: { name, phone, ...(email ? { email } : {}) }, delivery: { method: delivery.method, address, comment, ...(deliveryPointId ? { deliveryPointId } : {}), ...(shipmentMethodId ? { shipmentMethodId } : {}) }, consent: true, ...(raw.marketingConsent === true ? { marketingConsent: true as const } : {}) }
 }

@@ -2,6 +2,7 @@ import { mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import nodemailer from 'nodemailer'
+import { PICKUP_ADDRESS } from './requestValidation'
 import type { OrderRequest, OrderRequestStore } from './orderRequests'
 
 export type OrderMailEvent =
@@ -100,13 +101,18 @@ export async function queueOrderMail(order: OrderRequest, event: OrderMailEvent)
 export function renderOrderMail(order: OrderRequest, event: OrderMailEvent): RenderedMail {
   const email = order.input.contact.email
   if (!email) throw new Error('ORDER_EMAIL_MISSING')
-  const copy = events[event]
+  const pickup = order.input.delivery.method === 'pickup'
+  const copy = pickup && event === 'payment_confirmed'
+    ? { title: 'Оплата подтверждена', intro: 'Оплата получена. Мы начинаем подготовку заказа к самовывозу. Дождитесь подтверждения готовности; время выдачи согласуем отдельно.' }
+    : pickup && event === 'delivery_ready'
+      ? { title: 'Заказ готов к самовывозу', intro: 'Готовность заказа подтверждена. Согласуйте с нами время выдачи перед приездом.' }
+      : events[event]
   const number = order.id.slice(0, 8).toUpperCase()
   const deliveryLabel = order.input.delivery.method === 'ozon-pvz'
     ? `Пункт Ozon: ${order.input.delivery.address}`
     : order.input.delivery.method === 'courier'
       ? `Курьер: ${order.input.delivery.address}`
-      : 'Получение: самовывоз'
+      : `Самовывоз — бесплатно (0 руб.): ${order.input.delivery.address || PICKUP_ADDRESS}. Выдача только после подтверждения готовности; время согласуем отдельно.`
   const itemLines = order.lines.map((line) =>
     `${line.name} × ${line.quantity} — ${money(line.totalMinor)}`,
   )

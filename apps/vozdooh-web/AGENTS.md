@@ -27,3 +27,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+## Owner-approved production decisions (14 October 2026)
+
+Production catalog, indexing, Ozon Pay, order email and existing Ozon delivery integrations are active and must be preserved. The pickup task explicitly authorizes building from the verified recovered production source in `/tmp/vozdooh-seo-merch` and deploying web/worker images through the existing compose; the historical October 6 release is not a valid production baseline. Free store pickup uses the fixed Khabarovsk address and never creates Ozon delivery. See `docs/pickup-release-20261014.md`.

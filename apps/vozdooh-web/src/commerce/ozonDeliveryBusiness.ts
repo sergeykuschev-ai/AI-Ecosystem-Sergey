@@ -194,6 +194,7 @@ export async function createOzonPickupDelivery(
 ) {
   let order = await store.findById(orderId)
   if (!order) throw new OzonDeliveryQuoteError('ORDER_NOT_FOUND')
+  if (order.input.delivery.method !== 'ozon-pvz') throw new OzonDeliveryQuoteError('OZON_DELIVERY_METHOD_UNSUPPORTED')
   if (order.payment?.status !== 'PAID') throw new OzonDeliveryQuoteError('ORDER_NOT_PAID')
   if (order.deliveryOrder?.status === 'created') {
     return {

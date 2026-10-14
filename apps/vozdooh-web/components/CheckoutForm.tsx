@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { parseRequest } from '../src/commerce/requestValidation'
+import { parseRequest, PICKUP_ADDRESS } from '../src/commerce/requestValidation'
 import { submitRequest } from '../src/commerce/submitRequest'
 import { fetchOrderDeliveryQuote, type DeliveryQuotePresentation } from '../src/commerce/deliveryQuoteClient'
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
@@ -184,7 +184,7 @@ export function CheckoutForm({ products, enabled }: { products: CatalogProduct[]
       <p><b>Важно:</b> через Ozon Pay сейчас оплачиваются только товары. Доставка не входит в сумму платежа и согласовывается отдельно до отправки.</p>
     </div>}
     {quoteError && <p role="status">{quoteError}</p>}
-    <p>Стоимость доставки не входит в оплату товаров через Ozon Pay. Перед отправкой мы отдельно подтвердим тариф и способ оплаты доставки.</p>
+    {success.deliveryMethod === 'pickup' ? <p>Самовывоз — бесплатно (0 руб.). {PICKUP_ADDRESS}. Выдача только после подтверждения готовности заказа; время согласуем отдельно.</p> : <p>Стоимость доставки не входит в оплату товаров через Ozon Pay. Перед отправкой мы отдельно подтвердим тариф и способ оплаты доставки.</p>}
     <p>Заявка сохранена. Сумма к оплате: {money(success.totalMinor)}. После перехода в Ozon Pay завершите оплату там.</p>
     {error && <p role="alert">{error}</p>}
     <button className="primary" type="button" onClick={pay} disabled={paymentPending}>{paymentPending ? 'Открываем Ozon Pay…' : 'Оплатить через Ozon Pay'}</button>
@@ -236,7 +236,12 @@ export function CheckoutForm({ products, enabled }: { products: CatalogProduct[]
               <input type="radio" name="delivery" value="courier" checked={method === 'courier'} onChange={() => setMethod('courier')} />
               <span>Доставка курьером</span>
             </label>
+            <label className="radioCard">
+              <input type="radio" name="delivery" value="pickup" checked={method === 'pickup'} onChange={() => setMethod('pickup')} />
+              <span>Самовывоз — бесплатно</span>
+            </label>
           </div>
+          {method === 'pickup' && <div className="fieldGrid deliveryFields"><div className="field full"><strong>{PICKUP_ADDRESS}</strong><p>Самовывоз бесплатный (0 руб.). Выдача только после подтверждения готовности заказа. Время согласуем отдельно.</p><input type="hidden" name="address" value={PICKUP_ADDRESS} /></div></div>}
           {method === 'ozon-pvz' && <div className="fieldGrid deliveryFields">
             <div className="field full">
               <label htmlFor="pvz-search">Город или адрес пункта Ozon</label>
@@ -279,7 +284,7 @@ export function CheckoutForm({ products, enabled }: { products: CatalogProduct[]
           <span>Итого</span>
           <b>{valid ? money(total) : 'Проверьте корзину'}</b>
         </div>
-        <p className="notice">{enabled ? 'Сначала сохраняется заявка и автоматически рассчитывается предварительная доставка до пункта Ozon, затем можно оплатить товары через Ozon Pay. Доставка оплачивается отдельно после согласования тарифа и не входит в указанную сумму. Товары не резервируются до подтверждения оплаты.' : 'Приём заявок доступен только для действующего каталога 1С.'}</p>
+        <p className="notice">{enabled && method === 'pickup' ? 'Самовывоз — бесплатно (0 руб.). После сохранения заявки можно оплатить товары через Ozon Pay. Выдача только после подтверждения готовности; время согласуем отдельно. Товары не резервируются до подтверждения оплаты.' : enabled ? 'Сначала сохраняется заявка и автоматически рассчитывается предварительная доставка до пункта Ozon, затем можно оплатить товары через Ozon Pay. Доставка оплачивается отдельно после согласования тарифа и не входит в указанную сумму. Товары не резервируются до подтверждения оплаты.' : 'Приём заявок доступен только для действующего каталога 1С.'}</p>
         {!valid && <p role="alert">Проверьте количество, наличие и цены в корзине.</p>}
         <button type="submit" form="request-form" className="primary" disabled={!enabled || !valid || pending}>
           {pending ? 'Сохраняем…' : 'Отправить заявку'}

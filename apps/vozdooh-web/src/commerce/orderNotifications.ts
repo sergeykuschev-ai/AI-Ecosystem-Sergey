@@ -1,3 +1,4 @@
+import { PICKUP_ADDRESS } from './requestValidation'
 import { createHmac, randomUUID } from 'node:crypto'
 import { mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
@@ -89,7 +90,7 @@ export async function sendOrderNotification(input: { eventId: string; event: Ord
     ? `ПВЗ Ozon: ${order.input.delivery.address}`
     : order.input.delivery.method === 'courier'
       ? `Курьер: ${order.input.delivery.address}`
-      : 'Самовывоз'
+      : `Самовывоз — бесплатно (0 руб.): ${order.input.delivery.address || PICKUP_ADDRESS}. Выдача только после подтверждения готовности; время согласуем отдельно.`
   const payload = JSON.stringify({
     eventId: input.eventId,
     event: input.event,
