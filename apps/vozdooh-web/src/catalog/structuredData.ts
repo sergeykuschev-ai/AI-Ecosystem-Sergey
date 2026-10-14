@@ -79,7 +79,7 @@ export function serializeStructuredData(value: unknown): string {
 }
 
 export function landingStructuredData(input: {
-  kind: 'brand' | 'category'
+  kind: 'brand' | 'category' | 'collection'
   slug: string
   name: string
   description: string
@@ -87,8 +87,8 @@ export function landingStructuredData(input: {
   siteUrl?: string
 }) {
   const siteUrl = input.siteUrl ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'https://vozdooh27.ru'
-  const section = input.kind === 'brand' ? 'brands' : 'categories'
-  const sectionName = input.kind === 'brand' ? 'Бренды' : 'Категории'
+  const section = input.kind === 'brand' ? 'brands' : input.kind === 'category' ? 'categories' : 'collections'
+  const sectionName = input.kind === 'brand' ? 'Бренды' : input.kind === 'category' ? 'Категории' : 'Коллекции'
   const url = absoluteUrl(siteUrl, `/${section}/${input.slug}`)
   const page: Record<string, unknown> = {
     '@type': 'CollectionPage',
@@ -108,6 +108,10 @@ export function landingStructuredData(input: {
       name: productPresentation(product).title,
       url: absoluteUrl(siteUrl, `/catalog/${product.editorial.slug}`),
     })),
+  }
+  if (input.kind === 'collection') {
+    page.mainEntity = { '@id': `${url}#items` }
+    page.breadcrumb = { '@id': `${url}#breadcrumbs` }
   }
   const breadcrumb = {
     '@type': 'BreadcrumbList',

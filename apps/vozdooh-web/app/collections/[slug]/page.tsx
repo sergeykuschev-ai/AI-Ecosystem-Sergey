@@ -1,3 +1,4 @@
+import { landingStructuredData, serializeStructuredData } from '../../../src/catalog/structuredData'
 import { ContextualCatalogLinks } from '../../../components/ContextualCatalogLinks'
 import type { Metadata } from 'next'
 import { publicRobots } from '../../../src/seo/indexing'
@@ -47,14 +48,18 @@ export default async function CollectionPage({ params }: Props) {
   const collection = await getCollection((await params).slug)
   if (!collection) notFound()
 
+  const structuredData = serializeStructuredData(landingStructuredData({ kind: 'collection', slug: collection.slug, name: collection.name, description: collection.description, products: collection.products }))
+
   return (
     <main className="catalogPage collectionPage">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: structuredData }} />
       <TrackView event="view_collection" payload={{ collection: collection.name, slug: collection.slug }} />
       <SiteHeader />
       <section className="collectionHero">
         <nav className="landingLinks" aria-label="Навигация по коллекциям">
+          <Link href="/">VOZDOOH</Link>
           <Link href="/collections">Коллекции</Link>
-          <Link href="/catalog">Каталог</Link>
+          <span aria-current="page">{collection.name}</span>
         </nav>
         <span className="eyebrow">{collection.eyebrow} · {collection.name}</span>
         <h1>{{
