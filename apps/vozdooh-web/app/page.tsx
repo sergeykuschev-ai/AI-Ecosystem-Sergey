@@ -12,7 +12,7 @@ import { getCatalogRepository } from '../src/catalog/source'
 import { availableLandings, landingPath } from '../src/catalog/landings'
 import { catalogImage, curatorSelection, productPresentation, storefrontProducts } from '../src/catalog/presentation'
 import { withValidImages } from '../src/catalog/validImages'
-import { familyLabels, labelFor, roomLabels, type DemoCategory, type DemoFamily, type DemoRoom } from '../src/catalog/vocabulary'
+import { familyLabels, roomLabels, type DemoCategory, type DemoFamily, type DemoRoom } from '../src/catalog/vocabulary'
 
 const categories: { slug: DemoCategory; name: string; text: string; catalogCategory: string }[] = [
   { slug: 'diffusers', name: 'Диффузоры', text: 'Аромат как часть интерьера', catalogCategory: 'Диффузоры' },
@@ -29,12 +29,6 @@ const roomMoments: Record<DemoRoom, string> = {
   living: 'Время вместе', bedroom: 'Личное пространство', bathroom: 'Пауза среди дня',
   study: 'В своём ритме', hallway: 'С возвращением домой',
 }
-
-const money = new Intl.NumberFormat('ru-RU', {
-  style: 'currency',
-  currency: 'RUB',
-  maximumFractionDigits: 0,
-})
 
 
 export const dynamic = 'force-dynamic'
@@ -66,7 +60,7 @@ export default async function Home() {
       product: sellableProducts.find((product) => product.editorial.room === slug) ?? null,
     }))
     .filter((item) => item.product !== null)
-  const brandHighlights = availableLandings(sellableProducts, 'brand').slice(0, 6)
+  const brandHighlights = availableLandings(sellableProducts, 'brand').slice(0, 4)
 
   return (
     <main>
@@ -157,7 +151,7 @@ export default async function Home() {
           </div>
           <p>От света свечи до любимого диффузора — найдите свой формат.</p>
         </div>
-        <div className="categoryGrid">
+        <div className="categoryGrid homeCategoryGrid" aria-label="Категории ароматов">
           {categories.map((category, index) => {
             const product = categoryProducts[category.slug]
             const image = product ? catalogImage(product) : null
@@ -178,8 +172,7 @@ export default async function Home() {
         </div>
       </section>
 
-      <MerchSection id="brand-bestsellers" title="Бестселлеры брендов" description="Aramara и Tessuto — два характера CULTI MILANO. Другие объёмы и флаконы — в карточках ароматов." products={diverseMerchProducts(merchProducts(sellableProducts, 'bestsellers'))} />
-      <MerchSection id="popular-fragrances" title="Популярные ароматы" description="От свежих древесных композиций до мягкой ванили. Выбор из текущего наличия." products={diverseMerchProducts(merchProducts(sellableProducts, 'strong'))} />
+      <MerchSection id="popular-fragrances" title="Популярные ароматы" description="Откройте ароматы CULTI MILANO, TEATRO и других брендов — в наличии и с доставкой по России." products={diverseMerchProducts(merchProducts(sellableProducts, 'popular')).slice(0, 6)} />
 
       <section id="finder" className="finder">
         <div>
@@ -196,46 +189,22 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="section editorial" aria-labelledby="selection-title">
-        <div className="selectionHeading">
-          <span className="eyebrow">Кураторский выбор</span>
-          <h2 id="selection-title">Меньше случайного.<br /><i>Больше личного.</i></h2>
+      <section className="homeEditorialNote" aria-labelledby="selection-title">
+        <div>
+          <span className="eyebrow">Выбор VOZDOOH</span>
+          <h2 id="selection-title">Меньше случайного. <i>Больше личного.</i></h2>
         </div>
-        <div className="selectionCopy">
-          <span className="selectionStatus">Из актуального наличия</span>
-          <p>Четыре позиции из текущего ассортимента с подтверждёнными изображениями и редакционными данными. Без случайных товаров и неподтверждённых обещаний.</p>
-          <Link className="textLink" href="/catalog">Смотреть весь каталог <span aria-hidden="true">→</span></Link>
+        <div>
+          <p>От свежих и прозрачных нот до тёплых древесных композиций. Найдите аромат, с которым дома будет по-настоящему хорошо.</p>
+          <Link className="textLink" href="/catalog">Смотреть ароматы <span aria-hidden="true">→</span></Link>
         </div>
-        {curated.length > 0 && (
-          <div className="curatedGrid">
-            {curated.map((product, index) => {
-              const image = catalogImage(product)
-              const display = productPresentation(product)
-              const room = product.editorial.room ? labelFor(roomLabels, product.editorial.room) : null
-              return (
-                <Link className="curatedCard" href={`/catalog/${product.editorial.slug}`} key={product.trade.sku}>
-                  <span className="curatedVisual">
-                    {image && <Image src={image} alt={product.trade.name} fill sizes="(max-width: 800px) 50vw, 25vw" />}
-                    <small aria-hidden="true">0{index + 1}</small>
-                  </span>
-                  <span className="curatedMeta">
-                    <small>{product.trade.brand}</small>
-                    <strong>{display.title}</strong>
-                    <span>{[display.subtitle, room].filter(Boolean).join(' · ')}</span>
-                    {product.trade.price !== null && <b>{money.format(product.trade.price)}</b>}
-                  </span>
-                </Link>
-              )
-            })}
-          </div>
-        )}
       </section>
 
       <section className="room">
         <div className="roomIntro">
           <span className="eyebrow light">По пространству</span>
           <h2>У каждой комнаты свой характер.</h2>
-          <p>Показываем только те пространства, для которых в текущем ассортименте уже есть подтверждённая редакционная подборка.</p>
+          <p>Начните с комнаты, которую хотите наполнить ароматом. Мы поможем выбрать подходящее настроение.</p>
         </div>
         <div className="roomLinks roomVisualGrid">
           {roomHighlights.map(({ slug, label, index, product }) => {
@@ -262,7 +231,7 @@ export default async function Home() {
         <span className="eyebrow">Бренды в наличии</span>
         <div className="sectionHead">
           <h2>За ароматом —<br />свой мир.</h2>
-          <p>Показываем бренды через реальные позиции, которые сейчас есть в витрине VOZDOOH.</p>
+          <p>Откройте истории ароматных домов и найдите композицию, которая подходит именно вам.</p>
         </div>
         <div className="homeBrandGrid">
           {brandHighlights.map((brand, index) => {

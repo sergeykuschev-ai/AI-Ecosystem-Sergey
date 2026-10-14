@@ -936,3 +936,58 @@ select:focus-visible,summary:focus-visible{outline:2px solid var(--green);outlin
 .homeBenefits p{font-size:13px;line-height:1.6;margin:0 0 10px;color:#62594f}
 .homeBenefits a{font-size:12px;text-underline-offset:4px}
 @media(max-width:700px){.homeBenefits{grid-template-columns:1fr;gap:18px;padding:24px 6vw}.homeBenefits>div+div{border-top:1px solid #dfd6c8;padding-top:18px}.homeBenefits h2{font-size:18px;margin-bottom:6px}}
+
+/* VOZDOOH mobile homepage refinement */
+.homeEditorialNote{display:grid;grid-template-columns:1fr 1fr;align-items:end;gap:40px;background:#eee8dc;padding:42px 7vw;border-block:1px solid #ded5c7}
+.homeEditorialNote h2{font-size:clamp(27px,3vw,42px);font-weight:500;line-height:1.12;letter-spacing:-.035em;margin:14px 0 0}
+.homeEditorialNote h2 i{font-family:var(--serif);font-weight:400}
+.homeEditorialNote p{font-size:15px;line-height:1.65;color:#635e54;max-width:45ch;margin:0 0 18px}
+#popular-fragrances .productCardVisual.hasImage{background:#ebe5d9}
+#popular-fragrances .productCardImage{object-fit:contain;background:transparent;mix-blend-mode:multiply;padding:10%}
+.productCardDiscover{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:12px;border-top:1px solid var(--line);font-size:12px;font-weight:500}
+@media(max-width:760px){
+  .section{padding:42px 6vw}
+  .sectionHead{gap:12px}
+  .sectionHead h2,.finder h2,.room h2{font-size:clamp(27px,7.1vw,34px);line-height:1.14}
+  .sectionHead p,.roomIntro>p{font-size:14px;line-height:1.55}
+  .homeCategoryGrid{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:minmax(160px,43vw);gap:16px;margin-top:22px;overflow-x:auto;overscroll-behavior-inline:contain;scroll-snap-type:x proximity;padding-bottom:12px;scrollbar-width:thin}
+  .homeCategoryGrid .category{display:block;position:relative;min-height:0;padding:0 0 14px;scroll-snap-align:start}
+  .homeCategoryGrid .categoryVisual{aspect-ratio:1/1;display:block;margin:0 0 12px}
+  .homeCategoryGrid .categoryVisual img{padding:9%}
+  .homeCategoryGrid .categoryIndex{display:block;margin:0 0 5px;font-size:10px}
+  .homeCategoryGrid .category h3{font-size:17px;line-height:1.2;padding-right:20px}
+  .homeCategoryGrid .category p{font-size:11px;line-height:1.45;margin-top:7px;max-width:100%;padding-right:4px}
+  .homeCategoryGrid .category b{position:absolute;right:0;bottom:51px;font-size:17px}
+  #popular-fragrances .products{margin-top:18px;gap:22px 12px}
+  #popular-fragrances .productCardVisual{aspect-ratio:4/5}
+  #popular-fragrances .productCardMeta{padding-top:11px}
+  #popular-fragrances .productCardMeta h3{font-size:15px;line-height:1.3}
+  #popular-fragrances .productCardDiscover{font-size:11px}
+  .finder{padding:42px 6vw;gap:22px}
+  .finder h2{margin:10px 0 12px}
+  .finder p{font-size:14px;line-height:1.55;margin-bottom:18px}
+  .homeEditorialNote{grid-template-columns:1fr;gap:18px;padding:32px 6vw}
+  .homeEditorialNote h2{font-size:30px;margin-top:10px}
+  .homeEditorialNote p{font-size:13px;line-height:1.6;margin:0 0 12px}
+  .room{padding:42px 6vw;gap:16px}
+  .roomIntro h2{margin:10px 0 12px}
+  .roomIntro>p{margin:0}
+  .roomLinks.roomVisualGrid{display:grid;grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:minmax(190px,65vw);gap:12px;overflow-x:auto;overscroll-behavior-inline:contain;scroll-snap-type:x proximity;padding-bottom:14px;scrollbar-width:thin}
+  .roomLinks .roomVisualCard,.roomLinks .roomVisualCard:first-child{scroll-snap-align:start}
+  .roomVisual{aspect-ratio:4/3}
+  .brands .homeBrandGrid{margin-top:22px}
+  .brands .homeBrandCard{min-height:0}
+  .brands .homeBrandVisual{min-height:160px}
+  .brands .homeBrandCopy{padding:12px 15px;gap:6px}
+  .brands .homeBrandCopy>strong{font-size:21px}
+  .brands .homeBrandCopy>span{min-height:0}
+}
+@media(max-width:700px){
+  .homeBenefits{grid-template-columns:repeat(2,minmax(0,1fr));gap:0;padding:14px 6vw}
+  .homeBenefits>div,.homeBenefits>div+div{border:0;padding:12px 12px 12px 0}
+  .homeBenefits>div:nth-child(2){padding-left:12px;border-left:1px solid #dfd6c8}
+  .homeBenefits>div:last-child{grid-column:1/-1;border-top:1px solid #dfd6c8;padding-top:14px}
+  .homeBenefits h2{font-size:14px;margin-bottom:6px}
+  .homeBenefits p{display:none}
+  .homeBenefits a{font-size:11px;line-height:1.5}
+}

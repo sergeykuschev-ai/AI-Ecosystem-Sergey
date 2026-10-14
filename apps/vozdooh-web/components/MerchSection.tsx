@@ -3,7 +3,6 @@
 import { useEffect, useRef } from 'react'
 import Link from 'next/link'
 import type { CatalogProduct } from '../src/catalog/contracts'
-import { MERCHANDISING_NOTE } from '../src/catalog/merchandising'
 import { trackEvent } from '../src/integrations/analytics'
 import { ProductCard } from './ProductCard'
 
@@ -25,7 +24,6 @@ export function MerchSection({ id, title, description, products }: { id: string;
   return (
     <section ref={element} id={id} className="section sectionWhite" aria-labelledby={`${id}-title`}>
       <div className="sectionHead"><div><span className="eyebrow">Из актуального наличия</span><h2 id={`${id}-title`}>{title}</h2></div><p>{description}</p></div>
-      <p>{MERCHANDISING_NOTE}</p>
       <div className="products">{products.map((product, index) => <ProductCard key={product.trade.sku} product={product} index={index} merchSection={id} />)}</div>
       <Link className="textLink" href="/collections/popular">Все популярные ароматы →</Link>
     </section>

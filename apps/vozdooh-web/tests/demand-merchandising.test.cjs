@@ -73,19 +73,18 @@ test('merch analytics whitelist fields and preserve no-counter no-op', () => {
 
 const ts=require('typescript')
 require.extensions['.tsx']=(module,filename)=>module._compile(ts.transpileModule(fs.readFileSync(filename,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true},fileName:filename}).outputText,filename)
-test('homepage renders evidence sections without internal tiers or non-CORE bestseller cards',async()=>{
+test('homepage renders one externally evidenced popular shelf without internal demand tiers',async()=>{
   const source=require('../src/catalog/source.ts')
   const old=source.getCatalogRepository
   try {
     source.getCatalogRepository=async()=>({list:async()=>products})
     const Home=require('../app/page.tsx').default
     const html=require('react-dom/server').renderToStaticMarkup(await Home())
-    assert.match(html,/Бестселлеры брендов/)
-    assert.match(html,/не статистика продаж VOZDOOH/)
-    assert.doesNotMatch(html,/CORE|STRONG|SLOW|CLEARANCE|promotionRank|demandTier/)
-    const block=html.split('id="brand-bestsellers"')[1].split('</section>')[0]
-    assert.match(block,/culti-decor-aramara-250/)
-    assert.match(block,/culti-stile-tessuto-250/)
-    for(const p of merchProducts(products,'strong'))assert.ok(!block.includes(`/catalog/${p.editorial.slug}`),p.trade.sku)
+    assert.match(html,/Популярные ароматы/)
+    assert.doesNotMatch(html,/Бестселлеры брендов|CORE|STRONG|SLOW|CLEARANCE|promotionRank|demandTier/)
+    const block=html.split('id="popular-fragrances"')[1].split('</section>')[0]
+    for(const p of diverseMerchProducts(merchProducts(products,'popular')).slice(0,6)) {
+      assert.ok(block.includes(`/catalog/${p.editorial.slug}`),p.trade.sku)
+    }
   } finally {source.getCatalogRepository=old}
 })

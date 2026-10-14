@@ -40,6 +40,7 @@ export function ProductCard({ product, index = 0, demo = false, debug = false, f
         {display.russianTitle && <p className="productTranslation">{display.russianTitle}</p>}
         <p>{display.subtitle}</p>
         {!demo && (product.trade.price ?? 0) > 0 && <p className="productCardPrice">{rub.format(product.trade.price!)}</p>}
+        {merchSection && <span className="productCardDiscover">Смотреть аромат <span aria-hidden="true">→</span></span>}
       </div>
     </Link>
   )
