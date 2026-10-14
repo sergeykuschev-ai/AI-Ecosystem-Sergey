@@ -5,7 +5,7 @@ import { parseRequest, PICKUP_ADDRESS } from '../src/commerce/requestValidation'
 import { submitRequest } from '../src/commerce/submitRequest'
 import { fetchOrderDeliveryQuote, type DeliveryQuotePresentation } from '../src/commerce/deliveryQuoteClient'
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import { getCartSnapshot, getServerCartSnapshot, subscribeCart } from '../src/cart/storage'
+import { bindPaymentCart, capturePaymentCart, getCartSnapshot, getServerCartSnapshot, selectPaymentCartAttempt, subscribeCart } from '../src/cart/storage'
 import type { CatalogProduct } from '../src/catalog/contracts'
 import { productPayload, trackEvent } from '../src/integrations/analytics'
 
@@ -20,8 +20,8 @@ const errors: Record<string, string> = {
   INVALID_DELIVERY: 'Выберите способ получения.',
   INVALID_QUANTITY: 'Количество должно быть целым числом от 1 до 999.',
   INVALID_CART: 'Проверьте состав корзины.',
-  CONSENT_REQUIRED: 'Для отправки заявки необходимо согласие.',
-  RETRY_CONFLICT: 'Эта попытка уже содержит другую заявку. Обновите страницу.',
+  CONSENT_REQUIRED: 'Для оформления заказа необходимо согласие.',
+  RETRY_CONFLICT: 'Эта попытка уже содержит другой заказ. Обновите страницу.',
 }
 const money = (minor: number) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(minor / 100)
 
@@ -115,6 +115,7 @@ export function CheckoutForm({ products, enabled }: { products: CatalogProduct[]
     try {
       // Validate and normalize exactly as the server does before sending contact data.
       const { retryKey: candidateKey, ...normalized } = parseRequest({ ...payload, retryKey: crypto.randomUUID() }, { requireEmail: true })
+      try { capturePaymentCart(candidateKey, normalized.lines) } catch { /* No snapshot: preserve cart on payment return. */ }
       // Keep the existing digest format so attempts saved before this change remain retryable.
       const signature = JSON.stringify(payload)
       // Persist only the random retry key and a one-way digest, never contact data.
@@ -123,15 +124,17 @@ export function CheckoutForm({ products, enabled }: { products: CatalogProduct[]
         try { attempt.current = JSON.parse(sessionStorage.getItem('vozdooh-request-attempt') ?? 'null') } catch { /* Storage can be unavailable. */ }
       }
       if (attempt.current?.signature !== digest) attempt.current = { signature: digest, retryKey: candidateKey }
+      try { selectPaymentCartAttempt(candidateKey, attempt.current.retryKey) } catch { /* A retry retains only its original snapshot. */ }
       try { sessionStorage.setItem('vozdooh-request-attempt', JSON.stringify(attempt.current)) } catch { /* In-memory retry key still protects this tab. */ }
       const result = await submitRequest({ ...normalized, retryKey: attempt.current.retryKey })
+      try { bindPaymentCart(attempt.current.retryKey, result.id) } catch { /* Cleanup requires a persisted order binding. */ }
       trackEvent('submit_order', { request_id: result.id, value: result.totalMinor / 100, currency: result.currency })
       setSuccess({ ...result, deliveryMethod: normalized.delivery.method })
       // Ozon PVZ estimates are read-only. Courier pricing is agreed separately.
       if (normalized.delivery.method === 'ozon-pvz') void estimateDelivery(result.id, result.totalMinor)
     } catch (failure) {
       const code = failure && typeof failure === 'object' && 'code' in failure ? String(failure.code) : ''
-      setError(errors[code] ?? 'Не удалось получить подтверждение. Повторите отправку с теми же данными: повторная заявка не создастся.')
+      setError(errors[code] ?? 'Не удалось получить подтверждение. Повторите отправку с теми же данными: повторный заказ не создастся.')
     } finally { busy.current = false; setPending(false) }
   }
 
@@ -165,14 +168,14 @@ export function CheckoutForm({ products, enabled }: { products: CatalogProduct[]
       if (typeof result.redirectUrl !== 'string' || !result.redirectUrl.startsWith('https://')) throw new Error('PAYMENT_UNAVAILABLE')
       window.location.assign(result.redirectUrl)
     } catch {
-      setError('Не удалось открыть оплату Ozon Pay. Заявка сохранена — попробуйте оплатить ещё раз.')
+      setError('Не удалось открыть оплату Ozon Pay. Заказ сохранён — попробуйте оплатить ещё раз.')
       setPaymentPending(false)
     }
   }
 
   if (success) return <section className="cartEmpty" role="status">
-    <h2>Заявка получена</h2>
-    <p>Номер заявки: {success.id}</p>
+    <h2>Заказ оформлен — ожидает оплаты</h2>
+    <p>Номер заказа: {success.id}</p>
     <p>Стоимость товаров: {money(success.totalMinor)}.</p>
     {quotePending && <p role="status">Рассчитываем предварительную стоимость доставки Ozon…</p>}
     {success.deliveryMethod === 'ozon-pvz' && !quotePending && (deliveryQuote || quoteError) && <button type="button" onClick={() => void estimateDelivery(success.id, success.totalMinor)}>Обновить расчёт доставки</button>}
@@ -185,7 +188,7 @@ export function CheckoutForm({ products, enabled }: { products: CatalogProduct[]
     </div>}
     {quoteError && <p role="status">{quoteError}</p>}
     {success.deliveryMethod === 'pickup' ? <p>Самовывоз — бесплатно (0 руб.). {PICKUP_ADDRESS}. Выдача только после подтверждения готовности заказа; время согласуем отдельно.</p> : <p>Стоимость доставки не входит в оплату товаров через Ozon Pay. Перед отправкой мы отдельно подтвердим тариф и способ оплаты доставки.</p>}
-    <p>Заявка сохранена. Сумма к оплате: {money(success.totalMinor)}. После перехода в Ozon Pay завершите оплату там.</p>
+    <p>Заказ сохранён. Сумма к оплате: {money(success.totalMinor)}. После перехода в Ozon Pay завершите оплату там.</p>
     {error && <p role="alert">{error}</p>}
     <button className="primary" type="button" onClick={pay} disabled={paymentPending}>{paymentPending ? 'Открываем Ozon Pay…' : 'Оплатить через Ozon Pay'}</button>
     <p><Link className="textLink" href="/catalog">Вернуться в каталог</Link></p>
@@ -272,7 +275,7 @@ export function CheckoutForm({ products, enabled }: { products: CatalogProduct[]
       </form>
 
       <aside className="orderBox">
-        <span className="eyebrow">Состав заявки</span>
+        <span className="eyebrow">Состав заказа</span>
         <h2>Ваш выбор</h2>
         {rows.map(({ line, product }) => (
           <div className="orderLine" key={line.sku}>
@@ -284,10 +287,10 @@ export function CheckoutForm({ products, enabled }: { products: CatalogProduct[]
           <span>Итого</span>
           <b>{valid ? money(total) : 'Проверьте корзину'}</b>
         </div>
-        <p className="notice">{enabled && method === 'pickup' ? 'Самовывоз — бесплатно (0 руб.). После сохранения заявки можно оплатить товары через Ozon Pay. Выдача только после подтверждения готовности; время согласуем отдельно. Товары не резервируются до подтверждения оплаты.' : enabled ? 'Сначала сохраняется заявка и автоматически рассчитывается предварительная доставка до пункта Ozon, затем можно оплатить товары через Ozon Pay. Доставка оплачивается отдельно после согласования тарифа и не входит в указанную сумму. Товары не резервируются до подтверждения оплаты.' : 'Приём заявок доступен только для действующего каталога 1С.'}</p>
+        <p className="notice">{enabled && method === 'pickup' ? 'Самовывоз — бесплатно (0 руб.). После оформления заказа можно оплатить товары через Ozon Pay. Выдача только после подтверждения готовности; время согласуем отдельно. Товары не резервируются до подтверждения оплаты.' : enabled ? 'Сначала сохраняется заказ, затем можно оплатить товары через Ozon Pay. Для пункта Ozon рассчитывается предварительная стоимость доставки. Доставка оплачивается отдельно после согласования тарифа и не входит в указанную сумму. Товары не резервируются до подтверждения оплаты.' : 'Оформление заказов доступно только для действующего каталога 1С.'}</p>
         {!valid && <p role="alert">Проверьте количество, наличие и цены в корзине.</p>}
         <button type="submit" form="request-form" className="primary" disabled={!enabled || !valid || pending}>
-          {pending ? 'Сохраняем…' : 'Отправить заявку'}
+          {pending ? 'Сохраняем…' : 'Оформить заказ'}
         </button>
         <p className="cartAsideBack"><Link className="textLink" href="/cart">← Вернуться в корзину</Link></p>
       </aside>

@@ -31,3 +31,5 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 ## Owner-approved production decisions (14 October 2026)
 
 Production catalog, indexing, Ozon Pay, order email and existing Ozon delivery integrations are active and must be preserved. The pickup task explicitly authorizes building from the verified recovered production source in `/tmp/vozdooh-seo-merch` and deploying web/worker images through the existing compose; the historical October 6 release is not a valid production baseline. Free store pickup uses the fixed Khabarovsk address and never creates Ozon delivery. See `docs/pickup-release-20261014.md`.
+
+Owner-approved paid-cart fix: cart and checkout copy describes online order checkout. A saved order still awaits verified payment. Browser cleanup may remove only original eligible SKU quantities after server-confirmed paid status; new additions and repeated success visits must be preserved. See `docs/paid-cart-release-20261014.md`.

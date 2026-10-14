@@ -7,7 +7,7 @@ const sku = process.env.VOZDOOH_QA_SKU
 if (!sku) throw new Error('VOZDOOH_QA_SKU_REQUIRED')
 const address = 'Хабаровск, ул. Павла Морозова, 97'
 ;(async () => {
-  const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH, headless: true, args: ['--no-sandbox'] })
+  const browser = await chromium.launch({ proxy: process.env.VOZDOOH_QA_PROXY ? { server: process.env.VOZDOOH_QA_PROXY } : undefined, executablePath: process.env.CHROMIUM_PATH, headless: true, args: ['--no-sandbox'] })
   try {
     for (const width of [390, 1280]) {
       const context = await browser.newContext({ viewport: { width, height: 900 } })
@@ -49,8 +49,8 @@ const address = 'Хабаровск, ул. Павла Морозова, 97'
           await page.getByRole('button', { name: 'Найти ПВЗ' }).click()
           await page.locator('input[name=pvzId]').check()
         }
-        await page.getByRole('button', { name: 'Отправить заявку', exact: true }).click()
-        await page.getByRole('heading', { name: 'Заявка получена' }).waitFor()
+        await page.getByRole('button', { name: 'Оформить заказ', exact: true }).click()
+        await page.getByRole('heading', { name: 'Заказ оформлен — ожидает оплаты' }).waitFor()
         assert.equal(payload.delivery.method, method)
         if (method === 'pickup') {
           assert.equal(payload.delivery.address, address)
