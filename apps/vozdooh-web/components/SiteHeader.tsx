@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { BrandLogo } from './BrandLogo'
 import { CartLink } from './CartLink'
+import { HeaderSearch } from './HeaderSearch'
 
 const navLinks = [
   { href: '/catalog', label: 'Каталог' },
@@ -46,7 +47,10 @@ export function SiteHeader() {
         className="menuTrigger"
         aria-expanded={menuOpen}
         aria-controls="siteNav"
-        onClick={() => setMenuOpen((open) => !open)}
+        onClick={() => {
+          document.querySelector<HTMLDetailsElement>('.headerSearch')?.removeAttribute('open')
+          setMenuOpen((open) => !open)
+        }}
       >
         <span className="menuTriggerLines" aria-hidden="true"><i /><i /></span>
         <span className="menuTriggerLabel">{menuOpen ? 'Закрыть' : 'Меню'}</span>
@@ -63,6 +67,7 @@ export function SiteHeader() {
         ))}
       </nav>
       <div className="actions">
+        <HeaderSearch key={pathname} onOpen={() => setMenuOpen(false)} />
         <CartLink />
       </div>
     </header>
