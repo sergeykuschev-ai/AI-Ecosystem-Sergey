@@ -811,7 +811,7 @@ select:focus-visible,summary:focus-visible{outline:2px solid var(--green);outlin
   .collectionManifesto p{font-size:22px}
   .collectionHero{padding:32px 6vw 28px}
   .collectionHero>.eyebrow{margin-top:24px}
-  .collectionHero h1{font-size:42px}
+  .collectionHero h1{font-size:42px;max-width:none;overflow-wrap:anywhere}
   .collectionHero>p{font-size:14px}
   .collectionOutro{margin:0 6vw 40px;padding:26px 22px;display:grid}
   .collectionOutro p{font-size:20px}
