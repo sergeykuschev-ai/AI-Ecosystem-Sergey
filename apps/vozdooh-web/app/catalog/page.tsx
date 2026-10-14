@@ -27,7 +27,7 @@ const catalogMetadata: Metadata = {
 
 export async function generateMetadata({ searchParams }: { searchParams: Promise<RawSearchParams> }): Promise<Metadata> {
   const params = await searchParams
-  return { ...catalogMetadata, robots: params.q !== undefined ? { index: false, follow: true } : publicRobots() }
+  return { ...catalogMetadata, robots: isDebugCatalog(params) || params.q !== undefined ? { index: false, follow: true } : publicRobots() }
 }
 
 type Option<V extends string> = { value: V; label: string }

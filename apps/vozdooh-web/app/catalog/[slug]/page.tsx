@@ -28,7 +28,7 @@ type PageParams = { params: Promise<{ slug: string }>; searchParams: Promise<Raw
 
 const rub = new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 0, maximumFractionDigits: 2 })
 
-export async function generateMetadata({ params }: PageParams): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: PageParams): Promise<Metadata> {
   const { slug } = await params
   const product = await (await getCatalogRepository()).getBySlug(slug)
   if (!product) return { title: 'Товар не найден — VOZDOOH', robots: { index: false, follow: false } }
@@ -59,7 +59,7 @@ export async function generateMetadata({ params }: PageParams): Promise<Metadata
     alternates: { canonical: `/catalog/${product.editorial.slug}` },
     description,
     openGraph: { title, description, ...(image ? { images: [{ url: image, alt: product.trade.name }] } : {}) },
-    robots: publicRobots(),
+    robots: isDebugCatalog(await searchParams) ? { index: false, follow: true } : publicRobots(),
   }
 }
 
