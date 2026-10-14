@@ -174,6 +174,18 @@ export function removePaidCartItems(requestId: string, items: { id: string; quan
   return true
 }
 
+/** Pending receipts are safe to recheck after Ozon returns to any storefront page.
+ * Never use cart SKUs alone as proof of payment.
+ */
+export function pendingPaymentRequestIds(): string[] {
+  let cart: StoredCart
+  try { cart = readCart() } catch { return [] }
+  return [...new Set(Object.values(cart.paymentSnapshots ?? {})
+    .filter((entry) => !entry.cleaned && entry.lines.some((line) => line.remaining > 0))
+    .map((entry) => entry.requestId)
+    .filter((id): id is string => typeof id === 'string' && /^[0-9a-f-]{36}$/i.test(id)))].slice(0, 12)
+}
+
 export function cartItemCount(cart: StoredCart): number {
   return cart.lines.reduce((sum, line) => sum + line.quantity, 0)
 }
