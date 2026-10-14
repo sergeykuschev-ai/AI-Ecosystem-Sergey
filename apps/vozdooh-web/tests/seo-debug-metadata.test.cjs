@@ -21,7 +21,7 @@ test('catalog and product internal debug views cannot inherit public indexing', 
   const originalIndexing = process.env.SEARCH_INDEXING_ENABLED
   const originalRepository = source.getCatalogRepository
   const originalSource = source.catalogSource
-  source.getCatalogRepository = async () => ({ getBySlug: async (slug) => slug === product.editorial.slug ? product : null })
+  source.getCatalogRepository = async () => ({ list: async () => [product], getBySlug: async (slug) => slug === product.editorial.slug ? product : null })
   source.catalogSource = () => 'staged-1c'
   try {
     const Catalog = require('../app/catalog/page.tsx')
@@ -45,13 +45,13 @@ test('catalog and product internal debug views cannot inherit public indexing', 
         }
       }
       for (const query of [{ debugCatalog: '0' }, { debugCatalog: '' }, { debugCatalog: ['1', '0'] }, { brand: 'Synthetic' }, { debugCatalog: 'true' }]) {
-        assert.deepEqual((await Catalog.generateMetadata(props(query))).robots, expectedPublic)
+        assert.deepEqual((await Catalog.generateMetadata(props(query))).robots, query.brand ? { index: false, follow: true } : expectedPublic)
         assert.deepEqual((await Product.generateMetadata(props(query))).robots, expectedPublic)
       }
       for (const q of ['', 'synthetic', ['synthetic', 'ignored']]) {
         const search = await Catalog.generateMetadata(props({ q }))
         assert.deepEqual(search.robots, { index: false, follow: true })
-        assert.deepEqual(search.alternates, cleanCatalog.alternates)
+        assert.deepEqual(search.alternates, { canonical: `/catalog?${new URLSearchParams({ q: Array.isArray(q) ? q[0] : q })}` })
       }
     }
     const missing = await Product.generateMetadata({ params: Promise.resolve({ slug: 'missing' }), searchParams: Promise.resolve({ debugCatalog: '1' }) })

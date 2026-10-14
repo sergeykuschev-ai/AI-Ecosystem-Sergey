@@ -31,7 +31,7 @@ const base = process.env.VOZDOOH_QA_URL || 'http://127.0.0.1:3438'
       await page.waitForLoadState('domcontentloaded')
       assert.ok(new URL(page.url()).searchParams.has('q'))
       assert.ok(await cards.count() > 0)
-      assert.equal(await page.locator('link[rel="canonical"]').getAttribute('href'), 'https://vozdooh27.ru/catalog')
+      assert.equal(await page.locator('link[rel="canonical"]').getAttribute('href'), `https://vozdooh27.ru/catalog?${new URLSearchParams({ q: name.toLowerCase().normalize('NFKC').replace(/\s+/g, ' ').trim() })}`)
       assert.match(await page.locator('meta[name="robots"]').getAttribute('content'), /noindex/)
       await visit(`?q=${encodeURIComponent(brand.toLowerCase())}`)
       assert.ok(await cards.count() > 0)

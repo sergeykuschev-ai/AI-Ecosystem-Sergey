@@ -1,3 +1,4 @@
+import { catalogIndexPolicy } from '../../src/seo/catalogPolicy'
 import { ContextualCatalogLinks } from '../../components/ContextualCatalogLinks'
 import { catalogSource, getCatalogRepository } from '../../src/catalog/source'
 
@@ -28,7 +29,9 @@ const catalogMetadata: Metadata = {
 
 export async function generateMetadata({ searchParams }: { searchParams: Promise<RawSearchParams> }): Promise<Metadata> {
   const params = await searchParams
-  return { ...catalogMetadata, robots: isDebugCatalog(params) || params.q !== undefined ? { index: false, follow: true } : publicRobots() }
+  const products = await withValidImages(await (await getCatalogRepository()).list())
+  const policy = catalogIndexPolicy(params, products)
+  return { ...catalogMetadata, alternates: { canonical: policy.canonical }, robots: policy.robots }
 }
 
 type Option<V extends string> = { value: V; label: string }
@@ -56,7 +59,8 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
       : group).map((group) => ({ ...group, options: availableFilterOptions(visibleProducts, group.group, Object.fromEntries(group.options.map(({ value, label }) => [value, label]))) }))
   const filters = parseCatalogFilters(params, categories, brands)
   const query = catalogSearchQuery(params.q)
-  const products = applyCatalogSearch(applyCatalogFilters(visibleProducts, filters), query)
+  const policy = catalogIndexPolicy(params, visibleProducts)
+  const products = !demo && policy.invalidFilters ? [] : applyCatalogSearch(applyCatalogFilters(visibleProducts, filters), query)
   const hasFilters = Boolean(filters.brand || filters.category || filters.family || filters.mood || filters.room)
 
   const curated = !query && !hasFilters && !debug && !demo ? curatorSelection(products) : []
@@ -137,6 +141,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
       ) : (
         <section className="emptyResult">
           <h2>Ничего не найдено</h2>
+          {!demo && policy.invalidFilters && <p>Значение фильтра не найдено в текущем наличии. Сбросьте фильтры и выберите доступный вариант.</p>}
           <p>{query ? 'По вашему запросу с выбранными фильтрами товаров нет. Проверьте название, бренд или артикул либо сбросьте поиск.' : demo ? 'По такой комбинации фильтров демонстрационных позиций нет. Попробуйте сбросить часть условий.' : 'По такой комбинации фильтров позиций нет. Попробуйте сбросить часть условий.'}</p>
           {query && <Link className="primary" href={searchResetHref}>Сбросить поиск</Link>}
           <Link className="primary" href={resetHref}>Сбросить всё</Link>

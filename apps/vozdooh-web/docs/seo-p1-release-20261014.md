@@ -31,3 +31,21 @@ Schema semantics reviewed on 14 October 2026: [CollectionPage](https://schema.or
 Fresh `npm run verify` passed (exit 0); both priority collection pages passed schema/raw HTML/grid equality and layout checks at 390/1280px. Screenshots: `task3/candidate/`. Existing product, brand and category schema tests passed. Deployment pending image verification.
 
 The first image command terminated with exit 143 during final unpacking; it was not accepted as a pass. A cached retry completed with exit 0. Built-image and live checks passed both collections at 390/1280px, including full schema/grid equality. Health passed and worker unchanged. Deployed revision `722097139d14980958ede6376c3641bcc2a5b31b`, image `vozdooh-web:seo-p1-collections-20261014`, ID `sha256:3a0d231a58210f73ec3850e3ad3c5170e49465f0c67022b68797a57957c82469`. Rollback: `/opt/vozdooh/backups/deploy/seo-p1-collections-20261014/rollback.sh`.
+
+## Stage 4 — catalog URL policy
+
+| Representation | HTTP / index / canonical policy |
+| --- | --- |
+| Clean catalog and public brand pages | 200; existing public indexing switch; self canonical |
+| Single recognized stocked brand facet | 200; public indexing switch; canonical to the equivalent existing brand landing |
+| `q`, including blank search | 200; noindex/follow; normalized search URL canonical |
+| Category/editorial/combined facets without a dedicated equivalent | 200; noindex/follow; deterministic facet URL canonical |
+| Invalid nonempty filter value | 200 empty result with an actionable reset message; noindex/follow; normalized utility URL canonical; never unfiltered fallback |
+| Unknown or tracking params | Listing unchanged; canonical excludes them; underlying page's index policy preserved; browser URL retained for attribution |
+| Exact `page=1` | 308 to the same URL without `page`, preserving other params |
+| Other or repeated `page` values | Real 404 + X-Robots-Tag noindex/follow; there are no additional pages |
+| Enabled internal debug | Existing noindex/follow and clean catalog canonical retained |
+
+The full listing remains crawlable; no pagination links or facet sitemap entries are generated. Distinct filters are not canonicalized to unrelated full inventory. Query order is stable, search whitespace normalized, repeated facet/search values use the same first value as the UI. The new Proxy matches only `/catalog`; product, API and commerce paths are outside its matcher. Existing robots access stays unchanged so crawlers can read utility noindex directives. No claim is made about Google/Yandex's eventual canonical selection. Source review: [Google canonical guidance](https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls), [pagination guidance](https://developers.google.com/search/docs/specialty/ecommerce/pagination-and-incremental-page-loading), 14 October 2026.
+
+Fresh `npm run verify` passed (exit 0). Proxy unit tests verified 404 headers, preserving 308 and the catalog-only matcher. Initial browser harness assumptions about relative Location and viewport setup were corrected; the earlier screenshots labeled 390 were rejected. Accepted candidate evidence is `task4/candidate-final/`, with real 390/1280 screenshot dimensions checked. The complete policy matrix passed at both widths; the existing interactive and JavaScript-disabled search regressions also passed. Browser script lint passed after the corrections. Baseline live evidence records page 2 HTTP 200 and CULTI facet canonical to full catalog. Deployment pending image checks.
