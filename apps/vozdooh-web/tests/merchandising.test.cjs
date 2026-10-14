@@ -119,6 +119,8 @@ test('rendered catalog shows priority order and leaks no internal research label
   const ranked = (sku, brand, name) => {
     const item = product(sku, brand)
     item.trade.name = name
+    item.isActive = true
+    item.trade.stock = 1
     item.editorial.images = [`/catalog/official/${asset}`]
     return item
   }

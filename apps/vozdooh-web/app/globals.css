@@ -1054,3 +1054,23 @@ select:focus-visible,summary:focus-visible{outline:2px solid var(--green);outlin
   .homeEditorialNote{padding:24px 6vw;gap:6px}
   .homeEditorialNote h2{font-size:clamp(25px,6.5vw,31px)}
 }
+
+/* National product pages: compact breadcrumbs and transparent fulfilment. */
+.productBreadcrumb{display:flex;align-items:center;flex-wrap:wrap;gap:9px;margin:24px 7vw 0;font-size:11px;line-height:1.6;color:var(--muted)}
+.productBreadcrumb a{text-underline-offset:4px}
+.productBreadcrumb a:hover{text-decoration:underline}
+.productBreadcrumb [aria-current="page"]{color:var(--ink);overflow-wrap:anywhere}
+.productPage .productLayout{margin-top:14px}
+.productDeliveryOptions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:22px}
+.productDeliveryOptions a{display:flex;flex-direction:column;gap:6px;padding:16px 14px;background:#f3f0e8;border:1px solid var(--line);min-width:0}
+.productDeliveryOptions a:hover{border-color:var(--green)}
+.productDeliveryOptions strong{font-size:12px;font-weight:600;line-height:1.4}
+.productDeliveryOptions span{font-size:11px;line-height:1.55;color:var(--muted)}
+.productPurchase .notice{font-size:11px;line-height:1.65}
+@media(max-width:760px){
+  .productBreadcrumb{margin:14px 6vw 4px;gap:7px;font-size:10px}
+  .productPage .productLayout{margin-top:10px}
+  .productDeliveryOptions{grid-template-columns:1fr;gap:8px;margin-top:16px}
+  .productDeliveryOptions a{padding:13px 14px;gap:3px}
+  .productPurchase .productPrice{font-size:28px}
+}

@@ -14,7 +14,7 @@ const source = require('../src/catalog/source.ts')
 const product = {
   id: 'synthetic-seo-fixture', isActive: true,
   trade: { sku: 'synthetic-seo-fixture', name: 'Synthetic SEO fixture', brand: null, category: 'Диффузоры', volume: '100 мл', price: 100, stock: 1, barcode: null, characteristics: {} },
-  editorial: { sku: 'synthetic-seo-fixture', slug: 'synthetic-seo-fixture', description: 'Synthetic metadata test fixture.', images: [], recommendations: [] },
+  editorial: { sku: 'synthetic-seo-fixture', slug: 'synthetic-seo-fixture', description: 'Synthetic metadata test fixture.', images: ['/brand/vozdooh-horizontal.webp'], recommendations: [] },
 }
 
 test('catalog and product internal debug views cannot inherit public indexing', async () => {
@@ -54,6 +54,11 @@ test('catalog and product internal debug views cannot inherit public indexing', 
         assert.deepEqual(search.alternates, { canonical: `/catalog?${new URLSearchParams({ q: Array.isArray(q) ? q[0] : q })}` })
       }
     }
+    const originalStock = product.trade.stock
+    product.trade.stock = 0
+    const unavailable = await Product.generateMetadata(props({}))
+    assert.deepEqual(unavailable.robots, { index: false, follow: false })
+    product.trade.stock = originalStock
     const missing = await Product.generateMetadata({ params: Promise.resolve({ slug: 'missing' }), searchParams: Promise.resolve({ debugCatalog: '1' }) })
     assert.deepEqual(missing.robots, { index: false, follow: false })
   } finally {

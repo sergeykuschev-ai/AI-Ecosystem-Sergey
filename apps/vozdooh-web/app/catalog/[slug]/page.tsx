@@ -9,7 +9,7 @@ import { SiteFooter } from '../../../components/SiteFooter'
 import { SiteHeader } from '../../../components/SiteHeader'
 import { TrackView } from '../../../components/TrackView'
 import { labelFor, familyLabels, moodLabels, roomLabels } from '../../../src/catalog/vocabulary'
-import { catalogImage, isDebugCatalog, productPresentation, storefrontProducts, sameBrandProducts } from '../../../src/catalog/presentation'
+import { catalogImage, isDebugCatalog, isPubliclyPurchasable, isPubliclyVisible, productPresentation, storefrontProducts, sameBrandProducts } from '../../../src/catalog/presentation'
 import { demandRank, isExternallyConfirmedPopular, POPULARITY_NOTE } from '../../../src/catalog/demandPriority'
 import { withValidImages } from '../../../src/catalog/validImages'
 import { catalogHref, parseCatalogFilters, type RawSearchParams } from '../../../src/catalog/filterParams'
@@ -32,6 +32,9 @@ export async function generateMetadata({ params, searchParams }: PageParams): Pr
   const { slug } = await params
   const product = await (await getCatalogRepository()).getBySlug(slug)
   if (!product) return { title: 'Товар не найден — VOZDOOH', robots: { index: false, follow: false } }
+  const validProduct = (await withValidImages([product]))[0]
+  const publiclyAvailable = isPubliclyPurchasable(validProduct)
+
   const display = productPresentation(product)
   const priority = demandRank(product.trade.sku) !== null
   const commercialName = [display.title, product.trade.volume, product.trade.brand].filter(Boolean).join(' · ')
@@ -48,18 +51,18 @@ export async function generateMetadata({ params, searchParams }: PageParams): Pr
         ? `${product.trade.brand ?? ''} ${fragranceFacts.name}${product.trade.volume ? ` ${product.trade.volume}` : ''} — как пахнет: ${scentSnippet} ${(product.trade.stock ?? 0) >= 1 ? 'В наличии.' : ''}${(product.trade.price ?? 0) > 0 ? ` ${rub.format(product.trade.price!)}.` : ''} Заказать с доставкой по России.`
         : `Купить ${commercialName} с доставкой по России. ${(product.trade.stock ?? 0) >= 1 ? 'В наличии.' : ''}${(product.trade.price ?? 0) > 0 ? ` Цена ${rub.format(product.trade.price!)}.` : ''} Онлайн-заказ с доставкой по России.`
       : product.editorial.description
-        ? `${product.editorial.description} ${[product.trade.brand, display.subtitle].filter(Boolean).join(' · ')}.`
-        : `${[display.title, product.trade.brand, display.subtitle].filter(Boolean).join(' · ')} в каталоге VOZDOOH.`)
-  const image = catalogImage(product)
+        ? `${product.editorial.description} ${[product.trade.brand, display.subtitle].filter(Boolean).join(' · ')}. Заказ с доставкой в доступные пункты Ozon по России.`
+        : `${[display.title, product.trade.brand, display.subtitle].filter(Boolean).join(' · ')}. Купить в VOZDOOH с доставкой в доступные пункты Ozon по России.`)
+  const image = catalogImage(validProduct)
   const title = priority
     ? `${display.title}${product.trade.volume ? ` ${product.trade.volume}` : ''} — ${product.trade.brand ?? 'VOZDOOH'} — купить с доставкой по России | VOZDOOH`
-    : [...[display.title, display.subtitle, product.trade.brand].filter(Boolean), 'купить в VOZDOOH'].join(' — ')
+    : `${commercialName} — купить с доставкой по России | VOZDOOH`
   return {
     title,
     alternates: { canonical: `/catalog/${product.editorial.slug}` },
     description,
     openGraph: { title, description, ...(image ? { images: [{ url: image, alt: product.trade.name }] } : {}) },
-    robots: isDebugCatalog(await searchParams) ? { index: false, follow: true } : publicRobots(),
+    robots: isDebugCatalog(await searchParams) ? { index: false, follow: true } : publiclyAvailable ? publicRobots() : { index: false, follow: false },
   }
 }
 
@@ -71,6 +74,8 @@ export default async function ProductPage({ params, searchParams }: PageParams) 
   const demo = catalogSource() === 'demo'
   const query = await searchParams
   const debug = isDebugCatalog(query)
+  const validatedProduct = (await withValidImages([product]))[0]
+  if (!demo && !debug && !isPubliclyVisible(validatedProduct)) notFound()
   const allProducts = await withValidImages(await repository.list())
   const categories = Object.fromEntries(allProducts.map((item) => [item.trade.category, item.trade.category]))
   const brands = Object.fromEntries(allProducts.flatMap((item) => item.trade.brand ? [[item.trade.brand, item.trade.brand]] : []))
@@ -84,7 +89,7 @@ export default async function ProductPage({ params, searchParams }: PageParams) 
   const productCollections = demo ? [] : collectionsForProduct(product)
   const hasScentProfile = Boolean(product.editorial.scentFamily || product.editorial.mood || product.editorial.room)
   const fragranceFacts = fragranceFactsFor(product)
-  const heroImage = catalogImage((await withValidImages([product]))[0])
+  const heroImage = catalogImage(validatedProduct)
   if (!heroImage && !demo && !debug) notFound()
   const structuredData = !demo && !debug && heroImage
     ? serializeStructuredData(productStructuredData(product, heroImage))
@@ -95,6 +100,11 @@ export default async function ProductPage({ params, searchParams }: PageParams) 
       {!demo && <TrackView event="view_item" payload={{ item_id: product.trade.sku, item_name: product.trade.name, item_brand: product.trade.brand, item_category: product.trade.category, price: product.trade.price, slug: product.editorial.slug }} />}
       {structuredData && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: structuredData }} />}
       <SiteHeader />
+      <nav className="productBreadcrumb" aria-label="Навигационная цепочка">
+        <Link href="/">Главная</Link><span aria-hidden="true">/</span>
+        <Link href="/catalog">Каталог</Link><span aria-hidden="true">/</span>
+        <span aria-current="page">{display.title}</span>
+      </nav>
       <div className="productLayout">
         <div className={`productHeroPlaceholder${heroImage ? ' hasImage' : ''}`}>
           {(demo || debug) && <span className="demoTag">{demo ? 'DEMO' : 'PREVIEW 1C'}</span>}
@@ -117,7 +127,11 @@ export default async function ProductPage({ params, searchParams }: PageParams) 
               : 'Цена не указана'}</p>
             <p className="stockState">{product.trade.stock === null ? 'Наличие не указано' : product.trade.stock >= 1 ? 'В наличии по данным каталога' : 'Нет в наличии'}</p>
             {catalogSource() === 'staged-1c' && (product.trade.price ?? 0) > 0 && (product.trade.stock ?? 0) >= 1 && <AddToCartButton product={product} />}
-            <p className="notice">После оформления заказа доступна онлайн-оплата. Способ доставки и итоговая стоимость рассчитываются при оформлении. <Link href="/payment">Оплата</Link> · <Link href="/delivery">Доставка</Link></p>
+            <div className="productDeliveryOptions" aria-label="Получение заказа">
+              <Link href="/delivery"><strong>Доставка по России →</strong><span>В доступные пункты Ozon. Тариф и сроки подтверждаются до отправки.</span></Link>
+              <Link href="/khabarovsk"><strong>Бесплатный самовывоз →</strong><span>Хабаровск, ул. Павла Морозова, 97. После подтверждения готовности.</span></Link>
+            </div>
+            <p className="notice">Товары оплачиваются онлайн после оформления заказа. Доставка оплачивается отдельно после согласования. <Link href="/payment">Подробнее об оплате →</Link></p>
           </section>}
           {categoryLanding && <nav className="landingLinks productFormatLink" aria-label="Формат товара">
             <Link href={landingPath('category', categoryLanding.slug)}>{categoryLanding.name} →</Link>

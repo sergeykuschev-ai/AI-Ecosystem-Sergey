@@ -85,7 +85,8 @@ test('rendered catalog and product pages hide source noise and preserve debug/fi
   const asset = fs.readdirSync('public/catalog/official').find((name) => /\.(jpg|webp|png)$/.test(name))
   assert.ok(asset)
   const pictured = product('TEATRO Диффузор с палочками ROSE OUD / Роза & Уд Luxury collection, 250 мл')
-  pictured.trade = { ...pictured.trade, sku: 'ROU250TFU', characteristics: {}, price: null }
+  pictured.isActive = true
+  pictured.trade = { ...pictured.trade, sku: 'ROU250TFU', characteristics: {}, stock: 1, price: null }
   pictured.editorial = { ...pictured.editorial, images: [`/catalog/official/${asset}`], slug: 'test-pictured', recommendations: [] }
   const missing = structuredClone(pictured)
   missing.id = 'missing'
@@ -122,9 +123,7 @@ test('rendered catalog and product pages hide source noise and preserve debug/fi
     assert.match(purchasable, /В наличии по данным каталога/)
     assert.ok(purchasable.indexOf('productPurchase') < purchasable.indexOf('productDesc'))
     pictured.trade.stock = 0
-    const unavailable = renderToStaticMarkup(await Product({ params: Promise.resolve({ slug: 'test-pictured' }), searchParams: Promise.resolve({}) }))
-    assert.match(unavailable, /Нет в наличии/)
-    assert.doesNotMatch(unavailable, /Добавить в корзину/)
+    await assert.rejects(() => Product({ params: Promise.resolve({ slug: 'test-pictured' }), searchParams: Promise.resolve({}) }), /NEXT_HTTP_ERROR_FALLBACK;404/)
     source.getCatalogRepository = async () => ({ list: async () => [pictured, missing], getBySlug: async () => missing })
     await assert.rejects(() => Product({ params: Promise.resolve({ slug: 'test-missing' }), searchParams: Promise.resolve({}) }), /NEXT_HTTP_ERROR_FALLBACK;404/)
 

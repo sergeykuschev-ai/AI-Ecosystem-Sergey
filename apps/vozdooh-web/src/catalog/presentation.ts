@@ -29,6 +29,27 @@ export function catalogImage(product: CatalogProduct): string | null {
   return product.editorial.images.find((image) => /^\/(?!\/)(?:[\w-]+\/)*[\w.-]+\.(?:webp|png|jpe?g|avif)$/i.test(image) && !image.includes('..')) ?? null
 }
 
+/** Single public catalog eligibility rule shared by sitemap and product pages.
+ * Valid assets are checked upstream with withValidImages before calling this.
+ */
+/** Positive-stock pictured products can be viewed, even without a final price.
+ * Product pages without price remain noindex and cannot be purchased.
+ */
+export function isPubliclyVisible(product: CatalogProduct): boolean {
+  return product.isActive &&
+    !isStorefrontExcluded(product) &&
+    Boolean(product.editorial.slug) &&
+    Boolean(catalogImage(product)) &&
+    (product.trade.stock ?? 0) >= 1
+}
+
+export function isPubliclyPurchasable(product: CatalogProduct): boolean {
+  return isPubliclyVisible(product) &&
+    typeof product.trade.price === 'number' &&
+    Number.isFinite(product.trade.price) &&
+    product.trade.price > 0
+}
+
 export function storefrontProducts(products: readonly CatalogProduct[], debug = false): CatalogProduct[] {
   return products.filter((product) => debug || (!isStorefrontExcluded(product) && catalogImage(product))).sort((a, b) => {
     // Internal merchandising signal first: researched higher-priority in-stock

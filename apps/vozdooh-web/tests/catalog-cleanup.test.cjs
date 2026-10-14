@@ -264,7 +264,7 @@ test('rendered discovery, every landing, product backlinks and metadata retain c
     assert.match(productMetadata.title, /купить с доставкой по России \| VOZDOOH$/)
     assert.match(productMetadata.description, /В наличии/)
     assert.match(productMetadata.description, /с доставкой по России/i)
-    assert.match(details, /После оформления заказа доступна онлайн-оплата/)
+    assert.match(details, /Товары оплачиваются онлайн после оформления заказа/)
     assert.match(details, /Как пахнет Dolce Vaniglia/)
     assert.match(details, /сахарная пудра, карамель, тёмный шоколад/)
     assert.match(details, /guides\/refil-dlya-diffuzora-kak-ispolzovat/)
