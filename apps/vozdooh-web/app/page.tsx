@@ -151,6 +151,7 @@ export default async function Home() {
           </div>
           <p>От света свечи до любимого диффузора — найдите свой формат.</p>
         </div>
+        <span className="swipeHint" aria-hidden="true">Листайте категории <span>→</span></span>
         <div className="categoryGrid homeCategoryGrid" aria-label="Категории ароматов">
           {categories.map((category, index) => {
             const product = categoryProducts[category.slug]
@@ -163,9 +164,8 @@ export default async function Home() {
                   </span>
                 )}
                 <span className="categoryIndex" aria-hidden="true">0{index + 1}</span>
-                <h3>{category.name}</h3>
+                <span className="categoryTitleRow"><h3>{category.name}</h3><b aria-hidden="true">→</b></span>
                 <p>{category.text}</p>
-                <b aria-hidden="true">→</b>
               </Link>
             )
           })}
@@ -206,6 +206,7 @@ export default async function Home() {
           <h2>У каждой комнаты свой характер.</h2>
           <p>Начните с комнаты, которую хотите наполнить ароматом. Мы поможем выбрать подходящее настроение.</p>
         </div>
+        <span className="swipeHint" aria-hidden="true">Листайте комнаты <span>→</span></span>
         <div className="roomLinks roomVisualGrid">
           {roomHighlights.map(({ slug, label, index, product }) => {
             if (!product) return null
@@ -243,7 +244,7 @@ export default async function Home() {
                 <span className="homeBrandCopy">
                   <small>0{index + 1} / {brand.products.length} поз.</small>
                   <strong>{brand.name}</strong>
-                  <span>{brand.description}</span>
+                  <span>Выберите ароматы и форматы бренда из актуального наличия.</span>
                   <b>Смотреть бренд →</b>
                 </span>
               </Link>

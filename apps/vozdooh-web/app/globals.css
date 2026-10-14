@@ -991,3 +991,46 @@ select:focus-visible,summary:focus-visible{outline:2px solid var(--green);outlin
   .homeBenefits p{display:none}
   .homeBenefits a{font-size:11px;line-height:1.5}
 }
+
+/* Second mobile pass: readable footer and compact navigation. */
+.siteFooter{display:grid;grid-template-columns:170px minmax(0,1fr) 300px;gap:32px;align-items:start;padding:38px 7vw}
+.siteFooter nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:26px;justify-content:stretch;text-transform:none;letter-spacing:normal;font-weight:400}
+.siteFooter .footerNavGroup,.siteFooter .footerNavGroup+.footerNavGroup{display:flex;flex-direction:column;flex-wrap:nowrap;gap:2px;align-items:flex-start;justify-content:flex-start;margin:0;min-width:0}
+.siteFooter .footerNavHeading{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.14em;font-weight:600;color:var(--muted);margin-bottom:10px}
+.siteFooter nav a{font-size:13px;font-weight:400;letter-spacing:0;text-transform:none;line-height:1.45;min-height:34px;padding:6px 0;overflow-wrap:anywhere}
+.siteFooter .footerNote{grid-column:auto;display:block;max-width:none;text-align:left;border:0;padding:0;font-size:11px;line-height:1.5}
+.siteFooter .footerNote p{margin:0 0 8px}
+.landingGuideHome{padding:0;margin:0;background:#f8f6f1;border:0}
+.landingGuideHome .landingGuideDetails{padding:18px 7vw}
+.landingGuideHome summary{display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-size:13px;line-height:1.45;list-style:none;gap:12px}
+.landingGuideHome summary::-webkit-details-marker{display:none}
+.landingGuideHome summary span{font-size:21px;font-weight:300}
+.landingGuideHome .landingGuideDetails[open] summary span{transform:rotate(45deg)}
+.landingGuideHome .landingGuideDetailsContent{padding:18px 0 8px;display:grid;gap:18px}
+.landingGuideHome .landingLinks a{min-height:32px;text-decoration:underline;text-decoration-color:#cfc6b7;text-underline-offset:3px}
+.landingGuideHome .landingExamples{border-top:1px solid var(--line);padding-top:12px}
+.swipeHint{display:none}
+.categoryTitleRow{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.categoryTitleRow b{font-weight:400}
+@media(max-width:760px){
+  .siteFooter{display:flex;flex-direction:column;gap:20px;padding:30px 6vw 22px}
+  .siteFooter .footerLogo{width:150px;margin-bottom:2px}
+  .siteFooter nav{width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 22px}
+  .siteFooter .footerNavGroup,.siteFooter .footerNavGroup+.footerNavGroup{gap:0}
+  .siteFooter nav a{font-size:12.5px;min-height:33px;padding:5px 0;line-height:1.45}
+  .siteFooter .footerNavHeading{margin-bottom:6px}
+  .siteFooter .footerNote{width:100%;max-width:none;padding-top:18px;border-top:1px solid var(--line);font-size:11px;line-height:1.55}
+  .siteFooter .footerNote p{margin:0 0 6px}
+  .landingGuideHome .landingGuideDetails{padding:18px 6vw}
+  .landingGuideHome .landingLinks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 14px}
+  .landingGuideHome .landingExamples{grid-template-columns:1fr}
+  .landingGuideHome .landingLinks a{font-size:12px;line-height:1.5;min-height:36px}
+  .swipeHint{display:flex;justify-content:flex-end;gap:8px;color:var(--muted);font-size:11px;letter-spacing:.03em;margin:16px 0 0}
+  .homeCategoryGrid{margin-top:10px;gap:14px;grid-auto-columns:minmax(160px,43vw)}
+  .homeCategoryGrid .categoryTitleRow{display:flex;align-items:center;gap:5px;justify-content:space-between}
+  .homeCategoryGrid .categoryTitleRow h3{font-size:17px;padding:0;min-width:0}
+  .homeCategoryGrid .categoryTitleRow b{position:static;font-size:17px;margin:0;flex-shrink:0}
+  .homeCategoryGrid .category p{margin-top:6px;padding:0}
+  .room .swipeHint{margin:0 0 -4px}
+  .roomLinks.roomVisualGrid{grid-auto-columns:minmax(190px,65vw)}
+}

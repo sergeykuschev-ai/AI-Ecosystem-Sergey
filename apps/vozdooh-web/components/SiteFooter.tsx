@@ -24,15 +24,17 @@ const infoLinks = [
 
 export function SiteFooter() {
   return (
-    <footer>
+    <footer className="siteFooter">
       <Link className="footerLogo" href="/" aria-label="VOZDOOH — на главную">
         <Image src="/brand/vozdooh-horizontal.webp" alt="VOZDOOH" width={900} height={118} />
       </Link>
       <nav aria-label="Нижняя навигация">
         <div className="footerNavGroup">
+          <span className="footerNavHeading">Магазин</span>
           {shopLinks.map((link) => <Link href={link.href} key={link.href}>{link.label}</Link>)}
         </div>
         <div className="footerNavGroup footerNavInfo">
+          <span className="footerNavHeading">Покупателям</span>
           {infoLinks.map((link) => <Link href={link.href} key={link.href}>{link.label}</Link>)}
         </div>
       </nav>
