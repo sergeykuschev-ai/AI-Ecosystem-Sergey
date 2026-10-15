@@ -1,0 +1,26 @@
+rank,sku,brand,exact_source_name,vozdooh_price_rub,stock_at_audit,reference_price_rub,reference_merchant,reference_url,difference_rub,difference_pct_of_reference,status,all_verified_offers
+1,802e8ae5-d19b-11ec-be83-7c8bca00854e,CULTI MILANO,Decor Classic диффузор Aramara 250мл,11200.00,1.0,13500,ЦУМ,https://www.tsum.ru/product/he00475990-diffuzor-decor-classic-aramara-250ml-culti-milano-bestcvetnyi/,-2300.0,-17.04,EXACT_MATCH_PUBLIC_LISTING,13500 RUB ЦУМ https://www.tsum.ru/product/he00475990-diffuzor-decor-classic-aramara-250ml-culti-milano-bestcvetnyi/; 13617 RUB Candlesbox https://candlesbox.com/culti-milano/
+2,bf33a951-016c-11ed-b2a4-7c8bca00854e,CULTI MILANO,Decor Classic диффузор Aramara 1000 мл,22200.00,1.0,26580,ЦУМ,https://www.tsum.ru/catalog/men-aromaty-dlya-doma-20367/?brand=6986769,-4380.0,-16.48,EXACT_MATCH_PUBLIC_LISTING,26580 RUB ЦУМ https://www.tsum.ru/catalog/men-aromaty-dlya-doma-20367/?brand=6986769; 26809 RUB Candlesbox https://candlesbox.com/culti-milano/
+3,df29d344-d192-11ec-be83-7c8bca00854e,CULTI MILANO,Stile Classic диффузор Aramara 250мл,12700.00,1.0,13500,ЦУМ,https://www.tsum.ru/catalog/women-diffuzory-20370/?brand=6986769,-800.0,-5.93,EXACT_MATCH_PUBLIC_LISTING,13500 RUB ЦУМ https://www.tsum.ru/catalog/women-diffuzory-20370/?brand=6986769
+4,df29d346-d192-11ec-be83-7c8bca00854e,CULTI MILANO,Stile Classic диффузор Tessuto 250мл,12700.00,2.0,13500,ЦУМ,https://www.tsum.ru/catalog/women-diffuzory-20370/?brand=6986769,-800.0,-5.93,EXACT_MATCH_PUBLIC_LISTING,13500 RUB ЦУМ https://www.tsum.ru/catalog/women-diffuzory-20370/?brand=6986769
+5,N020458,Lothantique,Аромадиффузор 200 мл/ LES SECRETS D'ANTOINE/ СЕКРЕТЫ АНТУАНА,5900.00,2.0,,,,,,NEEDS_INDEPENDENT_RUB_REFERENCE,
+6,802e8b0c-d19b-11ec-be83-7c8bca00854e,CULTI MILANO,Саше для автомобиля Mareminerale 7х7см,3900.00,2.0,4640,ЦУМ,https://www.tsum.ru/catalog/men-aromaty-dlya-doma-20367/?brand=6986769,-740.0,-15.95,EXACT_MATCH_PUBLIC_LISTING,4640 RUB ЦУМ https://www.tsum.ru/catalog/men-aromaty-dlya-doma-20367/?brand=6986769
+7,976878,CULTI MILANO,Decor Classic диффузор Aqqua 250мл,11200.00,1.0,13500,ЦУМ,https://www.tsum.ru/catalog/women-diffuzory-20370/?size=1155059,-2300.0,-17.04,EXACT_MATCH_PUBLIC_LISTING,13500 RUB ЦУМ https://www.tsum.ru/catalog/women-diffuzory-20370/?size=1155059; 13617 RUB Candlesbox https://candlesbox.com/tovar/aqqua-aromaticheskiy-diffuzor-decor-250-ml-culti-milano/
+8,bf33a957-016c-11ed-b2a4-7c8bca00854e,CULTI MILANO,Спрей для дома Aqqua 100 мл,6400.00,1.0,,,,,,NEEDS_INDEPENDENT_RUB_REFERENCE,
+9,df29d34a-d192-11ec-be83-7c8bca00854e,CULTI MILANO,Stile Classic диффузор Aqqua 250мл,12700.00,1.0,,,,,,NEEDS_INDEPENDENT_RUB_REFERENCE,
+10,655467,TEATRO Fragranze Uniche,"TEATRO Диффузор с палочками DOLCE VANIGLIA / Сладкая ваниль, 500 мл",12000.00,2.0,,,,,,NEEDS_INDEPENDENT_RUB_REFERENCE,
+11,DV250TFU,TEATRO Fragranze Uniche,"TEATRO Диффузор с палочками DOLCE VANIGLIA / Сладкая ваниль, 250 мл",8000.00,2.0,,,,,,NEEDS_INDEPENDENT_RUB_REFERENCE,
+12,BD500TFU,TEATRO Fragranze Uniche,"TEATRO Диффузор с палочками BIANCO DIVINO / Божественный белый, 500 мл",12000.00,1.0,,,,,,NEEDS_INDEPENDENT_RUB_REFERENCE,
+13,DV500RTFU,TEATRO Fragranze Uniche,"TEATRO Рефилл для диффузора DOLCE VANIGLIA / Сладкая ваниль, 500 мл",8500.00,1.0,,,,,,NEEDS_INDEPENDENT_RUB_REFERENCE,
+14,DANHNIR250DEC,DANHERA,"Ароматизатор воздуха NIRO, 250 мл, ТМ DANHERA",14600.00,1.0,,,,,,NEEDS_INDEPENDENT_RUB_REFERENCE,
+15,N020465,Lothantique,Аромадиффузор 200 мл/ SANDALWOOD/ САНДАЛ,5900.00,2.0,,,,,,NEEDS_INDEPENDENT_RUB_REFERENCE,
+16,FF250TFU,TEATRO Fragranze Uniche,"TEATRO Диффузор с палочками FOGLIE DI FICO / Листья инжира, 250 мл",8000.00,2.0,,,,,,NEEDS_INDEPENDENT_RUB_REFERENCE,
+17,ROU250TFU,TEATRO Fragranze Uniche,"TEATRO Диффузор с палочками ROSE OUD / Роза & Уд Luxury collection, 250 мл",10000.00,2.0,,,,,,NEEDS_INDEPENDENT_RUB_REFERENCE,
+18,V63011,Vellutier,Vellutier / Свеча маленькая Удовое дерево 90гр / Oudwood Journey,2200.00,2.0,,,,,,NEEDS_INDEPENDENT_RUB_REFERENCE,
+19,N020291,Christian Tortu,Аромадиффузор 250 мл Christian Tortu /TUBEROSE/ ТУБЕРОЗА,11900.00,2.0,,,,,,NEEDS_INDEPENDENT_RUB_REFERENCE,
+20,CAND-ROU180,TEATRO Fragranze Uniche,"TEATRO Ароматическая свеча ROSE OUD / Роза & Уд Luxury Сollection, 180 г",6000.00,1.0,,,,,,NEEDS_INDEPENDENT_RUB_REFERENCE,
+21,DI250TFU,TEATRO Fragranze Uniche,"TEATRO Диффузор с палочками DIAMANTE / Алмаз Luxury Collection, 250 мл",10000.00,1.0,,,,,,NEEDS_INDEPENDENT_RUB_REFERENCE,
+22,FLC250TFU,TEATRO Fragranze Uniche,"TEATRO Диффузор с палочками FIORE / Цветок Luxury collection, 250 мл",10000.00,1.0,,,,,,NEEDS_INDEPENDENT_RUB_REFERENCE,
+23,II250TFU,TEATRO Fragranze Uniche,"TEATRO Диффузор с палочками INCENSO IMPERIALE / Императорские благовония, 250 мл",8000.00,1.0,,,,,,NEEDS_INDEPENDENT_RUB_REFERENCE,
+24,V61014,Vellutier,Vellutier / Свеча большая Вечерний тост 515гр / Midnight Toast,4900.00,1.0,,,,,,NEEDS_INDEPENDENT_RUB_REFERENCE,
+25,V62014,Vellutier,Vellutier / Свеча средняя Вечерний тост 225гр / Midnight Toast,3500.00,1.0,,,,,,NEEDS_INDEPENDENT_RUB_REFERENCE,
