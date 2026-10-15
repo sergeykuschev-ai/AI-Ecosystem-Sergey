@@ -42,7 +42,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const collectionUrls = availableCollections(products).map((collection) => ({ url: `${base}/collections/${collection.slug}`, changeFrequency: 'weekly' as const, priority: 0.6 }))
     dynamicRoutes = [...productUrls, ...brandUrls, ...categoryUrls, ...collectionUrls]
   } catch {
-    // Catalog unavailable (e.g. demo mode selected without data): static routes only.
+    // Never serve a valid but partial sitemap when 1C/catalog is temporarily
+    // unavailable: search engines could interpret missing product URLs as removals.
+    // A transient HTTP error is safer and can be retried when the catalog returns.
+    console.error('VOZDOOH_SITEMAP_CATALOG_UNAVAILABLE')
+    throw new Error('SITEMAP_CATALOG_UNAVAILABLE')
   }
 
   return [...staticRoutes, ...dynamicRoutes]

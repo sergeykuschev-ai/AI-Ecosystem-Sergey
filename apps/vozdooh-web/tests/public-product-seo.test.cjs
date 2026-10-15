@@ -38,3 +38,20 @@ test('sitemap includes only purchasable products with valid existing images', as
     for (const slug of ['sold-out','not-priced','missing-photo','inactive']) assert.ok(!urls.includes(`/catalog/${slug}`), slug)
   } finally { source.getCatalogRepository = original }
 })
+
+
+test('sitemap fails transiently rather than dropping every product URL on a catalog outage', async () => {
+  const source = require('../src/catalog/source.ts')
+  const original = source.getCatalogRepository
+  const previousError = console.error
+  const errors = []
+  source.getCatalogRepository = async () => { throw new Error('simulated 1C failure') }
+  console.error = (code) => { errors.push(code) }
+  try {
+    await assert.rejects(() => require('../app/sitemap.ts').default(), /SITEMAP_CATALOG_UNAVAILABLE/)
+    assert.deepEqual(errors, ['VOZDOOH_SITEMAP_CATALOG_UNAVAILABLE'])
+  } finally {
+    source.getCatalogRepository = original
+    console.error = previousError
+  }
+})
