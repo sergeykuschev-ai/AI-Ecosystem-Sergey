@@ -119,8 +119,6 @@ export default async function ProductPage({ params, searchParams }: PageParams) 
           <h1>{display.title}</h1>
           {display.russianTitle && <p className="productTranslation">{display.russianTitle}</p>}
           <p className="productSubtitle">{display.subtitle}</p>
-          {isExternallyConfirmedPopular(product.trade.sku) && <p className="popularityNote">{POPULARITY_NOTE}</p>}
-          <Link className="productBack" href={backHref}>← Каталог</Link>
           {!demo && <section className="productPurchase" aria-label="Цена и наличие">
             <p className="productPrice">{(product.trade.price ?? 0) > 0
               ? rub.format(product.trade.price!)
@@ -133,6 +131,8 @@ export default async function ProductPage({ params, searchParams }: PageParams) 
             </div>
             <p className="notice">Товары оплачиваются онлайн после оформления заказа. Доставка оплачивается отдельно после согласования. <Link href="/payment">Подробнее об оплате →</Link></p>
           </section>}
+          {isExternallyConfirmedPopular(product.trade.sku) && <p className="popularityNote">{POPULARITY_NOTE}</p>}
+          <Link className="productBack" href={backHref}>← Каталог</Link>
           {categoryLanding && <nav className="landingLinks productFormatLink" aria-label="Формат товара">
             <Link href={landingPath('category', categoryLanding.slug)}>{categoryLanding.name} →</Link>
           </nav>}

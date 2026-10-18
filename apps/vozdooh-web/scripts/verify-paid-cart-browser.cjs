@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports -- Opt-in browser verification. */
 const assert = require('node:assert/strict')
+const { createPaymentStatusMock, countPurchases } = require('../tests/paid-cart-qa-state.cjs')
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright-core')
 const baseURL = process.env.VOZDOOH_QA_URL || 'http://127.0.0.1:3436'
 const origin = new URL(baseURL).origin
@@ -13,14 +14,15 @@ const cartKey = 'vozdooh-cart-v1'
     for (const width of [390, 1280]) {
       for (const scenario of ['paid', 'edited', 'pending', 'canceled', 'failed', 'storage-failure', 'already-tracked', 'delayed']) {
         const context = await browser.newContext({ viewport: { width, height: 900 } })
-        const errors = []; let payload; let checks = 0; let writes = 0
+        const errors = []; let payload; let writes = 0
+        const payment = createPaymentStatusMock(scenario)
+        const purchaseCount = () => countPurchases(context.pages())
         await context.route('**/*', async (route) => {
           const request = route.request(); const url = new URL(request.url())
           if (url.hostname === 'pay.example.test' && request.isNavigationRequest()) return route.fulfill({ contentType: 'text/html', body: `<script>location.replace(${JSON.stringify(`${baseURL}/checkout/success?requestId=${requestId}`)})</script>` })
           if (url.origin !== origin) return route.abort()
           if (url.pathname === '/api/payments/ozon/status') {
-            checks++
-            const state = ['pending', 'canceled', 'failed'].includes(scenario) ? scenario : scenario === 'delayed' && checks <= 26 ? 'pending' : checks === 1 ? 'pending' : 'paid'
+            const state = payment.status()
             return route.fulfill({ json: state === 'paid' ? { state, order: { id: requestId, totalMinor: payload.lines[0].expectedPriceMinor, currency: 'RUB', items: [{ id: sku, name: 'Synthetic browser payment item', priceMinor: payload.lines[0].expectedPriceMinor, quantity: 1 }] } } : { state } })
           }
           if (request.method() === 'GET') return route.continue()
@@ -28,7 +30,10 @@ const cartKey = 'vozdooh-cart-v1'
             writes++; payload = request.postDataJSON()
             return route.fulfill({ status: 201, json: { id: requestId, createdAt: new Date().toISOString(), totalMinor: payload.lines[0].expectedPriceMinor, currency: 'RUB', status: 'request_received' } })
           }
-          if (url.pathname === '/api/payments/ozon/create') return route.fulfill({ json: { redirectUrl: 'https://pay.example.test/synthetic' } })
+          if (url.pathname === '/api/payments/ozon/create') {
+            payment.start()
+            return route.fulfill({ json: { redirectUrl: 'https://pay.example.test/synthetic' } })
+          }
           return route.abort()
         })
         const page = await context.newPage()
@@ -45,7 +50,11 @@ const cartKey = 'vozdooh-cart-v1'
         await page.getByRole('heading', { name: 'Заказ оформлен — ожидает оплаты' }).waitFor()
         assert.equal(await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).lines[0].quantity, cartKey), 1)
         const editPage = await context.newPage()
+        editPage.on('pageerror', (error) => errors.push(error.message))
         await editPage.goto(`${baseURL}/cart`, { waitUntil: 'networkidle' })
+        assert.equal(payment.checks, 0, 'background checks must not start payment')
+        assert.equal(await purchaseCount(), 0, 'no purchase before payment starts in either tab')
+        assert.deepEqual(await editPage.evaluate((key) => JSON.parse(localStorage.getItem(key)).lines, cartKey), [{ sku, quantity: 1 }])
         if (scenario === 'edited') {
           await editPage.getByRole('button', { name: 'Увеличить количество' }).click()
           // Simulate another unrelated SKU while preserving snapshot provenance.
@@ -62,8 +71,8 @@ const cartKey = 'vozdooh-cart-v1'
         await page.waitForFunction(() => document.querySelector('main [role=status]')?.textContent.includes('Проверяем'))
         const nonPaid = ['pending', 'canceled', 'failed'].includes(scenario)
         const targetChecks = scenario === 'delayed' ? 27 : 2
-        for (let step = 0; checks < targetChecks && step < 40; step++) { await page.clock.fastForward(30001); await page.waitForTimeout(100) }
-        assert.ok(checks >= targetChecks, 'status polling must continue beyond the former one-minute limit')
+        for (let step = 0; payment.checks < targetChecks && step < 40; step++) { await page.clock.fastForward(30001); await page.waitForTimeout(100) }
+        assert.ok(payment.checks >= targetChecks, 'status polling must continue beyond the former one-minute limit')
         if (!nonPaid) await page.waitForFunction(() => document.querySelector('main [role=status]')?.textContent.includes('Оплата подтверждена'))
         if (scenario === 'storage-failure') {
           assert.equal(await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).lines.length, cartKey), 1)
@@ -73,17 +82,19 @@ const cartKey = 'vozdooh-cart-v1'
         await page.waitForFunction(({ key, expected }) => JSON.stringify(JSON.parse(localStorage.getItem(key)).lines) === JSON.stringify(expected), { key: cartKey, expected })
         const count = expected.reduce((sum, line) => sum + line.quantity, 0)
         await editPage.getByRole('link', { name: `Корзина, товаров: ${count}`, exact: true }).waitFor()
-        const purchases = await page.evaluate(() => (window.dataLayer || []).filter((event) => event.ecommerce?.purchase).length)
+        const purchases = await purchaseCount()
         assert.equal(purchases, nonPaid || scenario === 'already-tracked' ? 0 : 1)
         if (!nonPaid && scenario !== 'storage-failure') {
+          const editPurchases = await editPage.evaluate(() => (window.dataLayer || []).filter((event) => event.ecommerce?.purchase).length)
           await page.reload({ waitUntil: 'networkidle' })
           await page.waitForFunction(() => document.querySelector('main [role=status]')?.textContent.includes('Оплата подтверждена'))
           assert.deepEqual(await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).lines, cartKey), expected)
           assert.equal(await page.evaluate(() => (window.dataLayer || []).filter((event) => event.ecommerce?.purchase).length), 0)
+          assert.equal(await purchaseCount(), editPurchases, 'reload must not add a purchase in either tab')
         }
         assert.equal(writes, 1)
         assert.deepEqual(errors, [])
-        console.log(`PASS ${width}px ${scenario}; mocked writes only; status checks=${checks}`)
+        console.log(`PASS ${width}px ${scenario}; mocked writes only; status checks=${payment.checks}`)
         await context.close()
       }
     }

@@ -156,22 +156,34 @@ export function bindPaymentCart(attemptKey: string, requestId: string): void {
 }
 
 /** Call only with server-verified paid items. Cart update and receipt are one write. */
-export function removePaidCartItems(requestId: string, items: { id: string; quantity: number }[]): boolean {
-  const cart = readCart()
-  const snapshot = Object.values(cart.paymentSnapshots ?? {}).find((entry) => entry.requestId === requestId)
-  if (!snapshot) return true // Legacy / other browser: no evidence, preserve cart.
-  if (snapshot.cleaned) return true
-  if (items.length !== snapshot.lines.length || new Set(items.map((item) => item.id)).size !== items.length || !snapshot.lines.every((line) => items.some((item) => item.id === line.sku && item.quantity === line.quantity))) return false
-  for (const line of snapshot.lines) {
-    const current = cart.lines.find((entry) => entry.sku === line.sku)
-    const removed = Math.min(current?.quantity ?? 0, line.remaining)
-    if (current) current.quantity -= removed
-    reduceSnapshots(cart, line.sku, removed)
+export type PaidCartOutcome = 'cleaned' | 'already-done' | 'missing-receipt' | 'receipt-mismatch' | 'storage-failure'
+
+export function reconcilePaidCartItems(requestId: string, items: { id: string; quantity: number }[]): PaidCartOutcome {
+  try {
+    const cart = readCart()
+    const snapshot = Object.values(cart.paymentSnapshots ?? {}).find((entry) => entry.requestId === requestId)
+    if (!snapshot) return 'missing-receipt' // No evidence: preserve cart.
+    if (items.length !== snapshot.lines.length || new Set(items.map((item) => item.id)).size !== items.length || !snapshot.lines.every((line) => items.some((item) => item.id === line.sku && item.quantity === line.quantity))) return 'receipt-mismatch'
+    if (snapshot.cleaned) return 'already-done'
+    for (const line of snapshot.lines) {
+      const current = cart.lines.find((entry) => entry.sku === line.sku)
+      const removed = Math.min(current?.quantity ?? 0, line.remaining)
+      if (current) current.quantity -= removed
+      reduceSnapshots(cart, line.sku, removed)
+    }
+    cart.lines = cart.lines.filter((line) => line.quantity > 0)
+    snapshot.cleaned = true
+    persistCart(cart)
+    return 'cleaned'
+  } catch {
+    return 'storage-failure'
   }
-  cart.lines = cart.lines.filter((line) => line.quantity > 0)
-  snapshot.cleaned = true
-  persistCart(cart)
-  return true
+}
+
+/** Compatibility API: true only when the bound receipt was reconciled. */
+export function removePaidCartItems(requestId: string, items: { id: string; quantity: number }[]): boolean {
+  const outcome = reconcilePaidCartItems(requestId, items)
+  return outcome === 'cleaned' || outcome === 'already-done'
 }
 
 /** Pending receipts are safe to recheck after Ozon returns to any storefront page.

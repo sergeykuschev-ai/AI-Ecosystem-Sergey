@@ -1,6 +1,6 @@
 'use client'
 
-import { removePaidCartItems } from './storage'
+import { reconcilePaidCartItems, type PaidCartOutcome } from './storage'
 import { trackPurchase } from '../integrations/analytics'
 
 export type PaidOrder = {
@@ -30,10 +30,9 @@ export function verifiedPaidOrder(data: unknown, requestId: string): PaidOrder |
   return order
 }
 
-export async function applyConfirmedPayment(order: PaidOrder): Promise<boolean> {
+export async function applyConfirmedPaymentResult(order: PaidOrder): Promise<PaidCartOutcome> {
   const apply = () => {
-    let cleaned = false
-    try { cleaned = removePaidCartItems(order.id, order.items) } catch { /* Retry cleanup; analytics has an independent receipt. */ }
+    const outcome = reconcilePaidCartItems(order.id, order.items)
     const key = `vozdooh-purchase-tracked:${order.id}`
     if (!alreadyTracked(key)) {
       trackPurchase({ id: order.id, revenue: order.totalMinor / 100, items: order.items.map((item) => ({ id: item.id, name: item.name, price: item.priceMinor / 100, quantity: item.quantity })) })
@@ -42,10 +41,20 @@ export async function applyConfirmedPayment(order: PaidOrder): Promise<boolean> 
         try { window[storage].setItem(key, '1') } catch { /* Memory still prevents duplicates in this document. */ }
       }
     }
-    return cleaned
+    return outcome
   }
   // Serialize success callbacks across tabs. The receipt lives with the cart,
   // so a failed write cannot mark an unapplied cleanup as complete.
-  if (typeof navigator !== 'undefined' && navigator.locks) return navigator.locks.request('vozdooh-paid-cart', apply)
-  return apply()
+  try {
+    if (typeof navigator !== 'undefined' && navigator.locks) return await navigator.locks.request('vozdooh-paid-cart', apply)
+    return apply()
+  } catch {
+    return 'storage-failure'
+  }
+}
+
+/** Compatibility API used by background recovery. Analytics is independent. */
+export async function applyConfirmedPayment(order: PaidOrder): Promise<boolean> {
+  const outcome = await applyConfirmedPaymentResult(order)
+  return outcome === 'cleaned' || outcome === 'already-done'
 }

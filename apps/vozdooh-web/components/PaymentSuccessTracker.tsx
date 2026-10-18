@@ -1,18 +1,21 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { applyConfirmedPayment, verifiedPaidOrder } from '../src/cart/confirmedPayment'
+import type { PaidCartOutcome } from '../src/cart/storage'
+import { applyConfirmedPaymentResult, verifiedPaidOrder } from '../src/cart/confirmedPayment'
 
 export function PaymentSuccessTracker({ requestId }: { requestId: string }) {
-  const [paidRequestId, setPaidRequestId] = useState<string | null>(null)
+  const [result, setResult] = useState<{ requestId: string; outcome: PaidCartOutcome | null } | null>(null)
+  const [retry, setRetry] = useState(0)
   useEffect(() => {
     let cancelled = false
     let running = false
+    let finished = false
     let timer: ReturnType<typeof setTimeout> | undefined
     let attempts = 0
 
     const check = async () => {
-      if (cancelled || running) return
+      if (cancelled || running || finished) return
       if (timer) clearTimeout(timer)
       running = true
       attempts += 1
@@ -22,8 +25,11 @@ export function PaymentSuccessTracker({ requestId }: { requestId: string }) {
         if (response.ok && !cancelled) {
           const order = verifiedPaidOrder(await response.json(), requestId)
           if (order && !cancelled) {
-            setPaidRequestId(requestId)
-            complete = await applyConfirmedPayment(order)
+            setResult((previous) => previous?.requestId === requestId ? previous : { requestId, outcome: null })
+            const outcome = await applyConfirmedPaymentResult(order)
+            if (!cancelled) setResult({ requestId, outcome })
+            complete = outcome !== 'storage-failure'
+            finished = complete
           }
         }
       } catch { /* Retry transient network/storage failures without changing the cart. */ }
@@ -40,6 +46,20 @@ export function PaymentSuccessTracker({ requestId }: { requestId: string }) {
       window.removeEventListener('focus', resume)
       document.removeEventListener('visibilitychange', resume)
     }
-  }, [requestId])
-  return <p role="status">{paidRequestId === requestId ? 'Оплата подтверждена. Спасибо за заказ.' : 'Проверяем подтверждение оплаты. Статус обновится автоматически; повторно оплачивать заказ не нужно.'}</p>
+  }, [requestId, retry])
+  const paid = result?.requestId === requestId
+  const outcome = paid ? result.outcome : null
+  const manual = outcome === 'missing-receipt' || outcome === 'receipt-mismatch'
+  return <>
+    <p role="status">{!paid
+      ? 'Проверяем подтверждение оплаты. Повторно оплачивать заказ не нужно.'
+      : manual
+        ? 'Оплата подтверждена. Не удалось сверить корзину с покупкой. Проверьте корзину и удалите купленные товары вручную. Повторно оплачивать заказ не нужно.'
+        : outcome === 'storage-failure'
+          ? 'Оплата подтверждена. Хранилище браузера недоступно. Повторите обновление корзины или удалите купленные товары вручную. Новый заказ создавать и повторно оплачивать не нужно.'
+          : outcome === null
+            ? 'Оплата подтверждена. Проверяем корзину.'
+            : 'Оплата подтверждена. Корзина сверена с покупкой; новые товары сохранены. Спасибо за заказ.'}</p>
+    {paid && outcome === 'storage-failure' && <button type="button" onClick={() => setRetry((value) => value + 1)}>Повторить обновление корзины</button>}
+  </>
 }

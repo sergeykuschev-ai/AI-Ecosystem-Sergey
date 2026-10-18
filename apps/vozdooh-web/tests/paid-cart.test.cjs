@@ -135,7 +135,7 @@ test('legacy retry without original snapshot preserves current units', async () 
 test('corrupt snapshot metadata preserves readable cart lines', () => {
   local.setItem('vozdooh-cart-v1', JSON.stringify({ lines: [{ sku: 'A', quantity: 2 }], paymentSnapshots: { bad: { lines: [null] } } }))
   assert.deepEqual(lines(), [{ sku: 'A', quantity: 2 }])
-  assert.equal(cart.removePaidCartItems(order.id, order.items), true)
+  assert.equal(cart.removePaidCartItems(order.id, order.items), false)
   assert.deepEqual(lines(), [{ sku: 'A', quantity: 2 }])
 })
 
@@ -199,4 +199,62 @@ test('payment reconciliation is wired to shared header on every storefront page'
   assert.match(sync, /window\.addEventListener\('focus'/)
   assert.match(sync, /document\.addEventListener\('visibilitychange'/)
   assert.match(sync, /setInterval\(resume, 30000\)/)
+})
+
+const { applyConfirmedPaymentResult } = require('../src/cart/confirmedPayment.ts')
+
+test('diagnostics distinguish absent receipt, mismatch, cleaned and already done', async () => {
+  cart.addLine('A', 2)
+  assert.equal(await applyConfirmedPaymentResult(order), 'missing-receipt')
+  assert.equal(await applyConfirmedPayment(order), false)
+  assert.deepEqual(lines(), [{ sku: 'A', quantity: 2 }])
+  cart.capturePaymentCart('attempt', lines()); cart.bindPaymentCart('attempt', order.id)
+  assert.equal(cart.reconcilePaidCartItems(order.id, [{ id: 'A', quantity: 1 }]), 'receipt-mismatch')
+  assert.equal(cart.reconcilePaidCartItems('another-order', order.items), 'missing-receipt')
+  assert.equal(await applyConfirmedPaymentResult(order), 'cleaned')
+  cart.addLine('A', 5)
+  assert.equal(await applyConfirmedPaymentResult(order), 'already-done')
+  assert.equal(cart.reconcilePaidCartItems(order.id, [{ id: 'A', quantity: 1 }]), 'receipt-mismatch')
+  assert.deepEqual(lines(), [{ sku: 'A', quantity: 5 }])
+  assert.equal(window.dataLayer.length, 1)
+})
+
+test('diagnostic storage failure retries the same receipt and preserves newer units', async () => {
+  snapshot(); cart.addLine('A', 3)
+  const write = local.setItem
+  local.setItem = (key, value) => { if (key === 'vozdooh-cart-v1') throw new Error('synthetic'); write(key, value) }
+  assert.equal(await applyConfirmedPaymentResult(order), 'storage-failure')
+  assert.equal(cart.readCart().paymentSnapshots.attempt.cleaned, undefined)
+  local.setItem = write
+  assert.equal(await applyConfirmedPaymentResult(order), 'cleaned')
+  assert.deepEqual(lines(), [{ sku: 'A', quantity: 3 }])
+  assert.equal(window.dataLayer.length, 1)
+})
+
+test('serialized callbacks from independent tabs share cleanup and analytics receipts', async () => {
+  snapshot(); cart.addLine('A', 1)
+  // Simulate a second tab's independent module memory without relying on ESM
+  // extensionless TypeScript imports (unsupported by the Linux Node test runner).
+  const modulePath = require.resolve('../src/cart/confirmedPayment.ts')
+  const originalModule = require.cache[modulePath]
+  delete require.cache[modulePath]
+  const otherTab = require('../src/cart/confirmedPayment.ts')
+  if (originalModule) require.cache[modulePath] = originalModule
+  const descriptor = Object.getOwnPropertyDescriptor(global, 'navigator')
+  let queue = Promise.resolve(); let locks = 0
+  Object.defineProperty(global, 'navigator', { configurable: true, value: { locks: {
+    request: (name, callback) => {
+      assert.equal(name, 'vozdooh-paid-cart'); locks++
+      const next = queue.then(callback); queue = next.catch(() => {}); return next
+    },
+  } } })
+  try {
+    assert.deepEqual(await Promise.all([applyConfirmedPaymentResult(order), otherTab.applyConfirmedPaymentResult(order)]), ['cleaned', 'already-done'])
+    assert.equal(locks, 2)
+    assert.deepEqual(lines(), [{ sku: 'A', quantity: 1 }])
+    assert.equal(window.dataLayer.length, 1)
+  } finally {
+    if (descriptor) Object.defineProperty(global, 'navigator', descriptor)
+    else delete global.navigator
+  }
 })

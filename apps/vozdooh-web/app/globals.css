@@ -1074,3 +1074,26 @@ select:focus-visible,summary:focus-visible{outline:2px solid var(--green);outlin
   .productDeliveryOptions a{padding:13px 14px;gap:3px}
   .productPurchase .productPrice{font-size:28px}
 }
+
+/* UX-01/02: purchase first; readable product information within the existing brand. */
+.productPage .productBreadcrumb{font-size:14px;color:var(--ink)}
+.productPage .productBreadcrumb a{display:inline-flex;align-items:center;min-height:44px}
+.productPage .productPurchase .stockState{font-size:14px;line-height:1.5}
+.productPage .productDeliveryOptions strong{font-size:14px}
+.productPage .productDeliveryOptions span,
+.productPage .productPurchase .notice,
+.productPage .productInfo .popularityNote{font-size:14px;line-height:1.6;color:var(--ink)}
+.productPage .productPurchase .notice a{display:inline-flex;align-items:center;min-height:44px;text-decoration:underline;text-underline-offset:4px}
+.productPage .productPurchase .buyButton{min-height:48px}
+.productPage .productInfo .productBack{font-size:14px;color:var(--ink)}
+.productPage .productFacts>summary{font-size:16px;color:var(--ink)}
+.productPage .productMetaList div{font-size:14px;line-height:1.6}
+.productPage .productMetaList dt{font-size:14px;letter-spacing:normal;text-transform:none;color:var(--ink)}
+.productPage .productMetaList dd{color:var(--ink)}
+@media(max-width:760px){
+  .productPage .productBreadcrumb{gap:4px 7px;margin-top:8px;margin-bottom:0}
+  .productPage .productInfo{padding-top:8px}
+  .productPage .productInfo .productSubtitle{font-size:14px;line-height:1.5;margin:8px 0;color:var(--ink)}
+  .productPage .productPurchase{margin-top:8px;padding-top:12px}
+  .productPage .productPurchase .stockState{margin-bottom:12px}
+}
