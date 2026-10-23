@@ -1,0 +1,14 @@
+[
+  {
+    "trade": { "sku": "SYNTHETIC-DIFFUSER", "name": "TEATRO DOLCE VANIGLIA аромадиффузор 500 мл", "brand": "TEATRO Fragranze Uniche", "category": "Диффузоры", "volume": "500 мл", "stock": 1 },
+    "editorial": { "slug": "teatro-dolce-vaniglia-500" }
+  },
+  {
+    "trade": { "sku": "SYNTHETIC-REFILL", "name": "TEATRO DOLCE VANIGLIA рефил для диффузора 500 мл", "brand": "TEATRO Fragranze Uniche", "category": "Рефилы", "volume": "500 мл", "stock": 1 },
+    "editorial": { "slug": "teatro-dolce-vaniglia-refill-500" }
+  },
+  {
+    "trade": { "sku": "SYNTHETIC-CANDLE", "name": "Vellutier свеча маленькая Vintage Library 90 г", "brand": "Vellutier", "category": "Свечи", "volume": "90 г", "stock": 1 },
+    "editorial": { "slug": "synthetic-candle" }
+  }
+]

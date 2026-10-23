@@ -1,3 +1,7 @@
+import { ProductPurchaseGuide } from '../../../components/ProductPurchaseGuide'
+import { reviewedPurchaseGuide, purchaseGuideAlternatives } from '../../../src/catalog/purchaseGuides'
+import { reviewedFragranceVariants } from '../../../src/catalog/productVariants'
+import { reviewedCommercialTitle, distinctProductMetadataTitle, conciseProductMetadataTitle, conciseProductMetadataDescription } from '../../../src/seo/productMetadata'
 import type { Metadata } from 'next'
 import { publicRobots } from '../../../src/seo/indexing'
 import Image from 'next/image'
@@ -34,6 +38,7 @@ export async function generateMetadata({ params, searchParams }: PageParams): Pr
   if (!product) return { title: 'Товар не найден — VOZDOOH', robots: { index: false, follow: false } }
   const validProduct = (await withValidImages([product]))[0]
   const publiclyAvailable = isPubliclyPurchasable(validProduct)
+  const purchaseGuide = catalogSource() === 'demo' || isDebugCatalog(await searchParams) ? null : reviewedPurchaseGuide(validProduct)
 
   const display = productPresentation(product)
   const priority = demandRank(product.trade.sku) !== null
@@ -44,7 +49,7 @@ export async function generateMetadata({ params, searchParams }: PageParams): Pr
       ? `${fragranceFacts.notes.slice(0, 3).join(', ')}.`
       : fragranceFacts.summary
     : ''
-  const description = catalogSource() === 'demo'
+  const originalDescription = catalogSource() === 'demo'
     ? 'Демонстрационная карточка товара VOZDOOH. Цена, наличие и характеристики появятся после синхронизации с 1С.'
     : reviewedProductSearchDescription(product) ?? (priority
       ? fragranceFacts
@@ -54,9 +59,12 @@ export async function generateMetadata({ params, searchParams }: PageParams): Pr
         ? `${product.editorial.description} ${[product.trade.brand, display.subtitle].filter(Boolean).join(' · ')}. Заказ с доставкой в доступные пункты Ozon по России.`
         : `${[display.title, product.trade.brand, display.subtitle].filter(Boolean).join(' · ')}. Купить в VOZDOOH с доставкой в доступные пункты Ozon по России.`)
   const image = catalogImage(validProduct)
-  const title = priority
+  const baseTitle = purchaseGuide?.title ?? (priority
     ? `${display.title}${product.trade.volume ? ` ${product.trade.volume}` : ''} — ${product.trade.brand ?? 'VOZDOOH'} — купить с доставкой по России | VOZDOOH`
-    : `${commercialName} — купить с доставкой по России | VOZDOOH`
+    : `${commercialName} — купить с доставкой по России | VOZDOOH`)
+  const title = reviewedCommercialTitle(product, conciseProductMetadataTitle(product, distinctProductMetadataTitle(product, baseTitle), display), display)
+  const description = catalogSource() === 'demo' ? originalDescription
+    : conciseProductMetadataDescription(product, purchaseGuide?.description ?? originalDescription, display, fragranceFacts?.summary ?? product.editorial.description ?? '')
   return {
     title,
     alternates: { canonical: `/catalog/${product.editorial.slug}` },
@@ -77,6 +85,9 @@ export default async function ProductPage({ params, searchParams }: PageParams) 
   const validatedProduct = (await withValidImages([product]))[0]
   if (!demo && !debug && !isPubliclyVisible(validatedProduct)) notFound()
   const allProducts = await withValidImages(await repository.list())
+  const variants = demo || debug ? [] : reviewedFragranceVariants(allProducts, validatedProduct)
+  const purchaseGuide = demo || debug ? null : reviewedPurchaseGuide(validatedProduct)
+  const guideAlternatives = purchaseGuide ? purchaseGuideAlternatives(allProducts, validatedProduct) : []
   const categories = Object.fromEntries(allProducts.map((item) => [item.trade.category, item.trade.category]))
   const brands = Object.fromEntries(allProducts.flatMap((item) => item.trade.brand ? [[item.trade.brand, item.trade.brand]] : []))
   const filters = parseCatalogFilters(query, categories, brands)
@@ -117,6 +128,7 @@ export default async function ProductPage({ params, searchParams }: PageParams) 
         <div className="productInfo">
           {brandLanding ? <Link className="eyebrow" href={landingPath('brand', brandLanding.slug)}>{brandLanding.name}</Link> : <span className="eyebrow">{product.trade.brand}</span>}
           <h1>{display.title}</h1>
+          {purchaseGuide && <p className="productTranslation">{purchaseGuide.intro}</p>}
           {display.russianTitle && <p className="productTranslation">{display.russianTitle}</p>}
           <p className="productSubtitle">{display.subtitle}</p>
           {!demo && <section className="productPurchase" aria-label="Цена и наличие">
@@ -153,6 +165,8 @@ export default async function ProductPage({ params, searchParams }: PageParams) 
           {debug && <p className="productDiagnostic">PREVIEW 1C · Доступна заявка без оплаты и резерва.</p>}
         </div>
       </div>
+
+      {purchaseGuide && <ProductPurchaseGuide guide={purchaseGuide} alternatives={guideAlternatives} />}
 
       {(product.editorial.description || product.editorial.scentFamily || product.editorial.mood || product.editorial.room || brandLanding?.story) && (
         <section className="productEditorial" aria-label={hasScentProfile ? 'История и характер товара' : 'История и детали товара'}>
@@ -211,6 +225,14 @@ export default async function ProductPage({ params, searchParams }: PageParams) 
           {product.trade.category === 'Диффузоры' && <p><Link className="textLink" href="/guides/kak-polzovatsya-aromadiffuzorom">Как пользоваться аромадиффузором →</Link></p>}
           {product.trade.category === 'Рефилы' && <p><Link className="textLink" href="/guides/refil-dlya-diffuzora-kak-ispolzovat">Как использовать рефил →</Link></p>}
           {product.trade.category === 'Свечи' && <p><Link className="textLink" href="/guides/kak-vybrat-aromaticheskuyu-svechu">Как выбрать ароматическую свечу →</Link></p>}
+          {variants.length > 0 && <>
+            <h3>Другие объёмы и форматы {fragranceFacts.name}</h3>
+            <nav className="landingLinks" aria-label={`Другие объёмы и форматы ${fragranceFacts.name}`}>
+              {variants.map(variant => <Link href={`/catalog/${variant.editorial.slug}`} key={variant.trade.sku}>
+                {productPresentation(variant).title} · {productPresentation(variant).subtitle} · {rub.format(variant.trade.price!)} →
+              </Link>)}
+            </nav>
+          </>}
           <small>Характеристики композиции сверены с {fragranceFacts.source}.</small>
         </section>
       )}

@@ -106,7 +106,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible{
 .productCardMark{font-size:10px;font-weight:600;letter-spacing:.22em;color:#55452d;transition:letter-spacing .3s}
 .productCard:hover .productCardMark{letter-spacing:.28em}
 .productCardMeta{padding-top:16px}
-.productCardMeta span{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.14em;color:var(--muted)}
+.productCardMeta span{font-size:12px;font-weight:600;letter-spacing:normal;color:var(--muted)}
 .productCardMeta h3{font-size:15.5px;font-weight:600;letter-spacing:-.005em;margin:8px 0 5px}
 .productCardMeta p{font-size:11.5px;color:var(--muted);margin:0}
 
@@ -355,7 +355,7 @@ footer nav a:hover{border-color:currentColor}
 .productCard:hover .productCardMark{letter-spacing:.08em}
 .productCardMeta{padding-top:12px}
 .productCardMeta h3{font-size:14px;line-height:1.4;font-weight:500;margin:6px 0}
-.productCardMeta p{font-size:11px}
+.productCardMeta p{font-size:14px;line-height:1.5}
 .room{display:block;background:var(--cream);color:var(--ink);padding:60px 7vw}
 .room .light{color:var(--muted)}
 .room p{color:var(--muted);margin-bottom:28px}
@@ -384,7 +384,7 @@ footer{grid-template-columns:auto 1fr;gap:24px 40px;padding:36px 7vw}
   .roomLinks a:first-child{grid-column:1/-1}
   .products{gap:24px 12px}
   .productCardMeta h3{font-size:13px;overflow-wrap:anywhere}
-  .productCardMeta span{font-size:8px;letter-spacing:.08em}
+  .productCardMeta span{font-size:12px;letter-spacing:normal}
   .demoTag{top:8px;left:8px;font-size:7px}
   .manifesto{padding:38px 6vw}
   .manifesto small{letter-spacing:.1em;line-height:1.7;display:block}
@@ -504,9 +504,9 @@ footer nav{gap:4px 24px}
 .catalogPage .productCardVisual,.productPage .productCardVisual{aspect-ratio:4/5;background:#EBE5D9}
 .catalogPage .productCardImage,.productPage .productCardImage{padding:10%;background:transparent;mix-blend-mode:multiply;object-fit:contain}
 .catalogPage .productCardMeta,.productPage .productCardMeta{padding-top:14px}
-.catalogPage .productCardMeta span,.productPage .productCardMeta span{display:block;min-height:24px;font-size:9px;letter-spacing:.09em;line-height:1.4;color:#655e50}
+.catalogPage .productCardMeta span,.productPage .productCardMeta span{display:block;min-height:24px;font-size:12px;letter-spacing:normal;line-height:1.5;color:var(--muted)}
 .catalogPage .productCardMeta h3,.productPage .productCardMeta h3{font-size:16px;line-height:1.35;font-weight:400;margin:4px 0 8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.7em;overflow-wrap:anywhere}
-.catalogPage .productCardMeta p,.productPage .productCardMeta p{font-size:11px;line-height:1.5;color:var(--muted)}
+.catalogPage .productCardMeta p,.productPage .productCardMeta p{font-size:14px;line-height:1.5;color:var(--muted)}
 .catalogPage :is(a,summary,button,select):focus-visible,.productPage :is(a,summary,button):focus-visible{outline:2px solid #20362A;outline-offset:4px}
 .productPage .productLayout{margin:32px 7vw 64px;gap:5vw;min-height:0;align-items:start;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr)}
 .productPage .productHeroPlaceholder{min-height:0;aspect-ratio:4/5;background:#EBE5D9}
@@ -547,7 +547,7 @@ footer nav{gap:4px 24px}
 }
 
 /* Confirmed Russian names remain secondary to the original product title. */
-.productCard .productCardMeta p.productTranslation{font-size:12px;line-height:1.45;font-weight:400;color:var(--muted);margin:0 0 6px;overflow-wrap:anywhere}
+.productCard .productCardMeta p.productTranslation{font-size:14px;line-height:1.5;font-weight:400;color:var(--muted);margin:0 0 6px;overflow-wrap:anywhere}
 .productInfo p.productTranslation{font-size:16px;line-height:1.5;font-weight:400;color:var(--muted);margin:0 0 8px;overflow-wrap:anywhere}
 
 /* Conservative popularity cue: fragrance-level external signal only, never a VOZDOOH sales claim. */
@@ -925,7 +925,7 @@ select:focus-visible,summary:focus-visible{outline:2px solid var(--green);outlin
 .headerSearchRow input{flex:1;min-width:0;width:100%;font:inherit;font-size:16px;padding:12px;border:1px solid var(--line);background:transparent;color:var(--ink)}
 .headerSearchRow button{min-height:44px;cursor:pointer}
 .headerSearchRow .primary{padding:12px 16px}
-.headerSearchClose{width:44px;background:transparent;border:0;color:var(--ink);font-size:24px}
+.headerSearchClose{flex:0 0 44px;width:44px;background:transparent;border:0;color:var(--ink);font-size:24px}
 @media(max-width:600px){.headerSearch summary{width:44px;height:44px;padding:0}.headerSearch svg{width:24px;height:24px}.headerSearchLabel{display:none}}
 @media(max-width:600px){.headerSearchPanel{padding:16px}.headerSearchRow{flex-wrap:wrap}.headerSearchRow input{flex-basis:calc(100% - 52px)}.headerSearchRow .primary{order:3;width:100%}.actions{gap:2px}}
 
@@ -1049,10 +1049,19 @@ select:focus-visible,summary:focus-visible{outline:2px solid var(--green);outlin
   .heroProductShowcase{top:32px;left:50%;right:auto;bottom:auto;transform:translateX(-50%);width:min(58vw,250px);max-width:none;box-shadow:0 18px 56px rgba(0,0,0,.22)}
   .heroProductShowcase img{padding:9% 9% 25%}
   .heroProductCaption{left:12px;right:12px;bottom:12px}
-  .heroText{max-width:none;padding:calc(min(72.5vw,312.5px) + 80px) 6vw 50px}
-  .hero h1{font-size:clamp(34px,9vw,50px);line-height:1.04;margin-top:16px}
+  .heroText{width:100%;min-width:0;max-width:100%;padding:calc(min(72.5vw,312.5px) + 80px) 6vw 50px;overflow-wrap:anywhere}
+  .hero h1{font-size:clamp(32px,8.2vw,48px);line-height:1.08;margin-top:16px;max-width:100%;white-space:normal}
   .homeEditorialNote{padding:24px 6vw;gap:6px}
   .homeEditorialNote h2{font-size:clamp(25px,6.5vw,31px)}
+}
+
+/* Keep all mobile header controls inside the viewport, including the search trigger. */
+@media(max-width:520px){
+  .header{grid-template-columns:44px minmax(0,1fr) auto;gap:6px}
+  .header .menuTrigger{width:44px;min-width:44px;margin-left:0;justify-content:center;padding:0}
+  .header .brandLogo{width:min(132px,100%);min-width:0}
+  .header .actions{min-width:0;gap:2px}
+  .header .cartLink{min-width:44px;min-height:44px;padding:9px;flex-shrink:0}
 }
 
 /* National product pages: compact breadcrumbs and transparent fulfilment. */

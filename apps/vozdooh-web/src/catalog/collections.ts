@@ -1,8 +1,10 @@
 import { merchProducts, merchandisingSignal, MERCHANDISING_NOTE } from './merchandising'
+import { demandRank } from './demandPriority'
 import type { CatalogProduct } from './contracts'
-import { storefrontProducts } from './presentation'
+import { isPubliclyPurchasable, storefrontProducts } from './presentation'
 
 export type CollectionRule =
+  | { field: 'researchSelection'; values: readonly string[] }
   | { field: 'demand'; values: readonly string[] }
   | { field: 'family'; values: readonly string[] }
   | { field: 'mood'; values: readonly string[] }
@@ -22,6 +24,20 @@ export type EditorialCollection = {
 }
 
 export const editorialCollections: readonly EditorialCollection[] = [
+  {
+    slug: 'vozdooh-selection',
+    eyebrow: 'Из наличия',
+    name: 'Подборка VOZDOOH',
+    description: 'Редакционный выбор из наличия VOZDOOH: диффузоры, свечи, спреи, автомобильные саше и рефилы. Сравните форматы и найдите подходящий для себя.',
+    note: 'Это редакционные рекомендации, а не рейтинг продаж. Состав подборки меняется вместе с наличием.',
+    guideTitle: 'Как выбрать свой формат',
+    guide: [
+      'Для дома выбирайте среди диффузоров, свечей и спреев. Автомобильное саше предназначено для автомобиля. Рефил — сменный аромат для заправки: перед покупкой проверьте назначение и совместимость в карточке товара.',
+      'Сравните бренд, формат и объём в карточках. Ориентируйтесь на актуальное наличие и цену; характеристики и комплектацию проверяйте у выбранного товара.',
+      'Доставка — только в доступные при оформлении пункты Ozon; стоимость и сроки зависят от направления и подтверждаются до отправки. Доставка оплачивается отдельно. Бесплатный самовывоз — в Хабаровске, после подтверждения готовности заказа.',
+    ],
+    rule: { field: 'researchSelection', values: ['researched'] },
+  },
   { slug: 'popular', eyebrow: 'Выбор из наличия', name: 'Популярные ароматы', description: 'Подтверждённый внешний интерес. Ароматы из актуального наличия VOZDOOH.', note: MERCHANDISING_NOTE, rule: { field: 'demand', values: ['verified'] } },
   {
     slug: 'warm-interior',
@@ -115,6 +131,7 @@ export const editorialCollections: readonly EditorialCollection[] = [
 ]
 
 function collectionValue(product: CatalogProduct, field: CollectionRule['field']): string | null {
+  if (field === 'researchSelection') return demandRank(product.trade.sku) !== null ? 'researched' : null
   if (field === 'demand') return merchandisingSignal(product.trade.sku) ? 'verified' : null
   if (field === 'family') return product.editorial.scentFamily
   if (field === 'category') return product.trade.category
@@ -122,6 +139,10 @@ function collectionValue(product: CatalogProduct, field: CollectionRule['field']
 }
 
 export function collectionProducts(products: readonly CatalogProduct[], collection: EditorialCollection): CatalogProduct[] {
+  // Call with withValidImages output: eligibility must follow asset verification.
+  if (collection.rule.field === 'researchSelection') return products
+    .filter((product) => isPubliclyPurchasable(product) && demandRank(product.trade.sku) !== null)
+    .sort((a, b) => demandRank(a.trade.sku)! - demandRank(b.trade.sku)!)
   if (collection.rule.field === 'demand') return merchProducts(storefrontProducts(products), 'popular')
   return storefrontProducts(products.filter((product) =>
     (product.trade.stock ?? 0) > 0 &&
@@ -144,6 +165,7 @@ export function collectionPath(slug: string): string {
 export function collectionsForProduct(product: CatalogProduct): EditorialCollection[] {
   if ((product.trade.stock ?? 0) <= 0 || product.editorial.images.length === 0) return []
   return editorialCollections.filter((collection) =>
+    (collection.rule.field !== 'researchSelection' || isPubliclyPurchasable(product)) &&
     !collection.excludeCategories?.includes(product.trade.category) &&
     collection.rule.values.includes(collectionValue(product, collection.rule.field) ?? '')
   )

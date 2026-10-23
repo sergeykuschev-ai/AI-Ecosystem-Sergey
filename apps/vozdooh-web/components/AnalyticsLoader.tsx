@@ -1,7 +1,14 @@
 'use client'
 
-import { useEffect } from 'react'
-import { flushPendingEvents } from '../src/integrations/analytics'
+import { Suspense, useEffect } from 'react'
+import { usePathname } from 'next/navigation'
+import { flushPendingEvents, trackPathname } from '../src/integrations/analytics'
+
+function AnalyticsRouteTracker() {
+  const pathname = usePathname()
+  useEffect(() => { trackPathname(pathname) }, [pathname])
+  return null
+}
 
 /**
  * Loads Yandex Metrica only when NEXT_PUBLIC_YANDEX_METRICA_ID is present.
@@ -19,6 +26,8 @@ export function AnalyticsLoader() {
     type YandexQueue = ((...args: unknown[]) => void) & { a?: unknown[][]; l?: number }
 
     window.__vozdoohAnalyticsId = id
+    // Child effects may run before this initialization; seed the initial route here.
+    window.__vozdoohAnalyticsPathname = window.location.pathname
     window.dataLayer ??= []
     let ym = window.ym as YandexQueue | undefined
     if (!ym) {
@@ -47,5 +56,5 @@ export function AnalyticsLoader() {
     first?.parentNode?.insertBefore(script, first)
   }, [])
 
-  return null
+  return <Suspense fallback={null}><AnalyticsRouteTracker /></Suspense>
 }

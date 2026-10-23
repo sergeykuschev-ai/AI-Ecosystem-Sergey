@@ -127,17 +127,25 @@ test('discovery uses only positive-stock pictured products and preserves researc
 
 
 test('editorial collections use only verified catalog attributes and keep storefront ordering', () => {
-  assert.equal(editorialCollections.length, 10)
+  assert.equal(editorialCollections.length, 11)
   assert.equal(new Set(editorialCollections.map((collection) => collection.slug)).size, editorialCollections.length)
   const available = availableCollections(products)
   assert.equal(available.length, 10)
   for (const collection of available) {
     assert.ok(collection.products.length > 0, collection.name)
-    assert.deepEqual(collection.products, storefrontProducts(collection.products))
+    if (collection.rule.field === 'researchSelection') {
+      const { demandRank } = require('../src/catalog/demandPriority.ts')
+      const ranks = collection.products.map(p => demandRank(p.trade.sku))
+      assert.deepEqual(ranks, [...ranks].sort((a, b) => a - b))
+    } else {
+      assert.deepEqual(collection.products, storefrontProducts(collection.products))
+    }
     for (const product of collection.products) {
       assert.ok(product.trade.stock > 0)
       assert.ok(product.editorial.images.length > 0)
-      const value = collection.rule.field === 'demand'
+      const value = collection.rule.field === 'researchSelection'
+        ? (require('../src/catalog/demandPriority.ts').demandRank(product.trade.sku) !== null ? 'researched' : null)
+        : collection.rule.field === 'demand'
         ? (require('../src/catalog/merchandising.ts').merchandisingSignal(product.trade.sku) ? 'verified' : null)
         : collection.rule.field === 'family'
         ? product.editorial.scentFamily

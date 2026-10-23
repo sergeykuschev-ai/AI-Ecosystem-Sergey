@@ -23,7 +23,7 @@ export type AnalyticsEvent =
   | 'scent_finder'
 
 export type AnalyticsParams = Record<string, unknown>
-type PendingEvent = { event: AnalyticsEvent; params: AnalyticsParams }
+type PendingEvent = { event: AnalyticsEvent; params: AnalyticsParams; paidRevenue?: number }
 type EcommerceProduct = {
   id?: string
   name?: string
@@ -35,10 +35,11 @@ type EcommerceProduct = {
 
 declare global {
   interface Window {
-    ym?: (id: number, method: string, data?: unknown) => void
+    ym?: (id: number, method: string, data?: unknown, params?: unknown) => void
     dataLayer?: unknown[]
     __vozdoohAnalyticsId?: number
     __vozdoohAnalyticsPending?: PendingEvent[]
+    __vozdoohAnalyticsPathname?: string
   }
 }
 
@@ -76,16 +77,36 @@ function pushEcommerce(event: AnalyticsEvent, params: AnalyticsParams): void {
   window.dataLayer.push({ ecommerce: { currencyCode: 'RUB', [action]: { products: [product] } } })
 }
 
-function dispatchEvent(event: AnalyticsEvent, params: AnalyticsParams): void {
+/** Only pathnames from usePathname; never queue hits while the counter is disabled. */
+export function trackPathname(pathname: string | null): void {
+  if (!analyticsEnabled() || !pathname || !pathname.startsWith('/') || pathname.startsWith('//') || /[?#]/.test(pathname)) return
+  const previous = window.__vozdoohAnalyticsPathname
+  if (previous === pathname) return
+  window.__vozdoohAnalyticsPathname = pathname
+  if (previous !== undefined) window.ym!(window.__vozdoohAnalyticsId!, 'hit', pathname)
+}
+
+function dispatchEvent(event: AnalyticsEvent, params: AnalyticsParams, paidRevenue?: number): void {
   if (!analyticsEnabled()) return
   window.ym!(window.__vozdoohAnalyticsId!, 'params', { event, ...params })
   pushEcommerce(event, params)
+  if (process.env.NEXT_PUBLIC_METRICA_GOALS_ENABLED !== 'true') return
+  const goal = event === 'add_to_cart' ? 'vz_add_to_cart'
+    : event === 'begin_checkout' ? 'vz_begin_checkout'
+    : event === 'submit_order' ? 'vz_submit_order'
+    : event === 'purchase' && paidRevenue !== undefined && Number.isFinite(paidRevenue) && paidRevenue > 0 ? 'vz_paid_purchase' : null
+  if (!goal) return
+  if (goal === 'vz_paid_purchase') {
+    window.ym!(window.__vozdoohAnalyticsId!, 'reachGoal', goal, { order_price: paidRevenue, currency: 'RUB' })
+  } else {
+    window.ym!(window.__vozdoohAnalyticsId!, 'reachGoal', goal)
+  }
 }
 
 export function flushPendingEvents(): void {
   if (!analyticsEnabled()) return
   const pending = window.__vozdoohAnalyticsPending?.splice(0) ?? []
-  for (const item of pending) dispatchEvent(item.event, item.params)
+  for (const item of pending) dispatchEvent(item.event, item.params, item.paidRevenue)
 }
 
 export function trackEvent(event: AnalyticsEvent, params: AnalyticsParams = {}): void {
@@ -124,7 +145,12 @@ export function trackPurchase(input: { id: string; revenue: number; items: Purch
       },
     },
   })
-  trackEvent('purchase', { transaction_id: input.id, value: input.revenue, currency: 'RUB' })
+  const params = { transaction_id: input.id, value: input.revenue, currency: 'RUB' }
+  if (!analyticsEnabled()) {
+    ;(window.__vozdoohAnalyticsPending ??= []).push({ event: 'purchase', params, paidRevenue: input.revenue })
+  } else {
+    dispatchEvent('purchase', params, input.revenue)
+  }
 }
 
 /** Product-scoped payload limited to non-personal catalog facts. */

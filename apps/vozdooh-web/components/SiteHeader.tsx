@@ -20,6 +20,7 @@ export function SiteHeader() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [openPathname, setOpenPathname] = useState(pathname)
   const navRef = useRef<HTMLElement>(null)
+  const menuTriggerRef = useRef<HTMLButtonElement>(null)
 
   if (openPathname !== pathname) {
     setOpenPathname(pathname)
@@ -29,7 +30,10 @@ export function SiteHeader() {
   useEffect(() => {
     if (!menuOpen) return
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setMenuOpen(false)
+      if (event.key === 'Escape') {
+        menuTriggerRef.current?.focus()
+        setMenuOpen(false)
+      }
     }
     document.addEventListener('keydown', onKeyDown)
     document.body.style.overflow = 'hidden'
@@ -45,6 +49,7 @@ export function SiteHeader() {
       <button
         type="button"
         className="menuTrigger"
+        ref={menuTriggerRef}
         aria-expanded={menuOpen}
         aria-controls="siteNav"
         onClick={() => {

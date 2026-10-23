@@ -1,3 +1,4 @@
+import { availableCollections } from '../src/catalog/collections'
 import { ContextualCatalogLinks } from '../components/ContextualCatalogLinks'
 import { MerchSection } from '../components/MerchSection'
 import { homePopularProducts } from '../src/catalog/merchandising'
@@ -52,6 +53,7 @@ export const metadata: Metadata = {
 export default async function Home() {
   const products = storefrontProducts(await withValidImages(await (await getCatalogRepository()).list()))
   const sellableProducts = products.filter((product) => (product.trade.stock ?? 0) > 0)
+  const selection = availableCollections(products).find((collection) => collection.slug === 'vozdooh-selection')
   const curated = curatorSelection(sellableProducts)
   const heroProduct = curated[0] ?? sellableProducts[0] ?? products[0] ?? null
   const heroImage = heroProduct ? catalogImage(heroProduct) : null
@@ -256,6 +258,7 @@ export default async function Home() {
         <div className="brandActions">
           <Link className="textLink" href="/brands">Все бренды →</Link>
           <Link className="textLink" href="/collections">Коллекции →</Link>
+          {selection && <Link className="textLink" href="/collections/vozdooh-selection">{selection.name} →</Link>}
         </div>
       </section>
 

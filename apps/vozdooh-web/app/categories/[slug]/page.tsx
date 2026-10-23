@@ -1,4 +1,4 @@
-import { landingSearchDescription } from '../../../src/seo/landingCopy'
+import { landingSearchDescription, landingMetadataDescription } from '../../../src/seo/landingCopy'
 import type { Metadata } from 'next'
 import { publicRobots } from '../../../src/seo/indexing'
 import { notFound } from 'next/navigation'
@@ -32,8 +32,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     professional: 'Профессиональная ароматизация помещений — VOZDOOH',
   }
   const title = seoTitles[landing.slug] ?? `${landing.name} — VOZDOOH`
-  return { title, description: landing.description,
-    openGraph: { title, description: landing.description },
+  const description = landingMetadataDescription(landing, landing.products, 'category')
+  return { title, description,
+    openGraph: { title, description },
     alternates: { canonical: landingPath('category', landing.slug) }, robots: publicRobots() }
 }
 

@@ -1,4 +1,4 @@
-import { landingSearchDescription } from '../../../src/seo/landingCopy'
+import { landingSearchDescription, landingMetadataDescription } from '../../../src/seo/landingCopy'
 import type { Metadata } from 'next'
 import { publicRobots } from '../../../src/seo/indexing'
 import { notFound } from 'next/navigation'
@@ -26,7 +26,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     'millefiori-milano': 'Millefiori Milano — купить ароматы для дома | VOZDOOH',
   }
   const title = seoTitles[landing.slug] ?? `${landing.name} — каталог бренда из наличия | VOZDOOH`
-  const description = landing.description
+  const description = landingMetadataDescription(landing, landing.products, 'brand')
   return { title, description,
     openGraph: { title, description },
     alternates: { canonical: landingPath('brand', landing.slug) }, robots: publicRobots() }

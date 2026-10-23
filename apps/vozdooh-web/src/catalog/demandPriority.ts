@@ -23,7 +23,8 @@ import { hasBestsellerEvidence, merchandisingSignal } from './merchandising'
 
 export type DemandPriority = { rank: number }
 
-// Remaining TOP-25 entries are SEO metadata only; default promotion uses merchandising.ts.
+// Remaining researched entries support the editorial selection and SEO metadata;
+// default promotion still uses merchandising.ts.
 const demandPriorityBySku: Record<string, DemandPriority> = {
   'N020465': { rank: 15 },
   'FF250TFU': { rank: 16 },
