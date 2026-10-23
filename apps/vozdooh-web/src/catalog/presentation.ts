@@ -107,6 +107,25 @@ export function productPresentation(product: CatalogProduct) {
   }
 }
 
+/**
+ * A small reviewed variant-disambiguation rule for actual 1C variants with
+ * equal display names. Never guess a size from the slug: verify trade.volume
+ * and the original 1C name before appending it to the H1 and Product schema.
+ */
+const verifiedCleaningFluidVolumes: Readonly<Record<string, string>> = {
+  'aromagroup-cleaning-fluid-110': '110 мл',
+  'aromagroup-cleaning-fluid-150': '150 мл',
+}
+
+export function productPageHeading(product: CatalogProduct): string {
+  const title = productPresentation(product).title
+  const expectedVolume = verifiedCleaningFluidVolumes[product.editorial.slug]
+  if (!expectedVolume || product.trade.volume?.trim() !== expectedVolume) return title
+  const numeric = expectedVolume.split(' ')[0]
+  if (!new RegExp('(?:^|\\D)' + numeric + '\\s*мл(?:\\D|$)', 'iu').test(product.trade.name)) return title
+  return title.includes(expectedVolume) ? title : `${title} ${expectedVolume}`
+}
+
 /** Navigation by exact trade brand only; never a fragrance or compatibility claim.
  * Call with image-validated catalog records. Explicit editorial links suppress fallback,
  * including when their targets are unavailable.

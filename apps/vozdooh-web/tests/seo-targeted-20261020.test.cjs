@@ -82,6 +82,6 @@ test('routes wire concise metadata and keep canonical and long page copy', () =>
   const source = read('app/catalog/[slug]/page.tsx')
   assert.ok(source.includes('const title = reviewedCommercialTitle(product, conciseProductMetadataTitle(product, distinctProductMetadataTitle(product, baseTitle), display), display)'))
   assert.ok(source.includes('canonical: `/catalog/${product.editorial.slug}`'))
-  assert.match(source, /<h1>\{display.title\}<\/h1>/)
+  assert.match(source, /<h1>\{productPageHeading\(product\)\}<\/h1>/)
   assert.match(source, /productStructuredData\(product, heroImage\)/)
 })

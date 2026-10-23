@@ -13,7 +13,7 @@ import { SiteFooter } from '../../../components/SiteFooter'
 import { SiteHeader } from '../../../components/SiteHeader'
 import { TrackView } from '../../../components/TrackView'
 import { labelFor, familyLabels, moodLabels, roomLabels } from '../../../src/catalog/vocabulary'
-import { catalogImage, isDebugCatalog, isPubliclyPurchasable, isPubliclyVisible, productPresentation, storefrontProducts, sameBrandProducts } from '../../../src/catalog/presentation'
+import { catalogImage, isDebugCatalog, isPubliclyPurchasable, isPubliclyVisible, productPageHeading, productPresentation, storefrontProducts, sameBrandProducts } from '../../../src/catalog/presentation'
 import { demandRank, isExternallyConfirmedPopular, POPULARITY_NOTE } from '../../../src/catalog/demandPriority'
 import { withValidImages } from '../../../src/catalog/validImages'
 import { catalogHref, parseCatalogFilters, type RawSearchParams } from '../../../src/catalog/filterParams'
@@ -127,7 +127,7 @@ export default async function ProductPage({ params, searchParams }: PageParams) 
         </div>
         <div className="productInfo">
           {brandLanding ? <Link className="eyebrow" href={landingPath('brand', brandLanding.slug)}>{brandLanding.name}</Link> : <span className="eyebrow">{product.trade.brand}</span>}
-          <h1>{display.title}</h1>
+          <h1>{productPageHeading(product)}</h1>
           {purchaseGuide && <p className="productTranslation">{purchaseGuide.intro}</p>}
           {display.russianTitle && <p className="productTranslation">{display.russianTitle}</p>}
           <p className="productSubtitle">{display.subtitle}</p>

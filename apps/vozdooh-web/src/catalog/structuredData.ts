@@ -1,6 +1,6 @@
 import type { CatalogProduct } from './contracts'
 import { fragranceFactsFor } from './fragranceFacts'
-import { productPresentation } from './presentation'
+import { productPageHeading, productPresentation } from './presentation'
 
 function trimSiteUrl(value: string): string {
   return value.replace(/\/+$/, '')
@@ -18,7 +18,8 @@ export function productStructuredData(
 ) {
   const display = productPresentation(product)
   const url = absoluteUrl(siteUrl, `/catalog/${product.editorial.slug}`)
-  const name = display.russianTitle ? `${display.title} — ${display.russianTitle}` : display.title
+  const heading = productPageHeading(product)
+  const name = display.russianTitle ? `${heading} — ${display.russianTitle}` : heading
   const price = product.trade.price
   const stock = product.trade.stock
 

@@ -85,7 +85,7 @@ test('route shares final metadata with Open Graph and preserves demo, H1 and sch
   assert.match(source, /openGraph: \{ title, description,/)
   assert.ok(source.includes("const description = catalogSource() === 'demo' ? originalDescription"))
   assert.match(source, /conciseProductMetadataDescription\(product, purchaseGuide\?\.description \?\? originalDescription, display,/)
-  assert.match(source, /<h1>\{display.title\}<\/h1>/)
+  assert.match(source, /<h1>\{productPageHeading\(product\)\}<\/h1>/)
   assert.ok(source.includes('canonical: `/catalog/${product.editorial.slug}`'))
   assert.ok(source.includes('productStructuredData(product, heroImage)'))
 })

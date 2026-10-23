@@ -8,7 +8,7 @@ const info = source.slice(source.indexOf('<div className="productInfo">'), sourc
 
 test('product purchase precedes popularity disclosure and redundant catalog link', () => {
   const markers = [
-    '<h1>{display.title}</h1>',
+    '<h1>{productPageHeading(product)}</h1>',
     'className="productTranslation"',
     'className="productSubtitle"',
     'className="productPurchase"',
