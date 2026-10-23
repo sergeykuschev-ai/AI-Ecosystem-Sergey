@@ -48,6 +48,44 @@ test('missing or inconsistent 1C data never fabricates volume from slug', () => 
   assert.equal(productPageHeading(product('aromagroup-cleaning-fluid-150', '150 мл', { trade: { name: 'Жидкость для промывки картридж AG' } })), 'Жидкость для промывки')
 })
 
+for (const [size, otherSize] of [[110, 150], [150, 110]]) {
+  const slug = `aromagroup-cleaning-fluid-${size}`
+  const siteUrl = 'https://catalog.example.invalid'
+
+  test(`${size} ml: a conflicting source name cannot authorize the variant heading`, () => {
+    const item = product(slug, `${size} мл`, {
+      trade: { name: `Жидкость для промывки картридж AG ${otherSize}мл пласт.` },
+    })
+    const schema = productStructuredData(item, item.editorial.images[0], siteUrl)['@graph'][0]
+    assert.equal(productPageHeading(item), 'Жидкость для промывки')
+    assert.equal(schema.name, 'Жидкость для промывки')
+  })
+
+  test(`${size} ml: a matching source name cannot override a conflicting volume`, () => {
+    const item = product(slug, `${size} мл`, { trade: { volume: `${otherSize} мл` } })
+    const schema = productStructuredData(item, item.editorial.images[0], siteUrl)['@graph'][0]
+    assert.equal(productPageHeading(item), 'Жидкость для промывки')
+    assert.equal(schema.name, 'Жидкость для промывки')
+  })
+
+  test(`${size} ml: zero stock preserves variant identity in an out-of-stock Product offer`, () => {
+    const item = product(slug, `${size} мл`, { trade: { stock: 0 } })
+    const schema = productStructuredData(item, item.editorial.images[0], siteUrl)['@graph'][0]
+    const url = `${siteUrl}/catalog/${slug}`
+    assert.equal(productPageHeading(item), `Жидкость для промывки ${size} мл`)
+    assert.equal(schema['@type'], 'Product')
+    assert.equal(schema.name, `Жидкость для промывки ${size} мл`)
+    assert.equal(schema.sku, item.trade.sku)
+    assert.equal(schema.url, url)
+    assert.equal(schema['@id'], `${url}#product`)
+    assert.equal(schema.offers['@type'], 'Offer')
+    assert.equal(schema.offers.url, url)
+    assert.equal(schema.offers.availability, 'https://schema.org/OutOfStock')
+    assert.equal(schema.offers.price, '3100.00')
+    assert.equal(schema.offers.priceCurrency, 'RUB')
+  })
+}
+
 test('other slugs do not change even with an available volume', () => {
   assert.equal(productPageHeading(product('aromagroup-other-110', '110 мл')), 'Жидкость для промывки')
 })
