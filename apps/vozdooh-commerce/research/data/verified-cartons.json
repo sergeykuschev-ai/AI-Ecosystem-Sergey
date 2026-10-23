@@ -1,0 +1,5 @@
+{
+  "schemaVersion": 1,
+  "note": "No physical shipping cartons have been measured and approved yet. Never populate from product-only dimensions or guesses.",
+  "cartons": []
+}

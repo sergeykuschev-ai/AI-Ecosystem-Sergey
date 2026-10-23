@@ -1,0 +1,256 @@
+import type { EditorialProduct, TradeProduct } from './contracts'
+import { emptyEditorial } from './repository'
+import { reviewedDescription } from './reviewedContent'
+
+const slugify = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+const has = (name: string, pattern: RegExp) => pattern.test(name.toLowerCase())
+
+export function inferStagedBrand(name: string): string | null {
+  if (has(name, /teatro/)) return 'TEATRO Fragranze Uniche'
+  if (has(name, /mami milano/)) return 'MAMI MILANO'
+  if (has(name, /christian tortu/)) return 'Christian Tortu'
+  if (has(name, /butterflies|coconut ароматическое саше|цветы хлопка \/ cotton flower ароматическое саше/)) return 'Castelbel'
+  if (has(name, /les secrets d.antoine|flowersof japan|cottonflower|cotton flower|sandalwood|ambre\/амбра/)) return 'Lothantique'
+  if (has(name, /vinove|silverstone|maranello|miami|paris \/ париж/)) return 'VINOVE'
+  if (has(name, /hydro\/концентрат.*цветок мимозы/)) return 'Millefiori Milano'
+  if (has(name, /woodwick/)) return 'WoodWick'
+  if (has(name, /vellutier/)) return 'Vellutier'
+  if (has(name, /danhera/)) return 'DANHERA'
+  if (has(name, /ladenac|africa |oud collection|urban senses|vent d.arabie|dynastie senteur royale/)) return 'Ladenac Milano'
+  if (has(name, /aramara|aqqua|tessuto|mediterranea|mareminerale|supreme amber|stile classic|stile limited|stile colours|decor classic|decor limited|décor limited|спрей для дома\s+era|спрей для дома\s+the|рефил.*\bthe\b/)) return 'CULTI MILANO'
+  if (has(name, /aromagroup|romagroup|картридж ag|картридж аg|катридж ag|магма, 150/)) return 'AROMAgroup'
+  return null
+}
+
+export function inferStagedCategory(name: string): string {
+  if (has(name, /подарочный набор|набор ваза/)) return 'Подарочные наборы'
+  if (has(name, /(?:бокс|комплект|ротанговые).*палоч|палочки.*для диффузора/)) return 'Аксессуары'
+  if (has(name, /рефилл|рефил |сменный аромат/)) return 'Рефилы'
+  if (has(name, /диффузор|аромадиффузор/)) return 'Диффузоры'
+  if (has(name, /свеч/)) return 'Свечи'
+  if (has(name, /спрей|room spray/)) return 'Спреи для дома'
+  if (has(name, /автомобил|vinove|саше для автомобиля|сменный блок ароматизатора/)) return 'Для автомобиля'
+  if (has(name, /картридж|катридж|магма|аппарат для ароматизации|dispenser|shop 250|shop 300|cafe 1000|hotel 1000/)) return 'Ароматизация помещений'
+  if (has(name, /саше|аромапопурри|арома лампы|ароматизатор воздуха/)) return 'Ароматы для пространства'
+  if (has(name, /палоч|ножницы для фитиля|керамическая ваза|сетевое з\/у|microusb/)) return 'Аксессуары'
+  if (has(name, /набор/)) return 'Подарочные наборы'
+  return 'Другое'
+}
+
+export function inferStagedVolume(name: string): string | null {
+  const ml = name.match(/(\d+(?:[.,]\d+)?)\s*мл(?=\s|[.,;:()\/-]|$)/i)
+  if (ml) return `${ml[1].replace(',', '.')} мл`
+  const gr = name.match(/(\d+(?:[.,]\d+)?)\s*(?:гр|г)(?=\s|[.,;:()\/-]|$)/i)
+  return gr ? `${gr[1].replace(',', '.')} г` : null
+}
+
+const curated: Record<string, Partial<EditorialProduct>> = {
+  '99889898': { slug: 'aromagroup-magma-500', images: ['/catalog/official/99889898.webp'] },
+  '137897': { slug: 'aromagroup-berberi-110', images: ['/catalog/official/137897.webp'], description: 'Парфюмерная композиция с лаймом, лавандой и грушей; зелёным миндалём, белым пионом, сандалом и жасмином; красным деревом, смолой, амброй и ванилью в базе.', scentFamily: 'woody', mood: 'focused', room: 'living' },
+  'fc7e824a-136a-11ef-b412-e92179844ed4': { slug: 'aromagroup-berberi-180', images: ['/catalog/official/fc7e824a-136a-11ef-b412-e92179844ed4.webp'], description: 'Парфюмерная композиция с лаймом, лавандой и грушей; зелёным миндалём, белым пионом, сандалом и жасмином; красным деревом, смолой, амброй и ванилью в базе.', scentFamily: 'woody', mood: 'focused', room: 'living' },
+  '675483': { slug: 'aromagroup-berberi-150', images: ['/catalog/official/675483.webp'], description: 'Парфюмерная композиция с лаймом, лавандой и грушей; зелёным миндалём, белым пионом, сандалом и жасмином; красным деревом, смолой, амброй и ванилью в базе.', scentFamily: 'woody', mood: 'focused', room: 'living' },
+  '988768798': { slug: 'aromagroup-berberi-100', images: ['/catalog/official/988768798.webp'], description: 'Парфюмерная композиция с лаймом, лавандой и грушей; зелёным миндалём, белым пионом, сандалом и жасмином; красным деревом, смолой, амброй и ванилью в базе.', scentFamily: 'woody', mood: 'focused', room: 'living' },
+  '545445222': { slug: 'aromagroup-rozovyy-perets-110', images: ['/catalog/official/545445222.jpg'], description: 'Ароматический картридж AROMAgroup «Розовый перец» 110 мл для профессиональных систем ароматизации.' },
+  '76544': { slug: 'aromagroup-magma-100', images: ['/catalog/official/76544.jpg'], description: 'Ароматический картридж AROMAgroup «Магма» 100 мл для профессиональных систем ароматизации.' },
+  '09877': { slug: 'aromagroup-shop-250-bt', images: ['/catalog/official/09877.jpg'], description: 'Профессиональный аппарат AROMAgroup Shop 250 для ароматизации торговых помещений.' },
+  '426b83df-1ab0-11ed-bb36-7c8bca00854e': { slug: 'aromagroup-shop-300-bt', images: ['/catalog/official/426b83df-1ab0-11ed-bb36-7c8bca00854e.jpg'], description: 'Профессиональный аппарат AROMAgroup Shop 300 для ароматизации магазинов и шоурумов.' },
+  'fa750375-783b-11ed-b530-7c8bca00854e': { slug: 'aromagroup-dispenser-liquid-black', images: ['/catalog/official/fa750375-783b-11ed-b530-7c8bca00854e.jpg'], description: 'Профессиональный аппарат AROMAgroup Dispenser Liquid V3.1 в чёрном исполнении.' },
+  'fa750378-783b-11ed-b530-7c8bca00854e': { slug: 'aromagroup-dispenser-liquid-white', images: ['/catalog/official/fa750378-783b-11ed-b530-7c8bca00854e.jpg'], description: 'Профессиональный аппарат AROMAgroup Dispenser Liquid V3.1 в белом исполнении.' },
+  '67787900': { slug: 'aromagroup-dispenser-liquid-pro', images: ['/catalog/official/67787900.jpg'], description: 'Профессиональный аппарат AROMAgroup Dispenser Liquid PRO для интерьерной ароматизации.' },
+  '890999': { slug: 'aromagroup-cafe-1000-bt', images: ['/catalog/official/890999.jpg'], description: 'Профессиональный аппарат AROMAgroup Cafe 1000 с Bluetooth-управлением для ароматизации больших помещений.' },
+  '54378': { slug: 'aromagroup-hotel-1000-bt', images: ['/catalog/official/54378.jpg'], description: 'Профессиональный аппарат AROMAgroup Hotel 1000 для ароматизации крупных помещений.' },
+  // 1C SKU 98049E conflicts with the manufacturer article, but barcode 5038581056647
+  // independently resolves to WoodWick Spiced Blackberry Mini 85 g. Keep the 1C SKU untouched.
+  '98049E': {
+    slug: 'woodwick-spiced-blackberry-mini-85',
+    images: ['/catalog/official/98049E.jpg'],
+    description: 'Spiced Blackberry: спелая ежевика с апельсиновой цедрой, корицей и ванильным сахаром. Свеча WoodWick Mini 85 г с деревянным фитилём.',
+    scentFamily: 'fruity',
+  },
+  'DANHNIR250DEC': { slug: 'danhera-niro-250', images: ['/catalog/official/DANHNIR250DEC.jpg'], description: 'Пряно-древесная композиция с кипарисом и элеми, личи и перуанским бальзамом на базе сандала, уда и пачули.', scentFamily: 'woody' },
+  'V61028': { slug: 'vellutier-into-the-wilderness-515', images: ['/catalog/official/V61028.jpg'], description: 'Композиция с цитрусовым аккордом, красной смородиной, амброй и тиковым деревом.', scentFamily: 'fruity', mood: 'focused', room: 'living' },
+  'V61014': { slug: 'vellutier-midnight-toast-515', images: ['/catalog/official/V61014.jpg'], description: 'Необычная композиция джин-тоника и дыни канталупы с цветком апельсина, тиковым деревом и кедром.', scentFamily: 'woody', mood: 'cozy', room: 'living' },
+  'V61036': { slug: 'vellutier-siberian-pine-forest-515', images: ['/catalog/official/V61036.jpg'], description: 'Ароматическая свеча Vellutier Siberian Pine Forest «Сибирский сосновый лес», 515 г.' },
+  'V63017': { slug: 'vellutier-vintage-library-90', images: ['/catalog/official/V63017.jpg'], description: 'Композиция тёмного рома, смолистых опопанакса и лабданума, бурбонской ванили и индийского сандала.', scentFamily: 'woody', mood: 'cozy', room: 'study' },
+  'V63011': { slug: 'vellutier-oudwood-journey-90', images: ['/catalog/official/V63011.jpg'], description: 'Восточная композиция с удом, олибанумом, пачули, мускусом и амброй.', scentFamily: 'woody', mood: 'cozy', room: 'study' },
+  'V62014': { slug: 'vellutier-midnight-toast-225', images: ['/catalog/official/V62014.jpg'], description: 'Необычная композиция джин-тоника и дыни канталупы с цветком апельсина, тиковым деревом и кедром.', scentFamily: 'woody', mood: 'cozy', room: 'living' },
+  'N020291': { slug: 'christian-tortu-tuberose-diffuser-250', images: ['/catalog/official/N020291.jpg'], description: 'Интерьерный аромадиффузор Christian Tortu Tuberose «Тубероза», 250 мл.' },
+  'N020713': { slug: 'christian-tortu-tomato-leaf-diffuser-250', images: ['/catalog/official/N020713.jpg'], description: 'Интерьерный аромадиффузор Christian Tortu Tomato Leaf «Томатный лист», 250 мл.' },
+  'N019873': { slug: 'christian-tortu-jardin-citrus-potpourri', images: ['/catalog/official/N019873.jpg'], description: 'Аромапопурри Christian Tortu Jardin Citrus «Цитрусовые сады» для пространства.' },
+  'N019834': { slug: 'christian-tortu-vert-frais-potpourri', images: ['/catalog/official/N019834.jpg'], description: 'Аромапопурри Christian Tortu Vert Frais «Свежесть зелени» для пространства.' },
+  'N019836': { slug: 'christian-tortu-jardin-citrus-potpourri-refresher-15', images: ['/catalog/official/N019836.jpg'], description: 'Сменный аромат Christian Tortu Jardin Citrus «Цитрусовые сады», 15 мл, для аромапопурри.' },
+  'N019900': { slug: 'christian-tortu-vert-frais-potpourri-refresher-15', images: ['/catalog/official/N019900.jpg'], description: 'Сменный аромат Christian Tortu Vert Frais «Свежесть зелени», 15 мл, для аромапопурри.' },
+  'N019901': { slug: 'christian-tortu-potpourri-vase', images: ['/catalog/official/N019901.png'], description: 'Керамическая ваза Christian Tortu для декоративного аромапопурри.', room: 'living' },
+  'df29d344-d192-11ec-be83-7c8bca00854e': { slug: 'culti-stile-aramara-250', images: ['/catalog/official/df29d344-d192-11ec-be83-7c8bca00854e.jpg'], description: 'Цитрусово-древесная композиция с горьким апельсином, бергамотом и сандалом.', scentFamily: 'citrus', mood: 'airy', room: 'living', recommendations: ['culti-decor-aramara-1000', 'culti-decor-aramara-250'] },
+  'df29d346-d192-11ec-be83-7c8bca00854e': { slug: 'culti-stile-tessuto-250', images: ['/catalog/official/df29d346-d192-11ec-be83-7c8bca00854e.jpg'], description: 'Цветочная композиция с листьями чёрной смородины, цветами хлопка, жасмином и белым мускусом. Ориентировочный срок работы диффузора — 3 месяца (зависит от условий помещения).', scentFamily: 'floral', mood: 'calm', room: 'bedroom' },
+  'df29d34a-d192-11ec-be83-7c8bca00854e': { slug: 'culti-stile-aqqua-250', images: ['/catalog/official/df29d34a-d192-11ec-be83-7c8bca00854e.jpg'], description: 'Свежая древесная композиция с бергамотом и сандалом.', scentFamily: 'fresh', mood: 'airy', room: 'living', recommendations: ['culti-aqqua-room-spray-100', 'culti-decor-aqqua-250'] },
+  'df29d34e-d192-11ec-be83-7c8bca00854e': { slug: 'culti-stile-supreme-amber-250', images: ['/catalog/official/df29d34e-d192-11ec-be83-7c8bca00854e.jpg'], description: 'Тёплая амброво-пряная композиция с насыщенным, обволакивающим характером.', scentFamily: 'warm', mood: 'cozy', room: 'living' },
+  '802e8ae5-d19b-11ec-be83-7c8bca00854e': { slug: 'culti-decor-aramara-250', images: ['/catalog/official/802e8ae5-d19b-11ec-be83-7c8bca00854e.jpg'], description: 'Цитрусово-древесная композиция с горьким апельсином, бергамотом и сандалом.', scentFamily: 'citrus', mood: 'airy', room: 'living', recommendations: ['culti-decor-aramara-1000', 'culti-stile-aramara-250'] },
+  '802e8adf-d19b-11ec-be83-7c8bca00854e': { slug: 'culti-decor-mediterranea-250', images: ['/catalog/official/802e8adf-d19b-11ec-be83-7c8bca00854e.jpg'], description: 'Средиземноморская цитрусовая композиция с горьким апельсином, лимоном и нероли.', scentFamily: 'citrus', mood: 'airy', room: 'living' },
+  '802e8aeb-d19b-11ec-be83-7c8bca00854e': { slug: 'culti-decor-mountain-500', images: ['/catalog/official/802e8aeb-d19b-11ec-be83-7c8bca00854e.jpg'], description: 'Древесная композиция с кедром и ветивером.', scentFamily: 'woody', mood: 'calm', room: 'study' },
+  'bf33a951-016c-11ed-b2a4-7c8bca00854e': { slug: 'culti-decor-aramara-1000', images: ['/catalog/official/bf33a951-016c-11ed-b2a4-7c8bca00854e.jpg'], description: 'Горький апельсин и бергамот раскрываются на тёплой базе сандалового дерева.', scentFamily: 'citrus', mood: 'airy', room: 'living', recommendations: ['culti-stile-aramara-250', 'culti-decor-aramara-250'] },
+  'bf33a957-016c-11ed-b2a4-7c8bca00854e': { slug: 'culti-aqqua-room-spray-100', images: ['/catalog/official/bf33a957-016c-11ed-b2a4-7c8bca00854e.jpg'], description: 'Свежая древесно-цитрусовая композиция с кориандром, бергамотом, мимозой, шалфеем и сандалом.', scentFamily: 'fresh', mood: 'airy', room: 'living', recommendations: ['culti-decor-aqqua-250', 'culti-stile-aqqua-250'] },
+  '976878': { slug: 'culti-decor-aqqua-250', images: ['/catalog/official/976878.jpg'], description: 'Свежая древесно-цитрусовая композиция с кориандром, бергамотом, мимозой, шалфеем и сандалом.', scentFamily: 'fresh', mood: 'airy', room: 'living', recommendations: ['culti-aqqua-room-spray-100', 'culti-stile-aqqua-250'] },
+  '802e8ad6-d19b-11ec-be83-7c8bca00854e': { slug: 'culti-stile-era-500', images: ['/catalog/official/802e8ad6-d19b-11ec-be83-7c8bca00854e.jpg'], description: 'Чёрная смородина и черника переходят в розу, растительную амбру и кедр.', scentFamily: 'floral', mood: 'cozy', room: 'living' },
+  '802e8b01-d19b-11ec-be83-7c8bca00854e': { slug: 'culti-colours-green-the-500', images: ['/catalog/official/802e8b01-d19b-11ec-be83-7c8bca00854e.jpg'], description: 'Бергамот и зелёный чай сенча соединяются с древесиной гваяка в чистой ароматической композиции.', scentFamily: 'fresh', mood: 'focused', room: 'study' },
+  '9980088': { slug: 'culti-mediterranea-refill-1000', images: ['/catalog/official/9980088.jpg'], description: 'Рефилл Mediterranea: горький апельсин, лимон и нероли с имбирём, мастиковым деревом и кедром.', scentFamily: 'citrus', mood: 'airy', room: 'living' },
+  '65576': { slug: 'culti-automobili-lamborghini-1000', images: ['/catalog/official/65576.png'], description: 'Цитрусово-древесная композиция грейпфрута, горького апельсина и бергамота с ветивером, кедром и сандалом.', scentFamily: 'woody', mood: 'focused', room: 'living' },
+  '802e8b0c-d19b-11ec-be83-7c8bca00854e': { slug: 'culti-mareminerale-car-sachet', images: ['/catalog/official/802e8b0c-d19b-11ec-be83-7c8bca00854e.jpg'], description: 'Автомобильное саше Mareminerale с морским аккордом и минеральным мускусом; размер 7×7 см.', scentFamily: 'fresh', mood: 'airy' },
+  'ROU250TFU': { slug: 'teatro-rose-oud-250', images: ['/catalog/official/ROU250TFU.png'], description: 'Насыщенная композиция, построенная вокруг уда и дамасской розы.', scentFamily: 'woody', mood: 'cozy', room: 'living' },
+  'ORO500RTFU': { slug: 'teatro-oro-refill-500', images: ['/catalog/official/ORO500RTFU.png'], description: 'Пряная композиция с чёрным и розовым перцем, гвоздикой и шалфеем; сердце раскрывается франжипани, липой и белыми цветами, база — кедр, пачули и амбра.', scentFamily: 'spicy', mood: 'focused', room: 'living' },
+  'LO250TFU': { slug: 'teatro-love-250', images: ['/catalog/official/LO250TFU.png'], description: 'Ягодно-древесная композиция: виноград, земляника, ежевика и малина переходят в кожу, ладан и чёрный перец; база — кедр, бамбук, ветивер и белый мускус.', scentFamily: 'fruity', mood: 'cozy', room: 'living' },
+  '655467': { slug: 'teatro-dolce-vaniglia-500', images: ['/catalog/official/655467.png'], description: 'Гурманская ваниль: сахарная пудра и карамель, тёмный шоколад и цветы ванили, белый мускус и ваниль.', scentFamily: 'warm', mood: 'cozy', room: 'living', recommendations: ['teatro-dolce-vaniglia-250', 'teatro-dolce-vaniglia-refill-500'] },
+  'DV500RTFU': { slug: 'teatro-dolce-vaniglia-refill-500', images: ['/catalog/official/DV500RTFU.png'], description: 'Рефилл Dolce Vaniglia: сахарная пудра и карамель, тёмный шоколад и цветы ванили, белый мускус и ванильные бобы.', scentFamily: 'warm', mood: 'cozy', room: 'living', recommendations: ['teatro-dolce-vaniglia-250', 'teatro-dolce-vaniglia-500'] },
+  'CAND-ROU180': { slug: 'teatro-rose-oud-candle-180', images: ['/catalog/official/CAND-ROU180.jpg'], description: 'Ароматическая свеча Rose Oud с насыщенной древесно-цветочной композицией вокруг уда и дамасской розы.', scentFamily: 'woody', mood: 'cozy', room: 'living' },
+  'CAND-XM180': { slug: 'teatro-xmas-candle-180', images: ['/catalog/official/CAND-XM180.jpg'], description: 'Праздничная композиция XMAS: апельсин, лимон и мандарин, корица и гвоздика на базе белого мускуса.', scentFamily: 'spicy', mood: 'cozy', room: 'living' },
+  'CAND-HOME180': { slug: 'teatro-home-candle-180', images: ['/catalog/official/CAND-HOME180.jpg'], description: 'Ароматическая свеча HOME Luxury Collection 180 г: пряное вступление корицы, гвоздики и полыни, сердце из светлого табака, ветивера и кокоса, тёплая база ванили и амбры.', scentFamily: 'warm', mood: 'cozy', room: 'living' },
+  'CAPP-XMTFU': { slug: 'teatro-xmas-gift-set', images: ['/catalog/official/CAPP-XMTFU.jpg'], description: 'Подарочный набор TEATRO Christmas in Florence в шляпной коробке: диффузор Oro 250 мл, рефилл Oro 250 мл и палочки.' },
+  'BAST500NTFU': { slug: 'teatro-black-reeds-500', images: ['/catalog/official/BAST500NTFU.jpg'], description: 'Комплект чёрных бамбуковых палочек 36 см для диффузоров формата 500 мл.' },
+  '08d97776-bb50-11ef-b425-ed110731e4f3': { slug: 'teatro-natural-reeds-250', images: ['/catalog/official/08d97776-bb50-11ef-b425-ed110731e4f3.jpg'], description: 'Комплект натуральных бамбуковых палочек 30 см для диффузоров формата 250 мл.' },
+  '63a36c45-bb50-11ef-b425-ed110731e4f3': { slug: 'teatro-black-reeds-250', images: ['/catalog/official/63a36c45-bb50-11ef-b425-ed110731e4f3.jpg'], description: 'Комплект чёрных бамбуковых палочек 30 см для диффузоров формата 250 мл.' },
+  '83763644-bb50-11ef-b425-ed110731e4f3': { slug: 'teatro-natural-reeds-500', images: ['/catalog/official/83763644-bb50-11ef-b425-ed110731e4f3.jpg'], description: 'Комплект натуральных бамбуковых палочек 36 см для диффузоров формата 500 мл.' },
+  '8c80d0e5-231d-11ef-b412-e92179844ed4': { slug: 'teatro-ceresia-250', images: ['/catalog/official/8c80d0e5-231d-11ef-b412-e92179844ed4.jpg'], description: 'Яркая фруктово-цветочная композиция: в старте вишня, бергамот, лист инжира и миндальное молоко; в базе ваниль, сандал и мускус.', scentFamily: 'floral', mood: 'airy', room: 'living' },
+  'CE500TFU.23': { slug: 'teatro-ceresia-500', images: ['/catalog/official/CE500TFU.23.jpg'], description: 'Яркая фруктово-цветочная композиция: в старте вишня, бергамот, лист инжира и миндальное молоко; в базе ваниль, сандал и мускус.', scentFamily: 'floral', mood: 'airy', room: 'living' },
+  'DV250TFU': { slug: 'teatro-dolce-vaniglia-250', images: ['/catalog/official/DV250TFU.png'], description: 'Гурманская ваниль: сахарная пудра и карамель, тёмный шоколад и цветы ванили, белый мускус и ваниль.', scentFamily: 'warm', mood: 'cozy', room: 'living', recommendations: ['teatro-dolce-vaniglia-500', 'teatro-dolce-vaniglia-refill-500'] },
+  'FF250TFU': { slug: 'teatro-foglie-di-fico-250', images: ['/catalog/official/FF250TFU.png'], description: 'Зелёные листья инжира, смягчённые ландышем, цитрусовыми и древесными оттенками.', scentFamily: 'fresh', mood: 'calm', room: 'living' },
+  'VM250TFU': { slug: 'teatro-vento-di-mare-250', images: ['/catalog/official/VM250TFU.png'], description: 'Морская композиция с водорослями, дыней и лимоном, сердцем из жасмина, герани и цикламена и базой белого мускуса и сандала.', scentFamily: 'fresh', mood: 'airy', room: 'living' },
+  'II250TFU': { slug: 'teatro-incenso-imperiale-250', images: ['/catalog/official/II250TFU.png'], description: 'Тёплая древесно-пряная композиция ладана, уда и фиалки с кедром, бамбуком, ветивером, белым мускусом и тонка.', scentFamily: 'woody', mood: 'focused', room: 'study' },
+  'FLC250TFU': { slug: 'teatro-fiore-250', images: ['/catalog/official/FLC250TFU.png'], description: 'Белые цветы — гардения, нарцисс и жасмин — раскрываются фрэнжипани и розой на мягкой мускусной базе.', scentFamily: 'floral', mood: 'airy', room: 'living' },
+  'BD500TFU': { slug: 'teatro-bianco-divino-500', images: ['/catalog/official/BD500TFU.png'], description: 'Игристая композиция винограда Champagne, яблока и цитрусов с болгарской розой, глицинией, фиалкой, белым мускусом, бамбуком и сандалом.', scentFamily: 'floral', mood: 'airy', room: 'living' },
+  'DI250TFU': { slug: 'teatro-diamante-250', images: ['/catalog/official/DI250TFU.png'], description: 'Пудрово-амбровая композиция с кристаллами сахара и шафраном, современными амбровыми аккордами, кедром и сибирской пихтой.', scentFamily: 'warm', mood: 'focused', room: 'study' },
+  'AG250TFU': { slug: 'teatro-borgo-degli-agrumi-250', images: ['/catalog/official/AG250TFU.png'], description: 'Энергичная цитрусовая композиция грейпфрута, бергамота, лимона, апельсина и лайма с лавандой, розой, жасмином и розмарином.', scentFamily: 'citrus', mood: 'airy', room: 'living' },
+  '3232434': { slug: 'ladenac-urban-senses-caviar-lime-500', images: ['/catalog/official/3232434.jpg'], description: 'Свежая цитрусово-морская композиция вокруг австралийского finger lime, с бергамотом, морскими оттенками и древесной базой.', scentFamily: 'citrus', mood: 'airy', room: 'living' },
+  '55777': { slug: 'ladenac-africa-predator-set', images: ['/catalog/official/55777.jpg'], description: 'Набор Africa Predator: керамическая ваза-флакон Leopard с палочками и 2 рефилла по 500 мл. Экзотическая композиция с цитрусом и пряностями, белыми цветами, сандалом и кедром, пачули, ладаном и миррой.', scentFamily: 'spicy', mood: 'focused', room: 'living' },
+  '983858': { slug: 'ladenac-vent-arabie-chergui-500', images: ['/catalog/official/983858.jpg'], description: 'Свежая древесно-цитрусовая композиция с лимоном, перцем, петитгрейном, кедром и ветивером.', scentFamily: 'woody', mood: 'focused', room: 'living' },
+  '382873': { slug: 'castelbel-butterflies-diffuser-250', images: ['/catalog/official/382873.jpg'], description: 'Свежая цитрусовая композиция сахарного тростника и лемонграсса.', scentFamily: 'citrus', mood: 'airy', room: 'living' },
+  '382777': { slug: 'castelbel-cotton-flower-sachet', images: ['/catalog/official/382777.jpg'], description: 'Чистый, мягкий и успокаивающий аромат хлопка, напоминающий свежее бельё.', scentFamily: 'floral', mood: 'calm', room: 'bedroom' },
+  '382784': { slug: 'castelbel-coconut-sachet', images: ['/catalog/official/382784.jpg'], description: 'Кремовый кокосовый аромат для небольших пространств, гардероба и текстиля.', scentFamily: 'warm', mood: 'cozy', room: 'bedroom' },
+  'N020465': { slug: 'lothantique-sandalwood-diffuser-200', images: ['/catalog/official/N020465.png'], description: 'Тёплая древесная композиция с пряным вступлением, мускусным сердцем и сандаловой древесной базой.', scentFamily: 'woody', mood: 'cozy', room: 'living' },
+  'N020468': { slug: 'lothantique-cotton-flower-diffuser-200', images: ['/catalog/official/N020468.png'], description: 'Мягкая композиция цветка хлопка: роза, альдегидные ноты и мускус.', scentFamily: 'floral', mood: 'calm', room: 'bedroom' },
+  'N020469': { slug: 'lothantique-flowers-of-japan-diffuser-200', images: ['/catalog/official/N020469.jpg'], description: 'Трогательно-свежая композиция Flowers of Japan: мандарин, цветы апельсина и мягкий мускус.', scentFamily: 'citrus', mood: 'airy', room: 'living' },
+  // Note pyramid for Ambre is not published by the brand; description kept factual per official page (200 ml, 8 rattan reeds 23 cm).
+  'N020528': { slug: 'lothantique-ambre-diffuser-200', images: ['/catalog/official/N020528.png'], description: 'Интерьерный диффузор Lothantique La Bonne Maison «Ambre», 200 мл: стеклянный флакон с 8 ротанговыми тростниками.', scentFamily: 'warm', mood: 'cozy', room: 'living' },
+  'N020458': { slug: 'lothantique-les-secrets-antoine-diffuser-200', images: ['/catalog/official/N020458-nebo.jpg'], description: 'Элегантная цитрусово-древесная композиция Les Secrets d’Antoine: мандарин, палисандр и мускус.', scentFamily: 'woody', mood: 'focused', room: 'study' },
+  'N020480': { slug: 'lothantique-cotton-flower-refill-200', images: ['/catalog/official/N020480.png'], description: 'Рефилл аромата Cotton Flower с мягкими нотами розы, альдегидов и мускуса.', scentFamily: 'floral', mood: 'calm', room: 'bedroom' },
+  '089864': { slug: 'ladenac-dynastie-senteur-royale-500', images: ['/catalog/official/089864.jpg'], description: 'Восточно-пряная композиция сухой амбры, чёрного перца, мускатного ореха, кедра, мирры, мёда, ванили и ладана.', scentFamily: 'spicy', mood: 'cozy', room: 'living' },
+  '98676': { slug: 'ladenac-africa-camouflage-set-1200', images: ['/catalog/official/98676.webp'], description: 'Набор Africa Camouflage с декоративной вазой Zebra и двумя рефиллами по 500 мл. Древесно-пряная композиция сочетает бергамот, лимон, специи и розмарин, цветочные ноты, кедр, пачули, мускус и лабданум.', scentFamily: 'woody', mood: 'focused', room: 'living' },
+  '6545367': { slug: 'ladenac-africa-camouflage-candle-350', images: ['/catalog/official/6545367.jpg'], description: 'Свеча Africa Camouflage 350 г: древесно-пряная композиция с бергамотом, лимоном, специями и розмарином, цветочным сердцем и базой кедра, пачули, мускуса и лабданума.', scentFamily: 'woody', mood: 'focused', room: 'living' },
+  '39393848': { slug: 'ladenac-urban-senses-eau-de-cypres-500', images: ['/catalog/official/39393848.jpg'], description: 'Eau de Cyprès: герань, розмарин, гальбанум и эвкалипт переходят в кипарис, сосну, лесные ягоды и белые цветы; база — пихтовый бальзам, сандал, кедр и ирис.', scentFamily: 'woody', mood: 'calm', room: 'living' },
+  '8411299000985': { slug: 'ladenac-urban-senses-fleurs-de-fruit-500', images: ['/catalog/official/8411299000985.jpg'], description: 'Fleurs de Fruit: апельсин, маракуйя, манго и комбава раскрываются тиаре, жасмином, розой и иланг-илангом; база — мускус, кокос, карамелизированная ваниль и мох.', scentFamily: 'fruity', mood: 'airy', room: 'living' },
+  '54556': { slug: 'ladenac-vents-arabie-rose-des-sables-500', images: ['/catalog/official/54556.jpg'], description: 'Rose des Sables: свежая цветочно-древесная композиция с бергамотом и можжевельником, пачули, цветком апельсина, жасмином и кедром, на тёплой амбровой базе.', scentFamily: 'floral', mood: 'cozy', room: 'living' },
+  // No exact variant binding: color alone cannot reconcile the internal SKU with the collection generation. Keep the photo and fragrance unspecified.
+  '344565': { slug: 'ladenac-lui-lei-jet-lag-black-gold-125', images: ['/catalog/official/344565.jpg'], description: 'Интерьерный спрей Ladenac Lui&Lei Jet Lag Black Gold, 125 мл: восточно-древесная композиция с кедром и табачным аккордом.', scentFamily: 'woody' },
+  '453478': { slug: 'ladenac-satin-oud-golden-750', images: ['/catalog/official/453478.jpg'], description: 'Декоративный диффузор Ladenac Oud Collection Satin Oud Golden, 750 мл. Парфюмерные ноты не добавлены без подтверждения точного аромата первоисточником.', scentFamily: 'woody', mood: 'cozy', room: 'living' },
+  '78768575': { slug: 'culti-stile-limited-alba-250', images: ['/catalog/official/78768575.png'], description: 'Лимитированный диффузор CULTI MILANO Stile Alba 250 мл: чай матча, цветок вишни и рис.', scentFamily: 'floral', mood: 'calm', room: 'bedroom' },
+  '90877': { slug: 'culti-decor-van-gogh-irises-500', images: ['/catalog/official/90877.png'], description: 'Лимитированный диффузор CULTI MILANO Décor Van Gogh Irises 500 мл — коллаборация с Getty Museum: горький апельсин, кардамом, ирис и кедровое дерево.', scentFamily: 'floral', mood: 'calm', room: 'living' },
+  '802e8b05-d19b-11ec-be83-7c8bca00854e': { slug: 'culti-decor-limited-malia-500', images: ['/catalog/official/802e8b05-d19b-11ec-be83-7c8bca00854e.png'], description: 'Лимитированный диффузор CULTI MILANO Décor Malìa 500 мл в декоративном стекле цвета болгарский красный.' },
+  '22fimr': { slug: 'millefiori-mimosa-flower-hydro-15', images: ['/catalog/official/22fimr.jpg'], description: 'Водорастворимый аромат для ультразвуковых диффузоров Hydro: чёрный перец и лист фиалки, мимоза и мате, пачули и бобы тонка.', scentFamily: 'floral', mood: 'calm', room: 'study' },
+  '12132': { slug: 'culti-era-room-spray-100', images: ['/catalog/official/12132.jpg'], description: 'Фруктово-цветочная композиция с чёрной смородиной, черникой, розой, растительной амброй и кедром.', scentFamily: 'floral', mood: 'cozy', room: 'living' },
+  '46091': { slug: 'culti-the-room-spray-100', images: ['/catalog/official/46091.jpg'], description: 'Аромат Thé с зелёным чаем сенча и древесиной гваяка.', scentFamily: 'fresh', mood: 'focused', room: 'study' },
+  '465636': { slug: 'culti-the-refill-1000', images: ['/catalog/official/465636.jpg'], description: 'Рефилл аромата Thé с зелёным чаем сенча и древесиной гваяка.', scentFamily: 'fresh', mood: 'focused', room: 'study' },
+  'MF-FRAGR2.06': { slug: 'mami-nuvola-di-cotone-200', images: ['/catalog/official/MF-FRAGR2.06.png'], description: 'Бергамот, лимон и чёрная смородина переходят в боярышник, жасмин и розу; в базе — ладан и драгоценные древесные ноты.', scentFamily: 'floral', mood: 'calm', room: 'bedroom' },
+  'MF-FRAGR2.11': { slug: 'mami-fumo-di-londra-200', images: ['/catalog/official/MF-FRAGR2.11.png'], description: 'Водные ноты и бергамот раскрываются белым шалфеем и иланг-илангом, затем переходят в пачули и светлую древесину.', scentFamily: 'fresh', mood: 'focused', room: 'study' },
+  'MF-FRAGR2.01': { slug: 'mami-ghiaccio-e-zenzero-200', images: ['/catalog/official/MF-FRAGR2.01.png'], description: 'Лимон и пряный имбирь соединяются с эвкалиптом, жасмином и цветами миндаля; в базе — корица и кедр.', scentFamily: 'spicy', mood: 'focused', room: 'living' },
+  'MF-FRAGR2.02': { slug: 'mami-arancia-candita-200', images: ['/catalog/official/MF-FRAGR2.02.png'], description: 'Яркие апельсин и лимон смягчены цветами апельсина; пряные и древесные акценты добавляют глубину и стойкость.', scentFamily: 'citrus', mood: 'airy', room: 'living' },
+  'MF-FRAGR2.07': { slug: 'mami-aqua-200', images: ['/catalog/official/MF-FRAGR2.07.png'], description: 'Мята, лаванда и морской бриз переходят в жасмин, табачный лист и розмарин; база построена на амбре, сосне и дубовом мхе.', scentFamily: 'fresh', mood: 'airy', room: 'living' },
+  'MF-FRAGR2.09': { slug: 'mami-vaniglia-e-legni-200', images: ['/catalog/official/MF-FRAGR2.09.png'], description: 'Бергамот и зелёный лимон соединяются с цветами апельсина и персика; ваниль, бобы тонка и мускус формируют тёплую базу.', scentFamily: 'warm', mood: 'cozy', room: 'bedroom' },
+  'MF-FRAGR2.12': { slug: 'mami-via-delle-spezie-200', images: ['/catalog/official/MF-FRAGR2.12.png'], description: 'Цитрусовая свежесть встречается с тёплыми специями и ягодами мирта; древесина и пачули формируют насыщенный шлейф.', scentFamily: 'spicy', mood: 'cozy', room: 'living' },
+  'MF-REFILL.06': { slug: 'mami-nuvola-di-cotone-refill-250', images: ['/catalog/official/MF-REFILL.06.png'], description: 'Рефилл Nuvola di Cotone: бергамот, лимон, чёрная смородина, боярышник, жасмин, роза, ладан и древесные ноты.', scentFamily: 'floral', mood: 'calm', room: 'bedroom' },
+  'MF-REFILL.08': { slug: 'mami-coccole-di-talco-refill-250', images: ['/catalog/official/MF-REFILL.08.png'], description: 'Пудровая композиция с лимоном и нероли, розой и цветами апельсина, завершающаяся бобами тонка, ванилью и амброй.', scentFamily: 'warm', mood: 'calm', room: 'bedroom' },
+  'MF-REFILL.12': { slug: 'mami-via-delle-spezie-refill-250', images: ['/catalog/official/MF-REFILL.12.png'], description: 'Рефилл Via delle Spezie: цитрусы, тёплые специи и мирт на древесно-пачулиевой базе.', scentFamily: 'spicy', mood: 'cozy', room: 'living' },
+  'GI-FRAGR2.02': { slug: 'mami-fior-di-loto-200', images: ['/catalog/official/GI-FRAGR2.02.png'], description: 'Элегантный цветочный букет пионов и роз, созданный для ощущения цветущего сада в интерьере.', scentFamily: 'floral', mood: 'calm', room: 'bedroom' },
+  'GI-FRAGR2.04': { slug: 'mami-rose-in-fiore-200', images: ['/catalog/official/GI-FRAGR2.04.png'], description: 'Романтичный цветочный букет пионов и роз для мягкого аромата цветущего сада.', scentFamily: 'floral', mood: 'calm', room: 'living' },
+  '802e8b03-d19b-11ec-be83-7c8bca00854e': { slug: 'culti-stile-gratia-500', images: ['/catalog/official/802e8b03-d19b-11ec-be83-7c8bca00854e.jpg'], description: 'Цветочная композиция с ревенем, розой центифолией и пачули.', scentFamily: 'floral', mood: 'calm', room: 'living' },
+  '1113': { slug: 'culti-rattan-reeds-1000', images: ['/catalog/official/1113.jpg'], description: 'Ротанговые палочки CULTI MILANO длиной 43 см для диффузоров формата 1000 мл.' },
+  '121211': { slug: 'rattan-reeds-500', description: 'Ротанговые палочки для интерьерных диффузоров формата 500 мл.' },
+  'N020486': { slug: 'lothantique-natural-rattan-reeds-23', images: ['/catalog/official/N020486.jpg'], description: 'Комплект из 18 светлых ротанговых палочек Lothantique размером 23 × 3 мм для интерьерных диффузоров.' },
+  '0189': { slug: 'wick-scissors', description: 'Ножницы для аккуратной подрезки фитиля ароматических свечей.' },
+  '445445': { slug: 'microusb-power-adapter-1-2m', description: 'Сетевое зарядное устройство microUSB с кабелем 1,2 м.' },
+  'N020445': { slug: 'vinove-rome-evolution-excellence', images: ['/catalog/official/N020445.jpg'], description: 'Rome: слива, корица и тмин; шафран, кедр и пачули; в базе — табак, сандал, ваниль и кожа.', scentFamily: 'woody', mood: 'focused' },
+  'N020438': { slug: 'vinove-indianapolis-leather-espresso', images: ['/catalog/official/N020438.jpg'], description: 'Indianapolis: бергамот и кардамон, ирис и лаванда, затем кедр, амбра и мускус.', scentFamily: 'woody', mood: 'focused' },
+  'N020434': { slug: 'vinove-monza-leather-ivory', images: ['/catalog/official/N020434.jpg'], description: 'Monza: нероли, бергамот, ананас и персик; фиалка, жасмин и роза; шоколад, карамель и пачули.', scentFamily: 'floral', mood: 'cozy' },
+  'N020325': { slug: 'vinove-london-jewelry', images: ['/catalog/official/N020325.jpg'], description: 'London Riverwood: ананас, тонка, какао, кофе и апельсин; цветы, орехи и специи; гваяковое дерево, мёд и ваниль.', scentFamily: 'woody', mood: 'cozy' },
+  'N020316': { slug: 'vinove-silverstone-refill', images: ['/catalog/official/N020316.jpg'], description: 'Silverstone: лимон, травы и лаванда; древесные ноты и цветок апельсина; мускус, пудровые ноты и пачули.', scentFamily: 'fresh', mood: 'focused' },
+  'N020408': { slug: 'vinove-maranello-refill', images: ['/catalog/official/N020408.jpg'], description: 'Maranello: перец, мандарин и груша; цветок апельсина и жасмин; кофе и ваниль.', scentFamily: 'warm', mood: 'cozy' },
+  'N020566': { slug: 'vinove-miami-refill', images: ['/catalog/official/N020566.jpg'], description: 'Miami: лимон, мандарин и красный перец; жасмин, ландыш, лилия и элеми; сандал, кедр, ветивер, амбра и мускус.', scentFamily: 'fresh', mood: 'airy' },
+  '0b044a39-8588-11ed-b530-7c8bca00854e': { slug: 'vinove-rome-leather-espresso', images: ['/catalog/official/0b044a39-8588-11ed-b530-7c8bca00854e.jpg'], description: 'Rome: слива, корица и тмин; шафран, кедр и пачули; в базе — табак, сандал, ваниль и кожа.', scentFamily: 'woody', mood: 'focused' },
+  'N020334': { slug: 'vinove-paris-refill', images: ['/catalog/official/N020334.jpg'], description: 'Paris: мандарин, персик и шафран; жасмин, гардения и роза; кожа, пачули, ваниль и уд.', scentFamily: 'woody', mood: 'cozy' },
+  '32131': { slug: 'aromagroup-bordo-110', images: ['/catalog/official/32131.webp'] },
+  '87654': { slug: 'aromagroup-bordo-150', images: ['/catalog/official/87654.webp'] },
+  '0789': { slug: 'aromagroup-maldivy-110', images: ['/catalog/official/0789.webp'] },
+  '088976': { slug: 'aromagroup-maldivy-150', images: ['/catalog/official/088976.webp'] },
+  '323244211': { slug: 'aromagroup-igristaya-malina-110', images: ['/catalog/official/323244211.webp'] },
+  '876687': { slug: 'aromagroup-igristaya-malina-150', images: ['/catalog/official/876687.webp'] },
+  '454569087': { slug: 'aromagroup-bali-110', images: ['/catalog/official/454569087.webp'] },
+  '7c1b6caa-5341-11ed-8c25-7c8bca00854e': { slug: 'aromagroup-pina-kolada-110', images: ['/catalog/official/7c1b6caa-5341-11ed-8c25-7c8bca00854e.webp'] },
+  '223211': { slug: 'aromagroup-tekila-sanrayz-100', images: ['/catalog/official/223211.webp'] },
+  '2332': { slug: 'aromagroup-krasnoe-derevo-150', images: ['/catalog/official/2332.webp'] },
+  '3534657': { slug: 'aromagroup-pachuli-150', images: ['/catalog/official/3534657.webp'] },
+  '084e10f7-dad6-11ee-b40a-f198e863aac1': { slug: 'aromagroup-kofe-masala-180', images: ['/catalog/official/084e10f7-dad6-11ee-b40a-f198e863aac1.webp'] },
+  'fcf32570-dad6-11ee-b40a-f198e863aac1': { slug: 'aromagroup-tonka-i-zhakaranda-100', images: ['/catalog/official/fcf32570-dad6-11ee-b40a-f198e863aac1.webp'] },
+  '33421956': { slug: 'aromagroup-kofe-s-likerom-150', images: ['/catalog/official/33421956.webp'] },
+  '5432311112': { slug: 'aromagroup-tabak-i-vanil-110', images: ['/catalog/official/5432311112.webp'] },
+  '3246675': { slug: 'aromagroup-rozovoe-prosekko-150', images: ['/catalog/official/3246675.webp'] },
+  '3444567': { slug: 'aromagroup-dzhovanni-150', images: ['/catalog/official/3444567.webp'] },
+  '787532': { slug: 'aromagroup-tadzh-makhal-110', images: ['/catalog/official/787532.webp'] },
+  '5445098': { slug: 'aromagroup-tadzh-makhal-150', images: ['/catalog/official/5445098.webp'] },
+  '087654': { slug: 'aromagroup-tadzh-makhal-100', images: ['/catalog/official/087654.webp'] },
+  '1112211': { slug: 'aromagroup-pryanyy-tabak-100', images: ['/catalog/official/1112211.webp'] },
+  '45360': { slug: 'aromagroup-magma-150', images: ['/catalog/official/45360.webp'] },
+  '9a227639-b1a0-11ed-a1a3-7c8bca00854e': { slug: 'aromagroup-cleaning-fluid-110', images: ['/catalog/official/9a227639-b1a0-11ed-a1a3-7c8bca00854e.png'] },
+  '4356': { slug: 'aromagroup-cleaning-fluid-150', images: ['/catalog/official/4356.png'] },
+  '132689': { slug: 'aromagroup-noble-leather-100', images: ['/catalog/official/132689.jpg'] },
+  'N020273': { slug: 'vinove-warsaw-original', images: ['/catalog/official/N020273.jpg'], description: 'Warsaw: ананас, имбирь и шафран; роза, цитрусы и замша; пачули и сандал.', scentFamily: 'spicy', mood: 'focused' },
+}
+
+function aromaGroupFallbackDescription(name: string): string | null {
+  if (/жидкость для промывки/i.test(name)) return 'Сервисная жидкость AROMAgroup для промывки и обслуживания профессиональных систем ароматизации.'
+  if (/аппарат для ароматизации помещений/i.test(name)) return 'Профессиональный аппарат AROMAgroup для интерьерной ароматизации помещений.'
+  if (/кар?тридж/i.test(name)) {
+    const scent = name.replace(/\s*кар?тридж.*$/i, '').replace(/^AROMAgroup\s*/i, '').trim()
+    return scent ? `Ароматический картридж AROMAgroup «${scent}» для профессиональных систем ароматизации.` : 'Ароматический картридж AROMAgroup для профессиональных систем ароматизации.'
+  }
+  if (/магма/i.test(name)) return 'Ароматическая композиция AROMAgroup «Магма» для профессиональной ароматизации помещений.'
+  return null
+}
+
+/**
+ * Presentation-only category corrections backed by the checked-in demand
+ * research. NIRO's diffuser type is confirmed by two independent external
+ * cards (Bosco, TSUM — even the manufacturer article matches), while the raw
+ * 1C name ("Ароматизатор воздуха") only yields the overly broad generic
+ * category. Trade source values stay untouched.
+ */
+const stagedCategoryOverrides: Record<string, string> = {
+  'DANHNIR250DEC': 'Диффузоры',
+  '22fimr': 'Водорастворимые ароматы',
+}
+
+const stagedBrandOverrides: Record<string, string> = {
+  '1113': 'CULTI MILANO',
+  'N020486': 'Lothantique',
+}
+
+export function stagedTrade(trade: TradeProduct): TradeProduct {
+  const enriched = {
+    ...trade,
+    brand: trade.brand ?? stagedBrandOverrides[trade.sku] ?? inferStagedBrand(trade.name),
+    category: inferStagedCategory(trade.name),
+    volume: trade.volume ?? inferStagedVolume(trade.name),
+  }
+  return stagedCategoryOverrides[trade.sku] ? { ...enriched, category: stagedCategoryOverrides[trade.sku] } : enriched
+}
+
+export function stagedEditorial(trades: readonly TradeProduct[]): Record<string, EditorialProduct> {
+  const result: Record<string, EditorialProduct> = {}
+  for (const trade of trades) {
+    const base = emptyEditorial(trade.sku)
+    const patch = curated[trade.sku] ?? {}
+    const brand = inferStagedBrand(trade.name)
+    const generated = brand ? `${slugify(brand)}-${slugify(trade.sku)}` : base.slug
+    const fallbackDescription = brand === 'AROMAgroup' ? aromaGroupFallbackDescription(trade.name) : null
+    const reviewed = reviewedDescription(trade)
+    result[trade.sku] = { ...base, slug: patch.slug ?? generated, description: fallbackDescription, ...patch, ...(reviewed ? { description: reviewed } : {}) }
+  }
+  return result
+}

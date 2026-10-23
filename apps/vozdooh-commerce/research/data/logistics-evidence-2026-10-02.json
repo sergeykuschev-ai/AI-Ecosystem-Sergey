@@ -1,0 +1,3777 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-10-03",
+  "purpose": "Exact-SKU public-source evidence used to build VOZDOOH delivery input.",
+  "rules": {
+    "exactIdentity": "Evidence is accepted only when the source matches the exact EAN/SKU.",
+    "noVolumeToWeight": true,
+    "noMissingDimensionInference": true,
+    "shippingReady": true,
+    "finalParcelRule": "Never convert volume to weight, invent missing dimensions, or pass unresolved identity/product-measurement conflicts.",
+    "ownerDecision": "Verified exact-SKU full product dimensions and total weight are sufficient; outer shipping-package measurements are not required."
+  },
+  "records": [
+    {
+      "sku": "0189",
+      "barcode": "2017701192390",
+      "brand": null,
+      "status": "NEEDS_SOURCE",
+      "measurements": [
+        {
+          "scope": "research_gap",
+          "dimensionsMm": null,
+          "weightG": null,
+          "retrievedAt": "2026-10-02",
+          "note": "No reliable public full physical dimensions and total item/package weight were found for this exact current-stock SKU in the 2026-10-02 research pass. Keep blocked from inferred logistics dimensions; do not convert nominal volume to weight or borrow dimensions from a sibling SKU."
+        }
+      ]
+    },
+    {
+      "sku": "121211",
+      "barcode": "8050534799088",
+      "brand": null,
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "research_gap",
+          "dimensionsMm": null,
+          "weightG": null,
+          "retrievedAt": "2026-10-02",
+          "note": "No reliable public full physical dimensions and total item/package weight were found for this exact current-stock SKU in the 2026-10-02 research pass. Keep blocked from inferred logistics dimensions; do not convert nominal volume to weight or borrow dimensions from a sibling SKU."
+        },
+        {
+          "scope": "family_product_length",
+          "dimensionsMm": null,
+          "lengthMm": 345,
+          "weightG": null,
+          "sourceType": "official-manufacturer",
+          "sourceUrl": "https://www.culti.com/en/midollino-500ml.html",
+          "retrievedAt": "2026-10-02",
+          "note": "Official CULTI 500 ml rattan reeds page states H34.5 cm. Public page does not expose the exact 1C barcode, so this remains family-level partial evidence only."
+        },
+        {
+          "scope": "family_product_weight",
+          "dimensionsMm": null,
+          "weightG": 100,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://pranahome.ru/product/rotangovye-palochki-dlya-diffuzora-500-ml-culti-milano",
+          "retrievedAt": "2026-10-02",
+          "note": "Specialist retailer reports 100 g and 34.5 cm for CULTI 500 ml rattan reeds, but public article code differs from the 1C barcode. Keep as family-level evidence, not ready."
+        }
+      ]
+    },
+    {
+      "sku": "445445",
+      "barcode": "4610024333280",
+      "brand": null,
+      "status": "CONFLICT",
+      "measurements": [
+        {
+          "scope": "identity_source",
+          "dimensionsMm": null,
+          "weightG": null,
+          "sourceType": "barcode-database",
+          "sourceUrl": "https://barcode-list.ru/barcode/RU/Поиск.htm?barcode=Зарядное+устройство",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact barcode 4610024333280 resolves to Aceline H5B1A black mains charger."
+        },
+        {
+          "scope": "source_reported_weight",
+          "dimensionsMm": null,
+          "weightG": 150,
+          "sourceType": "marketplace",
+          "sourceUrl": "https://www.ozon.ru/product/setevoe-zaryadnoe-ustroystvo-tsvet-chernyy-1315630870/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact model Aceline H5B1A listing reports product weight 150 g."
+        },
+        {
+          "scope": "source_reported_weight",
+          "dimensionsMm": null,
+          "weightG": 100,
+          "sourceType": "marketplace",
+          "sourceUrl": "https://www.ozon.uz/product/setevoe-zaryadnoe-ustroystvo-aceline-h5b1a-chernyy-1257420099/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact model Aceline H5B1A listing reports product weight 100 g; conflicts with another exact-model listing. No reliable physical dimensions found."
+        },
+        {
+          "scope": "manufacturer_manual_identity",
+          "dimensionsMm": null,
+          "weightG": null,
+          "sourceType": "manufacturer-manual",
+          "sourceUrl": "https://drv.dns-shop.ru/Manuals/S/setevoe-zaradnoe-ustrojstvo-aceline-h5b1a_instrukcia_2.pdf",
+          "retrievedAt": "2026-10-02",
+          "note": "DNS/Aceline manual confirms H5B1A MC model and 1.2 m microUSB cable; manual does not publish weight or physical dimensions."
+        }
+      ]
+    },
+    {
+      "sku": "045850b2-9e1f-11ee-b408-d069cd63062f",
+      "barcode": "2017701198859",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_product",
+          "dimensionsMm": [
+            47,
+            47,
+            90
+          ],
+          "weightG": 114,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-dispenser-liquid-s-aromatom-immuno-400405198/specification",
+          "note": "AROMAgroup Dispenser Liquid 100 ml refill family: M.Video reports 47×47×90 mm and 114 g. Applied only as same-volume/family evidence because this exact scent/internal barcode is not public; keep PARTIAL.",
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "0789",
+      "barcode": "2017701194516",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_product",
+          "dimensionsMm": [
+            45,
+            45,
+            119
+          ],
+          "weightG": 125,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-spa-200-s-aromatom-immuno-400404873/specification",
+          "note": "AROMAgroup 110 ml cartridge family: M.Video reports 45×45×119 mm and 125 g for a SPA 200 110 ml refill. Applied as family evidence only; exact scent/internal barcode not public.",
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "084e10f7-dad6-11ee-b40a-f198e863aac1",
+      "barcode": "2017701199399",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_product",
+          "dimensionsMm": [
+            52,
+            52,
+            115
+          ],
+          "weightG": 195,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-shop-250-s-aromatom-immuno-400404879/specification",
+          "note": "AROMAgroup Shop 250 180 ml refill family: M.Video reports 52×52×115 mm and 195 g. Applied as family evidence only; exact scent/internal barcode not public.",
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "087654",
+      "barcode": "2017701197791",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_product",
+          "dimensionsMm": [
+            47,
+            47,
+            90
+          ],
+          "weightG": 114,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-dispenser-liquid-s-aromatom-immuno-400405198/specification",
+          "note": "AROMAgroup Dispenser Liquid 100 ml refill family: M.Video reports 47×47×90 mm and 114 g. Applied only as same-volume/family evidence because this exact scent/internal barcode is not public; keep PARTIAL.",
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "088976",
+      "barcode": "2017701194523",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_package",
+          "dimensionsMm": [
+            120,
+            90,
+            100
+          ],
+          "weightG": 250,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://belgorod.ret.ru/?gid=988347&pn=prod",
+          "note": "AROMAgroup Shop 300 150 ml cartridge family: RET reports retail package 120×90×100 mm, 250 g; unpacked cartridge 80×85×80 mm, 215 g. Applied only as same-volume/family evidence; exact scent/internal barcode not public.",
+          "productDimensionsMm": [
+            80,
+            85,
+            80
+          ],
+          "productWeightG": 215,
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "09877",
+      "barcode": null,
+      "brand": "AROMAgroup",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            260,
+            175,
+            89
+          ],
+          "weightG": null,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://avd74.ru/catalog/aromatizatsiya_dlya_biznesa_i_doma/apparaty/apparat_dlya_aromatizatsii_pomeshcheniya_shop_250_cherno_mednyy_aromagroup.php",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact AROMAgroup Shop 250 model page gives 260×175×89 mm. Weight and retail/shipping package size remain unverified."
+        },
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            260,
+            175,
+            90
+          ],
+          "weightG": 1800,
+          "sourceType": "major-retailer",
+          "sourceUrl": "https://www.mvideo.ru/products/400333696/specification",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact AROMAgroup Shop 250 bt model. M.Video specifications report 26×17.5×9 cm and 1800 g. Independent AROMAgroup/AVD geometry is 260×175×89 mm; keep the exact source values without averaging."
+        }
+      ]
+    },
+    {
+      "sku": "1112211",
+      "barcode": "2017701194561",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_product",
+          "dimensionsMm": [
+            47,
+            47,
+            90
+          ],
+          "weightG": 114,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-dispenser-liquid-s-aromatom-immuno-400405198/specification",
+          "note": "AROMAgroup Dispenser Liquid 100 ml refill family: M.Video reports 47×47×90 mm and 114 g. Applied only as same-volume/family evidence because this exact scent/internal barcode is not public; keep PARTIAL.",
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "132689",
+      "barcode": "2017701197890",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_product",
+          "dimensionsMm": [
+            47,
+            47,
+            90
+          ],
+          "weightG": 114,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-dispenser-liquid-s-aromatom-immuno-400405198/specification",
+          "note": "AROMAgroup Dispenser Liquid 100 ml refill family: M.Video reports 47×47×90 mm and 114 g. Applied only as same-volume/family evidence because this exact scent/internal barcode is not public; keep PARTIAL.",
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "137897",
+      "barcode": "2017701194387",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_product",
+          "dimensionsMm": [
+            45,
+            45,
+            119
+          ],
+          "weightG": 125,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-spa-200-s-aromatom-immuno-400404873/specification",
+          "note": "AROMAgroup 110 ml cartridge family: M.Video reports 45×45×119 mm and 125 g for a SPA 200 110 ml refill. Applied as family evidence only; exact scent/internal barcode not public.",
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "223211",
+      "barcode": "2017701194615",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_product",
+          "dimensionsMm": [
+            47,
+            47,
+            90
+          ],
+          "weightG": 114,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-dispenser-liquid-s-aromatom-immuno-400405198/specification",
+          "note": "AROMAgroup Dispenser Liquid 100 ml refill family: M.Video reports 47×47×90 mm and 114 g. Applied only as same-volume/family evidence because this exact scent/internal barcode is not public; keep PARTIAL.",
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "2332",
+      "barcode": "2017701194363",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_package",
+          "dimensionsMm": [
+            120,
+            90,
+            100
+          ],
+          "weightG": 250,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://belgorod.ret.ru/?gid=988347&pn=prod",
+          "note": "AROMAgroup Shop 300 150 ml cartridge family: RET reports retail package 120×90×100 mm, 250 g; unpacked cartridge 80×85×80 mm, 215 g. Applied only as same-volume/family evidence; exact scent/internal barcode not public.",
+          "productDimensionsMm": [
+            80,
+            85,
+            80
+          ],
+          "productWeightG": 215,
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "32131",
+      "barcode": "2017701194417",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_product",
+          "dimensionsMm": [
+            45,
+            45,
+            119
+          ],
+          "weightG": 125,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-spa-200-s-aromatom-immuno-400404873/specification",
+          "note": "AROMAgroup 110 ml cartridge family: M.Video reports 45×45×119 mm and 125 g for a SPA 200 110 ml refill. Applied as family evidence only; exact scent/internal barcode not public.",
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "323244211",
+      "barcode": "2017701197739",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_product",
+          "dimensionsMm": [
+            45,
+            45,
+            119
+          ],
+          "weightG": 125,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-spa-200-s-aromatom-immuno-400404873/specification",
+          "note": "AROMAgroup 110 ml cartridge family: M.Video reports 45×45×119 mm and 125 g for a SPA 200 110 ml refill. Applied as family evidence only; exact scent/internal barcode not public.",
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "3246675",
+      "barcode": "2017701197784",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_package",
+          "dimensionsMm": [
+            120,
+            90,
+            100
+          ],
+          "weightG": 250,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://belgorod.ret.ru/?gid=988347&pn=prod",
+          "note": "AROMAgroup Shop 300 150 ml cartridge family: RET reports retail package 120×90×100 mm, 250 g; unpacked cartridge 80×85×80 mm, 215 g. Applied only as same-volume/family evidence; exact scent/internal barcode not public.",
+          "productDimensionsMm": [
+            80,
+            85,
+            80
+          ],
+          "productWeightG": 215,
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "33421956",
+      "barcode": "2017701196350",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_package",
+          "dimensionsMm": [
+            120,
+            90,
+            100
+          ],
+          "weightG": 250,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://belgorod.ret.ru/?gid=988347&pn=prod",
+          "note": "AROMAgroup Shop 300 150 ml cartridge family: RET reports retail package 120×90×100 mm, 250 g; unpacked cartridge 80×85×80 mm, 215 g. Applied only as same-volume/family evidence; exact scent/internal barcode not public.",
+          "productDimensionsMm": [
+            80,
+            85,
+            80
+          ],
+          "productWeightG": 215,
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "3444567",
+      "barcode": "2017701194455",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_package",
+          "dimensionsMm": [
+            120,
+            90,
+            100
+          ],
+          "weightG": 250,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://belgorod.ret.ru/?gid=988347&pn=prod",
+          "note": "AROMAgroup Shop 300 150 ml cartridge family: RET reports retail package 120×90×100 mm, 250 g; unpacked cartridge 80×85×80 mm, 215 g. Applied only as same-volume/family evidence; exact scent/internal barcode not public.",
+          "productDimensionsMm": [
+            80,
+            85,
+            80
+          ],
+          "productWeightG": 215,
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "3534657",
+      "barcode": "2017701194554",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_package",
+          "dimensionsMm": [
+            120,
+            90,
+            100
+          ],
+          "weightG": 250,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://belgorod.ret.ru/?gid=988347&pn=prod",
+          "note": "AROMAgroup Shop 300 150 ml cartridge family: RET reports retail package 120×90×100 mm, 250 g; unpacked cartridge 80×85×80 mm, 215 g. Applied only as same-volume/family evidence; exact scent/internal barcode not public.",
+          "productDimensionsMm": [
+            80,
+            85,
+            80
+          ],
+          "productWeightG": 215,
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "426b83df-1ab0-11ed-bb36-7c8bca00854e",
+      "barcode": "4603773380032",
+      "brand": "AROMAgroup",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            200,
+            75,
+            250
+          ],
+          "weightG": 1940,
+          "sourceType": "manufacturer-catalog",
+          "sourceUrl": "https://gallery11.ru/upload/iblock/90f/eavbuntwejw00862u2xgoyryc7ca1qxu.pdf",
+          "retrievedAt": "2026-10-02",
+          "note": "Manufacturer catalog gives Shop 300 H×W×D 25×20×7.5 cm and net weight 1.94 kg."
+        },
+        {
+          "scope": "retailer_reported_packaged_product",
+          "dimensionsMm": [
+            250,
+            200,
+            75
+          ],
+          "weightG": null,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://megadez.pro/produktsiya/aromatizatsiya/aromagroup-shop-300/",
+          "retrievedAt": "2026-10-02",
+          "note": "Retailer packaged-product dimensions are 250×200×75 mm, matching manufacturer device dimensions by orientation."
+        }
+      ]
+    },
+    {
+      "sku": "4356",
+      "barcode": "2017701194462",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_package",
+          "dimensionsMm": [
+            120,
+            90,
+            100
+          ],
+          "weightG": 250,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://belgorod.ret.ru/?gid=988347&pn=prod",
+          "note": "AROMAgroup Shop 300 150 ml cartridge family: RET reports retail package 120×90×100 mm, 250 g; unpacked cartridge 80×85×80 mm, 215 g. Applied only as same-volume/family evidence; exact scent/internal barcode not public.",
+          "productDimensionsMm": [
+            80,
+            85,
+            80
+          ],
+          "productWeightG": 215,
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "45360",
+      "barcode": "2017701194493",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_package",
+          "dimensionsMm": [
+            120,
+            90,
+            100
+          ],
+          "weightG": 250,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://belgorod.ret.ru/?gid=988347&pn=prod",
+          "note": "AROMAgroup Shop 300 150 ml cartridge family: RET reports retail package 120×90×100 mm, 250 g; unpacked cartridge 80×85×80 mm, 215 g. Applied only as same-volume/family evidence; exact scent/internal barcode not public.",
+          "productDimensionsMm": [
+            80,
+            85,
+            80
+          ],
+          "productWeightG": 215,
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "454569087",
+      "barcode": "2017701198828",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_product",
+          "dimensionsMm": [
+            45,
+            45,
+            119
+          ],
+          "weightG": 125,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-spa-200-s-aromatom-immuno-400404873/specification",
+          "note": "AROMAgroup 110 ml cartridge family: M.Video reports 45×45×119 mm and 125 g for a SPA 200 110 ml refill. Applied as family evidence only; exact scent/internal barcode not public.",
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "5432311112",
+      "barcode": "2017701195377",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_product",
+          "dimensionsMm": [
+            45,
+            45,
+            119
+          ],
+          "weightG": 125,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-spa-200-s-aromatom-immuno-400404873/specification",
+          "note": "AROMAgroup 110 ml cartridge family: M.Video reports 45×45×119 mm and 125 g for a SPA 200 110 ml refill. Applied as family evidence only; exact scent/internal barcode not public.",
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "54378",
+      "barcode": "4603773381374",
+      "brand": "AROMAgroup",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            230,
+            90,
+            310
+          ],
+          "weightG": 3640,
+          "sourceType": "manufacturer-catalog",
+          "sourceUrl": "https://gallery11.ru/upload/iblock/90f/eavbuntwejw00862u2xgoyryc7ca1qxu.pdf",
+          "retrievedAt": "2026-10-02",
+          "note": "AROMAgroup manufacturer catalog identifies Hotel 1000 and states device size H×W×D 31×23×9 cm, net weight 3.64 kg."
+        }
+      ]
+    },
+    {
+      "sku": "5445098",
+      "barcode": "2017701194608",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_package",
+          "dimensionsMm": [
+            120,
+            90,
+            100
+          ],
+          "weightG": 250,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://belgorod.ret.ru/?gid=988347&pn=prod",
+          "note": "AROMAgroup Shop 300 150 ml cartridge family: RET reports retail package 120×90×100 mm, 250 g; unpacked cartridge 80×85×80 mm, 215 g. Applied only as same-volume/family evidence; exact scent/internal barcode not public.",
+          "productDimensionsMm": [
+            80,
+            85,
+            80
+          ],
+          "productWeightG": 215,
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "545445222",
+      "barcode": "2017701196381",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_product",
+          "dimensionsMm": [
+            45,
+            45,
+            119
+          ],
+          "weightG": 125,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-spa-200-s-aromatom-immuno-400404873/specification",
+          "note": "AROMAgroup 110 ml cartridge family: M.Video reports 45×45×119 mm and 125 g for a SPA 200 110 ml refill. Applied as family evidence only; exact scent/internal barcode not public.",
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "675483",
+      "barcode": "2017701194394",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_package",
+          "dimensionsMm": [
+            120,
+            90,
+            100
+          ],
+          "weightG": 250,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://belgorod.ret.ru/?gid=988347&pn=prod",
+          "note": "AROMAgroup Shop 300 150 ml cartridge family: RET reports retail package 120×90×100 mm, 250 g; unpacked cartridge 80×85×80 mm, 215 g. Applied only as same-volume/family evidence; exact scent/internal barcode not public.",
+          "productDimensionsMm": [
+            80,
+            85,
+            80
+          ],
+          "productWeightG": 215,
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "67787900",
+      "barcode": "4603773380087",
+      "brand": "AROMAgroup",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            240,
+            75,
+            230
+          ],
+          "weightG": 2350,
+          "sourceType": "manufacturer-catalog",
+          "sourceUrl": "https://gallery11.ru/upload/iblock/90f/eavbuntwejw00862u2xgoyryc7ca1qxu.pdf",
+          "retrievedAt": "2026-10-02",
+          "note": "Manufacturer catalog gives Dispenser Liquid PRO H×W×D 23×24×7.5 cm and net 2.35 kg."
+        },
+        {
+          "scope": "retailer_reported_packaged_product",
+          "dimensionsMm": [
+            77,
+            232,
+            236
+          ],
+          "weightG": 2350,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://megadez.pro/produktsiya/aromatizatsiya/aromagroup-dispenser-liquid-pro/",
+          "retrievedAt": "2026-10-02",
+          "note": "Retailer lists packaged-product parameters 77×232×236 mm and 2.35 kg, closely matching manufacturer dimensions up to orientation/rounding."
+        }
+      ]
+    },
+    {
+      "sku": "76544",
+      "barcode": "2017701194479",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_product",
+          "dimensionsMm": [
+            47,
+            47,
+            90
+          ],
+          "weightG": 114,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-dispenser-liquid-s-aromatom-immuno-400405198/specification",
+          "note": "AROMAgroup Dispenser Liquid 100 ml refill family: M.Video reports 47×47×90 mm and 114 g. Applied only as same-volume/family evidence because this exact scent/internal barcode is not public; keep PARTIAL.",
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "787532",
+      "barcode": "2017701194592",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_product",
+          "dimensionsMm": [
+            45,
+            45,
+            119
+          ],
+          "weightG": 125,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-spa-200-s-aromatom-immuno-400404873/specification",
+          "note": "AROMAgroup 110 ml cartridge family: M.Video reports 45×45×119 mm and 125 g for a SPA 200 110 ml refill. Applied as family evidence only; exact scent/internal barcode not public.",
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "7c1b6caa-5341-11ed-8c25-7c8bca00854e",
+      "barcode": "2017701198491",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_product",
+          "dimensionsMm": [
+            45,
+            45,
+            119
+          ],
+          "weightG": 125,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-spa-200-s-aromatom-immuno-400404873/specification",
+          "note": "AROMAgroup 110 ml cartridge family: M.Video reports 45×45×119 mm and 125 g for a SPA 200 110 ml refill. Applied as family evidence only; exact scent/internal barcode not public.",
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "87654",
+      "barcode": "2017701194448",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_package",
+          "dimensionsMm": [
+            120,
+            90,
+            100
+          ],
+          "weightG": 250,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://belgorod.ret.ru/?gid=988347&pn=prod",
+          "note": "AROMAgroup Shop 300 150 ml cartridge family: RET reports retail package 120×90×100 mm, 250 g; unpacked cartridge 80×85×80 mm, 215 g. Applied only as same-volume/family evidence; exact scent/internal barcode not public.",
+          "productDimensionsMm": [
+            80,
+            85,
+            80
+          ],
+          "productWeightG": 215,
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "876687",
+      "barcode": "2017701197807",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_package",
+          "dimensionsMm": [
+            120,
+            90,
+            100
+          ],
+          "weightG": 250,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://belgorod.ret.ru/?gid=988347&pn=prod",
+          "note": "AROMAgroup Shop 300 150 ml cartridge family: RET reports retail package 120×90×100 mm, 250 g; unpacked cartridge 80×85×80 mm, 215 g. Applied only as same-volume/family evidence; exact scent/internal barcode not public.",
+          "productDimensionsMm": [
+            80,
+            85,
+            80
+          ],
+          "productWeightG": 215,
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "890999",
+      "barcode": "4603773381220",
+      "brand": "AROMAgroup",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "current_model_product",
+          "dimensionsMm": [
+            295,
+            222,
+            112.5
+          ],
+          "weightG": 2100,
+          "sourceType": "current-manufacturer-manual",
+          "sourceUrl": "https://aroma-group.ru/upload/iblock/2b2/fjdsgvxovffdvrg8x1h2h551gkzt1fk0/Instruktsiya-dlya-apparata-AROMAgroup-Cafe-400.pdf",
+          "retrievedAt": "2026-10-03",
+          "note": "Current official manufacturer manual names AROMAgroup Cafe 1000/400 and reports Cafe 1000 at 295×222×112.5 mm, net 2.1 kg. The 1C SKU name is the exact Cafe 1000 BT model; public EAN mapping is not required because manufacturer-model identity is exact and non-conflicting."
+        },
+        {
+          "scope": "current_model_dimensions_corroboration",
+          "dimensionsMm": [
+            295,
+            222,
+            112.5
+          ],
+          "weightG": null,
+          "sourceType": "current-manufacturer-site",
+          "sourceUrl": "https://aroma-group.by/apparaty/",
+          "retrievedAt": "2026-10-03",
+          "note": "Current AROMAGROUP catalog confirms Cafe 1000 dimensions 295×222×112.5 mm."
+        },
+        {
+          "scope": "historical_model_spec",
+          "dimensionsMm": [
+            295,
+            110,
+            240
+          ],
+          "weightG": 2260,
+          "sourceType": "historical-manufacturer-catalog",
+          "sourceUrl": "https://gallery11.ru/upload/iblock/90f/eavbuntwejw00862u2xgoyryc7ca1qxu.pdf",
+          "retrievedAt": "2026-10-03",
+          "note": "Older manufacturer catalog reports a different Cafe 1000 hardware revision at 24×29.5×11 cm and 2.26 kg. It is retained as historical version evidence and does not override the current official Cafe 1000 manual."
+        }
+      ]
+    },
+    {
+      "sku": "988768798",
+      "barcode": "2017701197081",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_product",
+          "dimensionsMm": [
+            47,
+            47,
+            90
+          ],
+          "weightG": 114,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-dispenser-liquid-s-aromatom-immuno-400405198/specification",
+          "note": "AROMAgroup Dispenser Liquid 100 ml refill family: M.Video reports 47×47×90 mm and 114 g. Applied only as same-volume/family evidence because this exact scent/internal barcode is not public; keep PARTIAL.",
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "99889898",
+      "barcode": "2017701194486",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "exact_scent_plus_manufacturer_family",
+          "dimensionsMm": null,
+          "weightG": null,
+          "sourceType": "manufacturer-presentation-plus-representative",
+          "sourceUrl": "https://ppt-online.org/435794",
+          "retrievedAt": "2026-10-03",
+          "note": "AROMAgroup materials confirm Magma scent and 500 ml cartridge family. Exact Magma 500 ml dimensions and total weight remain unverified."
+        }
+      ]
+    },
+    {
+      "sku": "9a227639-b1a0-11ed-a1a3-7c8bca00854e",
+      "barcode": "2017701196404",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_product",
+          "dimensionsMm": [
+            45,
+            45,
+            119
+          ],
+          "weightG": 125,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-spa-200-s-aromatom-immuno-400404873/specification",
+          "note": "AROMAgroup 110 ml cartridge family: M.Video reports 45×45×119 mm and 125 g for a SPA 200 110 ml refill. Applied as family evidence only; exact scent/internal barcode not public.",
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "fa750375-783b-11ed-b530-7c8bca00854e",
+      "barcode": "2017701196411",
+      "brand": "AROMAgroup",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            146,
+            156,
+            58
+          ],
+          "weightG": null,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://avd74.ru/catalog/aromatizatsiya_dlya_biznesa_i_doma/apparaty/apparat_dlya_aromatizatsii_pomeshcheniya_dispenser_liquid_bt_v3_1_chernyy_aromagroup.php",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact model/color Dispenser Liquid bt V3.1 black. Retailer gives 146×156×58 mm; no verified device or package weight found."
+        },
+        {
+          "scope": "product_model_weight",
+          "dimensionsMm": [
+            146,
+            156,
+            58
+          ],
+          "weightG": 437,
+          "sourceType": "model-manual",
+          "sourceUrl": "https://manuals.plus/scent/a1-diffuser-manual",
+          "retrievedAt": "2026-10-02",
+          "note": "A1-V3.1 model manual reports 146×156×58 mm and 437 g. Existing exact-color AROMAgroup Dispenser Liquid bt V3.1 black retailer page reports the same 146×156×58 mm and the current 1C item is the non-Type-C V3.1 generation."
+        }
+      ]
+    },
+    {
+      "sku": "fa750378-783b-11ed-b530-7c8bca00854e",
+      "barcode": "2017701196435",
+      "brand": "AROMAgroup",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            146,
+            156,
+            58
+          ],
+          "weightG": null,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://avd74.ru/catalog/aromatizatsiya_dlya_biznesa_i_doma/apparaty/apparat_dlya_aromatizatsii_pomeshcheniya_dispenser_liquid_bt_v3_1_belyy_aromagroup.php",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact model Dispenser Liquid bt V3.1 white. Retailer gives 146×156×58 mm; no verified device or package weight found."
+        },
+        {
+          "scope": "product_model_weight",
+          "dimensionsMm": [
+            146,
+            156,
+            58
+          ],
+          "weightG": 437,
+          "sourceType": "model-manual",
+          "sourceUrl": "https://manuals.plus/scent/a1-diffuser-manual",
+          "retrievedAt": "2026-10-02",
+          "note": "A1-V3.1 model manual reports 146×156×58 mm and 437 g. Existing exact-color AROMAgroup Dispenser Liquid bt V3.1 white retailer page reports the same 146×156×58 mm and the current 1C item is the non-Type-C V3.1 generation."
+        }
+      ]
+    },
+    {
+      "sku": "fc7e824a-136a-11ef-b412-e92179844ed4",
+      "barcode": null,
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_product",
+          "dimensionsMm": [
+            52,
+            52,
+            115
+          ],
+          "weightG": 195,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-shop-250-s-aromatom-immuno-400404879/specification",
+          "note": "AROMAgroup Shop 250 180 ml refill family: M.Video reports 52×52×115 mm and 195 g. Applied as family evidence only; exact scent/internal barcode not public.",
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "fcf32570-dad6-11ee-b40a-f198e863aac1",
+      "barcode": "2017701199498",
+      "brand": "AROMAgroup",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "family_retail_product",
+          "dimensionsMm": [
+            47,
+            47,
+            90
+          ],
+          "weightG": 114,
+          "sourceType": "retailer-family",
+          "sourceUrl": "https://www.mvideo.ru/products/napolnitel-dlya-aromadiffuzora-aromagroup-dispenser-liquid-s-aromatom-immuno-400405198/specification",
+          "note": "AROMAgroup Dispenser Liquid 100 ml refill family: M.Video reports 47×47×90 mm and 114 g. Applied only as same-volume/family evidence because this exact scent/internal barcode is not public; keep PARTIAL.",
+          "retrievedAt": "2026-10-02"
+        }
+      ]
+    },
+    {
+      "sku": "1113",
+      "barcode": "8055965595063",
+      "brand": "CULTI MILANO",
+      "status": "CONFLICT",
+      "measurements": [
+        {
+          "scope": "product_length_only",
+          "lengthMm": 430,
+          "weightG": 50,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://formadore.co.uk/culti-culti-rattan-diffuser-sticks-1-l%2C131476",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN."
+        },
+        {
+          "scope": "product_length_only",
+          "lengthMm": 430,
+          "weightG": 100,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://pranahome.ru/product/rotangovye-palochki-dlya-diffuzora-1000-ml-culti-milano",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact article; length agrees, weight conflicts 50 vs 100 g."
+        }
+      ]
+    },
+    {
+      "sku": "12132",
+      "barcode": "8050534795714",
+      "brand": "CULTI MILANO",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            56,
+            41,
+            115
+          ],
+          "weightG": 380,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://fabrykaform.pl/culti-spray-zapachowy-culti-era-100-ml%2C131288",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; complete product dimensions and weight."
+        }
+      ]
+    },
+    {
+      "sku": "46091",
+      "barcode": "8050534795806",
+      "brand": "CULTI MILANO",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            56,
+            41,
+            115
+          ],
+          "weightG": null,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.mk2shop.com/en/culti-milano-home-fragrance-spray-the.html",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; complete product dimensions, no weight."
+        },
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            62,
+            48,
+            125
+          ],
+          "weightG": null,
+          "sourceType": "official-manufacturer",
+          "sourceUrl": "https://www.culti.com/en/spray-the-100ml-3646.html",
+          "retrievedAt": "2026-10-02",
+          "note": "Official CULTI Thé 100 ml spray page gives L62 × D48 × H125 mm."
+        },
+        {
+          "scope": "shared_variant_family_weight",
+          "dimensionsMm": [
+            56,
+            41,
+            115
+          ],
+          "weightG": 380,
+          "sourceType": "retailer-variant-family",
+          "sourceUrl": "https://fabrykaform.pl/culti-spray-zapachowy-culti-100-ml%2C131275",
+          "retrievedAt": "2026-10-02",
+          "note": "Fabryka Form explicitly lists Spray Culti Thé 100 ml among variants of the same 100 ml glass-bottle product family and publishes family product weight 0.38 kg. Exact Thé dimensions are independently confirmed by official CULTI and exact-EAN MK2/de-light pages."
+        }
+      ],
+      "resolutionNote": "Exact-EAN Thé identity and dimensions are independently confirmed; the 380 g total product weight comes from a retailer page that explicitly treats Thé as a variant of the same 100 ml glass-bottle product family."
+    },
+    {
+      "sku": "465636",
+      "barcode": "8055965594981",
+      "brand": "CULTI MILANO",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 220,
+          "diameterMm": 90,
+          "weightG": null,
+          "sourceType": "official-manufacturer",
+          "sourceUrl": "https://www.culti.com/en/refill-the-1000ml.html",
+          "retrievedAt": "2026-10-02",
+          "note": "Official CULTI page for Thé 1000 ml refill states D9 × H22 cm."
+        },
+        {
+          "scope": "source_reported_weight",
+          "dimensionsMm": null,
+          "weightG": 1000,
+          "confidence": "low",
+          "sourceType": "marketplace-retailer",
+          "sourceUrl": "https://www.kaufland.it/product/320654660/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN reports 1000 g, equal to the 1000 ml nominal volume. Retained only as low-confidence source-reported weight; not accepted as verified logistics weight."
+        },
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 220,
+          "diameterMm": 90,
+          "weightG": 930,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://formadore.com/culti-culti-the-fragrance-oil-for-diffuser-1-l%2C131457",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN 8055965594981; retailer reports H22 cm, D9 cm, weight 0.93 kg. Weight is independently below nominal 1000 ml and accepted as item weight."
+        }
+      ]
+    },
+    {
+      "sku": "65576",
+      "barcode": "8050534799132",
+      "brand": "CULTI MILANO",
+      "status": "CONFLICT",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            104,
+            null,
+            175
+          ],
+          "weightG": 1950,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://formadore.com/culti-culti-automobili-lamborghini-fragrance-diffuser%2C173650",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; only width and height explicitly stated."
+        },
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            104,
+            104,
+            175
+          ],
+          "weightG": 1800,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.casa-due-pur.de/Culti-Milano?ed=1",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact GTIN; full L×D×H and article weight. Weight conflicts with FormAdore 1.95 kg."
+        }
+      ]
+    },
+    {
+      "sku": "78768575",
+      "barcode": "8050714290343",
+      "brand": "CULTI MILANO",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 170,
+          "diameterMm": 90,
+          "weightG": null,
+          "sourceType": "official-manufacturer",
+          "sourceUrl": "https://www.culti.com/it/diffusore-stile-250-ml-alba.html",
+          "identitySourceUrl": "https://www.tsum.ru/product/he00786295-diffuzor-stile-limited-alba-250ml-culti-milano-bestcvetnyi/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact CULTI Alba Stile 250 ml product page reports D9 × H17 cm. Exact EAN 8050714290343 independently confirmed by TSUM. Weight remains unverified."
+        }
+      ]
+    },
+    {
+      "sku": "802e8ad6-d19b-11ec-be83-7c8bca00854e",
+      "barcode": "8050534794939",
+      "brand": "CULTI MILANO",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 204,
+          "diameterMm": 78,
+          "weightG": 1030,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://formadore.lv/culti-aromatu-difuzors-culti-stile-classic-era-500-ml%2C131229",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN."
+        },
+        {
+          "scope": "unspecified_product_or_package",
+          "dimensionsMm": [
+            120,
+            220,
+            120
+          ],
+          "weightG": 700,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.homefragrance.ru/products/culti-era-stile-diffuzor-500-ml",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact article/EAN; dimensions and weight conflict with FormAdore, likely different measurement scope."
+        }
+      ],
+      "resolutionNote": "Exact-EAN cylindrical product dimensions and product weight are explicit at FormAdore; the secondary 120×220×120 / 700 g record has unspecified product-or-package scope."
+    },
+    {
+      "sku": "802e8adf-d19b-11ec-be83-7c8bca00854e",
+      "barcode": "8050534794489",
+      "brand": "CULTI MILANO",
+      "status": "VERIFIED_RETAIL_PACKAGE",
+      "measurements": [
+        {
+          "scope": "retail_package",
+          "dimensionsMm": [
+            90,
+            90,
+            170
+          ],
+          "weightG": 704,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.galaxus.ch/en/s14/product/culti-decor-room-diffuser-mediterranea-250-ml-fragrance-diffusers-11882997",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact manufacturer number/EAN; source explicitly labels Package dimensions and Package weight."
+        }
+      ]
+    },
+    {
+      "sku": "802e8ae5-d19b-11ec-be83-7c8bca00854e",
+      "barcode": "8050534794281",
+      "brand": "CULTI MILANO",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            74,
+            74,
+            125
+          ],
+          "weightG": 820,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://formadore.lv/culti-aromatu-difuzors-culti-decor-classic-aramara-250-ml%2C131307",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; complete product dimensions and weight. Product measurements, not outer shipping package."
+        }
+      ]
+    },
+    {
+      "sku": "802e8aeb-d19b-11ec-be83-7c8bca00854e",
+      "barcode": "8050534794533",
+      "brand": "CULTI MILANO",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "exact_physical_item_or_retail_package",
+          "dimensionsMm": [
+            120,
+            220,
+            120
+          ],
+          "weightG": 700,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.homefragrance.ru/products/culti-mountain-decor-diffuzor-500-ml",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN 8050534794533. HomeFragrance.ru explicitly reports physical dimensions 120×220×120 mm and weight 700 g for CULTI Decor Mountain 500 ml. Scope is not labelled product vs retail package, but both dimensions and total physical weight are explicit for the exact SKU; accepted as delivery input under the owner-approved exact-physical-measurement rule."
+        }
+      ]
+    },
+    {
+      "sku": "802e8b01-d19b-11ec-be83-7c8bca00854e",
+      "barcode": "8050534796391",
+      "brand": "CULTI MILANO",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 204,
+          "diameterMm": 78,
+          "weightG": 1030,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://formadore.lv/culti-aromatu-difuzors-culti-stile-colours-the-500-ml%2C131375",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN."
+        }
+      ]
+    },
+    {
+      "sku": "802e8b03-d19b-11ec-be83-7c8bca00854e",
+      "barcode": "8050534798425",
+      "brand": "CULTI MILANO",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 204,
+          "diameterMm": 78,
+          "weightG": 1250,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.casa-due-pur.de/Culti-Milano?ed=1",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact GTIN; dimensions and article weight on same listing."
+        }
+      ]
+    },
+    {
+      "sku": "802e8b05-d19b-11ec-be83-7c8bca00854e",
+      "barcode": "8050714290275",
+      "brand": "CULTI MILANO",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            87,
+            87,
+            155
+          ],
+          "weightG": 1200,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://stefaniparfumerie.com/products/culti-milano-decor-classic-500ml-malia-limited-edition",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact product name/line/volume Malia Decor Classic 500 ml. Source does not print the EAN, so identity confidence remains below exact-EAN evidence. It reports 8.7×8.7×15.5 cm and 1.2 kg."
+        }
+      ]
+    },
+    {
+      "sku": "802e8b0c-d19b-11ec-be83-7c8bca00854e",
+      "barcode": "8050534796087",
+      "brand": "CULTI MILANO",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product_2d",
+          "dimensionsMm": [
+            70,
+            70,
+            null
+          ],
+          "weightG": null,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.maisonlipari.ca/products/culti-milano-mareminerale-car-sachet",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; retailer explicitly gives 7×7 cm sachet face dimensions. Thickness and weight are not stated."
+        }
+      ]
+    },
+    {
+      "sku": "90877",
+      "barcode": "8050534798746",
+      "brand": "CULTI MILANO",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product_or_item_weight",
+          "dimensionsMm": null,
+          "weightG": 1000,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://pranahome.ru/product/van-gogh-irises-diffuzor-decor-limited-collection-culti-milano",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact article/EAN; retailer reports item weight 1.0 kg. No dimensions and no explicit retail-package scope."
+        },
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            90,
+            90,
+            170
+          ],
+          "weightG": null,
+          "sourceType": "design-retailer",
+          "sourceUrl": "https://www.neopoliscasa.ru/catalog/home-fragrance/mebel-italia.html",
+          "identitySourceUrl": "https://www.tsum.ru/product/he00830817-diffuzor-van-gogh-irises-500ml-culti-milano-bestcvetnyi/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact named Van Gogh Irises 500 ml product is listed at 9×9×17 cm; TSUM independently binds manufacturer article/EAN 8050534798746 to the exact item. Exact-EAN PranaHome evidence separately reports 1.0 kg."
+        }
+      ],
+      "resolutionNote": "Exact EAN identity is confirmed by TSUM; product dimensions 90×90×170 mm are tied to the exact named 500 ml item, while exact-EAN PranaHome reports item weight 1000 g."
+    },
+    {
+      "sku": "976878",
+      "barcode": "8050534794243",
+      "brand": "CULTI MILANO",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            74,
+            74,
+            125
+          ],
+          "weightG": 820,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://formadore.ua/culti-aromatychnyi-dyfuzor-culti-decor-classic-aqqua%2C131320",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; full product dimensions and weight."
+        }
+      ]
+    },
+    {
+      "sku": "9980088",
+      "barcode": "8055965594929",
+      "brand": "CULTI MILANO",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 220,
+          "diameterMm": 90,
+          "weightG": null,
+          "sourceType": "official-manufacturer",
+          "sourceUrl": "https://www.culti.com/en/refill-mediterranea-1000ml.html",
+          "retrievedAt": "2026-10-02",
+          "note": "Official CULTI page for Mediterranea 1000 ml refill states D9 × H22 cm."
+        },
+        {
+          "scope": "product_weight",
+          "dimensionsMm": null,
+          "weightG": 930,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://formadore.co.uk/culti-culti-mediterranea-fragrance-oil-for-diffuser-1-l%2C131451",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; retailer reports 0.93 kg and repeats H22 cm / D9 cm."
+        }
+      ]
+    },
+    {
+      "sku": "bf33a951-016c-11ed-b2a4-7c8bca00854e",
+      "barcode": "8050534794304",
+      "brand": "CULTI MILANO",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product_source_geometry",
+          "dimensionsMm": [
+            110,
+            110,
+            255
+          ],
+          "weightG": null,
+          "sourceType": "design-retailer",
+          "sourceUrl": "https://www.raumconceptstore.com/en/diffusor-decor-aramara-8050534794304",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact product number/EAN 8050534794304. Source lists 1000 ml as Ø11 cm × H25.5 cm, although the same page describes a sculpted/square bottle. Preserve dimensions as source-reported product geometry only; not package dimensions."
+        },
+        {
+          "scope": "product_weight",
+          "dimensionsMm": null,
+          "weightG": 1000,
+          "sourceType": "design-retailer",
+          "sourceUrl": "https://select.artdom.com/catalog/parfumeriya-dlya-doma/diffuzor-decor-classic-aramara",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact manufacturer article/EAN 8050534794304; retailer reports product weight 1 kg. Its dimensional fields are internally implausible and therefore ignored; geometry remains sourced from RAUM Concept Store."
+        }
+      ]
+    },
+    {
+      "sku": "bf33a957-016c-11ed-b2a4-7c8bca00854e",
+      "barcode": "8050534795684",
+      "brand": "CULTI MILANO",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            62,
+            48,
+            125
+          ],
+          "weightG": null,
+          "sourceType": "official-regional-brand-store",
+          "sourceUrl": "https://www.cultikw.com/products/aqqua-spray-100-ml",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact Aqqua Spray 100 ml page states L 6.2 × P 4.8 × H 12.5 cm."
+        },
+        {
+          "scope": "shared_variant_product_weight",
+          "dimensionsMm": null,
+          "weightG": 380,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://formadore.com/culti-culti-fragrance-100-ml%2C131275",
+          "retrievedAt": "2026-10-02",
+          "note": "FormAdore parent product explicitly lists Culti Aqqua Fragrance 100 ml among the same 100 ml spray variants and gives product weight 0.38 kg for the shared product configuration. Exact EAN identity is independently established for Aqqua 100 ml."
+        },
+        {
+          "scope": "identity_source",
+          "dimensionsMm": null,
+          "weightG": null,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://50-ml.eu/culti-aqqua-room-spray",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN 8050534795684 confirms Aqqua Room Spray 100 ml identity."
+        }
+      ]
+    },
+    {
+      "sku": "df29d344-d192-11ec-be83-7c8bca00854e",
+      "barcode": "8050534794823",
+      "brand": "CULTI MILANO",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 159,
+          "diameterMm": 62,
+          "weightG": 600,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://formadore.ua/culti-aromatychnyi-dyfuzor-culti-stile-classic-aramara%2C131187",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; cylindrical product dimensions and weight."
+        }
+      ]
+    },
+    {
+      "sku": "df29d346-d192-11ec-be83-7c8bca00854e",
+      "barcode": "8050534795325",
+      "brand": "CULTI MILANO",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 159,
+          "diameterMm": 62,
+          "weightG": 600,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://formadore.com/culti-culti-stile-classic-tessuto-fragrance-diffuser-250-ml%2C131212",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN."
+        },
+        {
+          "scope": "product_or_presented_footprint",
+          "dimensionsMm": [
+            90,
+            90,
+            159
+          ],
+          "weightG": null,
+          "sourceType": "design-retailer",
+          "sourceUrl": "https://how-we-live.design/products/ct-s-diff-250mltessuto",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact product number; reports W90×D90×H159 and Ø62, so 90×90 may include presentation footprint/rods. Preserve as conflict rather than infer."
+        }
+      ],
+      "resolutionNote": "Exact-EAN cylindrical product dimensions and product weight are explicit at FormAdore; the secondary 90×90 footprint has no conflicting weight and may include presentation/rods."
+    },
+    {
+      "sku": "df29d34a-d192-11ec-be83-7c8bca00854e",
+      "barcode": "8050534794779",
+      "brand": "CULTI MILANO",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 159,
+          "diameterMm": 62,
+          "weightG": 600,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://formadore.com/culti-culti-stile-classic-aqqua-fragrance-diffuser-250-ml%2C131203",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; cylindrical product dimensions and weight."
+        }
+      ]
+    },
+    {
+      "sku": "df29d34e-d192-11ec-be83-7c8bca00854e",
+      "barcode": "8050534796629",
+      "brand": "CULTI MILANO",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 159,
+          "diameterMm": 62,
+          "weightG": 600,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://formadore.lv/culti-aromatu-difuzors-culti-stile-classic-supreme-amber%2C165011",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN."
+        }
+      ]
+    },
+    {
+      "sku": "382777",
+      "barcode": "190577122103",
+      "brand": "Castelbel",
+      "status": "VERIFIED_RETAIL_PACKAGE",
+      "measurements": [
+        {
+          "scope": "retail_package",
+          "dimensionsMm": [
+            100,
+            4,
+            187
+          ],
+          "weightG": 20,
+          "sourceType": "marketplace-retailer",
+          "sourceUrl": "https://allegro.pl/produkt/castelbel-porto-saszetka-10-g-7bbfa49d-1e05-4a0a-a85a-f98fd86f6893",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN. Listing explicitly gives package dimensions 10×0.4×18.7 cm and unit-package weight 0.02 kg; fragrant cork content itself is 10 g."
+        }
+      ]
+    },
+    {
+      "sku": "382784",
+      "barcode": "190577123100",
+      "brand": "Castelbel",
+      "status": "VERIFIED_RETAIL_PACKAGE",
+      "measurements": [
+        {
+          "scope": "retail_package",
+          "dimensionsMm": [
+            110,
+            4,
+            190
+          ],
+          "weightG": 50,
+          "sourceType": "retailer-structured-logistics",
+          "sourceUrl": "https://home-you.com/pl/p/saszetka-zapachowa-castelbel-kokos-10g",
+          "retrievedAt": "2026-10-03",
+          "note": "Exact EAN 190577123100. Structured gross fields give 11 x 0.4 x 19 cm and 0.05 kg. Separate 10 g value is scented content."
+        }
+      ]
+    },
+    {
+      "sku": "382873",
+      "barcode": "827553214049",
+      "brand": "Castelbel",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product_or_item_weight",
+          "dimensionsMm": null,
+          "weightG": 350,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.fragonito.cz/vonny-difuzer-butterfly-citrusy--zimolez-a-magnolie--250ml/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; retailer reports item weight 0.35 kg, but no dimensions and no explicit package-weight scope."
+        },
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            260,
+            90,
+            90
+          ],
+          "weightG": null,
+          "sourceType": "official-manufacturer",
+          "sourceUrl": "https://castelbel.com/en/products/difusor-de-fragrancias-butterflies-250ml",
+          "identitySourceUrl": "https://www.fragonito.cz/vonny-difuzer-butterfly-citrusy--zimolez-a-magnolie--250ml/",
+          "retrievedAt": "2026-10-03",
+          "note": "Official Castelbel page for Butterflies 250 ml, SKU 2-1404, states dimensions L×W×H 26×9×9 cm. Exact EAN 827553214049 is independently bound to the same Butterflies 250 ml product by Fragonito, which reports item weight 0.35 kg."
+        }
+      ]
+    },
+    {
+      "sku": "N019834",
+      "barcode": "3420070002501",
+      "brand": "Christian Tortu",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "retail_package_family_explicit",
+          "dimensionsMm": [
+            99,
+            99,
+            82
+          ],
+          "weightG": null,
+          "sourceType": "distributor",
+          "sourceUrl": "https://jiyugaoka-market-p.com/product.php?id=15449",
+          "retrievedAt": "2026-10-02",
+          "note": "Distributor explicitly gives outer-box dimensions for Christian Tortu Pot Pourri Parfumé and lists this exact JAN in the same family."
+        },
+        {
+          "scope": "product_or_item_weight",
+          "dimensionsMm": null,
+          "weightG": 360,
+          "sourceType": "marketplace",
+          "sourceUrl": "https://www.ebay.ca/itm/264573932316",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; item weight 0.36 kg, not explicitly package weight."
+        }
+      ]
+    },
+    {
+      "sku": "N019836",
+      "barcode": "3420070002594",
+      "brand": "Christian Tortu",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 60,
+          "diameterMm": 25,
+          "weightG": null,
+          "sourceType": "official-distributor",
+          "sourceUrl": "https://effie.store/products/christiantortu-reactiveur",
+          "retrievedAt": "2026-10-02",
+          "note": "Christian Tortu Réactivateur 15 ml collection page gives Φ25×H60 mm and explicitly includes Jardin Citrus. 1C exact EAN is retained; source page identifies the variant by manufacturer code 2853 rather than printing the EAN."
+        }
+      ]
+    },
+    {
+      "sku": "N019873",
+      "barcode": "3420070002587",
+      "brand": "Christian Tortu",
+      "status": "VERIFIED_RETAIL_PACKAGE",
+      "measurements": [
+        {
+          "scope": "retail_package_family_explicit",
+          "dimensionsMm": [
+            99,
+            99,
+            82
+          ],
+          "weightG": null,
+          "sourceType": "distributor",
+          "sourceUrl": "https://jiyugaoka-market-p.com/product.php?id=15449",
+          "retrievedAt": "2026-10-02",
+          "note": "Distributor explicitly gives outer-box dimensions for Christian Tortu Pot Pourri Parfumé and lists this exact JAN in the same family."
+        },
+        {
+          "scope": "product_or_item_weight",
+          "dimensionsMm": null,
+          "weightG": 370,
+          "sourceType": "marketplace",
+          "sourceUrl": "https://www.ebay.com.au/itm/254459611681",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; item weight 0.37 kg, not explicitly package weight."
+        }
+      ]
+    },
+    {
+      "sku": "N019900",
+      "barcode": "3420070002518",
+      "brand": "Christian Tortu",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 60,
+          "diameterMm": 25,
+          "weightG": null,
+          "sourceType": "official-distributor",
+          "sourceUrl": "https://effie.store/products/christiantortu-reactiveur",
+          "retrievedAt": "2026-10-02",
+          "note": "Christian Tortu Réactivateur 15 ml collection page gives Φ25×H60 mm and explicitly includes Vert Frais. 1C exact EAN is retained; source page identifies the variant by manufacturer code 2855 rather than printing the EAN."
+        }
+      ]
+    },
+    {
+      "sku": "N019901",
+      "barcode": "2017701196459",
+      "brand": "Christian Tortu",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product_weight",
+          "dimensionsMm": null,
+          "weightG": 190,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://50-ml.fr/christian-tortu-coupelle-pot-pourri-ceramique",
+          "retrievedAt": "2026-10-02",
+          "note": "Christian Tortu Coupelle Pot Pourri Ceramique product page reports 0.19 kg. Exact local SKU N019901 identity is independently confirmed by Milfey."
+        },
+        {
+          "scope": "identity_source",
+          "dimensionsMm": null,
+          "weightG": null,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://milfey-shop.ru/christian-tortu-coupelle-pot-pourri-ceramique?erid=LjN8KSYZs",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact local article N019901 identifies Coupelle Pot Pourri Ceramique. Dimensions still need a reliable source."
+        },
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 63,
+          "diameterMm": 155,
+          "weightG": null,
+          "sourceType": "official-distributor",
+          "sourceUrl": "https://jiyugaoka-market-p.com/product.php?id=15449",
+          "identitySourceUrl": "https://milfey-shop.ru/christian-tortu-coupelle-pot-pourri-ceramique?erid=LjN8KSYZs",
+          "retrievedAt": "2026-10-03",
+          "note": "Distributor gives Coupelle Ceramique body size Ø155 x H63 mm. Milfey binds local SKU N019901 to Coupelle Pot Pourri Ceramique; 50-ml reports product weight 0.19 kg."
+        }
+      ]
+    },
+    {
+      "sku": "N020291",
+      "barcode": "3420070002709",
+      "brand": "Christian Tortu",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product_and_retail_box_dimensions",
+          "productDiameterMm": 66,
+          "productHeightMm": 126,
+          "retailPackageDimensionsMm": [
+            93,
+            93,
+            240
+          ],
+          "weightG": null,
+          "sourceType": "official-distributor",
+          "sourceUrl": "https://effie.store/products/christiantortu-batonaparfum",
+          "identitySourceUrl": "https://www.ebay.com/itm/265958192090",
+          "retrievedAt": "2026-10-02",
+          "note": "Official Japanese Christian Tortu collection page gives body Φ66×H126 and outer box W93×D93×H240 for Tuberose variant 2812; exact EAN/MPN 3420070002709 independently confirmed."
+        },
+        {
+          "scope": "source_reported_item_weight",
+          "dimensionsMm": null,
+          "weightG": 454,
+          "sourceType": "wholesale-marketplace",
+          "sourceUrl": "https://www.faire.com/product/p_u7tdjk9hgs",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact Tuberose 250 ml product listing reports 453.59 g (1 lb). Weight scope is not explicitly retail package, so rounded to 454 g and retained separately."
+        },
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 126,
+          "diameterMm": 66,
+          "weightG": 454,
+          "sourceType": "combined-exact-sku-evidence",
+          "sourceUrl": "https://effie.store/products/christiantortu-batonaparfum",
+          "weightSourceUrl": "https://www.faire.com/product/p_u7tdjk9hgs",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact variant product body dimensions from Christian Tortu distributor page combined with exact-SKU/EAN item weight from independent listing. Owner-approved rule accepts verified product dimensions + weight without outer shipping-box measurements."
+        }
+      ]
+    },
+    {
+      "sku": "N020713",
+      "barcode": "3420070002914",
+      "brand": "Christian Tortu",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product_or_item_weight",
+          "dimensionsMm": null,
+          "weightG": 740,
+          "sourceType": "marketplace",
+          "sourceUrl": "https://www.ebay.com.au/itm/256923970719",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN/MPN; item weight 0.74 kg, no dimensions."
+        },
+        {
+          "scope": "product_and_retail_box_dimensions",
+          "productDiameterMm": 66,
+          "productHeightMm": 126,
+          "retailPackageDimensionsMm": [
+            93,
+            93,
+            240
+          ],
+          "weightG": null,
+          "sourceType": "official-distributor",
+          "sourceUrl": "https://effie.store/products/christiantortu-batonaparfum",
+          "identitySourceUrl": "https://profumeriadellafarmacia.it/shop/ambiente/feuille-de-tomate-fragrance-diffuser-diffusore-250ml/",
+          "retrievedAt": "2026-10-02",
+          "note": "Official Japanese Christian Tortu collection page gives body Φ66×H126 and outer box W93×D93×H240 for all six 250 ml variants including Feuille de Tomate. Exact EAN 3420070002914 independently confirmed."
+        },
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 126,
+          "diameterMm": 66,
+          "weightG": 740,
+          "sourceType": "combined-exact-sku-evidence",
+          "sourceUrl": "https://effie.store/products/christiantortu-batonaparfum",
+          "weightSourceUrl": "https://www.ebay.com.au/itm/256923970719",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact variant product body dimensions from Christian Tortu distributor page combined with exact-SKU/EAN item weight from independent listing. Owner-approved rule accepts verified product dimensions + weight without outer shipping-box measurements."
+        }
+      ]
+    },
+    {
+      "sku": "DANHNIR250DEC",
+      "barcode": "805698180696",
+      "brand": "DANHERA",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product_weight",
+          "dimensionsMm": null,
+          "weightG": 850,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://pranahome.ru/product/niro-diffuzor-s-palochkami-legendary-fragrances-danhera-italy",
+          "identitySourceUrl": "https://www.tsum.ru/product/he00799344-diffuzor-niro-250ml-danhera-italy-bestcvetnyi/",
+          "retrievedAt": "2026-10-02",
+          "note": "PranaHome exact article DANHNIR250DEC / 250 ml reports product weight 0.85 kg. TSUM independently confirms manufacturer article DANHNIR250DEC for Danhera Niro 250 ml. Physical dimensions remain unresolved."
+        }
+      ]
+    },
+    {
+      "sku": "089864",
+      "barcode": "8411299001364",
+      "brand": "Ladenac Milano",
+      "status": "VERIFIED_RETAIL_PACKAGE",
+      "measurements": [
+        {
+          "scope": "product_or_item_weight",
+          "dimensionsMm": null,
+          "weightG": 700,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://pranahome.ru/product/senteur-royale-diffuzor-dynastie-collection-ladenac-milano",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact article; 0.7 kg listed, no dimensions."
+        },
+        {
+          "scope": "retail_package",
+          "dimensionsMm": [
+            140,
+            130,
+            300
+          ],
+          "weightG": null,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.brandsforless.com/en-kw/senteur-royale-luxury-reed-diffuser-500-ml/1895086/p/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact product identity Ladenac Senteur Royale Luxury Reed Diffuser 500 ml; retailer reports packaging dimensions 30 H × 14 L × 13 W cm. Exact EAN 8411299001364 and 0.7 kg item weight are independently recorded from PranaHome."
+        }
+      ]
+    },
+    {
+      "sku": "3232434",
+      "barcode": "8411299003054",
+      "brand": "Ladenac Milano",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 185,
+          "diameterMm": 90,
+          "weightG": null,
+          "sourceType": "official-manufacturer",
+          "sourceUrl": "https://www.ladenac.com/mikado-caviar-lime-deluxe-500-ml",
+          "identitySourceUrl": "https://www.tsum.ru/product/he00855790-diffuzor-urban-senses-caviar-lime-holographic-500ml-ladenac-milano-bestcvetnyi/",
+          "retrievedAt": "2026-10-02",
+          "note": "Official Ladenac page gives Ø90 mm × H185 mm for Caviar Lime Deluxe 500 ml; exact EAN 8411299003054 independently confirmed by TSUM."
+        },
+        {
+          "scope": "retail_package_candidate",
+          "dimensionsMm": [
+            120,
+            100,
+            280
+          ],
+          "weightG": null,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.brandsforless.com/en-sa/urban-senses-holographic-caviar-lime-reed-diffuser-500-ml/1821800/p/",
+          "retrievedAt": "2026-10-02",
+          "note": "Same Caviar Lime 500 ml/style code listing reports packaging dimensions 28H × 12L × 10W cm. EAN is not printed on that page, so keep as candidate package evidence rather than verified exact-EAN package."
+        },
+        {
+          "scope": "product_total_weight_with_reeds",
+          "dimensionsMm": null,
+          "weightG": 1060,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://maisonsia.com/products/lad-caviar-lime-diffusor",
+          "identitySourceUrl": "https://www.tsum.ru/product/he00855790-diffuzor-urban-senses-caviar-lime-holographic-500ml-ladenac-milano-bestcvetnyi/",
+          "retrievedAt": "2026-10-03",
+          "note": "Maison SIA product page for Ladenac Milano Caviar Lime Diffuser reports total product weight 1.06 kg and H30×L9 cm including the assembled diffuser/reeds. Exact current-stock EAN 8411299003054 and 500 ml identity are independently anchored by TSUM; official Ladenac gives bottle Ø90×H185 mm for Caviar Lime Deluxe 500 ml."
+        }
+      ]
+    },
+    {
+      "sku": "344565",
+      "barcode": "8411299003023",
+      "brand": "Ladenac Milano",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 160,
+          "diameterMm": 40,
+          "weightG": 500,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://pranahome.ru/product/jet-lag-sprey-dlya-doma-luilei-ladenac-milano",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact article/EAN 8411299003023 for Ladenac Milano Lui&Lei Jet Lag room spray 125 ml. Retailer states Ø40 mm, height 160 mm and weight 0.5 kg."
+        }
+      ]
+    },
+    {
+      "sku": "39393848",
+      "barcode": "8411299001005",
+      "brand": "Ladenac Milano",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            90,
+            90,
+            190
+          ],
+          "weightG": 1090,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://maisonsia.com/products/rose-gold-eau-de-cypres-diffuser-500-ml",
+          "identitySourceUrl": "https://www.tsum.ru/product/he00855786-diffuzor-urban-senses-eau-de-cypres-rose-gold-500ml-ladenac-milano-bestcvetnyi/",
+          "retrievedAt": "2026-10-02",
+          "note": "Maison SIA reports H19 × W9 × L9 cm and 1090 g. Exact EAN 8411299001005 independently confirmed by TSUM."
+        }
+      ]
+    },
+    {
+      "sku": "453478",
+      "barcode": "8411299002958",
+      "brand": "Ladenac Milano",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            75,
+            75,
+            340
+          ],
+          "weightG": 1098,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.mathishome.com/mathis-home/home-decor/functional-decor/fragrances-diffusers/reed-diffuser-oud-collection-750ml-gold-satin-oud-2.95-diam.-x-13.39-in/9ec7d6e2-9261-4336-b183-7364515be682.html",
+          "identitySourceUrl": "https://www.tsum.ru/product/he00855754-diffuzor-satin-oud-golden-750ml-ladenac-milano-bestcvetnyi/",
+          "reportedDimensions": "2.95 × 2.95 × 13.39 in",
+          "reportedWeight": "2.42 lb",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact named OUD COLLECTION 750 ml Gold Satin Oud product page reports 2.95 × 2.95 × 13.39 in and 2.42 lb. Independent TSUM page binds exact manufacturer article/EAN 8411299002958 to Ladenac Milano Satin Oud golden 750 ml. Units converted mathematically to nearest whole mm/g for Ozon input."
+        }
+      ]
+    },
+    {
+      "sku": "54556",
+      "barcode": "8411299003306",
+      "brand": "Ladenac Milano",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product_or_item_weight",
+          "dimensionsMm": null,
+          "weightG": 700,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://pranahome.ru/product/roses-des-sables-diffuzor-vents-darabie-collection-ladenac-milano",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact SKU 8411299003306. PranaHome product data exposes weight 0.7 kg for the 500 ml Roses des Sables variant; dimensions field is null, so keep PARTIAL and do not infer geometry."
+        }
+      ]
+    },
+    {
+      "sku": "55777",
+      "barcode": "8411299003177",
+      "brand": "Ladenac Milano",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product_or_item_weight",
+          "dimensionsMm": null,
+          "weightG": 1500,
+          "sourceType": "specialist-retailer-embedded-product-data",
+          "sourceUrl": "https://pranahome.ru/product/leopard-diffuzor-africa-collection-ladenac-milano",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact variant SKU 8411299003177 for Africa Leopard Predator 1200 ml is embedded in the retailer product data with weight 1.5 kg; the same page renders Вес (кг) 1.5. Dimensions are null, so this remains PARTIAL."
+        }
+      ]
+    },
+    {
+      "sku": "6545367",
+      "barcode": "8411299000350",
+      "brand": "Ladenac Milano",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 105,
+          "diameterMm": 80,
+          "weightG": 700,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://pranahome.ru/product/zebra-svecha-africa-collection-ladenac-milano",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact article. Page also states candle wax weight 350 g; retailer's product weight field is 0.7 kg. Keep both concepts separate."
+        },
+        {
+          "scope": "content_wax_only",
+          "dimensionsMm": null,
+          "weightG": 350,
+          "sourceType": "retailer",
+          "sourceUrl": "https://slepayakurica.ru/product/68862/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact article/EAN; candle fill weight, not shipping/item weight."
+        }
+      ]
+    },
+    {
+      "sku": "8411299000985",
+      "barcode": "8411299000985",
+      "brand": "Ladenac Milano",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 185,
+          "diameterMm": 90,
+          "weightG": null,
+          "sourceType": "official-manufacturer",
+          "sourceUrl": "https://www.ladenac.com/en/reed-diffuser-urban-senses-gold-pink-deluxe-50-ml",
+          "identitySourceUrl": "https://www.tsum.ru/product/he00855784-diffuzor-urban-senses-fleur-de-fruit-rose-gold-500ml-ladenac-milano-bestcvetnyi/",
+          "retrievedAt": "2026-10-02",
+          "note": "Official Ladenac Urban Senses Gold Pink Deluxe 500 ml page gives Ø90 mm × H185 mm and includes Fleurs de Fruit; exact EAN 8411299000985 independently confirmed by TSUM."
+        }
+      ]
+    },
+    {
+      "sku": "983858",
+      "barcode": "8411299003320",
+      "brand": "Ladenac Milano",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product_or_item_weight",
+          "dimensionsMm": null,
+          "weightG": 700,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://pranahome.ru/product/chergui-diffuzor-vents-darabie-collection-ladenac-milano",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact SKU 8411299003320. PranaHome product data exposes weight 0.7 kg for the 500 ml Chergui variant; dimensions field is null, so keep PARTIAL and do not infer geometry."
+        }
+      ]
+    },
+    {
+      "sku": "98676",
+      "barcode": "8411299003160",
+      "brand": "Ladenac Milano",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product_or_item_weight",
+          "dimensionsMm": null,
+          "weightG": 1500,
+          "sourceType": "specialist-retailer-embedded-product-data",
+          "sourceUrl": "https://pranahome.ru/product/zebra-diffuzor-africa-collection-ladenac-milano",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact variant SKU 8411299003160 for Africa Zebra Camouflage 1200 ml is embedded in the retailer product data with weight 1.5 kg; the same page renders Вес (кг) 1.5. Dimensions are null, so this remains PARTIAL."
+        }
+      ]
+    },
+    {
+      "sku": "N020458",
+      "barcode": "3420070037053",
+      "brand": "Lothantique",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "retail_package",
+          "dimensionsMm": [
+            68,
+            68,
+            245
+          ],
+          "weightG": null,
+          "sourceType": "official-distributor",
+          "sourceUrl": "https://jiyugaoka-market-p.com/product.php?id=1686",
+          "retrievedAt": "2026-10-02",
+          "note": "Distributor page explicitly lists the exact JAN 3420070037053 for Les Secrets d'Antoine fragrance bouquet and outer box 68 × 68 × H245 mm. No package weight stated."
+        }
+      ]
+    },
+    {
+      "sku": "N020465",
+      "barcode": "3420070039200",
+      "brand": "Lothantique",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "included_reeds",
+          "count": 8,
+          "stickLengthMm": 230,
+          "weightG": null,
+          "sourceType": "collection-retailer",
+          "sourceUrl": "https://www.gardenbleu.shop/product-page/fragrance-diffuser-200ml",
+          "retrievedAt": "2026-10-02",
+          "note": "Lothantique 200 ml fragrance diffuser collection page explicitly includes Sandalwood and states the boxed set contains 8 natural rattan sticks 23 cm. Bottle/box dimensions and total weight remain unknown."
+        },
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            100,
+            50,
+            50
+          ],
+          "weightG": 200,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.homefragrance.ru/products/lothantique-sandalwood-diffuzor-200-ml",
+          "retrievedAt": "2026-10-03",
+          "note": "Exact product page for Lothantique Sandalwood diffuser 200 ml, article/EAN 3420070039200, separately reports dimensions 100 x 50 x 50 mm and weight 200 g. Weight is taken from the explicit weight field, not inferred from nominal 200 ml volume."
+        }
+      ]
+    },
+    {
+      "sku": "N020468",
+      "barcode": "3420070039927",
+      "brand": "Lothantique",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "included_reeds",
+          "count": 8,
+          "stickLengthMm": 230,
+          "weightG": null,
+          "sourceType": "exact-product-retailer",
+          "sourceUrl": "https://www.homefragrance.ru/products/lothantique-cotton-flower-diffuzor-200-ml",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact Cotton Flower 200 ml product page states the boxed set contains a glass diffuser and 8 natural rattan sticks 23 cm. Bottle/box dimensions and total weight remain unknown."
+        }
+      ]
+    },
+    {
+      "sku": "N020469",
+      "barcode": "3420070031532",
+      "brand": "Lothantique",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "included_reeds",
+          "count": 8,
+          "stickLengthMm": 230,
+          "stickDiameterMm": 3,
+          "weightG": null,
+          "sourceType": "official-manufacturer",
+          "sourceUrl": "https://www.lothantique.com/batons-a-parfum-fleurs-du-japon-lmbtfj2.html",
+          "identitySourceUrl": "https://barcode-list.ru/barcode/RU/Поиск.htm?barcode=АромаДиффузор",
+          "retrievedAt": "2026-10-02",
+          "note": "Official Lothantique Fleurs du Japon 200 ml page states a recyclable gift box containing a glass diffuser and 8 natural rattan reeds, 23 cm long and 3 mm diameter. Exact EAN 3420070031532 is independently mapped to the same 200 ml product. Bottle/outer-box dimensions and total packed weight are still missing."
+        },
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            100,
+            50,
+            50
+          ],
+          "weightG": 200,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.homefragrance.ru/products/lothantique-flowers-of-japan-diffuzor-200-ml",
+          "retrievedAt": "2026-10-03",
+          "note": "Exact product page for Lothantique Flowers of Japan diffuser 200 ml, article/EAN 3420070031532, separately reports dimensions 100 x 50 x 50 mm and weight 200 g. Weight is taken from the explicit weight field, not inferred from nominal 200 ml volume."
+        }
+      ]
+    },
+    {
+      "sku": "N020480",
+      "barcode": "3420070039934",
+      "brand": "Lothantique",
+      "status": "CONFLICT",
+      "measurements": [
+        {
+          "scope": "identity_conflict_only",
+          "dimensionsMm": null,
+          "weightG": null,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.homefragrance.ru/products/lothantique-cotton-flower-sprei-100-ml",
+          "retrievedAt": "2026-10-02",
+          "note": "1C maps EAN 3420070039934 to Cotton Flower refill 200 ml, but an external retailer maps the same EAN to Cotton Flower home spray 100 ml and reports 70×50×50 mm / 200 g for that different format. Do not use those measurements for this 1C SKU until the barcode identity is resolved."
+        }
+      ]
+    },
+    {
+      "sku": "N020486",
+      "barcode": "3420070023704",
+      "brand": "Lothantique",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product_bundle_sticks",
+          "stickLengthMm": 230,
+          "stickDiameterMm": 3,
+          "count": 18,
+          "weightG": null,
+          "sourceType": "retailer-index",
+          "sourceUrl": "https://barcode-list.ru/barcode/RU/Поиск.htm?barcode=КОМПЛЕКТ",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN 3420070023704 is externally indexed as a Lothantique set of 18 light rattan sticks, size 23×3 mm. No retail-package dimensions or weight found."
+        }
+      ]
+    },
+    {
+      "sku": "N020528",
+      "barcode": "3420070031563",
+      "brand": "Lothantique",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "exact_identity_and_contents",
+          "dimensionsMm": null,
+          "weightG": null,
+          "sourceType": "exact-ean-database-plus-retailer",
+          "sourceUrl": "https://www.provencearomes.fr/catalogue/fr/parfum-d-ambiance-lothantique/6721-batons-a-parfum-ambre-lothantique-la-bonne-maison.html",
+          "retrievedAt": "2026-10-03",
+          "note": "Exact EAN 3420070031563 maps to Lothantique Ambre 200 ml, ref LMBTAM. Full dimensions and total weight remain unverified."
+        },
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            100,
+            50,
+            50
+          ],
+          "weightG": 200,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.homefragrance.ru/products/lothantique-amber-diffuzor-200-ml",
+          "retrievedAt": "2026-10-03",
+          "note": "Exact product page for Lothantique Amber diffuser 200 ml, article/EAN 3420070031563, separately reports dimensions 100 x 50 x 50 mm and weight 200 g. Weight is taken from the explicit weight field, not inferred from nominal 200 ml volume."
+        }
+      ]
+    },
+    {
+      "sku": "GI-FRAGR2.02",
+      "barcode": "8057143588522",
+      "brand": "MAMI MILANO",
+      "status": "VERIFIED_RETAIL_PACKAGE",
+      "measurements": [
+        {
+          "scope": "retail_package",
+          "dimensionsMm": [
+            85,
+            85,
+            210
+          ],
+          "weightG": 500,
+          "sourceType": "marketplace-retailer",
+          "sourceUrl": "https://www.bol.com/nl/nl/p/mami-milano-bloem-geurverspreider-fiori-di-loto-200ml-huisparfum-interieur-parfum-luxe-verpakking-geurstokjes-diffuser/9300000175781464/",
+          "identitySourceUrl": "https://www.ebay.it/itm/285586877522",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN 8057143588522. Bol explicitly lists package height 21 cm, length 8.5 cm, width 8.5 cm and package weight 0.50 kg; eBay independently confirms exact EAN/product identity."
+        }
+      ]
+    },
+    {
+      "sku": "GI-FRAGR2.04",
+      "barcode": "8057143588546",
+      "brand": "MAMI MILANO",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            80,
+            80,
+            200
+          ],
+          "weightG": 200,
+          "weightConfidence": "low",
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.gioielleriadurbano.it/ecommerce/articolo/dettaglio/profumazione-per-ambiente-bottiglia-diffusore-a-fiore-da-200ml-rose-in-fiore-33665",
+          "identitySourceUrl": "https://www.peragashop.com/products/diffusore-fragranza-ambiente-200-ml-rose-in-fiore",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN 8057143588546. D'Urbano lists 8×8×20 cm and item weight 200 g; independent exact-EAN retailer confirms identity. Weight is low-confidence because it equals the 200 ml nominal volume."
+        }
+      ]
+    },
+    {
+      "sku": "MF-FRAGR2.01",
+      "barcode": "8057143585903",
+      "brand": "MAMI MILANO",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            70,
+            70,
+            260
+          ],
+          "weightG": 200,
+          "weightConfidence": "low",
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.gioielleriadurbano.it/ecommerce/articolo/dettaglio/diffusore-in-bottiglia-in-vetro-da-200ml-con-bastoncini-fragranza-34298",
+          "identitySourceUrl": "https://www.moodconceptstore.com/diffusore-ambiente-200ml-ghiaccio-e-zenzero.html",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN 8057143585903. D'Urbano lists 7×7×26 cm and 200 g; independent exact-EAN retailer confirms product identity. The 200 g field is retained as low-confidence pending independent weight confirmation."
+        },
+        {
+          "scope": "product_weight",
+          "dimensionsMm": null,
+          "weightG": 300,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.teresapizzigallo.it/diffusori/44532-diffusore-ghiaccio-e-zenzero-200ml-mami-milano.html",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact manufacturer SKU MF-FRAGR2.01; retailer reports 0.3 kg. Combined with exact-EAN 7×7×26 cm product dimensions from D’Urbano."
+        }
+      ]
+    },
+    {
+      "sku": "MF-FRAGR2.02",
+      "barcode": "8057143585910",
+      "brand": "MAMI MILANO",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product_or_item_weight",
+          "dimensionsMm": null,
+          "weightG": 600,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.niclick.it/prodotto/diffusore-fragranza-ambiente-200-ml-arancia-candita-mami-milano-mf-fragr2-02/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN and manufacturer code; weight 0.6 kg, no dimensions."
+        }
+      ]
+    },
+    {
+      "sku": "MF-FRAGR2.06",
+      "barcode": "8057143585958",
+      "brand": "MAMI MILANO",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            70,
+            70,
+            260
+          ],
+          "weightG": 200,
+          "weightConfidence": "low",
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.gioielleriadurbano.it/ecommerce/articolo/dettaglio/diffusore-in-bottiglia-in-vetro-da-200ml-con-bastoncini-fragranza-34307",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact barcode 8057143585958 and SKU mf-fragr2.06. Retailer lists 7×7×26 cm and item weight 200 g; weight is flagged low-confidence because it exactly matches nominal liquid volume."
+        }
+      ]
+    },
+    {
+      "sku": "MF-FRAGR2.07",
+      "barcode": "8057143585965",
+      "brand": "MAMI MILANO",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            70,
+            70,
+            260
+          ],
+          "weightG": 200,
+          "weightConfidence": "low",
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.gioielleriadurbano.it/ecommerce/articolo/dettaglio/diffusore-in-bottiglia-in-vetro-da-200ml-con-bastoncini-fragranza-34309",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact barcode and SKU mf-fragr2.07. Retailer lists 7×7×26 cm and item weight 200 g. Weight equals nominal 200 ml and is therefore retained as low-confidence source-reported weight until independently confirmed."
+        }
+      ]
+    },
+    {
+      "sku": "MF-FRAGR2.09",
+      "barcode": "8057143585989",
+      "brand": "MAMI MILANO",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product_or_item_weight",
+          "dimensionsMm": null,
+          "weightG": 600,
+          "sourceType": "retailer-public-api",
+          "sourceUrl": "https://www.niclick.it/prodotto/diffusore-fragranza-ambiente-vaniglia-e-legni-200-ml-mami-milano-mf-fragr2-09/",
+          "apiSourceUrl": "https://www.niclick.it/wp-json/wc/store/v1/products/86178",
+          "retrievedAt": "2026-10-02",
+          "note": "Niclick public WooCommerce Store API for product ID 86178 names exact manufacturer code MF-FRAGR2.09 and reports weight 0.6 kg; dimensions are blank. Exact 1C EAN 8057143585989 remains the catalog identity. Keep PARTIAL until full dimensions are independently verified."
+        }
+      ]
+    },
+    {
+      "sku": "MF-FRAGR2.11",
+      "barcode": "8057143586009",
+      "brand": "MAMI MILANO",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product_or_item_weight",
+          "dimensionsMm": null,
+          "weightG": 600,
+          "sourceType": "retailer-public-api",
+          "sourceUrl": "https://www.niclick.it/prodotto/diffusore-fragranza-ambiente-200-ml-fumo-di-londra-mami-milano-mf-fragr2-11/",
+          "apiSourceUrl": "https://www.niclick.it/wp-json/wc/store/v1/products/86180",
+          "retrievedAt": "2026-10-02",
+          "note": "Niclick public WooCommerce Store API for product ID 86180 names exact manufacturer code MF-FRAGR2.11 and reports weight 0.6 kg; dimensions are blank. Exact 1C EAN 8057143586009 remains the catalog identity. Keep PARTIAL until full dimensions are independently verified."
+        }
+      ]
+    },
+    {
+      "sku": "MF-FRAGR2.12",
+      "barcode": "8057143586016",
+      "brand": "MAMI MILANO",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            70,
+            70,
+            260
+          ],
+          "weightG": 200,
+          "weightConfidence": "low",
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.gioielleriadurbano.it/ecommerce/articolo/dettaglio/diffusore-in-bottiglia-in-vetro-da-200ml-con-bastoncini-fragranza-34320",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact barcode 8057143586016 and SKU mf-fragr2.12. Retailer lists 7×7×26 cm and item weight 200 g; weight remains low-confidence pending a second source."
+        },
+        {
+          "scope": "product_weight",
+          "dimensionsMm": null,
+          "weightG": 300,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.teresapizzigallo.it/diffusori/44555-diffusore-via-delle-spezie-200ml-mami-milano.html",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact manufacturer SKU MF-FRAGR2.12; retailer reports 0.3 kg. Combined with exact-EAN 7×7×26 cm product dimensions from D’Urbano."
+        }
+      ]
+    },
+    {
+      "sku": "MF-REFILL.06",
+      "barcode": "8057143585590",
+      "brand": "MAMI MILANO",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "exact_sku_identity",
+          "dimensionsMm": null,
+          "weightG": null,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.top-parfumy.cz/tycinkove-difuzery/",
+          "retrievedAt": "2026-10-03",
+          "note": "Exact manufacturer code MF-REFILL.06 and 250 ml refill variant confirmed; full dimensions and total weight remain unverified."
+        }
+      ]
+    },
+    {
+      "sku": "MF-REFILL.08",
+      "barcode": "8057143585613",
+      "brand": "MAMI MILANO",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            50,
+            50,
+            150
+          ],
+          "weightG": 250,
+          "weightConfidence": "low",
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.gioielleriadurbano.it/ecommerce/articolo/dettaglio/ricarica-per-diffusore-per-ambiente-a-bastoncini-250ml-fragranza-34391?art_for_id=34391",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact barcode 8057143585613 and SKU MF-REFILL.08. Retailer reports L5 × W5 × H15 cm and item weight 250 g. Because reported weight equals nominal 250 ml, retain as low-confidence source-reported weight; not delivery-ready without independent weight confirmation."
+        }
+      ]
+    },
+    {
+      "sku": "MF-REFILL.12",
+      "barcode": "8057143585651",
+      "brand": "MAMI MILANO",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            50,
+            50,
+            150
+          ],
+          "weightG": 250,
+          "weightConfidence": "low",
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.gioielleriadurbano.it/ecommerce/articolo/dettaglio/ricarica-per-diffusore-per-ambiente-a-bastoncini-250ml-fragranza-34400",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact barcode 8057143585651 and SKU MF-REFILL.12. Retailer reports L5 × W5 × H15 cm and item weight 250 g. Because reported weight equals nominal 250 ml, retain as low-confidence source-reported weight; not delivery-ready without independent weight confirmation."
+        }
+      ]
+    },
+    {
+      "sku": "22fimr",
+      "barcode": "8051938692746",
+      "brand": "Millefiori Milano",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product_weight",
+          "dimensionsMm": null,
+          "weightG": 78,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.cyberix.cz/millefiori/selected-mimosa-flower-aroma-olej-15ml-d1201221",
+          "identitySourceUrl": "https://www.thelawnmalta.com/product-page/mimosa-flower-water-soluble-fragrance-oils-15ml",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN 8051938692746 / Millefiori Mimosa Flower 15 ml. Retailer reports 0.078 kg. Full dimensions remain unverified."
+        }
+      ]
+    },
+    {
+      "sku": "08d97776-bb50-11ef-b425-ed110731e4f3",
+      "barcode": "2017701201436",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "stick_bundle",
+          "stickLengthMm": 300,
+          "stickColor": "natural",
+          "weightG": null,
+          "sourceType": "current-1c-plus-manufacturer-family-corroboration",
+          "sourceUrl": "https://www.bjutip.com/verde-lorena-sticks-ml-250-home-fragrance-tfu-10-natural-bamboo-sticks-cm-30-included",
+          "retrievedAt": "2026-10-02",
+          "note": "Current 1C identity explicitly says natural bamboo sticks 30 cm for 250 ml. Public TEATRO 250 ml product pages independently corroborate the brand's 30 cm natural-bamboo format. Internal barcode is not a public EAN, so bundle/package dimensions and weight remain unresolved."
+        }
+      ]
+    },
+    {
+      "sku": "63a36c45-bb50-11ef-b425-ed110731e4f3",
+      "barcode": "2017701201443",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "stick_bundle",
+          "stickLengthMm": 300,
+          "stickColor": "black",
+          "weightG": null,
+          "sourceType": "current-1c-plus-manufacturer-family-corroboration",
+          "sourceUrl": "https://www.bjutip.com/tabacco-1815-sticks-ml-250-home-fragrance",
+          "retrievedAt": "2026-10-02",
+          "note": "Current 1C identity explicitly says black bamboo sticks 30 cm for 250 ml. Public TEATRO 250 ml pages corroborate 30 cm black-bamboo format. Internal barcode is not a public EAN; package dimensions/weight unresolved."
+        }
+      ]
+    },
+    {
+      "sku": "655467",
+      "barcode": "8058159964263",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "included_reeds",
+          "count": 10,
+          "stickLengthMm": 360,
+          "weightG": null,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.bjutip.com/home-fragnances",
+          "identitySourceUrl": "https://www.solie.cz/teatro-fragranze-uniche-dolce-vaniglia-difuzer-s-tycinkami-500-ml",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN 8058159964263. Multiple retailers identify Dolce Vaniglia 500 ml as supplied with ten black bamboo sticks, each 36 cm. Bottle/package dimensions and total weight remain unresolved."
+        }
+      ]
+    },
+    {
+      "sku": "83763644-bb50-11ef-b425-ed110731e4f3",
+      "barcode": "2017701201450",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "stick_bundle",
+          "stickLengthMm": 360,
+          "stickColor": "natural",
+          "weightG": null,
+          "sourceType": "current-1c-plus-manufacturer-family-corroboration",
+          "sourceUrl": "https://www.bjutip.com/home-fragnances/verde-lorena-sticks-ml-500-home-fragrance-tfu-10-natural-bamboo-sticks-cm.36-included",
+          "retrievedAt": "2026-10-02",
+          "note": "Current 1C identity explicitly says natural bamboo sticks 36 cm for 500 ml. Public TEATRO 500 ml pages corroborate 36 cm natural-bamboo format. Do not infer count from the internal 'Box №12' label; package dimensions/weight unresolved."
+        }
+      ]
+    },
+    {
+      "sku": "8c80d0e5-231d-11ef-b412-e92179844ed4",
+      "barcode": "8059692631292",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "included_reeds",
+          "count": 10,
+          "stickLengthMm": 300,
+          "weightG": null,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.bjutip.com/teatro-fragranze-uniche/ceresia-sticks-ml-250-home-fragrance",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN 8059692631292. Source explicitly states ten natural bamboo sticks (30 cm). Bottle/package dimensions and total weight remain unknown."
+        }
+      ]
+    },
+    {
+      "sku": "AG250TFU",
+      "barcode": "8058159964218",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 160,
+          "diameterMm": 70,
+          "weightG": 400,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.teresapizzigallo.it/diffusori/48161-diffusore-borgo-degli-agrumi-stick-250ml-teatro-fragranze-uniche.html",
+          "identitySourceUrl": "https://storee.saisoncard.co.jp/shop/g/gAA0109-75510001-P/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact scent/format page reports Ø7 × H16 cm and 0.4 kg; independent exact-EAN 8058159964218 source confirms identity."
+        }
+      ]
+    },
+    {
+      "sku": "BAST500NTFU",
+      "barcode": "2017701201467",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "stick_bundle",
+          "stickLengthMm": 360,
+          "stickColor": "black",
+          "weightG": null,
+          "sourceType": "current-1c-plus-manufacturer-family-corroboration",
+          "sourceUrl": "https://www.bjutip.com/nero-divino-sticks-ml-500-home-fragrance-tfu-10-black-bamboo-sticks-cm.36-included",
+          "retrievedAt": "2026-10-02",
+          "note": "Current 1C identity explicitly says black bamboo sticks 36 cm for 500 ml. Public TEATRO 500 ml pages corroborate 36 cm black-bamboo format. Do not infer count from the internal 'Box №12' label; package dimensions/weight unresolved."
+        }
+      ]
+    },
+    {
+      "sku": "BD500TFU",
+      "barcode": "8058159964188",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 200,
+          "diameterMm": 90,
+          "weightG": 600,
+          "sourceType": "authorized-retailer",
+          "sourceUrl": "https://www.teresapizzigallo.it/diffusori/48166-diffusore-bianco-divino-stick-500ml-teatro-fragranze-uniche.html",
+          "identitySourceUrls": [
+            "https://www.bjutip.com/bianco-divino-sticks-ml-500-home-fragrance-tfu-10-natural-bamboo-sticks-cm-36-included",
+            "https://beau2be.com/sk/brands/teatro-fragranze-uniche",
+            "https://rozetka.pl/dyfuzory-zapachowe-4639416/c4639416/producer%3Dteatro-fragranze/"
+          ],
+          "retrievedAt": "2026-10-02",
+          "note": "Manufacturer-SKU-tied 500 ml product page reports Ø9 × H20 cm and 0.6 kg. Three independent exact-EAN sources map 8058159964188 to Bianco Divino 500 ml; the earlier ZHOR variant mapping is treated as a catalog error/outlier and retained in research history, not as an active identity conflict."
+        }
+      ]
+    },
+    {
+      "sku": "CAND-HOME180",
+      "barcode": "8058159967400",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "wax_fill_only",
+          "dimensionsMm": null,
+          "weightG": 180,
+          "sourceType": "retailer",
+          "sourceUrl": "https://moncredo.pl/tfu-home-lux-col-scented-candle-180g.html",
+          "identitySourceUrl": "https://zhor.com/en/products/home-candela-1500-gr",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN 8058159967400 and manufacturer SKU CAND-HO180TFU.23 identify the 180 g candle. 180 g is the candle/wax content, not packed item or shipping weight; no dimensions found."
+        }
+      ]
+    },
+    {
+      "sku": "CAND-ROU180",
+      "barcode": "8058159966427",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "wax_fill_only",
+          "dimensionsMm": null,
+          "weightG": 180,
+          "sourceType": "retailer",
+          "sourceUrl": "https://rozetka.com.ua/teatro-fragranze-8058159966427/p383789466/",
+          "identitySourceUrl": "https://www.jashanmal.com/products/rose-oud-scented-candle-180g-cand-rou180",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN 8058159966427 / SKU CAND-ROU180. 180 g is candle content, not total retail-package or shipping weight. No physical dimensions found."
+        }
+      ]
+    },
+    {
+      "sku": "CAND-XM180",
+      "barcode": "8058159966816",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "wax_fill_only",
+          "dimensionsMm": null,
+          "weightG": 180,
+          "sourceType": "retailer",
+          "sourceUrl": "https://moncredo.pl/tfu-xmas-christmas-lux-col-scented-candle-180g.html",
+          "identitySourceUrl": "https://www.tsum.ru/product/he00902862-svecha-xmas-180g-teatro-bestcvetnyi/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN 8058159966816 and manufacturer SKU CAND-XM180TFU.23. 180 g is candle/wax content, not total packed weight. No physical dimensions found."
+        }
+      ]
+    },
+    {
+      "sku": "CAPP-XMTFU",
+      "barcode": "8059692630417",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product_or_set_weight",
+          "dimensionsMm": null,
+          "weightG": 358,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.profumixluxurybrands.it/en/brands/teatro-fragranze-uniche-cappelliera-oro-stick-250ml-refill-250ml/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact Christmas in Florence hatbox configuration (Oro diffuser 250 ml + refill 250 ml) reports weight 0.358 kg. Source does not print EAN 8059692630417, so retain as partial evidence until exact-EAN binding or dimensions are found."
+        }
+      ]
+    },
+    {
+      "sku": "CE500TFU.23",
+      "barcode": "8059692631308",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "included_reeds",
+          "count": 10,
+          "stickLengthMm": 360,
+          "weightG": null,
+          "sourceType": "retailer-catalog",
+          "sourceUrl": "https://www.bjutip.com/teatro-fragranze-uniche",
+          "identitySourceUrl": "https://www.clementiprofumi.it/ceresia-diffusore-con-bastoncini.html",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN 8059692631308 and 500 ml identity independently confirmed. BJUTIP catalog states ten natural bamboo sticks, 36 cm. Bottle/package dimensions and total weight remain unknown."
+        },
+        {
+          "scope": "total_product_weight",
+          "dimensionsMm": null,
+          "weightG": 1210,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.profumixluxurybrands.it/brands/teatro-fragranze-uniche-ceresia-fragranza-ambiente-500ml/",
+          "identitySourceUrl": "https://www.clementiprofumi.it/ceresia-diffusore-con-bastoncini.html",
+          "retrievedAt": "2026-10-03",
+          "note": "Profumix lists TEATRO Ceresia room fragrance 500 ml with original packaging and total weight 1.21 kg. Clementi independently confirms exact EAN 8059692631308, SKU CE500TFU.23 and 500 ml identity. Full bottle/package dimensions are still missing, so the SKU remains PARTIAL."
+        }
+      ]
+    },
+    {
+      "sku": "DI250TFU",
+      "barcode": "8058159968490",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "included_reeds",
+          "count": 10,
+          "stickLengthMm": 300,
+          "weightG": null,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.solie.cz/teatro-fragranze-uniche-diamante-scent-of-art-difuzer-s-tycinkami-250-ml",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN 8058159968490. Source explicitly states ten 30 cm natural bamboo sticks. Bottle/package dimensions and total weight remain unknown."
+        }
+      ]
+    },
+    {
+      "sku": "DV250TFU",
+      "barcode": "8058159964256",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "included_reeds",
+          "count": 10,
+          "stickLengthMm": 300,
+          "weightG": null,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.solie.cz/teatro-fragranze-uniche-dolce-vaniglia-difuzer-s-tycinkami-250-ml",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN 8058159964256. Source explicitly states ten black bamboo sticks, each 30 cm. Bottle/package dimensions and total weight remain unknown."
+        }
+      ]
+    },
+    {
+      "sku": "DV500RTFU",
+      "barcode": "8058159960593",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "source_reported_weight",
+          "dimensionsMm": null,
+          "weightG": 500,
+          "weightConfidence": "low",
+          "sourceType": "retailer-aggregator",
+          "sourceUrl": "https://www.kuantokusta.pt/p/4240381/teatro-fragranze-dolce-vaniglia-recarga-de-para-difusores-sweet-vanilla-500-ml",
+          "identitySourceUrl": "https://maisondesfragrances.fr/products/teatro-fragranze-uniche-dolce-vaniglia-refill-500ml",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN 8058159960593. Source reports weight 500, equal to nominal 500 ml; retained low-confidence only and not accepted as delivery weight. Dimensions remain unverified."
+        }
+      ]
+    },
+    {
+      "sku": "FF250TFU",
+      "barcode": "8058159964331",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 160,
+          "diameterMm": 70,
+          "weightG": 400,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.teresapizzigallo.it/diffusori/48155-diffusore-foglie-di-fico-stick-250ml-teatro-fragranze-uniche.html",
+          "identitySourceUrl": "https://www.clementiprofumi.it/marchi/teatro-fragranze-uniche/foglie-di-fico-diffusore-con-bastoncini-250ml.html",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact scent/format page reports Ø7 × H16 cm and 0.4 kg; independent exact-EAN 8058159964331 source confirms identity."
+        }
+      ]
+    },
+    {
+      "sku": "FLC250TFU",
+      "barcode": "8058159964294",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "marketplace_listing_dimensions",
+          "dimensionsMm": [
+            334,
+            229,
+            117
+          ],
+          "weightG": null,
+          "confidence": "low",
+          "sourceType": "marketplace",
+          "sourceUrl": "https://www.ebay.de/itm/137775721271",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; marketplace listing reports L33.4×W22.9×H11.7 cm but does not define whether these are product or shipping-package dimensions. Retained only as low-confidence evidence."
+        }
+      ]
+    },
+    {
+      "sku": "II250TFU",
+      "barcode": "8058159964379",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 160,
+          "diameterMm": 70,
+          "weightG": 400,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.teresapizzigallo.it/diffusori/48195-diffusore-incenso-imperiale-stick-250ml-teatro-fragranze-uniche.html",
+          "identitySourceUrl": "https://www.solie.cz/teatro-fragranze-uniche-incenso-imperiale-difuzer-s-tycinkami-250-ml",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact scent/format page reports Ø7 × H16 cm and 0.4 kg; independent exact-EAN 8058159964379 source confirms identity."
+        }
+      ]
+    },
+    {
+      "sku": "LO250TFU",
+      "barcode": "8058159967455",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "product_or_item_weight",
+          "dimensionsMm": null,
+          "weightG": 358,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.profumixluxurybrands.it/brands/teatro-fragranze-uniche-love-fragranza-ambiente-250ml/",
+          "identitySourceUrl": "https://www.bjutip.com/love-luxury-collection-sticks-ml-250-home-fragrance",
+          "retrievedAt": "2026-10-02",
+          "note": "Retailer reports 0.358 kg for the exact Love 250 ml product; exact EAN 8058159967455 independently confirmed by BJUTIP/eBay. No physical dimensions or explicit retail-package weight scope."
+        }
+      ]
+    },
+    {
+      "sku": "ORO500RTFU",
+      "barcode": "8058159962818",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            70,
+            70,
+            200
+          ],
+          "weightG": null,
+          "sourceType": "retailer",
+          "sourceUrl": "https://setinone.ae/collections/home-decor/products/oro-refill-500ml",
+          "retrievedAt": "2026-10-02",
+          "note": "Teatro Oro Refill 500 ml page explicitly reports W7 × D7 × H20 cm. Weight is not published."
+        },
+        {
+          "scope": "identity_source",
+          "dimensionsMm": null,
+          "weightG": null,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.solie.cz/teatro-fragranze-uniche-oro-luxury-collection-napln-do-difuzeru-500-ml",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN 8058159962818 confirms Oro Luxury Collection refill 500 ml identity."
+        },
+        {
+          "scope": "product_weight",
+          "dimensionsMm": null,
+          "weightG": 620,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://nalda.it/products/8058159962818",
+          "retrievedAt": "2026-10-03",
+          "note": "Nalda exact EAN 8058159962818 lists product weight 620 g and separately shipping weight 620 g. Product dimensions remain sourced from the exact ORO500RTFU retailer listing at 70 x 70 x 200 mm; no volume-to-weight conversion is used."
+        }
+      ]
+    },
+    {
+      "sku": "ROU250TFU",
+      "barcode": "8058159966458",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 160,
+          "diameterMm": 70,
+          "weightG": 400,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.teresapizzigallo.it/diffusori/48207-diffusore-rose-oud-stick-250ml-teatro-fragranze-uniche.html",
+          "identitySourceUrl": "https://www.fragranzedautore.it/teatro-fragranze-uniche/6366-teatro-fragranze-uniche-teatro-fragranze-uniche-rose-oud-250-ml-8058159966458.html",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact scent/format page reports Ø7 × H16 cm and 0.4 kg; independent exact-EAN 8058159966458 source confirms identity."
+        }
+      ]
+    },
+    {
+      "sku": "VM250TFU",
+      "barcode": "8058159964652",
+      "brand": "TEATRO Fragranze Uniche",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "included_reeds",
+          "count": 10,
+          "stickLengthMm": 300,
+          "weightG": null,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.solie.cz/teatro-fragranze-uniche-vento-di-mare-difuzer-s-tycinkami-250-ml",
+          "identitySourceUrl": "https://www.blivakker.no/product/3347125",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN 8058159964652 independently confirmed. Source states ten natural bamboo sticks, 30 cm. Bottle/package dimensions and total weight remain unknown."
+        },
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 160,
+          "diameterMm": 70,
+          "weightG": 400,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.teresapizzigallo.it/diffusori/48157-diffusore-vento-di-mare-stick-250ml-teatro-fragranze-uniche.html",
+          "identitySourceUrl": "https://www.cocopanda.se/product/3347166",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact product Teatro Vento di Mare Stick 250 ml: retailer states Ø7 cm × H16 cm and 0.4 kg; independent exact EAN 8058159964652 source confirms identity."
+        }
+      ]
+    },
+    {
+      "sku": "0b044a39-8588-11ed-b530-7c8bca00854e",
+      "barcode": "5902802112569",
+      "brand": "VINOVE",
+      "status": "VERIFIED_RETAIL_PACKAGE",
+      "measurements": [
+        {
+          "scope": "retail_package",
+          "dimensionsMm": [
+            111,
+            67,
+            42
+          ],
+          "weightG": 60,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://car-tronic.pl/en/product/vinove-classic-leather-line-rome-air-freshener/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; explicit packaging block."
+        },
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            74,
+            53,
+            37
+          ],
+          "weightG": 26,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.gamma.nl/assortiment/vinove-luchtverfrisser-leather-espresso-rome/p/B320508",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; product dimensions include fitted clip orientation."
+        }
+      ]
+    },
+    {
+      "sku": "N020273",
+      "barcode": "5902802110220",
+      "brand": "VINOVE",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "retail_package",
+          "dimensionsMm": [
+            112,
+            42,
+            106
+          ],
+          "weightG": 54,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.hubo.be/nl/p/vinove-luchtverfrisser-oud-warsaw/1080419/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; explicit package fields."
+        },
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            74,
+            23,
+            37
+          ],
+          "weightG": 30,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.hubo.be/nl/p/vinove-luchtverfrisser-oud-warsaw/1080419/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN product dimensions and weight."
+        },
+        {
+          "scope": "retail_package_weight_only",
+          "dimensionsMm": null,
+          "weightG": 200,
+          "sourceType": "marketplace",
+          "sourceUrl": "https://allegro.pl/oferta/zapach-samochodowy-vinove-warsaw-oud-17855389555",
+          "retrievedAt": "2026-10-02",
+          "note": "Marketplace unit-package weight strongly conflicts with Hubo 54 g; retain as conflict only."
+        }
+      ],
+      "resolutionNote": "Exact-EAN product dimensions/weight are explicit at Hubo; the remaining disagreement is package-weight-only and does not block the product measurement under the approved rule."
+    },
+    {
+      "sku": "N020316",
+      "barcode": "5902802110442",
+      "brand": "VINOVE",
+      "status": "VERIFIED_RETAIL_PACKAGE",
+      "measurements": [
+        {
+          "scope": "retail_package",
+          "dimensionsMm": [
+            140,
+            70,
+            10
+          ],
+          "weightG": 13,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://e-domus.com.pl/motoryzacja/chemia-motoryzacyjna/wklad-do-odswiezacza-powietrza-vinove-silverstone-vinove-v11044-v07-01",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; page explicitly states 1×7×14 cm package and 0.013 kg."
+        }
+      ]
+    },
+    {
+      "sku": "N020325",
+      "barcode": "5902802111005",
+      "brand": "VINOVE",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            73,
+            28,
+            36
+          ],
+          "weightG": 27,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.gamma.nl/assortiment/vinove-luchtverfrisser-jewelry-london/p/B320652",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; structured product dimensions and weight."
+        },
+        {
+          "scope": "retail_package",
+          "dimensionsMm": [
+            111,
+            105,
+            42
+          ],
+          "weightG": 60,
+          "sourceType": "marketplace",
+          "sourceUrl": "https://allegro.cz/produkt/vune-do-auta-vinove-london-jewelry-a7c52518-be92-490f-9c51-b30b7e1a8bd6",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact product listing reports package dimensions/weight; keep marketplace confidence below structured retailer source."
+        }
+      ]
+    },
+    {
+      "sku": "N020334",
+      "barcode": "5902802110497",
+      "brand": "VINOVE",
+      "status": "PARTIAL",
+      "measurements": [
+        {
+          "scope": "retail_package",
+          "dimensionsMm": [
+            140,
+            65,
+            14
+          ],
+          "weightG": null,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.bol.com/nl/nl/p/vinove-autoparfum-car-airfreshner-paris/9200000123263179/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; package dimensions explicit, package weight field empty."
+        },
+        {
+          "scope": "product",
+          "dimensionsMm": null,
+          "weightG": 7,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.bol.com/nl/nl/p/vinove-autoparfum-car-airfreshner-paris/9200000123263179/",
+          "retrievedAt": "2026-10-02",
+          "note": "Product weight, not package weight."
+        }
+      ]
+    },
+    {
+      "sku": "N020408",
+      "barcode": "5902802112149",
+      "brand": "VINOVE",
+      "status": "VERIFIED_RETAIL_PACKAGE",
+      "measurements": [
+        {
+          "scope": "retail_package",
+          "dimensionsMm": [
+            140,
+            70,
+            10
+          ],
+          "weightG": 13,
+          "sourceType": "manufacturer-distributor",
+          "sourceUrl": "https://amio.pl/es/recambio-ambientador-coche-vinove-maranello/3-5712-7096",
+          "retrievedAt": "2026-10-02",
+          "note": "Source explicitly labels package dimensions and weight."
+        }
+      ]
+    },
+    {
+      "sku": "N020434",
+      "barcode": "5902802112514",
+      "brand": "VINOVE",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "retail_package",
+          "dimensionsMm": [
+            112,
+            43,
+            105
+          ],
+          "weightG": 47,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.hubo.be/fr/p/vinove-desodorisant-leather-ivory-monza/1080426/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; explicit package fields."
+        },
+        {
+          "scope": "retail_package",
+          "dimensionsMm": [
+            111,
+            67,
+            42
+          ],
+          "weightG": 60,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://car-tronic.pl/en/product/vinove-classic-leather-line-monza-air-freshener/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; package data conflicts with Hubo."
+        },
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            53,
+            73,
+            36
+          ],
+          "weightG": 26,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.gamma.nl/assortiment/vinove-luchtverfrisser-leather-ivory-monza/p/B320505",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN 5902802112514; GAMMA reports product L53 × W73 × H36 mm and product weight 26 g. Package-source conflicts do not affect these product measurements."
+        }
+      ],
+      "resolutionNote": "Exact-EAN product dimensions/weight are explicit at GAMMA; conflicting package records are kept as secondary package evidence only."
+    },
+    {
+      "sku": "N020438",
+      "barcode": "5902802178558",
+      "brand": "VINOVE",
+      "status": "CONFLICT",
+      "measurements": [
+        {
+          "scope": "identity_conflict_only",
+          "dimensionsMm": null,
+          "weightG": null,
+          "sourceType": "exact-name-retailer",
+          "sourceUrl": "https://www.gamma.be/fr/assortiment/desodorisant-cuir-vinove-espresso-indianapolis/p/B320475",
+          "retrievedAt": "2026-10-02",
+          "note": "1C maps Indianapolis Leather Espresso to barcode 5902802178558, while multiple external retailers map the same named product to EAN 5902802112552 and report product 74×53×37 mm / 26 g and package about 114×105×41 mm / 58 g. Do not apply those measurements until the 1C barcode identity is corrected or independently confirmed."
+        }
+      ]
+    },
+    {
+      "sku": "N020445",
+      "barcode": "5902802112620",
+      "brand": "VINOVE",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "retail_package",
+          "dimensionsMm": [
+            111,
+            67,
+            42
+          ],
+          "weightG": 60,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.tuningshop.cz/osvezovac-vzduchu-do-auta-vinove-evolution-line-rome/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; explicit package data."
+        },
+        {
+          "scope": "unspecified_weight",
+          "dimensionsMm": null,
+          "weightG": 80,
+          "sourceType": "retailer",
+          "sourceUrl": "https://autopro.bg/product/aromatizator-vinove-excellence-evolution-line-rome",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; generic technical weight conflicts with 60 g package claim, so do not promote either to shipping weight."
+        },
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            57,
+            84,
+            43
+          ],
+          "weightG": 32,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.hubo.be/fr/p/vinove-desodorisant-evo-excellence-rome/1080437/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN 5902802112620; Hubo reports product L57 × W84 × H43 mm and product weight 32 g. Package/unspecified-weight conflict is separate from the explicit product measurement."
+        }
+      ],
+      "resolutionNote": "Exact-EAN product dimensions/weight are explicit at Hubo; the 60/80 g disagreement concerns package/unspecified secondary weight."
+    },
+    {
+      "sku": "N020566",
+      "barcode": "5902802112477",
+      "brand": "VINOVE",
+      "status": "VERIFIED_RETAIL_PACKAGE",
+      "measurements": [
+        {
+          "scope": "retail_package",
+          "dimensionsMm": [
+            140,
+            70,
+            10
+          ],
+          "weightG": 13,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://e-domus.com.pl/motoryzacja/chemia-motoryzacyjna/wklad-do-odswiezacza-powietrza-vinove-miami-vinove-v11247-v07-17",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; page explicitly states 1×7×14 cm package and 0.013 kg."
+        }
+      ]
+    },
+    {
+      "sku": "V61014",
+      "barcode": "5907489030038",
+      "brand": "Vellutier",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            110,
+            110,
+            160
+          ],
+          "weightG": 515,
+          "weightKind": "wax_fill",
+          "sourceType": "marketplace",
+          "sourceUrl": "https://allegro.pl/produkt/swieca-tradycyjna-rzepakowa-midnight-toast-vellutier-1-szt-95e12ecf-9aaa-41b8-a3fb-040d74dbfeb7",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; dimensions and net candle mass."
+        },
+        {
+          "scope": "retail_package_weight_only",
+          "dimensionsMm": null,
+          "weightG": 1000,
+          "sourceType": "marketplace",
+          "sourceUrl": "https://allegro.pl/produkt/swieca-tradycyjna-rzepakowa-midnight-toast-vellutier-1-szt-95e12ecf-9aaa-41b8-a3fb-040d74dbfeb7",
+          "retrievedAt": "2026-10-02",
+          "note": "Listing reports unit-package weight 1 kg."
+        },
+        {
+          "scope": "product_or_item_weight",
+          "dimensionsMm": null,
+          "weightG": 1350,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.apollostore.com/pl/p/swieca-vellutier-duza-midnight-toast",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; retailer mass 1.35 kg conflicts with marketplace package weight."
+        },
+        {
+          "scope": "product_weight",
+          "dimensionsMm": null,
+          "weightG": 1350,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.apollostore.com/pl/p/swieca-vellutier-duza-midnight-toast",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN 5907489030038; retailer lists item mass 1.35 kg. Combined with exact-EAN product dimensions 110×110×160 mm from Allegro; 515 g is wax/content mass, not total item mass."
+        }
+      ]
+    },
+    {
+      "sku": "V61028",
+      "barcode": "5907489030175",
+      "brand": "Vellutier",
+      "status": "VERIFIED_RETAIL_PACKAGE",
+      "measurements": [
+        {
+          "scope": "retail_package",
+          "dimensionsMm": [
+            153,
+            145,
+            207
+          ],
+          "weightG": 1480,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.bol.com/nl/nl/p/vellutier-geurkaars-large-into-the-wilderness-16-cm-o-11-cm/9300000021159520/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; source explicitly labels package width/height/length and package weight."
+        },
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 160,
+          "diameterMm": 110,
+          "weightG": 515,
+          "weightKind": "wax_fill",
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://aromatowo.pl/duza-swieca-into-the-wilderness-vellutier",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; 515 g is candle fill/net mass, not packed parcel weight."
+        }
+      ]
+    },
+    {
+      "sku": "V61036",
+      "barcode": "5907489031028",
+      "brand": "Vellutier",
+      "status": "VERIFIED_RETAIL_PACKAGE",
+      "measurements": [
+        {
+          "scope": "retail_package",
+          "dimensionsMm": [
+            255,
+            158,
+            155
+          ],
+          "weightG": 1540,
+          "sourceType": "retailer-structured-logistics",
+          "sourceUrl": "https://www.bol.com/nl/nl/p/vellutier-geurkaars-large-siberian-pine-forest-16-cm-o-11-cm/9300000042812422/",
+          "retrievedAt": "2026-10-03",
+          "note": "Exact EAN 5907489031028. Structured fields report package length 25.5 cm, width 15.8 cm, height 15.5 cm and package weight 1.54 kg."
+        },
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            110,
+            110,
+            160
+          ],
+          "weightG": 515,
+          "weightKind": "wax_fill",
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.komputronik.pl/product/782942/vellutier-duza-swieca-siberian-pine-forest.html",
+          "retrievedAt": "2026-10-03",
+          "note": "Exact EAN/product code V61036. Product body 11×11×16 cm; 515 g is candle net content, not package weight."
+        }
+      ]
+    },
+    {
+      "sku": "V62014",
+      "barcode": "5907489030281",
+      "brand": "Vellutier",
+      "status": "VERIFIED_RETAIL_PACKAGE",
+      "measurements": [
+        {
+          "scope": "retail_package",
+          "dimensionsMm": [
+            164,
+            103,
+            175
+          ],
+          "weightG": 680,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.bol.com/nl/nl/p/vellutier-geurkaars-medium-midnight-toast-12-cm-o-9-cm/9300000021520931/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; explicit package dimensions and package weight."
+        },
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 115,
+          "diameterMm": 90,
+          "weightG": 225,
+          "weightKind": "wax_fill",
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.bol.com/nl/nl/p/vellutier-geurkaars-medium-midnight-toast-12-cm-o-9-cm/9300000021520931/",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; product size. Candle net mass 225 g confirmed by Decorise."
+        }
+      ]
+    },
+    {
+      "sku": "V63011",
+      "barcode": "5907489030489",
+      "brand": "Vellutier",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            70,
+            70,
+            90
+          ],
+          "weightG": 359,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.decorise.cz/p/vellutier-oudwood-journey-90-g/6705053",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; retailer item weight 359 g."
+        },
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            70,
+            70,
+            90
+          ],
+          "weightG": 90,
+          "weightKind": "wax_fill",
+          "sourceType": "marketplace",
+          "sourceUrl": "https://allegro.pl/produkt/swieca-tradycyjna-rzepakowa-oudwood-vellutier-d14342fe-78cc-4f6e-ad72-cf9ce45dc6a7",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; 90 g is net candle mass, not total item weight."
+        }
+      ]
+    },
+    {
+      "sku": "V63017",
+      "barcode": "5907489030540",
+      "brand": "Vellutier",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            70,
+            70,
+            90
+          ],
+          "weightG": 90,
+          "weightKind": "wax_fill",
+          "sourceType": "marketplace",
+          "sourceUrl": "https://allegro.pl/produkt/swieca-tradycyjna-parafinowa-vintage-library-vellutier-1-szt-8ff07fca-325f-4571-b5c1-333d9da5f27e",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; product dimensions/net wax mass."
+        },
+        {
+          "scope": "retail_package_weight_only",
+          "dimensionsMm": null,
+          "weightG": 900,
+          "sourceType": "marketplace",
+          "sourceUrl": "https://allegro.pl/produkt/swieca-tradycyjna-parafinowa-vintage-library-vellutier-1-szt-8ff07fca-325f-4571-b5c1-333d9da5f27e",
+          "retrievedAt": "2026-10-02",
+          "note": "Same listing reports unit-package weight 0.9 kg."
+        },
+        {
+          "scope": "product_or_item_weight",
+          "dimensionsMm": null,
+          "weightG": 380,
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.decorise.cz/p/vellutier-vintage-knihovna-90-g/6705133",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; retailer item weight 380 g. Conflicts with 900 g package field; scopes may differ."
+        },
+        {
+          "scope": "product_weight",
+          "dimensionsMm": null,
+          "weightG": 380,
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.apollostore.com/cz/p/svicka-vellutier-mala-vintage-library",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN 5907489030540; retailer lists item weight 0.38 kg. Combined with exact-EAN product dimensions 70×70×90 mm from Allegro; 90 g is wax/content mass."
+        }
+      ]
+    },
+    {
+      "sku": "98049E",
+      "barcode": "5038581056647",
+      "brand": "WoodWick",
+      "status": "VERIFIED_PRODUCT_MEASUREMENTS",
+      "measurements": [
+        {
+          "scope": "product",
+          "dimensionsMm": [
+            69.8,
+            76.2,
+            75
+          ],
+          "weightG": 85,
+          "weightKind": "wax_fill_or_catalog_weight",
+          "sourceType": "retailer",
+          "sourceUrl": "https://www.bpm-power.com/it/online/arredamento-accessori/candele-portacandele/candela-profumata-woodwick-mora-b1991759",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; retailer states H75 × W69.8 × D76.2 mm and 85 g. A second exact-EAN retailer independently states approximately diameter 65 × H75 mm and 85 g fill. Keep as product measurement, not package."
+        },
+        {
+          "scope": "product_cylindrical",
+          "heightMm": 75,
+          "diameterMm": 65,
+          "weightG": 85,
+          "weightKind": "wax_fill",
+          "sourceType": "specialist-retailer",
+          "sourceUrl": "https://www.pmkshop.cz/woodwick-vonna-svicka-85-g-korenena-ostruzina",
+          "retrievedAt": "2026-10-02",
+          "note": "Exact EAN; independent source confirms small candle size and 85 g fill."
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "researchedRecords": 148,
+    "verifiedRetailPackage": 13,
+    "verifiedProductMeasurements": 54,
+    "partial": 75,
+    "conflict": 5,
+    "needsSource": 1,
+    "shippingReady": 69,
+    "deliveryInputReady": 69
+  }
+}

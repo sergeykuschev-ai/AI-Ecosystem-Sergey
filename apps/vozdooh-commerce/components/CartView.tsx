@@ -1,0 +1,91 @@
+'use client'
+
+import Link from 'next/link'
+import Image from 'next/image'
+import { catalogImage, productPresentation } from '../src/catalog/presentation'
+import { useEffect, useMemo, useSyncExternalStore } from 'react'
+import { clearCart, getCartSnapshot, getServerCartSnapshot, setLineQuantity, subscribeCart } from '../src/cart/storage'
+import type { CatalogProduct } from '../src/catalog/contracts'
+import { productPayload, trackEvent } from '../src/integrations/analytics'
+
+export function CartView({ products, demo }: { products: CatalogProduct[]; demo: boolean }) {
+  const cart = useSyncExternalStore(subscribeCart, getCartSnapshot, getServerCartSnapshot)
+
+  const rows = useMemo(
+    () => cart.lines
+      .map((line) => ({ line, product: products.find((p) => p.trade.sku === line.sku) })),
+    [cart, products],
+  )
+
+  useEffect(() => {
+    if (rows.length > 0) {
+      trackEvent('view_cart', { item_count: rows.reduce((sum, { line }) => sum + line.quantity, 0) })
+    }
+  }, [rows])
+
+  if (rows.length === 0) {
+    return (
+      <section className="cartEmpty">
+        <span className="eyebrow">Корзина</span>
+        <h1>Корзина пока пуста</h1>
+        <p>{demo ? 'Добавьте демонстрационные позиции из каталога — корзина сохранится в этом браузере.' : 'Добавьте позиции из каталога — корзина сохранится в этом браузере.'}</p>
+        <Link className="primary" href="/catalog">Перейти в каталог</Link>
+      </section>
+    )
+  }
+
+  return (
+    <>
+      <section className="pageIntro">
+        <span className="eyebrow">Корзина</span>
+        <h1>Ваш выбор</h1>
+        <p>Корзина сохраняется в этом браузере. Проверьте состав перед оформлением заказа.</p>
+      </section>
+      <section className="cartSection">
+        <div>
+          <div className="cartList">
+            {rows.map(({ line, product }) => (
+              <div className="cartRow" key={line.sku}>
+                {product ? (
+                  <Link className="cartRowVisual" href={`/catalog/${product.editorial.slug}`}>{catalogImage(product) ? <Image src={catalogImage(product)!} alt={product.trade.name} fill sizes="90px" /> : <span>{demo ? 'DEMO' : 'Фото отсутствует'}</span>}</Link>
+                ) : <span className="cartRowVisual">Нет в каталоге</span>}
+                <div>
+                  <h3>{product ? <Link href={`/catalog/${product.editorial.slug}`}>{productPresentation(product).title}</Link> : 'Позиция отсутствует в текущем каталоге'}</h3>
+                  {product && <p className="cartProductMeta">{product.trade.brand} · {productPresentation(product).subtitle}</p>}
+                  <small>SKU: {line.sku} · {product?.trade.price == null ? 'цена не указана' : `${product.trade.price} ₽`}</small>
+                  <div>
+                    <button type="button" className="removeButton" onClick={() => {
+                      if (product) trackEvent('remove_from_cart', { ...productPayload(product), quantity: line.quantity })
+                      setLineQuantity(line.sku, 0)
+                    }}>
+                      Убрать из корзины
+                    </button>
+                  </div>
+                </div>
+                <div className="qtyControl">
+                  <button type="button" aria-label="Уменьшить количество" onClick={() => {
+                    if (product) trackEvent('remove_from_cart', { ...productPayload(product), quantity: 1 })
+                    setLineQuantity(line.sku, line.quantity - 1)
+                  }}>−</button>
+                  <b>{line.quantity}</b>
+                  <button type="button" aria-label="Увеличить количество" onClick={() => {
+                    if (product) trackEvent('add_to_cart', { ...productPayload(product), quantity: 1 })
+                    setLineQuantity(line.sku, line.quantity + 1)
+                  }}>+</button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="cartClearRow"><button type="button" className="removeButton" onClick={() => clearCart()}>Очистить корзину</button></p>
+        </div>
+        <aside className="cartAside">
+          <span className="eyebrow">Итог</span>
+          <h2>Оформление заказа</h2>
+          <p>{demo ? 'Корзина работает в демонстрационном режиме и хранится только в вашем браузере. Цены, наличие и стоимость доставки появятся после синхронизации с 1С — до этого заказы не создаются.' : 'Оплатите товары онлайн через Ozon Pay. Доступны доставка и бесплатный самовывоз. Стоимость доставки согласуется отдельно и не входит в оплату товаров. Оплата подтверждается после проверки платежа.'}</p>
+          <Link className="primary" href="/checkout">Оформить заказ</Link>
+          <p className="cartAsideBack"><Link className="textLink" href="/catalog">← Продолжить покупки</Link></p>
+        </aside>
+      </section>
+    </>
+  )
+}

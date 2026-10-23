@@ -1,0 +1,55 @@
+{
+  "date": "2026-10-02",
+  "issue": 199,
+  "catalogSource": "staged-real-1c",
+  "snapshot": "/opt/vozdooh/data/catalog-staged.json",
+  "counts": {
+    "realPositiveStock": 148,
+    "publicationReady": 144,
+    "needsSource": 4,
+    "validImages": 144,
+    "missingImage": 4,
+    "missingPrice": 0,
+    "missingPositiveStock": 0,
+    "missingDescription": 0,
+    "missingBrandAllInventory": 3,
+    "missingVolumeAllInventory": 28,
+    "routeErrors": 0
+  },
+  "verification": {
+    "catalogRoute": 200,
+    "productRoutesChecked": 144,
+    "productRoutes200": 144,
+    "tests": "85/85 + 2/2 + 9/9",
+    "typecheck": "PASS",
+    "lint": "PASS",
+    "productionBuild": "PASS"
+  },
+  "unresolved": [
+    {
+      "sku": "445445",
+      "name": "39 Сетевое з/у microUSB (СЗУ) 1.2 м.",
+      "reason": "No verified product image; technical item is explicitly excluded from storefront."
+    },
+    {
+      "sku": "121211",
+      "name": "Ротанговые палочки 500мл",
+      "reason": "No verified exact product image."
+    },
+    {
+      "sku": "045850b2-9e1f-11ee-b408-d069cd63062f",
+      "name": "Салями картридж AG 100мл пласт.",
+      "reason": "No verified exact product image."
+    },
+    {
+      "sku": "0189",
+      "name": "Ножницы для фитиля",
+      "reason": "No verified exact product image."
+    }
+  ],
+  "notes": [
+    "Publication-ready means the item has positive 1C stock, positive price, verified local image, generated editorial record and a working public /catalog/<slug> route.",
+    "Missing volume is not invented when the 1C name does not support a safe extraction.",
+    "No competitor prose or unsupported fragrance facts were added by this audit."
+  ]
+}

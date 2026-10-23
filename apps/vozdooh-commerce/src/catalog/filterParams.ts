@@ -1,0 +1,51 @@
+import { categoryLabels, familyLabels, moodLabels, roomLabels } from './vocabulary'
+import type { CatalogFilters } from './filters'
+
+/** Parse and validate raw URL search params into catalog categories and editorial vocabulary. Unknown values are ignored. */
+
+export type RawSearchParams = Record<string, string | string[] | undefined>
+
+function first(value: string | string[] | undefined): string | null {
+  if (Array.isArray(value)) return typeof value[0] === 'string' ? value[0] : null
+  return typeof value === 'string' && value !== '' ? value : null
+}
+
+function pick<K extends string>(labels: Record<K, string>, value: string | null): K | null {
+  if (!value) return null
+  return Object.prototype.hasOwnProperty.call(labels, value) ? (value as K) : null
+}
+
+export function parseCatalogFilters(params: RawSearchParams, categories: Record<string, string> = categoryLabels, brands: Record<string, string> = {}): CatalogFilters {
+  return {
+    brand: pick(brands, first(params.brand)),
+    category: pick(categories, first(params.category)),
+    family: pick(familyLabels, first(params.family)),
+    mood: pick(moodLabels, first(params.mood)),
+    room: pick(roomLabels, first(params.room)),
+  }
+}
+
+export type FilterGroup = 'brand' | 'category' | 'family' | 'mood' | 'room'
+
+/** Build a catalog href toggling one filter while preserving the others. */
+export function catalogHref(current: CatalogFilters, group: FilterGroup, value: string | null, debug = false, query = ''): string {
+  const next: Record<string, string> = debug ? { debugCatalog: '1' } : {}
+  const entries: [FilterGroup, string | null | undefined][] = [
+    ['brand', current.brand],
+    ['category', current.category],
+    ['family', current.family],
+    ['mood', current.mood],
+    ['room', current.room],
+  ]
+  for (const [key, val] of entries) {
+    if (!val) continue
+    next[key] = key === group ? (value ?? '') : val
+  }
+  if (group !== null && value) next[group] = value
+  if (query) next.q = query
+  const queryString = Object.entries(next)
+    .filter(([, val]) => val !== '')
+    .map(([key, val]) => `${key}=${encodeURIComponent(val)}`)
+    .join('&')
+  return queryString ? `/catalog?${queryString}` : '/catalog'
+}
