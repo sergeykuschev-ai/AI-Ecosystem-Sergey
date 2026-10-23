@@ -1,0 +1,1853 @@
+{
+  "generatedAt": "2026-10-03T10:04:30.281Z",
+  "policy": "measure product itself without shipping packaging; whole-product weight, not net liquid/wax fill",
+  "count": 90,
+  "records": [
+    {
+      "sku": "08d97776-bb50-11ef-b425-ed110731e4f3",
+      "barcode": "2017701201436",
+      "name": "TEATRO Бокс №10 Натуральные бамбуковые палочки 30см для диффузора 250мл",
+      "brand": "TEATRO Fragranze Uniche",
+      "stock": 9,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "BAST500NTFU",
+      "barcode": "2017701201467",
+      "name": "TEATRO Бокс №12 Черные бамбуковые палочки 36см для диффузора 500мл",
+      "brand": "TEATRO Fragranze Uniche",
+      "stock": 8,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "N020486",
+      "barcode": "3420070023704",
+      "name": "Комплект светлых палочек из ротанга 18 шт. размер 23 х 3 мм",
+      "brand": "Lothantique",
+      "stock": 6,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "63a36c45-bb50-11ef-b425-ed110731e4f3",
+      "barcode": "2017701201443",
+      "name": "TEATRO Бокс №10 Черные бамбуковые палочки 30см для диффузора 250мл",
+      "brand": "TEATRO Fragranze Uniche",
+      "stock": 5,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "83763644-bb50-11ef-b425-ed110731e4f3",
+      "barcode": "2017701201450",
+      "name": "TEATRO Бокс №12 Натуральные бамбуковые палочки 36см для диффузора 500мл",
+      "brand": "TEATRO Fragranze Uniche",
+      "stock": 5,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "32131",
+      "barcode": "2017701194417",
+      "name": "Бордо картридж AG 110мл пласт.",
+      "brand": "AROMAgroup",
+      "stock": 3,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "675483",
+      "barcode": "2017701194394",
+      "name": "Бербери картридж AG 150мл пласт.",
+      "brand": "AROMAgroup",
+      "stock": 2,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "87654",
+      "barcode": "2017701194448",
+      "name": "Бордо картридж АG 150мл пласт.",
+      "brand": "AROMAgroup",
+      "stock": 2,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "9a227639-b1a0-11ed-a1a3-7c8bca00854e",
+      "barcode": "2017701196404",
+      "name": "Жидкость для промывки картридж AG 110мл пласт.",
+      "brand": "AROMAgroup",
+      "stock": 2,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "4356",
+      "barcode": "2017701194462",
+      "name": "Жидкость для промывки картридж AG 150мл пласт.",
+      "brand": "AROMAgroup",
+      "stock": 2,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "76544",
+      "barcode": "2017701194479",
+      "name": "Магма картридж AG 100мл пласт.",
+      "brand": "AROMAgroup",
+      "stock": 2,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "382777",
+      "barcode": "190577122103",
+      "name": "Цветы хлопка / Cotton Flower ароматическое саше",
+      "brand": "Castelbel",
+      "stock": 2,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "802e8b0c-d19b-11ec-be83-7c8bca00854e",
+      "barcode": "8050534796087",
+      "name": "Саше для автомобиля Mareminerale 7х7см",
+      "brand": "CULTI MILANO",
+      "stock": 2,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": 70,
+        "widthMm": 70,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "78768575",
+      "barcode": "8050714290343",
+      "name": "Stile Limited Alba диффузор 250мл",
+      "brand": "CULTI MILANO",
+      "stock": 2,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": 90,
+        "widthMm": 90,
+        "heightMm": 170,
+        "diameterMm": 90
+      }
+    },
+    {
+      "sku": "N020528",
+      "barcode": "3420070031563",
+      "name": "Аромадиффузор 200 мл/ AMBRE/АМБРА",
+      "brand": "Lothantique",
+      "stock": 2,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG"
+      ],
+      "knownShipping": {
+        "weightG": 200,
+        "lengthMm": 100,
+        "widthMm": 50,
+        "heightMm": 50,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "N020468",
+      "barcode": "3420070039927",
+      "name": "Аромадиффузор 200 мл/ COTTONFLOWER/ БУКЕТХЛОПКА",
+      "brand": "Lothantique",
+      "stock": 2,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "N020458",
+      "barcode": "3420070037053",
+      "name": "Аромадиффузор 200 мл/ LES SECRETS D'ANTOINE/ СЕКРЕТЫ АНТУАНА",
+      "brand": "Lothantique",
+      "stock": 2,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "N020465",
+      "barcode": "3420070039200",
+      "name": "Аромадиффузор 200 мл/ SANDALWOOD/ САНДАЛ",
+      "brand": "Lothantique",
+      "stock": 2,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG"
+      ],
+      "knownShipping": {
+        "weightG": 200,
+        "lengthMm": 100,
+        "widthMm": 50,
+        "heightMm": 50,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "MF-FRAGR2.07",
+      "barcode": "8057143585965",
+      "name": "MAMI MILANO Диффузор с палочками AQUA / Вода. Коллекция PALAZZO, 200 мл",
+      "brand": "MAMI MILANO",
+      "stock": 2,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "MF-FRAGR2.01",
+      "barcode": "8057143585903",
+      "name": "MAMI MILANO Диффузор с палочками GHIACCIO E ZENZERO / Лед & Имбирь. Коллекция PALAZZO, 200 мл",
+      "brand": "MAMI MILANO",
+      "stock": 2,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG"
+      ],
+      "knownShipping": {
+        "weightG": 200,
+        "lengthMm": 70,
+        "widthMm": 70,
+        "heightMm": 260,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "MF-FRAGR2.09",
+      "barcode": "8057143585989",
+      "name": "MAMI MILANO Диффузор с палочками VANIGLIA E LEGNI / Ваниль & Древесина. Коллекция PALAZZO, 200 мл",
+      "brand": "MAMI MILANO",
+      "stock": 2,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": 600,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "MF-FRAGR2.12",
+      "barcode": "8057143586016",
+      "name": "MAMI MILANO Диффузор с палочками VIA DELLE SPEZIE / Улица специй. Коллекция PALAZZO, 200 мл",
+      "brand": "MAMI MILANO",
+      "stock": 2,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG"
+      ],
+      "knownShipping": {
+        "weightG": 200,
+        "lengthMm": 70,
+        "widthMm": 70,
+        "heightMm": 260,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "22fimr",
+      "barcode": "8051938692746",
+      "name": "Hydro/концентрат для арома лампы Цветок мимозы 15 ml",
+      "brand": "Millefiori Milano",
+      "stock": 2,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": 78,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "CAND-XM180",
+      "barcode": "8058159966816",
+      "name": "TEATRO Ароматическая свеча XMAS Christmas Collection, 180 г",
+      "brand": "TEATRO Fragranze Uniche",
+      "stock": 2,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "CAPP-XMTFU",
+      "barcode": "8059692630417",
+      "name": "TEATRO Подарочный набор в шляпной коробке XMAS Christmas (Диффузор с палочками 250 мл + рефилл 250 м",
+      "brand": "TEATRO Fragranze Uniche",
+      "stock": 2,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "N020438",
+      "barcode": "5902802178558",
+      "name": "Ароматизатор для автомобиля / VINOVE LEATHER ESPRESSO /коричневая кожа/ INDIANAPOLIS/ ИНДИАНАПОЛИС",
+      "brand": "VINOVE",
+      "stock": 2,
+      "status": "CONFLICT",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "N020334",
+      "barcode": "5902802110497",
+      "name": "Сменный блок ароматизатора PARIS / ПАРИЖ",
+      "brand": "VINOVE",
+      "stock": 2,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": 7,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "454569087",
+      "barcode": "2017701198828",
+      "name": "Бали картридж AG 110 мл.",
+      "brand": "AROMAgroup",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "988768798",
+      "barcode": "2017701197081",
+      "name": "Бербери картридж AG 100мл пласт.",
+      "brand": "AROMAgroup",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "137897",
+      "barcode": "2017701194387",
+      "name": "Бербери картридж AG 110мл пласт.",
+      "brand": "AROMAgroup",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "fc7e824a-136a-11ef-b412-e92179844ed4",
+      "barcode": null,
+      "name": "Бербери картридж AG 180мл пласт.",
+      "brand": "AROMAgroup",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "132689",
+      "barcode": "2017701197890",
+      "name": "Благородная кожа картридж AG 100 мл",
+      "brand": "AROMAgroup",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "3444567",
+      "barcode": "2017701194455",
+      "name": "Джованни картридж AG 150мл пласт.",
+      "brand": "AROMAgroup",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "323244211",
+      "barcode": "2017701197739",
+      "name": "Игристая малина картридж AG 110 мл.",
+      "brand": "AROMAgroup",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "876687",
+      "barcode": "2017701197807",
+      "name": "Игристая малина картридж AG 150 мл.",
+      "brand": "AROMAgroup",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "084e10f7-dad6-11ee-b40a-f198e863aac1",
+      "barcode": "2017701199399",
+      "name": "Кофе Масала картридж AG 180мл пласт.",
+      "brand": "AROMAgroup",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "33421956",
+      "barcode": "2017701196350",
+      "name": "Кофе с ликером картридж AG 150мл пласт.",
+      "brand": "AROMAgroup",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "2332",
+      "barcode": "2017701194363",
+      "name": "Красное дерево картридж AG 150мл пласт.",
+      "brand": "AROMAgroup",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "99889898",
+      "barcode": "2017701194486",
+      "name": "Магма картридж AG 500мл пласт.",
+      "brand": "AROMAgroup",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "45360",
+      "barcode": "2017701194493",
+      "name": "Магма, 150 мл, пластик",
+      "brand": "AROMAgroup",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "0789",
+      "barcode": "2017701194516",
+      "name": "Мальдивы картридж AG 110мл пласт.",
+      "brand": "AROMAgroup",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "088976",
+      "barcode": "2017701194523",
+      "name": "Мальдивы картридж AG 150мл пласт.",
+      "brand": "AROMAgroup",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "3534657",
+      "barcode": "2017701194554",
+      "name": "Пачули картридж AG 150мл пласт.",
+      "brand": "AROMAgroup",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "7c1b6caa-5341-11ed-8c25-7c8bca00854e",
+      "barcode": "2017701198491",
+      "name": "Пина колада картридж AG 110 мл.",
+      "brand": "AROMAgroup",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "1112211",
+      "barcode": "2017701194561",
+      "name": "Пряный табак картридж AG 100мл пласт.",
+      "brand": "AROMAgroup",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "3246675",
+      "barcode": "2017701197784",
+      "name": "Розовое просекко картридж AG 150 мл.",
+      "brand": "AROMAgroup",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "545445222",
+      "barcode": "2017701196381",
+      "name": "Розовый перец катридж AG 110 мл.",
+      "brand": "AROMAgroup",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "5432311112",
+      "barcode": "2017701195377",
+      "name": "Табак и ваниль картридж AG 110мл пласт.",
+      "brand": "AROMAgroup",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "087654",
+      "barcode": "2017701197791",
+      "name": "Тадж- Махал картридж AG 100мл пласт.",
+      "brand": "AROMAgroup",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "787532",
+      "barcode": "2017701194592",
+      "name": "Тадж- Махал картридж AG 110мл пласт.",
+      "brand": "AROMAgroup",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "5445098",
+      "barcode": "2017701194608",
+      "name": "Тадж- Махал картридж AG 150мл пласт.",
+      "brand": "AROMAgroup",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "223211",
+      "barcode": "2017701194615",
+      "name": "Текила Санрайз картридж AG 100мл пласт.",
+      "brand": "AROMAgroup",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "fcf32570-dad6-11ee-b40a-f198e863aac1",
+      "barcode": "2017701199498",
+      "name": "Тонка и жакаранда картридж AG 100мл пласт.",
+      "brand": "AROMAgroup",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "382784",
+      "barcode": "190577123100",
+      "name": "Кокос / Coconut ароматическое саше",
+      "brand": "Castelbel",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "N019873",
+      "barcode": "3420070002587",
+      "name": "Аромапопурри Christian Tortu /JARDIN CITRUS/ ЦИТРУСОВЫЕ САДЫ",
+      "brand": "Christian Tortu",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "N019834",
+      "barcode": "3420070002501",
+      "name": "Аромапопурри Christian Tortu /VERT FRAIS/ СВЕЖЕСТЬ ЗЕЛЕНИ",
+      "brand": "Christian Tortu",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "N019836",
+      "barcode": "3420070002594",
+      "name": "Сменный аромат для аромапопурри 15 мл Christian Tortu/JARDIN CITRUS/ ЦИТРУСОВЫЕ САДЫ",
+      "brand": "Christian Tortu",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "N019900",
+      "barcode": "3420070002518",
+      "name": "Сменный аромат для аромапопурри 15 мл Christian Tortu/VERT FRAIS/ СВЕЖЕСТЬ ЗЕЛЕНИ",
+      "brand": "Christian Tortu",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "1113",
+      "barcode": "8055965595063",
+      "name": "Ротанговые палочки 1000мл",
+      "brand": "CULTI MILANO",
+      "stock": 1,
+      "status": "CONFLICT",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "46091",
+      "barcode": "8050534795806",
+      "name": "Спрей для дома  The 100 мл",
+      "brand": "CULTI MILANO",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG"
+      ],
+      "knownShipping": {
+        "weightG": 380,
+        "lengthMm": 62,
+        "widthMm": 48,
+        "heightMm": 125,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "802e8aeb-d19b-11ec-be83-7c8bca00854e",
+      "barcode": "8050534794533",
+      "name": "Decor Classic диффузор Mountain 500мл",
+      "brand": "CULTI MILANO",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": 700,
+        "lengthMm": 120,
+        "widthMm": 220,
+        "heightMm": 120,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "65576",
+      "barcode": "8050534799132",
+      "name": "Decor Limited Lambordhini диффузор 1000 мл",
+      "brand": "CULTI MILANO",
+      "stock": 1,
+      "status": "CONFLICT",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "DANHNIR250DEC",
+      "barcode": "805698180696",
+      "name": "Ароматизатор воздуха NIRO, 250 мл, ТМ DANHERA",
+      "brand": "DANHERA",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": 850,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "55777",
+      "barcode": "8411299003177",
+      "name": "Africa набор ваза Leopard Predator 1200мл и 2 рефилла",
+      "brand": "Ladenac Milano",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": 1500,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "98676",
+      "barcode": "8411299003160",
+      "name": "Africa набор ваза Zebra Camouflage 1200мл и 2 рефилла",
+      "brand": "Ladenac Milano",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": 1500,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "089864",
+      "barcode": "8411299001364",
+      "name": "Dynastie Senteur Royale диффузор silver 500мл",
+      "brand": "Ladenac Milano",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "8411299000985",
+      "barcode": "8411299000985",
+      "name": "Urban Senses диффузор Fleur de fruit Rose gold 500мл",
+      "brand": "Ladenac Milano",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "983858",
+      "barcode": "8411299003320",
+      "name": "Vent d'Arabie диффузор Chergui blue 500мл",
+      "brand": "Ladenac Milano",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": 700,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "54556",
+      "barcode": "8411299003306",
+      "name": "Vent d'Arabie диффузор Rose des Sables brown 500мл",
+      "brand": "Ladenac Milano",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": 700,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "N020469",
+      "barcode": "3420070031532",
+      "name": "Аромадиффузор 200 мл/ FLOWERSOF JAPAN/ЯПОНСКИЙ САД",
+      "brand": "Lothantique",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG"
+      ],
+      "knownShipping": {
+        "weightG": 200,
+        "lengthMm": 100,
+        "widthMm": 50,
+        "heightMm": 50,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "N020480",
+      "barcode": "3420070039934",
+      "name": "Сменный аромат 200 мл/ COTTON FLOWER/ БУКЕТ ХЛОПКА",
+      "brand": "Lothantique",
+      "stock": 1,
+      "status": "CONFLICT",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "GI-FRAGR2.02",
+      "barcode": "8057143588522",
+      "name": "MAMI MILANO Аромадиффузор FIOR DI LOTO / Цветок лотоса. Коллекция GIARDINO, 200 мл",
+      "brand": "MAMI MILANO",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "GI-FRAGR2.04",
+      "barcode": "8057143588546",
+      "name": "MAMI MILANO Аромадиффузор ROSE IN FIORE / Роза в цвету. Коллекция GIARDINO, 200 мл",
+      "brand": "MAMI MILANO",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "MF-FRAGR2.02",
+      "barcode": "8057143585910",
+      "name": "MAMI MILANO Диффузор с палочками ARANCIA CANDITA / Апельсин в сахаре. Коллекция PALAZZO, 200 мл",
+      "brand": "MAMI MILANO",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": 600,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "MF-FRAGR2.11",
+      "barcode": "8057143586009",
+      "name": "MAMI MILANO Диффузор с палочками FUMO DI LONDRA / Лондонский туман. Коллекция PALAZZO, 200 мл",
+      "brand": "MAMI MILANO",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": 600,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "MF-FRAGR2.06",
+      "barcode": "8057143585958",
+      "name": "MAMI MILANO Диффузор с палочками NUVOLA DI COTONE / Хлопковое облако. Коллекция PALAZZO, 200 мл",
+      "brand": "MAMI MILANO",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "MF-REFILL.08",
+      "barcode": "8057143585613",
+      "name": "MAMI MILANO Рефилл для диффузора COCCOLE DI TALCO / Пудровые объятия. Коллекция PALAZZO, 250 мл",
+      "brand": "MAMI MILANO",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "MF-REFILL.06",
+      "barcode": "8057143585590",
+      "name": "MAMI MILANO Рефилл для диффузора NUVOLA DI COTONE / Хлопковое облако. Коллекция PALAZZO, 250 мл",
+      "brand": "MAMI MILANO",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "MF-REFILL.12",
+      "barcode": "8057143585651",
+      "name": "MAMI MILANO Рефилл для диффузора VIA DELLE SPEZIE / Улица специй. Коллекция PALAZZO, 250 мл",
+      "brand": "MAMI MILANO",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "CAND-HOME180",
+      "barcode": "8058159967400",
+      "name": "TEATRO Ароматическая свеча HOME Luxury Сollection, 180 г",
+      "brand": "TEATRO Fragranze Uniche",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "CAND-ROU180",
+      "barcode": "8058159966427",
+      "name": "TEATRO Ароматическая свеча ROSE OUD / Роза & Уд Luxury Сollection, 180 г",
+      "brand": "TEATRO Fragranze Uniche",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "8c80d0e5-231d-11ef-b412-e92179844ed4",
+      "barcode": "8059692631292",
+      "name": "TEATRO Диффузор с палочками CERESIA / Черезия, 250 мл",
+      "brand": "TEATRO Fragranze Uniche",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "CE500TFU.23",
+      "barcode": "8059692631308",
+      "name": "TEATRO Диффузор с палочками CERESIA / Черезия, 500 мл",
+      "brand": "TEATRO Fragranze Uniche",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "DV500RTFU",
+      "barcode": "8058159960593",
+      "name": "TEATRO Рефилл для диффузора DOLCE VANIGLIA / Сладкая ваниль, 500 мл",
+      "brand": "TEATRO Fragranze Uniche",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "V61028",
+      "barcode": "5907489030175",
+      "name": "Vellutier / Свеча большая В пустыне 515гр / Into the Wilderness",
+      "brand": "Vellutier",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": 110,
+        "widthMm": 110,
+        "heightMm": 160,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "V61036",
+      "barcode": "5907489031028",
+      "name": "Vellutier / Свеча большая Сибирский сосновый лес 515гр / Siberian Pine Forest",
+      "brand": "Vellutier",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG"
+      ],
+      "knownShipping": {
+        "weightG": 515,
+        "lengthMm": 110,
+        "widthMm": 110,
+        "heightMm": 160,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "N020408",
+      "barcode": "5902802112149",
+      "name": "Сменный блок ароматизатора MARANELLO/ МАРАНЕЛЛО",
+      "brand": "VINOVE",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": 12,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "N020566",
+      "barcode": "5902802112477",
+      "name": "Сменный блок ароматизатора MIAMI/ МАЯМИ",
+      "brand": "VINOVE",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG",
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": null,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "N020316",
+      "barcode": "5902802110442",
+      "name": "Сменный блок ароматизатора SILVERSTONE / СИЛЬВЕРСТОУН",
+      "brand": "VINOVE",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "lengthMm",
+        "widthMm",
+        "heightMm"
+      ],
+      "knownShipping": {
+        "weightG": 12,
+        "lengthMm": null,
+        "widthMm": null,
+        "heightMm": null,
+        "diameterMm": null
+      }
+    },
+    {
+      "sku": "98049E",
+      "barcode": "5038581056647",
+      "name": "Woodwick/ Свеча маленькая Пряная ежевика 85 гр.",
+      "brand": "WoodWick",
+      "stock": 1,
+      "status": "PARTIAL",
+      "measurementNeeded": [
+        "weightG"
+      ],
+      "knownShipping": {
+        "weightG": 85,
+        "lengthMm": 70,
+        "widthMm": 76,
+        "heightMm": 75,
+        "diameterMm": null
+      }
+    }
+  ]
+}

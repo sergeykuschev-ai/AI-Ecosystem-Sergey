@@ -1,0 +1,39 @@
+{
+  "name": "@ai-ecosystem/vozdooh-web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "tsc --noEmit",
+    "verify": "npm run test && npm run typecheck && npm run lint && npm run build",
+    "test": "node --require ./scripts/register-typescript.cjs --test tests/*.test.cjs && node --test integrations/onec-exchange/server.test.mjs && python3 -B -m unittest discover -s tests -p '*_test.py'",
+    "catalog:import": "node scripts/import-onec.cjs",
+    "catalog:stage": "python3 scripts/convert-commerce-ml.py",
+    "customers:import": "node scripts/import-onec-customers.cjs",
+    "indexnow:submit": "node scripts/indexnow.cjs"
+  },
+  "dependencies": {
+    "@react-three/fiber": "9.8.1",
+    "@shadergradient/react": "2.4.20",
+    "camera-controls": "3.1.2",
+    "next": "^16.3.8",
+    "nodemailer": "^10.0.13",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "three": "0.186.1",
+    "three-stdlib": "2.36.1"
+  },
+  "devDependencies": {
+    "@types/node": "24.3.0",
+    "@types/nodemailer": "^8.0.2",
+    "@types/react": "19.1.12",
+    "@types/react-dom": "19.1.9",
+    "@types/three": "0.186.0",
+    "eslint": "9.34.0",
+    "eslint-config-next": "^16.3.8",
+    "typescript": "5.9.2"
+  }
+}

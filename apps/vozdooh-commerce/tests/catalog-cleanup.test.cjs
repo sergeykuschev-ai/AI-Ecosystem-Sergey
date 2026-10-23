@@ -1,0 +1,285 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- Node regression tests. */
+const { test } = require('node:test')
+const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const ts = require('typescript')
+require.extensions['.tsx'] = (module, filename) => {
+  const { outputText } = ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true }, fileName: filename,
+  })
+  module._compile(outputText, filename)
+}
+const { renderToStaticMarkup } = require('react-dom/server')
+const { stagedTrade, stagedEditorial, inferStagedCategory } = require('../src/catalog/stagedEditorial.ts')
+const { mergeCatalog, createCatalogRepository } = require('../src/catalog/repository.ts')
+const { productPresentation, storefrontProducts } = require('../src/catalog/presentation.ts')
+const { reviewedDescription, reviewedTitle } = require('../src/catalog/reviewedContent.ts')
+const { availableLandings, landingProducts, brandLandings, categoryLandings } = require('../src/catalog/landings.ts')
+const { availableCollections, collectionProducts, collectionsForProduct, editorialCollections } = require('../src/catalog/collections.ts')
+const evidence = require('../research/demand-evidence-2026-09.json')
+// The checked-in research contains no prices or private source export.
+const trades = evidence.products.map((p) => stagedTrade({ sku: p.sku, name: p.original_name, brand: p.brand, category: p.current_category, volume: p.volume, price: null, stock: p.stock, barcode: null, characteristics: {} }))
+const products = mergeCatalog(trades, stagedEditorial(trades))
+const bySku = (sku) => products.find((p) => p.trade.sku === sku)
+
+test('format precedence distinguishes refills, accessory boxes and complete sets', () => {
+  for (const [name, category] of [
+    ['TEATRO Рефилл для диффузора ORO, 500 мл', 'Рефилы'],
+    ['Рефил для заправки диффузора The 1000мл', 'Рефилы'],
+    ['TEATRO Бокс №12 Черные бамбуковые палочки 36см для диффузора 500мл', 'Аксессуары'],
+    ['TEATRO Диффузор с палочками XMAS 250 мл', 'Диффузоры'],
+    ['TEATRO Подарочный набор (Диффузор + рефилл)', 'Подарочные наборы'],
+    ['Сменный блок ароматизатора SILVERSTONE', 'Для автомобиля'],
+  ]) assert.equal(inferStagedCategory(name), category, name)
+  assert.equal(bySku('22fimr').trade.category, 'Водорастворимые ароматы')
+  assert.equal(bySku('DV500RTFU').trade.category, 'Рефилы')
+  for (const sku of ['BAST500NTFU', '08d97776-bb50-11ef-b425-ed110731e4f3', '63a36c45-bb50-11ef-b425-ed110731e4f3', '83763644-bb50-11ef-b425-ed110731e4f3']) {
+    assert.equal(bySku(sku).trade.category, 'Аксессуары')
+    assert.doesNotMatch(productPresentation(bySku(sku)).subtitle, /мл/)
+  }
+})
+
+test('reviewed VINOVE and Lamborghini names are exact guarded bindings, not inferred translations', () => {
+  for (const [sku, title] of [['N020445', 'Rome · Evolution Excellence'], ['N020438', 'Indianapolis · Leather Espresso'], ['N020434', 'Monza · Leather Ivory'], ['N020325', 'London · Jewelry'], ['0b044a39-8588-11ed-b530-7c8bca00854e', 'Rome · Leather Espresso'], ['65576', 'Automobili Lamborghini']]) {
+    const p = bySku(sku)
+    const before = structuredClone(p)
+    assert.equal(productPresentation(p).title, title)
+    assert.equal(productPresentation(p).russianTitle, null)
+    assert.deepEqual(p, before)
+    for (const change of [{ name: p.trade.name + ' changed' }, { brand: 'Other' }, { sku: 'other' }]) assert.equal(reviewedTitle({ ...p.trade, ...change }), null)
+  }
+})
+
+test('24 AROMAgroup descriptions are guarded; unverified facts and formats remain explicit', () => {
+  const reviewed = trades.filter((trade) => reviewedDescription(trade))
+  assert.equal(reviewed.length, 24)
+  for (const trade of reviewed) {
+    assert.match(reviewedDescription(trade), /Совместимость картриджа уточняется по модели аппарата/)
+    assert.equal(reviewedDescription({ ...trade, name: trade.name + ' changed' }), null)
+    assert.equal(reviewedDescription({ ...trade, brand: 'Other' }), null)
+  }
+  for (const sku of ['132689', '4356', '9a227639-b1a0-11ed-a1a3-7c8bca00854e']) assert.equal(reviewedDescription(bySku(sku).trade), null)
+  assert.match(bySku('32131').editorial.description, /Совместимость/)
+  assert.match(bySku('CAPP-XMTFU').editorial.description, /Christmas in Florence.*Oro.*250 мл.*рефилл.*250 мл.*палочки/i)
+  assert.deepEqual(bySku('CAPP-XMTFU').editorial.images, ['/catalog/official/CAPP-XMTFU.jpg'])
+  assert.match(bySku('N020486').editorial.description, /18.*23.*3 мм/)
+  assert.match(bySku('98049E').editorial.description, /Spiced Blackberry.*ежевика.*кори/i)
+  assert.equal(productPresentation(bySku('98049E')).title, 'Spiced Blackberry')
+  assert.equal(productPresentation(bySku('98049E')).russianTitle, 'Пряная ежевика')
+  assert.match(bySku('344565').editorial.description, /Jet Lag Black Gold.*125 мл.*кедр.*табач/i)
+  assert.deepEqual(bySku('344565').editorial.images, ['/catalog/official/344565.jpg'])
+  assert.equal(productPresentation(bySku('344565')).title, 'Jet Lag Black Gold')
+  assert.equal(bySku('BD500TFU').trade.category, 'Диффузоры')
+  for (const sku of ['N020465', 'V63011']) assert.doesNotMatch(bySku(sku).editorial.description, /отзыв|рейтинг|Allegro|5\/5/i)
+})
+
+test('barcode-resolved hidden items return only with exact local images; unresolved items stay conservative', () => {
+  const snapshotMissing = evidence.products.filter((p) => !p.quality.image_file_exists)
+  assert.equal(snapshotMissing.length, 12)
+  const recovered = new Set(['98049E', '1113', 'N020486', '9a227639-b1a0-11ed-a1a3-7c8bca00854e', '4356', '132689', 'CAPP-XMTFU', '344565'])
+  const stillMissing = snapshotMissing.filter((p) => !recovered.has(p.sku))
+  assert.equal(stillMissing.length, 4)
+  for (const p of stillMissing) assert.deepEqual(bySku(p.sku).editorial.images, [])
+  assert.deepEqual(bySku('98049E').editorial.images, ['/catalog/official/98049E.jpg'])
+  assert.deepEqual(bySku('1113').editorial.images, ['/catalog/official/1113.jpg'])
+  assert.deepEqual(bySku('N020486').editorial.images, ['/catalog/official/N020486.jpg'])
+  assert.equal(bySku('1113').trade.brand, 'CULTI MILANO')
+  assert.equal(bySku('N020486').trade.brand, 'Lothantique')
+  for (const sku of ['445445', '121211', '0189']) assert.equal(bySku(sku).trade.brand, null)
+  assert.match(bySku('1113').editorial.description, /CULTI MILANO.*43 см.*1000 мл/)
+  assert.match(bySku('N020486').editorial.description, /18.*Lothantique.*23 × 3 мм/)
+  assert.ok(storefrontProducts(products).some((p) => p.trade.sku === '1113'))
+  assert.ok(storefrontProducts(products).some((p) => p.trade.sku === 'N020486'))
+  for (const sku of ['9a227639-b1a0-11ed-a1a3-7c8bca00854e', '4356', '132689', 'CAPP-XMTFU', '344565']) {
+    assert.ok(bySku(sku).editorial.images.length > 0, sku)
+    assert.ok(storefrontProducts(products).some((p) => p.trade.sku === sku), sku)
+  }
+  assert.ok(!storefrontProducts(products).some((p) => p.trade.sku === '445445'))
+  const decor = bySku('802e8ae5-d19b-11ec-be83-7c8bca00854e')
+  const stile = bySku('df29d344-d192-11ec-be83-7c8bca00854e')
+  assert.notEqual(decor.editorial.slug, stile.editorial.slug)
+  assert.notDeepEqual(decor.editorial.images, stile.editorial.images)
+  assert.match(productPresentation(decor).title, /Decor/)
+  assert.match(productPresentation(stile).title, /Stile/)
+  assert.deepEqual(storefrontProducts(products).slice(0, 14).map((p) => p.trade.sku), evidence.top_skus.slice(0, 14))
+})
+
+test('discovery uses only positive-stock pictured products and preserves research ordering', () => {
+  assert.equal(availableLandings(products, 'brand').length, 13)
+  assert.equal(availableLandings(products, 'category').length, 10)
+  assert.deepEqual(availableLandings([], 'brand'), [])
+  for (const stock of [0, -1, null]) assert.deepEqual(landingProducts([{ ...bySku('N020445'), trade: { ...bySku('N020445').trade, stock } }], 'brand', 'VINOVE'), [])
+  for (const list of [brandLandings, categoryLandings]) assert.equal(new Set(list.map((p) => p.slug)).size, list.length)
+  assert.equal(brandLandings.length, 13)
+  for (const landing of brandLandings) {
+    assert.ok(landing.story, landing.name)
+    assert.equal(landing.story.paragraphs.length, 2)
+    assert.equal(landing.story.facts.length, 3)
+    assert.ok(landing.story.title.length > 20)
+    assert.ok(landing.story.craft.text.length > 40)
+  }
+  assert.ok(categoryLandings.every((landing) => !landing.story))
+  for (const kind of ['brand', 'category']) for (const landing of availableLandings(products, kind)) {
+    assert.ok(landing.products.every((p) => p.trade.stock > 0 && p.editorial.images.length > 0 && p.trade[kind] === landing.name))
+    assert.deepEqual(landing.products, storefrontProducts(landing.products))
+  }
+})
+
+
+test('editorial collections use only verified catalog attributes and keep storefront ordering', () => {
+  assert.equal(editorialCollections.length, 11)
+  assert.equal(new Set(editorialCollections.map((collection) => collection.slug)).size, editorialCollections.length)
+  const available = availableCollections(products)
+  assert.equal(available.length, 10)
+  for (const collection of available) {
+    assert.ok(collection.products.length > 0, collection.name)
+    if (collection.rule.field === 'researchSelection') {
+      const { demandRank } = require('../src/catalog/demandPriority.ts')
+      const ranks = collection.products.map(p => demandRank(p.trade.sku))
+      assert.deepEqual(ranks, [...ranks].sort((a, b) => a - b))
+    } else {
+      assert.deepEqual(collection.products, storefrontProducts(collection.products))
+    }
+    for (const product of collection.products) {
+      assert.ok(product.trade.stock > 0)
+      assert.ok(product.editorial.images.length > 0)
+      const value = collection.rule.field === 'researchSelection'
+        ? (require('../src/catalog/demandPriority.ts').demandRank(product.trade.sku) !== null ? 'researched' : null)
+        : collection.rule.field === 'demand'
+        ? (require('../src/catalog/merchandising.ts').merchandisingSignal(product.trade.sku) ? 'verified' : null)
+        : collection.rule.field === 'family'
+        ? product.editorial.scentFamily
+        : collection.rule.field === 'category'
+          ? product.trade.category
+          : product.editorial[collection.rule.field]
+      assert.ok(collection.rule.values.includes(value), collection.name + ': ' + product.trade.sku)
+    }
+    assert.deepEqual(collectionProducts(products, collection), collection.products)
+  }
+  const warm = bySku('DV500RTFU')
+  assert.ok(collectionsForProduct(warm).some((collection) => collection.slug === 'warm-interior'))
+  assert.deepEqual(collectionsForProduct({ ...warm, trade: { ...warm.trade, stock: 0 } }), [])
+  assert.deepEqual(collectionsForProduct({ ...warm, editorial: { ...warm.editorial, images: [] } }), [])
+})
+
+test('collections render real inventory and every detail route stays private', async () => {
+  const source = require('../src/catalog/source.ts')
+  const originalRepository = source.getCatalogRepository
+  const originalSource = source.catalogSource
+  try {
+    source.getCatalogRepository = async () => createCatalogRepository(products)
+    source.catalogSource = () => 'staged-1c'
+    const Index = require('../app/collections/page.tsx')
+    const indexHtml = renderToStaticMarkup(await Index.default())
+    assert.doesNotMatch(indexHtml, /Подборки готовятся/)
+    assert.match(indexHtml, /Подборки с характером/)
+    assert.match(indexHtml, /Тёплый интерьер/)
+    assert.match(indexHtml, /Древесные и пряные/)
+    assert.equal(Index.metadata.robots.index, false)
+
+    const Route = require('../app/collections/[slug]/page.tsx')
+    for (const collection of availableCollections(products)) {
+      const props = { params: Promise.resolve({ slug: collection.slug }) }
+      const html = renderToStaticMarkup(await Route.default(props))
+      assert.equal((html.match(/<h1>/g) ?? []).length, 1)
+      assert.match(html, /В подборке/)
+      assert.ok(html.includes(collection.name))
+      assert.doesNotMatch(html, /PREVIEW 1C|Подборки готовятся|debugCatalog|demandRank/)
+      if (collection.slug === 'gift-diffusers') assert.match(html, /guides\/aromadiffuzor-v-podarok/)
+      if (['living-room', 'bedroom'].includes(collection.slug)) assert.match(html, /guides\/aromat-dlya-gostinoy-i-spalni/)
+      const meta = await Route.generateMetadata(props)
+      assert.equal(meta.robots.index, false)
+      assert.equal(meta.alternates.canonical, '/collections/' + collection.slug)
+      assert.ok(meta.description.length > 20)
+    }
+    await assert.rejects(Route.default({ params: Promise.resolve({ slug: 'unknown' }) }), /NEXT_HTTP_ERROR_FALLBACK;404/)
+  } finally {
+    source.getCatalogRepository = originalRepository
+    source.catalogSource = originalSource
+  }
+})
+
+test('rendered discovery, every landing, product backlinks and metadata retain customer boundaries', async () => {
+  const source = require('../src/catalog/source.ts')
+  const originalRepository = source.getCatalogRepository
+  const originalSource = source.catalogSource
+  try {
+    source.getCatalogRepository = async () => createCatalogRepository(products)
+    source.catalogSource = () => 'staged-1c'
+    const Catalog = require('../app/catalog/page.tsx')
+    const Product = require('../app/catalog/[slug]/page.tsx')
+    const forbidden = /PREVIEW 1C|>(?:CORE|STRONG|NORMAL|SLOW|CLEARANCE)<|promotion_rank|₽|>RUB<|Добавить в корзину|фактического остатка 1С/i
+    for (const kind of ['brand', 'category']) {
+      const plural = kind === 'brand' ? 'brands' : 'categories'
+      const Index = require(`../app/${plural}/page.tsx`)
+      assert.doesNotMatch(renderToStaticMarkup(await Index.default()), forbidden)
+      const Route = require(`../app/${plural}/[slug]/page.tsx`)
+      for (const landing of availableLandings(products, kind)) {
+        const props = { params: Promise.resolve({ slug: landing.slug }) }
+        const html = renderToStaticMarkup(await Route.default(props))
+        assert.doesNotMatch(html, forbidden)
+        assert.equal((html.match(/<h1>/g) ?? []).length, 1)
+        assert.ok(html.includes('/catalog?'))
+        if (kind === 'brand') {
+          assert.match(html, /class="brandStory"/)
+          assert.match(html, /ДНК бренда/)
+          assert.match(html, /В коллекции VOZDOOH/)
+        } else {
+          assert.doesNotMatch(html, /class="brandStory"/)
+        }
+        const meta = await Route.generateMetadata(props)
+        assert.equal(meta.robots.index, false)
+        assert.equal(meta.alternates.canonical, `/${plural}/${landing.slug}`)
+        assert.ok(meta.description.length > 30)
+        assert.match(meta.description, /Бесплатный самовывоз в Хабаровске/)
+        assert.match(html, /Павла Морозова, 97/)
+        if (kind === 'brand' && ['culti-milano', 'teatro-fragranze-uniche', 'lothantique'].includes(landing.slug)) {
+          assert.match(meta.title, /купить с доставкой по России/)
+          assert.match(html, new RegExp(`Выбрать ${landing.name} из наличия`))
+        }
+        if (kind === 'brand' && landing.slug === 'millefiori-milano') {
+          assert.match(meta.title, /купить ароматы для дома/)
+        }
+        if (kind === 'category' && landing.slug === 'home-fragrance') {
+          assert.match(meta.title, /Саше и аромапопурри/)
+          assert.match(html, /<h1>Саше и аромапопурри для дома<\/h1>/)
+        }
+        if (kind === 'category' && landing.slug === 'diffusers') assert.match(html, /guides\/kak-polzovatsya-aromadiffuzorom/)
+        if (kind === 'category' && landing.slug === 'refills') assert.match(html, /guides\/refil-dlya-diffuzora-kak-ispolzovat/)
+        if (kind === 'category' && landing.slug === 'candles') assert.match(html, /guides\/kak-vybrat-aromaticheskuyu-svechu/)
+      }
+      await assert.rejects(Route.default({ params: Promise.resolve({ slug: 'unknown' }) }), /NEXT_HTTP_ERROR_FALLBACK;404/)
+    }
+    const params = { brand: 'TEATRO Fragranze Uniche', category: 'Рефилы', family: 'warm' }
+    const html = renderToStaticMarkup(await Catalog.default({ searchParams: Promise.resolve(params) }))
+    assert.doesNotMatch(html, forbidden)
+    const product = bySku('DV500RTFU')
+    const props = { params: Promise.resolve({ slug: product.editorial.slug }), searchParams: Promise.resolve(params) }
+    const details = renderToStaticMarkup(await Product.default(props))
+    assert.doesNotMatch(details, forbidden)
+    assert.match(details, /class="productEditorial"/)
+    assert.match(details, /История бренда/)
+    assert.match(details, /ДНК бренда/)
+    assert.match(details, /История TEATRO Fragranze Uniche/)
+    assert.match(details, /В подборках VOZDOOH/)
+    assert.match(details, /Тёплый интерьер/)
+    const backlink = details.match(/class="productBack" href="([^"]+)"/)[1].replaceAll('&amp;', '&')
+    const url = new URL(backlink, 'http://localhost')
+    for (const [key, value] of Object.entries(params)) assert.equal(url.searchParams.get(key), value)
+    const productMetadata = await Product.generateMetadata(props)
+    assert.equal(productMetadata.alternates.canonical, `/catalog/${product.editorial.slug}`)
+    assert.equal((productMetadata.title.match(/VOZDOOH/g) ?? []).length, 1)
+    assert.match(productMetadata.title, /купить с доставкой по России \| VOZDOOH$/)
+    assert.match(productMetadata.description, /В наличии/)
+    assert.match(productMetadata.description, /с доставкой по России/i)
+    assert.match(details, /Товары оплачиваются онлайн после оформления заказа/)
+    assert.match(details, /Как пахнет Dolce Vaniglia/)
+    assert.match(details, /сахарная пудра, карамель, тёмный шоколад/)
+    assert.match(details, /guides\/refil-dlya-diffuzora-kak-ispolzovat/)
+    assert.match(details, /официальное описание TEATRO Fragranze Uniche/)
+    assert.doesNotMatch(details, /Заявка без онлайн-оплаты/)
+  } finally {
+    source.getCatalogRepository = originalRepository
+    source.catalogSource = originalSource
+  }
+})

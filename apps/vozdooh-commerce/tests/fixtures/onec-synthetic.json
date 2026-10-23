@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "products": [
+    {
+      "sku": "INTERNAL-TEST-001",
+      "name": "INTERNAL SYNTHETIC TEST — NOT MERCHANDISE",
+      "category": "internal-test",
+      "price": 12.5,
+      "stock": 0,
+      "barcode": "0000000000000",
+      "characteristics": { "test-marker": "synthetic" }
+    }
+  ]
+}

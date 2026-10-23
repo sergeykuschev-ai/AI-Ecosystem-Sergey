@@ -1,0 +1,65 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- Node test runner. */
+const { test } = require('node:test')
+const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const ts = require('typescript')
+const React = require('react')
+const { renderToStaticMarkup } = require('react-dom/server')
+require.extensions['.tsx'] = (module, filename) => {
+  const { outputText } = ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true }, fileName: filename,
+  })
+  module._compile(outputText, filename)
+}
+const render = (component) => renderToStaticMarkup(React.createElement(component))
+
+test('footer and legal seller block retain the owner-confirmed public identity', () => {
+  const { SiteFooter } = require('../components/SiteFooter.tsx')
+  const { SellerRequisites } = require('../components/InfoPage.tsx')
+  // Public business facts confirmed in issue #192, not customer fixtures.
+  for (const html of [render(SiteFooter), render(SellerRequisites)]) {
+    for (const fact of ['ИП Кущев Сергей Васильевич', '270393428446', '322270000003316', 'г. Хабаровск', 'Павла Морозова, 97']) {
+      assert.ok(html.includes(fact), `Missing confirmed seller fact: ${fact}`)
+    }
+    assert.match(html, /href="tel:\+79244199990"/)
+    assert.match(html, /href="mailto:vozdooh.kms@yandex.ru"/)
+  }
+})
+
+test('organization structured data exposes the same confirmed seller identity', () => {
+  const { siteStructuredData } = require('../src/seo/siteStructuredData.ts')
+  const data = siteStructuredData('https://vozdooh27.ru/')
+  const organization = data['@graph'].find((item) => item['@type'] === 'Organization')
+  assert.equal(organization.name, 'VOZDOOH')
+  assert.equal(organization.legalName, 'ИП Кущев Сергей Васильевич')
+  assert.equal(organization.telephone, '+79244199990')
+  assert.equal(organization.email, 'vozdooh.kms@yandex.ru')
+  assert.equal(organization.taxID, '270393428446')
+  assert.equal(organization.identifier.value, '322270000003316')
+  assert.equal(organization.address.addressLocality, 'Хабаровск')
+  assert.equal(organization.address.streetAddress, 'ул. Павла Морозова, 97')
+})
+
+test('business page is public, linked and keeps confirmed contact facts', () => {
+  const { SiteFooter } = require('../components/SiteFooter.tsx')
+  const Business = require('../app/business/page.tsx')
+  const footer = render(SiteFooter)
+  const html = render(Business.default)
+  assert.ok(footer.includes('href="/business"'))
+  assert.equal(Business.metadata.robots.index, false)
+  assert.match(html, /Аромат как часть пространства и подарка/)
+  assert.match(html, /href="tel:\+79244199990"/)
+  assert.match(html, /vozdooh.kms@yandex.ru/)
+})
+
+test('footer customer information links resolve to implemented pages', () => {
+  const { SiteFooter } = require('../components/SiteFooter.tsx')
+  const html = render(SiteFooter)
+  for (const route of ['delivery', 'payment', 'returns', 'contacts', 'privacy', 'offer', 'user-agreement']) {
+    assert.ok(html.includes(`href="/${route}"`), `Missing footer route: ${route}`)
+    const page = require(`../app/${route}/page.tsx`)
+    assert.equal(typeof page.default, 'function')
+    assert.equal(page.metadata.robots.index, false)
+    assert.ok(render(page.default).includes('<h1>'))
+  }
+})
