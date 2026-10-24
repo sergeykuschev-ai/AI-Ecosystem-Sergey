@@ -117,8 +117,27 @@ const verifiedCleaningFluidVolumes: Readonly<Record<string, string>> = {
   'aromagroup-cleaning-fluid-150': '150 мл',
 }
 
+// Issue #271: only these two publicly verified 1C records authorize a suffix.
+const verifiedAramaraVariants: Readonly<Record<string, { sku: string; name: string; volume: string }>> = {
+  'culti-decor-aramara-1000': {
+    sku: 'bf33a951-016c-11ed-b2a4-7c8bca00854e',
+    name: 'Decor Classic диффузор Aramara 1000 мл',
+    volume: '1000 мл',
+  },
+  'culti-decor-aramara-250': {
+    sku: '802e8ae5-d19b-11ec-be83-7c8bca00854e',
+    name: 'Decor Classic диффузор Aramara 250мл',
+    volume: '250 мл',
+  },
+}
+
 export function productPageHeading(product: CatalogProduct): string {
   const title = productPresentation(product).title
+  const aramara = verifiedAramaraVariants[product.editorial.slug]
+  if (aramara && product.trade.sku === aramara.sku &&
+    product.trade.name === aramara.name && product.trade.volume?.trim() === aramara.volume) {
+    return title.includes(aramara.volume) ? title : `${title} ${aramara.volume}`
+  }
   const expectedVolume = verifiedCleaningFluidVolumes[product.editorial.slug]
   if (!expectedVolume || product.trade.volume?.trim() !== expectedVolume) return title
   const numeric = expectedVolume.split(' ')[0]
