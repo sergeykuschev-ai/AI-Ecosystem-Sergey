@@ -1,0 +1,11 @@
+[Unit]
+Description=Check Miska and Business KPI 1C freshness every 5 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Persistent=true
+Unit=stores-onec-freshness.service
+
+[Install]
+WantedBy=timers.target

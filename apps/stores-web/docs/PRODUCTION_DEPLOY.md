@@ -6,7 +6,7 @@
 > migration and full-stack operations.
 
 Target host: `stores-web1` (`138.16.155.126`).
-Domains: `amurskmarket.ru`, `www.amurskmarket.ru`, `cms.amurskmarket.ru`.
+Public domains: `amurskmarket.ru`, `www.amurskmarket.ru`, `vozdooh27.ru`, `www.vozdooh27.ru`. `cms.amurskmarket.ru` intentionally returns 404; Directus admin is private through Tailscale on `:8445`.
 
 ## Architecture
 
@@ -18,12 +18,14 @@ Internet
  Caddy (reverse proxy + Let's Encrypt)
    |-- amurskmarket.ru        --> web:3000
    |-- www.amurskmarket.ru    --> 301 -> https://amurskmarket.ru
-   +-- cms.amurskmarket.ru    --> directus:8055
-           |
-           +-- postgres:5432
+   |-- vozdooh27.ru           --> vozdooh-web-domain:3411
+   |-- www.vozdooh27.ru       --> 301 -> https://vozdooh27.ru
+   +-- cms.amurskmarket.ru    --> 404
+
+Tailscale :8445 --> 127.0.0.1:8055 --> Directus --> postgres:5432
 ```
 
-Only Caddy publishes ports `80` and `443`. `web`, `directus`, and `postgres` are reachable only inside the `stores-web` Docker network.
+Only Caddy publishes public ports `80` and `443`. `web` and `postgres` remain on Docker networks. Directus additionally binds only to host loopback `127.0.0.1:8055` and is exposed to the owner through Tailscale Serve `:8445`; it is not public.
 
 ## Files used in production
 
@@ -382,25 +384,29 @@ curl -sI https://amurskmarket.ru | head -5
 curl -sI http://www.amurskmarket.ru | head -10
 curl -sI https://www.amurskmarket.ru | head -10
 
-# CMS
-curl -sI https://cms.amurskmarket.ru/server/health | head -5
+# Public CMS must be closed
+curl -sI https://cms.amurskmarket.ru/admin/ | head -5
+
+# Private Directus admin (from a tailnet client)
+curl -sI https://miska-purchasing.tailc31347.ts.net:8445/admin/ | head -5
 ```
 
 Expected:
 - `https://amurskmarket.ru` returns `200`.
 - `www.amurskmarket.ru` returns `301` to `https://amurskmarket.ru`.
-- `https://cms.amurskmarket.ru/server/health` returns `200`.
+- `https://cms.amurskmarket.ru/admin/` returns `404`.
+- `https://miska-purchasing.tailc31347.ts.net:8445/admin/` returns `200` from the tailnet.
 
 ### O. Verify host ports
 
 ```bash
 ssh -i ~/.ssh/id_ed25519_arthur root@138.16.155.126 \
-  "ss -tlnp | grep -E ':(3000|8055|5432)' || echo 'OK: ports 3000/8055/5432 are not listening on host'"
+  "ss -tlnp | grep -E ':(3000|5432)' || echo 'OK: ports 3000/5432 are not listening on host'; ss -tlnp | grep '127.0.0.1:8055'"
 ```
 
 ## Important notes
 
-- `PUBLIC_URL` in production is `https://cms.amurskmarket.ru`.
+- Directus `PUBLIC_URL` is the private Tailscale URL `https://miska-purchasing.tailc31347.ts.net:8445`; the public CMS hostname intentionally returns 404.
 - `NEXT_PUBLIC_SITE_URL` is `https://amurskmarket.ru` and is baked into the Next.js bundle at build time.
 - `DIRECTUS_SERVER_TOKEN` must be the **existing runtime user's static token**, not the admin token.
 - `DIRECTUS_ADMIN_TOKEN` and `DIRECTUS_STATIC_ADMIN_TOKEN` must be the **existing admin user's static token**.

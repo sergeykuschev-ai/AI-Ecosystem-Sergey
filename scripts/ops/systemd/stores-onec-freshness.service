@@ -1,0 +1,11 @@
+[Unit]
+Description=Watch Miska and Business KPI 1C freshness
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/stores-onec-freshness
+Environment=MISKA_ONEC_FRESHNESS_THRESHOLD_SECONDS=2700
+Environment=BUSINESS_KPI_ONEC_FRESHNESS_THRESHOLD_SECONDS=129600
+UMask=0077
