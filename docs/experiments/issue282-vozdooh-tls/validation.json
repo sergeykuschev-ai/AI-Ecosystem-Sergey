@@ -27,9 +27,17 @@
     "wwwValidUntil": "2026-12-25T22:53:21Z",
     "privateKeysExported": false
   },
-  "productionFileUnchanged": true,
-  "productionModified": false,
-  "publicProductionCertificateLoadVerified": false,
-  "independentQa": "pending separate Kimi review",
-  "deploymentAuthorized": false
+  "independentQa": {
+    "verdict": "PASS",
+    "blockingFindings": 0,
+    "record": "independent-qa.json"
+  },
+  "initialStagingProductionChanges": false,
+  "postDeployment": {
+    "ownerApproved": true,
+    "state": "applied-verified",
+    "productionModified": true,
+    "publicProductionCertificateLoadVerified": true,
+    "record": "deployment.json"
+  }
 }
