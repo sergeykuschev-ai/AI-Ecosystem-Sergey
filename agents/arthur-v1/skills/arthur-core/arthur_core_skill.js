@@ -22,6 +22,7 @@ const CAPABILITIES = Object.freeze([
   { id: 'rescheduleTask', readOnly: false },
   { id: 'cancelReminder', readOnly: false },
   { id: 'moveReminder', readOnly: false },
+  { id: 'manageRecurring', readOnly: false },
 ]);
 
 const MAX_VISIBLE_TASKS = 10;
@@ -429,6 +430,16 @@ function createArthurCoreSkill({
       };
 
       try {
+        if (operation === 'manageRecurring') {
+          if (!remindersEnabled || typeof client.manageRecurring !== 'function') return taskClarificationResult('Повторяющиеся дела сейчас недоступны.');
+          if (parameters.clarification) return taskClarificationResult(parameters.clarification);
+          const result = await client.manageRecurring(configuredOwnerProfileId, parameters.operation, parameters, context);
+          const days = ['','пн','вт','ср','чт','пт','сб','вс'];
+          const text = result.status === 'ambiguous' ? 'Есть несколько расписаний. Скопируй команду для нужного:\n'+result.candidates.map(r=>`${r.weekdays.map(d=>days[d]).join(', ')} в ${r.localTime}:\nОтмени повтор ${r.id}`).join('\n') : result.status === 'listed'
+            ? (result.records.length ? result.records.map(r => `${r.title}: ${r.weekdays.map(d=>days[d]).join(', ')} в ${r.localTime}`).join('\n') : 'Повторяющихся дел нет.')
+            : ({created:'Повтор сохранён',duplicate:'Такой повтор уже есть',cancelled:'Повтор остановлен. Будущие задачи отменены',already_processed:'Это поручение уже обработано',ambiguous:'Есть несколько расписаний с таким названием. Укажи уникальное название',not_found:'Не нашёл такой активный повтор'}[result.status] || 'Не удалось сохранить повтор') + (result.record ? `: ${result.record.title}` : '.');
+          return {status:'success',data:{...result,responseText:text,summary:text},metadata:{source:'arthur-core'}};
+        }
         if (operation === 'getProfile') {
           return profileResult(await client.getProfile(configuredOwnerProfileId, context));
         }

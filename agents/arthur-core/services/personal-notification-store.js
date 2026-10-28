@@ -1,7 +1,7 @@
 'use strict';
 
 const { randomUUID } = require('node:crypto');
-const { mapCommon } = require('./postgres-store');
+const { PostgresArthurStore, mapCommon } = require('./postgres-store');
 
 // Keep the delivery ledger in the same durable database as personal tasks.
 function createPersonalNotificationStore(pool) {
@@ -14,8 +14,29 @@ function createPersonalNotificationStore(pool) {
       );
       if (!result.rows[0]) throw new Error('Active personal owner profile is required');
       await pool.query('SELECT delivery_key FROM arthur_personal_deliveries LIMIT 0');
-      await pool.query('SELECT remind_at FROM arthur_tasks LIMIT 0');
+      await pool.query('SELECT remind_at, recurring_id FROM arthur_tasks LIMIT 0');
+      await pool.query('SELECT id FROM arthur_personal_recurring LIMIT 0');
       return result.rows[0];
+    },
+    async materializeRecurring(ownerId, now) {
+      // One occurrence per owner-local date, including after restart; missed past dates are not replayed.
+      return new PostgresArthurStore({client:pool}).transaction(async store => {
+      await store.lockPersonalMemoryOwner(ownerId);
+      const created = await store.client.query(`INSERT INTO arthur_tasks(owner_id,domain,title,status,due_at,remind_at,source_type,source_ref,recurring_id,occurrence_date)
+        SELECT r.owner_id,'personal',r.title,'new',
+          (((($2::timestamptz AT TIME ZONE r.timezone)::date)::text || ' ' || r.local_time)::timestamp AT TIME ZONE r.timezone),
+          (((($2::timestamptz AT TIME ZONE r.timezone)::date)::text || ' ' || r.local_time)::timestamp AT TIME ZONE r.timezone),
+          'api','recurring:'||r.id::text||':'||(($2::timestamptz AT TIME ZONE r.timezone)::date)::text,r.id,($2::timestamptz AT TIME ZONE r.timezone)::date
+        FROM arthur_personal_recurring r JOIN arthur_profiles p ON p.id=r.owner_id
+        WHERE p.external_id=$1 AND p.active=true AND r.active=true
+          AND ($2::timestamptz AT TIME ZONE r.timezone)::date >= r.start_date
+          AND extract(isodow FROM ($2::timestamptz AT TIME ZONE r.timezone))::integer=ANY(r.weekdays)
+        ON CONFLICT (recurring_id,occurrence_date) WHERE recurring_id IS NOT NULL DO NOTHING RETURNING *`,[ownerId,now]);
+      const { AsyncArthurCoreService } = require('./async-arthur-core-service');
+      const service = new AsyncArthurCoreService({store,clock:()=>new Date(now)});
+      for (const row of created.rows) await service.audit(store,{context:service.context(),domain:'personal',action:'task.create',entityType:'task',entityId:row.id,after:{...mapCommon(row),ownerId}});
+      return created.rows.length;
+      });
     },
     async listTasks(ownerId) {
       const result = await pool.query(

@@ -1,5 +1,7 @@
 'use strict';
 
+const { parsePersonalCallback } = require('./personal_buttons');
+const { createArthurCoreClient } = require('../skills/arthur-core/core_client');
 const crypto = require('node:crypto');
 
 const { createArthurV1 } = require('../index');
@@ -150,6 +152,7 @@ class ArthurTelegramGateway {
       retryDelayMs: this.config.retryDelayMs,
       logger: this.logger,
     });
+    this.personalCore = options.personalCore || null;
     const mailSkill = options.mailSkill === undefined
       ? createYandexMailSkillFromConfig(this.config.yandexMail)
       : options.mailSkill;
@@ -310,7 +313,35 @@ class ArthurTelegramGateway {
     this.logger.info('gateway_stopped', null, {});
   }
 
+  async handlePersonalCallback(query) {
+    const user = String(query.from?.id);
+    const chat = String(query.message?.chat?.id);
+    let text = 'Не удалось обработать кнопку. Повтори команду текстом.';
+    let remove = false;
+    try {
+      if (!this.config.allowedUserIds.has(user) || chat !== user || !this.config.personalAutomation?.enabled || !this.config.personalAutomation.reminders) {
+        text = 'Эта кнопка недоступна.';
+      } else {
+        const parsed = parsePersonalCallback(query.data);
+        if (parsed) {
+          this.personalCore = this.personalCore || createArthurCoreClient({baseUrl:this.config.coreBaseUrl,token:this.config.coreToken,timeoutMs:this.config.coreTimeoutMs});
+          const result = await this.personalCore.applyPersonalTaskAction(this.config.ownerProfileId, parsed.id,
+            {...parsed,sourceRef:`telegram-callback:${query.id}`},{actorId:this.config.ownerProfileId,actorType:'user'});
+          text = result.status === 'updated' ? {done:'Задача выполнена',snooze:'Отложено на 30 минут. В тихие часы напоминание придёт утром',cancel:'Напоминание отменено'}[parsed.action]
+            : result.status === 'already_processed' ? 'Это нажатие уже обработано' : 'Задача или напоминание уже изменились. Используй новую команду.';
+          remove = ['updated','already_processed','stale','not_scheduled','not_found'].includes(result.status);
+        }
+      }
+    } catch (error) { this.logger.error('personal_callback_failed',null,{errorCode:error.code || error.name}); }
+    await this.telegram.answerCallbackQuery(query.id,text);
+    if (remove) {
+      try { await this.telegram.editMessageReplyMarkup(chat,query.message.message_id,{inline_keyboard:[]}); }
+      catch (error) { this.logger.warn('personal_keyboard_cleanup_failed',null,{errorCode:error.code || error.name}); }
+    }
+  }
+
   async handleUpdate(update) {
+    if (update.callback_query) return this.handlePersonalCallback(update.callback_query);
     const message = update.message || update.edited_message;
     if (!message || !message.text) {
       return;

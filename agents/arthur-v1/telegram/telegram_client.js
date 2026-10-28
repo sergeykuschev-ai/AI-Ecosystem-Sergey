@@ -133,6 +133,7 @@ function createTelegramClient({
   async function getUpdates(offset, limit = 100, pollTimeoutMs = 30000) {
     return call('getUpdates', {
       offset,
+      allowed_updates: ['message', 'edited_message', 'callback_query'],
       limit,
       timeout: Math.min(Math.max(Math.floor(pollTimeoutMs / 1000), 1), 120),
     }, {
@@ -160,6 +161,8 @@ function createTelegramClient({
     call,
     getUpdates,
     sendMessage,
+    answerCallbackQuery: (id, text) => call('answerCallbackQuery', {callback_query_id:id,text,cache_time:0}),
+    editMessageReplyMarkup: (chatId, messageId, replyMarkup) => call('editMessageReplyMarkup', {chat_id:chatId,message_id:messageId,reply_markup:replyMarkup}),
     proxyEnabled,
   };
 }

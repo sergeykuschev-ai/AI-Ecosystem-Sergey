@@ -182,6 +182,14 @@ class AsyncArthurCoreService {
     return record && record.ownerId === ownerId ? record : null;
   }
 
+  async manageRecurring(ownerId, operation, input, context) {
+    return require('./personal-recurring-service').manageRecurring(this, ownerId, operation, input, context);
+  }
+
+  async applyPersonalTaskAction(ownerId, id, input, context) {
+    return setTaskReminder(this, ownerId, id, input, context, input.action);
+  }
+
   async setTaskReminder(ownerId, id, input, context) {
     return setTaskReminder(this, ownerId, id, input, context);
   }

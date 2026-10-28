@@ -148,6 +148,16 @@ function createArthurHttpHandler({ runtime, bodyLimit = DEFAULT_BODY_LIMIT, apiT
         return sendJson(response, 200, { data: brief });
       }
 
+      if (path === '/v1/personal-recurring' && ['GET','POST'].includes(request.method)) {
+        const body = request.method === 'GET' ? { ownerId: requestUrl.searchParams.get('ownerId'), operation: 'list' } : await readJson(request, bodyLimit);
+        return sendJson(response, 200, { data: await runtime.service.manageRecurring(body.ownerId, body.operation, body, actorContext(request)) });
+      }
+      const actionMatch = path.match(/^\/v1\/tasks\/([^/]+)\/personal-action$/);
+      if (request.method === 'POST' && actionMatch) {
+        const body = await readJson(request, bodyLimit);
+        return sendJson(response, 200, { data: await runtime.service.applyPersonalTaskAction(body.ownerId, decodeURIComponent(actionMatch[1]), body, actorContext(request)) });
+      }
+
       const reminderMatch = path.match(/^\/v1\/tasks\/([^/]+)\/reminder$/);
       if (request.method === 'PATCH' && reminderMatch) {
         const body = await readJson(request, bodyLimit);
