@@ -1,0 +1,35 @@
+{
+  "issue": 282,
+  "candidateSha256": "1a43fc86651addd11a5013db88e2468206dd19f0509dafa540ae9485663aee08",
+  "baselineSha256": "ffeb771e21062176054633aab768bec8a6eb373037c537aeedd48c246b26a35f",
+  "caddyVersion": "2.9.1",
+  "caddyAdaptPassed": true,
+  "existingHostRouteSemanticsPreserved": true,
+  "newHostMatches": [
+    "vozdooh27.ru",
+    "www.vozdooh27.ru"
+  ],
+  "privateStaging": {
+    "at": "2026-10-28T12:51:03Z",
+    "listen": "loopback only",
+    "temporaryTrustedCertificate": true,
+    "tlsVerificationDisabled": false,
+    "healthHttp": 200,
+    "robotsHttp": 200,
+    "sitemapHttp": 200,
+    "sitemapUrls": 195,
+    "wwwRedirectHttp": 301,
+    "wwwRedirectLocation": "https://vozdooh27.ru/catalog?issue282=readonly",
+    "temporaryProcessStopped": true
+  },
+  "persistedPublicCertificates": {
+    "apexValidUntil": "2026-12-25T22:53:21Z",
+    "wwwValidUntil": "2026-12-25T22:53:21Z",
+    "privateKeysExported": false
+  },
+  "productionFileUnchanged": true,
+  "productionModified": false,
+  "publicProductionCertificateLoadVerified": false,
+  "independentQa": "pending separate Kimi review",
+  "deploymentAuthorized": false
+}
