@@ -66,6 +66,24 @@ function MetizMarketFeaturedSections() {
         </div>
       </section>
 
+      <section className="brand-landing-section" aria-labelledby="metiz-buying-questions">
+        <h2 id="metiz-buying-questions">Перед покупкой в «Метиз Маркете»</h2>
+        <div className="metiz-feature-grid">
+          <article className="metiz-feature-card">
+            <h3>Где купить крепёж и инструмент в Амурске?</h3>
+            <p>«Метиз Маркет» находится на проспекте Победы, 16. На сайте есть разделы <Link href="/metiz-market/samorezy/">саморезов</Link>, <Link href="/metiz-market/bolty-gayki-shayby/">болтов, гаек и шайб</Link>, а также <Link href="/metiz-market/ruchnoy-instrument/">ручного инструмента</Link>. Наличие нужного размера или модели уточняйте у продавца.</p>
+          </article>
+          <article className="metiz-feature-card">
+            <h3>Что взять с собой для подбора крепежа?</h3>
+            <p>Принесите образец заменяемой детали либо фото с размерами. Для резьбового крепежа нужны диаметр, шаг резьбы и длина; для <Link href="/metiz-market/ankery-i-dyubeli/">анкеров и дюбелей</Link> — материал основания и сведения о том, что нужно закрепить.</p>
+          </article>
+          <article className="metiz-feature-card">
+            <h3>Как уточнить цену и наличие перед поездкой?</h3>
+            <p>Позвоните по номеру в блоке контактов ниже и сообщите тип крепежа, размеры и количество либо название инструмента. Страницы сайта помогают выбрать направление покупки; актуальную цену и наличие конкретной позиции уточняйте в магазине.</p>
+          </article>
+        </div>
+      </section>
+
       <section className="brand-landing-section" aria-labelledby="metiz-bonus">
         <h2 id="metiz-bonus">Бонусная программа</h2>
         <ul className="metiz-bonus-facts">

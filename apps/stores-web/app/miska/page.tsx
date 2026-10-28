@@ -14,7 +14,7 @@ import { MISKA_SEO_CATEGORIES } from "@/lib/miska/seo-categories";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = createPageMetadata({
-  title: "МИСКА ЗООМАГАЗИН — зоотовары в Амурске",
+  title: "Зоомагазин «Миска» в Амурске — корма и зоотовары",
   description:
     "Зоомагазин «Миска» в Амурске на проспекте Победы, 16: корма для собак и кошек, лакомства, наполнители, товары для ухода, игрушки, амуниция, витамины и добавки.",
   path: "/miska/",
@@ -156,6 +156,24 @@ function MiskaFeaturedSections() {
       </section>
 
       <MiskaAssistanceSection />
+
+      <section className="brand-landing-section" aria-labelledby="miska-buying-questions">
+        <h2 id="miska-buying-questions">Перед покупкой в зоомагазине «Миска»</h2>
+        <div className="miska-feature-grid">
+          <article className="miska-feature-card">
+            <h3>Где купить корм для кошки или собаки в Амурске?</h3>
+            <p>«Миска» находится на проспекте Победы, 16. В разделе <Link href="/miska/korm-dlya-koshek-i-sobak/">кормов для кошек и собак</Link> собраны основные форматы питания и вопросы, которые помогут подготовиться к выбору. Наличие конкретного корма и фасовки уточняйте по телефону магазина перед поездкой.</p>
+          </article>
+          <article className="miska-feature-card">
+            <h3>Что уточнить при выборе наполнителя?</h3>
+            <p>Расскажите, какой наполнитель кошка использует сейчас, какой у неё лоток и что для вас важно при уборке. Посмотрите раздел <Link href="/miska/napolniteli-i-tualety/">наполнителей и туалетов</Link>, чтобы сравнить основные варианты перед покупкой.</p>
+          </article>
+          <article className="miska-feature-card">
+            <h3>Как уточнить цену и наличие товара?</h3>
+            <p>Позвоните по номеру, указанному в блоке контактов ниже. Назовите бренд, точное название, фасовку или размер товара. Страницы разделов описывают ассортимент магазина; актуальные остатки и цены уточняются у продавца.</p>
+          </article>
+        </div>
+      </section>
 
       <section className="brand-landing-section" aria-labelledby="miska-bonus">
         <h2 id="miska-bonus">Бонусная программа</h2>
