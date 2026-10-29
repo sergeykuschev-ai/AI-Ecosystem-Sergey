@@ -1,59 +1,55 @@
-# VOZDOOH public TLS route recovery candidate
+# VOZDOOH HTTPS recovery and Webmaster investigation
 
-Related: [issue #282](https://github.com/sergeykuschev-ai/AI-Ecosystem-Sergey/issues/282). Prepared 28 October 2026. This directory is a reviewable operational recovery proposal. It does not change the tracked application, live Caddyfile, container images, certificates, or running services.
+Related: [issue #282](https://github.com/sergeykuschev-ai/AI-Ecosystem-Sergey/issues/282). Current status: **29 October 2026**.
 
-## Confirmed incident
+VOZDOOH public HTTPS was restored on 28 October after the owner's explicit approval, private staging and a separate independent Kimi review. The subsequent read-only investigation found explicit service limitations in Yandex Webmaster. **The API summary value 0 is not a reliable proof of current total deindexing.** The actual current index size remains unconfirmed.
 
-The active Caddy configuration and its mounted source file no longer contain vozdooh27.ru or www.vozdooh27.ru. Only the three AmurskMarket host matches remain. The live file was modified at 11:04:17 UTC on 28 October. Public TLS probes from the tested direct and German-proxy routes fail after ClientHello, before an HTTP response or certificate is returned.
+## Verified production recovery
 
-The existing vozdooh-web-domain container remains healthy on port 3411. Read-only upstream requests return HTTP 200 for health, robots.txt and sitemap.xml. Robots permits public crawling and the sitemap has 195 URLs. The persisted apex and www certificate files contain the correct respective names and expire on 25 December 2026. This checks public certificate metadata only; no private key was exported.
+The active shared Caddyfile had lost both VOZDOOH domain blocks. Before recovery, tested direct and German-proxy routes failed TLS before receiving a certificate or HTTP response, while the existing application upstream remained healthy.
 
-## Exact proposed change
+The approved append-only patch restored:
+- www.vozdooh27.ru: permanent redirect to the HTTPS apex, preserving the URI;
+- vozdooh27.ru: reverse proxy to the existing vozdooh-web-domain:3411 upstream.
 
-Append the two original VOZDOOH host blocks from the saved 6 October Caddyfile. The apex proxies to the existing vozdooh-web-domain:3411 upstream; www redirects to the canonical HTTPS apex while preserving the URI.
+The exact candidate passed adaptation with the existing Caddy 2.9.1 binary, private TLS staging and independent Kimi QA with no blocking findings. The operator rechecked the live baseline, saved a protected backup, preserved the file bind mount inode during the write and performed a normal Caddy reload. Containers, application code and images were unchanged.
 
-Use restore-vozdooh-only.patch against the current live configuration. Do not replace the entire live file with an older backup or with the repository's historical Caddyfile: those are different baselines and can discard current AmurskMarket behavior.
+- Baseline SHA-256: ffeb771e21062176054633aab768bec8a6eb373037c537aeedd48c246b26a35f
+- Applied candidate SHA-256: 1a43fc86651addd11a5013db88e2468206dd19f0509dafa540ae9485663aee08
+- Finished: 2026-10-28T13:06:08Z
+- Backup: /opt/vozdooh/backups/issue282-tls-20261028T130602Z
+- Result: applied and verified; rollback was not needed.
 
-Expected current live file: /opt/stores-web/app/Caddyfile
+External checks from Germany and Mac verified the public TLS certificate. Homepage, product, robots and sitemap returned 200; www returned 301 and HTTP upgraded to HTTPS with 308. Existing AmurskMarket/CMS/Miska route results were preserved. Homepage and product source HTML contained H1, index/follow and correct canonical URLs, with no global X-Robots-Tag noindex.
 
-- SHA-256 before: ffeb771e21062176054633aab768bec8a6eb373037c537aeedd48c246b26a35f
-- SHA-256 of the full proposed candidate: 1a43fc86651addd11a5013db88e2468206dd19f0509dafa540ae9485663aee08
+These are historical recovery records. Do not reapply the patch blindly or replace the whole live file with an old backup. Any future production change needs a fresh baseline, reviewed candidate and the owner's authorization. Use the protected backup and the bind-mount-safe procedure if a separately justified rollback is required.
 
-Any mismatch requires a new comparison and review. Never force-apply against concurrent edits.
+## Webmaster service limitations confirmed on 29 October
 
-## Validation already performed
+The authenticated Webmaster interface for the correct verified HTTPS site shows:
+- Dashboard: data updates are temporarily unavailable; displayed search updates end on 10 October.
+- Diagnostics: data updates and report export are temporarily unavailable.
+- Sitemap: read-only mode; adding a sitemap and requesting its recrawl are unavailable. The existing sitemap is **queued for processing**, with the displayed added date **04.10.2026**.
+- Pages in search: graphs/export are unavailable and data may be delayed. All-pages and excluded-pages tabs are disabled; visible changes are dated 10 October.
 
-The exact existing Caddy v2.9.1 binary adapted the full candidate successfully. Parsed host matches add only vozdooh27.ru and www.vozdooh27.ru. Existing host-route semantics are identical, ignoring Caddy's generated route-group identifiers. The candidate is append-only relative to the live baseline.
+The banners link to [Yandex's infrastructure incident notice](https://yandex.ru/company/news/09-10-2026-01). These tool-specific warnings confirm a freshness problem; they do not establish that the actual search crawler or search index is fully stopped.
 
-Private staging used the same Caddy binary, a listener bound only to loopback, a temporary locally trusted test certificate, and read-only requests to the existing upstream. TLS verification stayed enabled:
+A fresh API HTTP response still reports summary 0 versus 67 in-search records dated 8–10 October. All 67 records occur in today's sitemap. The robot-discovered sitemap list is empty; the user-added entry exists, and the UI now explains its queued state. NO_SITEMAPS has an old last-state-update timestamp of 10 October, rather than a fresh verified post-recovery finding.
 
-- health: HTTP 200;
-- robots.txt: HTTP 200, public crawling permitted;
-- sitemap.xml: HTTP 200, 195 URL entries;
-- www /catalog?issue282=readonly: HTTP 301 to https://vozdooh27.ru/catalog?issue282=readonly.
+Explicit query history requests for 1–28 October and 31 July–28 October return zero-valued show/click series, with no average-position series. The popular-query response itself ends on **6 October**, despite a requested end date of 28 October. CTR is undefined for zero reported impressions. These data cannot establish current traffic or full-period reporting completeness. Metrica aggregates were collected separately for the owner; visits are a different measure.
 
-The temporary server was stopped. The live Caddyfile remained byte-for-byte unchanged. This staging proves the restored route semantics and upstream availability. It does not prove the public production certificate will be loaded until an authorized production reload and external checks occur.
+The existing daily public audit at 2026-10-29T05:31:21Z scanned all 195 sitemap URLs: all returned 200, with no HTTP errors or technical findings recorded by that audit. This is a point-in-time check, not a guarantee against future errors.
 
-Independent Kimi review of the candidate and these evidence files is a separate required gate; its result is recorded separately. Self-review is not that gate.
+## Evidence and remaining gate
 
-## Release and rollback gates
+- [Exact operational patch](restore-vozdooh-only.patch)
+- [Staging and validation](validation.json)
+- [Independent Kimi review](independent-qa.json)
+- [Approved deployment and external checks](deployment.json)
+- [29 October indexing and service-status evidence](indexation-20261029.json)
 
-No production release is authorized by this draft. After owner approval and a passing independent review, the trusted operator must:
+No new production change, sitemap resubmission, recrawl request, logging change, scheduler or model fallback was performed during the 29 October continuation. HTTP access logging was not configured, so actual verified YandexBot hits cannot be established from missing logs.
 
-1. Recheck the live-file hash, active configuration, expected upstream, and certificate metadata. Preserve a dated, hashed rollback copy. Stop on a conflicting edit.
-2. Reproduce the reviewed candidate and verify its exact hash. Validate it with the existing Caddy binary before changing production.
-3. Preserve the existing file bind mount: a host-side atomic path replacement can leave the running container bound to the old inode. Use the established deployment convention or a locked in-place update of the already mounted file, followed by the existing Caddy reload procedure. Do not recreate containers or alter other services.
-4. Verify externally, with certificate validation enabled, the apex and www TLS handshakes, canonical redirect, homepage, robots, sitemap and a representative product page. Confirm the AmurskMarket routes and CMS access behavior remain unchanged.
-5. On a failed reload or failed regression gate, restore the exact saved baseline through the same bind-mount-safe procedure and reload. Report the failed gate; never substitute a new stack, loosen TLS, or retry with another model.
+Keep #282 open. Once Webmaster updates and tools recover, recheck processing of the existing sitemap and dated URL/index/query data. A bounded recrawl should be considered only if fresh evidence warrants it. Neither 0 nor the stale count 67 is a confirmed current index size, and index recovery has not been claimed.
 
-Keep the GitHub issue open: restoring public HTTPS is not the same as proving index recovery.
-
-## Webmaster findings and uncertainty
-
-A fresh read-only request for the verified HTTPS apex returned summary searchable_pages_count=0, while in-search/samples returned count=67 with older October crawl timestamps. The diagnostics report NO_SITEMAPS PRESENT since 10 October; the robot-discovered sitemap list is empty, but a user-added https://vozdooh27.ru/sitemap.xml entry exists from 4 October.
-
-Explicit TOTAL_SHOWS and TOTAL_CLICKS history requests return zero-valued series for the last 28 and 90 complete days. This differs from the older collector's empty arrays, which were obtained without explicit query indicators. Metrica search visits are a separate measure.
-
-These contradictory API snapshots do not prove that every page is absent from search today, and today's TLS outage does not establish the cause of an earlier zero summary. After HTTPS recovery, reconcile freshness and history, inspect sitemap processing and verified crawler logs, then prepare any necessary narrowly scoped follow-up. This proposal does not submit sitemap, request recrawl, alter robots, or modify Webmaster settings.
-
-Primary API references: [summary](https://yandex.ru/dev/webmaster/doc/ru/reference/host-id-summary), [diagnostics](https://yandex.ru/dev/webmaster/doc/ru/reference/host-diagnostics-get), [sitemaps](https://yandex.ru/dev/webmaster/doc/ru/reference/host-sitemaps-get), [query history](https://yandex.ru/dev/webmaster/doc/ru/reference/host-search-queries-history-all).
+API references: [summary](https://yandex.ru/dev/webmaster/doc/ru/reference/host-id-summary), [sitemaps](https://yandex.ru/dev/webmaster/doc/ru/reference/host-sitemaps-get), [query history](https://yandex.ru/dev/webmaster/doc/ru/reference/host-search-queries-history-all), [popular queries and returned date limits](https://yandex.ru/dev/webmaster/doc/ru/reference/host-search-queries-popular).
