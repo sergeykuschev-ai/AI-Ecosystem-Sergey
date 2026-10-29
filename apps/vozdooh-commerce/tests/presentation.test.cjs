@@ -111,7 +111,7 @@ test('rendered catalog and product pages hide source noise and preserve debug/fi
     const details = renderToStaticMarkup(await Product({ params: Promise.resolve({ slug: 'test-pictured' }), searchParams: Promise.resolve({}) }))
     assert.doesNotMatch(details, /PREVIEW 1C|Пока не в продаже|Добавить в корзину/)
     assert.match(details, /Роза &amp; Уд Luxury collection, 250 мл/)
-    assert.match(details, /<h1>ROSE OUD<\/h1><p class="productTranslation">Роза и уд<\/p>/)
+    assert.match(details, /<h1>ROSE OUD — диффузор с палочками 250 мл<\/h1><p class="productTranslation">Роза и уд<\/p>/)
     assert.match(normal, /class="productTranslation">Роза и уд/)
     assert.match(details, /Verified description/)
     assert.match(details, /Цена не указана/)
