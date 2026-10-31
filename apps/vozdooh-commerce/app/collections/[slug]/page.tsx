@@ -1,3 +1,4 @@
+import { discoveryDescriptions } from '../../../src/seo/discoveryDescriptions'
 import { landingStructuredData, serializeStructuredData } from '../../../src/catalog/structuredData'
 import { ContextualCatalogLinks } from '../../../components/ContextualCatalogLinks'
 import type { Metadata } from 'next'
@@ -35,10 +36,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     'home-fragrance': 'Ароматы для дома — подборка форматов и композиций | VOZDOOH',
   }
   const title = seoTitles[collection.slug] ?? `${collection.name} — коллекция VOZDOOH`
+  const description = discoveryDescriptions[collection.slug] ?? collection.description
   return {
     title,
-    description: collection.description,
-    openGraph: { title, description: collection.description },
+    description,
+    openGraph: { title, description },
     alternates: { canonical: collectionPath(collection.slug) },
     robots: publicRobots(),
   }
