@@ -1,3 +1,4 @@
+import { discoveryDescriptions } from '../../src/seo/discoveryDescriptions'
 import type { Metadata } from 'next'
 import { publicRobots } from '../../src/seo/indexing'
 import Image from 'next/image'
@@ -13,8 +14,8 @@ export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   title: 'Коллекции — VOZDOOH',
-  description: 'Редакционные подборки VOZDOOH по характеру аромата, настроению и пространству.',
-  openGraph: { title: 'Коллекции — VOZDOOH', description: 'Редакционные подборки VOZDOOH по характеру аромата, настроению и пространству.' },
+  description: discoveryDescriptions.collections,
+  openGraph: { title: 'Коллекции — VOZDOOH', description: discoveryDescriptions.collections },
   alternates: { canonical: '/collections' },
   robots: publicRobots(),
 }
