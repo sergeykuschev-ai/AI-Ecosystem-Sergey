@@ -1,3 +1,4 @@
+import { discoveryDescriptions } from '../../src/seo/discoveryDescriptions'
 import type { Metadata } from 'next'
 import { publicRobots } from '../../src/seo/indexing'
 import Link from 'next/link'
@@ -8,7 +9,7 @@ import { getCatalogRepository } from '../../src/catalog/source'
 import { withValidImages } from '../../src/catalog/validImages'
 
 export const dynamic = 'force-dynamic'
-export const metadata: Metadata = { title: 'Бренды ароматов для дома — VOZDOOH', description: 'Знакомство с брендами интерьерной парфюмерии в коллекции VOZDOOH.',
+export const metadata: Metadata = { title: 'Бренды ароматов для дома — VOZDOOH', description: discoveryDescriptions.brands,
   alternates: { canonical: '/brands' }, robots: publicRobots() }
 
 export default async function DiscoveryPage() {
