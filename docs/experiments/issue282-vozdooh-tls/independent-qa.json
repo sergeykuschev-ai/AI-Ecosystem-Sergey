@@ -1,0 +1,114 @@
+{
+  "issue": 282,
+  "reviewer": "independent-qa-kimi-session",
+  "reviewedAt": "2026-10-28T12:54:44Z",
+  "scope": "Independent QA review of operator-prepared TLS recovery candidate. Read-only. No implementation, no deployment, no production writes, no public network requests.",
+  "candidateSha256": "1a43fc86651addd11a5013db88e2468206dd19f0509dafa540ae9485663aee08",
+  "baselineSha256": "ffeb771e21062176054633aab768bec8a6eb373037c537aeedd48c246b26a35f",
+  "sha256VerifiedLocally": true,
+  "verdict": "PASS",
+  "verdictMeaning": "Candidate is a safe, minimal, append-only recovery proposal with clearly stated limits. PASS is a review of the proposal only; it is not a claim that any deployment has occurred.",
+  "deploymentClaimed": false,
+  "productionDeploymentAuthorized": false,
+  "publicAcmeVerification": false,
+  "reviewedChecks": [
+    {
+      "check": "candidateSha256 recomputed locally and equals manifest.json candidateSha256 and staging-qa.json candidateSha256",
+      "result": "PASS",
+      "evidence": "sha256sum Caddyfile.candidate = 1a43fc86651addd11a5013db88e2468206dd19f0509dafa540ae9485663aee08"
+    },
+    {
+      "check": "baselineSha256 recomputed locally and equals manifest.json baselineSha256",
+      "result": "PASS",
+      "evidence": "sha256sum Caddyfile.before = ffeb771e21062176054633aab768bec8a6eb373037c537aeedd48c246b26a35f"
+    },
+    {
+      "check": "Append-only change: candidate lines 1-34 byte-identical to Caddyfile.before (34 lines); candidate is 42 lines",
+      "result": "PASS",
+      "evidence": "diff Caddyfile.before <(head -n 34 Caddyfile.candidate) -> no output"
+    },
+    {
+      "check": "Appended block matches restore-vozdooh-only.patch exactly: blank line, www.vozdooh27.ru redirect block, blank line, vozdooh27.ru reverse_proxy block",
+      "result": "PASS",
+      "evidence": "diff <(tail -n +35 Caddyfile.candidate) expected block -> no output; patch file contains only additions after cms.amurskmarket.ru context"
+    },
+    {
+      "check": "Original Amursk routes and protections preserved verbatim: global email block, miska static section (path matcher, root /data/miska-section, try_files static then web:3000 fallback), /api/1c/exchange* -> onec-sync:8080, default handle -> web:3000",
+      "result": "PASS",
+      "evidence": "Byte-identical prefix (check 3); candidate-adapted.json shows unchanged routes for amurskmarket.ru (group9 subroutes, file_server, onec-sync, web:3000)"
+    },
+    {
+      "check": "Original www.amurskmarket.ru canonical 301 redirect preserved verbatim",
+      "result": "PASS",
+      "evidence": "Byte-identical prefix; candidate-adapted.json route for www.amurskmarket.ru -> static_response 301 to https://amurskmarket.ru{http.request.uri}"
+    },
+    {
+      "check": "Original cms.amurskmarket.ru route preserved verbatim",
+      "result": "PASS",
+      "evidence": "Byte-identical prefix; candidate-adapted.json route cms.amurskmarket.ru -> reverse_proxy directus:8055"
+    },
+    {
+      "check": "New apex vozdooh27.ru upstream is vozdooh-web-domain:3411",
+      "result": "PASS",
+      "evidence": "Caddyfile.candidate line 41; candidate-adapted.json host vozdooh27.ru -> reverse_proxy dial vozdooh-web-domain:3411; matches manifest.newHostMatches"
+    },
+    {
+      "check": "New www.vozdooh27.ru canonical redirect preserves URI (scheme https, apex host, {uri} placeholder, permanent 301)",
+      "result": "PASS",
+      "evidence": "Caddyfile.candidate lines 36-38; candidate-adapted.json static_response 301 Location https://vozdooh27.ru{http.request.uri}; staging observed location https://vozdooh27.ru/catalog?issue282=readonly preserves path and query"
+    },
+    {
+      "check": "No broader access changes: no modifications to existing site blocks, no new auth, no listener/import changes, no removal of protections",
+      "result": "PASS",
+      "evidence": "Byte-identical 34-line prefix; appended content introduces only the two new site blocks; global options block unchanged; adapted JSON adds exactly two routes (www.vozdooh27.ru 301, vozdooh27.ru proxy) and TLS automation subjects for the two new names only"
+    },
+    {
+      "check": "Staging honesty: staging-qa.json used same Caddy binary (v2.9.1), loopback 127.0.0.1, temporary locally trusted certificate, read-only GET against live upstream, temporary process stopped, production file unchanged",
+      "result": "PASS",
+      "evidence": "staging-qa.json fields caddyVersion, listenAddress, scope, temporaryProcessStopped=true, productionFileUnchanged=true, productionModified=false, publicAcmeCertificateTested=false"
+    },
+    {
+      "check": "Staging scope correctly limited: proves candidate config adapts and restored route semantics behave as configured; does not prove public ACME issuance or public TLS restoration",
+      "result": "PASS",
+      "evidence": "manifest.json publicTlsRestorationVerified=false, stagingCompleted=false(at manifest time), productionModified=false; staging-qa.json publicAcmeCertificateTested=false"
+    },
+    {
+      "check": "No deployment claimed: manifest productionModified=false, liveConfigUnchanged=true, deploymentAuthorized=false",
+      "result": "PASS"
+    },
+    {
+      "check": "Webmaster fresh snapshot interpretation: summary.searchable_pages_count=0 contradicted by in-search samples count=67 (last_access 2026-10-08..2026-10-10) and search-events APPEARED_IN_SEARCH on 2026-10-08..10; counters treated as contradictory/stale, not as proof all pages unindexed today",
+      "result": "NOTED_IN_REVIEW"
+    },
+    {
+      "check": "indexing-samples (count 50337) carry access_date 2023-07-20/21 legacy URL examples; not evidence of a current 2026 crawl",
+      "result": "NOTED_IN_REVIEW"
+    },
+    {
+      "check": "Sitemap state: robot-discovered sitemaps empty, user-added sitemap from 2026-10-04 exists, diagnostics NO_SITEMAPS PRESENT with last_state_update 2026-10-10T08:07:08+03:00 and not refreshed since",
+      "result": "NOTED_IN_REVIEW"
+    },
+    {
+      "check": "Query histories explicitly requested TOTAL_SHOWS and TOTAL_CLICKS for 28d and 90d windows; all values 0.0; zero-valued series not treated as proof of zero index",
+      "result": "NOTED_IN_REVIEW"
+    },
+    {
+      "check": "Initial report.md overstatements identified and corrected in review.md (tested-routes vs all networks; TLS blocks retrieval vs guaranteed instantaneous zero index; edge presumed nginx vs verified Caddy; summary UNKNOWN superseded by operator fresh snapshot)",
+      "result": "CORRECTED_IN_REVIEW"
+    }
+  ],
+  "blockingFindings": [],
+  "nonBlockingNotes": [
+    "Candidate-adapted.json shows Caddy automatic HTTPS will add ACME/ZeroSSL issuance for vozdooh27.ru and www.vozdooh27.ru. This is expected and necessary for the fix, but actual public certificate issuance and handshake behavior remain unverified until an authorized deployment with post-deploy public checks.",
+    "Manifest upstream probes (200 on /api/health, /robots.txt, /sitemap.xml with 195 URLs) are private read-only GETs; they prove upstream liveness, not public TLS.",
+    "Webmaster counters are internally inconsistent and partially stale (state frozen around 2026-10-10); post-recovery re-crawl and re-check of Webmaster data are required before any indexation conclusion."
+  ],
+  "limitations": [
+    "Review is local-file only: no public requests, no network checks, no production access.",
+    "Independent QA cannot confirm the live production Caddyfile still equals Caddyfile.before at deploy time; operator must re-verify hash of /opt/stores-web/app/Caddyfile immediately before any authorized apply.",
+    "backupBlockSource (/opt/stores-web/app/Caddyfile.backup-private-cms-20261006T094405Z) was not inspected by this review; provenance is taken from manifest.json. The candidate content itself was verified byte-for-byte.",
+    "Staging used a temporary locally trusted certificate on loopback; certificateVerification=true in staging-qa.json means locally trusted, not publicly trusted. This is not public ACME verification.",
+    "PASS authorizes nothing: productionDeploymentAuthorized remains false and deployment, if any, is a separate owner decision with separate verification.",
+    "Indexing state conclusions are explicitly out of scope for PASS/FAIL of the candidate; Webmaster API data has contradictory and stale counters."
+  ]
+}
