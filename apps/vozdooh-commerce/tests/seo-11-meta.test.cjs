@@ -34,16 +34,21 @@ test('all eight targeted collection slugs exist; other collections keep their de
   }
   for (const slug of ['vozdooh-selection', 'gift-diffusers', 'home-fragrance']) assert.equal(discoveryDescriptions[slug], undefined)
 })
-// SHA-256 of UTF-8 source at afb3ebcb8978caed8edf2f457cd33d0c9d8a61ab.
+// Hub page pins anchor to the shipped #287 source (38e0b4086b60a0e5431bd3e0c3b105d32d834c67)
+// AFTER the metadata normalization applied in the test below; each pinned file was verified
+// byte-identical to that release before re-pinning on 2026-11-01. The pre-release pins
+// referenced afb3ebcb8978caed8edf2f457cd33d0c9d8a61ab (before #287 rewired the hubs).
 // Normalize CRLF to LF for identical Windows/Linux source invariance checks.
+// 2026-11-01 (task #288): app/sitemap.ts pin re-pinned with the deliberate /moscow and
+// /saint-petersburg candidate routes included.
 const baselineHashes = {
-  "app/brands/page.tsx": "c1d43e7f3b20a6c02bdfa0141c9bffc4c067b55272123fcb2357ff90f02e4fa7",
-  "app/categories/page.tsx": "1008189bcb643f23e5d87ddc8d80bf04663195b1ef5fadab4f9ad2eb95eb26f0",
-  "app/collections/page.tsx": "0bbc202093e923b27b82be6b0985f444e91939684b7e4f730b0fd52a2d442041",
-  "app/collections/[slug]/page.tsx": "0b79e96282aa1207e3f5bd8079bd4aec87bccabc869b298d2f4944246869295f",
+  "app/brands/page.tsx": "55cbc5ca15a9d3eca85221cc399fed1426175d82218bd78d469a2a503639b157",
+  "app/categories/page.tsx": "7148c4bb7094f654d44ddc3465d66e188b11b4d18730b947b01ae8a8d6eb72a7",
+  "app/collections/page.tsx": "860c6b95d92fa5ad3211c64a683bfa34c0afc33520a7199b6bd6733fddbb11bc",
+  "app/collections/[slug]/page.tsx": "0763745037a3170a1f992af281addfcc8b5d1f66d44322c8ad82088d4c22240e",
   "src/catalog/collections.ts": "2a948543c2f769bfe2615e326d42d3923124da10f4b56dc97adf05dd3f5be0a4",
   "src/catalog/landings.ts": "220019290738709ddc5b3af3683d795525a6a1bd027714f48a905d5522aec78f",
-  "app/sitemap.ts": "158e1b7069c9c78a542caa04861622bcafeefe745f4af9928609026d58803b82",
+  "app/sitemap.ts": "3138d4ee18a4e60021ad2afde22c50a71c198951e94c47e55d67a472005de35d",
   "src/catalog/structuredData.ts": "08767cbccbcb63e8779f32b691a160e99bdf51aa014072a22d173b3fbb174073"
 }
 const baselineHubDescriptions = {

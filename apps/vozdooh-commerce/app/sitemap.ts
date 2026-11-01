@@ -30,6 +30,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     '/business',
     '/contacts',
     '/khabarovsk',
+    '/moscow',
+    '/saint-petersburg',
     '/delivery',
   ].map((path) => ({ url: `${base}${path}`, changeFrequency: 'weekly', priority: path === '/' ? 1 : 0.6 }))
 
