@@ -15,7 +15,7 @@
     "audit:seo:local": "tsx scripts/seo-audit/regression.ts",
     "audit:seo:runtime-local": "AUDIT_BASE_URL=http://127.0.0.1:3000 tsx scripts/seo-audit/production.ts",
     "miska:pilot-sitemap": "tsx scripts/miska-section/build-pilot-sitemap.ts",
-    "miska:apply-titles": "tsx scripts/miska-section/apply-product-titles.ts",
+    "miska:build-candidate": "tsx scripts/miska-section/build-candidate-bundle.ts",
     "indexnow:key-urls": "tsx scripts/indexnow/submit-key-urls.ts",
     "yandex-webmaster": "tsx scripts/yandex-webmaster.ts",
     "directus:schema:apply": "tsx scripts/directus/schema.ts",

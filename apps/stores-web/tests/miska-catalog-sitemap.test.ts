@@ -17,6 +17,11 @@ import {
   getMiskaSectionSitemapPaths,
   renderMiskaSectionSitemap,
 } from "@/scripts/miska-section/build-pilot-sitemap";
+import {
+  allowApiAssetsInRobots,
+  API_ASSETS_ALLOW_LINE,
+  assertCandidateRobots,
+} from "@/scripts/miska-section/candidate-robots";
 
 const ORIGIN = "https://stores-test.local";
 
@@ -109,5 +114,67 @@ describe("sitemap coverage checks (audit core)", () => {
     const issues = findCrossSitemapDuplicates(map);
     assert.equal(issues.length, 1);
     assert.equal(issues[0].severity, "warning");
+  });
+});
+
+const LIVE_ROBOTS = [
+  "User-Agent: *",
+  "Allow: /",
+  "Disallow: /api/",
+  "Disallow: /admin/",
+  "Disallow: /preview/",
+  "Disallow: /directus/",
+  "",
+  "User-Agent: OAI-SearchBot",
+  "Allow: /",
+  "Disallow: /api/",
+  "Disallow: /admin/",
+  "Disallow: /preview/",
+  "Disallow: /directus/",
+  "",
+  "Host: https://amurskmarket.ru",
+  "Sitemap: https://amurskmarket.ru/sitemap.xml",
+  "Sitemap: https://amurskmarket.ru/sitemap-miska-pilot.xml",
+  "",
+].join("\n");
+
+describe("candidate robots.txt transform", () => {
+  test("inserts the narrow allow before every blanket /api/ disallow", () => {
+    const patched = allowApiAssetsInRobots(LIVE_ROBOTS);
+    const allowCount = patched.split("\n").filter((line) => line === API_ASSETS_ALLOW_LINE).length;
+    assert.equal(allowCount, 2, "one allow per user-agent group");
+    // removing the inserted lines must restore the original file byte for byte
+    const stripped = patched
+      .split("\n")
+      .filter((line) => line !== API_ASSETS_ALLOW_LINE)
+      .join("\n");
+    assert.equal(stripped, LIVE_ROBOTS);
+    assert.doesNotThrow(() => assertCandidateRobots(patched));
+  });
+
+  test("is idempotent: an already patched robots.txt is returned unchanged", () => {
+    const once = allowApiAssetsInRobots(LIVE_ROBOTS);
+    assert.equal(allowApiAssetsInRobots(once), once);
+  });
+
+  test("refuses to guess when there is no blanket /api/ disallow", () => {
+    assert.throws(() => allowApiAssetsInRobots("User-Agent: *\nAllow: /\n"), /no `Disallow: \/api\/` group/);
+  });
+
+  test("invariant check catches a lost disallow", () => {
+    const patched = allowApiAssetsInRobots(LIVE_ROBOTS).replaceAll("Disallow: /admin/\n", "");
+    assert.throws(() => assertCandidateRobots(patched), /lost `Disallow: \/admin\/`/);
+  });
+
+  test("invariant check catches a lost sitemap directive", () => {
+    const patched = allowApiAssetsInRobots(LIVE_ROBOTS).replace(
+      "Sitemap: https://amurskmarket.ru/sitemap-miska-pilot.xml\n",
+      "",
+    );
+    assert.throws(() => assertCandidateRobots(patched), /lost `Sitemap:/);
+  });
+
+  test("invariant check requires the allow line", () => {
+    assert.throws(() => assertCandidateRobots(LIVE_ROBOTS), /missing `Allow: \/api\/assets\/`/);
   });
 });
