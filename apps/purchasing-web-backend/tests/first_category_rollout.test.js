@@ -6,6 +6,12 @@ const { after, test } = require('node:test');
 
 const { OwnerDecisionService } = require('../application/owner_decision_service');
 
+const {
+  stubFsyncSyncForWindows,
+} = require('./stub_fsync_windows');
+
+stubFsyncSyncForWindows(fs);
+
 const RUN_ID = '12121212-1212-4121-8121-121212121212';
 const ROW_ID = 'smartzapas:fixture:Лист_1:10';
 

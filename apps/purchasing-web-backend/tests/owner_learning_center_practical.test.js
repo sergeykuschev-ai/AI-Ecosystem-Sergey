@@ -58,6 +58,12 @@ const {
   OwnerLearningCenterService,
 } = require('../application/owner_learning_center_service');
 
+const {
+  stubFsyncSyncForWindows,
+} = require('./stub_fsync_windows');
+
+stubFsyncSyncForWindows(fs);
+
 const REPOSITORY_ROOT = path.resolve(__dirname, '../../..');
 const PRODUCTION_FILES = [
   'owner-approved-rules.json',

@@ -29,6 +29,12 @@ const {
   ownerDecisionView,
 } = require('../public/app');
 
+const {
+  stubFsyncSyncForWindows,
+} = require('./stub_fsync_windows');
+
+stubFsyncSyncForWindows(fs);
+
 // Regression suite for the bug «товары не уходят из списка после решения
 // владельца». Semantics under test (explicitly fixed rules):
 // - «Нужно решить» = owner_review_required positions without any owner

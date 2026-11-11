@@ -31,6 +31,12 @@ const {
   mapOwnerLearningCandidates,
 } = require('../dto/owner_learning_candidates_mapper');
 
+const {
+  stubFsyncSyncForWindows,
+} = require('./stub_fsync_windows');
+
+stubFsyncSyncForWindows(fs);
+
 const temporaryDirectories = [];
 const AS_OF = '2026-07-25T00:00:00.000Z';
 

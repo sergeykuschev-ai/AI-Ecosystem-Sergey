@@ -560,6 +560,10 @@ test('GET / serves the Russian frontend with secure headers', async () => {
   assert.match(body, />\s*Рассчитать заказ\s*</);
   assert.match(body, /id="products"[\s\S]*hidden/);
   assert.match(body, /Товары к закупке/);
+  assert.match(body, /<span class="format-badge">XLSX<\/span>/);
+  assert.match(body, /Перетащите сюда · до 20 МБ · \.xlsx/);
+  assert.match(body, /accept="\.xlsx"/);
+  assert.doesNotMatch(body, /\.xls\b/i);
   const productsBody = body.match(
     /<section\s+class="products card"[\s\S]*?<\/section>/
   )?.[0] || '';
@@ -577,6 +581,8 @@ test('GET / serves the Russian frontend with secure headers', async () => {
     'Безопасный бюджет',
     'Автоматически одобрено',
     'Общий статус запуска',
+    'Рабочий максимум',
+    'Финансово оценено',
   ]) {
     assert.match(body, new RegExp(label));
   }
@@ -778,6 +784,12 @@ test('file picker supports drag-and-drop and shows a clear compatibility error',
   assert.match(
     script,
     /Excel-файл несовместим: не найдены или неоднозначны обязательные/
+  );
+  assert.match(script, /ALLOWED_FILE_PATTERN = \/\\\.xlsx\$\/i/);
+  assert.doesNotMatch(script, /\(xlsx\|xls\)/);
+  assert.match(
+    script,
+    /INVALID_FILE: 'Выберите файл в формате \.xlsx\.'/
   );
 });
 

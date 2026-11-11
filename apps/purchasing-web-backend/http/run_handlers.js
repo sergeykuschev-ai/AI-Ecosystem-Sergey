@@ -1323,6 +1323,102 @@ function reportDateDependencies(reportDate) {
   };
 }
 
+const MAX_COLUMN_DIAGNOSTIC_ENTRIES = 25;
+
+// The SmartZapas Adapter attaches its structured column diagnostics to the
+// error it throws for missing/ambiguous required columns. Only those
+// diagnostics are safe to expose: they contain field names, expected headers,
+// and header coordinates, never row data, file paths, or secrets.
+function findSmartZapasColumnDiagnostics(error) {
+  let current = error;
+  const seen = new Set();
+  while (current && typeof current === 'object' && !seen.has(current)) {
+    seen.add(current);
+    const diagnostics = current.diagnostics;
+    if (
+      diagnostics &&
+      typeof diagnostics === 'object' &&
+      Array.isArray(diagnostics.missingRequiredColumns) &&
+      Array.isArray(diagnostics.ambiguousColumns)
+    ) {
+      return diagnostics;
+    }
+    current = current.cause;
+  }
+  return null;
+}
+
+function formatDiagnosticCoordinates(item) {
+  return Array.isArray(item.headerCoordinates) &&
+    item.headerCoordinates.length > 0
+    ? item.headerCoordinates.join(', ')
+    : item.column;
+}
+
+function joinColumnDiagnostics(items, formatEntry) {
+  const shown = items
+    .slice(0, MAX_COLUMN_DIAGNOSTIC_ENTRIES)
+    .map(formatEntry);
+  const remaining = items.length - shown.length;
+  return shown.join('; ') +
+    (remaining > 0 ? `; … ещё ${remaining}` : '');
+}
+
+function buildInputContractDetails(diagnostics) {
+  if (!diagnostics) return [];
+  const missing = Array.isArray(diagnostics.missingRequiredColumns)
+    ? diagnostics.missingRequiredColumns
+    : [];
+  const ambiguous = Array.isArray(diagnostics.ambiguousColumns)
+    ? diagnostics.ambiguousColumns
+    : [];
+  const headerRowsUsed = Array.isArray(diagnostics.headerRowsUsed)
+    ? diagnostics.headerRowsUsed
+    : [];
+  const recognized = Array.isArray(diagnostics.recognizedColumns)
+    ? diagnostics.recognizedColumns
+    : [];
+  const details = [];
+
+  if (missing.length > 0) {
+    details.push({
+      field: 'missing_required_columns',
+      reason: 'Не найдены обязательные поля: ' + joinColumnDiagnostics(
+        missing,
+        item => `${item.field} (ожидался «${item.expectedHeader}»)`
+      ) + '.',
+    });
+  }
+  if (ambiguous.length > 0) {
+    details.push({
+      field: 'ambiguous_columns',
+      reason: 'Неоднозначно распознаны поля: ' + joinColumnDiagnostics(
+        ambiguous,
+        item => `${item.field}: ` + item.matches.map(match =>
+          `${match.column} [${formatDiagnosticCoordinates(match)}]`
+        ).join(', ')
+      ) + '.',
+    });
+  }
+  if (headerRowsUsed.length > 0) {
+    details.push({
+      field: 'header_rows_used',
+      reason: `Использованы строки заголовка: ${headerRowsUsed.join(', ')}.`,
+    });
+  }
+  if (recognized.length > 0) {
+    details.push({
+      field: 'recognized_columns',
+      reason: 'Координаты распознанных заголовков: ' + joinColumnDiagnostics(
+        recognized,
+        item => `${item.field}=${item.column} ` +
+          `[${formatDiagnosticCoordinates(item)}]`
+      ) + '.',
+    });
+  }
+  return details;
+}
+
 function orchestrationHttpError(error) {
   if (error?.code === 'INVALID_RUN_REQUEST') {
     return new HttpError(
@@ -1334,12 +1430,22 @@ function orchestrationHttpError(error) {
   if (error?.code === 'PURCHASING_RUN_FAILED') {
     const causeText = String(error.cause?.message || '');
     const inputContract = /required|обязательн|column|колонк/i.test(causeText);
+    if (!inputContract) {
+      return new HttpError(
+        'INVALID_WORKBOOK',
+        'Excel-файл не удалось прочитать как отчёт SmartZapas.',
+        { cause: error }
+      );
+    }
     return new HttpError(
-      inputContract ? 'INPUT_CONTRACT_ERROR' : 'INVALID_WORKBOOK',
-      inputContract
-        ? 'Excel-файл не соответствует входному контракту SmartZapas.'
-        : 'Excel-файл не удалось прочитать как отчёт SmartZapas.',
-      { cause: error }
+      'INPUT_CONTRACT_ERROR',
+      'Excel-файл не соответствует входному контракту SmartZapas.',
+      {
+        cause: error,
+        details: buildInputContractDetails(
+          findSmartZapasColumnDiagnostics(error)
+        ),
+      }
     );
   }
   return error;

@@ -37,6 +37,12 @@ const {
   mapPurchasingItems,
 } = require('../dto/purchasing_item_mapper');
 
+const {
+  stubFsyncSyncForWindows,
+} = require('./stub_fsync_windows');
+
+stubFsyncSyncForWindows(fs);
+
 const REPOSITORY_ROOT = path.resolve(__dirname, '../../..');
 const RUN_ID = '12121212-1212-4212-8212-121212121212';
 const GENERATED_AT = '2026-07-31T12:00:00.000Z';

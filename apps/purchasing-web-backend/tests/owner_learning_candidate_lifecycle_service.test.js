@@ -15,6 +15,12 @@ const {
   '../../../agents/purchasing/owner_learning/owner_learning_candidate_lifecycle'
 );
 
+const {
+  stubFsyncSyncForWindows,
+} = require('./stub_fsync_windows');
+
+stubFsyncSyncForWindows(fs);
+
 const temporaryDirectories = [];
 
 afterEach(() => {

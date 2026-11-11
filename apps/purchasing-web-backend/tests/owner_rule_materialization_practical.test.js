@@ -38,6 +38,12 @@ const {
   '../../../agents/purchasing/owner_learning/approved_rule_application'
 );
 
+const {
+  stubFsyncSyncForWindows,
+} = require('./stub_fsync_windows');
+
+stubFsyncSyncForWindows(fs);
+
 function sha256(filePath) {
   return crypto.createHash('sha256')
     .update(fs.readFileSync(filePath))

@@ -27,6 +27,12 @@ const {
   '../../../agents/purchasing/owner_learning/owner_decision_history'
 );
 
+const {
+  stubFsyncSyncForWindows,
+} = require('./stub_fsync_windows');
+
+stubFsyncSyncForWindows(fs);
+
 const RUN_ID = '12121212-1212-4121-8121-121212121212';
 const ROW_ID = 'smartzapas:fixture:Лист_1:6';
 let temporaryRoot;

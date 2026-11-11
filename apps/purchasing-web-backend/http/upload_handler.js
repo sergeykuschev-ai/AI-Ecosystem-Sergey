@@ -13,19 +13,16 @@ const {
 const { safeOriginalName } = require('../dto/run_status_mapper');
 const { HttpError } = require('./responses');
 
+// The SmartZapas Adapter reads .xlsx workbooks only, so the upload
+// boundary must not accept formats the pipeline cannot parse.
 const MIME_BY_EXTENSION = Object.freeze({
   '.xlsx': new Set([
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'application/octet-stream',
   ]),
-  '.xls': new Set([
-    'application/vnd.ms-excel',
-    'application/octet-stream',
-  ]),
 });
-const XLS_SIGNATURE = Buffer.from([
-  0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1,
-]);
+const XLSX_SIGNATURE_LENGTH = 4;
+const XLSX_SIGNATURE_BYTES = [0x50, 0x4b, 0x03, 0x04];
 
 function validateReportDate(value) {
   if (value === undefined || value === null || value === '') return null;
@@ -54,22 +51,15 @@ function validateFileMetadata(filename, mimeType) {
       !MIME_BY_EXTENSION[extension].has(String(mimeType).toLowerCase())) {
     throw new HttpError(
       'UNSUPPORTED_FILE_TYPE',
-      'Разрешены только Excel-файлы .xlsx и .xls с корректным MIME-типом.'
+      'Разрешены только Excel-файлы .xlsx с корректным MIME-типом.'
     );
   }
   return { displayName, extension };
 }
 
-function hasExcelSignature(buffer, extension) {
-  if (extension === '.xlsx') {
-    return buffer.length >= 4 &&
-      buffer[0] === 0x50 &&
-      buffer[1] === 0x4b &&
-      buffer[2] === 0x03 &&
-      buffer[3] === 0x04;
-  }
-  return buffer.length >= XLS_SIGNATURE.length &&
-    buffer.subarray(0, XLS_SIGNATURE.length).equals(XLS_SIGNATURE);
+function hasExcelSignature(buffer) {
+  return buffer.length >= XLSX_SIGNATURE_LENGTH &&
+    XLSX_SIGNATURE_BYTES.every((byte, index) => buffer[index] === byte);
 }
 
 function cleanupUploadDirectory(uploadRoot, requestId, fsModule = fs) {
@@ -84,7 +74,6 @@ function persistUploadedFile({
   file,
   temporaryPath,
   finalPath,
-  extension,
   fsModule,
   outputs,
 }) {
@@ -106,8 +95,8 @@ function persistUploadedFile({
     file.on('data', chunk => {
       sizeBytes += chunk.length;
       hash.update(chunk);
-      if (signatureLength < XLS_SIGNATURE.length) {
-        const needed = XLS_SIGNATURE.length - signatureLength;
+      if (signatureLength < XLSX_SIGNATURE_LENGTH) {
+        const needed = XLSX_SIGNATURE_LENGTH - signatureLength;
         const part = chunk.subarray(0, needed);
         signatureChunks.push(part);
         signatureLength += part.length;
@@ -124,7 +113,7 @@ function persistUploadedFile({
           );
         }
         const signature = Buffer.concat(signatureChunks);
-        if (!hasExcelSignature(signature, extension)) {
+        if (!hasExcelSignature(signature)) {
           throw new HttpError(
             'UNSUPPORTED_FILE_TYPE',
             'Содержимое файла не соответствует формату Excel.'
@@ -287,7 +276,6 @@ function parseExcelUpload(request, options = {}) {
           file,
           temporaryPath,
           finalPath,
-          extension: validated.extension,
           fsModule,
           outputs,
         }).then(metadata => {
@@ -363,7 +351,6 @@ function parseExcelUpload(request, options = {}) {
 
 module.exports = {
   MIME_BY_EXTENSION,
-  XLS_SIGNATURE,
   cleanupUploadDirectory,
   hasExcelSignature,
   parseExcelUpload,

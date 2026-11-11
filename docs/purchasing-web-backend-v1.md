@@ -127,7 +127,8 @@ curl --fail-with-body \
 
 Upload limits and validation:
 
-- `.xlsx` and `.xls` transport extensions;
+- `.xlsx` transport extension only (the SmartZapas Adapter reads `.xlsx`
+  workbooks only, so legacy `.xls` is rejected with `415`);
 - maximum file size: 20 MiB;
 - maximum multipart request size: 21 MiB;
 - one file only;
@@ -135,7 +136,7 @@ Upload limits and validation:
 - the existing SmartZapas Adapter performs final workbook validation;
 - the client filename is display metadata only;
 - the server writes only `upload.tmp`, then atomically renames it to
-  `source.xlsx` or `source.xls`;
+  `source.xlsx`;
 - temporary upload data is removed after success, failure, abort, or timeout.
 
 ### Run status
@@ -497,6 +498,13 @@ termination. Shutdown does not delete a `processing` run.
 | `422` | `INVALID_WORKBOOK`, `INPUT_CONTRACT_ERROR` |
 | `500` | `RUN_FAILED`, `ARTIFACT_STREAM_ERROR` |
 | `507` | `STORAGE_ERROR` |
+
+`INPUT_CONTRACT_ERROR` additionally returns `details` entries that repeat
+the SmartZapas Adapter column diagnostics: missing required columns with the
+expected headers, ambiguous columns with header coordinates, the header rows
+used, and the coordinates of recognized headers. These details contain only
+structural workbook metadata — never row data, filenames, or local paths —
+and the text is additionally sanitized before it is sent.
 
 Rule-status endpoints additionally use:
 

@@ -42,6 +42,12 @@ const {
   '../../../agents/purchasing/owner_learning/owner_rule_registry'
 );
 
+const {
+  stubFsyncSyncForWindows,
+} = require('./stub_fsync_windows');
+
+stubFsyncSyncForWindows(fs);
+
 function decisionEntries() {
   return Array.from({ length: 5 }, (_, index) =>
     createDecisionHistoryEntry({

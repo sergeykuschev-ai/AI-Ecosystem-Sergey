@@ -18,6 +18,12 @@ const {
   '../../../agents/purchasing/owner_learning/owner_rule_materialization_journal'
 );
 
+const {
+  stubFsyncSyncForWindows,
+} = require('./stub_fsync_windows');
+
+stubFsyncSyncForWindows(fs);
+
 const directories = [];
 const CANDIDATE_ID = 'a'.repeat(64);
 

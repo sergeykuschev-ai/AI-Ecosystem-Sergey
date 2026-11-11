@@ -8,7 +8,6 @@ const { once } = require('node:events');
 const { afterEach, test } = require('node:test');
 
 const {
-  XLS_SIGNATURE,
   cleanupUploadDirectory,
   parseExcelUpload,
 } = require('../http/upload_handler');
@@ -16,6 +15,11 @@ const { sendError, sendSuccess } = require('../http/responses');
 const {
   createPurchasingWebServer,
 } = require('../server');
+const {
+  stubFsyncSyncForWindows,
+} = require('./stub_fsync_windows');
+
+stubFsyncSyncForWindows(fs);
 
 const temporaryRoots = [];
 
@@ -85,7 +89,7 @@ afterEach(() => {
   }
 });
 
-test('valid xlsx and xls signatures are accepted with safe disk handling', async () => {
+test('valid xlsx signature is accepted; legacy .xls is rejected at the boundary', async () => {
   const { server, uploadRoot, url } = await startUploadServer();
   try {
     const xlsx = await post(url, excelForm(
@@ -93,16 +97,21 @@ test('valid xlsx and xls signatures are accepted with safe disk handling', async
       '../unsafe/source.xlsx',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     ));
-    const xls = await post(url, excelForm(
-      Buffer.concat([XLS_SIGNATURE, Buffer.from([1, 2, 3, 4])]),
+    const legacyXls = await post(url, excelForm(
+      Buffer.concat([
+        Buffer.from([
+          0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1,
+        ]),
+        Buffer.from([1, 2, 3, 4]),
+      ]),
       'legacy.xls',
       'application/vnd.ms-excel'
     ));
     assert.equal(xlsx.response.status, 200);
     assert.equal(xlsx.body.data.extension, '.xlsx');
     assert.equal(xlsx.body.data.original_name, 'source.xlsx');
-    assert.equal(xls.response.status, 200);
-    assert.equal(xls.body.data.extension, '.xls');
+    assert.equal(legacyXls.response.status, 415);
+    assert.equal(legacyXls.body.error.code, 'UNSUPPORTED_FILE_TYPE');
     assert.deepEqual(stagedEntries(uploadRoot), []);
   } finally {
     await closeServer(server);

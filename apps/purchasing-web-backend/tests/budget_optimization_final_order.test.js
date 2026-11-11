@@ -34,6 +34,12 @@ const {
   buildFinalOrderState,
 } = require('../../../agents/purchasing/services/final_order');
 
+const {
+  stubFsyncSyncForWindows,
+} = require('./stub_fsync_windows');
+
+stubFsyncSyncForWindows(fs);
+
 const REPOSITORY_ROOT = path.resolve(__dirname, '../../..');
 const RUN_ID = '34343434-3434-4344-8434-343434343434';
 const GENERATED_AT = '2026-07-31T12:00:00.000Z';

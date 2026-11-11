@@ -4,7 +4,7 @@
   const MAX_FILE_BYTES = 20 * 1024 * 1024;
   const POLL_INTERVAL_MS = 1000;
   const POLL_TIMEOUT_MS = 10 * 60 * 1000;
-  const ALLOWED_FILE_PATTERN = /\.(xlsx|xls)$/i;
+  const ALLOWED_FILE_PATTERN = /\.xlsx$/i;
   const RUN_ID_PATTERN =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   const RUN_LINK_PATTERN =
@@ -407,7 +407,7 @@
 
   const ERROR_MESSAGES = Object.freeze({
     FILE_REQUIRED: 'Выберите Excel-файл.',
-    INVALID_FILE: 'Выберите файл в формате .xlsx или .xls.',
+    INVALID_FILE: 'Выберите файл в формате .xlsx.',
     UPLOAD_TOO_LARGE: 'Файл превышает допустимый размер 20 МБ.',
     UNSUPPORTED_FILE_TYPE: 'Формат файла не поддерживается.',
     INVALID_WORKBOOK:
@@ -1679,25 +1679,35 @@
     };
   }
 
-  function downloadGeneratedFile(
-    file,
+  function downloadBlobFile(
+    blob,
+    filename,
     documentObject,
     browserObject
   ) {
-    const blob = new browserObject.Blob(
-      [file.content],
-      { type: file.type }
-    );
     const objectUrl = browserObject.URL.createObjectURL(blob);
     const link = documentObject.createElement('a');
     link.href = objectUrl;
-    link.download = file.name;
+    link.download = filename;
     documentObject.body.append(link);
     link.click();
     link.remove();
     browserObject.setTimeout(() => {
       browserObject.URL.revokeObjectURL(objectUrl);
     }, 0);
+  }
+
+  function downloadGeneratedFile(
+    file,
+    documentObject,
+    browserObject
+  ) {
+    downloadBlobFile(
+      new browserObject.Blob([file.content], { type: file.type }),
+      file.name,
+      documentObject,
+      browserObject
+    );
   }
 
   function downloadBudgetOptimizationFile(
@@ -2767,6 +2777,14 @@
     return true;
   }
 
+  function apiErrorDetails(payload) {
+    const compact = payload?.error === true;
+    return {
+      code: compact ? payload?.code : payload?.error?.code,
+      message: compact ? payload?.message : payload?.error?.message,
+    };
+  }
+
   async function requestJson(fetchFunction, url, options) {
     let response;
     try {
@@ -2781,16 +2799,46 @@
       throw new FrontendError('RUN_FAILED');
     }
     if (!response.ok) {
-      const compact = payload?.error === true;
-      const code = compact
-        ? payload?.code
-        : payload?.error?.code;
-      const message = compact
-        ? payload?.message
-        : payload?.error?.message;
+      const { code, message } = apiErrorDetails(payload);
       throw new FrontendError(code || 'RUN_FAILED', message || '');
     }
     return payload?.data;
+  }
+
+  /**
+   * Загружает бинарный файл по прямой ссылке. В отличие от requestJson,
+   * не JSON-ответ превращается в FrontendError с кодом и сообщением
+   * сервера, чтобы скачивание не молча сохраняло текст ошибки как файл.
+   */
+  async function requestFileDownload(fetchFunction, url) {
+    let response;
+    try {
+      response = await fetchFunction(url);
+    } catch {
+      throw new FrontendError('NETWORK_ERROR');
+    }
+    if (!response.ok) {
+      let payload = null;
+      try {
+        payload = await response.json();
+      } catch {
+        payload = null;
+      }
+      const { code, message } = apiErrorDetails(payload);
+      throw new FrontendError(code || 'RUN_FAILED', message || '');
+    }
+    if (typeof response.blob !== 'function') {
+      throw new FrontendError('RUN_FAILED');
+    }
+    return response.blob();
+  }
+
+  function orderDownloadErrorMessage(error) {
+    if (error instanceof FrontendError && error.details) {
+      return error.details;
+    }
+    const code = error instanceof FrontendError ? error.code : 'RUN_FAILED';
+    return ERROR_MESSAGES[code] || ERROR_MESSAGES.RUN_FAILED;
   }
 
   function formatPercent(value) {
@@ -6483,6 +6531,7 @@
       try {
         metadata = await requestJson(fetchFunction, endpoints.metadata);
       } catch {
+        removeSupplierOrderCard();
         return;
       }
       const model = supplierOrderCardModel(metadata, endpoints);
@@ -6522,7 +6571,11 @@
       downloadButton.textContent = 'Скачать';
       actions.append(downloadButton);
 
-      card.append(heading, description, meta, actions);
+      const cardError = documentObject.createElement('p');
+      cardError.className = 'inline-error report-card-error';
+      cardError.setAttribute('role', 'alert');
+      cardError.hidden = true;
+      card.append(heading, description, meta, actions, cardError);
       elements.reportCenterGrid.append(card);
       elements.reportCenterGrid.hidden = false;
       elements.reportCenterEmpty.hidden = true;
@@ -7174,18 +7227,47 @@
       }
     }
 
+    /**
+     * Скачивает готовый заказ поставщику. Сервер может ответить JSON-ошибкой
+     * (например, OWNER_REVIEW_INCOMPLETE); тогда сообщение показывается на
+     * самой карточке, а не сохраняется как содержимое .xlsx-файла.
+     */
+    async function downloadSupplierOrder() {
+      const card = supplierOrderCard;
+      if (!card) return;
+      const cardElement = elements.reportCenterGrid.querySelector(
+        `[data-artifact-key="${SUPPLIER_ORDER_CARD_KEY}"]`
+      );
+      const errorLine = cardElement
+        ? cardElement.querySelector('.report-card-error')
+        : null;
+      try {
+        const blob = await requestFileDownload(
+          fetchFunction,
+          card.downloadUrl
+        );
+        downloadBlobFile(
+          blob,
+          card.filename,
+          documentObject,
+          documentObject.defaultView || globalObject
+        );
+        if (errorLine) {
+          errorLine.textContent = '';
+          errorLine.hidden = true;
+        }
+      } catch (error) {
+        if (errorLine) {
+          errorLine.textContent = orderDownloadErrorMessage(error);
+          errorLine.hidden = false;
+        }
+      }
+    }
+
     function downloadArtifact(event) {
       const key = event.currentTarget.dataset.artifactKey;
       if (key === SUPPLIER_ORDER_CARD_KEY) {
-        if (!supplierOrderCard) return;
-        const orderLink = documentObject.createElement('a');
-        orderLink.href = supplierOrderCard.downloadUrl;
-        orderLink.download = supplierOrderCard.filename;
-        orderLink.rel = 'noopener';
-        documentObject.body.append(orderLink);
-        orderLink.click();
-        orderLink.remove();
-        return;
+        return downloadSupplierOrder();
       }
       const artifact = availableArtifacts[key];
       if (!artifact) return;
@@ -7506,6 +7588,7 @@
     ERROR_MESSAGES,
     finalOrderUrl,
     finalOrderView,
+    downloadBlobFile,
     downloadBudgetOptimizationFile,
     downloadGeneratedFile,
     eligibilityLabel,
@@ -7539,6 +7622,7 @@
     ownerDecisionView,
     optimizedCsvFiles,
     optimizedXlsxFiles,
+    orderDownloadErrorMessage,
     paginationLabel,
     patternLabel,
     priorityLabel,
@@ -7575,6 +7659,7 @@
     reviewTriageMinMaxText,
     reviewTriageStockText,
     reviewTriageUrl,
+    requestFileDownload,
     reportCenterItems,
     positionsLabel,
     supplierOrderCardModel,

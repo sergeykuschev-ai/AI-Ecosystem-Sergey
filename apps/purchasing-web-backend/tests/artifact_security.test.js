@@ -24,6 +24,12 @@ const {
   startPurchasingWebServer,
 } = require('../server');
 
+const {
+  stubFsyncSyncForWindows,
+} = require('./stub_fsync_windows');
+
+stubFsyncSyncForWindows(fs);
+
 const REPOSITORY_ROOT = path.resolve(__dirname, '../../..');
 const COMPLETED_RUN_ID = '11111111-aaaa-4111-8111-111111111111';
 const OTHER_RUN_ID = '22222222-aaaa-4222-8222-222222222222';

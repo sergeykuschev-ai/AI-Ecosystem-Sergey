@@ -16,6 +16,11 @@ const {
   createPurchasingWebServer,
   installGracefulShutdown,
 } = require('../server');
+const {
+  stubFsyncSyncForWindows,
+} = require('./stub_fsync_windows');
+
+stubFsyncSyncForWindows(fs);
 
 const REPOSITORY_ROOT = path.resolve(__dirname, '../../..');
 const GENERATED_AT = '2026-07-23T00:00:00.000Z';

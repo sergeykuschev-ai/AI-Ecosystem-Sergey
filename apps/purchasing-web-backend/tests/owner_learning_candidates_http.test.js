@@ -20,6 +20,12 @@ const {
   OwnerLearningCandidatesService,
 } = require('../application/owner_learning_candidates_service');
 
+const {
+  stubFsyncSyncForWindows,
+} = require('./stub_fsync_windows');
+
+stubFsyncSyncForWindows(fs);
+
 function candidateResult(overrides = {}) {
   return {
     status: 'AVAILABLE',

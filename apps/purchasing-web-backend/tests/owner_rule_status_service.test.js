@@ -48,6 +48,12 @@ const {
   OwnerRuleStatusService,
 } = require('../application/owner_rule_status_service');
 
+const {
+  stubFsyncSyncForWindows,
+} = require('./stub_fsync_windows');
+
+stubFsyncSyncForWindows(fs);
+
 const directories = [];
 const RUN_ID = '11111111-1111-4111-8111-111111111111';
 const CREATED_AT = '2026-07-26T04:00:00.000Z';

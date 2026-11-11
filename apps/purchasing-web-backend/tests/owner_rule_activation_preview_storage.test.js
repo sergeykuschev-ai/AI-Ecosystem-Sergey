@@ -12,6 +12,12 @@ const {
   saveActivationPreview,
 } = require('../application/owner_rule_activation_preview_storage');
 
+const {
+  stubFsyncSyncForWindows,
+} = require('./stub_fsync_windows');
+
+stubFsyncSyncForWindows(fs);
+
 const directories = [];
 const NOW = '2026-07-26T03:00:00.000Z';
 

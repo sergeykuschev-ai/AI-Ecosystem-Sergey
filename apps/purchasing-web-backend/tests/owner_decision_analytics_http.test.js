@@ -21,6 +21,12 @@ const {
   '../../../agents/purchasing/owner_learning/owner_decision_history'
 );
 
+const {
+  stubFsyncSyncForWindows,
+} = require('./stub_fsync_windows');
+
+stubFsyncSyncForWindows(fs);
+
 let temporaryRoot;
 let historyFilePath;
 let server;

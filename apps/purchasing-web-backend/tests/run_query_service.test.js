@@ -18,6 +18,12 @@ const {
   FileRunRegistry,
 } = require('../storage/file_run_registry');
 
+const {
+  stubFsyncSyncForWindows,
+} = require('./stub_fsync_windows');
+
+stubFsyncSyncForWindows(fs);
+
 const REPOSITORY_ROOT = path.resolve(__dirname, '../../..');
 const RUN_ID = '55555555-5555-4555-8555-555555555555';
 const GENERATED_AT = '2026-07-23T00:00:00.000Z';
