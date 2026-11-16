@@ -24,8 +24,8 @@
     "deploy:web:smoke": "bash scripts/deploy/deploy-web.sh --smoke-only"
   },
   "dependencies": {
-    "next": "16.3.8",
-    "nodemailer": "10.1.0",
+    "next": "16.4.6",
+    "nodemailer": "10.6.0",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
@@ -35,7 +35,7 @@
     "@types/react": "19.1.12",
     "@types/react-dom": "19.1.9",
     "eslint": "9.34.0",
-    "eslint-config-next": "16.3.8",
+    "eslint-config-next": "16.4.6",
     "tsx": "4.19.3",
     "typescript": "5.9.2",
     "uuid": "11.1.1"
