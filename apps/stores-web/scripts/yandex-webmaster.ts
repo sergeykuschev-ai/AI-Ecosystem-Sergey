@@ -76,7 +76,7 @@ async function main(): Promise<void> {
 
 main().catch((error: unknown) => {
   const safe = error instanceof YandexWebmasterError
-    ? { error: error.code, status: error.status, message: error.message, retryAfterSeconds: error.retryAfterSeconds }
+    ? { error: error.code, status: error.status, message: error.message, retryAfterSeconds: error.retryAfterSeconds, diagnostics: error.diagnostics }
     : { error: "COMMAND_FAILED", message: error instanceof Error ? error.message : "Unknown error" };
   console.error(JSON.stringify(safe));
   process.exitCode = 1;
