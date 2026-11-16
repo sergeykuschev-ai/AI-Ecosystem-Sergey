@@ -14,7 +14,7 @@ import { createPageMetadata } from "@/lib/seo/metadata";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = createPageMetadata({
-  title: "Ампер — магазин электротоваров в Амурске | Проспект Победы, 16",
+  title: "Ампер — магазин электрики в Амурске | Проспект Победы, 16",
   description:
     "Магазин электротоваров «Ампер» в Амурске: проспект Победы, 16. Режим работы: Пн–Пт 09:00–19:00, Сб–Вс 09:00–18:00. Электромонтаж, освещение, электроинструмент.",
   path: "/amper/",
