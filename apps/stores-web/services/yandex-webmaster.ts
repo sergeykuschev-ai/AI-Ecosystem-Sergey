@@ -24,6 +24,7 @@ export class YandexWebmasterError extends Error {
     public readonly status: number,
     public readonly code: string,
     public readonly retryAfterSeconds?: number,
+    public readonly diagnostics?: { operation: string; method: string; elapsedMs: number; outcomeUnknown: boolean },
   ) {
     super(message);
     this.name = "YandexWebmasterError";
@@ -55,10 +56,12 @@ function apiError(status: number, headers: Headers): YandexWebmasterError {
     404: ["RESOURCE_NOT_FOUND", "The requested Webmaster resource was not found"],
     409: ["ALREADY_QUEUED", "The URL is already present in the re-crawl queue"],
     429: ["RATE_LIMITED", "Yandex Webmaster rate limit or re-crawl quota was reached"],
+    504: ["GATEWAY_TIMEOUT", "HTTP 504 received; the gateway source and submission outcome are not established"],
   };
   const [code, message] = details[status] ?? ["API_ERROR", `Yandex Webmaster returned HTTP ${status}`];
-  const retryAfter = Number(headers.get("retry-after"));
-  return new YandexWebmasterError(message, status, code, Number.isFinite(retryAfter) ? retryAfter : undefined);
+  const rawRetryAfter = headers.get("retry-after");
+  const retryAfter = rawRetryAfter?.trim() && /^\d+$/.test(rawRetryAfter.trim()) ? Number(rawRetryAfter) : undefined;
+  return new YandexWebmasterError(message, status, code, retryAfter !== undefined && Number.isFinite(retryAfter) ? retryAfter : undefined);
 }
 
 export class YandexWebmasterClient {
@@ -77,17 +80,37 @@ export class YandexWebmasterClient {
   }
 
   private async request(path: string, init: RequestInit = {}): Promise<unknown> {
-    const response = await this.fetchImpl(`${this.apiBaseUrl}${path}`, {
-      ...init,
-      headers: {
-        Authorization: `OAuth ${this.token}`,
-        Accept: "application/json",
-        ...(init.body ? { "Content-Type": "application/json" } : {}),
-        ...init.headers,
-      },
-      signal: init.signal ?? AbortSignal.timeout(10_000),
-    });
-    if (!response.ok) throw apiError(response.status, response.headers);
+    const started = performance.now();
+    const method = init.method ?? "GET";
+    // Keep account/host identifiers, query strings, tokens and response bodies out of diagnostics.
+    const operation = path.split("?")[0].replace(/\/user\/[^/]+/, "/user/:userId").replace(/\/hosts\/[^/]+/, "/hosts/:hostId");
+    const diagnostics = (outcomeUnknown: boolean) => ({ operation, method, elapsedMs: Math.round(performance.now() - started), outcomeUnknown });
+    let response: Response;
+    try {
+      response = await this.fetchImpl(`${this.apiBaseUrl}${path}`, {
+        ...init,
+        headers: {
+          Authorization: `OAuth ${this.token}`,
+          Accept: "application/json",
+          ...(init.body ? { "Content-Type": "application/json" } : {}),
+          ...init.headers,
+        },
+        signal: init.signal ?? AbortSignal.timeout(10_000),
+      });
+    } catch (error) {
+      const timeout = error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
+      throw new YandexWebmasterError(
+        timeout ? "Request timed out or was aborted before an HTTP response" : "Transport failed before an HTTP response",
+        0,
+        timeout ? "REQUEST_ABORTED" : "TRANSPORT_ERROR",
+        undefined,
+        diagnostics(method === "POST"),
+      );
+    }
+    if (!response.ok) {
+      const error = apiError(response.status, response.headers);
+      throw new YandexWebmasterError(error.message, error.status, error.code, error.retryAfterSeconds, diagnostics(method === "POST" && response.status >= 500));
+    }
     if (response.status === 204) return null;
     return response.json();
   }
