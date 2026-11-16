@@ -15,6 +15,53 @@ function response(body: unknown, status = 200, headers?: HeadersInit): Response 
 }
 
 describe("Yandex Webmaster client", () => {
+  test("reports HTTP 504 without guessing the gateway or retrying a POST", async () => {
+    let calls = 0;
+    const client = new YandexWebmasterClient("private-token", async () => {
+      calls++;
+      return new Response("private upstream body", { status: 504 });
+    });
+    await assert.rejects(() => client.submitRecrawl({ userId: "private-user", hostId: "private-host", host: {} }, "/amper/"), (error: unknown) => {
+      assert.ok(error instanceof YandexWebmasterError);
+      assert.equal(error.code, "GATEWAY_TIMEOUT");
+      assert.equal(error.status, 504);
+      assert.equal(error.retryAfterSeconds, undefined);
+      assert.equal(error.diagnostics?.operation, "/user/:userId/hosts/:hostId/recrawl/queue");
+      assert.equal(error.diagnostics?.method, "POST");
+      assert.equal(error.diagnostics?.outcomeUnknown, true);
+      assert.ok(error.diagnostics.elapsedMs >= 0);
+      assert.ok(!JSON.stringify(error).includes("private-"));
+      return true;
+    });
+    assert.equal(calls, 1);
+  });
+
+  for (const name of ["TimeoutError", "AbortError", "TypeError"]) {
+    test(`distinguishes ${name} from an HTTP response`, async () => {
+      const client = new YandexWebmasterClient("token", async () => {
+        const error = new Error("sensitive transport details");
+        error.name = name;
+        throw error;
+      });
+      await assert.rejects(() => client.resolveContext(), (error: unknown) => {
+        assert.ok(error instanceof YandexWebmasterError);
+        assert.equal(error.status, 0);
+        assert.equal(error.code, name === "TypeError" ? "TRANSPORT_ERROR" : "REQUEST_ABORTED");
+        assert.equal(error.diagnostics?.operation, "/user");
+        assert.equal(error.diagnostics?.outcomeUnknown, false);
+        assert.ok(!error.message.includes("sensitive"));
+        return true;
+      });
+    });
+  }
+
+  for (const value of ["", "-1", "invalid"]) {
+    test(`does not invent a retry delay for ${JSON.stringify(value)}`, async () => {
+      const client = new YandexWebmasterClient("token", async () => response({}, 504, { "retry-after": value }));
+      await assert.rejects(() => client.resolveContext(), (error: unknown) => error instanceof YandexWebmasterError && error.retryAfterSeconds === undefined);
+    });
+  }
+
   test("discovers the user and exact verified host without exposing the token", async () => {
     const calls: Array<{ url: string; authorization: string | null }> = [];
     const mockFetch: typeof fetch = async (input, init) => {
