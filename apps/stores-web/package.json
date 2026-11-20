@@ -11,6 +11,7 @@
     "test": "SITE_URL=https://stores-test.local node --import tsx --test tests/*.test.ts",
     "smoke:production": "tsx scripts/smoke/production.ts",
     "diagnose:production": "tsx scripts/diagnostics/production.ts",
+    "diagnose:chatgpt-plugin": "tsx scripts/diagnostics/chatgpt-plugin-org-context.ts",
     "audit:seo": "tsx scripts/seo-audit/production.ts",
     "audit:seo:local": "tsx scripts/seo-audit/regression.ts",
     "audit:seo:runtime-local": "AUDIT_BASE_URL=http://127.0.0.1:3000 tsx scripts/seo-audit/production.ts",
