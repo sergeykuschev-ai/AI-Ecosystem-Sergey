@@ -1,0 +1,14 @@
+--- a/Caddyfile
++++ b/Caddyfile
+@@ -32,3 +32,11 @@
+ cms.amurskmarket.ru {
+     reverse_proxy directus:8055
+ }
++
++www.vozdooh27.ru {
++    redir https://vozdooh27.ru{uri} permanent
++}
++
++vozdooh27.ru {
++    reverse_proxy vozdooh-web-domain:3411
++}

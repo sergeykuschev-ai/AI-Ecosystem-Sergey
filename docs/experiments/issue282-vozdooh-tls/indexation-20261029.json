@@ -1,0 +1,221 @@
+{
+  "issue": 282,
+  "checkedDate": "2026-10-29",
+  "site": "https://vozdooh27.ru/",
+  "workMode": "read-only; no production or Webmaster settings changed",
+  "webmasterApi": {
+    "requestedAtUtc": "2026-10-29T06:09:54Z",
+    "httpDateFresh": true,
+    "summarySearchablePagesCount": 0,
+    "inSearchSamplesCount": 67,
+    "inSearchSampleLastAccessRange": "2026-10-08 through 2026-10-10",
+    "currentIndexSizeConfirmed": false,
+    "diagnostics": {
+      "noSitemaps": "PRESENT",
+      "lastStateUpdate": "2026-10-10T08:07:08.104+03:00"
+    },
+    "sitemap": {
+      "userAddedAt": "2026-10-04T03:26:54.776+03:00",
+      "url": "https://vozdooh27.ru/sitemap.xml",
+      "robotDiscoveredCount": 0,
+      "robotSitemapDetailHttp": 404
+    },
+    "queryReportsAtUtc": "2026-10-29T06:23:59.567354+00:00",
+    "queryPeriods": {
+      "28": {
+        "date1": "2026-10-01",
+        "date2": "2026-10-28",
+        "popular": {
+          "status": "ok",
+          "count": 0,
+          "rows": 0,
+          "date_from": "2026-10-01",
+          "date_to": "2026-10-06"
+        },
+        "history": {
+          "status": "ok",
+          "indicators": {
+            "TOTAL_SHOWS": {
+              "points": 28,
+              "total": 0,
+              "minDate": "2026-10-01T00:00:00.000+03:00",
+              "maxDate": "2026-10-28T00:00:00.000+03:00"
+            },
+            "TOTAL_CLICKS": {
+              "points": 28,
+              "total": 0,
+              "minDate": "2026-10-01T00:00:00.000+03:00",
+              "maxDate": "2026-10-28T00:00:00.000+03:00"
+            },
+            "AVG_SHOW_POSITION": {
+              "points": 0,
+              "total": 0,
+              "minDate": null,
+              "maxDate": null
+            }
+          }
+        }
+      },
+      "90": {
+        "date1": "2026-07-31",
+        "date2": "2026-10-28",
+        "popular": {
+          "status": "ok",
+          "count": 0,
+          "rows": 0,
+          "date_from": "2026-07-31",
+          "date_to": "2026-10-06"
+        },
+        "history": {
+          "status": "ok",
+          "indicators": {
+            "TOTAL_SHOWS": {
+              "points": 90,
+              "total": 0,
+              "minDate": "2026-07-31T00:00:00.000+03:00",
+              "maxDate": "2026-10-28T00:00:00.000+03:00"
+            },
+            "TOTAL_CLICKS": {
+              "points": 90,
+              "total": 0,
+              "minDate": "2026-07-31T00:00:00.000+03:00",
+              "maxDate": "2026-10-28T00:00:00.000+03:00"
+            },
+            "AVG_SHOW_POSITION": {
+              "points": 0,
+              "total": 0,
+              "minDate": null,
+              "maxDate": null
+            }
+          }
+        }
+      }
+    }
+  },
+  "observedWebmasterUi": {
+    "observedDate": "2026-10-29",
+    "dashboard": {
+      "dataUpdatesTemporarilyUnavailable": true,
+      "lastDisplayedSearchUpdates": "10 October 2026"
+    },
+    "diagnostics": {
+      "dataUpdatesAndReportExportTemporarilyUnavailable": true
+    },
+    "sitemap": {
+      "url": "https://webmaster.yandex.ru/site/https:vozdooh27.ru:443/indexing/sitemap/",
+      "mode": "read-only",
+      "addButtonDisabled": true,
+      "manualRecrawlUnavailable": true,
+      "status": "queued for processing",
+      "displayedAddedDate": "04.10.2026"
+    },
+    "searchable": {
+      "graphsAndExportTemporarilyUnavailable": true,
+      "dataMayBeDelayed": true,
+      "allPagesAndExcludedTabsDisabled": true,
+      "latestVisibleUpdate": "10.10.2026 23:00"
+    },
+    "incidentLink": "https://yandex.ru/company/news/09-10-2026-01",
+    "interpretation": "Service update warnings confirm a freshness problem. They do not prove that the search index or crawler is fully stopped."
+  },
+  "publicSiteAudit": {
+    "auditAt": "2026-10-29T05:31:21.045137+00:00",
+    "sitemapUrls": 195,
+    "scanned": 195,
+    "httpErrors": 0,
+    "technicalDefects": 0,
+    "staleInSearchRows": 67,
+    "staleInSearchRowsInCurrentSitemap": 67,
+    "staleRowsOutsideSitemap": [],
+    "sample": [
+      {
+        "url": "https://vozdooh27.ru",
+        "publicHttp": 200,
+        "canonical": "https://vozdooh27.ru",
+        "robots": "index, follow",
+        "hasH1": true,
+        "staleInSearchLastAccess": null,
+        "currentIndexStatus": "unconfirmed; Webmaster delayed"
+      },
+      {
+        "url": "https://vozdooh27.ru/catalog",
+        "publicHttp": 200,
+        "canonical": "https://vozdooh27.ru/catalog",
+        "robots": "index, follow",
+        "hasH1": true,
+        "staleInSearchLastAccess": null,
+        "currentIndexStatus": "unconfirmed; Webmaster delayed"
+      },
+      {
+        "url": "https://vozdooh27.ru/brands",
+        "publicHttp": 200,
+        "canonical": "https://vozdooh27.ru/brands",
+        "robots": "index, follow",
+        "hasH1": true,
+        "staleInSearchLastAccess": "2026-10-08T11:52:22.000+03:00",
+        "currentIndexStatus": "unconfirmed; Webmaster delayed"
+      },
+      {
+        "url": "https://vozdooh27.ru/categories",
+        "publicHttp": 200,
+        "canonical": "https://vozdooh27.ru/categories",
+        "robots": "index, follow",
+        "hasH1": true,
+        "staleInSearchLastAccess": "2026-10-08T11:58:46.000+03:00",
+        "currentIndexStatus": "unconfirmed; Webmaster delayed"
+      },
+      {
+        "url": "https://vozdooh27.ru/collections",
+        "publicHttp": 200,
+        "canonical": "https://vozdooh27.ru/collections",
+        "robots": "index, follow",
+        "hasH1": true,
+        "staleInSearchLastAccess": null,
+        "currentIndexStatus": "unconfirmed; Webmaster delayed"
+      },
+      {
+        "url": "https://vozdooh27.ru/finder",
+        "publicHttp": 200,
+        "canonical": "https://vozdooh27.ru/finder",
+        "robots": "index, follow",
+        "hasH1": true,
+        "staleInSearchLastAccess": "2026-10-08T11:45:12.000+03:00",
+        "currentIndexStatus": "unconfirmed; Webmaster delayed"
+      },
+      {
+        "url": "https://vozdooh27.ru/contacts",
+        "publicHttp": 200,
+        "canonical": "https://vozdooh27.ru/contacts",
+        "robots": "index, follow",
+        "hasH1": true,
+        "staleInSearchLastAccess": null,
+        "currentIndexStatus": "unconfirmed; Webmaster delayed"
+      },
+      {
+        "url": "https://vozdooh27.ru/catalog/culti-decor-aramara-250",
+        "publicHttp": 200,
+        "canonical": "https://vozdooh27.ru/catalog/culti-decor-aramara-250",
+        "robots": "index, follow",
+        "hasH1": true,
+        "staleInSearchLastAccess": null,
+        "currentIndexStatus": "unconfirmed; Webmaster delayed"
+      },
+      {
+        "url": "https://vozdooh27.ru/catalog/vellutier-midnight-toast-515",
+        "publicHttp": 200,
+        "canonical": "https://vozdooh27.ru/catalog/vellutier-midnight-toast-515",
+        "robots": "index, follow",
+        "hasH1": true,
+        "staleInSearchLastAccess": "2026-10-10T14:05:21.000+03:00",
+        "currentIndexStatus": "unconfirmed; Webmaster delayed"
+      }
+    ]
+  },
+  "limitations": [
+    "Summary 0 and stale sample count 67 are not confirmed current index sizes.",
+    "Actual verified YandexBot hits unavailable because HTTP access logging was not configured.",
+    "Metrica aggregates are recorded separately for the owner and must not be equated with Webmaster clicks.",
+    "No sitemap resubmission or recrawl request was sent."
+  ],
+  "nextGate": "After Webmaster tools and data updates recover, recheck processing of the existing sitemap and dated index/page/query data. Prepare a bounded recrawl only if justified by fresh evidence; keep issue open until the indexing outcome can be measured."
+}

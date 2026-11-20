@@ -1,0 +1,132 @@
+{
+  "issue": 282,
+  "pr": 283,
+  "ownerApproved": true,
+  "state": "applied-verified",
+  "appliedAtUtc": "2026-10-28T13:06:05.286681+00:00",
+  "finishedAtUtc": "2026-10-28T13:06:08.352257+00:00",
+  "candidateSha256": "1a43fc86651addd11a5013db88e2468206dd19f0509dafa540ae9485663aee08",
+  "baselineSha256": "ffeb771e21062176054633aab768bec8a6eb373037c537aeedd48c246b26a35f",
+  "backupDirectory": "/opt/vozdooh/backups/issue282-tls-20261028T130602Z",
+  "inodePreserved": true,
+  "containerRestarted": false,
+  "rollbackUsed": false,
+  "checks": [
+    {
+      "label": "vozdooh-home",
+      "http": 200
+    },
+    {
+      "label": "vozdooh-robots",
+      "http": 200
+    },
+    {
+      "label": "vozdooh-sitemap",
+      "http": 200
+    },
+    {
+      "label": "vozdooh-product",
+      "http": 200
+    },
+    {
+      "label": "vozdooh-yandex-ua-product",
+      "http": 200
+    },
+    {
+      "label": "vozdooh-www",
+      "http": 301
+    },
+    {
+      "label": "vozdooh-http-upgrade",
+      "http": 308
+    },
+    {
+      "label": "amursk-home",
+      "http": 200,
+      "baselineStatusPreserved": true
+    },
+    {
+      "label": "amursk-www",
+      "http": 301,
+      "baselineStatusPreserved": true
+    },
+    {
+      "label": "cms-health",
+      "http": 403,
+      "baselineStatusPreserved": true
+    },
+    {
+      "label": "miska-section",
+      "http": 308,
+      "baselineStatusPreserved": true
+    }
+  ],
+  "sitemapUrls": 195,
+  "tlsCertificateVerificationEnabled": true,
+  "externalGermany": [
+    {
+      "label": "germany-home",
+      "result": "200 0",
+      "exit": 0,
+      "error": ""
+    },
+    {
+      "label": "germany-robots",
+      "result": "200 0",
+      "exit": 0,
+      "error": ""
+    },
+    {
+      "label": "germany-sitemap",
+      "result": "200 0",
+      "exit": 0,
+      "error": ""
+    },
+    {
+      "label": "germany-www",
+      "result": "301 0",
+      "exit": 0,
+      "error": ""
+    }
+  ],
+  "externalMac": {
+    "http": 200,
+    "tlsVerifyResult": 0
+  },
+  "seoChecks": [
+    {
+      "url": "https://vozdooh27.ru/",
+      "http": 200,
+      "canonical": "https://vozdooh27.ru",
+      "robots": [
+        {
+          "name": "robots",
+          "content": "index, follow"
+        }
+      ],
+      "ssrH1": true,
+      "xRobotsTag": null
+    },
+    {
+      "url": "https://vozdooh27.ru/catalog/culti-decor-aramara-250",
+      "http": 200,
+      "canonical": "https://vozdooh27.ru/catalog/culti-decor-aramara-250",
+      "robots": [
+        {
+          "name": "robots",
+          "content": "index, follow"
+        }
+      ],
+      "ssrH1": true,
+      "xRobotsTag": null
+    }
+  ],
+  "webmasterAfter": {
+    "checkedAtUtc": "2026-10-28T13:08:05Z",
+    "summarySearchablePagesCount": 0,
+    "inSearchSamplesCount": 67,
+    "robotDiscoveredSitemapsCount": 0,
+    "indexRecoveryConfirmed": false
+  },
+  "logLimitation": "HTTP access logging is not configured in active Caddy servers; real YandexBot hits cannot be verified from those missing access logs. No logging configuration changed."
+}
