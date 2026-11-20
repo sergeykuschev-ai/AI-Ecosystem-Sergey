@@ -139,6 +139,15 @@ function organizationLocalFacts(
   if (addresses.size === 1) {
     const [{ store, city }] = [...addresses.values()];
     facts.address = buildPostalAddress(store, city);
+    // Attach geo only when the single agreeing store carries verified
+    // coordinates in the CMS; never guess from the address string.
+    if (store.latitude !== null && store.longitude !== null) {
+      facts.geo = {
+        "@type": "GeoCoordinates",
+        latitude: store.latitude,
+        longitude: store.longitude,
+      };
+    }
   }
   if (telephones.size === 1) {
     facts.telephone = [...telephones][0];

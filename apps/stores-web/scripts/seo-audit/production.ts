@@ -11,6 +11,17 @@
  *
  * Optional: AUDIT_BASE_URL=https://staging.example.com npm run audit:seo
  */
+import {
+  findCrossSitemapDuplicates,
+  findIntraSitemapDuplicates,
+  findMissingPublishedPaths,
+  findUnpublishedListedPaths,
+  type CoverageIssue,
+} from "./coverage";
+import {
+  getPublishedMiskaCatalogPaths,
+  MISKA_CATALOG_PRODUCTS,
+} from "@/lib/miska/published-catalog";
 
 interface FetchResult {
   status: number;
@@ -194,6 +205,17 @@ function snapshotPage(path: string, result: FetchResult): PageSnapshot {
 }
 
 function expectJsonLdTypes(snapshot: PageSnapshot, expected: string[], findings: AuditFinding[]) {
+  // Commerce fields (offers, price, ratings) are forbidden by default because
+  // they were historically fabricated. On Product pages they may be
+  // legitimate when sourced from verified 1C data, so there they downgrade to
+  // an informational note that still demands provenance review.
+  const isProductPage =
+    snapshot.path.startsWith("/miska/tovary/") ||
+    snapshot.jsonLd.some((block) => {
+      const types = new Set<string>();
+      collectTypes(block, types);
+      return types.has("Product");
+    });
   const present = new Set<string>();
   for (const block of snapshot.jsonLd) {
     if ((block as { __unparseable?: boolean }).__unparseable) {
@@ -203,12 +225,23 @@ function expectJsonLdTypes(snapshot: PageSnapshot, expected: string[], findings:
     collectTypes(block, present);
     const forbiddenKeys: string[] = [];
     collectForbiddenJsonLdKeys(block, forbiddenKeys);
-    findings.push({
-      ok: forbiddenKeys.length === 0,
-      severity: "error",
-      scope: snapshot.path,
-      message: `JSON-LD must not contain unverified commerce fields (found: ${forbiddenKeys.join(", ") || "none"})`,
-    });
+    if (isProductPage) {
+      if (forbiddenKeys.length > 0) {
+        findings.push({
+          ok: true,
+          severity: "warning",
+          scope: snapshot.path,
+          message: `Product page carries commerce fields (${forbiddenKeys.join(", ")}): acceptable only with verified data provenance`,
+        });
+      }
+    } else {
+      findings.push({
+        ok: forbiddenKeys.length === 0,
+        severity: "error",
+        scope: snapshot.path,
+        message: `JSON-LD must not contain unverified commerce fields (found: ${forbiddenKeys.join(", ") || "none"})`,
+      });
+    }
   }
   for (const type of expected) {
     findings.push({
@@ -246,12 +279,12 @@ async function main(): Promise<void> {
     scope: "/robots.txt",
     message: "must not contain a full-site Disallow: /",
   });
-  const sitemapLine = robots.body.match(/^Sitemap:\s*(\S+)$/im)?.[1] ?? null;
+  const sitemapDirectives = [...robots.body.matchAll(/^Sitemap:\s*(\S+)$/gim)].map((match) => match[1]);
   findings.push({
-    ok: sitemapLine === new URL("/sitemap.xml", origin).href,
+    ok: sitemapDirectives.includes(new URL("/sitemap.xml", origin).href),
     severity: "error",
     scope: "/robots.txt",
-    message: `Sitemap directive must be ${new URL("/sitemap.xml", origin).href}, got ${sitemapLine ?? "none"}`,
+    message: `Sitemap directives must include ${new URL("/sitemap.xml", origin).href}, got ${sitemapDirectives.join(", ") || "none"}`,
   });
   findings.push({
     ok: !robotsBody.includes(".txt"),
@@ -259,20 +292,44 @@ async function main(): Promise<void> {
     scope: "/robots.txt",
     message: "robots.txt must not block the IndexNow key file (*.txt)",
   });
+  // Indexable pages serve product/store imagery from /api/assets/* (verified
+  // 2026-11-02: /, /amper/ and others reference /api/assets/<uuid> images).
+  // A blanket Disallow: /api/ without a more specific Allow hides those
+  // images from image crawlers.
+  findings.push({
+    ok: /^allow:\s*\/api\/assets\//im.test(robots.body),
+    severity: "error",
+    scope: "/robots.txt",
+    message: "must explicitly Allow: /api/assets/ so public images stay crawlable while the rest of /api/ remains disallowed",
+  });
 
-  // --- sitemap.xml ---
-  const sitemap = await fetchPath(baseUrl, "/sitemap.xml");
-  findings.push({ ok: sitemap.status === 200, severity: "error", scope: "/sitemap.xml", message: `expected HTTP 200, got ${sitemap.status}` });
-  const sitemapUrls = [...sitemap.body.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1].trim());
-  findings.push({ ok: sitemapUrls.length > 0, severity: "error", scope: "/sitemap.xml", message: "must contain at least one URL" });
-  for (const url of sitemapUrls) {
-    findings.push({ ok: new URL(url).origin === origin, severity: "error", scope: "/sitemap.xml", message: `URL ${url} leaves the site origin` });
-    for (const privatePath of [...PRIVATE_PATH_FRAGMENTS, ...LEGAL_PATHS]) {
-      findings.push({ ok: !url.includes(privatePath), severity: "error", scope: "/sitemap.xml", message: `URL ${url} must not include ${privatePath}` });
+  // --- all declared sitemaps ---
+  // Every Sitemap directive is fetched and validated; coverage checks below
+  // run against the union so a page served by a separate component (the
+  // static «Миска» bundle) cannot fall between two sitemaps unnoticed.
+  const entriesBySitemap = new Map<string, string[]>();
+  for (const sitemapUrl of sitemapDirectives) {
+    const sitemapPath = new URL(sitemapUrl).pathname;
+    const sitemap = await fetchPath(baseUrl, sitemapPath);
+    findings.push({ ok: sitemap.status === 200, severity: "error", scope: sitemapPath, message: `expected HTTP 200, got ${sitemap.status}` });
+    const urls = [...sitemap.body.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1].trim());
+    findings.push({ ok: urls.length > 0, severity: "error", scope: sitemapPath, message: "must contain at least one URL" });
+    entriesBySitemap.set(sitemapUrl, urls);
+    for (const url of urls) {
+      findings.push({ ok: new URL(url).origin === origin, severity: "error", scope: sitemapPath, message: `URL ${url} leaves the site origin` });
+      for (const privatePath of [...PRIVATE_PATH_FRAGMENTS, ...LEGAL_PATHS]) {
+        findings.push({ ok: !url.includes(privatePath), severity: "error", scope: sitemapPath, message: `URL ${url} must not include ${privatePath}` });
+      }
+      findings.push({ ok: url === origin || url.endsWith("/"), severity: "error", scope: sitemapPath, message: `URL ${url} must use the canonical trailing-slash form` });
     }
-    findings.push({ ok: url === origin || url.endsWith("/"), severity: "error", scope: "/sitemap.xml", message: `URL ${url} must use the canonical trailing-slash form` });
   }
-  const sitemapUrlSet = new Set(sitemapUrls);
+  for (const issue of findIntraSitemapDuplicates(entriesBySitemap)) {
+    findings.push({ ok: false, severity: issue.severity, scope: issue.scope, message: issue.message });
+  }
+  for (const issue of findCrossSitemapDuplicates(entriesBySitemap)) {
+    findings.push({ ok: true, severity: issue.severity, scope: issue.scope, message: issue.message });
+  }
+  const sitemapUrlSet = new Set([...entriesBySitemap.values()].flat());
 
   // --- public pages ---
   const pagePaths = [...STATIC_PUBLIC_PATHS, ...BRAND_PATHS];
@@ -318,6 +375,7 @@ async function main(): Promise<void> {
     [/^\/(amper|ventil|metiz-market|miska)\/[^/]+\/$/, ["Organization", "LocalBusiness", "BreadcrumbList"]],
   ];
   for (const snapshot of snapshots) {
+    if (snapshot.path.startsWith("/miska/katalog/")) continue;
     for (const [pattern, expected] of jsonLdExpectations) {
       if (pattern.test(snapshot.path)) expectJsonLdTypes(snapshot, expected, findings);
     }
@@ -326,8 +384,11 @@ async function main(): Promise<void> {
   // --- dynamic routes from the sitemap (city and store pages) ---
   const sitemapPaths = [...sitemapUrlSet].map((url) => new URL(url).pathname);
   const dynamicPaths = sitemapPaths.filter((path) => path.startsWith("/stores/") && path !== "/stores/");
+  // Catalog subtree is verified by the dedicated coverage section below; the
+  // SEO-category JSON-LD expectations (Organization/LocalBusiness) do not
+  // apply to /miska/katalog/ pages.
   const categoryPaths = sitemapPaths.filter((path) =>
-    /^\/(amper|ventil|metiz-market|miska)\/[^/]+\/$/.test(path),
+    /^\/(amper|ventil|metiz-market|miska)\/[^/]+\/$/.test(path) && !path.startsWith("/miska/katalog/"),
   );
   for (const path of dynamicPaths) {
     const result = await fetchPath(baseUrl, path);
@@ -353,8 +414,67 @@ async function main(): Promise<void> {
     findings.push({
       ok: sitemapUrlSet.has(new URL(path, origin).href),
       severity: "error",
-      scope: "/sitemap.xml",
-      message: `sitemap must include ${new URL(path, origin).href}`,
+      scope: "sitemaps",
+      message: `declared sitemaps must include ${new URL(path, origin).href}`,
+    });
+  }
+
+  // --- «Миска» static catalog coverage ---
+  // The catalog is served by Caddy from a static bundle, so neither the
+  // Next.js route table nor /sitemap.xml alone can vouch for it. Coverage is
+  // checked against the union of ALL sitemaps declared in robots.txt, using
+  // the publication manifest as the source of truth.
+  const publishedCatalogPaths = getPublishedMiskaCatalogPaths();
+  const unpublishedCatalogPaths = MISKA_CATALOG_PRODUCTS.filter((product) => !product.published)
+    .map((product) => `/miska/tovary/${product.slug}/`);
+  const coverageIssues: CoverageIssue[] = [
+    ...findMissingPublishedPaths(publishedCatalogPaths, sitemapUrlSet, origin),
+    ...findUnpublishedListedPaths(unpublishedCatalogPaths, sitemapUrlSet, origin),
+  ];
+  for (const issue of coverageIssues) {
+    findings.push({ ok: false, severity: issue.severity, scope: issue.scope, message: issue.message });
+  }
+  note(
+    "/miska/katalog/",
+    `catalog coverage: ${publishedCatalogPaths.length} published pages checked against ${sitemapDirectives.length} declared sitemap(s)`,
+  );
+
+  // Every published catalog page is fetched and held to the same bar as the
+  // Next.js pages: HTTP 200, self-canonical, indexable, complete metadata.
+  for (const path of publishedCatalogPaths) {
+    const result = await fetchPath(baseUrl, path);
+    const snapshot = snapshotPage(path, result);
+    snapshots.push(snapshot);
+    findings.push({ ok: snapshot.status === 200, severity: "error", scope: path, message: `expected HTTP 200, got ${snapshot.status}` });
+    const expectedCanonical = new URL(path, origin).href;
+    findings.push({ ok: snapshot.canonical === expectedCanonical, severity: "error", scope: path, message: `canonical must be ${expectedCanonical}, got ${snapshot.canonical ?? "none"}` });
+    findings.push({ ok: Boolean(snapshot.title), severity: "error", scope: path, message: "title must be non-empty" });
+    findings.push({ ok: Boolean(snapshot.description), severity: "error", scope: path, message: "meta description must be non-empty" });
+    findings.push({ ok: Boolean(snapshot.h1), severity: "error", scope: path, message: "H1 must be non-empty" });
+    findings.push({
+      ok: snapshot.robotsMeta == null || !/noindex/i.test(snapshot.robotsMeta),
+      severity: "error",
+      scope: path,
+      message: `published catalog page must not be noindex (robots meta: ${snapshot.robotsMeta ?? "none"})`,
+    });
+    if (path.startsWith("/miska/tovary/")) {
+      expectJsonLdTypes(snapshot, ["Product", "BreadcrumbList"], findings);
+    } else if (path !== "/miska/katalog/") {
+      expectJsonLdTypes(snapshot, ["CollectionPage", "BreadcrumbList"], findings);
+    }
+    if (snapshot.title && snapshot.title.length > 70) {
+      note(path, `title is ${snapshot.title.length} chars (>70 may truncate in SERP)`);
+    }
+  }
+
+  // Unpublished catalog pages must be gone entirely: no 200, no sitemap entry.
+  for (const path of unpublishedCatalogPaths) {
+    const result = await fetchPath(baseUrl, path, "manual");
+    findings.push({
+      ok: result.status === 404 || result.status === 410,
+      severity: "error",
+      scope: path,
+      message: `unpublished product must return 404/410, got ${result.status}`,
     });
   }
 
