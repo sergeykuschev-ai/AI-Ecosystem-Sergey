@@ -14,15 +14,18 @@ class OmniRouteProvider extends AIProvider {
       name: 'omniroute',
       capabilities: ['generate', 'synthesize', 'health'],
     });
-    this.baseUrl = (options.baseUrl || process.env.OMNIROUTE_BASE_URL || '').replace(/\/+$/, '');
-    this.apiKey = options.apiKey || process.env.OMNIROUTE_API_KEY || '';
+    const env = options.useProcessEnv === false ? {} : process.env;
+    this.baseUrl = (options.baseUrl || env.OMNIROUTE_BASE_URL || '').replace(/\/+$/, '');
+    this.apiKey = options.apiKey || env.OMNIROUTE_API_KEY || '';
     this.models = {
-      fast: options.fastModel || process.env.OMNIROUTE_FAST_MODEL || DEFAULT_FAST_MODEL,
-      reasoning: options.reasoningModel || process.env.OMNIROUTE_REASONING_MODEL || DEFAULT_FAST_MODEL,
-      code: options.codeModel || process.env.OMNIROUTE_CODE_MODEL || DEFAULT_FAST_MODEL,
+      fast: options.fastModel || env.OMNIROUTE_FAST_MODEL || DEFAULT_FAST_MODEL,
+      reasoning: options.reasoningModel || env.OMNIROUTE_REASONING_MODEL || DEFAULT_FAST_MODEL,
+      code: options.codeModel || env.OMNIROUTE_CODE_MODEL || DEFAULT_FAST_MODEL,
     };
     this.defaultModelPolicy = options.defaultModelPolicy || 'fast';
     this.timeoutMs = options.timeoutMs || DEFAULT_TIMEOUT_MS;
+    this.generateTemperature = options.generateTemperature ?? 0.7;
+    this.synthesisTemperature = options.synthesisTemperature ?? 0.3;
     this.maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
     this.fetchImpl = options.fetchImpl || fetch;
   }
@@ -146,7 +149,7 @@ class OmniRouteProvider extends AIProvider {
     const body = {
       model: this._resolveModel(options),
       messages: this._buildMessages(prompt, options.system),
-      temperature: options.temperature ?? 0.7,
+      temperature: options.temperature ?? this.generateTemperature,
       max_tokens: options.maxTokens || options.max_tokens || DEFAULT_MAX_TOKENS,
       stream: false,
     };
@@ -159,7 +162,7 @@ class OmniRouteProvider extends AIProvider {
     const data = await this._request('/chat/completions', {
       model: this._resolveModel(input),
       messages: this._buildMessages(prompt, input.systemMessage),
-      temperature: 0.3,
+      temperature: this.synthesisTemperature,
       max_tokens: DEFAULT_MAX_TOKENS,
       stream: false,
     });
