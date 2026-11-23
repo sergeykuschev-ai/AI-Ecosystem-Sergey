@@ -401,3 +401,17 @@ p { margin: 0 0 1rem; }
   .brand-card { transition: none; }
   .category-grid--brand-landing .category-card { transition: none; }
 }
+/* Store-specific catalogs; no changes to Miska visual styles. */
+.catalog-main { padding-block: 2rem; }
+.catalog-main nav[aria-label="Навигация"] { margin-bottom: 1.4rem; font-size: .9rem; }
+.catalog-filters { display: grid; gap: .6rem; margin-block: 1.3rem; max-width: 45rem; }
+.catalog-filters input, .catalog-filters select { width: 100%; min-height: 2.8rem; border: 1px solid #a8b2bc; border-radius: .45rem; padding: .6rem; font: inherit; background: #fff; color: #17212b; }
+.catalog-filters button { min-height: 2.8rem; justify-self: start; padding-inline: 1.4rem; border: 0; border-radius: .45rem; background: #17212b; color: #fff; font: inherit; cursor: pointer; }
+.catalog-product-grid { list-style: none; margin: 1rem 0 2rem; padding: 0; display: grid; gap: 1rem; }
+.catalog-product-card, .catalog-product-detail, .catalog-empty { border: 1px solid var(--line); border-radius: .8rem; padding: 1.25rem; background: var(--surface, #fff); }
+.catalog-product-card h2 { font-size: 1.1rem; }
+.catalog-product-category, .catalog-last-update { color: var(--muted); font-size: .9rem; }
+.catalog-price-stock { display: flex; flex-direction: column; gap: .25rem; margin-top: .8rem; font-weight: 600; }
+.catalog-pages { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; margin-block: 1rem; }
+@media (min-width: 42rem) { .catalog-product-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } .catalog-filters { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 64rem) { .catalog-product-grid { grid-template-columns: repeat(3, minmax(0,1fr)); } }

@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { catalogIndexable } from "@/lib/store-catalog/core";
+import { loadCatalog } from "@/lib/store-catalog/server";
 import Link from "next/link";
 import { BrandLandingPage } from "@/components/brand/BrandLandingPage";
 import {
@@ -87,7 +89,8 @@ function MetizMarketFeaturedSections() {
   );
 }
 
-export default function Page() {
+export default async function Page() {
+  const showCatalog = catalogIndexable(await loadCatalog("metiz-market"));
   return (
     <BrandLandingPage
       slug="metiz-market"
@@ -98,7 +101,7 @@ export default function Page() {
       assortmentHeading="Что можно найти в «Метиз Маркете»"
       showAbout={false}
       heroContactActions
-      featuredSections={<MetizMarketFeaturedSections />}
+      featuredSections={<><MetizMarketFeaturedSections />{showCatalog ? <section className="brand-landing-section"><h2>Поиск товаров по каталогу</h2><p>Товары магазина из подтверждённой выгрузки 1С.</p><Link href="/catalog/metiz-market/">Открыть каталог</Link></section> : null}</>}
       contactHeading="Метиз Маркет в Амурске"
       contactNote={CONTACT_NOTE}
       contactCallAction

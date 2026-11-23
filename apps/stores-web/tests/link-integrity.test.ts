@@ -95,6 +95,10 @@ for (const store of mockStores.filter((item) => item.active)) {
 const routeModel: RouteModel = {
   staticPaths: new Set(EXPECTED_STATIC_PAGES),
   dynamicPatterns: [
+    // 1C catalogs are restricted to three independent stores and enabled
+    // only after receiving verified, fresh per-store exports.
+    /^\/catalog\/(?:amper|ventil|metiz-market)\/$/,
+    /^\/catalog\/(?:amper|ventil|metiz-market)\/[a-zA-Z0-9_-]+\/$/,
     ...CANONICAL_BRAND_SLUGS.map((slug) => new RegExp(`^/${slug}/$`)),
     ...[...citySlugs].map((slug) => new RegExp(`^/stores/${slug}/$`)),
     ...[...storeSlugsByCity.entries()].flatMap(([citySlug, storeSlugs]) =>
