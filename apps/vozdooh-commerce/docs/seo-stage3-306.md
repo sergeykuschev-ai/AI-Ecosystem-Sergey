@@ -85,7 +85,7 @@ prove the gating logic; current production eligibility remains unobserved.
   editorial data. No scent claims are added to the seasonal section. Their current
   availability must come from the rendering provider, never the historical snapshot.
 
-## Executed verification
+## Initial implementation verification (historical)
 
 Dependencies are absent (`node_modules`, including the required installed Next.js
 guide). No packages were downloaded and no substitute dependency tree was used.
@@ -118,11 +118,58 @@ TypeScript; SSR tests were then placed in their own file and remain unexecuted.
 SSR output, full existing commercial regressions, browser/mobile checks and build
 are NOT verified. No production HTTP/canonical/robots/schema/feed checks were made.
 
+## Pin correction and confirmed QA baseline (2026-11-25)
+
+This continuation starts at Windows HEAD
+`bfb7df2213285bb2b4b5e3acdac88c386859b44b`, with operator-reported app tree
+`a0e5b66206d2ab7f25e633b3e328e29e1df9f1b5`, equivalent to draft PR #307 remote
+head `2d16adcb90ae894837305de5a0ceb974a991bf63`. The initial implementation
+record above describes the earlier dependency-free pass; it is not the current
+CI baseline. This correction remains uncommitted and has no new HEAD.
+
+Operator-supplied results, not rerun or fetched in this continuation:
+
+| Check | Confirmed baseline |
+| --- | --- |
+| GitHub CI run `45626079506`, job `139246507609` | 307 Node tests: 306 PASS, 1 FAIL at `tests/seo-11-meta.test.cjs:62`; stale collection-detail source pin |
+| Isolated Linux Python XML tests | 9/9 PASS; earlier Windows-specific XML errors did not reproduce |
+| Isolated Linux TypeScript | PASS |
+| Local lint | Stopped by timeout; no PASS claimed |
+| CI lint | Not reached because of the pin failure |
+| Read-only current-catalog review | Six evidence SKU, three bergamot, four sandalwood, two seasonal TEATRO positions confirmed by operator; no catalog access in this continuation |
+
+Own checks in this continuation:
+
+- Reviewed the app diff from `d0d7e1392fdc7103bd9d04def6e94d83c9caadd1`.
+  Collection detail adds only the SeasonalGifts import and conditional section.
+  `collections.ts` adds note definitions/membership while preserving old collection
+  definitions and existing non-note selection branches. Existing metadata/H1/
+  canonical/schema/robots source is unchanged; this is source review, not a fresh
+  browser or production rendering check. No 1C, order, payment or feed code changed.
+- Used the existing test normalization and `sourceHash` function locally in Node.
+  Exactly two of eight pins differed before correction; the other six matched.
+  Collection detail: `e485dc4601a5a41cdd3dc9c0a569bccd8172b6a0bdb87fa7838fe9a0fa4cfc69`
+  -> `763ea5deebd5d24d169d242c08b113a5233181d747b425e7eb60e158271e36fd`.
+  Collections source: `1a96edff892d0e48595da604c69075691d4ddc2495d24bdce2548d30b9d9c0db`
+  -> `72ee602bb9c6bee9ddc5b36e6a5356ba97e00fbbd3534fec2685c5edc365314e`.
+- Only these two pin values and a reason comment change in the regression test.
+  Normalization, assertion logic and all other pins are unchanged. The isolated
+  pin test passes all eight strict comparisons after correction. Its Node VM
+  runner selects only that test and stubs unrelated TypeScript imports; it does
+  not execute the full metadata/SSR suite or replace the standard harness.
+- `node --check tests/seo-11-meta.test.cjs`: PASS.
+- `git diff --check`: PASS. New files relative to the base have one final newline
+  and no extra blank line at EOF.
+- Dependencies remain absent locally. Full Node/Python/TypeScript/lint/build and
+  `npm run verify` were not rerun in this continuation. Operator will rerun CI;
+  no passing CI result is claimed for this correction. No commit/push/deploy,
+  network command, dependency installation or external system access occurred.
+
 ## PR acceptance and release gate
 
 1. Review this complete candidate diff, then run `npm run verify` in an authorized
-   dependency-equipped environment. Resolve the Python failures without weakening
-   tests. Run both new test files through the normal harness; independent review
+   dependency-equipped environment. The operator reports Linux Python 9/9 PASS;
+   preserve those tests and rerun CI after this pin correction. Independent review
    and CI must pass before release approval.
 2. Using an isolated catalog fixture, confirm enabled note routes render one H1,
    unique metadata, self canonical, CollectionPage/ItemList JSON-LD and the existing
@@ -142,7 +189,8 @@ are NOT verified. No production HTTP/canonical/robots/schema/feed checks were ma
 
 ## Rollback
 
-No candidate commit exists. Before integration, remove only the changes listed in
+The initial candidate is recorded in the HEADs above; this pin correction is
+uncommitted. Before integration, remove only the changes listed in
 this report after reviewing the diff; preserve other contributors' work. After an
 approved integration, revert its isolated commit/PR through the normal review and
 release process. No data migration or trade-data rollback is needed. Confirm the
