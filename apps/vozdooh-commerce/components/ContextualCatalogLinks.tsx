@@ -2,8 +2,8 @@ import Link from 'next/link'
 import type { CatalogProduct } from '../src/catalog/contracts'
 import { contextualCatalogLinks } from '../src/catalog/contextualLinks'
 
-export function ContextualCatalogLinks({ products, currentPath }: { products: readonly CatalogProduct[]; currentPath: string }) {
-  const { sections, examples } = contextualCatalogLinks(products, currentPath)
+export function ContextualCatalogLinks({ products, currentPath, catalogProducts = products }: { products: readonly CatalogProduct[]; currentPath: string; catalogProducts?: readonly CatalogProduct[] }) {
+  const { sections, examples } = contextualCatalogLinks(products, currentPath, catalogProducts)
   if (!sections.length && !examples.length) return null
   if (currentPath === '/') {
     return <section className="landingGuide landingGuideHome" aria-label="Дополнительные направления каталога">

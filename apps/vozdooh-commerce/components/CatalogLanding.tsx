@@ -9,7 +9,7 @@ import { TrackView } from './TrackView'
 import { landingStructuredData, serializeStructuredData } from '../src/catalog/structuredData'
 import { productPresentation } from '../src/catalog/presentation'
 
-export function CatalogLanding({ landing, products, kind, heading }: { landing: Landing; products: CatalogProduct[]; kind: 'brand' | 'category'; heading?: string }) {
+export function CatalogLanding({ landing, products, catalogProducts, kind, heading }: { landing: Landing; products: CatalogProduct[]; catalogProducts: readonly CatalogProduct[]; kind: 'brand' | 'category'; heading?: string }) {
   const structuredData = serializeStructuredData(landingStructuredData({ kind, slug: landing.slug, name: landing.name, description: landing.description, products }))
   const relatedKind = kind === 'brand' ? 'category' : 'brand'
   const related = availableLandings(products, relatedKind)
@@ -86,7 +86,7 @@ export function CatalogLanding({ landing, products, kind, heading }: { landing: 
     {related.length > 0 && <nav className="landingRelated landingLinks" aria-label="Продолжить знакомство">
       {related.map((item) => <Link href={landingPath(relatedKind, item.slug)} key={item.slug}>{item.name} →</Link>)}
     </nav>}
-    <ContextualCatalogLinks products={products} currentPath={landingPath(kind, landing.slug)} />
+    <ContextualCatalogLinks products={products} catalogProducts={catalogProducts} currentPath={landingPath(kind, landing.slug)} />
     <SiteFooter />
   </main>
 }

@@ -154,3 +154,13 @@ code, configuration, analytics and secrets remain isolated.
 The receiver accepts standard 1C catalog modes (`checkauth`, `init`, `file`, `import`) and stages files only. Order exchange is rejected. The converter only considers files that have a matching staged record in `imports.jsonl`, joins catalog rows to offers by 1C ID, uses the configured VOZDOOH warehouse for stock, and keeps price null unless `--publish-price` is explicitly passed.
 
 `staged-1c` is a private preview source. It shows only positive-stock products, while the complete staged snapshot retains zero-stock rows. The snapshot is written atomically. Editorial fields remain outside 1C and are left empty until the separate verified-content workflow fills them.
+
+## Yandex Products feed
+
+[`/yml.xml`](../../app/yml.xml/route.ts) reads the configured storefront catalog.
+It publishes purchasable products with an editorial description and a validated
+local picture. The feed selects the first eligible JPEG, PNG or WebP image
+assigned to the product, applying the existing Yandex image audit. The shop
+currency declaration and offer currency both use `RUR`, as required by
+[Yandex Products](https://yandex.ru/support/merchants/ru/offers.html).
+If the catalog cannot load, the route returns HTTP 503 with `Cache-Control: no-store`.
