@@ -41,12 +41,13 @@ test('all eight targeted collection slugs exist; other collections keep their de
 // Normalize CRLF to LF for identical Windows/Linux source invariance checks.
 // 2026-11-01 (task #288): app/sitemap.ts pin re-pinned with the deliberate /moscow and
 // /saint-petersburg candidate routes included.
+// #304: collections.ts alone changed intentionally to add bounded commercial collections.
 const baselineHashes = {
   "app/brands/page.tsx": "55cbc5ca15a9d3eca85221cc399fed1426175d82218bd78d469a2a503639b157",
   "app/categories/page.tsx": "7148c4bb7094f654d44ddc3465d66e188b11b4d18730b947b01ae8a8d6eb72a7",
   "app/collections/page.tsx": "860c6b95d92fa5ad3211c64a683bfa34c0afc33520a7199b6bd6733fddbb11bc",
   "app/collections/[slug]/page.tsx": "0763745037a3170a1f992af281addfcc8b5d1f66d44322c8ad82088d4c22240e",
-  "src/catalog/collections.ts": "2a948543c2f769bfe2615e326d42d3923124da10f4b56dc97adf05dd3f5be0a4",
+  "src/catalog/collections.ts": "75fee0edb7c7264eb08e8d065461a7e2dcecfd4615e5f454aeb26962e442c105",
   "src/catalog/landings.ts": "220019290738709ddc5b3af3683d795525a6a1bd027714f48a905d5522aec78f",
   "app/sitemap.ts": "3138d4ee18a4e60021ad2afde22c50a71c198951e94c47e55d67a472005de35d",
   "src/catalog/structuredData.ts": "08767cbccbcb63e8779f32b691a160e99bdf51aa014072a22d173b3fbb174073"

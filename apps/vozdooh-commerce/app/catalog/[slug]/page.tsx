@@ -18,7 +18,7 @@ import { demandRank, isExternallyConfirmedPopular, POPULARITY_NOTE } from '../..
 import { withValidImages } from '../../../src/catalog/validImages'
 import { catalogHref, parseCatalogFilters, type RawSearchParams } from '../../../src/catalog/filterParams'
 import { brandLandings, categoryLandings, landingPath } from '../../../src/catalog/landings'
-import { collectionPath, collectionsForProduct } from '../../../src/catalog/collections'
+import { collectionPath, collectionsForProduct, commercialCollectionsForProduct } from '../../../src/catalog/collections'
 import { getRecommendations } from '../../../src/catalog/filters'
 import { productStructuredData, serializeStructuredData } from '../../../src/catalog/structuredData'
 import { fragranceFactsFor } from '../../../src/catalog/fragranceFacts'
@@ -97,7 +97,7 @@ export default async function ProductPage({ params, searchParams }: PageParams) 
   const display = productPresentation(product)
   const recommendations = getRecommendations(storefrontProducts(allProducts, debug || demo), product, demo)
   const brandProducts = demo ? [] : sameBrandProducts(allProducts, product)
-  const productCollections = demo ? [] : collectionsForProduct(product)
+  const productCollections = demo ? [] : [...collectionsForProduct(product), ...(!debug ? commercialCollectionsForProduct(validatedProduct, allProducts) : [])]
   const hasScentProfile = Boolean(product.editorial.scentFamily || product.editorial.mood || product.editorial.room)
   const fragranceFacts = fragranceFactsFor(product)
   const heroImage = catalogImage(validatedProduct)
@@ -168,7 +168,7 @@ export default async function ProductPage({ params, searchParams }: PageParams) 
 
       {purchaseGuide && <ProductPurchaseGuide guide={purchaseGuide} alternatives={guideAlternatives} />}
 
-      {(product.editorial.description || product.editorial.scentFamily || product.editorial.mood || product.editorial.room || brandLanding?.story) && (
+      {(product.editorial.description || product.editorial.scentFamily || product.editorial.mood || product.editorial.room || brandLanding?.story || productCollections.length > 0) && (
         <section className="productEditorial" aria-label={hasScentProfile ? 'История и характер товара' : 'История и детали товара'}>
           <div className="productComposition">
             <span className="eyebrow">{hasScentProfile ? 'Композиция' : 'О товаре'}</span>

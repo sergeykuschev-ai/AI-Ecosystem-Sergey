@@ -10,6 +10,7 @@ export type CollectionRule =
   | { field: 'mood'; values: readonly string[] }
   | { field: 'room'; values: readonly string[] }
   | { field: 'category'; values: readonly string[] }
+  | { field: 'volume' | 'brandLine'; values: readonly string[] }
 
 export type EditorialCollection = {
   slug: string
@@ -130,9 +131,59 @@ export const editorialCollections: readonly EditorialCollection[] = [
   },
 ]
 
+// Issue #304: curated, bounded commercial destinations. The minimum is our
+// merchandising guard, not a search-engine requirement. Do not infer from slugs.
+export const commercialCollections: readonly EditorialCollection[] = [
+  {
+    slug: 'diffusers-250-ml',
+    eyebrow: 'По объёму',
+    name: 'Аромадиффузоры 250 мл',
+    description: 'Выберите аромадиффузор 250 мл из наличия VOZDOOH. Сравните композиции, дизайн флаконов, бренды и цены. Доступные варианты доставки уточняются при заказе.',
+    note: 'Только диффузоры с подтверждённым объёмом 250 мл, актуальной ценой и наличием. Рефилы и другие форматы не включены.',
+    rule: { field: 'volume', values: ['250'] },
+  },
+  {
+    slug: 'diffusers-500-ml',
+    eyebrow: 'По объёму',
+    name: 'Аромадиффузоры 500 мл',
+    description: 'Диффузоры 500 мл для дома: сравните ароматы и оформление флаконов из ассортимента VOZDOOH. Цена и наличие указаны в карточках.',
+    note: 'Объём подтверждён данными товара. Длительность использования зависит от композиции и условий помещения.',
+    rule: { field: 'volume', values: ['500'] },
+  },
+  {
+    slug: 'culti-decor',
+    eyebrow: 'Коллекция бренда',
+    name: 'Диффузоры CULTI MILANO Decor',
+    description: 'Диффузоры CULTI MILANO линии Decor в VOZDOOH. Сравните варианты Classic и Limited, если они представлены в наличии, по оформлению, аромату и объёму.',
+    note: 'В подборку входят только доступные диффузоры CULTI MILANO с обозначением Decor в исходном названии.',
+    rule: { field: 'brandLine', values: ['decor'] },
+  },
+  {
+    slug: 'culti-stile',
+    eyebrow: 'Коллекция бренда',
+    name: 'Диффузоры CULTI MILANO Stile',
+    description: 'Познакомьтесь с доступными диффузорами CULTI MILANO Stile. Сравните композиции, варианты флаконов и объёмы; актуальные цены указаны в карточках.',
+    note: 'Подборка строится по исходному названию линии Stile, бренду и формату товара.',
+    rule: { field: 'brandLine', values: ['stile'] },
+  },
+]
+
+const MIN_COMMERCIAL_PRODUCTS = 3
+
+function isCommercialCollection(collection: EditorialCollection): boolean {
+  return collection.rule.field === 'volume' || collection.rule.field === 'brandLine'
+}
+
 function collectionValue(product: CatalogProduct, field: CollectionRule['field']): string | null {
   if (field === 'researchSelection') return demandRank(product.trade.sku) !== null ? 'researched' : null
   if (field === 'demand') return merchandisingSignal(product.trade.sku) ? 'verified' : null
+  if (field === 'volume' || field === 'brandLine') {
+    if (product.trade.category !== 'Диффузоры') return null
+    if (field === 'volume') return product.trade.volume?.trim().match(/^(250|500)\s*(?:мл|ml)$/iu)?.[1] ?? null
+    if (product.trade.brand !== 'CULTI MILANO') return null
+    const name = product.trade.name.normalize('NFD').replace(/\p{M}/gu, '').trim().toLowerCase()
+    return name.match(/^(?:culti milano\s+)?(decor|stile)\b/u)?.[1] ?? null
+  }
   if (field === 'family') return product.editorial.scentFamily
   if (field === 'category') return product.trade.category
   return product.editorial[field]
@@ -140,6 +191,17 @@ function collectionValue(product: CatalogProduct, field: CollectionRule['field']
 
 export function collectionProducts(products: readonly CatalogProduct[], collection: EditorialCollection): CatalogProduct[] {
   // Call with withValidImages output: eligibility must follow asset verification.
+  if (isCommercialCollection(collection)) {
+    const skus = new Set<string>()
+    const slugs = new Set<string>()
+    return storefrontProducts(products.filter(product => isPubliclyPurchasable(product) &&
+      collection.rule.values.includes(collectionValue(product, collection.rule.field) ?? ''))).filter(product => {
+      if (skus.has(product.trade.sku) || slugs.has(product.editorial.slug)) return false
+      skus.add(product.trade.sku)
+      slugs.add(product.editorial.slug)
+      return true
+    })
+  }
   if (collection.rule.field === 'researchSelection') return products
     .filter((product) => isPubliclyPurchasable(product) && demandRank(product.trade.sku) !== null)
     .sort((a, b) => demandRank(a.trade.sku)! - demandRank(b.trade.sku)!)
@@ -152,9 +214,9 @@ export function collectionProducts(products: readonly CatalogProduct[], collecti
 }
 
 export function availableCollections(products: readonly CatalogProduct[]) {
-  return editorialCollections
+  return [...editorialCollections, ...commercialCollections]
     .map((collection) => ({ ...collection, products: collectionProducts(products, collection) }))
-    .filter((collection) => collection.products.length > 0)
+    .filter((collection) => collection.products.length >= (isCommercialCollection(collection) ? MIN_COMMERCIAL_PRODUCTS : 1))
 }
 
 export function collectionPath(slug: string): string {
@@ -169,4 +231,11 @@ export function collectionsForProduct(product: CatalogProduct): EditorialCollect
     !collection.excludeCategories?.includes(product.trade.category) &&
     collection.rule.values.includes(collectionValue(product, collection.rule.field) ?? '')
   )
+}
+
+/** Link only when the destination exists in the same validated catalog snapshot. */
+export function commercialCollectionsForProduct(product: CatalogProduct, products: readonly CatalogProduct[]) {
+  if (!isPubliclyPurchasable(product)) return []
+  return availableCollections(products).filter(collection => isCommercialCollection(collection) &&
+    collection.products.some(item => item.trade.sku === product.trade.sku && item.editorial.slug === product.editorial.slug))
 }
