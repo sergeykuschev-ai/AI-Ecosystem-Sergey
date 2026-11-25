@@ -1,3 +1,4 @@
+import { verifiedNotesFor } from '../../../src/catalog/verifiedNotes'
 import { ProductPurchaseGuide } from '../../../components/ProductPurchaseGuide'
 import { reviewedPurchaseGuide, purchaseGuideAlternatives } from '../../../src/catalog/purchaseGuides'
 import { reviewedFragranceVariants } from '../../../src/catalog/productVariants'
@@ -100,6 +101,7 @@ export default async function ProductPage({ params, searchParams }: PageParams) 
   const productCollections = demo ? [] : [...collectionsForProduct(product), ...(!debug ? commercialCollectionsForProduct(validatedProduct, allProducts) : [])]
   const hasScentProfile = Boolean(product.editorial.scentFamily || product.editorial.mood || product.editorial.room)
   const fragranceFacts = fragranceFactsFor(product)
+  const verifiedNotes = verifiedNotesFor(validatedProduct)
   const heroImage = catalogImage(validatedProduct)
   if (!heroImage && !demo && !debug) notFound()
   const structuredData = !demo && !debug && heroImage
@@ -233,6 +235,7 @@ export default async function ProductPage({ params, searchParams }: PageParams) 
               </Link>)}
             </nav>
           </>}
+          {verifiedNotes && <p><a href={verifiedNotes.sourceUrl}>Источник нот: {verifiedNotes.brand}</a> · проверено {verifiedNotes.verifiedOn}{verifiedNotes.page !== undefined && `, страница каталога: ${verifiedNotes.page + 1}`}.</p>}
           <small>Характеристики композиции сверены с {fragranceFacts.source}.</small>
         </section>
       )}

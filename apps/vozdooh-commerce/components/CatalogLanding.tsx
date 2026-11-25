@@ -1,3 +1,4 @@
+import { SeasonalGifts } from './SeasonalGifts'
 import { ContextualCatalogLinks } from './ContextualCatalogLinks'
 import Link from 'next/link'
 import type { CatalogProduct } from '../src/catalog/contracts'
@@ -58,6 +59,7 @@ export function CatalogLanding({ landing, products, catalogProducts, kind, headi
         </nav>
       </section>
     )}
+    {kind === 'category' && landing.slug === 'gifts' && <SeasonalGifts products={catalogProducts} />}
     <section className="landingGuide" aria-labelledby="landingGuideTitle">
       <h2 id="landingGuideTitle">{kind === 'brand' ? 'В коллекции VOZDOOH' : 'Выбор формата'}</h2>
       <p>{landing.guidance}</p>

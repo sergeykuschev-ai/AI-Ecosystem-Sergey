@@ -1,3 +1,4 @@
+import { SeasonalGifts } from '../../../components/SeasonalGifts'
 import { discoveryDescriptions } from '../../../src/seo/discoveryDescriptions'
 import { landingStructuredData, serializeStructuredData } from '../../../src/catalog/structuredData'
 import { ContextualCatalogLinks } from '../../../components/ContextualCatalogLinks'
@@ -117,6 +118,7 @@ export default async function CollectionPage({ params }: Props) {
         </section>
       )}
 
+      {collection.slug === 'gift-diffusers' && <SeasonalGifts products={collection.catalogProducts} />}
       <div className="catalogSectionHeading catalogCount collectionCount">
         <h2>В подборке</h2>
         <span>{collection.products.length} позиций</span>

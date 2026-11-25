@@ -1,3 +1,4 @@
+import { noteNames, verifiedNotesFor, type VerifiedNote } from './verifiedNotes'
 import { merchProducts, merchandisingSignal, MERCHANDISING_NOTE } from './merchandising'
 import { demandRank } from './demandPriority'
 import type { CatalogProduct } from './contracts'
@@ -10,6 +11,7 @@ export type CollectionRule =
   | { field: 'mood'; values: readonly string[] }
   | { field: 'room'; values: readonly string[] }
   | { field: 'category'; values: readonly string[] }
+  | { field: 'note'; values: readonly string[] }
   | { field: 'volume' | 'brandLine'; values: readonly string[] }
 
 export type EditorialCollection = {
@@ -168,13 +170,23 @@ export const commercialCollections: readonly EditorialCollection[] = [
   },
 ]
 
+export const noteCollections: readonly EditorialCollection[] = Object.entries(noteNames).map(([key, name]) => ({
+  slug: `notes-${key}`,
+  eyebrow: 'По подтверждённым нотам',
+  name: `Ароматы с нотой ${name}`,
+  description: `Ароматы с нотой ${name} из наличия VOZDOOH. Сравните форматы и цены; ноты подтверждены источниками для конкретных товаров.`,
+  note: 'Включены только товары с проверенной связью SKU, аромата и источника. Ноты описывают композицию, а не перечень ингредиентов.',
+  rule: { field: 'note', values: [key] },
+}))
+
 const MIN_COMMERCIAL_PRODUCTS = 3
 
 function isCommercialCollection(collection: EditorialCollection): boolean {
-  return collection.rule.field === 'volume' || collection.rule.field === 'brandLine'
+  return collection.rule.field === 'note' || collection.rule.field === 'volume' || collection.rule.field === 'brandLine'
 }
 
 function collectionValue(product: CatalogProduct, field: CollectionRule['field']): string | null {
+  if (field === 'note') return null // Multi-note membership is evaluated explicitly below.
   if (field === 'researchSelection') return demandRank(product.trade.sku) !== null ? 'researched' : null
   if (field === 'demand') return merchandisingSignal(product.trade.sku) ? 'verified' : null
   if (field === 'volume' || field === 'brandLine') {
@@ -195,7 +207,9 @@ export function collectionProducts(products: readonly CatalogProduct[], collecti
     const skus = new Set<string>()
     const slugs = new Set<string>()
     return storefrontProducts(products.filter(product => isPubliclyPurchasable(product) &&
-      collection.rule.values.includes(collectionValue(product, collection.rule.field) ?? ''))).filter(product => {
+      (collection.rule.field === 'note'
+        ? collection.rule.values.some(note => verifiedNotesFor(product)?.notes.some(value => value === (note as VerifiedNote)))
+        : collection.rule.values.includes(collectionValue(product, collection.rule.field) ?? '')))).filter(product => {
       if (skus.has(product.trade.sku) || slugs.has(product.editorial.slug)) return false
       skus.add(product.trade.sku)
       slugs.add(product.editorial.slug)
@@ -214,7 +228,7 @@ export function collectionProducts(products: readonly CatalogProduct[], collecti
 }
 
 export function availableCollections(products: readonly CatalogProduct[]) {
-  return [...editorialCollections, ...commercialCollections]
+  return [...editorialCollections, ...commercialCollections, ...noteCollections]
     .map((collection) => ({ ...collection, products: collectionProducts(products, collection) }))
     .filter((collection) => collection.products.length >= (isCommercialCollection(collection) ? MIN_COMMERCIAL_PRODUCTS : 1))
 }
