@@ -182,7 +182,7 @@ function collectionValue(product: CatalogProduct, field: CollectionRule['field']
     if (field === 'volume') return product.trade.volume?.trim().match(/^(250|500)\s*(?:мл|ml)$/iu)?.[1] ?? null
     if (product.trade.brand !== 'CULTI MILANO') return null
     const name = product.trade.name.normalize('NFD').replace(/\p{M}/gu, '').trim().toLowerCase()
-    return name.match(/^(?:culti milano\s+)?(decor|stile)\b/u)?.[1] ?? null
+    return name.match(/^(?:culti milano\s+)?(decor|stile)(?![\p{L}\p{N}_])/u)?.[1] ?? null
   }
   if (field === 'family') return product.editorial.scentFamily
   if (field === 'category') return product.trade.category

@@ -18,7 +18,8 @@ type Props = { params: Promise<{ slug: string }> }
 
 async function getCollection(slug: string) {
   const products = await withValidImages(await (await getCatalogRepository()).list())
-  return availableCollections(products).find((collection) => collection.slug === slug)
+  const collection = availableCollections(products).find((collection) => collection.slug === slug)
+  return collection ? { ...collection, catalogProducts: products } : undefined
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -128,7 +129,7 @@ export default async function CollectionPage({ params }: Props) {
         <p>Хотите выбрать по бренду, формату или другим доступным характеристикам?</p>
         <Link className="primary" href="/catalog">Открыть весь каталог</Link>
       </section>
-      <ContextualCatalogLinks products={collection.products} currentPath={collectionPath(collection.slug)} />
+      <ContextualCatalogLinks products={collection.products} catalogProducts={collection.catalogProducts} currentPath={collectionPath(collection.slug)} />
       <SiteFooter />
     </main>
   )

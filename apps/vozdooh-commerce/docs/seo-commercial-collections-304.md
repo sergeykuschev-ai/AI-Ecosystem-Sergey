@@ -14,3 +14,9 @@ Volumes use the confirmed trade volume (ml), and CULTI lines use the brand, diff
 Do not deploy from a historical release or unverified main. GitHub compare on 2026-11-25 shows live SHA and main diverged (4 commits on each side). Main lacks the four production-side commits in VOZDOOH paths, including sitemap, feed, regional/delivery files and tests. Reconcile branches and verify the resulting source/image before any release. The candidate is not deployed. Production approval, full verify, independent QA and checked rollback are release gates. No changes to payment, checkout, 1C, tunnel, DNS or production edge. Seasonal gifts and note data are separate follow-up work.
 
 Measure after approved release: index coverage for each new URL, impressions, clicks, organic landing visits, purchases, 7/14/28 days and equivalent prior windows. Do not claim demand or ranking improvements until measured. Existing #282 indexing blocker is separate.
+
+## Independent review, 2026-11-25
+
+Codex CLI 0.172.0 via the approved Amursk SSH tunnel to 89.125.19.70 completed a read-only source review of 1025028 with verdict BLOCK. The follow-up changes use the validated whole catalog for commercial destination eligibility, keep relevance by SKU/slug intersection with the page products, and reject Unicode-letter/number/underscore suffixes on Decor/Stile. Regression tests render collection and brand pages with locally insufficient but globally sufficient products. Existing page examples and legacy navigation remain scoped to the page.
+
+The three Yandex feed files in this PR are a reconciliation with the already-running 96c01b0, not a new change to deployed offer filtering. Exact Docker QA on 1025028 found 108 offer XML elements identical to live. The follow-up makes no changes to those feed files or route. Empty-feed handling and Yandex acceptance remain separately tracked under #288; do not claim acceptance. The next head requires repeat checks and review before release.
