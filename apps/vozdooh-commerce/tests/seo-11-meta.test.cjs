@@ -42,12 +42,16 @@ test('all eight targeted collection slugs exist; other collections keep their de
 // 2026-11-01 (task #288): app/sitemap.ts pin re-pinned with the deliberate /moscow and
 // /saint-petersburg candidate routes included.
 // #304: collections.ts and collection detail were deliberately changed for commercial collections and review-corrected links.
+// #306 / draft #307: re-pin only these two files after reviewing the diff from d0d7e139.
+// Collection detail adds SeasonalGifts; collections.ts adds verified-note membership.
+// Existing collection definitions, metadata, H1, schema and robots remain unchanged;
+// normalization and all other pins retain their strict source equality checks.
 const baselineHashes = {
   "app/brands/page.tsx": "55cbc5ca15a9d3eca85221cc399fed1426175d82218bd78d469a2a503639b157",
   "app/categories/page.tsx": "7148c4bb7094f654d44ddc3465d66e188b11b4d18730b947b01ae8a8d6eb72a7",
   "app/collections/page.tsx": "860c6b95d92fa5ad3211c64a683bfa34c0afc33520a7199b6bd6733fddbb11bc",
-  "app/collections/[slug]/page.tsx": "e485dc4601a5a41cdd3dc9c0a569bccd8172b6a0bdb87fa7838fe9a0fa4cfc69",
-  "src/catalog/collections.ts": "1a96edff892d0e48595da604c69075691d4ddc2495d24bdce2548d30b9d9c0db",
+  "app/collections/[slug]/page.tsx": "763ea5deebd5d24d169d242c08b113a5233181d747b425e7eb60e158271e36fd",
+  "src/catalog/collections.ts": "72ee602bb9c6bee9ddc5b36e6a5356ba97e00fbbd3534fec2685c5edc365314e",
   "src/catalog/landings.ts": "220019290738709ddc5b3af3683d795525a6a1bd027714f48a905d5522aec78f",
   "app/sitemap.ts": "3138d4ee18a4e60021ad2afde22c50a71c198951e94c47e55d67a472005de35d",
   "src/catalog/structuredData.ts": "08767cbccbcb63e8779f32b691a160e99bdf51aa014072a22d173b3fbb174073"
