@@ -1,8 +1,19 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { catalogPaginationPolicy } from './src/seo/catalogPolicy'
 
-/** Only catalog pagination is intercepted; commerce and product routes are excluded. */
+/** Exact legacy pages and catalog pagination only; commerce is excluded. */
 export function proxy(request: NextRequest) {
+  const legacy = request.nextUrl.pathname === '/kontakty.html' || request.nextUrl.pathname === '/kontakty.html/'
+    ? '/contacts'
+    : request.nextUrl.pathname === '/aromaty-dlya-doma/aromaticheskie-svechi' || request.nextUrl.pathname === '/aromaty-dlya-doma/aromaticheskie-svechi/'
+      ? '/categories/candles' : null
+  if (legacy && (request.method === 'GET' || request.method === 'HEAD')) {
+    // Fixed same-origin destinations deliberately discard every legacy query.
+    const response = NextResponse.redirect(new URL(legacy, request.url), 301)
+    response.headers.set('Referrer-Policy', 'no-referrer')
+    return response
+  }
+  if (request.nextUrl.pathname !== '/catalog') return NextResponse.next()
   const policy = catalogPaginationPolicy(request.nextUrl.searchParams.getAll('page'))
   if (policy === 'normalize') {
     const url = request.nextUrl.clone()
@@ -13,4 +24,4 @@ export function proxy(request: NextRequest) {
   return NextResponse.next()
 }
 
-export const config = { matcher: '/catalog' }
+export const config = { matcher: ['/catalog', '/kontakty.html', '/aromaty-dlya-doma/aromaticheskie-svechi'] }

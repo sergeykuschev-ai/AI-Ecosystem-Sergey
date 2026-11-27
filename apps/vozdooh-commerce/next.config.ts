@@ -8,6 +8,17 @@ const nextConfig: NextConfig = {
   distDir: process.env.VOZDOOH_ISOLATED_BUILD === 'true' ? '.next-verify' : '.next',
   poweredByHeader: false,
   reactStrictMode: true,
+  // Let the two legacy URLs reach Proxy before slash normalization. The rule
+  // below retains slash removal for other application paths (Next excludes its
+  // reserved /_next asset paths from user-defined redirect rules).
+  skipTrailingSlashRedirect: true,
+  async redirects() {
+    return [{
+      source: '/:path((?!kontakty\\.html/$|aromaty-dlya-doma/aromaticheskie-svechi/$).+)/',
+      destination: '/:path',
+      permanent: true,
+    }]
+  },
   turbopack: { root: process.cwd() },
   images: {
     formats: ['image/avif', 'image/webp'],
