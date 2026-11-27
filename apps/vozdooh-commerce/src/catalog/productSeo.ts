@@ -1,6 +1,7 @@
 import type { CatalogProduct } from './contracts'
 import { fragranceFactsFor } from './fragranceFacts'
 import { productPresentation } from './presentation'
+import { reviewedSiberianPineForest } from './siberianPineForest'
 
 // Reviewed positive-stock scope and evidence: research/product-seo-2026-10-12.md.
 const reviewedBrandsBySku: Record<string, string> = {
@@ -20,6 +21,8 @@ export function reviewedProductSearchDescription(product: CatalogProduct): strin
   if (!reviewedBrandsBySku[product.trade.sku] ||
       reviewedBrandsBySku[product.trade.sku] !== product.trade.brand ||
       (product.trade.stock ?? 0) <= 0) return null
+  const reviewedCandle = reviewedSiberianPineForest(product)
+  if (reviewedCandle) return reviewedCandle.metadataDescription
   const display = productPresentation(product)
   const facts = fragranceFactsFor(product)
   const identity = [product.trade.brand, facts?.name ?? display.title, display.subtitle].filter(Boolean).join(' · ')

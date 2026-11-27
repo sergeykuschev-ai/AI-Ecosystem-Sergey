@@ -8,7 +8,8 @@ const { productStructuredData } = require('../src/catalog/structuredData.ts')
 
 function product(sku, name, stock = 1) {
   const raw = { sku, name, brand: null, category: 'Товар', volume: null, price: 100, stock, barcode: null, characteristics: {} }
-  return { id: sku, isActive: true, trade: stagedTrade(raw), editorial: stagedEditorial([raw])[sku] }
+  const trade = stagedTrade(raw)
+  return { id: sku, isActive: true, trade, editorial: stagedEditorial([trade])[sku] }
 }
 
 test('official Vellutier notes reach the snippet and JSON-LD through actual staged normalization', () => {
@@ -59,7 +60,6 @@ test('unverified target fragrances use format facts without invented notes or at
     ['N019834', 'Аромапопурри Christian Tortu /VERT FRAIS/ СВЕЖЕСТЬ ЗЕЛЕНИ', 'Christian Tortu', 'Ароматы для пространства'],
     ['N019836', 'Сменный аромат для аромапопурри 15 мл Christian Tortu/JARDIN CITRUS/ ЦИТРУСОВЫЕ САДЫ', 'Christian Tortu', 'Рефилы'],
     ['N019900', 'Сменный аромат для аромапопурри 15 мл Christian Tortu/VERT FRAIS/ СВЕЖЕСТЬ ЗЕЛЕНИ', 'Christian Tortu', 'Рефилы'],
-    ['V61036', 'Vellutier / Свеча большая Сибирский сосновый лес 515гр / Siberian Pine Forest', 'Vellutier', 'Свечи'],
   ]) {
     const item = product(sku, name)
     assert.equal(item.trade.brand, brand)
