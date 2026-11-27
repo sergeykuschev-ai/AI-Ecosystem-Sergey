@@ -11,7 +11,7 @@ import { productPayload, trackEvent } from '../src/integrations/analytics'
 
 const rub = new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 0, maximumFractionDigits: 2 })
 
-export function ProductCard({ product, index = 0, demo = false, debug = false, filters, merchSection }: { merchSection?: string; filters?: CatalogFilters; product: CatalogProduct; index?: number; demo?: boolean; debug?: boolean }) {
+export function ProductCard({ product, index = 0, demo = false, debug = false, filters, merchSection, noteSummary }: { noteSummary?: string | null; merchSection?: string; filters?: CatalogFilters; product: CatalogProduct; index?: number; demo?: boolean; debug?: boolean }) {
   const image = catalogImage(product)
   const display = productPresentation(product)
   const query = filters ? catalogHref(filters, 'brand', filters.brand ?? null, debug).split('?')[1] : debug ? 'debugCatalog=1' : ''
@@ -39,6 +39,7 @@ export function ProductCard({ product, index = 0, demo = false, debug = false, f
         <h3>{display.title}</h3>
         {display.russianTitle && <p className="productTranslation">{display.russianTitle}</p>}
         <p>{display.subtitle}</p>
+        {!demo && !debug && noteSummary && <p className="productCardNotes">Ноты: {noteSummary}</p>}
         {!demo && (product.trade.price ?? 0) > 0 && <p className="productCardPrice">{rub.format(product.trade.price!)}</p>}
         {merchSection && <span className="productCardDiscover">Смотреть аромат <span aria-hidden="true">→</span></span>}
       </div>

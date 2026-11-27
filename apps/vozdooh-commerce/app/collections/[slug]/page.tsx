@@ -1,3 +1,4 @@
+import { tileNoteSummary } from '../../../src/catalog/tileNotes'
 import { SeasonalGifts } from '../../../components/SeasonalGifts'
 import { discoveryDescriptions } from '../../../src/seo/discoveryDescriptions'
 import { landingStructuredData, serializeStructuredData } from '../../../src/catalog/structuredData'
@@ -124,7 +125,7 @@ export default async function CollectionPage({ params }: Props) {
         <span>{collection.products.length} позиций</span>
       </div>
       <section className="catalogGrid">
-        {collection.products.map((product, index) => <ProductCard product={product} index={index} key={product.id} />)}
+        {collection.products.map((product, index) => <ProductCard noteSummary={tileNoteSummary(product)} product={product} index={index} key={product.id} />)}
       </section>
 
       <section className="collectionOutro">

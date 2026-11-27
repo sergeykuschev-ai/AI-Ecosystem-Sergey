@@ -1,3 +1,4 @@
+import { tileNoteSummary } from '../../src/catalog/tileNotes'
 import { catalogIndexPolicy } from '../../src/seo/catalogPolicy'
 import { ContextualCatalogLinks } from '../../components/ContextualCatalogLinks'
 import { catalogSource, getCatalogRepository } from '../../src/catalog/source'
@@ -128,14 +129,14 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
       {debug && <p className="resultNote">PREVIEW 1C · Внутренний просмотр · {allProducts.length} позиций, включая товары без фото. Цены не публикуются.</p>}
       {curated.length > 0 && <section className="curatorSection" aria-labelledby="curatorTitle">
         <div className="catalogSectionHeading"><h2 id="curatorTitle">Кураторский выбор</h2><span>Знакомство с коллекцией</span></div>
-        <div className="curatorGrid">{curated.map((product) => <ProductCard product={product} key={product.id} />)}</div>
+        <div className="curatorGrid">{curated.map((product) => <ProductCard noteSummary={tileNoteSummary(product, demo, debug)} product={product} key={product.id} />)}</div>
       </section>}
       <div className="catalogSectionHeading catalogCount"><h2>{query ? 'Результаты поиска' : hasFilters ? 'Ваш выбор' : 'Коллекция'}</h2><span>{products.length} позиций</span></div>
 
       {products.length > 0 ? (
         <section className="catalogGrid">
           {products.map((product, index) => (
-            <ProductCard product={product} filters={filters} index={index} demo={demo} debug={debug} key={product.id} />
+            <ProductCard noteSummary={tileNoteSummary(product, demo, debug)} product={product} filters={filters} index={index} demo={demo} debug={debug} key={product.id} />
           ))}
         </section>
       ) : (

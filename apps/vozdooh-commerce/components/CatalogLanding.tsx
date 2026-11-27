@@ -1,3 +1,4 @@
+import { tileNoteSummary } from '../src/catalog/tileNotes'
 import { SeasonalGifts } from './SeasonalGifts'
 import { ContextualCatalogLinks } from './ContextualCatalogLinks'
 import Link from 'next/link'
@@ -84,7 +85,7 @@ export function CatalogLanding({ landing, products, catalogProducts, kind, headi
       </section>
     )}
     <div className="catalogSectionHeading catalogCount"><h2>{kind === 'brand' ? `Ароматы ${landing.name} в наличии` : `${heading ?? landing.name} в наличии`}</h2><span>{products.length} позиций</span></div>
-    <section className="catalogGrid">{products.map((product) => <ProductCard key={product.id} product={product} filters={{ brand: kind === 'brand' ? landing.name : null, category: kind === 'category' ? landing.name : null, family: null, mood: null, room: null }} />)}</section>
+    <section className="catalogGrid">{products.map((product) => <ProductCard noteSummary={tileNoteSummary(product)} key={product.id} product={product} filters={{ brand: kind === 'brand' ? landing.name : null, category: kind === 'category' ? landing.name : null, family: null, mood: null, room: null }} />)}</section>
     {related.length > 0 && <nav className="landingRelated landingLinks" aria-label="Продолжить знакомство">
       {related.map((item) => <Link href={landingPath(relatedKind, item.slug)} key={item.slug}>{item.name} →</Link>)}
     </nav>}
