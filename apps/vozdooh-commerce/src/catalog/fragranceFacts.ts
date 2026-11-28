@@ -1,4 +1,5 @@
 import type { CatalogProduct } from './contracts'
+import { reviewedSiberianPineForest } from './siberianPineForest'
 
 export type FragranceFacts = {
   name: string
@@ -211,6 +212,8 @@ const FACTS: Record<string, FragranceFacts> = {
 }
 
 export function fragranceFactsFor(product: CatalogProduct): FragranceFacts | null {
+  const reviewedCandle = reviewedSiberianPineForest(product)
+  if (reviewedCandle) return reviewedCandle.facts
   const brand = product.trade.brand ?? ''
   const name = product.trade.name
   if (product.trade.sku === 'DANHNIR250DEC' && brand === 'DANHERA' && /\bNIRO\b/.test(name)) return FACTS.niro

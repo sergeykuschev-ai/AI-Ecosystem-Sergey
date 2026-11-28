@@ -69,6 +69,15 @@ test('only metadata wiring changes: titles, robots, canonicals, links, markup an
     let current = readFileSync(join(__dirname, '..', 'app', route, 'page.tsx'), 'utf8').replace(/\r\n/g, '\n')
     current = current.replace(/^import \{ discoveryDescriptions \}[^\n]*\n/, '')
     if (route === 'collections/[slug]') {
+      // #308 / PR #309: normalize only the two reviewed tile-note additions from d321cfd9.
+      // Keep the original route pin so all other markup, metadata and schema remain protected.
+      const tileNoteImport = "import { tileNoteSummary } from '../../../src/catalog/tileNotes'\n"
+      const tileNoteCard = '        {collection.products.map((product, index) => <ProductCard noteSummary={tileNoteSummary(product)} product={product} index={index} key={product.id} />)}\n'
+      const baselineCard = '        {collection.products.map((product, index) => <ProductCard product={product} index={index} key={product.id} />)}\n'
+      assert.equal(current.split(tileNoteImport).length - 1, 1, 'exactly one reviewed tile-note import')
+      assert.equal(current.split(tileNoteCard).length - 1, 1, 'exactly one reviewed tile-note ProductCard line')
+      current = current.replace(tileNoteImport, '').replace(tileNoteCard, baselineCard)
+      assert.doesNotMatch(current, /tileNoteSummary|noteSummary/, 'only the two reviewed tile-note additions are normalized')
       current = current.replace('  const description = discoveryDescriptions[collection.slug] ?? collection.description\n', '').replace('    description,', '    description: collection.description,').replace('openGraph: { title, description }', 'openGraph: { title, description: collection.description }')
     } else {
       const old = baselineHubDescriptions[route]

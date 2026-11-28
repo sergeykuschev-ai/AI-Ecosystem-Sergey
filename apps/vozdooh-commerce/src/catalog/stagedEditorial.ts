@@ -1,6 +1,7 @@
 import type { EditorialProduct, TradeProduct } from './contracts'
 import { emptyEditorial } from './repository'
 import { reviewedDescription } from './reviewedContent'
+import { reviewedSiberianPineForest } from './siberianPineForest'
 
 const slugify = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 const has = (name: string, pattern: RegExp) => pattern.test(name.toLowerCase())
@@ -250,7 +251,9 @@ export function stagedEditorial(trades: readonly TradeProduct[]): Record<string,
     const generated = brand ? `${slugify(brand)}-${slugify(trade.sku)}` : base.slug
     const fallbackDescription = brand === 'AROMAgroup' ? aromaGroupFallbackDescription(trade.name) : null
     const reviewed = reviewedDescription(trade)
-    result[trade.sku] = { ...base, slug: patch.slug ?? generated, description: fallbackDescription, ...patch, ...(reviewed ? { description: reviewed } : {}) }
+    const content = { ...base, slug: patch.slug ?? generated, description: fallbackDescription, ...patch, ...(reviewed ? { description: reviewed } : {}) }
+    const reviewedCandle = reviewedSiberianPineForest({ id: trade.sku, isActive: true, trade, editorial: content })
+    result[trade.sku] = reviewedCandle ? { ...content, description: reviewedCandle.description } : content
   }
   return result
 }

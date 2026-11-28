@@ -33,7 +33,7 @@ test('only the first complete listing exists; duplicate page one normalizes and 
 test('catalog proxy returns actual 404 or a preserving 308 and is scoped away from commerce', () => {
   const { NextRequest } = require('next/server')
   const { proxy, config } = require('../proxy.ts')
-  assert.equal(config.matcher, '/catalog')
+  assert.ok(config.matcher.includes('/catalog'))
   const missing = proxy(new NextRequest('https://example.test/catalog?page=2'))
   assert.equal(missing.status, 404)
   assert.match(missing.headers.get('X-Robots-Tag'), /noindex/)

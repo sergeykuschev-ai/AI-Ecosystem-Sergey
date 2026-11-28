@@ -1,8 +1,14 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { catalogPaginationPolicy } from './src/seo/catalogPolicy'
+import { historicalRedirect } from './src/seo/historicalRedirects'
 
-/** Only catalog pagination is intercepted; commerce and product routes are excluded. */
+/** Exact historic identities and existing catalog pagination only. */
 export function proxy(request: NextRequest) {
+  const destination = historicalRedirect(request.nextUrl.pathname, request.method)
+  // A fixed relative Location avoids forwarding query data or trusting a supplied host.
+  // Use the standard Response constructor for 301 rather than redirect()'s 307/308 default.
+  if (destination) return new NextResponse(null, { status: 301, headers: { Location: destination } })
+  if (request.nextUrl.pathname !== '/catalog') return NextResponse.next()
   const policy = catalogPaginationPolicy(request.nextUrl.searchParams.getAll('page'))
   if (policy === 'normalize') {
     const url = request.nextUrl.clone()
@@ -13,4 +19,12 @@ export function proxy(request: NextRequest) {
   return NextResponse.next()
 }
 
-export const config = { matcher: '/catalog' }
+export const config = { matcher: [
+  '/catalog',
+  '/kontakty.html',
+  '/dostavka.html',
+  '/aromaty-dlya-doma/aromaticheskie-svechi',
+  '/aromaty-dlya-doma/aromaticheskie-svechi/',
+  '/decor-classic-diffuzor-aramara-250ml.html',
+  '/vellutier-svecha-bolshaya-vecherniy-tost-515gr-midnight-toast.html',
+] }

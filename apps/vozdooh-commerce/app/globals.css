@@ -1106,3 +1106,6 @@ select:focus-visible,summary:focus-visible{outline:2px solid var(--green);outlin
   .productPage .productPurchase{margin-top:8px;padding-top:12px}
   .productPage .productPurchase .stockState{margin-bottom:12px}
 }
+
+/* Keep the short note summary readable without a tooltip or line clamp. */
+.productCard .productCardMeta p.productCardNotes{display:block;overflow:visible;-webkit-line-clamp:unset;font-size:14px;line-height:1.5;color:var(--ink);margin:6px 0;overflow-wrap:anywhere}
